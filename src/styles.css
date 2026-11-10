@@ -164,3 +164,13 @@ td.sun {
   gap: 8px;
   margin-top: 12px;
 }
+
+td.outside {
+  color: var(--muted);
+  opacity: 0.5;
+  text-align: left;
+}
+
+button:disabled {
+  opacity: 0.4;
+}

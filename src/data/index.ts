@@ -47,11 +47,16 @@ export function startStore(): Promise<WeatherStore> {
 
 const subscribe = (fn: () => void) => {
   let unsubscribe = () => {};
+  let cancelled = false; // React may unsubscribe before storage has opened (e.g. Strict Mode)
   void startStore().then((s) => {
+    if (cancelled) return;
     unsubscribe = s.subscribe(fn);
     fn();
   });
-  return () => unsubscribe();
+  return () => {
+    cancelled = true;
+    unsubscribe();
+  };
 };
 
 /** Re-render whenever the store reports a change; returns the store (null until it is ready). */

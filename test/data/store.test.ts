@@ -234,6 +234,47 @@ describe("hourly data", () => {
   });
 });
 
+describe("requests are declared, not accumulated", () => {
+  it("stops asking for hours once the hourly view closes", async () => {
+    const { store, api } = makeStore(memoryStorage());
+    store.setView(KOCHI, ["2025-06-15"]);
+    store.wantHours(KOCHI, daysBetween("2025-06-10", "2025-06-12"));
+    store.wantHours(KOCHI, []); // view closed before anything loaded
+    await store.idle();
+    expect(api.calls.some((c) => c.startsWith("/api/hourly"))).toBe(false);
+  });
+
+  it("replaces the previous prefetch instead of adding to it", async () => {
+    const { store, api } = makeStore(memoryStorage());
+    store.prefetch(KOCHI, daysBetween("2020-01-01", "2020-01-31"));
+    store.prefetch(KOCHI, daysBetween("2021-01-01", "2021-01-31"));
+    await store.idle();
+    expect(api.calls.some((c) => c.includes("month=2020-01"))).toBe(false);
+    expect(api.calls.some((c) => c.includes("month=2021-01"))).toBe(true);
+  });
+
+  it("forgets hourly requests when the station changes", async () => {
+    const { store, api } = makeStore(memoryStorage());
+    store.setView(KOCHI, ["2025-06-15"]);
+    store.wantHours(KOCHI, ["2025-06-15"]);
+    store.setView("47401", ["2025-06-15"]);
+    await store.idle();
+    expect(api.calls.some((c) => c.startsWith(`/api/hourly?station=${KOCHI}`))).toBe(false);
+  });
+});
+
+describe("days that can never load", () => {
+  it("reports days beyond the forecast or before 1977 as outside, not as loading", async () => {
+    const { store } = makeStore(memoryStorage());
+    store.setView(KOCHI, [addDays(TODAY, 7)]);
+    await store.idle();
+    expect(store.getDay(KOCHI, addDays(TODAY, 7)).state).toBe("ready");
+    expect(store.getDay(KOCHI, addDays(TODAY, 8)).state).toBe("outside");
+    expect(store.getDay(KOCHI, "1976-12-31").state).toBe("outside");
+    expect(store.getHours(KOCHI, addDays(TODAY, 9)).state).toBe("outside");
+  });
+});
+
 describe("storage", () => {
   it("removes forecasts for days that are over", async () => {
     let now = NOW;

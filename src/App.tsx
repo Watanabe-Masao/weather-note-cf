@@ -3,10 +3,10 @@
 // seen must not increase it. The comparison screen replaces this page in the next stage.
 
 import { useEffect, useState } from "react";
-import { addDays, jstToday } from "../shared/dates";
+import { addDays, FIRST_DAY, jstToday } from "../shared/dates";
 import type { Station } from "../shared/types";
 import { useWeatherStore } from "./data";
-import type { Direction } from "./data/plan";
+import { type Direction, lastDay } from "./data/plan";
 import type { StorageReport } from "./data/store";
 
 const DEFAULT_STATION = "47893"; // 高知
@@ -34,16 +34,34 @@ export function App() {
     store?.setView(station, [center], direction);
   }, [store, station, center, direction]);
 
+  // Refresh the storage report when the store changes, at most once a second.
   useEffect(() => {
     if (!store) return;
-    const t = setTimeout(() => void store.report().then(setReport), 300);
-    return () => clearTimeout(t);
-  });
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const update = () => void store.report().then(setReport);
+    update();
+    const unsubscribe = store.subscribe(() => {
+      timer ??= setTimeout(() => {
+        timer = null;
+        update();
+      }, 1_000);
+    });
+    return () => {
+      unsubscribe();
+      if (timer) clearTimeout(timer);
+    };
+  }, [store]);
 
+  // The centre stays between 1977 and the last forecast day, like the drum strip will.
   const move = (days: number) => {
     setDirection(days < 0 ? -1 : 1);
-    setCenter((c) => addDays(c, days));
+    setCenter((c) => {
+      const next = addDays(c, days);
+      const max = lastDay(store?.today ?? jstToday());
+      return next > max ? max : next < FIRST_DAY ? FIRST_DAY : next;
+    });
   };
+  const atEnd = center >= lastDay(store?.today ?? jstToday());
 
   return (
     <main className="page">
@@ -69,7 +87,9 @@ export function App() {
         >
           今日
         </button>
-        <button onClick={() => move(7)}>1週 ▶</button>
+        <button onClick={() => move(7)} disabled={atEnd}>
+          1週 ▶
+        </button>
       </nav>
 
       <table>
@@ -93,7 +113,11 @@ export function App() {
                 <td className={wd === 0 ? "sun" : wd === 6 ? "sat" : undefined}>
                   {date.slice(5)}（{WEEKDAYS[wd]}）
                 </td>
-                {day?.state === "error" ? (
+                {day?.state === "outside" ? (
+                  <td colSpan={4} className="outside">
+                    予報範囲外
+                  </td>
+                ) : day?.state === "error" ? (
                   <td colSpan={4} className="error" onClick={() => store?.retryDay(station, date)}>
                     取得失敗（タップで再試行）
                   </td>

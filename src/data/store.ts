@@ -11,11 +11,11 @@
 //   3. While a gesture is in progress, nothing on screen changes: notifications are held.
 //   4. Navigating never refreshes variable data; only missing days are fetched.
 
-import { addDays, daysBetween, jstToday, monthOf } from "../../shared/dates";
+import { addDays, daysBetween, FIRST_DAY, jstToday, monthOf } from "../../shared/dates";
 import { isFixedDay, isFixedHourlyDay } from "../../shared/fixed";
 import type { DailyMonthResponse, HourlyResponse, WeatherRow } from "../../shared/types";
 import type { DayRecord, HourRecord, Kind, Storage } from "./db";
-import { type Direction, isRecent, Priority, sourceFor, viewPlan } from "./plan";
+import { type Direction, isRecent, lastDay, Priority, sourceFor, viewPlan } from "./plan";
 import { RequestQueue } from "./queue";
 
 export const RETRY_DELAYS = [5_000, 30_000, 120_000];
@@ -26,8 +26,11 @@ export type FetchJson = <T>(path: string) => Promise<T>;
 
 export interface DayView {
   date: string;
-  /** "ready" with row null means the source has no record for that day. */
-  state: "empty" | "ready" | "error";
+  /**
+   * empty: not loaded yet (show a skeleton) · ready: loaded (row null = the source has no record) ·
+   * error: the last request failed · outside: before 1977 or after the last forecast day (never loads).
+   */
+  state: "empty" | "ready" | "error" | "outside";
   row: WeatherRow | null;
   kind: Kind | null;
   error?: string;
@@ -35,7 +38,7 @@ export interface DayView {
 
 export interface HourView {
   date: string;
-  state: "empty" | "ready" | "error";
+  state: "empty" | "ready" | "error" | "outside";
   rows: WeatherRow[];
   kind: Kind | null;
   error?: string;
@@ -197,32 +200,40 @@ export class WeatherStore {
 
   // ---- what the screen asks for ----------------------------------------------------------
 
+  // Everything the screen asks for is declared, not accumulated: each call replaces the previous
+  // request of its kind, so closed views and old stations stop costing requests.
+
   /** The current view: one centre (linked or one side) or two (both sides). */
   setView(station: string, centers: string[], direction: Direction = 0): void {
-    if (this.view && this.view.station !== station) this.extra.clear();
+    if (this.view && this.view.station !== station) {
+      this.extra.clear();
+      this.hourWants.clear();
+    }
     this.view = { station, centers, direction };
     this.sync();
   }
 
-  /** Low-priority days to have ready (comparison presets). Call when the screen is idle. */
+  /** Low-priority days to have ready (comparison presets). Replaces the previous prefetch; [] cancels it. */
   prefetch(station: string, dates: string[]): void {
-    for (const d of dates) {
-      const k = dayKey(station, d);
-      if (!this.extra.has(k)) this.extra.set(k, { station, priority: Priority.Prefetch });
-    }
+    this.extra = new Map(
+      dates.filter((d) => this.inRange(d)).map((d) => [dayKey(station, d), { station, priority: Priority.Prefetch }]),
+    );
     this.sync();
   }
 
-  /** Hourly data for these days (only when an hourly view is open). */
+  /** Hourly data for the open hourly view. Replaces the previous request; [] when the view closes. */
   wantHours(station: string, dates: string[], priority: number = Priority.Visible): void {
-    for (const d of dates) {
-      const k = dayKey(station, d);
-      if (!this.hourWants.has(k) || this.hourWants.get(k)! > priority) this.hourWants.set(k, priority);
-    }
+    this.hourWants = new Map(dates.filter((d) => this.inRange(d)).map((d) => [dayKey(station, d), priority]));
     this.sync();
+  }
+
+  /** Days that can have data: from 1977 to the last forecast day. */
+  inRange(date: string): boolean {
+    return date >= FIRST_DAY && date <= lastDay(this.today);
   }
 
   getDay(station: string, date: string): DayView {
+    if (!this.inRange(date)) return { date, state: "outside", row: null, kind: null };
     const k = dayKey(station, date);
     const rec = this.days.get(k);
     if (rec) return { date, state: "ready", row: rec.row, kind: rec.kind };
@@ -231,6 +242,7 @@ export class WeatherStore {
   }
 
   getHours(station: string, date: string): HourView {
+    if (!this.inRange(date)) return { date, state: "outside", rows: [], kind: null };
     const k = dayKey(station, date);
     const rec = this.hours.get(k);
     if (rec) return { date, state: "ready", rows: rec.rows, kind: rec.kind };
@@ -298,8 +310,13 @@ export class WeatherStore {
   }
 
   private async plan(): Promise<void> {
+    await this.hydrate([...this.wantedDays().keys()], [...this.hourWants.keys()]);
+    // The screen may have declared something new while storage was read: plan from the latest
+    // declaration, and leave days whose storage lookup is not done yet to the next round.
     const wanted = this.wantedDays();
-    await this.hydrate([...wanted.keys()], [...this.hourWants.keys()]);
+    const hourWants = this.hourWants;
+    const looked = (k: string) => this.looked.has(k) || this.days.has(k);
+    const lookedHour = (k: string) => this.looked.has("h:" + k) || this.hours.has(k);
 
     const tasks = new Map<string, Task>();
     const addTask = (t: Task) => {
@@ -309,6 +326,7 @@ export class WeatherStore {
     };
 
     for (const [k, { station, date, priority }] of wanted) {
+      if (!looked(k)) continue;
       if (this.days.get(k)?.kind === "fixed") continue;
       const source = sourceFor(date, this.today);
       if (source.kind === "forecast") {
@@ -329,7 +347,8 @@ export class WeatherStore {
 
     // Hourly requests: past days in runs of up to 14, today from observations, later from the forecast.
     const pastHours = new Map<string, { date: string; priority: number }[]>();
-    for (const [k, priority] of this.hourWants) {
+    for (const [k, priority] of hourWants) {
+      if (!lookedHour(k)) continue;
       const station = k.slice(0, k.indexOf("/"));
       const date = k.slice(k.indexOf("/") + 1);
       if (this.hours.get(k)?.kind === "fixed") continue;
