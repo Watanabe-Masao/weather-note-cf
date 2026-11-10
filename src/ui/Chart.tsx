@@ -24,8 +24,8 @@ interface Props {
 const COLORS = { hot: "#f08b7d", cold: "#6fb3f2", rain: "#6fb3f2", plain: "#9fd3c7", feel: "#c9a3f5" } as const;
 const HIDDEN_KEY = "weather-note:chart-hidden";
 const PAD = { left: 34, right: 10, top: 14, bottom: 30 };
-/** Room under the plot for the two rows of differences (target, comparison). */
-const SPREAD_ROWS = 30;
+/** Height of one row of small numbers under the plot (spread, rain chance, snow). */
+const UNDER_ROW = 13;
 
 interface Point {
   x: number;
@@ -56,15 +56,18 @@ function useHidden(metric: ChartMetric) {
     if (!next.delete(key)) next.add(key);
     setAll({ ...all, [metric.id]: [...next] });
   };
-  return { shown: (key: string) => !hidden.has(key), toggle };
+  const reset = () => {
+    const { [metric.id]: _, ...rest } = all;
+    setAll(rest);
+  };
+  return { shown: (key: string) => !hidden.has(key), toggle, reset };
 }
 
 export function Chart({ store, station, target, partner, metric, height = 190 }: Props) {
   const H = height;
   const feel = useContext(FeelContext);
-  const { shown, toggle } = useHidden(metric);
+  const { shown, toggle, reset } = useHidden(metric);
   const spreadOn = !!metric.spread && shown("spread");
-  const bottom = PAD.bottom + (spreadOn ? SPREAD_ROWS : 0);
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   useLayoutEffect(() => {
@@ -93,6 +96,31 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
   ]);
   const series = all.filter(({ s }) => shown(s.key));
   const pick = (key: string, compare: boolean) => all.find((x) => x.s.key === key && x.compare === compare)!;
+
+  // Rows of small numbers under the plot: the spread (temperature), rain chance and snow (rain).
+  const under: { label: string; cells: string[]; muted?: boolean }[] = [];
+  const cell = (date: string | null, key: string) => {
+    const s = metric.series.find((x) => x.key === key)!;
+    return read(date, s).v;
+  };
+  if (spreadOn) {
+    const gap = (compare: boolean, i: number) => {
+      const a = pick("max", compare).points[i].v;
+      const b = pick("min", compare).points[i].v;
+      return a == null || b == null ? "—" : (a - b).toFixed(1);
+    };
+    under.push({ label: "差", cells: days.map((_, i) => gap(false, i)) }, { label: "", cells: days.map((_, i) => gap(true, i)), muted: true });
+  }
+  for (const row of metric.under ?? []) {
+    const own = days.map((d) => cell(d, row.key));
+    const other = row.compare ? days.map((d) => cell(partner(d), row.key)) : [];
+    if (row.onlyWhenAny && ![...own, ...other].some((v) => v != null && v > 0)) continue;
+    const text = (v: number | null) => (v == null ? "" : row.format(v));
+    under.push({ label: row.label, cells: own.map(text) });
+    if (row.compare) under.push({ label: "", cells: other.map(text), muted: true });
+  }
+  const bottom = PAD.bottom + (under.length ? under.length * UNDER_ROW + 4 : 0);
+
   const values = series.flatMap((x) => x.points.map((p) => p.v)).filter((v): v is number => v != null);
   let lo = values.length ? Math.min(...values) : 0;
   let hi = values.length ? Math.max(...values) : 1;
@@ -107,7 +135,14 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
   return (
     <div ref={ref} className="chart">
       {nothing && <p className="chart-note">{metric.emptyNote}</p>}
-      {!series.length && <p className="chart-note">表示する線がありません。下のボタンで選んでください</p>}
+      {!series.length && (
+        <p className="chart-note">
+          表示する線がありません。
+          <button className="link" onClick={reset}>
+            元に戻す
+          </button>
+        </p>
+      )}
       {metric.forecastOnly && <p className="chart-note">予報の日だけの値です（過去の日にはありません）</p>}
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の比較グラフ`}>
         {/* centre day */}
@@ -178,31 +213,20 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
             ),
           )}
 
-        {spreadOn &&
-          days.map((d, i) => {
-            const gap = (compare: boolean) => {
-              const a = pick("max", compare).points[i].v;
-              const b = pick("min", compare).points[i].v;
-              return a == null || b == null ? null : a - b;
-            };
-            const own = gap(false);
-            const other = gap(true);
-            return (
-              <g key={`spread-${d}`}>
-                <text x={xOf(i)} y={H - bottom + 14} textAnchor="middle" className="chart-spread">
-                  {own == null ? "—" : own.toFixed(1)}
-                </text>
-                <text x={xOf(i)} y={H - bottom + 27} textAnchor="middle" className="chart-spread other">
-                  {other == null ? "—" : other.toFixed(1)}
-                </text>
-              </g>
-            );
-          })}
-        {spreadOn && (
-          <text x={PAD.left - 6} y={H - bottom + 14} textAnchor="end" className="chart-spread label">
-            差
-          </text>
-        )}
+        {under.map((row, k) => (
+          <g key={`under-${k}`}>
+            {row.label && (
+              <text x={PAD.left - 6} y={H - bottom + 14 + k * UNDER_ROW} textAnchor="end" className="chart-spread label">
+                {row.label}
+              </text>
+            )}
+            {row.cells.map((c, i) => (
+              <text key={i} x={xOf(i)} y={H - bottom + 14 + k * UNDER_ROW} textAnchor="middle" className={row.muted ? "chart-spread other" : "chart-spread"}>
+                {c}
+              </text>
+            ))}
+          </g>
+        ))}
 
         {days.map((d, i) => (
           <text key={d} x={xOf(i)} y={H - 10} textAnchor="middle" className={`chart-x tone-${dayTone(d)}`}>
@@ -246,6 +270,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
         </div>
       )}
       {spreadOn && <p className="chart-note">差の数字は 上：対象日／下：比較日。肌感は日中・昼・夕方の平均</p>}
+      {metric.under?.some((r) => r.key === "probability") && <p className="chart-note">確率は予報の日だけ。雪は降った日だけ印（上：対象日／下：比較日）</p>}
       {!spreadOn && shown("feel") && lines.some((s) => s.key === "feel") && <p className="chart-note">肌感は日中・昼・夕方の平均</p>}
     </div>
   );

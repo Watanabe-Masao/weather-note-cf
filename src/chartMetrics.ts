@@ -7,8 +7,6 @@ import type { WeatherRow } from "../shared/types";
 export type ChartMetricId =
   | "temp"
   | "rain"
-  | "snow"
-  | "probability"
   | "sun"
   | "radiation"
   | "humidity"
@@ -30,6 +28,10 @@ export interface ChartSeries {
   tableOnly?: boolean;
   /** A secondary table row, set smaller. */
   minor?: boolean;
+  /** Unit when it differs from the item's (snow in cm under rain in mm). */
+  unit?: string;
+  /** Only forecasts have it: past days leave the cell empty instead of "—". */
+  forecastOnly?: boolean;
 }
 
 export interface ChartMetric {
@@ -52,10 +54,22 @@ export interface ChartMetric {
   spread?: string;
   /** Series (and the spread, key "spread") hidden until turned on in the legend. */
   hiddenByDefault?: string[];
+  /** Small rows of numbers under the graph, from table-only series (rain chance, snowfall). */
+  under?: UnderRow[];
 }
 
-/** Rows the table shows for an item. */
-export const tableSeries = (m: ChartMetric) => m.series.filter((s) => !s.graphOnly);
+export interface UnderRow {
+  key: string;
+  label: string;
+  format: (v: number) => string;
+  /** Also a muted row for the comparison days. */
+  compare?: boolean;
+  /** Left out entirely unless one of the days has a value above zero. */
+  onlyWhenAny?: boolean;
+}
+
+/** Rows the table shows for an item. `past`: the comparison side, whose days have no forecast-only values. */
+export const tableSeries = (m: ChartMetric, past = false) => m.series.filter((s) => !s.graphOnly && !(past && s.forecastOnly));
 
 /** Lines the graph draws for an item. */
 export const graphSeries = (m: ChartMetric) => m.series.filter((s) => !s.tableOnly);
@@ -105,25 +119,31 @@ export const CHART_METRICS: ChartMetric[] = [
     spread: "寒暖差",
     hiddenByDefault: ["temp"],
   },
-  { id: "rain", label: "降水量", unit: "mm", chart: "bar", zero: true, series: [{ key: "rain", label: "降水量", tone: "rain", value: field("rain") }] },
   {
-    id: "snow",
-    label: "降雪",
-    unit: "cm",
+    id: "rain",
+    label: "降水",
+    unit: "mm",
     chart: "bar",
     zero: true,
-    series: [{ key: "snow", label: "降雪", tone: "cold", value: field("snow") }],
-    emptyNote: "この期間に雪の記録はありません",
-  },
-  {
-    id: "probability",
-    label: "降水確率",
-    unit: "%",
-    chart: "bar",
-    zero: true,
-    max: 100,
-    forecastOnly: true,
-    series: [{ key: "probability", label: "降水確率", tone: "rain", value: (r) => (r?.type === "forecast" ? num(r.probability) : null) }],
+    series: [
+      { key: "rain", label: "降水量", tone: "rain", value: field("rain") },
+      // Snow is in cm and rain chance in %: table rows and marks under the graph, never stacked on the bars.
+      { key: "snow", label: "降雪cm", tone: "cold", value: field("snow"), tableOnly: true, minor: true, unit: "cm" },
+      {
+        key: "probability",
+        label: "確率%",
+        tone: "rain",
+        value: (r) => (r?.type === "forecast" ? num(r.probability) : null),
+        tableOnly: true,
+        minor: true,
+        unit: "%",
+        forecastOnly: true,
+      },
+    ],
+    under: [
+      { key: "probability", label: "確率", format: (v) => `${Math.round(v)}%` },
+      { key: "snow", label: "雪", format: (v) => (v > 0 ? `❄${v}` : ""), compare: true, onlyWhenAny: true },
+    ],
   },
   { id: "sun", label: "日照", unit: "h", chart: "bar", zero: true, series: [{ key: "sun", label: "日照時間", tone: "hot", value: field("sun") }] },
   {

@@ -1578,3 +1578,12 @@ select.chip {
   font-size: 10.5px;
   color: var(--muted);
 }
+
+.chart-note .link {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font: inherit;
+  padding: 0 4px;
+  text-decoration: underline;
+}

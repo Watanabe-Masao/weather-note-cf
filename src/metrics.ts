@@ -8,7 +8,8 @@ export const METRICS = CHART_METRICS;
 export const metricById = chartMetricById;
 
 /** A saved item that no longer exists falls back to temperature. */
-export const knownMetric = (id: unknown): MetricId => (METRICS.some((m) => m.id === id) ? (id as MetricId) : "temp");
+export const knownMetric = (id: unknown): MetricId =>
+  METRICS.some((m) => m.id === id) ? (id as MetricId) : id === "snow" || id === "probability" ? "rain" : "temp";
 
 export const formatValue = (v: unknown, unit: string) =>
   typeof v === "number" && Number.isFinite(v)

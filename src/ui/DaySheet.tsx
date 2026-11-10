@@ -166,11 +166,15 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
             <span className="day-text">{(row?.dayWeather as string) || (day?.state === "ready" ? "天気の記録なし" : "")}</span>
             {kind && <span className={`day-kind kind-${kind}`}>{kind}</span>}
           </div>
-          <dl className="day-tiles">
+          <dl className="day-tiles" style={{ gridTemplateColumns: `repeat(${row?.type === "forecast" && typeof row.probability === "number" ? 5 : 4}, 1fr)` }}>
             <Tile label="最高" unit="℃" tone="hot" v={row?.max} o={otherRow?.max} hasOther={!!other} />
             <Tile label="最低" unit="℃" tone="cold" v={row?.min} o={otherRow?.min} hasOther={!!other} />
             <Tile label="降水" unit="mm" tone="rain" v={row?.rain} o={otherRow?.rain} hasOther={!!other} />
             <Tile label="湿度" unit="%" v={row?.humidity} o={otherRow?.humidity} hasOther={!!other} digits={0} />
+            {/* Rain chance exists only for forecasts, so it has nothing to compare with. */}
+            {row?.type === "forecast" && typeof row.probability === "number" && (
+              <Tile label="降水確率" unit="%" tone="rain" v={row.probability} o={null} hasOther={false} digits={0} />
+            )}
           </dl>
           <p className="day-sun">
             <span>

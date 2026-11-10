@@ -44,8 +44,6 @@ export const detailMetric = (id: DetailMetricId) => (id === "feel" ? FEEL_METRIC
 export function initialDetailMetric(metric: MetricId): DetailMetricId {
   switch (metric) {
     case "rain":
-    case "snow":
-    case "probability":
     case "sun":
     case "radiation":
     case "humidity":
