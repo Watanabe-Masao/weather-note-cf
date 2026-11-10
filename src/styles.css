@@ -736,3 +736,278 @@ select.chip {
   border-color: #f2c46d;
   color: #f2c46d;
 }
+
+/* ---- sheet faces ---- */
+
+.sheet-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 12px 6px;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.sheet-tabs button {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  padding: 6px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.sheet-tabs button.on {
+  background: var(--panel-2);
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---- 時間帯 face ---- */
+
+.band-face {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 4px 12px;
+}
+
+.band-summary p {
+  margin: 2px 0;
+}
+
+.band-phrase {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.band-phrase small,
+.band-spread small {
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.band-spread {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.band-spread b {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.band-diff {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.band-diff-label {
+  color: var(--muted);
+  width: 4.5em;
+}
+
+.band-diff .warmer {
+  color: var(--hot);
+}
+
+.band-diff .cooler {
+  color: var(--cold);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.band-map {
+  display: grid;
+  grid-template-columns: 34px repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  align-items: stretch;
+}
+
+.band-map-title {
+  grid-column: 1 / -1;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.band-map-date {
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.15;
+  padding: 2px 0;
+}
+
+.band-map-date small {
+  display: block;
+  font-size: 9px;
+  color: var(--muted);
+}
+
+.band-map-date.center {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.band-map-label {
+  font-size: 11px;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+}
+
+.band-cell {
+  height: 34px;
+  border: none;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+  color: #0b1a2a;
+  padding: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.band-cell b {
+  font-size: 14px;
+}
+
+.band-cell small {
+  font-size: 9px;
+  opacity: 0.75;
+}
+
+.band-cell.forecast {
+  outline: 1.5px dashed rgba(11, 26, 42, 0.55);
+  outline-offset: -3px;
+}
+
+.band-cell.center {
+  box-shadow: 0 0 0 1.5px var(--accent);
+}
+
+.band-cell.selected {
+  box-shadow: 0 0 0 2.5px #ffffff;
+}
+
+.band-cell.missing,
+.band-cell.outside {
+  background: var(--panel-2);
+  color: var(--muted);
+  font-size: 9px;
+}
+
+.band-cell.outside {
+  opacity: 0.4;
+}
+
+.band-cell.error {
+  background: transparent;
+  border: 1px solid var(--hot);
+  color: var(--hot);
+}
+
+.band-cell .skeleton {
+  width: 60%;
+}
+
+.band-detail {
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.band-detail header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.band-detail header button {
+  background: transparent;
+  border: none;
+  font-size: 16px;
+}
+
+.band-detail table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.band-detail th,
+.band-detail td {
+  text-align: right;
+  padding: 3px 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.band-detail th:first-child,
+.band-detail td:first-child {
+  text-align: left;
+}
+
+.band-detail p {
+  margin: 4px 0 0;
+  font-size: 10px;
+}
+
+/* ---- feel settings ---- */
+
+.threshold-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  align-items: end;
+}
+
+.threshold {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--muted);
+  position: relative;
+}
+
+.threshold input,
+.field input {
+  width: 100%;
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 6px;
+  font-size: 15px;
+  color: var(--text);
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 4px 0 10px;
+}
+
+.field {
+  margin-bottom: 10px;
+}
+
+.reset {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}

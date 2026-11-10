@@ -2,11 +2,12 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays } from "../shared/dates";
-import { DEFAULT_FEEL } from "../shared/feel";
 import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare";
 import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
+import { useFeelSettings } from "./feelSettings";
 import { useViewState } from "./state";
+import { BandMap, bandMapDays } from "./ui/BandMap";
 import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
 import { CompareBoard } from "./ui/CompareBoard";
@@ -25,7 +26,9 @@ export function App() {
   const [full, setFull] = useState(false);
   const [settings, setSettings] = useState(false);
   const metric = metricById(view.metric);
-  const feelSettings = useMemo(() => ({ ...DEFAULT_FEEL, sun: view.sun }), [view.sun]);
+  const feel = useFeelSettings(view.station, view.sun);
+  const feelSettings = feel.settings;
+  const [face, setFace] = useState<"chart" | "bands">("chart");
 
   // Tell the store what is on screen (both sides, so neither stays empty).
   useEffect(() => {
@@ -64,6 +67,13 @@ export function App() {
   }, [store, view.station, view.target, view.metric, partner]);
 
   const sheetDetent = full ? "min" : detent;
+
+  // The 時間帯 face wants hourly data only while it can be seen.
+  useEffect(() => {
+    if (!store) return;
+    const open = face === "bands" && sheetDetent !== "min";
+    store.wantHours(view.station, open ? bandMapDays(view.target, partner) : [], 1, "sheet");
+  }, [store, face, sheetDetent, view.station, view.target, partner]);
 
   // Measure the space under the comparison table: that is the sheet's middle height.
   const boardRef = useRef<HTMLDivElement>(null);
@@ -146,12 +156,52 @@ export function App() {
         </FeelContext.Provider>
       </div>
 
-      <GraphSheet title="比較グラフ" detent={sheetDetent} heights={heights} onDetent={setDetent}>
-        <Chart store={store} station={view.station} target={view.target} partner={partner} metric={metric} />
-      </GraphSheet>
+      <FeelContext.Provider value={feelSettings}>
+        <GraphSheet
+          title={face === "chart" ? "比較グラフ" : "時間帯"}
+          detent={sheetDetent}
+          heights={heights}
+          onDetent={setDetent}
+          tabs={
+            <div className="sheet-tabs" role="tablist">
+              {(
+                [
+                  ["chart", "比較グラフ"],
+                  ["bands", "時間帯"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={face === id}
+                  className={face === id ? "on" : ""}
+                  onClick={() => {
+                    setFace(id);
+                    if (sheetDetent === "min") setDetent("mid");
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          }
+        >
+          {face === "chart" ? (
+            <Chart store={store} station={view.station} target={view.target} partner={partner} metric={metric} />
+          ) : (
+            <BandMap store={store} station={view.station} target={view.target} partner={partner} />
+          )}
+        </GraphSheet>
+      </FeelContext.Provider>
 
       {settings && (
-        <Settings store={store} station={view.station} onStation={(id) => set("station", id)} onClose={() => setSettings(false)} />
+        <Settings
+          store={store}
+          station={view.station}
+          onStation={(id) => set("station", id)}
+          feel={feel}
+          onClose={() => setSettings(false)}
+        />
       )}
     </div>
   );
