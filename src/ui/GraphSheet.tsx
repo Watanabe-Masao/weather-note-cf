@@ -25,13 +25,15 @@ export function nearestDetent(height: number, heights: Record<Detent, number>): 
 
 interface Props {
   title: string;
+  /** Face switch shown under the handle (outside the drag area, so taps never start a drag). */
+  tabs?: ReactNode;
   detent: Detent;
   heights: Record<Detent, number>;
   onDetent: (d: Detent) => void;
   children: ReactNode;
 }
 
-export function GraphSheet({ title, detent, heights, onDetent, children }: Props) {
+export function GraphSheet({ title, tabs, detent, heights, onDetent, children }: Props) {
   const drag = useRef<{ y: number; h: number } | null>(null);
   const [live, setLive] = useState<number | null>(null);
   const height = live ?? heights[detent];
@@ -69,8 +71,9 @@ export function GraphSheet({ title, detent, heights, onDetent, children }: Props
         }}
       >
         <span className="grabber" />
-        <span className="sheet-title">{title}</span>
+        {!tabs && <span className="sheet-title">{title}</span>}
       </div>
+      {tabs}
       <div className="sheet-body">{children}</div>
     </aside>
   );
