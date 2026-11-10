@@ -1,0 +1,77 @@
+import { describe, expect, it } from "vitest";
+import { dayTone, holidayName, weekdayOf } from "../../shared/holidays";
+import {
+  centerIndex,
+  matchDate,
+  needsRewindow,
+  offsetOf,
+  scrollFor,
+  stripWindow,
+  targetBounds,
+  weekSteps,
+} from "../../src/compare";
+
+describe("comparison dates", () => {
+  it("same date last year, with no partner for 29 February", () => {
+    expect(matchDate("2026-11-10", "sameDate")).toBe("2025-11-10");
+    expect(matchDate("2028-02-29", "sameDate")).toBeNull();
+  });
+
+  it("nearest same weekday last year", () => {
+    // 2026-11-10 is a Tuesday; 2025-11-10 is a Monday → 2025-11-11 (Tuesday)
+    expect(matchDate("2026-11-10", "sameWeekday")).toBe("2025-11-11");
+    expect(weekdayOf(matchDate("2026-11-14", "sameWeekday")!)).toBe(weekdayOf("2026-11-14"));
+  });
+
+  it("last week and a fixed custom offset", () => {
+    expect(matchDate("2026-11-10", "lastWeek")).toBe("2026-11-03");
+    expect(matchDate("2026-11-10", "custom", -400)).toBe("2025-10-06");
+    expect(offsetOf("2026-11-10", "2025-10-06")).toBe(-400);
+  });
+
+  it("keeps the comparison day inside the loadable range", () => {
+    expect(targetBounds("lastWeek", 0, "2026-11-17")).toEqual({ min: "1977-01-08", max: "2026-11-17" });
+    expect(targetBounds("custom", 5, "2026-11-17").max).toBe("2026-11-12");
+    expect(targetBounds("sameDate", 0, "2026-11-17").min).toBe("1978-01-02");
+  });
+});
+
+describe("holidays", () => {
+  it("colours Sundays and national holidays red, Saturdays blue", () => {
+    expect(dayTone("2026-11-08")).toBe("holiday"); // Sunday
+    expect(dayTone("2026-11-03")).toBe("holiday"); // 文化の日 (Tuesday)
+    expect(holidayName("2026-11-23")).toBe("勤労感謝の日");
+    expect(dayTone("2026-11-07")).toBe("saturday");
+    expect(dayTone("2026-11-10")).toBe("weekday");
+  });
+});
+
+describe("drum strip", () => {
+  it("renders a window around the centre and moves it near an edge", () => {
+    const win = stripWindow("2025-06-15", "1977-01-01", "2026-11-17");
+    expect(win).toEqual({ start: "2025-04-16", end: "2025-08-14" });
+    expect(needsRewindow("2025-06-15", win, "1977-01-01", "2026-11-17")).toBe(false);
+    expect(needsRewindow("2025-04-20", win, "1977-01-01", "2026-11-17")).toBe(true);
+    // At the range end there is nothing more to load, so the window stays.
+    const end = stripWindow("2026-11-17", "1977-01-01", "2026-11-17");
+    expect(needsRewindow("2026-11-17", end, "1977-01-01", "2026-11-17")).toBe(false);
+  });
+
+  it("maps scroll positions to the centred column and back", () => {
+    expect(centerIndex(scrollFor(12, 52), 52, 121)).toBe(12);
+    expect(centerIndex(12 * 52 + 25, 52, 121)).toBe(12);
+    expect(centerIndex(-30, 52, 121)).toBe(0);
+    expect(centerIndex(999_999, 52, 121)).toBe(120);
+  });
+});
+
+describe("long press on the arrows", () => {
+  it("adds a week per 40px slid in the arrow's direction and cancels when slid back", () => {
+    expect(weekSteps(100, 100, -1)).toBe(1);
+    expect(weekSteps(100, 100 - 60, -1)).toBe(2);
+    expect(weekSteps(100, 100 - 100, -1)).toBe(3);
+    expect(weekSteps(100, 100 + 30, -1)).toBe(0);
+    expect(weekSteps(100, 100 + 60, 1)).toBe(2);
+    expect(weekSteps(0, 99_999, 1)).toBe(52);
+  });
+});
