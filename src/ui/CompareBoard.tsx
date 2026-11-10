@@ -2,7 +2,7 @@
 // Linked: both strips render the same run of target days (the comparison cell is that day's partner)
 // and scroll as one. Independent: each strip has its own run of days.
 
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "../../shared/dates";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
@@ -31,6 +31,10 @@ interface Props {
   onOpenDay: (date: string, other: string | null, side: "target" | "compare") => void;
   /** Tap on a feel bar: open the feel map. */
   onOpenFeel: () => void;
+  /** Right end of the target header (focus button). */
+  targetExtra?: ReactNode;
+  /** Right end of the comparison header (linking and the compare rule: how the comparison day is chosen). */
+  compareExtra?: ReactNode;
 }
 
 const EDGE_DAYS = 3;
@@ -187,6 +191,8 @@ export function CompareBoard({
   onToggleSun,
   onOpenDay,
   onOpenFeel,
+  targetExtra,
+  compareExtra,
 }: Props) {
   const [calendar, setCalendar] = useState<"target" | "compare" | null>(null);
   const sync = useMemo(() => (view.linked ? new StripSync() : null), [view.linked]);
@@ -231,6 +237,7 @@ export function CompareBoard({
           canForward={view.linked ? view.target < bounds.max : view.compare < last}
           onStep={(n) => (view.linked ? moveTarget(addDays(view.target, n)) : moveCompare(addDays(view.compare, n)))}
           onOpenCalendar={() => setCalendar("compare")}
+          extra={compareExtra}
         />
   );
 
@@ -248,6 +255,7 @@ export function CompareBoard({
           onOpenCalendar={() => setCalendar("target")}
           todayChip={chip}
           onToday={() => moveTarget(today)}
+          extra={targetExtra}
         />
         <div className="side-body">
           <Labels metric={metric} sun={view.sun} onToggleSun={onToggleSun} />

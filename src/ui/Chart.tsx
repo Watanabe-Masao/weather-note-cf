@@ -283,7 +283,6 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           <i className="lg-dashed" />
           比較日
         </span>
-        {onPickDay && <span className="chart-tap-hint">日をタップで時間帯 ›</span>}
       </div>
       {(lines.length > 1 || metric.spread) && (
         <div className="chart-toggles" role="group" aria-label="表示する線">

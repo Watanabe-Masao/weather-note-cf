@@ -2,7 +2,7 @@
 // Tap an arrow: one day. Long-press an arrow and slide in its direction: whole weeks (slide back to cancel).
 // Tap the date: open the calendar.
 
-import { type PointerEvent, useRef, useState } from "react";
+import { type PointerEvent, type ReactNode, useRef, useState } from "react";
 import { weekSteps } from "../compare";
 
 const LONG_PRESS_MS = 400;
@@ -16,6 +16,8 @@ interface Props {
   onOpenCalendar: () => void;
   todayChip?: "back" | "forward" | null;
   onToday?: () => void;
+  /** Controls at the right end of the header (linking and compare rule, or the focus button). */
+  extra?: ReactNode;
 }
 
 function Arrow({ dir, disabled, onStep }: { dir: -1 | 1; disabled: boolean; onStep: (days: number) => void }) {
@@ -80,7 +82,7 @@ function Arrow({ dir, disabled, onStep }: { dir: -1 | 1; disabled: boolean; onSt
   );
 }
 
-export function DateNav({ label, date, canBack, canForward, onStep, onOpenCalendar, todayChip, onToday }: Props) {
+export function DateNav({ label, date, canBack, canForward, onStep, onOpenCalendar, todayChip, onToday, extra }: Props) {
   return (
     // Left-aligned and compact: it stays clear of the centre band that runs through both tables.
     // The side is told by the label for screen readers and by the table's own shade on screen.
@@ -97,6 +99,7 @@ export function DateNav({ label, date, canBack, canForward, onStep, onOpenCalend
           </button>
         )}
       </span>
+      {extra && <span className="date-nav-extra">{extra}</span>}
     </div>
   );
 }

@@ -1732,55 +1732,6 @@ button.label-feel small {
   font-weight: 600;
 }
 
-/* ---- A/B switch (preview builds only) ---- */
-
-.ab-switch {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: -2px 0 8px;
-  padding: 6px 8px;
-  border: 1px dashed #e0b45a;
-  border-radius: 10px;
-  background: rgba(224, 180, 90, 0.08);
-  font-size: 12px;
-}
-
-.ab-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.ab-title {
-  color: #e0b45a;
-  font-weight: 600;
-  min-width: 4.5em;
-}
-
-.ab-row button {
-  border: 1px solid var(--line);
-  background: none;
-  color: var(--muted);
-  border-radius: 6px;
-  width: 30px;
-  padding: 3px 0;
-  font: inherit;
-  font-weight: 600;
-}
-
-.ab-row button.on {
-  background: #e0b45a;
-  border-color: #e0b45a;
-  color: var(--bg);
-}
-
-.ab-desc {
-  color: var(--muted);
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
 
 .hour-face .day-summary {
   margin: 0 2px 10px;
@@ -2024,38 +1975,6 @@ button.label-feel small {
   padding-right: 10px;
 }
 
-/* ---- sheet header B: item chips ---- */
-
-.sheet-chips {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding: 0 10px 8px;
-  scrollbar-width: none;
-}
-
-.sheet-chips::-webkit-scrollbar {
-  display: none;
-}
-
-/* Horizontal scrolling of the chips stays native; vertical moves still drag the sheet. */
-.sheet-tabs-wrap:has(.sheet-chips) {
-  touch-action: pan-x;
-}
-
-.sheet-chips .chip {
-  flex: none;
-  white-space: nowrap;
-  border-radius: 8px;
-  padding: 5px 12px;
-}
-
-.sheet-chips .chip.back {
-  color: var(--accent);
-  border-color: transparent;
-  background: none;
-  padding-left: 4px;
-}
 
 .chart-hit {
   fill: transparent;
@@ -2129,4 +2048,91 @@ button.label-feel.shade small {
 
 .date-nav .today-slot {
   justify-content: flex-end;
+}
+
+/* ---- header: title + settings; controls live in the date headers ---- */
+
+.app-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.date-nav {
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+}
+
+.date-nav-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip.mini {
+  font-size: 12px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.chip.icon.mini {
+  width: 30px;
+  padding: 4px 0;
+}
+
+select.chip.mini.mode {
+  padding-right: 20px;
+  background-position:
+    calc(100% - 12px) 55%,
+    calc(100% - 7px) 55%;
+  max-width: 96px;
+  text-overflow: ellipsis;
+}
+
+/* ---- sheet header: what the sheet shows ---- */
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px 6px;
+}
+
+.sheet-head-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sheet-head-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.sheet-head .chip.back {
+  color: var(--accent);
+  border-color: transparent;
+  background: none;
+  padding: 4px 4px;
+}
+
+/* The comparison header's controls stay clear of the centre band. */
+.side-compare .chip.mini {
+  font-size: 11px;
+  padding: 4px 6px;
+}
+
+.side-compare select.chip.mini.mode {
+  max-width: 84px;
+  padding-right: 18px;
+}
+
+.date-nav-extra {
+  gap: 3px;
+}
+
+@media (max-width: 380px) {
+  .side-compare select.chip.mini.mode {
+    max-width: 74px;
+  }
 }

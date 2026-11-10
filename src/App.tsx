@@ -6,11 +6,9 @@ import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare"
 import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
 import { useFeelSettings } from "./feelSettings";
-import { useAb } from "./ab";
 import { useViewState } from "./state";
 import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
-import { AbSwitch } from "./ui/AbSwitch";
 import { CompareBoard } from "./ui/CompareBoard";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
@@ -47,8 +45,6 @@ export function App() {
   const [face, setFace] = useState<"chart" | "hours">("chart");
   const [feelMap, setFeelMap] = useState(false);
   const [similar, setSimilar] = useState(false);
-  const ab = useAb();
-  const sheetChips = ab.variant("sheetHead") === "B";
 
   /** A column tap: that day becomes the selected day and the sheet shows the two days side by side, hour by hour. */
   const openDay = (date: string, other: string | null, side: "target" | "compare") => {
@@ -135,46 +131,28 @@ export function App() {
       window.removeEventListener("resize", measure);
     };
   }, [full]);
-  const heights = sheetHeights(spaceBelow);
+  // The sheet's highest position stops just under the item chips, so they stay usable.
+  const [chipsBottom, setChipsBottom] = useState(0);
+  useLayoutEffect(() => {
+    const el = metricsRef.current;
+    if (!el) return;
+    const measure = () => setChipsBottom(el.getBoundingClientRect().bottom + window.scrollY);
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [full]);
+  const heights = sheetHeights(spaceBelow, window.innerHeight, chipsBottom);
 
   return (
     <div className={full ? "app full" : "app"} style={{ paddingBottom: heights[sheetDetent] + 12 }}>
       {!full && (
         <header className="app-head">
           <h1>Weather Note</h1>
+          <button className="chip icon" onClick={() => setSettings(true)} aria-label="設定">
+            ⚙
+          </button>
         </header>
       )}
-      <AbSwitch variant={ab.variant} choose={ab.choose} />
-
-      <div className="controls">
-        <select
-          className="chip mode"
-          value={view.mode}
-          onChange={(e) => {
-            // 似た日 is a way of choosing the day, not a rule: it opens the list and the menu stays as it was.
-            if (e.target.value === SIMILAR) setSimilar(true);
-            else setMode(e.target.value as CompareMode);
-          }}
-          aria-label="比較のしかた"
-        >
-          {COMPARE_MODES.map((m) => (
-            <option key={m.mode} value={m.mode}>
-              {m.label}
-            </option>
-          ))}
-          <option value={SIMILAR}>似た日から選ぶ…</option>
-        </select>
-        <span className="spacer" />
-        <button className={view.linked ? "chip on" : "chip"} onClick={() => setLinked(!view.linked)} aria-pressed={view.linked}>
-          {view.linked ? "連動" : "個別"}
-        </button>
-        <button className="chip icon" onClick={() => setSettings(true)} aria-label="設定">
-          ⚙
-        </button>
-        <button className="chip icon" onClick={() => setFull(!full)} aria-label={full ? "縮小" : "全画面"}>
-          {full ? "⤡" : "⤢"}
-        </button>
-      </div>
 
       <div className="metrics" role="tablist" ref={metricsRef}>
         {METRICS.map((m) => (
@@ -205,6 +183,40 @@ export function App() {
             onToggleSun={() => set("sun", !view.sun)}
             onOpenDay={openDay}
             onOpenFeel={() => setFeelMap(true)}
+            targetExtra={
+              <button className="chip icon mini" onClick={() => setFull(!full)} aria-label={full ? "縮小" : "表に集中"}>
+                {full ? "⤡" : "⤢"}
+              </button>
+            }
+            compareExtra={
+              <>
+                <button
+                  className={view.linked ? "chip mini on" : "chip mini"}
+                  onClick={() => setLinked(!view.linked)}
+                  aria-pressed={view.linked}
+                  title={view.linked ? "比較日は対象日に付いて動きます（タップで個別）" : "比較日は別に動きます（タップで連動）"}
+                >
+                  {view.linked ? "連動" : "個別"}
+                </button>
+                <select
+                  className="chip mini mode"
+                  value={view.mode}
+                  onChange={(e) => {
+                    // 似た日 is a way of choosing the day, not a rule: it opens the list and the menu stays as it was.
+                    if (e.target.value === SIMILAR) setSimilar(true);
+                    else setMode(e.target.value as CompareMode);
+                  }}
+                  aria-label="比較のしかた"
+                >
+                  {COMPARE_MODES.map((m) => (
+                    <option key={m.mode} value={m.mode}>
+                      {m.label}
+                    </option>
+                  ))}
+                  <option value={SIMILAR}>似た日から選ぶ…</option>
+                </select>
+              </>
+            }
           />
         </FeelContext.Provider>
       </div>
@@ -215,53 +227,24 @@ export function App() {
           detent={sheetDetent}
           heights={heights}
           onDetent={setDetent}
+          scrimTop={chipsBottom}
           tabs={
-            sheetChips ? (
-              // B: the item chips (the same choice as the row at the top, which a raised sheet covers);
-              // 時間帯 is reached by tapping a day, and left with ‹ 日別.
-              <div className="sheet-chips">
-                {face === "hours" && (
+            // The item chips stay visible above the sheet, so the sheet only says what it shows.
+            <div className="sheet-head">
+              {face === "hours" ? (
+                <>
                   <button className="chip back" onClick={() => setFace("chart")} aria-label="日別に戻る">
                     ‹ 日別
                   </button>
-                )}
-                {METRICS.map((m) => (
-                  <button
-                    key={m.id}
-                    className={m.id === view.metric ? "chip on" : "chip"}
-                    aria-pressed={m.id === view.metric}
-                    onClick={() => {
-                      set("metric", m.id);
-                      if (sheetDetent === "min") setDetent("mid");
-                    }}
-                  >
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-            ) : (
-            <div className="sheet-tabs" role="tablist">
-              {(
-                [
-                  ["chart", "日別"],
-                  ["hours", "時間帯"],
-                ] as const
-              ).map(([id, label]) => (
-                <button
-                  key={id}
-                  role="tab"
-                  aria-selected={face === id}
-                  className={face === id ? "on" : ""}
-                  onClick={() => {
-                    setFace(id);
-                    if (sheetDetent === "min") setDetent("mid");
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
+                  <span className="sheet-head-title">{`${+view.target.slice(5, 7)}/${+view.target.slice(8)} の時間帯`}</span>
+                </>
+              ) : (
+                <>
+                  <span className="sheet-head-title">日別</span>
+                  <span className="sheet-head-hint">日をタップで時間帯 ›</span>
+                </>
+              )}
             </div>
-            )
           }
         >
           {face === "chart" ? (
@@ -272,7 +255,7 @@ export function App() {
               partner={partner}
               metric={metric}
               height={chartHeight(heights[sheetDetent], metric)}
-              onPickDay={sheetChips ? (d) => openDay(d, partner(d), "target") : undefined}
+              onPickDay={(d) => openDay(d, partner(d), "target")}
             />
           ) : (
             <HourFace

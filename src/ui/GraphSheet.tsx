@@ -25,8 +25,9 @@ const SLOP = 7;
  * Sheet heights. The middle one is whatever space is left under the comparison table
  * (`spaceBelow`), so the graph and the selected column are both visible on any phone.
  */
-export function sheetHeights(spaceBelow: number, viewport = window.innerHeight): Record<Detent, number> {
-  const max = Math.round(viewport * 0.82);
+export function sheetHeights(spaceBelow: number, viewport = window.innerHeight, topLimit = 0): Record<Detent, number> {
+  // Highest: up to just under `topLimit` (the item chips), never above 88% of the screen.
+  const max = Math.round(Math.min(viewport * 0.88, topLimit > 0 ? viewport - topLimit - 6 : viewport * 0.82));
   const mid = Math.round(Math.min(max - 40, Math.max(MID_FLOOR, spaceBelow)));
   return { min: MIN_HEIGHT, mid, max };
 }
@@ -43,6 +44,8 @@ interface Props {
   heights: Record<Detent, number>;
   onDetent: (d: Detent) => void;
   children: ReactNode;
+  /** The dimming starts below this (px from the top), so the item chips stay bright and usable. */
+  scrimTop?: number;
 }
 
 interface Drag {
@@ -52,7 +55,7 @@ interface Drag {
   raw: number;
 }
 
-export function GraphSheet({ title, tabs, detent, heights, onDetent, children }: Props) {
+export function GraphSheet({ title, tabs, detent, heights, onDetent, children, scrimTop = 0 }: Props) {
   const [live, setLive] = useState<number | null>(null);
   const [duration, setDuration] = useState(320);
   const drag = useRef<Drag | null>(null);
@@ -188,6 +191,7 @@ export function GraphSheet({ title, tabs, detent, heights, onDetent, children }:
       <div
         className="sheet-scrim"
         style={{
+          top: scrimTop,
           opacity: dim,
           transition: live == null ? `opacity ${duration}ms ${SHEET_EASE}` : "none",
           pointerEvents: detent === "max" && live == null ? "auto" : "none",
