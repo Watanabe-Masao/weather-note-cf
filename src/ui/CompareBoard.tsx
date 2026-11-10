@@ -11,6 +11,8 @@ import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
 import { CalendarModal } from "./CalendarModal";
 import { DateNav } from "./DateNav";
+import { FeelBar, LEVEL_COLORS } from "./FeelBar";
+import { LEVELS } from "../../shared/feel";
 import { Strip, StripSync } from "./Strip";
 import { WeatherIcon } from "./WeatherIcon";
 
@@ -24,6 +26,7 @@ interface Props {
   metric: Metric;
   moveTarget: (date: string) => void;
   moveCompare: (date: string) => void;
+  onToggleSun: () => void;
 }
 
 const EDGE_DAYS = 3;
@@ -96,6 +99,9 @@ function Column({
           ) : null}
         </span>
       ))}
+      {metric.id === "temp" && (
+        <span className="cell-feel">{state === "outside" ? null : <FeelBar store={store} station={station} date={date} />}</span>
+      )}
     </div>
   );
 }
@@ -112,11 +118,23 @@ function Labels({ metric }: { metric: Metric }) {
           <small>{metric.unit}</small>
         </span>
       ))}
+      {metric.id === "temp" && <span className="label-feel">肌感</span>}
     </div>
   );
 }
 
-export function CompareBoard({ store, view, today, last, bounds, compareDate, metric, moveTarget, moveCompare }: Props) {
+export function CompareBoard({
+  store,
+  view,
+  today,
+  last,
+  bounds,
+  compareDate,
+  metric,
+  moveTarget,
+  moveCompare,
+  onToggleSun,
+}: Props) {
   const [calendar, setCalendar] = useState<"target" | "compare" | null>(null);
   const sync = useMemo(() => (view.linked ? new StripSync() : null), [view.linked]);
   const targetDays = useWindow(view.target, bounds.min, bounds.max);
@@ -196,6 +214,25 @@ export function CompareBoard({ store, view, today, last, bounds, compareDate, me
           </div>
         </div>
       </div>
+
+      {metric.id === "temp" && (
+        <p className="feel-legend">
+          肌感
+          {LEVELS.map((label, i) => (
+            <span key={label}>
+              <i style={{ background: LEVEL_COLORS[i] }} />
+              {label}
+            </span>
+          ))}
+          <span>
+            <i className="dashed" />
+            目安
+          </span>
+          <button className={view.sun ? "sun-toggle on" : "sun-toggle"} onClick={onToggleSun} aria-pressed={view.sun}>
+            {view.sun ? "☀ 日なた" : "☁ 日かげ"}
+          </button>
+        </p>
+      )}
 
       {calendar && (
         <CalendarModal

@@ -55,6 +55,8 @@ const HOURLY_FIELDS = {
   pressure: "pressure_msl",
   probability: "precipitation_probability",
   direction: "wind_direction_10m",
+  // Global (shortwave) radiation, W/m², mean of the preceding hour — same window as JMA's hourly 日射量.
+  solar: "shortwave_radiation",
 };
 const DAILY_FIELDS = {
   temp: "temperature_2m_mean",

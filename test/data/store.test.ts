@@ -253,6 +253,17 @@ describe("requests are declared, not accumulated", () => {
     expect(api.calls.some((c) => c.includes("month=2021-01"))).toBe(true);
   });
 
+  it("keeps the table's and the sheet's hourly requests apart, and fetches them after the visible days", async () => {
+    const { store, api } = makeStore(memoryStorage());
+    store.setView(KOCHI, ["2025-06-15"]);
+    store.wantHours(KOCHI, daysBetween("2025-06-12", "2025-06-18"), 2, "table");
+    store.wantHours(KOCHI, [], 0, "sheet"); // closing the sheet must not cancel the table's request
+    await store.idle();
+    const hourly = api.calls.findIndex((c) => c.startsWith("/api/hourly"));
+    expect(hourly).toBeGreaterThan(api.calls.indexOf(`/api/daily?station=${KOCHI}&month=2025-06`));
+    expect(store.getHours(KOCHI, "2025-06-15").state).toBe("ready");
+  });
+
   it("forgets hourly requests when the station changes", async () => {
     const { store, api } = makeStore(memoryStorage());
     store.setView(KOCHI, ["2025-06-15"]);
@@ -308,5 +319,15 @@ describe("storage", () => {
     await store.idle();
     expect(api.calls.length).toBeGreaterThan(0);
     expect(store.getDay(KOCHI, "2025-06-15").state).toBe("ready");
+  });
+});
+
+describe("today's hours", () => {
+  it("keep the forecast's radiation for observed hours, which have none", async () => {
+    const { mergeHours } = await import("../../src/data/store");
+    const forecast = [{ date: TODAY, n: 10, type: "forecast", provider: "Open-Meteo", solar: 420, raw: {}, quality: {} }];
+    const observed = [{ date: TODAY, n: 10, type: "actual", provider: "JMA-amedas", temp: 18, raw: {}, quality: {} }];
+    const [merged] = mergeHours(forecast as never, observed as never);
+    expect(merged).toMatchObject({ type: "actual", temp: 18, solar: 420, solarSource: "forecast" });
   });
 });

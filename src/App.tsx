@@ -2,10 +2,12 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays } from "../shared/dates";
+import { DEFAULT_FEEL } from "../shared/feel";
 import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare";
 import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
 import { useViewState } from "./state";
+import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
 import { CompareBoard } from "./ui/CompareBoard";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
@@ -23,6 +25,7 @@ export function App() {
   const [full, setFull] = useState(false);
   const [settings, setSettings] = useState(false);
   const metric = metricById(view.metric);
+  const feelSettings = useMemo(() => ({ ...DEFAULT_FEEL, sun: view.sun }), [view.sun]);
 
   // Tell the store what is on screen (both sides, so neither stays empty).
   useEffect(() => {
@@ -50,6 +53,15 @@ export function App() {
     () => (d: string) => (view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d))),
     [view.linked, view.mode, view.offset, view.compare, view.target],
   );
+
+  // The feel row wants hourly data for the visible days, after the daily values (low priority).
+  useEffect(() => {
+    if (!store) return;
+    if (view.metric !== "temp") return store.wantHours(view.station, [], 2, "table");
+    const days = [-3, -2, -1, 0, 1, 2, 3].map((n) => addDays(view.target, n));
+    const partners = days.map(partner).filter((d): d is string => !!d);
+    store.wantHours(view.station, [...days, ...partners], 2, "table");
+  }, [store, view.station, view.target, view.metric, partner]);
 
   const sheetDetent = full ? "min" : detent;
 
@@ -118,17 +130,20 @@ export function App() {
       </div>
 
       <div ref={boardRef}>
-        <CompareBoard
-        store={store}
-        view={view}
-        today={today}
-        last={last}
-        bounds={bounds}
-        compareDate={compareDate}
-        metric={metric}
-        moveTarget={moveTarget}
-        moveCompare={moveCompare}
-        />
+        <FeelContext.Provider value={feelSettings}>
+          <CompareBoard
+            store={store}
+            view={view}
+            today={today}
+            last={last}
+            bounds={bounds}
+            compareDate={compareDate}
+            metric={metric}
+            moveTarget={moveTarget}
+            moveCompare={moveCompare}
+            onToggleSun={() => set("sun", !view.sun)}
+          />
+        </FeelContext.Provider>
       </div>
 
       <GraphSheet title="比較グラフ" detent={sheetDetent} heights={heights} onDetent={setDetent}>

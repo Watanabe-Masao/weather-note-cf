@@ -90,7 +90,7 @@ export class WeatherStore {
   private latest = new Map<string, WeatherRow>(); // station -> latest observation today
   private view: { station: string; centers: string[]; direction: Direction } | null = null;
   private extra = new Map<string, { station: string; priority: number }>(); // prefetch / hour requests: dayKey
-  private hourWants = new Map<string, number>(); // hour dayKey -> priority
+  private hourRequests = new Map<string, Map<string, number>>(); // owner -> hour dayKey -> priority
   private persisted: StorageReport["persisted"] = "unsupported";
   private lostSince: number | null = null;
   private countTimer: unknown = null;
@@ -207,7 +207,7 @@ export class WeatherStore {
   setView(station: string, centers: string[], direction: Direction = 0): void {
     if (this.view && this.view.station !== station) {
       this.extra.clear();
-      this.hourWants.clear();
+      this.hourRequests.clear();
     }
     this.view = { station, centers, direction };
     this.sync();
@@ -221,10 +221,23 @@ export class WeatherStore {
     this.sync();
   }
 
-  /** Hourly data for the open hourly view. Replaces the previous request; [] when the view closes. */
-  wantHours(station: string, dates: string[], priority: number = Priority.Visible): void {
-    this.hourWants = new Map(dates.filter((d) => this.inRange(d)).map((d) => [dayKey(station, d), priority]));
+  /**
+   * Hourly data wanted by one part of the screen (`owner`, e.g. the table's feel row or the sheet).
+   * Replaces that owner's previous request; [] withdraws it. Owners do not cancel each other.
+   */
+  wantHours(station: string, dates: string[], priority: number = Priority.Visible, owner = "sheet"): void {
+    const wanted = new Map(dates.filter((d) => this.inRange(d)).map((d) => [dayKey(station, d), priority] as const));
+    if (wanted.size) this.hourRequests.set(owner, wanted);
+    else this.hourRequests.delete(owner);
     this.sync();
+  }
+
+  /** All owners' hour requests, keeping the highest priority for each day. */
+  private get hourWants(): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const requests of this.hourRequests.values())
+      for (const [k, p] of requests) if (!out.has(k) || out.get(k)! > p) out.set(k, p);
+    return out;
   }
 
   /** Days that can have data: from 1977 to the last forecast day. */
@@ -674,6 +687,11 @@ export function mergeRecent(base: WeatherRow | null, recent: WeatherRow): Weathe
 export function mergeHours(forecast: WeatherRow[], observed: WeatherRow[]): WeatherRow[] {
   const byHour = new Map<number, WeatherRow>();
   for (const r of forecast) byHour.set(r.n, r);
-  for (const r of observed) byHour.set(r.n, r);
+  for (const r of observed) {
+    // AMeDAS has no radiation: keep the forecast's for that hour so the sunshine term still works.
+    const f = byHour.get(r.n);
+    const solar = typeof r.solar === "number" ? r.solar : f?.type === "forecast" ? f.solar : undefined;
+    byHour.set(r.n, solar === undefined ? r : { ...r, solar, solarSource: r.solar === solar ? "observed" : "forecast" });
+  }
   return [...byHour.values()].sort((a, b) => a.n - b.n);
 }
