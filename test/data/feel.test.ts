@@ -40,6 +40,7 @@ group("apparent temperature", () => {
     expect(windAtPerson(10, 10, 0.2)).toBeCloseTo(6.84, 1);
     expect(windAtPerson(10, 10, 0.3)).toBeLessThan(windAtPerson(10, 10, 0.14));
     expect(windAtPerson(10, 1.5, 0.2)).toBeCloseTo(10, 5);
+    expect(windAtPerson(10, 10, 0.4)).toBeCloseTo(4.68, 1); // default: dense urban
   });
 });
 

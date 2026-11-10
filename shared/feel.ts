@@ -12,7 +12,7 @@ import type { WeatherRow } from "./types";
 export interface FeelSettings {
   /** Upper bounds of 寒い, 肌寒い, 過ごしやすい, 暖かい (℃ of apparent temperature). */
   thresholds: [number, number, number, number];
-  /** Surroundings exponent: 0.14 open, 0.20 residential, 0.30 urban. */
+  /** Surroundings exponent: 0.14 open, 0.20 residential, 0.30 urban, 0.40 dense urban. */
   alpha: number;
   /** Anemometer height for observed values (m). Forecast wind is always at 10 m. */
   stationHeight: number;
@@ -22,9 +22,11 @@ export const SURROUNDINGS = [
   { label: "開けた場所", alpha: 0.14 },
   { label: "住宅地", alpha: 0.2 },
   { label: "市街地", alpha: 0.3 },
+  { label: "建物が密集", alpha: 0.4 },
 ] as const;
 
-export const DEFAULT_FEEL: FeelSettings = { thresholds: [10, 15, 21, 25], alpha: 0.2, stationHeight: 10 };
+// Default: dense urban (wind × 0.47 at 10 m), chosen after the first look at real data felt too cold.
+export const DEFAULT_FEEL: FeelSettings = { thresholds: [10, 15, 21, 25], alpha: 0.4, stationHeight: 10 };
 
 export const PERSON_HEIGHT = 1.5;
 export const FORECAST_WIND_HEIGHT = 10;
