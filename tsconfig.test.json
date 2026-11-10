@@ -1,0 +1,9 @@
+{
+  "extends": "./tsconfig.worker.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.test.tsbuildinfo",
+    "types": ["node"],
+    "noUnusedLocals": false
+  },
+  "include": ["test", "worker", "shared", "worker-configuration.d.ts"]
+}
