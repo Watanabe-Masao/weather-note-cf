@@ -2391,3 +2391,20 @@ select.chip.mini.mode {
   touch-action: pan-y;
   will-change: transform;
 }
+
+.sheet-head-end {
+  margin-left: auto;
+  display: inline-flex;
+}
+
+.sheet-head .sheet-head-hint {
+  margin-left: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.sheet-head select.chip.mini.mode {
+  font-size: 11px;
+  padding: 4px 18px 4px 8px;
+  max-width: 100px;
+}

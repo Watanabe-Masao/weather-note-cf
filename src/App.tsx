@@ -46,6 +46,27 @@ export function App() {
   const [feelMap, setFeelMap] = useState(false);
   const [similar, setSimilar] = useState(false);
 
+  // How the comparison day is chosen: in the comparison header, and in the sheet head (which covers it when raised).
+  const modeSelect = (
+    <select
+      className="chip mini mode"
+      value={view.mode}
+      onChange={(e) => {
+        // 似た日 is a way of choosing the day, not a rule: it opens the list and the menu stays as it was.
+        if (e.target.value === SIMILAR) setSimilar(true);
+        else setMode(e.target.value as CompareMode);
+      }}
+      aria-label="比較のしかた"
+    >
+      {COMPARE_MODES.map((m) => (
+        <option key={m.mode} value={m.mode}>
+          {m.label}
+        </option>
+      ))}
+      <option value={SIMILAR}>似た日から選ぶ…</option>
+    </select>
+  );
+
   /** A column tap: that day becomes the selected day and the sheet shows the two days side by side, hour by hour. */
   const openDay = (date: string, other: string | null, side: "target" | "compare") => {
     if (side === "target") moveTarget(date);
@@ -198,23 +219,7 @@ export function App() {
                 >
                   {view.linked ? "連動" : "個別"}
                 </button>
-                <select
-                  className="chip mini mode"
-                  value={view.mode}
-                  onChange={(e) => {
-                    // 似た日 is a way of choosing the day, not a rule: it opens the list and the menu stays as it was.
-                    if (e.target.value === SIMILAR) setSimilar(true);
-                    else setMode(e.target.value as CompareMode);
-                  }}
-                  aria-label="比較のしかた"
-                >
-                  {COMPARE_MODES.map((m) => (
-                    <option key={m.mode} value={m.mode}>
-                      {m.label}
-                    </option>
-                  ))}
-                  <option value={SIMILAR}>似た日から選ぶ…</option>
-                </select>
+                {modeSelect}
               </>
             }
           />
@@ -237,11 +242,13 @@ export function App() {
                     ‹ 日別
                   </button>
                   <span className="sheet-head-title">{`${metric.label}の時間帯`}</span>
+                  <span className="sheet-head-end">{modeSelect}</span>
                 </>
               ) : (
                 <>
                   <span className="sheet-head-title">{`${metric.label}の日別`}</span>
-                  <span className="sheet-head-hint">日をタップで時間帯 ›</span>
+                  <span className="sheet-head-hint">日をタップで時間帯</span>
+                  <span className="sheet-head-end">{modeSelect}</span>
                 </>
               )}
             </div>
