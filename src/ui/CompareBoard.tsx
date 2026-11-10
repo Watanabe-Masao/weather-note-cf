@@ -7,6 +7,7 @@ import { addDays, daysBetween } from "../../shared/dates";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
 import type { WeatherStore } from "../data/store";
+import { tableSeries } from "../chartMetrics";
 import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
 import { CalendarModal } from "./CalendarModal";
@@ -93,7 +94,7 @@ function Column({
         {state === "ready" ? <WeatherIcon text={day?.row?.dayWeather as string | null} /> : state === "empty" ? <span className="skeleton icon" /> : null}
       </span>
       <span className="cell-kind">{state === "outside" ? "範囲外" : kindLabel(store, station, date)}</span>
-      {metric.series.map((s) => (
+      {tableSeries(metric).map((s) => (
         <span key={s.key} className={`cell-value tone-${s.tone}`}>
           {state === "ready" ? (
             formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null), metric.unit)
@@ -125,7 +126,7 @@ function Labels({ metric }: { metric: Metric }) {
       <span className="label-date">日付</span>
       <span className="label-icon">天気</span>
       <span className="label-kind" />
-      {metric.series.map((s) => (
+      {tableSeries(metric).map((s) => (
         <span key={s.key} className={`label-value tone-${s.tone}`}>
           {s.label}
           <small>{metric.unit}</small>

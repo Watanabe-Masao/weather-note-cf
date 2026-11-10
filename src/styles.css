@@ -1503,3 +1503,22 @@ select.chip {
 .chart-note + svg {
   margin-top: 0;
 }
+
+.chart-spread-band {
+  fill: rgba(240, 139, 125, 0.1);
+}
+
+.chart-spread {
+  fill: var(--text);
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.chart-spread.other {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.chart-spread.label {
+  fill: var(--muted);
+}

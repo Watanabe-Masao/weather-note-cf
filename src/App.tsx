@@ -21,9 +21,10 @@ const PREFETCH_IDLE_MS = 1_000;
 const PREFETCH_RADIUS = 14;
 
 /** The graph fills the sheet: its height minus the tabs, notes and legend. */
-function chartHeight(sheet: number, m: { forecastOnly?: boolean; emptyNote?: string }) {
+function chartHeight(sheet: number, m: { forecastOnly?: boolean; emptyNote?: string; spread?: string }) {
   const chrome = 136 + (m.forecastOnly || m.emptyNote ? 22 : 0);
-  return Math.round(Math.min(460, Math.max(150, sheet - chrome)));
+  // With the spread rows the plot needs more room; the sheet scrolls if it is short.
+  return Math.round(Math.min(480, Math.max(m.spread ? 220 : 150, sheet - chrome)));
 }
 
 export function App() {

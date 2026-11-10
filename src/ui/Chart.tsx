@@ -22,6 +22,8 @@ interface Props {
 
 const COLORS = { hot: "#f08b7d", cold: "#6fb3f2", rain: "#6fb3f2", plain: "#9fd3c7" } as const;
 const PAD = { left: 34, right: 10, top: 14, bottom: 30 };
+/** Room under the plot for the two rows of differences (target, comparison). */
+const SPREAD_ROWS = 30;
 
 interface Point {
   x: number;
@@ -31,6 +33,7 @@ interface Point {
 
 export function Chart({ store, station, target, partner, metric, height = 190 }: Props) {
   const H = height;
+  const bottom = PAD.bottom + (metric.spread ? SPREAD_ROWS : 0);
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   useLayoutEffect(() => {
@@ -64,7 +67,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
   const pad = Math.max((hi - lo) * 0.12, metric.unit === "℃" ? 1 : 0.5);
   if (lo !== 0) lo -= pad;
   hi = metric.max ?? hi + pad;
-  const yOf = (v: number) => PAD.top + ((hi - v) * (H - PAD.top - PAD.bottom)) / (hi - lo);
+  const yOf = (v: number) => PAD.top + ((hi - v) * (H - PAD.top - bottom)) / (hi - lo);
   const ticks = [0, 0.5, 1].map((f) => lo + (hi - lo) * f);
 
   return (
@@ -73,7 +76,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
       {metric.forecastOnly && <p className="chart-note">予報の日だけの値です（過去の日にはありません）</p>}
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の比較グラフ`}>
         {/* centre day */}
-        <rect x={xOf(3) - step / 2} y={PAD.top - 6} width={step} height={H - PAD.top - PAD.bottom + 6} className="chart-center" />
+        <rect x={xOf(3) - step / 2} y={PAD.top - 6} width={step} height={H - PAD.top - bottom + 6} className="chart-center" />
         {ticks.map((t) => (
           <g key={t}>
             <line x1={PAD.left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
@@ -82,6 +85,8 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
             </text>
           </g>
         ))}
+
+        {metric.spread && <Spread series={series} yOf={yOf} />}
 
         {metric.chart === "bar"
           ? series.map(({ s, compare, points }) =>
@@ -113,7 +118,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
                     x2={p.x}
                     y2={yOf(p.v)}
                     stroke={COLORS[s.tone]}
-                    strokeWidth={compare ? 1.5 : 2.2}
+                    strokeWidth={s.graphOnly ? (compare ? 1 : 1.4) : compare ? 1.5 : 2.2}
                     strokeDasharray={compare ? "6 4" : p.forecast ? "2 4" : undefined}
                     strokeLinecap="round"
                     opacity={compare ? 0.65 : 1}
@@ -122,7 +127,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
               }),
             )}
         {metric.chart === "line" &&
-          series.map(({ s, compare, points }) =>
+          series.filter(({ s }) => !s.graphOnly).map(({ s, compare, points }) =>
             points.map((p, i) =>
               p.v == null ? null : (
                 <circle
@@ -137,6 +142,31 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
               ),
             ),
           )}
+
+        {metric.spread &&
+          days.map((d, i) => {
+            const gap = (k: 0 | 1) => {
+              const [a, b] = [series[k], series[k + 2]].map((x) => x.points[i].v);
+              return a == null || b == null ? null : a - b;
+            };
+            const own = gap(0);
+            const other = gap(1);
+            return (
+              <g key={`spread-${d}`}>
+                <text x={xOf(i)} y={H - bottom + 14} textAnchor="middle" className="chart-spread">
+                  {own == null ? "—" : own.toFixed(1)}
+                </text>
+                <text x={xOf(i)} y={H - bottom + 27} textAnchor="middle" className="chart-spread other">
+                  {other == null ? "—" : other.toFixed(1)}
+                </text>
+              </g>
+            );
+          })}
+        {metric.spread && (
+          <text x={PAD.left - 6} y={H - bottom + 14} textAnchor="end" className="chart-spread label">
+            差
+          </text>
+        )}
 
         {days.map((d, i) => (
           <text key={d} x={xOf(i)} y={H - 10} textAnchor="middle" className={`chart-x tone-${dayTone(d)}`}>
@@ -160,10 +190,39 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
         {metric.series.length > 1 &&
           metric.series.map((s) => (
             <span key={s.key} style={{ color: COLORS[s.tone] }}>
-              ● {s.label}
+              {s.graphOnly ? "─" : "●"} {s.label}
             </span>
           ))}
+        {metric.spread && <span>差＝{metric.spread}（上：対象日／下：比較日）</span>}
       </div>
     </div>
+  );
+}
+
+/** The band between the first two series of the target days (max and min): its height is the spread. */
+function Spread({ series, yOf }: { series: { compare: boolean; points: Point[] }[]; yOf: (v: number) => number }) {
+  const [top, low] = [series[0], series[2]];
+  const runs: Point[][][] = [];
+  let run: Point[][] = [];
+  top.points.forEach((p, i) => {
+    const q = low.points[i];
+    if (p.v == null || q.v == null) {
+      if (run.length) runs.push(run);
+      run = [];
+    } else run.push([p, q]);
+  });
+  if (run.length) runs.push(run);
+  return (
+    <>
+      {runs
+        .filter((r) => r.length > 1)
+        .map((r, k) => (
+          <polygon
+            key={k}
+            className="chart-spread-band"
+            points={[...r.map(([p]) => `${p.x},${yOf(p.v!)}`), ...[...r].reverse().map(([, q]) => `${q.x},${yOf(q.v!)}`)].join(" ")}
+          />
+        ))}
+    </>
   );
 }

@@ -6,8 +6,6 @@ import type { WeatherRow } from "../shared/types";
 
 export type ChartMetricId =
   | "temp"
-  | "mean"
-  | "range"
   | "rain"
   | "snow"
   | "probability"
@@ -24,6 +22,8 @@ export interface ChartSeries {
   tone: "hot" | "cold" | "rain" | "plain";
   /** The day's value; `hours` is that day's hourly rows when the metric needs them. */
   value: (row: WeatherRow | null | undefined, hours: WeatherRow[] | null) => number | null;
+  /** Drawn in the graph only (a thin line), not given a row in the table. */
+  graphOnly?: boolean;
 }
 
 export interface ChartMetric {
@@ -42,7 +42,12 @@ export interface ChartMetric {
   forecastOnly?: boolean;
   /** Shown when nothing in the seven days has a value above zero. */
   emptyNote?: string;
+  /** Shade between the first two series and print their difference under each day (寒暖差). */
+  spread?: string;
 }
+
+/** Rows the table shows for an item. */
+export const tableSeries = (m: ChartMetric) => m.series.filter((s) => !s.graphOnly);
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const field =
@@ -70,27 +75,9 @@ export const CHART_METRICS: ChartMetric[] = [
     series: [
       { key: "max", label: "最高", tone: "hot", value: field("max") },
       { key: "min", label: "最低", tone: "cold", value: field("min") },
+      { key: "temp", label: "平均", tone: "plain", value: field("temp"), graphOnly: true },
     ],
-  },
-  { id: "mean", label: "平均気温", unit: "℃", chart: "line", zero: false, series: [{ key: "temp", label: "平均", tone: "plain", value: field("temp") }] },
-  {
-    id: "range",
-    label: "寒暖差",
-    unit: "℃",
-    chart: "line",
-    zero: true,
-    series: [
-      {
-        key: "range",
-        label: "寒暖差",
-        tone: "plain",
-        value: (r) => {
-          const max = num(r?.max);
-          const min = num(r?.min);
-          return max == null || min == null ? null : Math.round((max - min) * 10) / 10;
-        },
-      },
-    ],
+    spread: "寒暖差",
   },
   { id: "rain", label: "降水量", unit: "mm", chart: "bar", zero: true, series: [{ key: "rain", label: "降水量", tone: "rain", value: field("rain") }] },
   {
