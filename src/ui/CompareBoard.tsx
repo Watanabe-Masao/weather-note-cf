@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "../../shared/dates";
 import { dayTone, weekdayOf } from "../../shared/holidays";
-import { matchDate, needsRewindow, stripWindow } from "../compare";
+import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
 import type { WeatherStore } from "../data/store";
 import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
@@ -27,6 +27,8 @@ interface Props {
   moveTarget: (date: string) => void;
   moveCompare: (date: string) => void;
   onToggleSun: () => void;
+  /** Tap on a column: open that day's detail, paired with the day on the other side. */
+  onOpenDay: (date: string, other: string | null) => void;
 }
 
 const EDGE_DAYS = 3;
@@ -59,12 +61,14 @@ function Column({
   date,
   metric,
   faded = false,
+  onOpen,
 }: {
   store: WeatherStore | null;
   station: string;
   date: string | null;
   metric: Metric;
   faded?: boolean;
+  onOpen?: () => void;
 }) {
   if (!date)
     return (
@@ -77,7 +81,10 @@ function Column({
   const tone = dayTone(date);
   const state = faded && day?.state !== "ready" ? "outside" : (day?.state ?? "empty");
   return (
-    <div className={`cell-stack state-${state}${faded ? " state-outside" : ""}`}>
+    <div
+      className={`cell-stack state-${state}${faded ? " state-outside" : ""}${onOpen && !faded ? " tappable" : ""}`}
+      onClick={faded ? undefined : onOpen}
+    >
       <span className={`cell-date tone-${tone}`}>
         {+date.slice(5, 7)}/{+date.slice(8)}
         <small>{weekdayOf(date)}</small>
@@ -91,7 +98,13 @@ function Column({
           {state === "ready" ? (
             formatValue(day?.row?.[s.key], metric.unit)
           ) : state === "error" ? (
-            <button className="retry" onClick={() => store?.retryDay(station, date)}>
+            <button
+              className="retry"
+              onClick={(e) => {
+                e.stopPropagation();
+                store?.retryDay(station, date);
+              }}
+            >
               再試行
             </button>
           ) : state === "empty" ? (
@@ -134,6 +147,7 @@ export function CompareBoard({
   moveTarget,
   moveCompare,
   onToggleSun,
+  onOpenDay,
 }: Props) {
   const [calendar, setCalendar] = useState<"target" | "compare" | null>(null);
   const sync = useMemo(() => (view.linked ? new StripSync() : null), [view.linked]);
@@ -174,7 +188,14 @@ export function CompareBoard({
               onSettle={moveTarget}
               onGesture={hold}
               renderColumn={(d) => (
-                <Column store={store} station={station} date={d} metric={metric} faded={d < bounds.min || d > bounds.max} />
+                <Column
+                  store={store}
+                  station={station}
+                  date={d}
+                  metric={metric}
+                  faded={d < bounds.min || d > bounds.max}
+                  onOpen={() => onOpenDay(d, view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d)))}
+                />
               )}
             />
           </div>
@@ -208,6 +229,10 @@ export function CompareBoard({
                   date={partner(d)}
                   metric={metric}
                   faded={view.linked ? d < bounds.min || d > bounds.max : d < "1977-01-01" || d > last}
+                  onOpen={() => {
+                    const shown = partner(d);
+                    if (shown) onOpenDay(shown, view.linked ? d : addDays(view.target, diffDays(view.compare, d)));
+                  }}
                 />
               )}
             />
