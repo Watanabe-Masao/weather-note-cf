@@ -2,7 +2,6 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays } from "../shared/dates";
-import { CHART_METRICS, type ChartMetricId, chartMetricById, chartMetricFor } from "./chartMetrics";
 import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare";
 import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
@@ -13,6 +12,7 @@ import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
 import { CompareBoard } from "./ui/CompareBoard";
 import { type DayPick, DaySheet } from "./ui/DaySheet";
+import { initialDetailMetric } from "./dayDetail";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
 import { SimilarFace } from "./ui/SimilarFace";
@@ -20,9 +20,9 @@ import { SimilarFace } from "./ui/SimilarFace";
 const PREFETCH_IDLE_MS = 1_000;
 const PREFETCH_RADIUS = 14;
 
-/** The graph fills the sheet: its height minus the tabs, item chips, notes and legend. */
+/** The graph fills the sheet: its height minus the tabs, notes and legend. */
 function chartHeight(sheet: number, m: { forecastOnly?: boolean; emptyNote?: string }) {
-  const chrome = 176 + (m.forecastOnly || m.emptyNote ? 22 : 0);
+  const chrome = 136 + (m.forecastOnly || m.emptyNote ? 22 : 0);
   return Math.round(Math.min(460, Math.max(150, sheet - chrome)));
 }
 
@@ -39,10 +39,7 @@ export function App() {
   const feelSettings = feel.settings;
   const [face, setFace] = useState<"chart" | "bands" | "similar">("chart");
   const [dayPick, setDayPick] = useState<DayPick | null>(null);
-  // The graph has its own item, starting from (and following) the table's.
-  const [chartId, setChartId] = useState<ChartMetricId>(() => chartMetricFor(view.metric));
-  useEffect(() => setChartId(chartMetricFor(view.metric)), [view.metric]);
-  const chartMetric = chartMetricById(chartId);
+
 
   // Tell the store what is on screen (both sides, so neither stays empty).
   useEffect(() => {
@@ -74,11 +71,12 @@ export function App() {
   // The feel row wants hourly data for the visible days, after the daily values (low priority).
   useEffect(() => {
     if (!store) return;
-    if (view.metric !== "temp") return store.wantHours(view.station, [], 2, "table");
+    // Temperature: for the feel row. Radiation: the day's total is added up from the hours.
+    if (view.metric !== "temp" && !metric.needsHours) return store.wantHours(view.station, [], 2, "table");
     const days = [-3, -2, -1, 0, 1, 2, 3].map((n) => addDays(view.target, n));
     const partners = days.map(partner).filter((d): d is string => !!d);
     store.wantHours(view.station, [...days, ...partners], 2, "table");
-  }, [store, view.station, view.target, view.metric, partner]);
+  }, [store, view.station, view.target, view.metric, metric, partner]);
 
   const sheetDetent = full ? "min" : detent;
 
@@ -89,14 +87,16 @@ export function App() {
     store.wantHours(view.station, open ? bandMapDays(view.target, partner) : [], 1, "sheet");
   }, [store, face, sheetDetent, view.station, view.target, partner]);
 
-  // Daily radiation is added up from the hours: the graph asks for them while it shows it.
+  // Keep the chosen item in view in the scrolling chip row (also after a reload).
+  const metricsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!store) return;
-    const open = face === "chart" && sheetDetent !== "min" && chartMetric.needsHours;
-    const days = [-3, -2, -1, 0, 1, 2, 3].map((n) => addDays(view.target, n));
-    const partners = days.map(partner).filter((d): d is string => !!d);
-    store.wantHours(view.station, open ? [...days, ...partners] : [], 1, "chart");
-  }, [store, face, sheetDetent, chartMetric, view.station, view.target, partner]);
+    const row = metricsRef.current;
+    const chip = row?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (!row || !chip) return;
+    const left = chip.offsetLeft - row.offsetLeft;
+    if (left < row.scrollLeft || left + chip.offsetWidth > row.scrollLeft + row.clientWidth)
+      row.scrollTo({ left: left - 8, behavior: "smooth" });
+  }, [view.metric]);
 
   // Measure the space under the comparison table: that is the sheet's middle height.
   const boardRef = useRef<HTMLDivElement>(null);
@@ -148,7 +148,7 @@ export function App() {
         </button>
       </div>
 
-      <div className="metrics" role="tablist">
+      <div className="metrics" role="tablist" ref={metricsRef}>
         {METRICS.map((m) => (
           <button
             key={m.id}
@@ -212,23 +212,14 @@ export function App() {
           }
         >
           {face === "chart" ? (
-            <>
-              <div className="chart-chips">
-                {CHART_METRICS.map((m) => (
-                  <button key={m.id} className={m.id === chartId ? "chip on" : "chip"} onClick={() => setChartId(m.id)}>
-                    {m.label}
-                  </button>
-                ))}
-              </div>
-              <Chart
-                store={store}
-                station={view.station}
-                target={view.target}
-                partner={partner}
-                metric={chartMetric}
-                height={chartHeight(heights[sheetDetent], chartMetric)}
-              />
-            </>
+            <Chart
+              store={store}
+              station={view.station}
+              target={view.target}
+              partner={partner}
+              metric={metric}
+              height={chartHeight(heights[sheetDetent], metric)}
+            />
           ) : face === "bands" ? (
             <BandMap store={store} station={view.station} target={view.target} partner={partner} />
           ) : (
@@ -243,7 +234,7 @@ export function App() {
             store={store}
             station={view.station}
             pick={dayPick}
-            initialMetric={view.metric}
+            initialMetric={initialDetailMetric(view.metric)}
             today={today}
             onClose={() => setDayPick(null)}
           />

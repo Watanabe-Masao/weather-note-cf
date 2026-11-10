@@ -1,9 +1,8 @@
-// What the comparison graph can show: one value (or two) per day, for the target days and
-// their partner days. Chosen in the graph itself; it starts from the table's metric.
+// What the table and the comparison graph can show: one value (or two) per day, for the
+// target days and their partner days. One chip row chooses it for both.
 
 import { MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
 import type { WeatherRow } from "../shared/types";
-import type { MetricId } from "./metrics";
 
 export type ChartMetricId =
   | "temp"
@@ -136,10 +135,7 @@ export const CHART_METRICS: ChartMetric[] = [
   },
   { id: "wind", label: "風速", unit: "m/s", chart: "line", zero: true, series: [{ key: "wind", label: "平均風速", tone: "plain", value: field("wind") }] },
   { id: "gust", label: "最大瞬間風速", unit: "m/s", chart: "line", zero: true, series: [{ key: "gust", label: "最大瞬間", tone: "hot", value: field("gust") }] },
-  { id: "pressure", label: "気圧", unit: "hPa", chart: "line", zero: false, series: [{ key: "pressure", label: "海面気圧", tone: "plain", value: field("pressure") }] },
+  { id: "pressure", label: "気圧", unit: "hPa", chart: "line", zero: false, series: [{ key: "pressure", label: "気圧", tone: "plain", value: field("pressure") }] },
 ];
 
 export const chartMetricById = (id: ChartMetricId) => CHART_METRICS.find((m) => m.id === id)!;
-
-/** The graph opens on the table's metric. */
-export const chartMetricFor = (metric: MetricId): ChartMetricId => metric;

@@ -96,7 +96,7 @@ function Column({
       {metric.series.map((s) => (
         <span key={s.key} className={`cell-value tone-${s.tone}`}>
           {state === "ready" ? (
-            formatValue(day?.row?.[s.key], metric.unit)
+            formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null), metric.unit)
           ) : state === "error" ? (
             <button
               className="retry"

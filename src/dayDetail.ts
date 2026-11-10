@@ -40,8 +40,23 @@ export const FEEL_METRIC: DetailMetric = { id: "feel", label: "肌感", unit: "�
 
 export const detailMetric = (id: DetailMetricId) => (id === "feel" ? FEEL_METRIC : MEASURED.find((m) => m.id === id)!);
 
-/** The detail opens on what the table was showing. */
-export const initialDetailMetric = (metric: MetricId): DetailMetricId => metric;
+/** The detail opens on what the table was showing (its nearest hourly item). */
+export function initialDetailMetric(metric: MetricId): DetailMetricId {
+  switch (metric) {
+    case "rain":
+    case "snow":
+    case "probability":
+    case "sun":
+    case "radiation":
+    case "humidity":
+    case "wind":
+      return metric;
+    case "gust":
+      return "wind";
+    default:
+      return "temp";
+  }
+}
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 

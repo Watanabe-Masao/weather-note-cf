@@ -128,6 +128,13 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
     if (moved > 80 || moved < 6) onClose();
   };
 
+  // Opened on snow or rain chance for days that have none: show temperature instead.
+  const offered = offeredMetrics(hours?.rows ?? [], otherHours?.rows ?? [], settings);
+  const loaded = hours?.state === "ready" && (!other || otherHours?.state === "ready");
+  useEffect(() => {
+    if (loaded && metricId !== "feel" && !offered.some((m) => m.id === metricId)) setMetricId("temp");
+  }, [loaded, metricId, offered]);
+
   const at = (points: HourPoint[]) => points[shownHour - 1]?.v ?? null;
 
   return (
@@ -192,7 +199,7 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
         </div>
         {metricId !== "feel" ? (
           <div className="day-metrics">
-            {offeredMetrics(hours?.rows ?? [], otherHours?.rows ?? [], settings).map((m) => (
+            {offered.map((m) => (
               <button key={m.id} className={m.id === metricId ? "chip on" : "chip"} onClick={() => setMetricId(m.id)}>
                 {m.label}
               </button>
