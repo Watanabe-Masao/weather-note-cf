@@ -80,3 +80,87 @@ th:nth-child(2) {
 .credit a {
   color: var(--muted);
 }
+
+.week-nav {
+  display: flex;
+  gap: 8px;
+  margin: 16px 0 8px;
+}
+
+button {
+  flex: 1;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 6px;
+  font-size: 14px;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+tr.center td {
+  background: var(--panel);
+}
+
+td.sat {
+  color: var(--cold);
+}
+
+td.sun {
+  color: var(--hot);
+}
+
+.tag {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.skeleton {
+  display: block;
+  height: 12px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--panel) 0%, var(--line) 50%, var(--panel) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
+.report dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  font-size: 13px;
+  margin: 0;
+}
+
+.report dt {
+  color: var(--muted);
+}
+
+.report dd {
+  margin: 0;
+  text-align: right;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
