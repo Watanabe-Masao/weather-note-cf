@@ -236,11 +236,11 @@ export function App() {
                   <button className="chip back" onClick={() => setFace("chart")} aria-label="日別に戻る">
                     ‹ 日別
                   </button>
-                  <span className="sheet-head-title">{`${+view.target.slice(5, 7)}/${+view.target.slice(8)} の時間帯`}</span>
+                  <span className="sheet-head-title">{`${metric.label}の時間帯`}</span>
                 </>
               ) : (
                 <>
-                  <span className="sheet-head-title">日別</span>
+                  <span className="sheet-head-title">{`${metric.label}の日別`}</span>
                   <span className="sheet-head-hint">日をタップで時間帯 ›</span>
                 </>
               )}
