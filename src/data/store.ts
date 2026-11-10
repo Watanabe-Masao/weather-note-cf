@@ -89,7 +89,7 @@ export class WeatherStore {
   private scheduled = false;
   private latest = new Map<string, WeatherRow>(); // station -> latest observation today
   private view: { station: string; centers: string[]; direction: Direction } | null = null;
-  private extra = new Map<string, { station: string; priority: number }>(); // prefetch / hour requests: dayKey
+  private extra = new Map<string, Map<string, { station: string; priority: number }>>(); // owner -> dayKey -> request
   private hourRequests = new Map<string, Map<string, number>>(); // owner -> hour dayKey -> priority
   private persisted: StorageReport["persisted"] = "unsupported";
   private lostSince: number | null = null;
@@ -213,11 +213,16 @@ export class WeatherStore {
     this.sync();
   }
 
-  /** Low-priority days to have ready (comparison presets). Replaces the previous prefetch; [] cancels it. */
-  prefetch(station: string, dates: string[]): void {
-    this.extra = new Map(
-      dates.filter((d) => this.inRange(d)).map((d) => [dayKey(station, d), { station, priority: Priority.Prefetch }]),
+  /**
+   * Extra days to have ready, declared by one part of the screen (`owner`): the comparison presets
+   * when idle, or the similar-day search. Replaces that owner's previous request; [] cancels it.
+   */
+  prefetch(station: string, dates: string[], owner = "presets", priority: number = Priority.Prefetch): void {
+    const wanted = new Map(
+      dates.filter((d) => this.inRange(d)).map((d) => [dayKey(station, d), { station, priority }] as const),
     );
+    if (wanted.size) this.extra.set(owner, wanted);
+    else this.extra.delete(owner);
     this.sync();
   }
 
@@ -290,7 +295,8 @@ export class WeatherStore {
       for (const [date, p] of viewPlan(this.view.centers, this.view.direction, this.today))
         put(this.view.station, date, p);
     }
-    for (const [k, v] of this.extra) put(v.station, k.slice(k.indexOf("/") + 1), v.priority);
+    for (const requests of this.extra.values())
+      for (const [k, v] of requests) put(v.station, k.slice(k.indexOf("/") + 1), v.priority);
     return out;
   }
 

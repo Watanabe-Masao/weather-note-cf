@@ -13,13 +13,14 @@ import { Chart } from "./ui/Chart";
 import { CompareBoard } from "./ui/CompareBoard";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
+import { SimilarFace } from "./ui/SimilarFace";
 
 const PREFETCH_IDLE_MS = 1_000;
 const PREFETCH_RADIUS = 14;
 
 export function App() {
   const store = useWeatherStore();
-  const { view, today: startToday, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, set } =
+  const { view, today: startToday, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set } =
     useViewState();
   const today = store?.today ?? startToday;
   const [detent, setDetent] = useState<Detent>("mid");
@@ -28,7 +29,7 @@ export function App() {
   const metric = metricById(view.metric);
   const feel = useFeelSettings(view.station, view.sun);
   const feelSettings = feel.settings;
-  const [face, setFace] = useState<"chart" | "bands">("chart");
+  const [face, setFace] = useState<"chart" | "bands" | "similar">("chart");
 
   // Tell the store what is on screen (both sides, so neither stays empty).
   useEffect(() => {
@@ -158,7 +159,7 @@ export function App() {
 
       <FeelContext.Provider value={feelSettings}>
         <GraphSheet
-          title={face === "chart" ? "比較グラフ" : "時間帯"}
+          title={face === "chart" ? "比較グラフ" : face === "bands" ? "時間帯" : "似た日"}
           detent={sheetDetent}
           heights={heights}
           onDetent={setDetent}
@@ -168,6 +169,7 @@ export function App() {
                 [
                   ["chart", "比較グラフ"],
                   ["bands", "時間帯"],
+                  ["similar", "似た日"],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -188,8 +190,10 @@ export function App() {
         >
           {face === "chart" ? (
             <Chart store={store} station={view.station} target={view.target} partner={partner} metric={metric} />
-          ) : (
+          ) : face === "bands" ? (
             <BandMap store={store} station={view.station} target={view.target} partner={partner} />
+          ) : (
+            <SimilarFace store={store} station={view.station} target={view.target} compareDate={compareDate} onPick={pickCompare} />
           )}
         </GraphSheet>
       </FeelContext.Provider>
