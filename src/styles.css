@@ -1188,3 +1188,315 @@ select.chip {
   align-self: stretch;
   max-width: 100%;
 }
+
+/* ---- day detail ---- */
+
+.cell-stack.tappable {
+  cursor: pointer;
+}
+
+.cell-stack.tappable:active {
+  background: rgba(124, 196, 255, 0.08);
+}
+
+.day-sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 10, 18, 0.6);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 25;
+}
+
+.day-sheet {
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--panel);
+  border-radius: 18px 18px 0 0;
+  padding: 0 12px max(14px, env(safe-area-inset-bottom));
+  animation: rise 0.22s ease-out;
+  transition: transform 0.2s ease-out;
+}
+
+.day-sheet .sheet-handle {
+  position: sticky;
+  top: 0;
+  background: var(--panel);
+  z-index: 1;
+}
+
+.day-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.day-head h2 {
+  font-size: 18px;
+  margin: 0;
+}
+
+.day-rel {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 10px;
+  padding: 1px 8px;
+  margin-right: 8px;
+  vertical-align: 2px;
+}
+
+.day-summary {
+  background: var(--panel-2);
+  border-radius: 12px;
+  padding: 10px 12px;
+}
+
+.day-weather {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.day-icon {
+  width: 30px;
+  height: 30px;
+  display: inline-grid;
+  place-items: center;
+}
+
+.day-icon svg {
+  width: 30px;
+  height: 30px;
+}
+
+.day-text {
+  flex: 1;
+}
+
+.day-kind {
+  font-size: 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 1px 7px;
+  color: var(--muted);
+}
+
+.day-kind.kind-予報 {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.day-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin: 10px 0 6px;
+}
+
+.day-tile {
+  text-align: center;
+}
+
+.day-tile dt {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.day-tile dd {
+  margin: 0;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.day-tile dd small {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 1px;
+}
+
+.day-tile dd.diff,
+.day-readout .diff {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.day-sun {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 2px 0 0;
+}
+
+.day-sun.small {
+  font-size: 11px;
+  margin: 4px 4px 0;
+}
+
+.day-other {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+}
+
+.day-other > span:first-child {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.day-other-weather {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.day-other-weather svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.day-swap {
+  color: var(--accent);
+  font-size: 15px;
+}
+
+.day-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  margin: 12px 0 8px;
+  background: var(--panel-2);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.day-switch button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 13px;
+  padding: 6px;
+  border-radius: 8px;
+}
+
+.day-switch button.on {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.day-metrics {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  margin-bottom: 4px;
+}
+
+.day-feel-note,
+.day-status {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 4px 2px;
+}
+
+.day-chart {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.day-night {
+  fill: rgba(0, 0, 0, 0.22);
+}
+
+.day-band-edge {
+  stroke: var(--line);
+}
+
+.day-band-label {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+.day-now {
+  stroke: var(--accent);
+  stroke-dasharray: 3 3;
+}
+
+.day-now-label {
+  fill: var(--accent);
+  font-size: 10px;
+}
+
+.day-cursor {
+  stroke: var(--text);
+  opacity: 0.35;
+}
+
+.day-readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  margin: 2px 4px;
+}
+
+.day-legend {
+  margin: 6px 0 0;
+}
+
+.day-legend-lines {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 11px;
+  color: var(--muted);
+  margin: 6px 4px 0;
+}
+
+.day-legend-lines i {
+  display: inline-block;
+  width: 18px;
+  margin-right: 4px;
+  vertical-align: middle;
+  border-top: 2px solid var(--muted);
+}
+
+.day-legend-lines .lg-dotted {
+  border-top-style: dotted;
+}
+
+.day-legend-lines .lg-dashed {
+  border-top-style: dashed;
+}
+
+.day-cursor-bar {
+  fill: var(--text);
+  opacity: 0.08;
+}

@@ -11,6 +11,7 @@ import { BandMap, bandMapDays } from "./ui/BandMap";
 import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
 import { CompareBoard } from "./ui/CompareBoard";
+import { type DayPick, DaySheet } from "./ui/DaySheet";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
 import { SimilarFace } from "./ui/SimilarFace";
@@ -30,6 +31,7 @@ export function App() {
   const feel = useFeelSettings(view.station, view.sun);
   const feelSettings = feel.settings;
   const [face, setFace] = useState<"chart" | "bands" | "similar">("chart");
+  const [dayPick, setDayPick] = useState<DayPick | null>(null);
 
   // Tell the store what is on screen (both sides, so neither stays empty).
   useEffect(() => {
@@ -153,6 +155,7 @@ export function App() {
             moveTarget={moveTarget}
             moveCompare={moveCompare}
             onToggleSun={() => set("sun", !view.sun)}
+            onOpenDay={(date, other) => setDayPick({ date, other })}
           />
         </FeelContext.Provider>
       </div>
@@ -197,6 +200,20 @@ export function App() {
           )}
         </GraphSheet>
       </FeelContext.Provider>
+
+      {dayPick && (
+        <FeelContext.Provider value={feelSettings}>
+          <DaySheet
+            store={store}
+            station={view.station}
+            pick={dayPick}
+            initialMetric={view.metric}
+            today={today}
+            onSwap={() => setDayPick((p) => (p?.other ? { date: p.other, other: p.date } : p))}
+            onClose={() => setDayPick(null)}
+          />
+        </FeelContext.Provider>
+      )}
 
       {settings && (
         <Settings
