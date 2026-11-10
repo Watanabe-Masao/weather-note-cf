@@ -209,7 +209,6 @@ export function App() {
             pick={dayPick}
             initialMetric={view.metric}
             today={today}
-            onSwap={() => setDayPick((p) => (p?.other ? { date: p.other, other: p.date } : p))}
             onClose={() => setDayPick(null)}
           />
         </FeelContext.Provider>

@@ -34,7 +34,6 @@ interface Props {
   pick: DayPick;
   initialMetric: DetailMetricId;
   today: string;
-  onSwap: () => void;
   onClose: () => void;
 }
 
@@ -72,7 +71,7 @@ function useSun(station: string, date: string | null, today: string, row: Weathe
   return fromRow ?? sun;
 }
 
-export function DaySheet({ store, station, pick, initialMetric, today, onSwap, onClose }: Props) {
+export function DaySheet({ store, station, pick, initialMetric, today, onClose }: Props) {
   const settings = useContext(FeelContext);
   const { date, other } = pick;
   const [metricId, setMetricId] = useState<DetailMetricId>(initialMetric);
@@ -100,7 +99,6 @@ export function DaySheet({ store, station, pick, initialMetric, today, onSwap, o
   const row = day?.row;
   const otherRow = otherDay?.row;
   const sun = useSun(station, date, today, row);
-  const otherSun = useSun(station, other, today, otherRow);
 
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings), [otherHours, metricId, settings]);
@@ -168,23 +166,15 @@ export function DaySheet({ store, station, pick, initialMetric, today, onSwap, o
             <Tile label="湿度" unit="%" v={row?.humidity} o={otherRow?.humidity} hasOther={!!other} digits={0} />
           </dl>
           <p className="day-sun">
-            日の出 {clock(sun?.sunrise ?? null)}　日の入り {clock(sun?.sunset ?? null)}
+            <span>
+              日の出 {clock(sun?.sunrise ?? null)}　日の入り {clock(sun?.sunset ?? null)}
+            </span>
+            {other && (
+              <span className="day-vs">
+                差は <b className={`tone-${dayTone(other)}`}>{shortDate(other).slice(5)}（{weekdayOf(other)}）</b> と比べて
+              </span>
+            )}
           </p>
-          {other && (
-            <button className="day-other" onClick={onSwap}>
-              <span>比べる日</span>
-              <b className={`tone-${dayTone(other)}`}>
-                {shortDate(other)}（{weekdayOf(other)}）
-              </b>
-              <span className="day-other-weather">
-                {otherDay?.state === "ready" && <WeatherIcon text={otherRow?.dayWeather as string | null} />}
-                {(otherRow?.dayWeather as string) ?? ""}
-              </span>
-              <span className="day-swap" aria-label="入れ替え">
-                ⇄
-              </span>
-            </button>
-          )}
         </div>
 
         <div className="day-switch" role="tablist">
@@ -254,12 +244,12 @@ export function DaySheet({ store, station, pick, initialMetric, today, onSwap, o
         <p className="day-legend-lines">
           <span>
             <i className="lg-solid" style={{ borderColor: COLORS.main }} />
-            この日
+            {shortDate(date).slice(5)}
           </span>
           {other && (
             <span>
               <i className="lg-dashed" style={{ borderColor: COLORS.other }} />
-              比べる日
+              {other && shortDate(other).slice(5)}
             </span>
           )}
           <span>
@@ -273,7 +263,6 @@ export function DaySheet({ store, station, pick, initialMetric, today, onSwap, o
             </span>
           )}
         </p>
-        {other && otherSun && (otherSun.sunrise?.slice(11) !== sun?.sunrise?.slice(11) || otherSun.sunset?.slice(11) !== sun?.sunset?.slice(11)) && <p className="day-sun small">比べる日の日の出 {clock(otherSun.sunrise)}　日の入り {clock(otherSun.sunset)}</p>}
       </section>
     </div>
   );
