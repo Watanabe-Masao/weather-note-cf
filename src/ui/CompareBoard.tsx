@@ -235,8 +235,8 @@ export function CompareBoard({
   );
 
   return (
-    // Mirrored: the comparison header sits under its table, so the tables meet and one band joins their centres.
-    <section ref={boardRef} className="board linked-band mirror">
+    // One band joins the two tables' centre columns, passing the (left-aligned) comparison header.
+    <section ref={boardRef} className="board linked-band">
       {band && <div className="center-band" style={band} aria-hidden />}
       <div className="side side-target">
         <DateNav
@@ -277,6 +277,7 @@ export function CompareBoard({
       </div>
 
       <div className="side side-compare">
+        {compareNav}
         <div className="side-body">
           <Labels metric={metric} past sun={view.sun} onToggleSun={onToggleSun} />
           <div className="strip-wrap" ref={lowWrap}>
@@ -306,7 +307,6 @@ export function CompareBoard({
             />
           </div>
         </div>
-        {compareNav}
       </div>
 
       {calendar && (

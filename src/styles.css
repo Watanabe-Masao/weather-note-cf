@@ -2106,3 +2106,27 @@ button.label-feel.shade small {
 .cell-feel.tappable-feel:active {
   opacity: 0.7;
 }
+
+/* ---- compact, left-aligned date header ---- */
+
+.date-nav {
+  grid-template-columns: auto auto auto minmax(0, 1fr);
+  justify-content: start;
+  gap: 0;
+  padding: 2px 8px 2px 2px;
+}
+
+.date-nav .arrow {
+  width: 32px;
+  height: 34px;
+  font-size: 13px;
+}
+
+.date-nav .date-button {
+  font-size: 15px;
+  padding: 2px 2px;
+}
+
+.date-nav .today-slot {
+  justify-content: flex-end;
+}
