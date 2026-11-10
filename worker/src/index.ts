@@ -7,7 +7,7 @@ import type { DailyMonthResponse, HourlyDay, HourlyResponse, Station } from "../
 import { observations } from "./amedas";
 import { cachedJson, cachedValue, jsonResponse, storeValue } from "./cache";
 import { fetchDailyMonth, fetchHourlyDay } from "./jma-tables";
-import { HOURLY_CONCURRENCY, MAX_HOURLY_DAYS, stations } from "./config";
+import { CACHE_VERSION, HOURLY_CONCURRENCY, MAX_HOURLY_DAYS, stations } from "./config";
 import { fetchForecast, fetchSunTimes } from "./open-meteo";
 
 class BadRequest extends Error {}
@@ -47,7 +47,7 @@ async function handle(req: Request, ctx: ExecutionContext): Promise<Response> {
       const month = q.get("month");
       if (!isMonth(month) || month < monthOf(FIRST_DAY) || month > monthOf(today))
         throw new BadRequest("月の指定が正しくありません。");
-      return cachedJson<DailyMonthResponse>(url.origin, `daily/${station.blockNo}/${month}`, waitUntil, async () => {
+      return cachedJson<DailyMonthResponse>(url.origin, `${CACHE_VERSION}/daily/${station.blockNo}/${month}`, waitUntil, async () => {
         const { rows, source } = await fetchDailyMonth(station, month, today);
         const fixed = isFixedMonth(month, rows, today);
         return {
@@ -66,7 +66,7 @@ async function handle(req: Request, ctx: ExecutionContext): Promise<Response> {
       const ds = daysBetween(from, to);
       if (ds.length > MAX_HOURLY_DAYS) throw new BadRequest(`一度に取得できるのは${MAX_HOURLY_DAYS}日までです。`);
       const days = await mapLimit(ds, HOURLY_CONCURRENCY, async (day): Promise<HourlyDay> => {
-        const key = `hourly/${station.blockNo}/${day}`;
+        const key = `${CACHE_VERSION}/hourly/${station.blockNo}/${day}`;
         const hit = await cachedValue<HourlyDay>(url.origin, key);
         if (hit) return hit;
         try {

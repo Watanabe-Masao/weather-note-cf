@@ -2,7 +2,7 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addDays, daysBetween } from "../../shared/dates";
-import { memoryStorage, openStorage, type Storage } from "../../src/data/db";
+import { DATA_VERSION, memoryStorage, openStorage, type Storage } from "../../src/data/db";
 import { viewPlan } from "../../src/data/plan";
 import { WeatherStore } from "../../src/data/store";
 import { fakeApi, NOW, TODAY } from "./fake-api";
@@ -304,9 +304,17 @@ describe("storage", () => {
   it("reports when saved data disappeared since the last session", async () => {
     const storage = await openStorage();
     const { store, local } = makeStore(storage);
-    local.set("weather-note:last-count", "120");
+    local.set(`weather-note:last-count:v${DATA_VERSION}`, "120");
     await store.start();
     expect((await store.report()).lostSince).toBe(120);
+  });
+
+  it("does not call a data-version change a loss", async () => {
+    const storage = await openStorage();
+    const { store, local } = makeStore(storage);
+    local.set("weather-note:last-count", "120");
+    await store.start();
+    expect((await store.report()).lostSince).toBeNull();
   });
 
   it("clears everything and fetches again", async () => {

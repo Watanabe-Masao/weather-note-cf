@@ -16,7 +16,7 @@ import {
   type HourPoint,
   hourSeries,
   initialHour,
-  MEASURED,
+  offeredMetrics,
   signedDiff,
 } from "../dayDetail";
 import { FeelContext, LEVEL_COLORS } from "./FeelBar";
@@ -192,7 +192,7 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
         </div>
         {metricId !== "feel" ? (
           <div className="day-metrics">
-            {MEASURED.map((m) => (
+            {offeredMetrics(hours?.rows ?? [], otherHours?.rows ?? [], settings).map((m) => (
               <button key={m.id} className={m.id === metricId ? "chip on" : "chip"} onClick={() => setMetricId(m.id)}>
                 {m.label}
               </button>

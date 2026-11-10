@@ -27,6 +27,15 @@ describe("daily table", () => {
     }
   });
 
+  it("reads lowest humidity, maximum wind and snow (\"--\" is none)", () => {
+    const [row] = dailyRows();
+    expect(row.humidityMin).toBe(42);
+    expect(row.windMax).toBe(7.9);
+    expect(row.gust).toBe(12.1);
+    expect(row.snow).toBe(0);
+    expect(row.snowDepth).toBe(0);
+  });
+
   it("treats a complete past month as fixed", () => {
     const rows = dailyRows();
     expect(rows.every((r) => r.unpublished?.length === 0)).toBe(true);
@@ -62,6 +71,12 @@ describe("hourly table", () => {
     expect(isFixedHourlyDay("2025-11-01", rows(), TODAY)).toBe(true);
     expect(isFixedHourlyDay("2026-11-09", rows(), TODAY)).toBe(false);
     expect(isFixedHourlyDay("2025-11-01", rows().slice(0, 23), TODAY)).toBe(false);
+  });
+
+  it("leaves snow empty when none was noted, without calling it unpublished", () => {
+    const hours = rows();
+    expect(hours.every((h) => h.snow == null && !h.unpublished?.includes("snow"))).toBe(true);
+    expect(hours[11].radiation).toBe(2.17);
   });
 
   it("rejects a page without the data table", () => {

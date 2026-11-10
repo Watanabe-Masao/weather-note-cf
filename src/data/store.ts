@@ -14,13 +14,14 @@
 import { addDays, daysBetween, FIRST_DAY, jstToday, monthOf } from "../../shared/dates";
 import { isFixedDay, isFixedHourlyDay } from "../../shared/fixed";
 import type { DailyMonthResponse, HourlyResponse, WeatherRow } from "../../shared/types";
-import type { DayRecord, HourRecord, Kind, Storage } from "./db";
+import { DATA_VERSION, type DayRecord, type HourRecord, type Kind, type Storage } from "./db";
 import { type Direction, isRecent, lastDay, Priority, sourceFor, viewPlan } from "./plan";
 import { RequestQueue } from "./queue";
 
 export const RETRY_DELAYS = [5_000, 30_000, 120_000];
 export const MAX_HOURLY_SPAN = 14;
-const LAST_COUNT_KEY = "weather-note:last-count";
+// Per data version: a version change empties the store on purpose, which is not a loss.
+const LAST_COUNT_KEY = `weather-note:last-count:v${DATA_VERSION}`;
 
 export type FetchJson = <T>(path: string) => Promise<T>;
 

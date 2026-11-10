@@ -5,8 +5,9 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
+import type { ChartMetric } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
-import { formatValue, type Metric } from "../metrics";
+import { formatValue } from "../metrics";
 
 interface Props {
   store: WeatherStore | null;
@@ -14,11 +15,12 @@ interface Props {
   target: string;
   /** Comparison day for each target day (null when it has none). */
   partner: (date: string) => string | null;
-  metric: Metric;
+  metric: ChartMetric;
+  /** Drawing height: the graph grows with the sheet. */
+  height?: number;
 }
 
 const COLORS = { hot: "#f08b7d", cold: "#6fb3f2", rain: "#6fb3f2", plain: "#9fd3c7" } as const;
-const H = 190;
 const PAD = { left: 34, right: 10, top: 14, bottom: 30 };
 
 interface Point {
@@ -27,7 +29,8 @@ interface Point {
   forecast: boolean;
 }
 
-export function Chart({ store, station, target, partner, metric }: Props) {
+export function Chart({ store, station, target, partner, metric, height = 190 }: Props) {
+  const H = height;
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   useLayoutEffect(() => {
@@ -42,29 +45,32 @@ export function Chart({ store, station, target, partner, metric }: Props) {
   const step = (w - PAD.left - PAD.right) / days.length;
   const xOf = (i: number) => PAD.left + step * (i + 0.5);
 
-  const read = (date: string | null, key: string): { v: number | null; forecast: boolean } => {
+  const read = (date: string | null, s: ChartMetric["series"][number]): { v: number | null; forecast: boolean } => {
     if (!date) return { v: null, forecast: false };
     const day = store?.getDay(station, date);
-    const v = day?.row?.[key];
-    return { v: typeof v === "number" ? v : null, forecast: day?.row?.type === "forecast" };
+    const hours = metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null;
+    return { v: s.value(day?.row, hours), forecast: day?.row?.type === "forecast" };
   };
 
   const series = metric.series.flatMap((s) => [
-    { s, compare: false, points: days.map((d, i): Point => ({ x: xOf(i), ...read(d, s.key) })) },
-    { s, compare: true, points: days.map((d, i): Point => ({ x: xOf(i), ...read(partner(d), s.key) })) },
+    { s, compare: false, points: days.map((d, i): Point => ({ x: xOf(i), ...read(d, s) })) },
+    { s, compare: true, points: days.map((d, i): Point => ({ x: xOf(i), ...read(partner(d), s) })) },
   ]);
   const values = series.flatMap((x) => x.points.map((p) => p.v)).filter((v): v is number => v != null);
   let lo = values.length ? Math.min(...values) : 0;
   let hi = values.length ? Math.max(...values) : 1;
-  if (metric.chart === "bar" || metric.id === "wind") lo = 0;
+  if (metric.zero) lo = 0;
+  const nothing = metric.emptyNote && !values.some((v) => v > 0);
   const pad = Math.max((hi - lo) * 0.12, metric.unit === "℃" ? 1 : 0.5);
   if (lo !== 0) lo -= pad;
-  hi += pad;
+  hi = metric.max ?? hi + pad;
   const yOf = (v: number) => PAD.top + ((hi - v) * (H - PAD.top - PAD.bottom)) / (hi - lo);
   const ticks = [0, 0.5, 1].map((f) => lo + (hi - lo) * f);
 
   return (
     <div ref={ref} className="chart">
+      {nothing && <p className="chart-note">{metric.emptyNote}</p>}
+      {metric.forecastOnly && <p className="chart-note">予報の日だけの値です（過去の日にはありません）</p>}
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の比較グラフ`}>
         {/* centre day */}
         <rect x={xOf(3) - step / 2} y={PAD.top - 6} width={step} height={H - PAD.top - PAD.bottom + 6} className="chart-center" />

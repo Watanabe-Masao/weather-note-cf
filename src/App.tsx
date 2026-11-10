@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays } from "../shared/dates";
+import { CHART_METRICS, type ChartMetricId, chartMetricById, chartMetricFor } from "./chartMetrics";
 import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare";
 import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
@@ -19,6 +20,12 @@ import { SimilarFace } from "./ui/SimilarFace";
 const PREFETCH_IDLE_MS = 1_000;
 const PREFETCH_RADIUS = 14;
 
+/** The graph fills the sheet: its height minus the tabs, item chips, notes and legend. */
+function chartHeight(sheet: number, m: { forecastOnly?: boolean; emptyNote?: string }) {
+  const chrome = 176 + (m.forecastOnly || m.emptyNote ? 22 : 0);
+  return Math.round(Math.min(460, Math.max(150, sheet - chrome)));
+}
+
 export function App() {
   const store = useWeatherStore();
   const { view, today: startToday, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set } =
@@ -32,6 +39,10 @@ export function App() {
   const feelSettings = feel.settings;
   const [face, setFace] = useState<"chart" | "bands" | "similar">("chart");
   const [dayPick, setDayPick] = useState<DayPick | null>(null);
+  // The graph has its own item, starting from (and following) the table's.
+  const [chartId, setChartId] = useState<ChartMetricId>(() => chartMetricFor(view.metric));
+  useEffect(() => setChartId(chartMetricFor(view.metric)), [view.metric]);
+  const chartMetric = chartMetricById(chartId);
 
   // Tell the store what is on screen (both sides, so neither stays empty).
   useEffect(() => {
@@ -77,6 +88,15 @@ export function App() {
     const open = face === "bands" && sheetDetent !== "min";
     store.wantHours(view.station, open ? bandMapDays(view.target, partner) : [], 1, "sheet");
   }, [store, face, sheetDetent, view.station, view.target, partner]);
+
+  // Daily radiation is added up from the hours: the graph asks for them while it shows it.
+  useEffect(() => {
+    if (!store) return;
+    const open = face === "chart" && sheetDetent !== "min" && chartMetric.needsHours;
+    const days = [-3, -2, -1, 0, 1, 2, 3].map((n) => addDays(view.target, n));
+    const partners = days.map(partner).filter((d): d is string => !!d);
+    store.wantHours(view.station, open ? [...days, ...partners] : [], 1, "chart");
+  }, [store, face, sheetDetent, chartMetric, view.station, view.target, partner]);
 
   // Measure the space under the comparison table: that is the sheet's middle height.
   const boardRef = useRef<HTMLDivElement>(null);
@@ -192,7 +212,23 @@ export function App() {
           }
         >
           {face === "chart" ? (
-            <Chart store={store} station={view.station} target={view.target} partner={partner} metric={metric} />
+            <>
+              <div className="chart-chips">
+                {CHART_METRICS.map((m) => (
+                  <button key={m.id} className={m.id === chartId ? "chip on" : "chip"} onClick={() => setChartId(m.id)}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <Chart
+                store={store}
+                station={view.station}
+                target={view.target}
+                partner={partner}
+                metric={chartMetric}
+                height={chartHeight(heights[sheetDetent], chartMetric)}
+              />
+            </>
           ) : face === "bands" ? (
             <BandMap store={store} station={view.station} target={view.target} partner={partner} />
           ) : (
