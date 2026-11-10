@@ -1,8 +1,7 @@
-// The sheet's 似た日 face (spec chapter 6): past days whose weather was close to the target day,
-// from the same season of the past three years. Tap one to make it the comparison day.
+// 似た日 (spec chapter 6): past days whose weather was close to the target day, from the same
+// season of the past three years. Opened from the compare menu; tap one to make it the comparison day.
 
 import { useEffect, useMemo, useState } from "react";
-import { dayTone, weekdayOf } from "../../shared/holidays";
 import {
   candidateDays,
   comparable,
@@ -15,6 +14,8 @@ import {
 import type { WeatherRow } from "../../shared/types";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
+import { signedDiff, UNIT } from "../design/format";
+import { Chip, DayLabel, Num } from "./kit";
 import { WeatherIcon } from "./WeatherIcon";
 
 interface Props {
@@ -25,9 +26,6 @@ interface Props {
   onPick: (date: string) => void;
 }
 
-const fmt = (v: number) => v.toFixed(1);
-const diff = (v: number) => (Math.abs(v) < 0.05 ? "±0" : `${v > 0 ? "+" : "−"}${Math.abs(v).toFixed(1)}`);
-const label = (d: string) => `${d.slice(0, 4)}/${+d.slice(5, 7)}/${+d.slice(8)}`;
 
 export function SimilarFace({ store, station, target, compareDate, onPick }: Props) {
   const [filter, setFilter] = useState<WeekdayFilter>("any");
@@ -52,51 +50,75 @@ export function SimilarFace({ store, station, target, compareDate, onPick }: Pro
   }
   const matches = origin ? findSimilar(origin, target, rows, filter) : [];
 
+  // Where the current comparison day stands, when it is one of the candidates.
+  const currentIndex = compareDate ? matches.findIndex((m) => m.date === compareDate) : -1;
+  const current = compareDate && currentIndex < 0 && origin ? comparable(store?.getDay(station, compareDate).row) : null;
+
   return (
     <div className="similar-face">
-      <p className="similar-origin">
+      <div className="similar-origin">
         {origin ? (
           <>
-            <WeatherIcon text={originDay?.row?.dayWeather as string | null} size={22} />
-            <b>{label(target)}</b>
-            <span className={`tone-${dayTone(target)}`}>（{weekdayOf(target)}）</span>
-            {originDay?.row?.type === "forecast" ? "の予報" : ""}に近い日
-            <small>
-              最高 {fmt(origin.max)}℃ / 最低 {fmt(origin.min)}℃ / 降水 {fmt(origin.rain)}mm
-            </small>
+            <p className="similar-title">
+              <WeatherIcon text={originDay?.row?.dayWeather as string | null} size={22} />
+              <DayLabel date={target} year />
+              <span>{originDay?.row?.type === "forecast" ? "の予報" : ""}に近い日</span>
+            </p>
+            <p className="similar-values">
+              最高 <Num value={origin.max} unit={UNIT.temp} tone="hot" />
+              最低 <Num value={origin.min} unit={UNIT.temp} tone="cold" />
+              降水 <Num value={origin.rain} unit={UNIT.rain} tone="rain" />
+            </p>
           </>
         ) : (
-          "対象日のデータを取得中…"
+          <p className="similar-title">対象日のデータを取得中…</p>
         )}
-      </p>
-      <p className="similar-scope">
-        過去{YEARS_BACK}年の同じ時期（±{SEASON_RADIUS}日）
-        {loaded < candidates.length && `・取得中 ${loaded}/${candidates.length}日`}
-      </p>
-      <div className="trend-chips">
+        <p className="similar-note">
+          過去{YEARS_BACK}年の同じ時期（前後{SEASON_RADIUS}日）から。近さは100が同じ天気。タップでその日を比較日にします。
+          {loaded < candidates.length && <span className="loading">取得中 {loaded}/{candidates.length}日</span>}
+        </p>
+      </div>
+      <div className="chip-row">
         {WEEKDAY_FILTERS.map((f) => (
-          <button key={f.id} className={filter === f.id ? "on" : ""} onClick={() => setFilter(f.id)} aria-pressed={filter === f.id}>
+          <Chip key={f.id} size="sm" on={filter === f.id} onClick={() => setFilter(f.id)}>
             {f.label}
-          </button>
+          </Chip>
         ))}
       </div>
+      {current && compareDate && (
+        <p className="similar-current">
+          今の比較日 <DayLabel date={compareDate} year /> は上位{matches.length}件に入っていません
+        </p>
+      )}
       <ol className="similar-list">
+        <li className="similar-head" aria-hidden>
+          <span />
+          <span>日付</span>
+          <span />
+          <span>最高</span>
+          <span>最低</span>
+          <span>降水</span>
+          <span>近さ</span>
+        </li>
         {matches.map((m, i) => (
           <li key={m.date}>
-            <button className={m.date === compareDate ? "current" : ""} onClick={() => onPick(m.date)}>
+            <button className={m.date === compareDate ? "current" : ""} onClick={() => onPick(m.date)} aria-current={m.date === compareDate}>
               <span className="rank">{i + 1}</span>
-              <span className="who">
-                <span className={`tone-${dayTone(m.date)}`}>
-                  {label(m.date)}（{weekdayOf(m.date)}）
-                </span>
-                <span className="values">
-                  <WeatherIcon text={rows.get(m.date)?.dayWeather as string | null} size={18} />
-                  <span className="hot">{fmt(m.values.max)}</span>
-                  <small>{diff(m.values.max - origin!.max)}</small>
-                  <span className="cold">{fmt(m.values.min)}</span>
-                  <small>{diff(m.values.min - origin!.min)}</small>
-                  <span>{fmt(m.values.rain)}mm</span>
-                </span>
+              <span className="when">
+                <DayLabel date={m.date} year />
+                {m.date === compareDate && <span className="badge relative">比較中</span>}
+              </span>
+              <WeatherIcon text={rows.get(m.date)?.dayWeather as string | null} size={18} />
+              <span className="v">
+                <Num value={m.values.max} unit={UNIT.temp} tone="hot" showUnit={false} />
+                <small>{signedDiff(m.values.max, origin!.max, UNIT.temp)}</small>
+              </span>
+              <span className="v">
+                <Num value={m.values.min} unit={UNIT.temp} tone="cold" showUnit={false} />
+                <small>{signedDiff(m.values.min, origin!.min, UNIT.temp)}</small>
+              </span>
+              <span className="v">
+                <Num value={m.values.rain} unit={UNIT.rain} tone="rain" showUnit={false} />
               </span>
               <span className="close">
                 <b>{m.closeness}</b>
@@ -107,7 +129,6 @@ export function SimilarFace({ store, station, target, compareDate, onPick }: Pro
         ))}
       </ol>
       {origin && matches.length === 0 && loaded === candidates.length && <p className="hint">条件に合う日がありません。</p>}
-      <p className="trend-note">タップするとその日を比較日にします。近さは100が同じ天気。</p>
     </div>
   );
 }

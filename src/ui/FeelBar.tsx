@@ -4,11 +4,13 @@
 import { createContext, useContext } from "react";
 import { type Band, DEFAULT_FEEL, describe, estimatedBands, type FeelSettings, hourlyBands, LEVELS } from "../../shared/feel";
 import type { WeatherStore } from "../data/store";
+import { FEEL_LEVELS } from "../design/tokens";
 
 /** Feel settings for everything below (sun or shade, thresholds, wind). */
 export const FeelContext = createContext<FeelSettings>(DEFAULT_FEEL);
 
-export const LEVEL_COLORS = ["#5b8fd6", "#a9cdf2", "#a8d08d", "#f2c46d", "#ef8a6f"] as const;
+/** The five 肌感 level colours (design tokens). */
+export const LEVEL_COLORS = FEEL_LEVELS;
 
 /** Exact bands when hourly data covers the day, otherwise the estimate, otherwise null. */
 export function bandsFor(

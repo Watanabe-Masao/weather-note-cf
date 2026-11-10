@@ -2,7 +2,7 @@
 // Picking a day makes it the comparison day and closes the sheet.
 
 import type { WeatherStore } from "../data/store";
-import { ModalSheet, SheetCloseButton, useSheetClose } from "./ModalSheet";
+import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { SimilarFace } from "./SimilarFace";
 
 interface Props {
@@ -32,11 +32,7 @@ function Body({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
 
 export function SimilarSheet({ onClose, ...props }: Props) {
   return (
-    <ModalSheet label="似た日" onClose={onClose} className="similar-sheet">
-      <header className="day-head">
-        <h2>似た日から選ぶ</h2>
-        <SheetCloseButton />
-      </header>
+    <ModalSheet title="似た日から選ぶ" onClose={onClose} className="similar-sheet">
       <Body {...props} />
     </ModalSheet>
   );

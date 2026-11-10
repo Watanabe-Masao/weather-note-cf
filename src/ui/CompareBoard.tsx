@@ -160,7 +160,7 @@ function Labels({ metric, past = false, sun, onToggleSun }: { metric: Metric; pa
       {tableSeries(metric, past).map((s) => (
         <span key={s.key} className={`label-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
           {s.tableLabel ?? s.label}
-          {!s.minor && <small>{metric.unit}</small>}
+          <small className="unit">{s.unit ?? metric.unit}</small>
         </span>
       ))}
       {metric.id === "temp" && (
@@ -211,7 +211,7 @@ export function CompareBoard({
   const boardRef = useRef<HTMLElement>(null);
   const topWrap = useRef<HTMLDivElement>(null);
   const lowWrap = useRef<HTMLDivElement>(null);
-  const [band, setBand] = useState<{ left: number; width: number; top: number; height: number } | null>(null);
+  const [band, setBand] = useState<{ left: number; width: number; top: number; height: number; split: number; lowTop: number } | null>(null);
   useLayoutEffect(() => {
     const board = boardRef.current;
     if (!board) return;
@@ -221,7 +221,15 @@ export function CompareBoard({
       const o = board.getBoundingClientRect();
       if (!a || !b) return;
       const width = a.width / 7;
-      setBand({ left: a.left - o.left + width * 3, width, top: a.top - o.top + 2, height: b.bottom - a.top - 4 });
+      setBand({
+        left: a.left - o.left + width * 3,
+        width,
+        top: a.top - o.top + 2,
+        height: b.bottom - a.top - 4,
+        // Where the upper table ends and the lower one starts (for the separate frames in 個別).
+        split: a.bottom - a.top - 4,
+        lowTop: b.top - a.top,
+      });
     };
     measure();
     const ro = new ResizeObserver(measure);
@@ -244,7 +252,20 @@ export function CompareBoard({
   return (
     // One band joins the two tables' centre columns, passing the (left-aligned) comparison header.
     <section ref={boardRef} className="board linked-band">
-      {band && <div className="center-band" style={band} aria-hidden />}
+      {/* 連動: one band joins the pair. 個別: two separate frames — the days move on their own. */}
+      {band &&
+        (view.linked ? (
+          <div className="center-band" style={{ left: band.left, width: band.width, top: band.top, height: band.height }} aria-hidden />
+        ) : (
+          <>
+            <div className="center-band apart" style={{ left: band.left, width: band.width, top: band.top, height: band.split }} aria-hidden />
+            <div
+              className="center-band apart"
+              style={{ left: band.left, width: band.width, top: band.top + band.lowTop, height: band.height - band.lowTop }}
+              aria-hidden
+            />
+          </>
+        ))}
       <div className="side side-target">
         <DateNav
           label={`対象日 ${view.target.slice(0, 4)}`}
