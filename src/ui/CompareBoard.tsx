@@ -32,8 +32,8 @@ interface Props {
   onOpenDay: (date: string, other: string | null, side: "target" | "compare") => void;
   /** Tap on the 肌感 label or legend: open the feel map. */
   onOpenFeel: () => void;
-  /** Comparison header under its table, so the two tables meet in the middle (A/B "中央の帯" B). */
-  mirror?: boolean;
+  /** Show the 肌感 legend and the 日なた/日かげ switch under the tables (A/B "凡例の場所" A). */
+  legend?: boolean;
 }
 
 const EDGE_DAYS = 3;
@@ -169,7 +169,7 @@ export function CompareBoard({
   onToggleSun,
   onOpenDay,
   onOpenFeel,
-  mirror = false,
+  legend = true,
 }: Props) {
   const [calendar, setCalendar] = useState<"target" | "compare" | null>(null);
   const sync = useMemo(() => (view.linked ? new StripSync() : null), [view.linked]);
@@ -204,7 +204,7 @@ export function CompareBoard({
     const ro = new ResizeObserver(measure);
     ro.observe(board);
     return () => ro.disconnect();
-  }, [mirror]);
+  }, []);
   const chip = view.target === today ? null : view.target > today ? "back" : "forward";
   const compareNav = (
         <DateNav
@@ -218,7 +218,8 @@ export function CompareBoard({
   );
 
   return (
-    <section ref={boardRef} className={mirror ? "board linked-band mirror" : "board linked-band"}>
+    // Mirrored: the comparison header sits under its table, so the tables meet and one band joins their centres.
+    <section ref={boardRef} className="board linked-band mirror">
       {band && <div className="center-band" style={band} aria-hidden />}
       <div className="side side-target">
         <DateNav
@@ -258,7 +259,6 @@ export function CompareBoard({
       </div>
 
       <div className="side side-compare">
-        {!mirror && compareNav}
         <div className="side-body">
           <Labels metric={metric} past onOpenFeel={onOpenFeel} />
           <div className="strip-wrap" ref={lowWrap}>
@@ -287,10 +287,10 @@ export function CompareBoard({
             />
           </div>
         </div>
-        {mirror && compareNav}
+        {compareNav}
       </div>
 
-      {metric.id === "temp" && (
+      {legend && metric.id === "temp" && (
         <p className="feel-legend">
           <button className="link feel-open" onClick={onOpenFeel}>
             肌感マップ ›

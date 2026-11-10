@@ -1996,3 +1996,30 @@ button.label-feel small {
   fill: var(--muted);
   font-size: 9px;
 }
+
+.chip.sun-chip.on {
+  color: #f2c46d;
+  border-color: #f2c46d;
+}
+
+.feel-legend.sheet-legend {
+  margin: 0 2px 10px;
+  font-size: 11px;
+}
+
+.controls .chip {
+  white-space: nowrap;
+  flex: none;
+}
+
+.controls select.chip.mode {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 44%;
+  text-overflow: ellipsis;
+}
+
+.controls .sun-chip {
+  padding-left: 10px;
+  padding-right: 10px;
+}

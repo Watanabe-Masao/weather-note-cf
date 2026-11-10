@@ -48,7 +48,7 @@ export function App() {
   const [feelMap, setFeelMap] = useState(false);
   const [similar, setSimilar] = useState(false);
   const ab = useAb();
-  const mirror = ab.variant("drumLink") === "B";
+  const legendUp = ab.variant("legendPlace") === "B";
 
   /** A column tap: that day becomes the selected day and the sheet shows the two days side by side, hour by hour. */
   const openDay = (date: string, other: string | null, side: "target" | "compare") => {
@@ -165,6 +165,16 @@ export function App() {
           <option value={SIMILAR}>似た日から選ぶ…</option>
         </select>
         <span className="spacer" />
+        {legendUp && view.metric === "temp" && (
+          <button
+            className={view.sun ? "chip sun-chip on" : "chip sun-chip"}
+            onClick={() => set("sun", !view.sun)}
+            aria-pressed={view.sun}
+            title="肌感を日なたで見るか、日かげで見るか"
+          >
+            {view.sun ? "☀ 日なた" : "☁ 日かげ"}
+          </button>
+        )}
         <button className={view.linked ? "chip on" : "chip"} onClick={() => setLinked(!view.linked)} aria-pressed={view.linked}>
           {view.linked ? "連動" : "個別"}
         </button>
@@ -205,7 +215,7 @@ export function App() {
             onToggleSun={() => set("sun", !view.sun)}
             onOpenDay={openDay}
             onOpenFeel={() => setFeelMap(true)}
-            mirror={mirror}
+            legend={!legendUp}
           />
         </FeelContext.Provider>
       </div>

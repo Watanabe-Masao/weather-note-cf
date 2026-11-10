@@ -4,14 +4,14 @@
 
 import { useCallback, useState } from "react";
 
-export type AbKey = "drumLink";
+export type AbKey = "legendPlace";
 export type Variant = "A" | "B";
 
 export const AB_QUESTIONS: Record<AbKey, { title: string; A: string; B: string }> = {
-  drumLink: {
-    title: "中央の帯",
-    A: "見出しは上のまま、帯が通り抜ける",
-    B: "比較日の見出しを下へ（上下対称）",
+  legendPlace: {
+    title: "凡例",
+    A: "表の下に凡例と日なた切替",
+    B: "日なた切替は上の行、凡例は肌感マップへ",
   },
 };
 
