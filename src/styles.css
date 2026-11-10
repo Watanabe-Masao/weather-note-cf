@@ -2415,3 +2415,8 @@ select.chip.mini.mode {
   font-size: 10px;
   color: var(--muted);
 }
+
+/* The daily graph pans sideways; vertical moves still scroll and drag the sheet. */
+.chart svg {
+  touch-action: pan-y;
+}

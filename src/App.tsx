@@ -111,7 +111,8 @@ export function App() {
     if (!store) return;
     // Temperature: for the feel row. Radiation: the day's total is added up from the hours.
     if (view.metric !== "temp" && !metric.needsHours) return store.wantHours(view.station, [], 2, "table");
-    const days = [-3, -2, -1, 0, 1, 2, 3].map((n) => addDays(view.target, n));
+    // The visible week plus the daily graph's buffer (it is drawn beyond the edges for swiping).
+    const days = Array.from({ length: 15 }, (_, i) => addDays(view.target, i - 7));
     const partners = days.map(partner).filter((d): d is string => !!d);
     store.wantHours(view.station, [...days, ...partners], 2, "table");
   }, [store, view.station, view.target, view.metric, metric, partner]);
@@ -263,6 +264,7 @@ export function App() {
               metric={metric}
               height={chartHeight(heights[sheetDetent], metric)}
               onPickDay={(d) => openDay(d, partner(d), "target")}
+              onShiftDays={(n) => moveTarget(addDays(view.target, n))}
             />
           ) : (
             <HourFace

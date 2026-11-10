@@ -9,6 +9,7 @@ import { type ChartMetric, graphSeries } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { formatValue } from "../metrics";
 import { FeelContext } from "./FeelBar";
+import { useDrumPan } from "./useDrumPan";
 
 interface Props {
   store: WeatherStore | null;
@@ -21,6 +22,8 @@ interface Props {
   height?: number;
   /** Tap on a day (its column, bars, points or dates): open that day's hours. */
   onPickDay?: (date: string) => void;
+  /** Swipe sideways: the graph follows the finger and moves the selected day by whole days. */
+  onShiftDays?: (days: number) => void;
 }
 
 const COLORS = { hot: "#f08b7d", cold: "#6fb3f2", rain: "#6fb3f2", plain: "#9fd3c7", feel: "#c9a3f5" } as const;
@@ -66,7 +69,10 @@ function useHidden(metric: ChartMetric) {
   return { shown: (key: string) => !hidden.has(key), toggle, reset };
 }
 
-export function Chart({ store, station, target, partner, metric, height = 190, onPickDay }: Props) {
+/** Days drawn beyond each edge, so a swipe reveals real data instead of blank space. */
+const BUFFER = 4;
+
+export function Chart({ store, station, target, partner, metric, height = 190, onPickDay, onShiftDays }: Props) {
   const H = height;
   const feel = useContext(FeelContext);
   const { shown, toggle, reset } = useHidden(metric);
@@ -81,9 +87,11 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
     return () => ro.disconnect();
   }, []);
 
-  const days = [-3, -2, -1, 0, 1, 2, 3].map((n) => addDays(target, n));
-  const step = (w - PAD.left - PAD.right) / days.length;
-  const xOf = (i: number) => PAD.left + step * (i + 0.5);
+  // Seven visible days plus a buffer on each side; index BUFFER is the first visible day.
+  const days = Array.from({ length: 7 + 2 * BUFFER }, (_, i) => addDays(target, i - 3 - BUFFER));
+  const step = (w - PAD.left - PAD.right) / 7;
+  const xOf = (i: number) => PAD.left + step * (i - BUFFER + 0.5);
+  const pan = useDrumPan(ref, step, onShiftDays);
 
   const read = (date: string | null, s: ChartMetric["series"][number]): { v: number | null; forecast: boolean } => {
     if (!date) return { v: null, forecast: false };
@@ -149,7 +157,12 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       {metric.forecastOnly && <p className="chart-note">予報の日だけの値です（過去の日にはありません）</p>}
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の日別グラフ`}>
         {/* centre day */}
-        <rect x={xOf(3) - step / 2} y={PAD.top - 6} width={step} height={H - PAD.top - bottom + 6} className="chart-center" />
+        <defs>
+          <clipPath id={`plot-${metric.id}`}>
+            <rect x={PAD.left - 4} y={0} width={w - PAD.left - PAD.right + 8} height={H} />
+          </clipPath>
+        </defs>
+        <rect x={xOf(3 + BUFFER) - step / 2} y={PAD.top - 6} width={step} height={H - PAD.top - bottom + 6} className="chart-center" />
         {ticks.map((t) => (
           <g key={t}>
             <line x1={PAD.left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
@@ -159,6 +172,8 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           </g>
         ))}
 
+        <g clipPath={`url(#plot-${metric.id})`}>
+        <g style={pan.style}>
         {spreadOn && <Spread top={pick("max", false).points} low={pick("min", false).points} yOf={yOf} />}
 
         {metric.chart === "bar"
@@ -218,11 +233,6 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
 
         {under.map((row, k) => (
           <g key={`under-${k}`}>
-            {row.label && (
-              <text x={PAD.left - 6} y={H - bottom + 14 + k * UNDER_ROW} textAnchor="end" className="chart-spread label">
-                {row.label}
-              </text>
-            )}
             {row.cells.map((c, i) => (
               <text key={i} x={xOf(i)} y={H - bottom + 14 + k * UNDER_ROW} textAnchor="middle" className={row.muted ? "chart-spread other" : "chart-spread"}>
                 {c}
@@ -231,12 +241,6 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           </g>
         ))}
 
-        <text x={PAD.left - 6} y={H - 24} textAnchor="end" className="chart-x-side">
-          対象
-        </text>
-        <text x={PAD.left - 6} y={H - 9} textAnchor="end" className="chart-x-side">
-          比較
-        </text>
         {days.map((d, i) => (
           <g key={d}>
             <text x={xOf(i)} y={H - 24} textAnchor="middle" className={`chart-x tone-${dayTone(d)}`}>
@@ -264,11 +268,28 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
               y={0}
               width={step}
               height={H}
-              onClick={() => onPickDay(d)}
+              onClick={() => !pan.justDragged() && onPickDay(d)}
               role="button"
               aria-label={`${+d.slice(5, 7)}月${+d.slice(8)}日の時間帯を見る`}
             />
           ))}
+        </g>
+        </g>
+
+        {/* Fixed labels at the left edge (they do not move with the days). */}
+        {under.map((row, k) =>
+          row.label ? (
+            <text key={`ul-${k}`} x={PAD.left - 6} y={H - bottom + 14 + k * UNDER_ROW} textAnchor="end" className="chart-spread label">
+              {row.label}
+            </text>
+          ) : null,
+        )}
+        <text x={PAD.left - 6} y={H - 24} textAnchor="end" className="chart-x-side">
+          対象
+        </text>
+        <text x={PAD.left - 6} y={H - 9} textAnchor="end" className="chart-x-side">
+          比較
+        </text>
       </svg>
       <div className="chart-legend">
         <span>
