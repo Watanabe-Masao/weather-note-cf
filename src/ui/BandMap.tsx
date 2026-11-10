@@ -7,6 +7,7 @@ import { type Band, BANDS, describe, feelOf, hourlyBands, LEVELS, radiationOf, s
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
+import { BandTrend } from "./BandTrend";
 import { bandsFor, FeelContext, LEVEL_COLORS } from "./FeelBar";
 
 interface Props {
@@ -217,13 +218,32 @@ function Detail({ store, station, selected, onClose }: { store: WeatherStore | n
 export function BandMap(props: Props) {
   const { store, station, target, partner } = props;
   const [selected, setSelected] = useState<Selected | null>(null);
+  const [view, setView] = useState<"map" | "trend">("map");
   const targets = OFFSETS.map((n) => addDays(target, n));
   return (
     <div className="band-face">
       <Summary {...props} />
-      <MapGrid title="対象日" dates={targets} store={store} station={station} selected={selected} onSelect={setSelected} />
-      <MapGrid title="比較日" dates={targets.map(partner)} store={store} station={station} selected={selected} onSelect={setSelected} />
-      {selected && <Detail store={store} station={station} selected={selected} onClose={() => setSelected(null)} />}
+      <div className="band-view-switch" role="tablist">
+        {(
+          [
+            ["map", "マップ"],
+            ["trend", "推移"],
+          ] as const
+        ).map(([id, label]) => (
+          <button key={id} role="tab" aria-selected={view === id} className={view === id ? "on" : ""} onClick={() => setView(id)}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {view === "map" ? (
+        <>
+          <MapGrid title="対象日" dates={targets} store={store} station={station} selected={selected} onSelect={setSelected} />
+          <MapGrid title="比較日" dates={targets.map(partner)} store={store} station={station} selected={selected} onSelect={setSelected} />
+          {selected && <Detail store={store} station={station} selected={selected} onClose={() => setSelected(null)} />}
+        </>
+      ) : (
+        <BandTrend {...props} />
+      )}
     </div>
   );
 }
