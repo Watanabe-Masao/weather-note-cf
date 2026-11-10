@@ -4,15 +4,10 @@
 
 import { useCallback, useState } from "react";
 
-export type AbKey = "legendPlace" | "sheetHead";
+export type AbKey = "sheetHead";
 export type Variant = "A" | "B";
 
 export const AB_QUESTIONS: Record<AbKey, { title: string; A: string; B: string }> = {
-  legendPlace: {
-    title: "凡例",
-    A: "表の下に凡例と日なた切替",
-    B: "日なた切替は上の行、凡例は肌感マップへ",
-  },
   sheetHead: {
     title: "シート",
     A: "日別／時間帯のタブ",
