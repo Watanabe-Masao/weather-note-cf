@@ -25,12 +25,15 @@ describe("comparison dates", () => {
 
   it("last week and a fixed custom offset", () => {
     expect(matchDate("2026-11-10", "lastWeek")).toBe("2026-11-03");
+    expect(matchDate("2026-11-10", "yesterday")).toBe("2026-11-09");
+    expect(matchDate("2026-03-01", "yesterday")).toBe("2026-02-28");
     expect(matchDate("2026-11-10", "custom", -400)).toBe("2025-10-06");
     expect(offsetOf("2026-11-10", "2025-10-06")).toBe(-400);
   });
 
   it("keeps the comparison day inside the loadable range", () => {
     expect(targetBounds("lastWeek", 0, "2026-11-17")).toEqual({ min: "1977-01-08", max: "2026-11-17" });
+    expect(targetBounds("yesterday", 0, "2026-11-17")).toEqual({ min: "1977-01-02", max: "2026-11-17" });
     expect(targetBounds("custom", 5, "2026-11-17").max).toBe("2026-11-12");
     expect(targetBounds("sameDate", 0, "2026-11-17").min).toBe("1978-01-02");
   });

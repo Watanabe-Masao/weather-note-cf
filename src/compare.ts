@@ -2,11 +2,12 @@
 
 import { addDays, FIRST_DAY } from "../shared/dates";
 
-export type CompareMode = "sameDate" | "sameWeekday" | "lastWeek" | "custom";
+export type CompareMode = "sameDate" | "sameWeekday" | "yesterday" | "lastWeek" | "custom";
 
 export const COMPARE_MODES: { mode: CompareMode; label: string }[] = [
   { mode: "sameDate", label: "前年同日" },
   { mode: "sameWeekday", label: "前年同曜日" },
+  { mode: "yesterday", label: "前日" },
   { mode: "lastWeek", label: "前週" },
   { mode: "custom", label: "カスタム" },
 ];
@@ -18,6 +19,8 @@ export const diffDays = (from: string, to: string) => Math.round((toTime(to) - t
 /** The comparison day for `target`. Null when the mode has no such day (29 February a year earlier). */
 export function matchDate(target: string, mode: CompareMode, customOffset = 0): string | null {
   switch (mode) {
+    case "yesterday":
+      return addDays(target, -1);
     case "lastWeek":
       return addDays(target, -7);
     case "custom":
@@ -42,7 +45,7 @@ export const offsetOf = (target: string, compare: string) => diffDays(target, co
 
 /** Range for the target day so that its comparison day also stays between 1977 and the last forecast day. */
 export function targetBounds(mode: CompareMode, customOffset: number, last: string): { min: string; max: string } {
-  const offset = mode === "custom" ? customOffset : mode === "lastWeek" ? -7 : -366;
+  const offset = mode === "custom" ? customOffset : mode === "yesterday" ? -1 : mode === "lastWeek" ? -7 : -366;
   const min = offset < 0 ? addDays(FIRST_DAY, -offset) : FIRST_DAY;
   const max = offset > 0 ? addDays(last, -offset) : last;
   return { min, max };
