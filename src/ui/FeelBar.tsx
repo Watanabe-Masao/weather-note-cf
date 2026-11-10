@@ -1,8 +1,12 @@
 // The table's small feel bar: five segments from hourly data, or a three-segment estimate
 // (dashed outline) from the daily row until hourly data arrives.
 
+import { createContext, useContext } from "react";
 import { type Band, DEFAULT_FEEL, describe, estimatedBands, type FeelSettings, hourlyBands, LEVELS } from "../../shared/feel";
 import type { WeatherStore } from "../data/store";
+
+/** Feel settings for everything below (sun or shade, thresholds, wind). */
+export const FeelContext = createContext<FeelSettings>(DEFAULT_FEEL);
 
 export const LEVEL_COLORS = ["#5b8fd6", "#a9cdf2", "#a8d08d", "#f2c46d", "#ef8a6f"] as const;
 
@@ -24,7 +28,8 @@ export function bandsFor(
 }
 
 export function FeelBar({ store, station, date }: { store: WeatherStore | null; station: string; date: string }) {
-  const found = bandsFor(store, station, date);
+  const settings = useContext(FeelContext);
+  const found = bandsFor(store, station, date, settings);
   if (!found) {
     const state = store?.getDay(station, date).state;
     return state === "empty" ? <span className="skeleton" /> : <span className="feel-none">—</span>;
@@ -33,7 +38,7 @@ export function FeelBar({ store, station, date }: { store: WeatherStore | null; 
   const title = [
     describe(bands) ?? "",
     ...bands.map((b) => `${b.label} ${b.level == null ? "—" : LEVELS[b.level]}${b.feel == null ? "" : ` ${b.feel.toFixed(0)}℃`}`),
-    exact ? "" : "（日別の値からの目安）",
+    exact ? (settings.sun && bands.some((b) => b.sunCounted) ? "（日なた）" : "（日かげ）") : "（日別の値からの目安・日射なし）",
   ]
     .filter(Boolean)
     .join("\n");

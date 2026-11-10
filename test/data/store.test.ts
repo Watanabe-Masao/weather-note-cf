@@ -321,3 +321,13 @@ describe("storage", () => {
     expect(store.getDay(KOCHI, "2025-06-15").state).toBe("ready");
   });
 });
+
+describe("today's hours", () => {
+  it("keep the forecast's radiation for observed hours, which have none", async () => {
+    const { mergeHours } = await import("../../src/data/store");
+    const forecast = [{ date: TODAY, n: 10, type: "forecast", provider: "Open-Meteo", solar: 420, raw: {}, quality: {} }];
+    const observed = [{ date: TODAY, n: 10, type: "actual", provider: "JMA-amedas", temp: 18, raw: {}, quality: {} }];
+    const [merged] = mergeHours(forecast as never, observed as never);
+    expect(merged).toMatchObject({ type: "actual", temp: 18, solar: 420, solarSource: "forecast" });
+  });
+});

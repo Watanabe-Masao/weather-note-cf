@@ -1,6 +1,10 @@
 import { describe as group, expect, it } from "vitest";
 import {
   apparentTemperature,
+  feelOf,
+  MJ_PER_HOUR_TO_W,
+  radiationOf,
+  sunWarming,
   type Band,
   DEFAULT_FEEL,
   describe,
@@ -95,7 +99,7 @@ group("describing the day", () => {
       ["昼", noon],
       ["夕方", noon],
       ["夜", night],
-    ].map(([label, feel]) => ({ label: label as string, feel: feel as number, temp: null, level: levelOf(feel as number, DEFAULT_FEEL), source: "actual" }));
+    ].map(([label, feel]) => ({ label: label as string, feel: feel as number, temp: null, level: levelOf(feel as number, DEFAULT_FEEL), source: "actual", sunCounted: false }));
 
   it("finds 'cold mornings and evenings, hot midday'", () => {
     expect(describe(bands(9, 27, 12))).toBe("朝晩は冷えるが昼は暑い");
@@ -114,10 +118,44 @@ group("describing the day", () => {
 
   it("works on the three-segment estimate too", () => {
     const est: Band[] = [
-      { label: "朝晩", feel: 9, temp: null, level: 0, source: "actual" },
-      { label: "昼", feel: 27, temp: null, level: 4, source: "actual" },
-      { label: "朝晩", feel: 9, temp: null, level: 0, source: "actual" },
+      { label: "朝晩", feel: 9, temp: null, level: 0, source: "actual", sunCounted: false },
+      { label: "昼", feel: 27, temp: null, level: 4, source: "actual", sunCounted: false },
+      { label: "朝晩", feel: 9, temp: null, level: 0, source: "actual", sunCounted: false },
     ];
     expect(describe(est)).toBe("朝晩は冷えるが昼は暑い");
+  });
+});
+
+group("sunshine", () => {
+  it("adds about 4 ℃ in clear midday sun (600 W/m², 2 m/s, k = 0.12)", () => {
+    expect(sunWarming(600, 2, 0.12)).toBeCloseTo(4.2, 1);
+    expect(sunWarming(0, 2, 0.12)).toBe(0);
+  });
+
+  it("reads JMA hourly radiation in MJ/m² and forecast radiation in W/m²", () => {
+    expect(radiationOf({ radiation: 2.16 })).toBeCloseTo(600, 0);
+    expect(MJ_PER_HOUR_TO_W).toBeCloseTo(277.8, 1);
+    expect(radiationOf({ solar: 450 })).toBe(450);
+    expect(radiationOf({})).toBeNull();
+  });
+
+  it("warms only in the sun, and only where radiation was measured", () => {
+    const sun = feelOf(20, 50, 2, true, DEFAULT_FEEL, 600)!;
+    const shade = feelOf(20, 50, 2, true, { ...DEFAULT_FEEL, sun: false }, 600)!;
+    const noData = feelOf(20, 50, 2, true, DEFAULT_FEEL, null)!;
+    expect(sun - shade).toBeCloseTo(4.2, 1);
+    expect(noData).toBeCloseTo(shade, 5);
+  });
+
+  it("raises midday but not night, widening the day's spread", () => {
+    const rows = Array.from({ length: 24 }, (_, i) => ({
+      ...hour(i + 1, 15),
+      radiation: i + 1 >= 9 && i + 1 <= 15 ? 2 : 0,
+    }));
+    const sun = hourlyBands(rows);
+    const shade = hourlyBands(rows, { ...DEFAULT_FEEL, sun: false });
+    expect(sun[2].feel! - shade[2].feel!).toBeGreaterThan(3); // 昼
+    expect(sun[4].feel).toBeCloseTo(shade[4].feel!, 5); // 夜
+    expect(sun[2].sunCounted).toBe(true);
   });
 });

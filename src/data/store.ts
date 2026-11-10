@@ -687,6 +687,11 @@ export function mergeRecent(base: WeatherRow | null, recent: WeatherRow): Weathe
 export function mergeHours(forecast: WeatherRow[], observed: WeatherRow[]): WeatherRow[] {
   const byHour = new Map<number, WeatherRow>();
   for (const r of forecast) byHour.set(r.n, r);
-  for (const r of observed) byHour.set(r.n, r);
+  for (const r of observed) {
+    // AMeDAS has no radiation: keep the forecast's for that hour so the sunshine term still works.
+    const f = byHour.get(r.n);
+    const solar = typeof r.solar === "number" ? r.solar : f?.type === "forecast" ? f.solar : undefined;
+    byHour.set(r.n, solar === undefined ? r : { ...r, solar, solarSource: r.solar === solar ? "observed" : "forecast" });
+  }
   return [...byHour.values()].sort((a, b) => a.n - b.n);
 }

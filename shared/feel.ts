@@ -2,8 +2,9 @@
 //
 // 1. Apparent temperature: improved Missenard formula with temperature, humidity and wind.
 // 2. Wind is converted from the anemometer height to a person's height (power law).
-// 3. The day is split into five bands, each the average of three hours.
-// 4. Each band gets one of five levels; a phrase describes the day.
+// 3. In the sun, the Australian Bureau of Meteorology's radiation term is added on top.
+// 4. The day is split into five bands, each the average of three hours.
+// 5. Each band gets one of five levels; a phrase describes the day.
 
 import type { WeatherRow } from "./types";
 
@@ -16,6 +17,10 @@ export interface FeelSettings {
   alpha: number;
   /** Anemometer height for observed values (m). Forecast wind is always at 10 m. */
   stationHeight: number;
+  /** Share of global radiation the body absorbs (Q = k × radiation). */
+  absorb: number;
+  /** In the sun (radiation counted) or in the shade. */
+  sun: boolean;
 }
 
 export const SURROUNDINGS = [
@@ -26,7 +31,13 @@ export const SURROUNDINGS = [
 ] as const;
 
 // Default: dense urban (wind × 0.47 at 10 m), chosen after the first look at real data felt too cold.
-export const DEFAULT_FEEL: FeelSettings = { thresholds: [10, 15, 21, 25], alpha: 0.4, stationHeight: 10 };
+export const DEFAULT_FEEL: FeelSettings = {
+  thresholds: [10, 15, 21, 25],
+  alpha: 0.4,
+  stationHeight: 10,
+  absorb: 0.12,
+  sun: true,
+};
 
 export const PERSON_HEIGHT = 1.5;
 export const FORECAST_WIND_HEIGHT = 10;
@@ -44,16 +55,48 @@ export function apparentTemperature(t: number, h: number, v: number): number {
   return 37 - (37 - t) / (0.68 - 0.0014 * h + 1 / a) - 0.29 * t * (1 - h / 100);
 }
 
+/**
+ * Warming from sunshine: the radiation term of the Bureau of Meteorology's apparent temperature,
+ * 0.70·Q/(v₁₀ + 10), with Q = k × global radiation (W/m²) and v₁₀ the wind at 10 m.
+ */
+export function sunWarming(radiation: number, wind10: number, absorb: number): number {
+  return (0.7 * absorb * Math.max(0, radiation)) / (Math.max(0, wind10) + 10);
+}
+
+/** JMA hourly 日射量 is MJ/m² over the hour; as a mean flux that is × 1e6 / 3600 W/m². */
+export const MJ_PER_HOUR_TO_W = 1e6 / 3600;
+
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
-/** Apparent temperature for one row, or null when temperature, humidity or wind is missing. */
-export function feelOf(temp: unknown, humidity: unknown, wind: unknown, forecast: boolean, s: FeelSettings): number | null {
+/** Global radiation of a row in W/m² (forecast `solar`, or JMA `radiation` in MJ/m²); null when not measured. */
+export function radiationOf(row: Record<string, unknown>): number | null {
+  const solar = num(row.solar);
+  if (solar != null) return solar;
+  const mj = num(row.radiation);
+  return mj == null ? null : mj * MJ_PER_HOUR_TO_W;
+}
+
+/**
+ * Apparent temperature for one reading, or null when temperature, humidity or wind is missing.
+ * `radiation` (W/m²) adds the sunshine term when the settings say "in the sun"; null means none.
+ */
+export function feelOf(
+  temp: unknown,
+  humidity: unknown,
+  wind: unknown,
+  forecast: boolean,
+  s: FeelSettings,
+  radiation: number | null = null,
+): number | null {
   const t = num(temp);
   const h = num(humidity);
   const v = num(wind);
   if (t == null || h == null || v == null) return null;
   const height = forecast ? FORECAST_WIND_HEIGHT : s.stationHeight;
-  return apparentTemperature(t, h, windAtPerson(v, height, s.alpha));
+  const base = apparentTemperature(t, h, windAtPerson(v, height, s.alpha));
+  if (!s.sun || radiation == null) return base;
+  const wind10 = forecast ? v : v * (FORECAST_WIND_HEIGHT / height) ** s.alpha;
+  return base + sunWarming(radiation, wind10, s.absorb);
 }
 
 // ---- levels ----------------------------------------------------------------------------------
@@ -85,6 +128,8 @@ export interface Band {
   level: Level | null;
   /** All hours are forecast / some are forecast (today in progress). */
   source: "actual" | "forecast" | "mixed";
+  /** False when no hour of the band had radiation (station without it, or night). */
+  sunCounted: boolean;
 }
 
 const mean = (vs: number[]) => (vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null);
@@ -95,7 +140,7 @@ export function hourlyBands(rows: WeatherRow[], s: FeelSettings = DEFAULT_FEEL):
   return BANDS.map((b) => {
     const hours = b.hours.map((h) => byHour.get(h)).filter((r): r is WeatherRow => !!r);
     const feels = hours
-      .map((r) => feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", s))
+      .map((r) => feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", s, radiationOf(r)))
       .filter((v): v is number => v != null);
     const temps = hours.map((r) => num(r.temp)).filter((v): v is number => v != null);
     const forecastCount = hours.filter((r) => r.type === "forecast").length;
@@ -106,6 +151,7 @@ export function hourlyBands(rows: WeatherRow[], s: FeelSettings = DEFAULT_FEEL):
       temp: mean(temps),
       level: feel == null ? null : levelOf(feel, s),
       source: forecastCount === 0 ? "actual" : forecastCount === hours.length ? "forecast" : "mixed",
+      sunCounted: hours.some((r) => radiationOf(r) != null),
     };
   });
 }
@@ -127,6 +173,7 @@ export function estimatedBands(row: WeatherRow | null, s: FeelSettings = DEFAULT
     temp: num(temp),
     level: levelOf(feel, s),
     source: forecast ? "forecast" : "actual",
+    sunCounted: false, // the daily total cannot give a midday value, so the estimate leaves sunshine out
   });
   return [band("朝晩", low, row.min), band("昼", high, row.max), band("朝晩", low, row.min)];
 }

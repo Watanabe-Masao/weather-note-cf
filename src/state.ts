@@ -19,6 +19,8 @@ export interface ViewState {
   mode: CompareMode;
   offset: number;
   metric: MetricId;
+  /** Feel in the sun (radiation counted) or in the shade. */
+  sun: boolean;
 }
 
 const SAVED = "weather-note:view";
@@ -28,6 +30,7 @@ const DEFAULTS: Omit<ViewState, "target" | "compare"> = {
   mode: "sameDate",
   offset: -364,
   metric: "temp",
+  sun: true,
 };
 
 function load(today: string): ViewState {
@@ -47,9 +50,9 @@ export function useViewState() {
   const [direction, setDirection] = useState<-1 | 0 | 1>(0);
 
   useEffect(() => {
-    const { station, linked, mode, offset, metric } = view;
+    const { station, linked, mode, offset, metric, sun } = view;
     try {
-      localStorage.setItem(SAVED, JSON.stringify({ station, linked, mode, offset, metric }));
+      localStorage.setItem(SAVED, JSON.stringify({ station, linked, mode, offset, metric, sun }));
     } catch {
       // Not saving preferences is harmless.
     }

@@ -26,6 +26,7 @@ interface Props {
   metric: Metric;
   moveTarget: (date: string) => void;
   moveCompare: (date: string) => void;
+  onToggleSun: () => void;
 }
 
 const EDGE_DAYS = 3;
@@ -122,7 +123,18 @@ function Labels({ metric }: { metric: Metric }) {
   );
 }
 
-export function CompareBoard({ store, view, today, last, bounds, compareDate, metric, moveTarget, moveCompare }: Props) {
+export function CompareBoard({
+  store,
+  view,
+  today,
+  last,
+  bounds,
+  compareDate,
+  metric,
+  moveTarget,
+  moveCompare,
+  onToggleSun,
+}: Props) {
   const [calendar, setCalendar] = useState<"target" | "compare" | null>(null);
   const sync = useMemo(() => (view.linked ? new StripSync() : null), [view.linked]);
   const targetDays = useWindow(view.target, bounds.min, bounds.max);
@@ -216,6 +228,9 @@ export function CompareBoard({ store, view, today, last, bounds, compareDate, me
             <i className="dashed" />
             目安
           </span>
+          <button className={view.sun ? "sun-toggle on" : "sun-toggle"} onClick={onToggleSun} aria-pressed={view.sun}>
+            {view.sun ? "☀ 日なた" : "☁ 日かげ"}
+          </button>
         </p>
       )}
 
