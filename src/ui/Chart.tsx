@@ -5,7 +5,7 @@
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
-import type { ChartMetric } from "../chartMetrics";
+import { type ChartMetric, graphSeries } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { formatValue } from "../metrics";
 import { FeelContext } from "./FeelBar";
@@ -86,7 +86,8 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
     return { v: s.value(day?.row, hours, feel), forecast: day?.row?.type === "forecast" };
   };
 
-  const all = metric.series.flatMap((s) => [
+  const lines = graphSeries(metric);
+  const all = lines.flatMap((s) => [
     { s, compare: false, points: days.map((d, i): Point => ({ x: xOf(i), ...read(d, s) })) },
     { s, compare: true, points: days.map((d, i): Point => ({ x: xOf(i), ...read(partner(d), s) })) },
   ]);
@@ -106,6 +107,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
   return (
     <div ref={ref} className="chart">
       {nothing && <p className="chart-note">{metric.emptyNote}</p>}
+      {!series.length && <p className="chart-note">表示する線がありません。下のボタンで選んでください</p>}
       {metric.forecastOnly && <p className="chart-note">予報の日だけの値です（過去の日にはありません）</p>}
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の比較グラフ`}>
         {/* centre day */}
@@ -222,9 +224,9 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
           比較日
         </span>
       </div>
-      {(metric.series.length > 1 || metric.spread) && (
+      {(lines.length > 1 || metric.spread) && (
         <div className="chart-toggles" role="group" aria-label="表示する線">
-          {metric.series.map((s) => (
+          {lines.map((s) => (
             <button
               key={s.key}
               className={shown(s.key) ? "on" : ""}
@@ -244,7 +246,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
         </div>
       )}
       {spreadOn && <p className="chart-note">差の数字は 上：対象日／下：比較日。肌感は日中・昼・夕方の平均</p>}
-      {!spreadOn && shown("feel") && metric.series.some((s) => s.key === "feel") && <p className="chart-note">肌感は日中・昼・夕方の平均</p>}
+      {!spreadOn && shown("feel") && lines.some((s) => s.key === "feel") && <p className="chart-note">肌感は日中・昼・夕方の平均</p>}
     </div>
   );
 }

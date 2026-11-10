@@ -26,6 +26,10 @@ export interface ChartSeries {
   graphOnly?: boolean;
   /** A thin line without dots (a reference, such as the mean). */
   thin?: boolean;
+  /** A table row only (the graph shows it another way, such as the spread band). */
+  tableOnly?: boolean;
+  /** A secondary table row, set smaller. */
+  minor?: boolean;
 }
 
 export interface ChartMetric {
@@ -53,6 +57,9 @@ export interface ChartMetric {
 /** Rows the table shows for an item. */
 export const tableSeries = (m: ChartMetric) => m.series.filter((s) => !s.graphOnly);
 
+/** Lines the graph draws for an item. */
+export const graphSeries = (m: ChartMetric) => m.series.filter((s) => !s.tableOnly);
+
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const field =
   (key: string) =>
@@ -79,7 +86,19 @@ export const CHART_METRICS: ChartMetric[] = [
     series: [
       { key: "max", label: "最高", tone: "hot", value: field("max") },
       { key: "min", label: "最低", tone: "cold", value: field("min") },
-      { key: "temp", label: "平均", tone: "plain", value: field("temp"), graphOnly: true, thin: true },
+      { key: "temp", label: "平均", tone: "plain", value: field("temp"), thin: true, minor: true },
+      {
+        key: "range",
+        label: "寒暖差",
+        tone: "plain",
+        value: (r) => {
+          const max = num(r?.max);
+          const min = num(r?.min);
+          return max == null || min == null ? null : Math.round((max - min) * 10) / 10;
+        },
+        tableOnly: true,
+        minor: true,
+      },
       // 肌感 for the day: mean of the 日中・昼・夕方 band values (日なた温度 or 日かげ温度).
       { key: "feel", label: "肌感", tone: "feel", value: (_r, hours, feel) => daytimeFeel(hours ?? [], feel), graphOnly: true },
     ],

@@ -96,7 +96,7 @@ function Column({
       </span>
       <span className="cell-kind">{state === "outside" ? "範囲外" : kindLabel(store, station, date)}</span>
       {tableSeries(metric).map((s) => (
-        <span key={s.key} className={`cell-value tone-${s.tone}`}>
+        <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
           {state === "ready" ? (
             formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel), metric.unit)
           ) : state === "error" ? (
@@ -128,9 +128,9 @@ function Labels({ metric }: { metric: Metric }) {
       <span className="label-icon">天気</span>
       <span className="label-kind" />
       {tableSeries(metric).map((s) => (
-        <span key={s.key} className={`label-value tone-${s.tone}`}>
+        <span key={s.key} className={`label-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
           {s.label}
-          <small>{metric.unit}</small>
+          {!s.minor && <small>{metric.unit}</small>}
         </span>
       ))}
       {metric.id === "temp" && <span className="label-feel">肌感</span>}
