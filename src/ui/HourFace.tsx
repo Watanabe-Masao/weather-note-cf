@@ -2,13 +2,12 @@
 // comparison day. It follows the table: move the day there and this moves with it.
 
 import { useContext, useEffect, useState } from "react";
-import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { ChartMetricId } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { initialDetailMetric } from "../dayDetail";
 import { FeelContext } from "./FeelBar";
-import { DaySummary } from "./DaySheet";
-import { HourCompare, shortDate } from "./HourCompare";
+import { CompareSummary } from "./CompareSummary";
+import { HourCompare } from "./HourCompare";
 
 interface Props {
   store: WeatherStore | null;
@@ -18,11 +17,11 @@ interface Props {
   metric: ChartMetricId;
   today: string;
   height: number;
-  /** Show the target day's summary above the graph (when a column tap brings the day here). */
+  /** Show the two days side by side above the graph. */
   summary?: boolean;
 }
 
-export function HourFace({ store, station, target, compareDate, metric, today, height, summary = false }: Props) {
+export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true }: Props) {
   const settings = useContext(FeelContext);
   const base = initialDetailMetric(metric);
   // Temperature can also be read as 肌感 (日なた/日かげ温度) hour by hour.
@@ -32,28 +31,16 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
 
   return (
     <div className="hour-face">
-      {summary && <DaySummary store={store} station={station} date={target} other={compareDate} today={today} />}
+      {summary && <CompareSummary store={store} station={station} target={target} other={compareDate} today={today} />}
       <div className="hour-face-head">
-        <p>
-          <b className={`tone-${dayTone(target)}`}>
-            {shortDate(target).slice(5)}（{weekdayOf(target)}）
-          </b>
-          {compareDate && (
-            <>
-              {" "}と{" "}
-              <b className={`tone-${dayTone(compareDate)}`}>
-                {shortDate(compareDate)}（{weekdayOf(compareDate)}）
-              </b>
-            </>
-          )}
-        </p>
+        <p>24時間</p>
         {base === "temp" && (
           <div className="mini-switch" role="tablist" aria-label="気温の見方">
             <button role="tab" aria-selected={!feel} className={feel ? "" : "on"} onClick={() => setFeel(false)}>
               気温
             </button>
             <button role="tab" aria-selected={feel} className={feel ? "on" : ""} onClick={() => setFeel(true)}>
-              {settings.sun ? "日なた" : "日かげ"}
+              {settings.sun ? "日なた温度" : "日かげ温度"}
             </button>
           </div>
         )}

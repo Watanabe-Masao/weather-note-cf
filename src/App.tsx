@@ -12,8 +12,6 @@ import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
 import { AbSwitch } from "./ui/AbSwitch";
 import { CompareBoard } from "./ui/CompareBoard";
-import { type DayPick, DaySheet } from "./ui/DaySheet";
-import { initialDetailMetric } from "./dayDetail";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
 import { FeelSheet } from "./ui/FeelSheet";
@@ -49,13 +47,11 @@ export function App() {
   const [face, setFace] = useState<"chart" | "hours">("chart");
   const [feelMap, setFeelMap] = useState(false);
   const [similar, setSimilar] = useState(false);
-  const [dayPick, setDayPick] = useState<DayPick | null>(null);
   const ab = useAb();
-  const dayInSheet = ab.variant("dayInSheet") === "B";
+  const mirror = ab.variant("drumLink") === "B";
 
-  /** A column tap. A: the day detail opens over the page. B: the day becomes the selected day and the sheet shows its hours. */
+  /** A column tap: that day becomes the selected day and the sheet shows the two days side by side, hour by hour. */
   const openDay = (date: string, other: string | null, side: "target" | "compare") => {
-    if (!dayInSheet) return setDayPick({ date, other });
     if (side === "target") moveTarget(date);
     else if (view.linked && other) moveTarget(other);
     else moveCompare(date);
@@ -209,6 +205,7 @@ export function App() {
             onToggleSun={() => set("sun", !view.sun)}
             onOpenDay={openDay}
             onOpenFeel={() => setFeelMap(true)}
+            mirror={mirror}
           />
         </FeelContext.Provider>
       </div>
@@ -261,24 +258,10 @@ export function App() {
               metric={view.metric}
               today={today}
               height={hourHeight(heights[sheetDetent])}
-              summary={dayInSheet}
             />
           )}
         </GraphSheet>
       </FeelContext.Provider>
-
-      {dayPick && (
-        <FeelContext.Provider value={feelSettings}>
-          <DaySheet
-            store={store}
-            station={view.station}
-            pick={dayPick}
-            initialMetric={initialDetailMetric(view.metric)}
-            today={today}
-            onClose={() => setDayPick(null)}
-          />
-        </FeelContext.Provider>
-      )}
 
       {feelMap && (
         <FeelContext.Provider value={feelSettings}>

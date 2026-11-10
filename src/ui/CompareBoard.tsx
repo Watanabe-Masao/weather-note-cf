@@ -2,7 +2,7 @@
 // Linked: both strips render the same run of target days (the comparison cell is that day's partner)
 // and scroll as one. Independent: each strip has its own run of days.
 
-import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "../../shared/dates";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
@@ -32,6 +32,8 @@ interface Props {
   onOpenDay: (date: string, other: string | null, side: "target" | "compare") => void;
   /** Tap on the 肌感 label or legend: open the feel map. */
   onOpenFeel: () => void;
+  /** Comparison header under its table, so the two tables meet in the middle (A/B "中央の帯" B). */
+  mirror?: boolean;
 }
 
 const EDGE_DAYS = 3;
@@ -167,6 +169,7 @@ export function CompareBoard({
   onToggleSun,
   onOpenDay,
   onOpenFeel,
+  mirror = false,
 }: Props) {
   const [calendar, setCalendar] = useState<"target" | "compare" | null>(null);
   const sync = useMemo(() => (view.linked ? new StripSync() : null), [view.linked]);
@@ -180,10 +183,43 @@ export function CompareBoard({
 
   const partner = (d: string) => (view.linked ? matchDate(d, view.mode, view.offset) : d);
   const station = view.station;
+
+  // One band through both centre columns: the selected day and its comparison day read as one pair.
+  const boardRef = useRef<HTMLElement>(null);
+  const topWrap = useRef<HTMLDivElement>(null);
+  const lowWrap = useRef<HTMLDivElement>(null);
+  const [band, setBand] = useState<{ left: number; width: number; top: number; height: number } | null>(null);
+  useLayoutEffect(() => {
+    const board = boardRef.current;
+    if (!board) return;
+    const measure = () => {
+      const a = topWrap.current?.getBoundingClientRect();
+      const b = lowWrap.current?.getBoundingClientRect();
+      const o = board.getBoundingClientRect();
+      if (!a || !b) return;
+      const width = a.width / 7;
+      setBand({ left: a.left - o.left + width * 3, width, top: a.top - o.top + 2, height: b.bottom - a.top - 4 });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(board);
+    return () => ro.disconnect();
+  }, [mirror]);
   const chip = view.target === today ? null : view.target > today ? "back" : "forward";
+  const compareNav = (
+        <DateNav
+          label={`比較日 ${compareDate?.slice(0, 4) ?? ""}`}
+          date={compareDate}
+          canBack={view.linked ? view.target > bounds.min : view.compare > "1977-01-01"}
+          canForward={view.linked ? view.target < bounds.max : view.compare < last}
+          onStep={(n) => (view.linked ? moveTarget(addDays(view.target, n)) : moveCompare(addDays(view.compare, n)))}
+          onOpenCalendar={() => setCalendar("compare")}
+        />
+  );
 
   return (
-    <section className="board">
+    <section ref={boardRef} className={mirror ? "board linked-band mirror" : "board linked-band"}>
+      {band && <div className="center-band" style={band} aria-hidden />}
       <div className="side side-target">
         <DateNav
           label={`対象日 ${view.target.slice(0, 4)}`}
@@ -197,7 +233,7 @@ export function CompareBoard({
         />
         <div className="side-body">
           <Labels metric={metric} onOpenFeel={onOpenFeel} />
-          <div className="strip-wrap">
+          <div className="strip-wrap" ref={topWrap}>
             <Strip
               id="target"
               dates={targetDays}
@@ -222,17 +258,10 @@ export function CompareBoard({
       </div>
 
       <div className="side side-compare">
-        <DateNav
-          label={`比較日 ${compareDate?.slice(0, 4) ?? ""}`}
-          date={compareDate}
-          canBack={view.linked ? view.target > bounds.min : view.compare > "1977-01-01"}
-          canForward={view.linked ? view.target < bounds.max : view.compare < last}
-          onStep={(n) => (view.linked ? moveTarget(addDays(view.target, n)) : moveCompare(addDays(view.compare, n)))}
-          onOpenCalendar={() => setCalendar("compare")}
-        />
+        {!mirror && compareNav}
         <div className="side-body">
           <Labels metric={metric} past onOpenFeel={onOpenFeel} />
-          <div className="strip-wrap">
+          <div className="strip-wrap" ref={lowWrap}>
             <Strip
               id="compare"
               dates={compareDays}
@@ -258,6 +287,7 @@ export function CompareBoard({
             />
           </div>
         </div>
+        {mirror && compareNav}
       </div>
 
       {metric.id === "temp" && (

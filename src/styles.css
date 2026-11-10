@@ -1785,3 +1785,204 @@ button.label-feel small {
 .hour-face .day-summary {
   margin: 0 2px 10px;
 }
+
+/* ---- one band through both centre columns ---- */
+
+.board.linked-band {
+  position: relative;
+}
+
+/* The per-table frames give way to one band that runs through both tables (and the gap). */
+.board.linked-band .strip-wrap::after {
+  display: none;
+}
+
+.center-band {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  border: 1.5px solid var(--accent);
+  border-radius: 12px;
+  background: linear-gradient(rgba(124, 196, 255, 0.07), rgba(124, 196, 255, 0.04));
+  box-shadow: 0 0 0 1px rgba(124, 196, 255, 0.08), 0 0 18px rgba(124, 196, 255, 0.12);
+}
+
+/* Mirrored: the comparison header sits under its table, so the two tables meet in the middle. */
+.board.mirror {
+  gap: 4px;
+}
+
+.board.mirror .side-target {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.board.mirror .side-compare {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.board.mirror .side-compare .date-nav {
+  border-bottom: none;
+  border-top: 1px solid var(--line);
+}
+
+/* ---- the two days side by side (時間帯) ---- */
+
+.compare-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  margin: 0 2px 10px;
+  padding: 10px 10px 6px;
+  background: var(--panel-2);
+  border-radius: 12px;
+}
+
+.cs-side {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding-bottom: 6px;
+}
+
+.cs-a {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.cs-b {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.cs-date {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cs-rel {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 8px;
+  padding: 0 6px;
+  margin-right: 5px;
+  vertical-align: 1px;
+}
+
+.cs-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 100%;
+}
+
+.cs-a .cs-weather {
+  flex-direction: row-reverse;
+}
+
+.cs-weather svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.cs-weather > span:not(.cs-kind) {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cs-kind {
+  font-size: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 5px;
+  flex: none;
+}
+
+.cs-kind.kind-予報 {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.cs-vs {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  align-self: start;
+  padding-top: 3px;
+}
+
+.cs-row {
+  display: contents;
+}
+
+.cs-val {
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  padding: 2px 0;
+}
+
+.cs-val small {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 1px;
+}
+
+.cs-val.tone-hot {
+  color: var(--hot);
+}
+
+.cs-val.tone-cold,
+.cs-val.tone-rain {
+  color: var(--cold);
+}
+
+.cs-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 64px;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  padding: 1px 6px;
+}
+
+.cs-label {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.cs-diff {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.cs-sun .cs-val {
+  font-size: 13px;
+}
+
+.cs-none {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cs-note {
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}

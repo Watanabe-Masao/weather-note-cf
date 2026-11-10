@@ -4,14 +4,14 @@
 
 import { useCallback, useState } from "react";
 
-export type AbKey = "dayInSheet";
+export type AbKey = "drumLink";
 export type Variant = "A" | "B";
 
 export const AB_QUESTIONS: Record<AbKey, { title: string; A: string; B: string }> = {
-  dayInSheet: {
-    title: "列タップ",
-    A: "日の詳細が上に開く",
-    B: "下のシートの時間帯に要約つきで出る",
+  drumLink: {
+    title: "中央の帯",
+    A: "見出しは上のまま、帯が通り抜ける",
+    B: "比較日の見出しを下へ（上下対称）",
   },
 };
 

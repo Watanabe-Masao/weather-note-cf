@@ -71,6 +71,9 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   useEffect(() => setHour(null), [date]);
 
   const at = (points: HourPoint[]) => points[shownHour - 1]?.v ?? null;
+  // Same month and day a year apart would read "11/10" twice: the comparison day keeps its year.
+  const mainLabel = shortDate(date).slice(5);
+  const otherLabel = other ? (other.slice(0, 4) !== date.slice(0, 4) ? shortDate(other) : shortDate(other).slice(5)) : "";
   const unit = (v: number | null) => (metric.unit !== "h" && v != null ? metric.unit : "");
 
   return (
@@ -92,12 +95,12 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       <p className="day-readout">
         <b>{shownHour}時</b>
         <span style={{ color: COLORS.main }}>
-          {shortDate(date).slice(5)} {formatDetail(at(main), metric)}
+          {mainLabel} {formatDetail(at(main), metric)}
           {unit(at(main))}
         </span>
         {other && (
           <span style={{ color: COLORS.other }}>
-            {shortDate(other).slice(5)} {formatDetail(at(second), metric)}
+            {otherLabel} {formatDetail(at(second), metric)}
             {unit(at(second))}
           </span>
         )}
@@ -130,12 +133,12 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       <p className="day-legend-lines">
         <span>
           <i className="lg-solid" style={{ borderColor: COLORS.main }} />
-          {shortDate(date).slice(5)}
+          {mainLabel}
         </span>
         {other && (
           <span>
             <i className="lg-dashed" style={{ borderColor: COLORS.other }} />
-            {shortDate(other).slice(5)}
+            {otherLabel}
           </span>
         )}
         <span>
