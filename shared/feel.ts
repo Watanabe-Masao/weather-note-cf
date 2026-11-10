@@ -35,7 +35,7 @@ export const DEFAULT_FEEL: FeelSettings = {
   thresholds: [10, 15, 21, 25],
   alpha: 0.4,
   stationHeight: 10,
-  absorb: 0.12,
+  absorb: 0.2, // raised from 0.12 after the first look: sunny spots felt warmer than shown
   sun: true,
 };
 

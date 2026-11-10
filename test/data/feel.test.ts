@@ -143,7 +143,7 @@ group("sunshine", () => {
     const sun = feelOf(20, 50, 2, true, DEFAULT_FEEL, 600)!;
     const shade = feelOf(20, 50, 2, true, { ...DEFAULT_FEEL, sun: false }, 600)!;
     const noData = feelOf(20, 50, 2, true, DEFAULT_FEEL, null)!;
-    expect(sun - shade).toBeCloseTo(4.2, 1);
+    expect(sun - shade).toBeCloseTo(7.0, 1) // default k = 0.2;
     expect(noData).toBeCloseTo(shade, 5);
   });
 
