@@ -51,8 +51,6 @@ export function initialDetailMetric(metric: MetricId): DetailMetricId {
     case "humidity":
     case "wind":
       return metric;
-    case "gust":
-      return "wind";
     default:
       return "temp";
   }

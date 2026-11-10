@@ -139,7 +139,7 @@ function Labels({ metric, past = false }: { metric: Metric; past?: boolean }) {
       <span className="label-kind" />
       {tableSeries(metric, past).map((s) => (
         <span key={s.key} className={`label-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
-          {s.label}
+          {s.tableLabel ?? s.label}
           {!s.minor && <small>{metric.unit}</small>}
         </span>
       ))}

@@ -9,6 +9,7 @@ describe("items", () => {
     expect(knownMetric("mean")).toBe("temp");
     expect(knownMetric("range")).toBe("temp");
     expect(knownMetric("sun")).toBe("radiation");
+    expect(knownMetric("gust")).toBe("wind");
     expect(knownMetric("wind")).toBe("wind");
     expect(knownMetric(undefined)).toBe("temp");
   });
@@ -18,6 +19,7 @@ describe("items", () => {
     expect(tableSeries(rain).map((s) => s.key)).toEqual(["rain", "snow", "probability"]);
     expect(tableSeries(rain, true).map((s) => s.key)).toEqual(["rain", "snow"]);
     expect(tableSeries(chartMetricById("radiation")).map((s) => s.key)).toEqual(["radiation", "sun"]);
+    expect(tableSeries(chartMetricById("wind")).map((s) => s.key)).toEqual(["gust", "wind"]);
     expect(tableSeries(chartMetricById("temp")).map((s) => s.key)).toEqual(["max", "min", "temp", "range"]);
   });
 });

@@ -10,7 +10,6 @@ export type ChartMetricId =
   | "radiation"
   | "humidity"
   | "wind"
-  | "gust"
   | "pressure";
 
 export interface ChartSeries {
@@ -19,6 +18,8 @@ export interface ChartSeries {
   tone: "hot" | "cold" | "rain" | "plain" | "feel";
   /** The day's value; `hours` is that day's hourly rows (empty until loaded). */
   value: (row: WeatherRow | null | undefined, hours: WeatherRow[] | null, feel: FeelSettings) => number | null;
+  /** Shorter name for the narrow table label column. */
+  tableLabel?: string;
   /** Drawn in the graph only, not given a row in the table. */
   graphOnly?: boolean;
   /** A thin line without dots (a reference, such as the mean). */
@@ -170,8 +171,18 @@ export const CHART_METRICS: ChartMetric[] = [
       { key: "humidityMin", label: "最小", tone: "cold", value: field("humidityMin") },
     ],
   },
-  { id: "wind", label: "風速", unit: "m/s", chart: "line", zero: true, series: [{ key: "wind", label: "平均風速", tone: "plain", value: field("wind") }] },
-  { id: "gust", label: "最大瞬間風速", unit: "m/s", chart: "line", zero: true, series: [{ key: "gust", label: "最大瞬間", tone: "hot", value: field("gust") }] },
+  {
+    // Same unit, so one axis: the day's mean wind and its strongest gust as two lines.
+    id: "wind",
+    label: "風速",
+    unit: "m/s",
+    chart: "line",
+    zero: true,
+    series: [
+      { key: "gust", label: "最大瞬間", tableLabel: "瞬間", tone: "hot", value: field("gust") },
+      { key: "wind", label: "平均", tone: "plain", value: field("wind") },
+    ],
+  },
   { id: "pressure", label: "気圧", unit: "hPa", chart: "line", zero: false, series: [{ key: "pressure", label: "気圧", tone: "plain", value: field("pressure") }] },
 ];
 
