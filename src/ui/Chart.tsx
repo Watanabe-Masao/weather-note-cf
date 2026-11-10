@@ -271,6 +271,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
       )}
       {spreadOn && <p className="chart-note">差の数字は 上：対象日／下：比較日。肌感は日中・昼・夕方の平均</p>}
       {metric.under?.some((r) => r.key === "probability") && <p className="chart-note">確率は予報の日だけ。雪は降った日だけ印（上：対象日／下：比較日）</p>}
+      {metric.under?.some((r) => r.key === "gust") && <p className="chart-note">線は平均風速、数字は最大瞬間風速（上：対象日／下：比較日）</p>}
       {metric.under?.some((r) => r.key === "sun") && <p className="chart-note">棒は日射量（暖める力）、数字は日照時間（上：対象日／下：比較日）</p>}
       {!spreadOn && shown("feel") && lines.some((s) => s.key === "feel") && <p className="chart-note">肌感は日中・昼・夕方の平均</p>}
     </div>

@@ -172,16 +172,18 @@ export const CHART_METRICS: ChartMetric[] = [
     ],
   },
   {
-    // Same unit, so one axis: the day's mean wind and its strongest gust as two lines.
+    // The mean wind is what you feel through the day, so it gets the axis; the strongest gust
+    // (several times larger) would flatten it, so it is a row of numbers under the graph instead.
     id: "wind",
     label: "風速",
     unit: "m/s",
     chart: "line",
     zero: true,
     series: [
-      { key: "gust", label: "最大瞬間", tableLabel: "瞬間", tone: "hot", value: field("gust") },
       { key: "wind", label: "平均", tone: "plain", value: field("wind") },
+      { key: "gust", label: "最大瞬間", tableLabel: "瞬間", tone: "hot", value: field("gust"), tableOnly: true, minor: true },
     ],
+    under: [{ key: "gust", label: "瞬間", format: (v) => v.toFixed(1), compare: true }],
   },
   { id: "pressure", label: "気圧", unit: "hPa", chart: "line", zero: false, series: [{ key: "pressure", label: "気圧", tone: "plain", value: field("pressure") }] },
 ];
