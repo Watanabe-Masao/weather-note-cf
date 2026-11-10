@@ -7,6 +7,7 @@
 //   a downward flick closes it; otherwise it springs back. Pulling up meets a rubber band.
 // - The page behind does not scroll while it is open.
 
+import { CloseIcon } from "./icons";
 import {
   createContext,
   type PointerEvent,
@@ -36,9 +37,7 @@ export function SheetCloseButton() {
   const close = useSheetClose();
   return (
     <button className="icon-btn close" onClick={close} aria-label="閉じる" title="閉じる">
-      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
-        <path d="M3.5 3.5l9 9m0-9l-9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      </svg>
+      <CloseIcon />
     </button>
   );
 }

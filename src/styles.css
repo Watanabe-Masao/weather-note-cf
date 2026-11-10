@@ -1121,7 +1121,20 @@ button.label-feel.shade small {
   margin: var(--space-2);
 }
 
-/* The hour's values: 時刻 · 対象日 · 比較日 · 差. */
+/* The hour's values: 時刻 · 対象日 · 比較日 · 差 — a card above the graph, fixed in height so the graph never jumps. */
+.readout-card {
+  margin: 0 2px var(--space-3);
+  padding: 6px 10px 7px;
+  min-height: 44px;
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+}
+
+.readout-card .readout {
+  margin: 0;
+}
+
 .readout {
   display: flex;
   flex-wrap: wrap;
@@ -1523,6 +1536,19 @@ button.label-feel.shade small {
   font-family: var(--font-numeric);
 }
 
+.band-most {
+  font-size: var(--size-base);
+  color: var(--ink-secondary);
+}
+
+.band-most b {
+  margin-left: 6px;
+  font-size: var(--size-md);
+}
+
+.band-most .warmer { color: var(--data-hot); }
+.band-most .cooler { color: var(--data-cold); }
+
 .band-diff {
   display: flex;
   flex-wrap: wrap;
@@ -1541,16 +1567,9 @@ button.label-feel.shade small {
 
 .band-map {
   display: grid;
-  grid-template-columns: 34px repeat(7, minmax(0, 1fr));
+  grid-template-columns: 38px repeat(7, minmax(0, 1fr));
   gap: 3px;
   align-items: stretch;
-}
-
-.band-map-title {
-  grid-column: 1 / -1;
-  font-size: var(--size-sm);
-  color: var(--ink-secondary);
-  font-weight: var(--weight-bold);
 }
 
 .band-map-date {
@@ -1577,68 +1596,103 @@ button.label-feel.shade small {
 
 .band-map-label {
   font-size: 11px;
-  color: var(--ink-tertiary);
-  display: flex;
-  align-items: center;
-}
-
-.band-cell {
-  height: 36px;
-  border: none;
-  border-radius: var(--radius-sm);
+  color: var(--ink-secondary);
   display: flex;
   flex-direction: column;
-  align-items: center;
   justify-content: center;
-  line-height: 1.05;
-  color: #0b1625;
+  line-height: 1.15;
+}
+
+.band-map-label small {
+  font-size: 8.5px;
+  color: var(--ink-tertiary);
+  font-family: var(--font-numeric);
+  white-space: nowrap;
+}
+
+/* A cell: the target day's band on top, the comparison day's as a strip along the bottom. */
+.band-cell {
+  height: 46px;
+  border: none;
+  border-radius: var(--radius-sm);
+  display: grid;
+  grid-template-rows: 1fr 15px;
+  overflow: hidden;
   padding: 0;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 1px 2px rgba(0, 0, 0, 0.3);
+  background: var(--surface-inset);
+  color: #0b1625;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  transition: transform var(--motion-quick) var(--ease-standard);
 }
 
-.band-cell b {
-  font-size: 14px;
+.band-cell:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
-.band-cell small {
-  font-size: 9px;
-  opacity: 0.72;
-}
-
-.band-cell.forecast {
-  outline: 1.5px dashed rgba(11, 22, 37, 0.55);
-  outline-offset: -3px;
-}
-
-/* An estimate from the daily values (as in the table): lighter, dashed, not selectable. */
-.band-cell.estimate {
-  opacity: 0.62;
-  outline: 1.5px dashed rgba(11, 22, 37, 0.6);
-  outline-offset: -3px;
+.band-cell:disabled {
   cursor: default;
 }
 
+.bm-a,
+.bm-b {
+  display: grid;
+  place-items: center;
+  line-height: 1;
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+.bm-a {
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) inset;
+}
+
+.bm-a b {
+  font-size: 15px;
+}
+
+/* The comparison strip: a hairline gap, a little darker, its value small. */
+.bm-b {
+  border-top: 1.5px solid rgba(10, 20, 32, 0.75);
+  filter: saturate(0.85) brightness(0.88);
+}
+
+.bm-b small {
+  font-size: 9.5px;
+  font-weight: var(--weight-bold);
+  opacity: 0.85;
+}
+
+.bm-a.none,
+.bm-b.none {
+  color: var(--ink-disabled);
+  font-size: var(--size-xs);
+  filter: none;
+}
+
+.bm-a.forecast,
+.bm-b.forecast {
+  background-image: repeating-linear-gradient(135deg, rgba(10, 20, 32, 0.16) 0 2px, transparent 2px 6px) !important;
+}
+
+/* An estimate from the daily values (as in the table): lighter, dashed. */
+.bm-a.estimate,
+.bm-b.estimate {
+  opacity: 0.6;
+  outline: 1px dashed rgba(11, 22, 37, 0.65);
+  outline-offset: -3px;
+}
+
 .band-cell.center {
-  box-shadow: 0 0 0 1.5px var(--accent-base);
+  box-shadow: 0 0 0 1.5px var(--accent-base), 0 0 12px var(--accent-glow);
 }
 
 .band-cell.selected {
   box-shadow: 0 0 0 2.5px var(--ink-primary);
 }
 
-.band-cell.missing,
-.band-cell.outside {
-  background: var(--surface-inset);
-  color: var(--ink-disabled);
-  font-size: var(--size-sm);
-  box-shadow: none;
-}
-
-.band-cell.outside {
-  opacity: 0.4;
-}
-
 .band-cell.error {
+  display: grid;
+  place-items: center;
   background: transparent;
   border: 1px solid var(--status-error);
   color: var(--status-error);
@@ -1646,6 +1700,50 @@ button.label-feel.shade small {
 
 .band-cell .skeleton {
   width: 60%;
+}
+
+.band-map-date em {
+  display: block;
+  font-style: normal;
+  font-size: 9px;
+  color: var(--ink-tertiary);
+  margin-top: 1px;
+  opacity: 0.85;
+}
+
+.band-map-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+}
+
+.bm-key-a,
+.bm-key-b {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ink-secondary);
+}
+
+.bm-key-a::before,
+.bm-key-b::before {
+  content: "";
+  width: 14px;
+  border-radius: 2px;
+  background: var(--ink-tertiary);
+}
+
+.bm-key-a::before { height: 10px; }
+.bm-key-b::before { height: 4px; opacity: 0.7; }
+
+.band-detail-day {
+  margin: var(--space-4) 0 2px !important;
+  font-size: var(--size-sm) !important;
+  font-weight: var(--weight-bold);
+  color: var(--ink-secondary);
 }
 
 .band-detail {

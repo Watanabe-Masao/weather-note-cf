@@ -38,3 +38,9 @@ export const LinkIcon = ({ linked }: { linked: boolean }) => (
     )}
   </svg>
 );
+
+export const CloseIcon = () => (
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden {...base} strokeWidth={1.8}>
+    <path d="M3.5 3.5l9 9m0-9l-9 9" />
+  </svg>
+);
