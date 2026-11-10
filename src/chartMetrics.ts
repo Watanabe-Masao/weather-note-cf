@@ -7,7 +7,6 @@ import type { WeatherRow } from "../shared/types";
 export type ChartMetricId =
   | "temp"
   | "rain"
-  | "sun"
   | "radiation"
   | "humidity"
   | "wind"
@@ -145,15 +144,20 @@ export const CHART_METRICS: ChartMetric[] = [
       { key: "snow", label: "雪", format: (v) => (v > 0 ? `❄${v}` : ""), compare: true, onlyWhenAny: true },
     ],
   },
-  { id: "sun", label: "日照", unit: "h", chart: "bar", zero: true, series: [{ key: "sun", label: "日照時間", tone: "hot", value: field("sun") }] },
   {
+    // 日差し: 全天日射量 (the sun's warming power, used by 日なた温度) as the bars,
+    // 日照時間 (how long it was sunny) as numbers under them. Two scales never share one axis.
     id: "radiation",
-    label: "日射量",
+    label: "日差し",
     unit: "MJ/㎡",
     chart: "bar",
     zero: true,
     needsHours: true,
-    series: [{ key: "radiation", label: "日射量", tone: "hot", value: dailyRadiation }],
+    series: [
+      { key: "radiation", label: "日射量", tone: "hot", value: dailyRadiation },
+      { key: "sun", label: "日照h", tone: "hot", value: field("sun"), tableOnly: true, minor: true, unit: "h" },
+    ],
+    under: [{ key: "sun", label: "日照", format: (v) => `${v.toFixed(1)}h`, compare: true }],
   },
   {
     id: "humidity",

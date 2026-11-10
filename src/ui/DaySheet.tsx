@@ -103,6 +103,8 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings), [otherHours, metricId, settings]);
   const air = useMemo(() => (metricId === "feel" ? hourSeries(hours?.rows ?? [], "temp", settings) : null), [hours, metricId, settings]);
+  const sunMain = useMemo(() => hourSeries(hours?.rows ?? [], "sun", settings), [hours, settings]);
+  const sunOther = useMemo(() => hourSeries(otherHours?.rows ?? [], "sun", settings), [otherHours, settings]);
   const isToday = date === today;
   const nowHour = jstHour();
   const [hour, setHour] = useState<number | null>(null);
@@ -242,6 +244,13 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
           )}
           {other && metric.unit !== "h" && <span className="diff">{signedDiff(at(main), at(second), metric.unit === "%" ? 0 : 1)}</span>}
         </p>
+        {metricId === "radiation" && (
+          <p className="day-readout sub">
+            <span>日照</span>
+            <span style={{ color: COLORS.main }}>{formatDetail(sunMain[shownHour - 1]?.v ?? null, detailMetric("sun"))}</span>
+            {other && <span style={{ color: COLORS.other }}>{formatDetail(sunOther[shownHour - 1]?.v ?? null, detailMetric("sun"))}</span>}
+          </p>
+        )}
         {metricId === "feel" && (
           <p className="feel-legend day-legend">
             {LEVELS.map((label, i) => (

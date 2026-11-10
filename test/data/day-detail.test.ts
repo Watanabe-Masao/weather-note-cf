@@ -45,6 +45,7 @@ describe("day detail", () => {
     const plain = [hour(12, 10)];
     const ids = (a: WeatherRow[], b: WeatherRow[]) => offeredMetrics(a, b, DEFAULT_FEEL).map((m) => m.id);
     expect(ids(plain, plain)).not.toContain("snow");
+    expect(ids(plain, plain)).not.toContain("sun");
     expect(ids(plain, plain)).not.toContain("probability");
     expect(ids(plain, [hour(3, -1, { snow: 2 })])).toContain("snow");
     expect(ids([hour(12, 10, { type: "forecast", probability: 40 })], plain)).toContain("probability");

@@ -21,6 +21,8 @@ export interface DetailMetric {
   ceiling?: number;
   /** Offered only when one of the two days has a value above zero (snow, forecast probability). */
   onlyWhenPresent?: boolean;
+  /** Not offered as a chip (shown as part of another item). */
+  hidden?: boolean;
 }
 
 export const MEASURED: DetailMetric[] = [
@@ -31,9 +33,10 @@ export const MEASURED: DetailMetric[] = [
   { id: "humidity", label: "湿度", unit: "%", chart: "line" },
   { id: "wind", label: "風速", unit: "m/s", chart: "line", floor: 0 },
   // 全天日射量: the sun's warming power (direct plus scattered light); what 日なた温度 uses.
-  { id: "radiation", label: "日射量", unit: "MJ/㎡", chart: "bar", floor: 0 },
+  { id: "radiation", label: "日差し", unit: "MJ/㎡", chart: "bar", floor: 0 },
   // 日照時間: minutes of direct sunshine in the hour — a record of "was it sunny".
-  { id: "sun", label: "日照", unit: "h", chart: "bar", floor: 0, ceiling: 1 },
+  // 日照 has no chip of its own: it is read out next to 日射量 under 日差し (no shared axis).
+  { id: "sun", label: "日照", unit: "h", chart: "bar", floor: 0, ceiling: 1, hidden: true },
 ];
 
 export const FEEL_METRIC: DetailMetric = { id: "feel", label: "肌感", unit: "℃", chart: "line" };
@@ -44,7 +47,6 @@ export const detailMetric = (id: DetailMetricId) => (id === "feel" ? FEEL_METRIC
 export function initialDetailMetric(metric: MetricId): DetailMetricId {
   switch (metric) {
     case "rain":
-    case "sun":
     case "radiation":
     case "humidity":
     case "wind":
@@ -90,7 +92,7 @@ export function hourSeries(rows: WeatherRow[], id: DetailMetricId, s: FeelSettin
 /** The measured items worth offering for these two days. */
 export function offeredMetrics(main: WeatherRow[], other: WeatherRow[], s: FeelSettings): DetailMetric[] {
   return MEASURED.filter(
-    (m) => !m.onlyWhenPresent || [main, other].some((rows) => hourSeries(rows, m.id, s).some((p) => p.v != null && p.v > 0)),
+    (m) => !m.hidden && (!m.onlyWhenPresent || [main, other].some((rows) => hourSeries(rows, m.id, s).some((p) => p.v != null && p.v > 0))),
   );
 }
 
