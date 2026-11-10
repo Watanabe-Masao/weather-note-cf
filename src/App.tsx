@@ -274,6 +274,7 @@ export function App() {
               today={today}
               height={hourHeight(heights[sheetDetent])}
               onStep={(n) => moveTarget(addDays(view.target, n))}
+              onToggleSun={() => set("sun", !view.sun)}
             />
           )}
         </GraphSheet>

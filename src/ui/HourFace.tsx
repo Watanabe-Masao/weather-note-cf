@@ -21,9 +21,11 @@ interface Props {
   summary?: boolean;
   /** Swipe the summary sideways: move the selected day. */
   onStep?: (days: number) => void;
+  /** Tapping the selected 日なた/日かげ温度 button again switches between sun and shade (the shared setting). */
+  onToggleSun?: () => void;
 }
 
-export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true, onStep }: Props) {
+export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true, onStep, onToggleSun }: Props) {
   const settings = useContext(FeelContext);
   const base = initialDetailMetric(metric);
   // Temperature can also be read as 肌感 (日なた/日かげ温度) hour by hour.
@@ -41,7 +43,13 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
             <button role="tab" aria-selected={!feel} className={feel ? "" : "on"} onClick={() => setFeel(false)}>
               気温
             </button>
-            <button role="tab" aria-selected={feel} className={feel ? "on" : ""} onClick={() => setFeel(true)}>
+            <button
+              role="tab"
+              aria-selected={feel}
+              className={feel ? "on" : ""}
+              onClick={() => (feel ? onToggleSun?.() : setFeel(true))}
+              title={feel ? `タップで${settings.sun ? "日かげ" : "日なた"}温度に切り替え` : undefined}
+            >
               {settings.sun ? "日なた温度" : "日かげ温度"}
             </button>
           </div>

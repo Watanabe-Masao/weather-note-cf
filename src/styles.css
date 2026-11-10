@@ -2408,3 +2408,10 @@ select.chip.mini.mode {
   padding: 4px 18px 4px 8px;
   max-width: 100px;
 }
+
+/* The selected 日なた/日かげ温度 button switches on a second tap: a small ⇄ says so. */
+.mini-switch button.on:last-child::after {
+  content: " ⇄";
+  font-size: 10px;
+  color: var(--muted);
+}
