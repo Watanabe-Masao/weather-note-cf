@@ -156,6 +156,21 @@ export function hourlyBands(rows: WeatherRow[], s: FeelSettings = DEFAULT_FEEL):
   });
 }
 
+/** The bands that stand for "the day" in one number: 日中, 昼, 夕方 (9–17時). */
+export const DAYTIME_BANDS = ["forenoon", "noon", "evening"] as const;
+
+/**
+ * One feel value for the whole day: the mean of the 日中, 昼 and 夕方 band values.
+ * Null unless all three bands have a value (never filled in from part of the day).
+ */
+export function daytimeFeel(rows: WeatherRow[], s: FeelSettings = DEFAULT_FEEL): number | null {
+  if (!rows.length) return null;
+  const bands = hourlyBands(rows, s);
+  const values = DAYTIME_BANDS.map((id) => bands[BANDS.findIndex((b) => b.id === id)].feel);
+  if (values.some((v) => v == null)) return null;
+  return Math.round(((values as number[]).reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
+}
+
 /**
  * The estimate used before hourly data is available: three segments from the daily row.
  * Morning and night from the minimum, midday from the maximum, both with the day's mean humidity and wind.

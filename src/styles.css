@@ -1522,3 +1522,49 @@ select.chip {
 .chart-spread.label {
   fill: var(--muted);
 }
+
+.chart-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 2px 4px 4px;
+}
+
+.chart-toggles button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line);
+  background: none;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--muted);
+  opacity: 0.55;
+}
+
+.chart-toggles button.on {
+  opacity: 1;
+  background: var(--panel-2);
+  border-color: currentColor;
+}
+
+.chart-toggles button:not([style]).on {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.chart-toggles i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.chart-toggles i.band {
+  width: 12px;
+  height: 8px;
+  border-radius: 2px;
+  background: rgba(240, 139, 125, 0.35);
+}

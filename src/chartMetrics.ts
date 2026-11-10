@@ -1,7 +1,7 @@
 // What the table and the comparison graph can show: one value (or two) per day, for the
 // target days and their partner days. One chip row chooses it for both.
 
-import { MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
+import { daytimeFeel, type FeelSettings, MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
 import type { WeatherRow } from "../shared/types";
 
 export type ChartMetricId =
@@ -19,11 +19,13 @@ export type ChartMetricId =
 export interface ChartSeries {
   key: string;
   label: string;
-  tone: "hot" | "cold" | "rain" | "plain";
-  /** The day's value; `hours` is that day's hourly rows when the metric needs them. */
-  value: (row: WeatherRow | null | undefined, hours: WeatherRow[] | null) => number | null;
-  /** Drawn in the graph only (a thin line), not given a row in the table. */
+  tone: "hot" | "cold" | "rain" | "plain" | "feel";
+  /** The day's value; `hours` is that day's hourly rows (empty until loaded). */
+  value: (row: WeatherRow | null | undefined, hours: WeatherRow[] | null, feel: FeelSettings) => number | null;
+  /** Drawn in the graph only, not given a row in the table. */
   graphOnly?: boolean;
+  /** A thin line without dots (a reference, such as the mean). */
+  thin?: boolean;
 }
 
 export interface ChartMetric {
@@ -44,6 +46,8 @@ export interface ChartMetric {
   emptyNote?: string;
   /** Shade between the first two series and print their difference under each day (寒暖差). */
   spread?: string;
+  /** Series (and the spread, key "spread") hidden until turned on in the legend. */
+  hiddenByDefault?: string[];
 }
 
 /** Rows the table shows for an item. */
@@ -75,9 +79,12 @@ export const CHART_METRICS: ChartMetric[] = [
     series: [
       { key: "max", label: "最高", tone: "hot", value: field("max") },
       { key: "min", label: "最低", tone: "cold", value: field("min") },
-      { key: "temp", label: "平均", tone: "plain", value: field("temp"), graphOnly: true },
+      { key: "temp", label: "平均", tone: "plain", value: field("temp"), graphOnly: true, thin: true },
+      // 肌感 for the day: mean of the 日中・昼・夕方 band values (日なた温度 or 日かげ温度).
+      { key: "feel", label: "肌感", tone: "feel", value: (_r, hours, feel) => daytimeFeel(hours ?? [], feel), graphOnly: true },
     ],
     spread: "寒暖差",
+    hiddenByDefault: ["temp"],
   },
   { id: "rain", label: "降水量", unit: "mm", chart: "bar", zero: true, series: [{ key: "rain", label: "降水量", tone: "rain", value: field("rain") }] },
   {

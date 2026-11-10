@@ -2,12 +2,13 @@
 // Target: solid where observed, dotted where forecast. Comparison: dashed and lighter.
 // Missing values break the line (never interpolated).
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import type { ChartMetric } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { formatValue } from "../metrics";
+import { FeelContext } from "./FeelBar";
 
 interface Props {
   store: WeatherStore | null;
@@ -20,7 +21,8 @@ interface Props {
   height?: number;
 }
 
-const COLORS = { hot: "#f08b7d", cold: "#6fb3f2", rain: "#6fb3f2", plain: "#9fd3c7" } as const;
+const COLORS = { hot: "#f08b7d", cold: "#6fb3f2", rain: "#6fb3f2", plain: "#9fd3c7", feel: "#c9a3f5" } as const;
+const HIDDEN_KEY = "weather-note:chart-hidden";
 const PAD = { left: 34, right: 10, top: 14, bottom: 30 };
 /** Room under the plot for the two rows of differences (target, comparison). */
 const SPREAD_ROWS = 30;
@@ -31,9 +33,38 @@ interface Point {
   forecast: boolean;
 }
 
+/** Which lines of an item are turned off, remembered per item on this device (a convenience only). */
+function useHidden(metric: ChartMetric) {
+  const read = (): Record<string, string[]> => {
+    try {
+      return JSON.parse(localStorage.getItem(HIDDEN_KEY) ?? "{}");
+    } catch {
+      return {};
+    }
+  };
+  const [all, setAll] = useState(read);
+  const hidden = new Set(all[metric.id] ?? metric.hiddenByDefault ?? []);
+  useEffect(() => {
+    try {
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify(all));
+    } catch {
+      // Not remembering the choice is harmless.
+    }
+  }, [all]);
+  const toggle = (key: string) => {
+    const next = new Set(hidden);
+    if (!next.delete(key)) next.add(key);
+    setAll({ ...all, [metric.id]: [...next] });
+  };
+  return { shown: (key: string) => !hidden.has(key), toggle };
+}
+
 export function Chart({ store, station, target, partner, metric, height = 190 }: Props) {
   const H = height;
-  const bottom = PAD.bottom + (metric.spread ? SPREAD_ROWS : 0);
+  const feel = useContext(FeelContext);
+  const { shown, toggle } = useHidden(metric);
+  const spreadOn = !!metric.spread && shown("spread");
+  const bottom = PAD.bottom + (spreadOn ? SPREAD_ROWS : 0);
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   useLayoutEffect(() => {
@@ -51,14 +82,16 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
   const read = (date: string | null, s: ChartMetric["series"][number]): { v: number | null; forecast: boolean } => {
     if (!date) return { v: null, forecast: false };
     const day = store?.getDay(station, date);
-    const hours = metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null;
-    return { v: s.value(day?.row, hours), forecast: day?.row?.type === "forecast" };
+    const hours = store?.getHours(station, date).rows ?? null;
+    return { v: s.value(day?.row, hours, feel), forecast: day?.row?.type === "forecast" };
   };
 
-  const series = metric.series.flatMap((s) => [
+  const all = metric.series.flatMap((s) => [
     { s, compare: false, points: days.map((d, i): Point => ({ x: xOf(i), ...read(d, s) })) },
     { s, compare: true, points: days.map((d, i): Point => ({ x: xOf(i), ...read(partner(d), s) })) },
   ]);
+  const series = all.filter(({ s }) => shown(s.key));
+  const pick = (key: string, compare: boolean) => all.find((x) => x.s.key === key && x.compare === compare)!;
   const values = series.flatMap((x) => x.points.map((p) => p.v)).filter((v): v is number => v != null);
   let lo = values.length ? Math.min(...values) : 0;
   let hi = values.length ? Math.max(...values) : 1;
@@ -86,7 +119,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
           </g>
         ))}
 
-        {metric.spread && <Spread series={series} yOf={yOf} />}
+        {spreadOn && <Spread top={pick("max", false).points} low={pick("min", false).points} yOf={yOf} />}
 
         {metric.chart === "bar"
           ? series.map(({ s, compare, points }) =>
@@ -118,7 +151,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
                     x2={p.x}
                     y2={yOf(p.v)}
                     stroke={COLORS[s.tone]}
-                    strokeWidth={s.graphOnly ? (compare ? 1 : 1.4) : compare ? 1.5 : 2.2}
+                    strokeWidth={s.thin ? (compare ? 1 : 1.4) : compare ? 1.5 : 2.2}
                     strokeDasharray={compare ? "6 4" : p.forecast ? "2 4" : undefined}
                     strokeLinecap="round"
                     opacity={compare ? 0.65 : 1}
@@ -127,7 +160,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
               }),
             )}
         {metric.chart === "line" &&
-          series.filter(({ s }) => !s.graphOnly).map(({ s, compare, points }) =>
+          series.filter(({ s }) => !s.thin).map(({ s, compare, points }) =>
             points.map((p, i) =>
               p.v == null ? null : (
                 <circle
@@ -143,14 +176,15 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
             ),
           )}
 
-        {metric.spread &&
+        {spreadOn &&
           days.map((d, i) => {
-            const gap = (k: 0 | 1) => {
-              const [a, b] = [series[k], series[k + 2]].map((x) => x.points[i].v);
+            const gap = (compare: boolean) => {
+              const a = pick("max", compare).points[i].v;
+              const b = pick("min", compare).points[i].v;
               return a == null || b == null ? null : a - b;
             };
-            const own = gap(0);
-            const other = gap(1);
+            const own = gap(false);
+            const other = gap(true);
             return (
               <g key={`spread-${d}`}>
                 <text x={xOf(i)} y={H - bottom + 14} textAnchor="middle" className="chart-spread">
@@ -162,7 +196,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
               </g>
             );
           })}
-        {metric.spread && (
+        {spreadOn && (
           <text x={PAD.left - 6} y={H - bottom + 14} textAnchor="end" className="chart-spread label">
             差
           </text>
@@ -187,25 +221,40 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
           <i className="lg-dashed" />
           比較日
         </span>
-        {metric.series.length > 1 &&
-          metric.series.map((s) => (
-            <span key={s.key} style={{ color: COLORS[s.tone] }}>
-              {s.graphOnly ? "─" : "●"} {s.label}
-            </span>
-          ))}
-        {metric.spread && <span>差＝{metric.spread}（上：対象日／下：比較日）</span>}
       </div>
+      {(metric.series.length > 1 || metric.spread) && (
+        <div className="chart-toggles" role="group" aria-label="表示する線">
+          {metric.series.map((s) => (
+            <button
+              key={s.key}
+              className={shown(s.key) ? "on" : ""}
+              aria-pressed={shown(s.key)}
+              style={{ color: COLORS[s.tone] }}
+              onClick={() => toggle(s.key)}
+            >
+              <i style={{ background: COLORS[s.tone] }} />
+              {s.key === "feel" ? (feel.sun ? "肌感（日なた）" : "肌感（日かげ）") : s.label}
+            </button>
+          ))}
+          {metric.spread && (
+            <button className={spreadOn ? "on" : ""} aria-pressed={spreadOn} onClick={() => toggle("spread")}>
+              <i className="band" />差（{metric.spread}）
+            </button>
+          )}
+        </div>
+      )}
+      {spreadOn && <p className="chart-note">差の数字は 上：対象日／下：比較日。肌感は日中・昼・夕方の平均</p>}
+      {!spreadOn && shown("feel") && metric.series.some((s) => s.key === "feel") && <p className="chart-note">肌感は日中・昼・夕方の平均</p>}
     </div>
   );
 }
 
 /** The band between the first two series of the target days (max and min): its height is the spread. */
-function Spread({ series, yOf }: { series: { compare: boolean; points: Point[] }[]; yOf: (v: number) => number }) {
-  const [top, low] = [series[0], series[2]];
+function Spread({ top, low, yOf }: { top: Point[]; low: Point[]; yOf: (v: number) => number }) {
   const runs: Point[][][] = [];
   let run: Point[][] = [];
-  top.points.forEach((p, i) => {
-    const q = low.points[i];
+  top.forEach((p, i) => {
+    const q = low[i];
     if (p.v == null || q.v == null) {
       if (run.length) runs.push(run);
       run = [];

@@ -2,7 +2,7 @@
 // Linked: both strips render the same run of target days (the comparison cell is that day's partner)
 // and scroll as one. Independent: each strip has its own run of days.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "../../shared/dates";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
@@ -12,7 +12,7 @@ import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
 import { CalendarModal } from "./CalendarModal";
 import { DateNav } from "./DateNav";
-import { FeelBar, LEVEL_COLORS } from "./FeelBar";
+import { FeelBar, FeelContext, LEVEL_COLORS } from "./FeelBar";
 import { LEVELS } from "../../shared/feel";
 import { Strip, StripSync } from "./Strip";
 import { WeatherIcon } from "./WeatherIcon";
@@ -71,6 +71,7 @@ function Column({
   faded?: boolean;
   onOpen?: () => void;
 }) {
+  const feel = useContext(FeelContext);
   if (!date)
     return (
       <div className="cell-stack empty-partner">
@@ -97,7 +98,7 @@ function Column({
       {tableSeries(metric).map((s) => (
         <span key={s.key} className={`cell-value tone-${s.tone}`}>
           {state === "ready" ? (
-            formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null), metric.unit)
+            formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel), metric.unit)
           ) : state === "error" ? (
             <button
               className="retry"

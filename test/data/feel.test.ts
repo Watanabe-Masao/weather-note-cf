@@ -1,6 +1,7 @@
 import { describe as group, expect, it } from "vitest";
 import {
   apparentTemperature,
+  daytimeFeel,
   feelOf,
   MJ_PER_HOUR_TO_W,
   radiationOf,
@@ -157,5 +158,21 @@ group("sunshine", () => {
     expect(sun[2].feel! - shade[2].feel!).toBeGreaterThan(3); // 昼
     expect(sun[4].feel).toBeCloseTo(shade[4].feel!, 5); // 夜
     expect(sun[2].sunCounted).toBe(true);
+  });
+});
+
+group("daytime feel", () => {
+  const row = (n: number, temp: number) =>
+    ({ date: "2026-11-10", n, type: "actual", provider: "JMA", temp, humidity: 60, wind: 2, raw: {}, quality: {} }) as WeatherRow;
+
+  it("is the mean of the 日中, 昼 and 夕方 bands (9–17時)", () => {
+    const rows = Array.from({ length: 24 }, (_, i) => row(i + 1, i + 1 >= 9 && i + 1 <= 17 ? 20 : 5));
+    const shade = { ...DEFAULT_FEEL, sun: false };
+    expect(daytimeFeel(rows, shade)).toBeCloseTo(hourlyBands(rows, shade)[2].feel!, 1);
+  });
+
+  it("is empty unless all three bands have a value", () => {
+    expect(daytimeFeel(Array.from({ length: 14 }, (_, i) => row(i + 1, 15)))).toBeNull();
+    expect(daytimeFeel([])).toBeNull();
   });
 });
