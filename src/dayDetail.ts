@@ -8,7 +8,7 @@ import type { WeatherRow } from "../shared/types";
 import type { MetricId } from "./metrics";
 
 export type DetailView = "measured" | "feel";
-export type DetailMetricId = "temp" | "rain" | "snow" | "probability" | "humidity" | "wind" | "radiation" | "sun" | "feel";
+export type DetailMetricId = "temp" | "rain" | "snow" | "probability" | "humidity" | "wind" | "radiation" | "sun" | "pressure" | "feel";
 
 export interface DetailMetric {
   id: DetailMetricId;
@@ -37,6 +37,7 @@ export const MEASURED: DetailMetric[] = [
   // 日照時間: minutes of direct sunshine in the hour — a record of "was it sunny".
   // 日照 has no chip of its own: it is read out next to 日射量 under 日差し (no shared axis).
   { id: "sun", label: "日照", unit: "h", chart: "bar", floor: 0, ceiling: 1, hidden: true },
+  { id: "pressure", label: "気圧", unit: "hPa", chart: "line" },
 ];
 
 export const FEEL_METRIC: DetailMetric = { id: "feel", label: "肌感", unit: "℃", chart: "line" };
@@ -50,6 +51,7 @@ export function initialDetailMetric(metric: MetricId): DetailMetricId {
     case "radiation":
     case "humidity":
     case "wind":
+    case "pressure":
       return metric;
     default:
       return "temp";
@@ -120,6 +122,7 @@ export function formatDetail(v: number | null, m: DetailMetric): string {
   if (m.unit === "%") return Math.round(v).toString();
   if (m.unit === "h") return `${Math.round(v * 60)}分`;
   if (m.unit === "MJ/㎡") return v.toFixed(2);
+  if (m.unit === "hPa") return v.toFixed(1);
   return v.toFixed(1);
 }
 

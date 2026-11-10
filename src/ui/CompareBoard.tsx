@@ -30,6 +30,8 @@ interface Props {
   onToggleSun: () => void;
   /** Tap on a column: open that day's detail, paired with the day on the other side. */
   onOpenDay: (date: string, other: string | null) => void;
+  /** Tap on the 肌感 label or legend: open the feel map. */
+  onOpenFeel: () => void;
 }
 
 const EDGE_DAYS = 3;
@@ -131,7 +133,7 @@ function Column({
   );
 }
 
-function Labels({ metric, past = false }: { metric: Metric; past?: boolean }) {
+function Labels({ metric, past = false, onOpenFeel }: { metric: Metric; past?: boolean; onOpenFeel: () => void }) {
   return (
     <div className="labels">
       <span className="label-date">日付</span>
@@ -143,7 +145,11 @@ function Labels({ metric, past = false }: { metric: Metric; past?: boolean }) {
           {!s.minor && <small>{metric.unit}</small>}
         </span>
       ))}
-      {metric.id === "temp" && <span className="label-feel">肌感</span>}
+      {metric.id === "temp" && (
+        <button className="label-feel link" onClick={onOpenFeel} aria-label="肌感マップを開く">
+          肌感<small>›</small>
+        </button>
+      )}
     </div>
   );
 }
@@ -160,6 +166,7 @@ export function CompareBoard({
   moveCompare,
   onToggleSun,
   onOpenDay,
+  onOpenFeel,
 }: Props) {
   const [calendar, setCalendar] = useState<"target" | "compare" | null>(null);
   const sync = useMemo(() => (view.linked ? new StripSync() : null), [view.linked]);
@@ -189,7 +196,7 @@ export function CompareBoard({
           onToday={() => moveTarget(today)}
         />
         <div className="side-body">
-          <Labels metric={metric} />
+          <Labels metric={metric} onOpenFeel={onOpenFeel} />
           <div className="strip-wrap">
             <Strip
               id="target"
@@ -224,7 +231,7 @@ export function CompareBoard({
           onOpenCalendar={() => setCalendar("compare")}
         />
         <div className="side-body">
-          <Labels metric={metric} past />
+          <Labels metric={metric} past onOpenFeel={onOpenFeel} />
           <div className="strip-wrap">
             <Strip
               id="compare"
@@ -255,7 +262,9 @@ export function CompareBoard({
 
       {metric.id === "temp" && (
         <p className="feel-legend">
-          肌感
+          <button className="link feel-open" onClick={onOpenFeel}>
+            肌感マップ ›
+          </button>
           {LEVELS.map((label, i) => (
             <span key={label}>
               <i style={{ background: LEVEL_COLORS[i] }} />

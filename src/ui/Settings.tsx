@@ -1,5 +1,6 @@
 // Settings: observation point, saved data report (spec chapter 1), refresh and clear.
 
+import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { useEffect, useState } from "react";
 
 /** A number field that commits when editing ends (blur or Enter), so half-typed values never apply. */
@@ -105,7 +106,9 @@ function FeelSection({ station, feel }: { station: string; feel: Props["feel"] }
   );
 }
 
-export function Settings({ store, station, onStation, feel, onClose }: Props) {
+function SettingsBody({ store, station, onStation, feel, onClose: _done }: Props) {
+  void _done;
+  const onClose = useSheetClose();
   const [stations, setStations] = useState<Station[]>([]);
   const [report, setReport] = useState<StorageReport | null>(null);
 
@@ -132,8 +135,7 @@ export function Settings({ store, station, onStation, feel, onClose }: Props) {
   }, [store]);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal settings" role="dialog" aria-label="設定" onClick={(e) => e.stopPropagation()}>
+    <>
         <h2>設定</h2>
         <label className="field">
           観測地点
@@ -189,7 +191,14 @@ export function Settings({ store, station, onStation, feel, onClose }: Props) {
           出典：<a href="https://www.jma.go.jp/">気象庁ホームページ</a>（実績）／
           <a href="https://open-meteo.com/">Open-Meteo</a>（予報・CC BY 4.0）
         </p>
-      </div>
-    </div>
+    </>
+  );
+}
+
+export function Settings(props: Props) {
+  return (
+    <ModalSheet label={"設定"} onClose={props.onClose} className="settings">
+      <SettingsBody {...props} />
+    </ModalSheet>
   );
 }

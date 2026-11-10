@@ -7,7 +7,6 @@ import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
 import { useFeelSettings } from "./feelSettings";
 import { useViewState } from "./state";
-import { BandMap, bandMapDays } from "./ui/BandMap";
 import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
 import { CompareBoard } from "./ui/CompareBoard";
@@ -15,10 +14,16 @@ import { type DayPick, DaySheet } from "./ui/DaySheet";
 import { initialDetailMetric } from "./dayDetail";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
-import { SimilarFace } from "./ui/SimilarFace";
+import { FeelSheet } from "./ui/FeelSheet";
+import { HourFace } from "./ui/HourFace";
+import { SimilarSheet } from "./ui/SimilarSheet";
 
 const PREFETCH_IDLE_MS = 1_000;
 const PREFETCH_RADIUS = 14;
+const SIMILAR = "__similar";
+
+/** The 24-hour graph fills the sheet too: its height minus the tabs, the day line, readout and legend. */
+const hourHeight = (sheet: number) => Math.round(Math.min(420, Math.max(170, sheet - 250)));
 
 /** The graph fills the sheet: its height minus the tabs, notes and legend. */
 function chartHeight(sheet: number, m: { forecastOnly?: boolean; emptyNote?: string; spread?: string; under?: unknown[] }) {
@@ -38,7 +43,10 @@ export function App() {
   const metric = metricById(view.metric);
   const feel = useFeelSettings(view.station, view.sun);
   const feelSettings = feel.settings;
-  const [face, setFace] = useState<"chart" | "bands" | "similar">("chart");
+  // The sheet shows the chosen item two ways: seven days (日別) or the 24 hours of the day (時間帯).
+  const [face, setFace] = useState<"chart" | "hours">("chart");
+  const [feelMap, setFeelMap] = useState(false);
+  const [similar, setSimilar] = useState(false);
   const [dayPick, setDayPick] = useState<DayPick | null>(null);
 
 
@@ -81,12 +89,13 @@ export function App() {
 
   const sheetDetent = full ? "min" : detent;
 
-  // The 時間帯 face wants hourly data only while it can be seen.
+  // The 時間帯 face wants the two days' hours, first, while it can be seen.
   useEffect(() => {
     if (!store) return;
-    const open = face === "bands" && sheetDetent !== "min";
-    store.wantHours(view.station, open ? bandMapDays(view.target, partner) : [], 1, "sheet");
-  }, [store, face, sheetDetent, view.station, view.target, partner]);
+    const open = face === "hours" && sheetDetent !== "min";
+    const days = [view.target, compareDate].filter((d): d is string => !!d);
+    store.wantHours(view.station, open ? days : [], 0, "sheet");
+  }, [store, face, sheetDetent, view.station, view.target, compareDate]);
 
   // Keep the chosen item in view in the scrolling chip row (also after a reload).
   const metricsRef = useRef<HTMLDivElement>(null);
@@ -128,7 +137,11 @@ export function App() {
         <select
           className="chip mode"
           value={view.mode}
-          onChange={(e) => setMode(e.target.value as CompareMode)}
+          onChange={(e) => {
+            // 似た日 is a way of choosing the day, not a rule: it opens the list and the menu stays as it was.
+            if (e.target.value === SIMILAR) setSimilar(true);
+            else setMode(e.target.value as CompareMode);
+          }}
           aria-label="比較のしかた"
         >
           {COMPARE_MODES.map((m) => (
@@ -136,6 +149,7 @@ export function App() {
               {m.label}
             </option>
           ))}
+          <option value={SIMILAR}>似た日から選ぶ…</option>
         </select>
         <span className="spacer" />
         <button className={view.linked ? "chip on" : "chip"} onClick={() => setLinked(!view.linked)} aria-pressed={view.linked}>
@@ -177,13 +191,14 @@ export function App() {
             moveCompare={moveCompare}
             onToggleSun={() => set("sun", !view.sun)}
             onOpenDay={(date, other) => setDayPick({ date, other })}
+            onOpenFeel={() => setFeelMap(true)}
           />
         </FeelContext.Provider>
       </div>
 
       <FeelContext.Provider value={feelSettings}>
         <GraphSheet
-          title={face === "chart" ? "比較グラフ" : face === "bands" ? "時間帯" : "似た日"}
+          title={face === "chart" ? "比較グラフ" : "時間帯"}
           detent={sheetDetent}
           heights={heights}
           onDetent={setDetent}
@@ -192,8 +207,7 @@ export function App() {
               {(
                 [
                   ["chart", "比較グラフ"],
-                  ["bands", "時間帯"],
-                  ["similar", "似た日"],
+                  ["hours", "時間帯"],
                 ] as const
               ).map(([id, label]) => (
                 <button
@@ -221,10 +235,16 @@ export function App() {
               metric={metric}
               height={chartHeight(heights[sheetDetent], metric)}
             />
-          ) : face === "bands" ? (
-            <BandMap store={store} station={view.station} target={view.target} partner={partner} />
           ) : (
-            <SimilarFace store={store} station={view.station} target={view.target} compareDate={compareDate} onPick={pickCompare} />
+            <HourFace
+              store={store}
+              station={view.station}
+              target={view.target}
+              compareDate={compareDate}
+              metric={view.metric}
+              today={today}
+              height={hourHeight(heights[sheetDetent])}
+            />
           )}
         </GraphSheet>
       </FeelContext.Provider>
@@ -240,6 +260,23 @@ export function App() {
             onClose={() => setDayPick(null)}
           />
         </FeelContext.Provider>
+      )}
+
+      {feelMap && (
+        <FeelContext.Provider value={feelSettings}>
+          <FeelSheet store={store} station={view.station} target={view.target} partner={partner} onClose={() => setFeelMap(false)} />
+        </FeelContext.Provider>
+      )}
+
+      {similar && (
+        <SimilarSheet
+          store={store}
+          station={view.station}
+          target={view.target}
+          compareDate={compareDate}
+          onPick={pickCompare}
+          onClose={() => setSimilar(false)}
+        />
       )}
 
       {settings && (

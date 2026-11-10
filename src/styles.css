@@ -415,31 +415,72 @@ select.chip {
   border: 1px solid var(--line);
   border-bottom: none;
   border-radius: 18px 18px 0 0;
-  transition: height 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   z-index: 10;
   padding-bottom: env(safe-area-inset-bottom);
+  /* lifted off the page; the shadow deepens as the sheet rises (scrim does the rest) */
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.28);
+  will-change: height;
+  contain: layout paint;
 }
 
 .sheet.dragging {
-  transition: none;
+  cursor: grabbing;
+}
+
+.sheet[data-detent="max"] {
+  box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.45);
+}
+
+/* The page behind dims while the sheet is above the middle height. */
+.sheet-scrim {
+  position: fixed;
+  inset: 0;
+  background: #02060c;
+  z-index: 9;
+  opacity: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sheet-handle {
   touch-action: none;
-  padding: 8px 16px 6px;
+  padding: 9px 16px 7px;
   cursor: grab;
+}
+
+/* The tab row can be dragged too: no native panning there. */
+.sheet-tabs-wrap {
+  touch-action: none;
+}
+
+.sheet-body {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .grabber {
   display: block;
-  width: 40px;
+  width: 38px;
   height: 5px;
   border-radius: 3px;
   background: var(--muted);
-  opacity: 0.6;
+  opacity: 0.55;
   margin: 0 auto 8px;
+  transition:
+    width 0.18s ease,
+    opacity 0.18s ease,
+    background-color 0.18s ease;
+}
+
+/* The grabber answers the finger: wider and brighter while held. */
+.sheet.dragging .grabber,
+.msheet.dragging .grabber,
+.sheet-handle:active .grabber {
+  width: 48px;
+  opacity: 0.95;
+  background: var(--text);
 }
 
 .sheet-title {
@@ -511,7 +552,8 @@ select.chip {
 
 /* ---- modals ---- */
 
-.modal-backdrop {
+.modal-backdrop,
+.msheet-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(5, 10, 18, 0.6);
@@ -521,7 +563,8 @@ select.chip {
   z-index: 30;
 }
 
-.modal {
+.modal,
+.msheet {
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
@@ -539,12 +582,14 @@ select.chip {
   }
 }
 
-.modal h2 {
+.modal h2,
+.msheet h2 {
   font-size: 17px;
   margin: 0 0 12px;
 }
 
-.modal h3 {
+.modal h3,
+.msheet h3 {
   font-size: 14px;
   color: var(--muted);
   margin: 18px 0 8px;
@@ -1215,30 +1260,9 @@ select.chip {
   background: rgba(124, 196, 255, 0.08);
 }
 
-.day-sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(5, 10, 18, 0.6);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 25;
-}
 
-.day-sheet {
-  width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow: auto;
-  overscroll-behavior: contain;
-  background: var(--panel);
-  border-radius: 18px 18px 0 0;
-  padding: 0 12px max(14px, env(safe-area-inset-bottom));
-  animation: rise 0.22s ease-out;
-  transition: transform 0.2s ease-out;
-}
 
-.day-sheet .sheet-handle {
+.msheet .sheet-handle {
   position: sticky;
   top: 0;
   background: var(--panel);
@@ -1592,4 +1616,118 @@ select.chip {
   font-size: 12px;
   color: var(--muted);
   margin-top: 0;
+}
+
+/* ---- sheets over the page (day detail, feel map, similar days, calendar, settings) ---- */
+
+.msheet-backdrop {
+  /* the shared rule above gives position and colour; opacity follows the sheet */
+  display: block;
+  opacity: 0;
+  z-index: 30;
+}
+
+.msheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 auto;
+  z-index: 31;
+  max-height: 90vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 14px max(16px, env(safe-area-inset-bottom));
+  border: 1px solid var(--line);
+  border-bottom: none;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+  animation: none;
+  outline: none;
+  will-change: transform;
+  transform: translateY(100%);
+}
+
+.msheet .sheet-handle {
+  margin: 0 -14px;
+  padding: 10px 16px 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grabber {
+    transition: none;
+  }
+}
+
+/* ---- openers: 肌感 label and legend open the feel map ---- */
+
+button.label-feel {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+}
+
+button.label-feel small {
+  margin-left: 1px;
+  font-size: 12px;
+}
+
+.feel-legend .feel-open {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+/* ---- 時間帯 tab ---- */
+
+.hour-face-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 4px 4px;
+}
+
+.hour-face-head p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hour-face-head b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mini-switch {
+  display: inline-grid;
+  grid-auto-flow: column;
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 2px;
+  flex: none;
+}
+
+.mini-switch button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.mini-switch button.on {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
 }
