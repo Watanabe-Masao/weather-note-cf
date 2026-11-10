@@ -51,6 +51,15 @@ export function App() {
     [view.linked, view.mode, view.offset, view.compare, view.target],
   );
 
+  // The feel row wants hourly data for the visible days, after the daily values (low priority).
+  useEffect(() => {
+    if (!store) return;
+    if (view.metric !== "temp") return store.wantHours(view.station, [], 2, "table");
+    const days = [-3, -2, -1, 0, 1, 2, 3].map((n) => addDays(view.target, n));
+    const partners = days.map(partner).filter((d): d is string => !!d);
+    store.wantHours(view.station, [...days, ...partners], 2, "table");
+  }, [store, view.station, view.target, view.metric, partner]);
+
   const sheetDetent = full ? "min" : detent;
 
   // Measure the space under the comparison table: that is the sheet's middle height.

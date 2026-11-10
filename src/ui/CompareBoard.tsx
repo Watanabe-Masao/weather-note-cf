@@ -11,6 +11,8 @@ import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
 import { CalendarModal } from "./CalendarModal";
 import { DateNav } from "./DateNav";
+import { FeelBar, LEVEL_COLORS } from "./FeelBar";
+import { LEVELS } from "../../shared/feel";
 import { Strip, StripSync } from "./Strip";
 import { WeatherIcon } from "./WeatherIcon";
 
@@ -96,6 +98,9 @@ function Column({
           ) : null}
         </span>
       ))}
+      {metric.id === "temp" && (
+        <span className="cell-feel">{state === "outside" ? null : <FeelBar store={store} station={station} date={date} />}</span>
+      )}
     </div>
   );
 }
@@ -112,6 +117,7 @@ function Labels({ metric }: { metric: Metric }) {
           <small>{metric.unit}</small>
         </span>
       ))}
+      {metric.id === "temp" && <span className="label-feel">体感</span>}
     </div>
   );
 }
@@ -196,6 +202,22 @@ export function CompareBoard({ store, view, today, last, bounds, compareDate, me
           </div>
         </div>
       </div>
+
+      {metric.id === "temp" && (
+        <p className="feel-legend">
+          体感
+          {LEVELS.map((label, i) => (
+            <span key={label}>
+              <i style={{ background: LEVEL_COLORS[i] }} />
+              {label}
+            </span>
+          ))}
+          <span>
+            <i className="dashed" />
+            目安
+          </span>
+        </p>
+      )}
 
       {calendar && (
         <CalendarModal

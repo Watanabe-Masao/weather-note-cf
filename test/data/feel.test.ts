@@ -1,0 +1,122 @@
+import { describe as group, expect, it } from "vitest";
+import {
+  apparentTemperature,
+  type Band,
+  DEFAULT_FEEL,
+  describe,
+  estimatedBands,
+  hourlyBands,
+  levelOf,
+  spread,
+  windAtPerson,
+} from "../../shared/feel";
+import type { WeatherRow } from "../../shared/types";
+
+const hour = (n: number, temp: number | null, humidity = 60, wind = 2, type: "actual" | "forecast" = "actual"): WeatherRow => ({
+  date: "2026-11-01",
+  n,
+  type,
+  provider: "test",
+  temp,
+  humidity,
+  wind,
+  raw: {},
+  quality: {},
+});
+
+group("apparent temperature", () => {
+  it("matches the improved Missenard formula", () => {
+    // 20 ℃, 50 %, 1 m/s: 37 − 17 / (0.68 − 0.07 + 1/3.16) − 0.29·20·0.5
+    expect(apparentTemperature(20, 50, 1)).toBeCloseTo(15.75, 1);
+    // With no wind the formula reads slightly warmer than the air.
+    expect(apparentTemperature(15, 60, 0)).toBeCloseTo(16.36, 1);
+  });
+
+  it("feels colder with more wind", () => {
+    expect(apparentTemperature(15, 60, 3)).toBeLessThan(apparentTemperature(15, 60, 1));
+  });
+
+  it("converts wind to a person's height with the surroundings exponent", () => {
+    expect(windAtPerson(10, 10, 0.2)).toBeCloseTo(6.84, 1);
+    expect(windAtPerson(10, 10, 0.3)).toBeLessThan(windAtPerson(10, 10, 0.14));
+    expect(windAtPerson(10, 1.5, 0.2)).toBeCloseTo(10, 5);
+  });
+});
+
+group("levels", () => {
+  it("uses the boundaries 10 / 15 / 21 / 25", () => {
+    expect([9.9, 10, 14.9, 15, 20.9, 21, 24.9, 25, 30].map((v) => levelOf(v))).toEqual([0, 1, 1, 2, 2, 3, 3, 4, 4]);
+  });
+});
+
+group("five bands", () => {
+  it("averages three hours per band and ignores hours missing humidity or wind", () => {
+    const rows = Array.from({ length: 24 }, (_, i) => hour(i + 1, 10 + i));
+    rows[6] = { ...rows[6], humidity: null }; // 7:00 cannot be used for the feel
+    const bands = hourlyBands(rows);
+    expect(bands.map((b) => b.label)).toEqual(["朝", "日中", "昼", "夕方", "夜"]);
+    expect(bands[0].temp).toBeCloseTo(16, 5); // 6,7,8 → 15,16,17
+    expect(bands[2].temp).toBeCloseTo(22, 5); // 12,13,14 → 21,22,23
+    expect(bands.every((b) => b.feel != null && b.source === "actual")).toBe(true);
+  });
+
+  it("leaves a band empty rather than guessing", () => {
+    const rows = [hour(13, 20)];
+    const bands = hourlyBands(rows);
+    expect(bands[0]).toMatchObject({ feel: null, level: null });
+    expect(bands[2].feel).not.toBeNull();
+  });
+
+  it("marks a band that mixes observed and forecast hours", () => {
+    const rows = [hour(12, 20), hour(13, 21), hour(14, 22, 60, 2, "forecast")];
+    expect(hourlyBands(rows)[2].source).toBe("mixed");
+  });
+});
+
+group("estimate from the daily row", () => {
+  it("uses the minimum for morning and night and the maximum for midday", () => {
+    const row: WeatherRow = { ...hour(1, null), max: 27, min: 11, humidity: 65, wind: 1.5 };
+    const bands = estimatedBands(row)!;
+    expect(bands.map((b) => b.label)).toEqual(["朝晩", "昼", "朝晩"]);
+    expect(bands[1].feel!).toBeGreaterThan(bands[0].feel!);
+  });
+
+  it("gives nothing when humidity or wind is missing", () => {
+    expect(estimatedBands({ ...hour(1, null), max: 27, min: 11, humidity: null, wind: 1 })).toBeNull();
+  });
+});
+
+group("describing the day", () => {
+  const bands = (m: number, noon: number, night: number): Band[] =>
+    [
+      ["朝", m],
+      ["日中", noon],
+      ["昼", noon],
+      ["夕方", noon],
+      ["夜", night],
+    ].map(([label, feel]) => ({ label: label as string, feel: feel as number, temp: null, level: levelOf(feel as number, DEFAULT_FEEL), source: "actual" }));
+
+  it("finds 'cold mornings and evenings, hot midday'", () => {
+    expect(describe(bands(9, 27, 12))).toBe("朝晩は冷えるが昼は暑い");
+    expect(spread(bands(9, 27, 12))).toBe(18);
+  });
+
+  it("covers the other patterns", () => {
+    expect(describe(bands(26, 30, 26))).toBe("一日中暑い");
+    expect(describe(bands(5, 9, 6))).toBe("一日中寒い");
+    expect(describe(bands(12, 18, 13))).toBe("朝晩は冷える");
+    expect(describe(bands(12, 18, 17))).toBe("朝だけ冷える");
+    expect(describe(bands(17, 19, 13))).toBe("夜から冷え込む");
+    expect(describe(bands(16, 26, 18))).toBe("昼は暑い");
+    expect(describe(bands(17, 20, 18))).toBe("過ごしやすい一日");
+  });
+
+  it("works on the three-segment estimate too", () => {
+    const est: Band[] = [
+      { label: "朝晩", feel: 9, temp: null, level: 0, source: "actual" },
+      { label: "昼", feel: 27, temp: null, level: 4, source: "actual" },
+      { label: "朝晩", feel: 9, temp: null, level: 0, source: "actual" },
+    ];
+    expect(describe(est)).toBe("朝晩は冷えるが昼は暑い");
+  });
+});
