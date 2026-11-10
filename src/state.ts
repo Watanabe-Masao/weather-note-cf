@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { addDays, FIRST_DAY, jstToday } from "../shared/dates";
 import { clampDay, type CompareMode, matchDate, offsetOf, targetBounds } from "./compare";
 import { lastDay } from "./data/plan";
-import type { MetricId } from "./metrics";
+import { knownMetric, type MetricId } from "./metrics";
 
 export interface ViewState {
   station: string;
@@ -41,6 +41,7 @@ function load(today: string): ViewState {
     // Storage blocked or corrupt: start from defaults.
   }
   const base = { ...DEFAULTS, ...saved };
+  base.metric = knownMetric(base.metric);
   return { ...base, target: today, compare: matchDate(today, base.mode, base.offset) ?? addDays(today, -364) };
 }
 

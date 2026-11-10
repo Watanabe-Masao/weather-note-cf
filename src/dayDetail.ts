@@ -8,7 +8,7 @@ import type { WeatherRow } from "../shared/types";
 import type { MetricId } from "./metrics";
 
 export type DetailView = "measured" | "feel";
-export type DetailMetricId = "temp" | "rain" | "humidity" | "wind" | "radiation" | "sun" | "feel";
+export type DetailMetricId = "temp" | "rain" | "snow" | "probability" | "humidity" | "wind" | "radiation" | "sun" | "feel";
 
 export interface DetailMetric {
   id: DetailMetricId;
@@ -19,25 +19,42 @@ export interface DetailMetric {
   floor?: number;
   /** Fixed top of the axis, when the value has one (sunshine is at most one hour). */
   ceiling?: number;
+  /** Offered only when one of the two days has a value above zero (snow, forecast probability). */
+  onlyWhenPresent?: boolean;
+  /** Not offered as a chip (shown as part of another item). */
+  hidden?: boolean;
 }
 
 export const MEASURED: DetailMetric[] = [
   { id: "temp", label: "気温", unit: "℃", chart: "line" },
   { id: "rain", label: "降水量", unit: "mm", chart: "bar", floor: 0 },
+  { id: "snow", label: "降雪", unit: "cm", chart: "bar", floor: 0, onlyWhenPresent: true },
+  { id: "probability", label: "降水確率", unit: "%", chart: "bar", floor: 0, ceiling: 100, onlyWhenPresent: true },
   { id: "humidity", label: "湿度", unit: "%", chart: "line" },
   { id: "wind", label: "風速", unit: "m/s", chart: "line", floor: 0 },
   // 全天日射量: the sun's warming power (direct plus scattered light); what 日なた温度 uses.
-  { id: "radiation", label: "日射量", unit: "MJ/㎡", chart: "bar", floor: 0 },
+  { id: "radiation", label: "日差し", unit: "MJ/㎡", chart: "bar", floor: 0 },
   // 日照時間: minutes of direct sunshine in the hour — a record of "was it sunny".
-  { id: "sun", label: "日照", unit: "h", chart: "bar", floor: 0, ceiling: 1 },
+  // 日照 has no chip of its own: it is read out next to 日射量 under 日差し (no shared axis).
+  { id: "sun", label: "日照", unit: "h", chart: "bar", floor: 0, ceiling: 1, hidden: true },
 ];
 
 export const FEEL_METRIC: DetailMetric = { id: "feel", label: "肌感", unit: "℃", chart: "line" };
 
 export const detailMetric = (id: DetailMetricId) => (id === "feel" ? FEEL_METRIC : MEASURED.find((m) => m.id === id)!);
 
-/** The detail opens on what the table was showing. */
-export const initialDetailMetric = (metric: MetricId): DetailMetricId => metric;
+/** The detail opens on what the table was showing (its nearest hourly item). */
+export function initialDetailMetric(metric: MetricId): DetailMetricId {
+  switch (metric) {
+    case "rain":
+    case "radiation":
+    case "humidity":
+    case "wind":
+      return metric;
+    default:
+      return "temp";
+  }
+}
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
@@ -68,6 +85,13 @@ export function hourSeries(rows: WeatherRow[], id: DetailMetricId, s: FeelSettin
           : num((r as Record<string, unknown>)[id]);
     return { hour, v, forecast };
   });
+}
+
+/** The measured items worth offering for these two days. */
+export function offeredMetrics(main: WeatherRow[], other: WeatherRow[], s: FeelSettings): DetailMetric[] {
+  return MEASURED.filter(
+    (m) => !m.hidden && (!m.onlyWhenPresent || [main, other].some((rows) => hourSeries(rows, m.id, s).some((p) => p.v != null && p.v > 0))),
+  );
 }
 
 /** The hour to point at first: the latest observed hour today, otherwise the warmest hour. */

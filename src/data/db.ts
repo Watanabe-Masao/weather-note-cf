@@ -5,7 +5,8 @@ import { type IDBPDatabase, openDB } from "idb";
 import type { WeatherRow } from "../../shared/types";
 
 /** Bump when the stored shape changes; old data is then discarded and fetched again. */
-export const DATA_VERSION = 1;
+/** Bumped when rows gain fields (2: snow, humidityMin, windMax): days and hours are read again, meta is kept. */
+export const DATA_VERSION = 2;
 const DB_NAME = "weather-note";
 
 export type Kind = "fixed" | "variable";
@@ -58,10 +59,12 @@ export async function openStorage(factory: IDBFactory | undefined = globalThis.i
     // idb uses the global indexedDB; tests install fake-indexeddb globally.
     db = await openDB(DB_NAME, DATA_VERSION, {
       upgrade(database) {
-        for (const name of [...database.objectStoreNames]) database.deleteObjectStore(name);
+        // Weather records are dropped and fetched again; meta (when saving began) survives,
+        // so watching whether the browser keeps the data carries on across versions.
+        for (const name of ["days", "hours"]) if (database.objectStoreNames.contains(name)) database.deleteObjectStore(name);
         database.createObjectStore("days", { keyPath: "key" });
         database.createObjectStore("hours", { keyPath: "key" });
-        database.createObjectStore("meta", { keyPath: "key" });
+        if (!database.objectStoreNames.contains("meta")) database.createObjectStore("meta", { keyPath: "key" });
       },
     });
   } catch {

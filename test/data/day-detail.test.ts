@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_FEEL } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import { hourOfDay } from "../../src/data/sun";
-import { axisRange, detailMetric, formatDetail, hourSeries, initialHour, signedDiff } from "../../src/dayDetail";
+import { axisRange, detailMetric, formatDetail, hourSeries, initialHour, offeredMetrics, signedDiff } from "../../src/dayDetail";
 
 const hour = (n: number, temp: number | null, extra: Partial<WeatherRow> = {}): WeatherRow => ({
   date: "2026-11-10",
@@ -39,6 +39,16 @@ describe("day detail", () => {
     expect(s[11].v).toBe(2.17);
     expect(s[12].v).toBe(1.8);
     expect(formatDetail(1.8, detailMetric("radiation"))).toBe("1.80");
+  });
+
+  it("offers snow and rain chance only when one of the days has them", () => {
+    const plain = [hour(12, 10)];
+    const ids = (a: WeatherRow[], b: WeatherRow[]) => offeredMetrics(a, b, DEFAULT_FEEL).map((m) => m.id);
+    expect(ids(plain, plain)).not.toContain("snow");
+    expect(ids(plain, plain)).not.toContain("sun");
+    expect(ids(plain, plain)).not.toContain("probability");
+    expect(ids(plain, [hour(3, -1, { snow: 2 })])).toContain("snow");
+    expect(ids([hour(12, 10, { type: "forecast", probability: 40 })], plain)).toContain("probability");
   });
 
   it("points first at the current hour today, otherwise at the warmest hour", () => {

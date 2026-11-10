@@ -58,6 +58,11 @@ const HOURLY_FIELDS = {
   // Global (shortwave) radiation, W/m², mean of the preceding hour — same window as JMA's hourly 日射量.
   solar: "shortwave_radiation",
 };
+/** Asked for when the API accepts them; a forecast without them still works (see fetchForecast). */
+const OPTIONAL_HOURLY = {
+  snow: "snowfall",
+  gust: "wind_gusts_10m",
+};
 const DAILY_FIELDS = {
   temp: "temperature_2m_mean",
   max: "temperature_2m_max",
@@ -93,6 +98,7 @@ export function normalizeForecast(data: ForecastPayload): { rows: WeatherRow[]; 
       quality: {},
     };
     fill(row, HOURLY_FIELDS, hourly, i);
+    if (hourly.snowfall || hourly.wind_gusts_10m) fill(row, OPTIONAL_HOURLY, hourly, i);
     return row;
   });
 
@@ -118,6 +124,26 @@ export function normalizeForecast(data: ForecastPayload): { rows: WeatherRow[]; 
       row.raw[k] = v == null ? "" : String(Math.round(v * 10) / 10);
       row.quality[k] = v == null ? "missing" : "normal";
     }
+    // Totals from the hourly forecast, in JMA's daily units: radiation MJ/㎡, snowfall cm.
+    const day = hourlyRows.filter((h) => h.date === date);
+    const total = (k: string, scale: number) => {
+      const values = day.filter((h) => typeof h[k] === "number").map((h) => h[k] as number);
+      return values.length === 24 ? Math.round((values.reduce((a, b) => a + b, 0) * scale) * 100) / 100 : null;
+    };
+    const extreme = (k: string, pick: (...v: number[]) => number) => {
+      const values = day.filter((h) => typeof h[k] === "number").map((h) => h[k] as number);
+      return values.length === 24 ? pick(...values) : null;
+    };
+    for (const [k, v] of [
+      ["radiation", total("solar", 3600 / 1e6)],
+      ["snow", total("snow", 1)],
+      ["humidityMin", extreme("humidity", Math.min)],
+      ["gust", extreme("gust", Math.max)],
+    ] as const) {
+      row[k] = v;
+      row.raw[k] = v == null ? "" : String(v);
+      row.quality[k] = v == null ? "missing" : "normal";
+    }
     row.sunrise = daily.sunrise?.[i] ?? null;
     row.sunset = daily.sunset?.[i] ?? null;
     row.raw.dayWeather = (row.dayWeather as string | null) ?? "";
@@ -131,18 +157,28 @@ const coords = (s: Station) => ({
   longitude: String(s.lon[0] + s.lon[1] / 60),
 });
 
-export async function fetchForecast(station: Station) {
-  const source =
+export function forecastUrl(station: Station, optional = true): string {
+  return (
     "https://api.open-meteo.com/v1/forecast?" +
     new URLSearchParams({
       ...coords(station),
       timezone: "Asia/Tokyo",
       forecast_days: "8",
       wind_speed_unit: "ms",
-      hourly: [...Object.values(HOURLY_FIELDS), "weather_code"].join(","),
+      hourly: [...Object.values(HOURLY_FIELDS), ...(optional ? Object.values(OPTIONAL_HOURLY) : []), "weather_code"].join(","),
       daily: [...Object.values(DAILY_FIELDS), "weather_code", "sunrise", "sunset"].join(","),
-    });
-  const r = await fetch(source, { signal: AbortSignal.timeout(25_000) });
+    })
+  );
+}
+
+export async function fetchForecast(station: Station) {
+  let source = forecastUrl(station);
+  let r = await fetch(source, { signal: AbortSignal.timeout(25_000) });
+  // An unknown variable makes Open-Meteo answer 400: the forecast matters more than the extras.
+  if (r.status === 400) {
+    source = forecastUrl(station, false);
+    r = await fetch(source, { signal: AbortSignal.timeout(25_000) });
+  }
   if (!r.ok) throw new Error(`予報の取得に失敗しました（${r.status}）。`);
   const data = (await r.json()) as ForecastPayload & { error?: boolean; reason?: string };
   if (data.error || !data.daily?.time?.length) throw new Error(data.reason ?? "予報データがありません。");

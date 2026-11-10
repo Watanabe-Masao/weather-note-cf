@@ -2,16 +2,17 @@
 // Linked: both strips render the same run of target days (the comparison cell is that day's partner)
 // and scroll as one. Independent: each strip has its own run of days.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "../../shared/dates";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
 import type { WeatherStore } from "../data/store";
+import { tableSeries } from "../chartMetrics";
 import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
 import { CalendarModal } from "./CalendarModal";
 import { DateNav } from "./DateNav";
-import { FeelBar, LEVEL_COLORS } from "./FeelBar";
+import { FeelBar, FeelContext, LEVEL_COLORS } from "./FeelBar";
 import { LEVELS } from "../../shared/feel";
 import { Strip, StripSync } from "./Strip";
 import { WeatherIcon } from "./WeatherIcon";
@@ -51,7 +52,11 @@ function useWindow(center: string, min: string, max: string) {
 function kindLabel(store: WeatherStore | null, station: string, date: string) {
   const day = store?.getDay(station, date);
   if (day?.state !== "ready" || !day.row) return "";
-  if (day.row.type === "forecast") return "予報";
+  if (day.row.type === "forecast") {
+    // Rain chance rides along with the forecast label, whatever item is chosen.
+    const p = day.row.probability;
+    return typeof p === "number" ? `予報 ${Math.round(p)}%` : "予報";
+  }
   return day.kind === "variable" ? "暫定" : "実績";
 }
 
@@ -62,6 +67,7 @@ function Column({
   metric,
   faded = false,
   onOpen,
+  past = false,
 }: {
   store: WeatherStore | null;
   station: string;
@@ -69,7 +75,9 @@ function Column({
   metric: Metric;
   faded?: boolean;
   onOpen?: () => void;
+  past?: boolean;
 }) {
+  const feel = useContext(FeelContext);
   if (!date)
     return (
       <div className="cell-stack empty-partner">
@@ -93,10 +101,14 @@ function Column({
         {state === "ready" ? <WeatherIcon text={day?.row?.dayWeather as string | null} /> : state === "empty" ? <span className="skeleton icon" /> : null}
       </span>
       <span className="cell-kind">{state === "outside" ? "範囲外" : kindLabel(store, station, date)}</span>
-      {metric.series.map((s) => (
-        <span key={s.key} className={`cell-value tone-${s.tone}`}>
+      {tableSeries(metric, past).map((s) => (
+        <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
           {state === "ready" ? (
-            formatValue(day?.row?.[s.key], metric.unit)
+            s.forecastOnly && day?.row?.type !== "forecast" ? (
+              ""
+            ) : (
+              formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel), s.unit ?? metric.unit)
+            )
           ) : state === "error" ? (
             <button
               className="retry"
@@ -119,16 +131,16 @@ function Column({
   );
 }
 
-function Labels({ metric }: { metric: Metric }) {
+function Labels({ metric, past = false }: { metric: Metric; past?: boolean }) {
   return (
     <div className="labels">
       <span className="label-date">日付</span>
       <span className="label-icon">天気</span>
       <span className="label-kind" />
-      {metric.series.map((s) => (
-        <span key={s.key} className={`label-value tone-${s.tone}`}>
-          {s.label}
-          <small>{metric.unit}</small>
+      {tableSeries(metric, past).map((s) => (
+        <span key={s.key} className={`label-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
+          {s.tableLabel ?? s.label}
+          {!s.minor && <small>{metric.unit}</small>}
         </span>
       ))}
       {metric.id === "temp" && <span className="label-feel">肌感</span>}
@@ -212,7 +224,7 @@ export function CompareBoard({
           onOpenCalendar={() => setCalendar("compare")}
         />
         <div className="side-body">
-          <Labels metric={metric} />
+          <Labels metric={metric} past />
           <div className="strip-wrap">
             <Strip
               id="compare"
@@ -228,6 +240,7 @@ export function CompareBoard({
                   station={station}
                   date={partner(d)}
                   metric={metric}
+                  past
                   faded={view.linked ? d < bounds.min || d > bounds.max : d < "1977-01-01" || d > last}
                   onOpen={() => {
                     const shown = partner(d);

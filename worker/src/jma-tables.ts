@@ -15,8 +15,10 @@ const text = (s: string): string =>
     .trim();
 
 const TEXT_KEY = /Weather|weather|direction/;
-const ZERO_WHEN_DASH = new Set(["rain", "rainHour", "sun"]);
-const NIGHT_BLANK = new Set(["sun", "radiation"]);
+// "--" means the phenomenon did not occur: no rain, no sunshine, no snow.
+const ZERO_WHEN_DASH = new Set(["rain", "rainHour", "sun", "snow", "snowDepth"]);
+// Hourly columns that are blank by design (no sun at night; snow only noted when it is observed).
+const NIGHT_BLANK = new Set(["sun", "radiation", "snow", "snowDepth"]);
 
 export interface ParsedRow {
   n: number;
@@ -60,6 +62,8 @@ export function parseTable(html: string, hourly = false): ParsedRow[] {
         pressure: find(/気圧/, /海面/),
         dew: find(/露点/),
         radiation: find(/日射/),
+        snow: find(/降雪/),
+        snowDepth: find(/積雪/),
         direction: find(/風向/, /風向$/),
         weather: find(/^天気/),
       }
@@ -69,11 +73,15 @@ export function parseTable(html: string, hourly = false): ParsedRow[] {
         min: find(/気温/, /最低/),
         rain: find(/降水/, /合計/),
         humidity: find(/湿度/, /平均/),
+        humidityMin: find(/湿度/, /最小/),
         wind: find(/風向・風速/, /平均/),
+        windMax: find(/最大風速/, /風速$/),
         gust: find(/最大瞬間風速/, /風速$/),
         sun: find(/日照/),
         pressure: find(/気圧/, /海面/),
         rainHour: find(/降水/, /1時間/),
+        snow: find(/降雪/),
+        snowDepth: find(/最深積雪/),
         dayWeather: find(/天気概況/, /昼/),
         nightWeather: find(/天気概況/, /夜/),
       };

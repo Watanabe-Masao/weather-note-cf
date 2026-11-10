@@ -16,7 +16,7 @@ import {
   type HourPoint,
   hourSeries,
   initialHour,
-  MEASURED,
+  offeredMetrics,
   signedDiff,
 } from "../dayDetail";
 import { FeelContext, LEVEL_COLORS } from "./FeelBar";
@@ -103,6 +103,8 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings), [otherHours, metricId, settings]);
   const air = useMemo(() => (metricId === "feel" ? hourSeries(hours?.rows ?? [], "temp", settings) : null), [hours, metricId, settings]);
+  const sunMain = useMemo(() => hourSeries(hours?.rows ?? [], "sun", settings), [hours, settings]);
+  const sunOther = useMemo(() => hourSeries(otherHours?.rows ?? [], "sun", settings), [otherHours, settings]);
   const isToday = date === today;
   const nowHour = jstHour();
   const [hour, setHour] = useState<number | null>(null);
@@ -127,6 +129,13 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
     setPull(0);
     if (moved > 80 || moved < 6) onClose();
   };
+
+  // Opened on snow or rain chance for days that have none: show temperature instead.
+  const offered = offeredMetrics(hours?.rows ?? [], otherHours?.rows ?? [], settings);
+  const loaded = hours?.state === "ready" && (!other || otherHours?.state === "ready");
+  useEffect(() => {
+    if (loaded && metricId !== "feel" && !offered.some((m) => m.id === metricId)) setMetricId("temp");
+  }, [loaded, metricId, offered]);
 
   const at = (points: HourPoint[]) => points[shownHour - 1]?.v ?? null;
 
@@ -159,11 +168,15 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
             <span className="day-text">{(row?.dayWeather as string) || (day?.state === "ready" ? "天気の記録なし" : "")}</span>
             {kind && <span className={`day-kind kind-${kind}`}>{kind}</span>}
           </div>
-          <dl className="day-tiles">
+          <dl className="day-tiles" style={{ gridTemplateColumns: `repeat(${row?.type === "forecast" && typeof row.probability === "number" ? 5 : 4}, 1fr)` }}>
             <Tile label="最高" unit="℃" tone="hot" v={row?.max} o={otherRow?.max} hasOther={!!other} />
             <Tile label="最低" unit="℃" tone="cold" v={row?.min} o={otherRow?.min} hasOther={!!other} />
             <Tile label="降水" unit="mm" tone="rain" v={row?.rain} o={otherRow?.rain} hasOther={!!other} />
             <Tile label="湿度" unit="%" v={row?.humidity} o={otherRow?.humidity} hasOther={!!other} digits={0} />
+            {/* Rain chance exists only for forecasts, so it has nothing to compare with. */}
+            {row?.type === "forecast" && typeof row.probability === "number" && (
+              <Tile label="降水確率" unit="%" tone="rain" v={row.probability} o={null} hasOther={false} digits={0} />
+            )}
           </dl>
           <p className="day-sun">
             <span>
@@ -192,7 +205,7 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
         </div>
         {metricId !== "feel" ? (
           <div className="day-metrics">
-            {MEASURED.map((m) => (
+            {offered.map((m) => (
               <button key={m.id} className={m.id === metricId ? "chip on" : "chip"} onClick={() => setMetricId(m.id)}>
                 {m.label}
               </button>
@@ -231,6 +244,13 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
           )}
           {other && metric.unit !== "h" && <span className="diff">{signedDiff(at(main), at(second), metric.unit === "%" ? 0 : 1)}</span>}
         </p>
+        {metricId === "radiation" && (
+          <p className="day-readout sub">
+            <span>日照</span>
+            <span style={{ color: COLORS.main }}>{formatDetail(sunMain[shownHour - 1]?.v ?? null, detailMetric("sun"))}</span>
+            {other && <span style={{ color: COLORS.other }}>{formatDetail(sunOther[shownHour - 1]?.v ?? null, detailMetric("sun"))}</span>}
+          </p>
+        )}
         {metricId === "feel" && (
           <p className="feel-legend day-legend">
             {LEVELS.map((label, i) => (

@@ -1,39 +1,19 @@
-// What each metric chip shows in the table and the graph.
+// The items one chip row chooses for both the table and the comparison graph.
 
-export type MetricId = "temp" | "rain" | "humidity" | "wind";
+import { CHART_METRICS, type ChartMetric, type ChartMetricId, chartMetricById } from "./chartMetrics";
 
-export interface Series {
-  key: string;
-  label: string;
-  tone: "hot" | "cold" | "rain" | "plain";
-}
+export type MetricId = ChartMetricId;
+export type Metric = ChartMetric;
+export const METRICS = CHART_METRICS;
+export const metricById = chartMetricById;
 
-export interface Metric {
-  id: MetricId;
-  label: string;
-  unit: string;
-  series: Series[];
-  /** Bars start at zero; lines fit the data. */
-  chart: "line" | "bar";
-}
-
-export const METRICS: Metric[] = [
-  {
-    id: "temp",
-    label: "気温",
-    unit: "℃",
-    chart: "line",
-    series: [
-      { key: "max", label: "最高", tone: "hot" },
-      { key: "min", label: "最低", tone: "cold" },
-    ],
-  },
-  { id: "rain", label: "降水量", unit: "mm", chart: "bar", series: [{ key: "rain", label: "降水量", tone: "rain" }] },
-  { id: "humidity", label: "湿度", unit: "%", chart: "line", series: [{ key: "humidity", label: "湿度", tone: "plain" }] },
-  { id: "wind", label: "風速", unit: "m/s", chart: "line", series: [{ key: "wind", label: "風速", tone: "plain" }] },
-];
-
-export const metricById = (id: MetricId) => METRICS.find((m) => m.id === id)!;
+/** A saved item that no longer exists falls back to temperature. */
+export const knownMetric = (id: unknown): MetricId =>
+  METRICS.some((m) => m.id === id) ? (id as MetricId) : id === "snow" || id === "probability" ? "rain" : id === "sun" ? "radiation" : id === "gust" ? "wind" : "temp";
 
 export const formatValue = (v: unknown, unit: string) =>
-  typeof v === "number" && Number.isFinite(v) ? (unit === "%" ? Math.round(v).toString() : v.toFixed(1)) : "—";
+  typeof v === "number" && Number.isFinite(v)
+    ? unit === "%" || unit === "hPa"
+      ? Math.round(v).toString()
+      : v.toFixed(1)
+    : "—";
