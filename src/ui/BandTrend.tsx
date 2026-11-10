@@ -1,5 +1,5 @@
 // Band trend graph (spec chapter 5): how each part of the day moved over the seven days.
-// One line per chosen band (朝・日中・昼・夕方・夜) in 日なた/日かげ温度; the comparison side dashed.
+// One line per chosen 時間区分 (朝・日中・昼・夕方・夜) in 日なた/日かげ温度; the comparison side dashed.
 // Forecast segments dotted; missing values leave a gap (never interpolated).
 
 import { useContext, useLayoutEffect, useRef, useState } from "react";
@@ -7,9 +7,11 @@ import { addDays } from "../../shared/dates";
 import { type Band, BANDS, type FeelSettings, hourlyBands } from "../../shared/feel";
 import { dayTone } from "../../shared/holidays";
 import type { WeatherStore } from "../data/store";
+import { BAND_LINES } from "../design/tokens";
+import { Chip } from "./kit";
 import { FeelContext, LEVEL_COLORS } from "./FeelBar";
 
-export const BAND_COLORS = ["#7cc4ff", "#9fd3c7", "#f2c46d", "#ef8a6f", "#b8a6f0"] as const;
+export const BAND_COLORS = BAND_LINES;
 export const MAX_COMPARED_BANDS = 3;
 const OFFSETS = [-3, -2, -1, 0, 1, 2, 3];
 
@@ -88,26 +90,22 @@ export function BandTrend({ store, station, target, partner }: Props) {
 
   return (
     <div className="band-trend" ref={ref}>
-      <div className="trend-chips">
+      <div className="chip-row">
         {BANDS.map((b, i) => (
-          <button
-            key={b.id}
-            className={chosen.includes(i) ? "on" : ""}
-            style={chosen.includes(i) ? { borderColor: BAND_COLORS[i], color: BAND_COLORS[i] } : undefined}
-            onClick={() => toggle(i)}
-            aria-pressed={chosen.includes(i)}
-          >
+          <Chip key={b.id} size="sm" on={chosen.includes(i)} tone={BAND_COLORS[i]} onClick={() => toggle(i)}>
             {b.label}
-          </button>
+          </Chip>
         ))}
-        <button className={compareOn ? "on compare" : "compare"} onClick={() => setWithCompare(!withCompare)} aria-pressed={compareOn}>
-          比較日
-        </button>
+        <span className="chip-row-end">
+          <Chip size="sm" on={compareOn} onClick={() => setWithCompare(!withCompare)}>
+            比較日を重ねる
+          </Chip>
+        </span>
       </div>
       {withCompare && chosen.length > MAX_COMPARED_BANDS && (
-        <p className="hint">比較日を重ねるのは時間帯を{MAX_COMPARED_BANDS}つまで選んだ時です。</p>
+        <p className="hint">比較日を重ねられるのは、時間区分を{MAX_COMPARED_BANDS}つまで選んだときです。</p>
       )}
-      <svg width={w} height={H} role="img" aria-label="時間帯ごとの推移">
+      <svg width={w} height={H} role="img" aria-label="時間区分ごとの推移">
         {levelBands.map(
           (b) => b && <rect key={b.i} x={PAD.left} width={w - PAD.left - PAD.right} y={b.y1} height={b.y2 - b.y1} fill={LEVEL_COLORS[b.i]} opacity={0.1} />,
         )}

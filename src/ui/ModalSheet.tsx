@@ -18,10 +18,11 @@ import {
   useRef,
   useState,
 } from "react";
+import { MOTION } from "../design/tokens";
 import { moveDuration, prefersReducedMotion, rubberBand, SHEET_EASE, VelocityTracker, capture } from "./sheetMotion";
 
-const OPEN_MS = 380;
-const CLOSE_MS = 280;
+const OPEN_MS: number = MOTION.enter;
+const CLOSE_MS: number = MOTION.exit;
 const SLOP = 7;
 /** Downward flick speed (px/ms) that closes regardless of distance. */
 const CLOSE_FLICK = 0.55;
@@ -30,17 +31,25 @@ const CloseContext = createContext<() => void>(() => {});
 /** Close the surrounding sheet with its animation (use instead of calling onClose directly). */
 export const useSheetClose = () => useContext(CloseContext);
 
+/** The one way an overlay sheet shows how to close: × at the right of its header (rule: 閉じ方). */
 export function SheetCloseButton() {
   const close = useSheetClose();
   return (
-    <button className="chip icon" onClick={close} aria-label="閉じる">
-      ×
+    <button className="icon-btn close" onClick={close} aria-label="閉じる" title="閉じる">
+      <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden>
+        <path d="M3.5 3.5l9 9m0-9l-9 9" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
     </button>
   );
 }
 
 interface Props {
-  label: string;
+  /** The sheet's title: shown in its header next to the close button (every overlay has both). */
+  title: ReactNode;
+  /** Accessible name when the title is not plain text. */
+  label?: string;
+  /** Extra controls in the header, before the close button. */
+  headerEnd?: ReactNode;
   onClose: () => void;
   className?: string;
   children: ReactNode;
@@ -50,7 +59,7 @@ type Phase = "entering" | "open" | "closing";
 
 let openSheets = 0;
 
-export function ModalSheet({ label, onClose, className, children }: Props) {
+export function ModalSheet({ title, label, headerEnd, onClose, className, children }: Props) {
   const [phase, setPhase] = useState<Phase>("entering");
   const [pull, setPull] = useState<number | null>(null);
   const [settleMs, setSettleMs] = useState(OPEN_MS);
@@ -194,7 +203,7 @@ export function ModalSheet({ label, onClose, className, children }: Props) {
         className={`msheet${className ? ` ${className}` : ""}${drag.current ? " dragging" : ""}`}
         role="dialog"
         aria-modal="true"
-        aria-label={label}
+        aria-label={label ?? (typeof title === "string" ? title : undefined)}
         tabIndex={-1}
         data-sheet-scroll
         style={{ transform, transition: `transform ${ms}ms ${ease}` }}
@@ -210,7 +219,12 @@ export function ModalSheet({ label, onClose, className, children }: Props) {
         >
           <span className="grabber" />
         </div>
-        {children}
+        <header className="msheet-head">
+          <h2>{title}</h2>
+          {headerEnd}
+          <SheetCloseButton />
+        </header>
+        <div className="msheet-body">{children}</div>
       </section>
     </CloseContext.Provider>
   );

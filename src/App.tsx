@@ -10,6 +10,8 @@ import { useViewState } from "./state";
 import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
 import { CompareBoard } from "./ui/CompareBoard";
+import { ChevronIcon, ExpandIcon, GearIcon, LinkIcon, ShrinkIcon } from "./ui/icons";
+import { IconButton } from "./ui/kit";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
 import { FeelSheet } from "./ui/FeelSheet";
@@ -49,7 +51,7 @@ export function App() {
   // How the comparison day is chosen: in the comparison header, and in the sheet head (which covers it when raised).
   const modeSelect = (
     <select
-      className="chip mini mode"
+      className="chip sm mode"
       value={view.mode}
       onChange={(e) => {
         // 似た日 is a way of choosing the day, not a rule: it opens the list and the menu stays as it was.
@@ -170,9 +172,9 @@ export function App() {
       {!full && (
         <header className="app-head">
           <h1>Weather Note</h1>
-          <button className="chip icon" onClick={() => setSettings(true)} aria-label="設定">
-            ⚙
-          </button>
+          <IconButton label="設定" onClick={() => setSettings(true)}>
+            <GearIcon />
+          </IconButton>
         </header>
       )}
 
@@ -182,7 +184,7 @@ export function App() {
             key={m.id}
             role="tab"
             aria-selected={m.id === view.metric}
-            className={m.id === view.metric ? "chip on" : "chip"}
+            className={m.id === view.metric ? "chip item on" : "chip item"}
             onClick={() => set("metric", m.id)}
           >
             {m.label}
@@ -206,18 +208,20 @@ export function App() {
             onOpenDay={openDay}
             onOpenFeel={() => setFeelMap(true)}
             targetExtra={
-              <button className="chip icon mini" onClick={() => setFull(!full)} aria-label={full ? "縮小" : "表に集中"}>
-                {full ? "⤡" : "⤢"}
-              </button>
+              <IconButton size="sm" label={full ? "表示を戻す" : "表に集中"} onClick={() => setFull(!full)}>
+                {full ? <ShrinkIcon /> : <ExpandIcon />}
+              </IconButton>
             }
             compareExtra={
               <>
+                {/* The state is shown, with an icon: linked (chain) or separate (broken chain). */}
                 <button
-                  className={view.linked ? "chip mini on" : "chip mini"}
+                  className={view.linked ? "chip sm link-toggle on" : "chip sm link-toggle"}
                   onClick={() => setLinked(!view.linked)}
                   aria-pressed={view.linked}
-                  title={view.linked ? "比較日は対象日に付いて動きます（タップで個別）" : "比較日は別に動きます（タップで連動）"}
+                  title={view.linked ? "連動中：比較日は対象日に付いて動きます（タップで個別）" : "個別：比較日は別に動きます（タップで連動）"}
                 >
+                  <LinkIcon linked={view.linked} />
                   {view.linked ? "連動" : "個別"}
                 </button>
                 {modeSelect}
@@ -239,8 +243,9 @@ export function App() {
             <div className="sheet-head">
               {face === "hours" ? (
                 <>
-                  <button className="chip back" onClick={() => setFace("chart")} aria-label="日別に戻る">
-                    ‹ 日別
+                  <button className="back-btn" onClick={() => setFace("chart")} aria-label="日別に戻る">
+                    <ChevronIcon />
+                    日別
                   </button>
                   <span className="sheet-head-title">{`${metric.label}の時間帯`}</span>
                   <span className="sheet-head-end">{modeSelect}</span>

@@ -8,6 +8,7 @@ import { initialDetailMetric } from "../dayDetail";
 import { FeelContext } from "./FeelBar";
 import { CompareSummary } from "./CompareSummary";
 import { HourCompare } from "./HourCompare";
+import { Segmented } from "./kit";
 
 interface Props {
   store: WeatherStore | null;
@@ -39,20 +40,17 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
       <div className="hour-face-head">
         <p>24時間</p>
         {base === "temp" && (
-          <div className="mini-switch" role="tablist" aria-label="気温の見方">
-            <button role="tab" aria-selected={!feel} className={feel ? "" : "on"} onClick={() => setFeel(false)}>
-              気温
-            </button>
-            <button
-              role="tab"
-              aria-selected={feel}
-              className={feel ? "on" : ""}
-              onClick={() => (feel ? onToggleSun?.() : setFeel(true))}
-              title={feel ? `タップで${settings.sun ? "日かげ" : "日なた"}温度に切り替え` : undefined}
-            >
-              {settings.sun ? "日なた温度" : "日かげ温度"}
-            </button>
-          </div>
+          <Segmented
+            label="気温の見方"
+            value={feel ? "feel" : "air"}
+            options={[
+              { id: "air", label: "気温" },
+              { id: "feel", label: settings.sun ? "日なた温度" : "日かげ温度" },
+            ]}
+            onChange={(v) => setFeel(v === "feel")}
+            // The selected 日なた/日かげ温度 tapped again switches sun and shade (the shared setting).
+            onReselect={(v) => v === "feel" && onToggleSun?.()}
+          />
         )}
       </div>
       <HourCompare store={store} station={station} date={target} other={compareDate} metricId={id} today={today} height={height} />

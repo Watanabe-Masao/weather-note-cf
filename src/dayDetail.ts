@@ -6,6 +6,7 @@
 import { type FeelSettings, feelOf, MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
 import type { WeatherRow } from "../shared/types";
 import type { MetricId } from "./metrics";
+import { formatValue, sunshineMinutes } from "./design/format";
 
 export type DetailView = "measured" | "feel";
 export type DetailMetricId = "temp" | "rain" | "snow" | "probability" | "humidity" | "wind" | "radiation" | "sun" | "pressure" | "feel";
@@ -19,24 +20,20 @@ export interface DetailMetric {
   floor?: number;
   /** Fixed top of the axis, when the value has one (sunshine is at most one hour). */
   ceiling?: number;
-  /** Offered only when one of the two days has a value above zero (snow, forecast probability). */
-  onlyWhenPresent?: boolean;
-  /** Not offered as a chip (shown as part of another item). */
-  hidden?: boolean;
 }
 
 export const MEASURED: DetailMetric[] = [
   { id: "temp", label: "気温", unit: "℃", chart: "line" },
   { id: "rain", label: "降水量", unit: "mm", chart: "bar", floor: 0 },
-  { id: "snow", label: "降雪", unit: "cm", chart: "bar", floor: 0, onlyWhenPresent: true },
-  { id: "probability", label: "降水確率", unit: "%", chart: "bar", floor: 0, ceiling: 100, onlyWhenPresent: true },
+  { id: "snow", label: "降雪", unit: "cm", chart: "bar", floor: 0 },
+  { id: "probability", label: "降水確率", unit: "%", chart: "bar", floor: 0, ceiling: 100 },
   { id: "humidity", label: "湿度", unit: "%", chart: "line" },
   { id: "wind", label: "風速", unit: "m/s", chart: "line", floor: 0 },
   // 全天日射量: the sun's warming power (direct plus scattered light); what 日なた温度 uses.
   { id: "radiation", label: "日差し", unit: "MJ/㎡", chart: "bar", floor: 0 },
   // 日照時間: minutes of direct sunshine in the hour — a record of "was it sunny".
-  // 日照 has no chip of its own: it is read out next to 日射量 under 日差し (no shared axis).
-  { id: "sun", label: "日照", unit: "h", chart: "bar", floor: 0, ceiling: 1, hidden: true },
+  // 日照 is read out next to 日射量 under 日差し (no shared axis).
+  { id: "sun", label: "日照", unit: "h", chart: "bar", floor: 0, ceiling: 1 },
   { id: "pressure", label: "気圧", unit: "hPa", chart: "line" },
 ];
 
@@ -89,12 +86,6 @@ export function hourSeries(rows: WeatherRow[], id: DetailMetricId, s: FeelSettin
   });
 }
 
-/** The measured items worth offering for these two days. */
-export function offeredMetrics(main: WeatherRow[], other: WeatherRow[], s: FeelSettings): DetailMetric[] {
-  return MEASURED.filter(
-    (m) => !m.hidden && (!m.onlyWhenPresent || [main, other].some((rows) => hourSeries(rows, m.id, s).some((p) => p.v != null && p.v > 0))),
-  );
-}
 
 /** The hour to point at first: the latest observed hour today, otherwise the warmest hour. */
 export function initialHour(points: HourPoint[], isToday: boolean, nowHour: number): number {
@@ -117,20 +108,11 @@ export function axisRange(values: number[], m: DetailMetric): { lo: number; hi: 
   return { lo, hi };
 }
 
+/** Hourly values: sunshine in minutes, radiation with two decimals, the rest by the unit's rule. */
 export function formatDetail(v: number | null, m: DetailMetric): string {
-  if (v == null) return "—";
-  if (m.unit === "%") return Math.round(v).toString();
-  if (m.unit === "h") return `${Math.round(v * 60)}分`;
-  if (m.unit === "MJ/㎡") return v.toFixed(2);
-  if (m.unit === "hPa") return v.toFixed(1);
-  return v.toFixed(1);
+  if (m.unit === "h") return sunshineMinutes(v);
+  return formatValue(v, m.unit, true);
 }
 
-/** Signed difference "+1.2" / "−0.4" / "±0", or "" when either side is missing. */
-export function signedDiff(a: unknown, b: unknown, digits = 1): string {
-  const x = num(a);
-  const y = num(b);
-  if (x == null || y == null) return "";
-  const d = +(x - y).toFixed(digits);
-  return d === 0 ? "±0" : d > 0 ? `+${d.toFixed(digits)}` : `−${Math.abs(d).toFixed(digits)}`;
-}
+
+export { signedDiff } from "./design/format";

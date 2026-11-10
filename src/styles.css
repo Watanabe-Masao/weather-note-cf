@@ -1,20 +1,23 @@
+/*
+ * Weather Note styles, built on the design tokens (src/design/tokens.ts → CSS custom properties).
+ * Rules for using them: docs/design-system.md. No raw colours, durations or z-indexes below this
+ * line except where a token cannot express it (gradients mixing two tokens are written with them).
+ *
+ * Sections: base · type & tones · kit (chip, segmented, icon button, badge, num, day label) ·
+ * layout & header · tables · centre band · graph sheet · daily graph · 時間帯 · summary ·
+ * overlay sheets · feel map & trend · similar days · calendar · settings · states & motion.
+ */
+
+/* ---- base ---------------------------------------------------------------------------------- */
+
 :root {
   color-scheme: dark;
-  --bg: #0f1b2a;
-  --panel: #16263a;
-  --panel-2: #1c3048;
-  --line: #24384f;
-  --text: #e6eef7;
-  --muted: #8fa9c1;
-  --hot: #f08b7d;
-  --cold: #6fb3f2;
-  --accent: #7cc4ff;
   --label-w: 52px;
   --row-date: 34px;
   --row-icon: 28px;
   --row-kind: 13px;
   --row-value: 26px;
-  font-family: system-ui, -apple-system, "Hiragino Sans", sans-serif;
+  font-family: var(--font-family);
   -webkit-text-size-adjust: 100%;
 }
 
@@ -22,17 +25,42 @@
   box-sizing: border-box;
 }
 
+html {
+  background: var(--surface-page);
+}
+
 body {
   margin: 0;
-  background: var(--bg);
-  color: var(--text);
+  color: var(--ink-primary);
+  font-size: var(--size-base);
+  line-height: 1.45;
   overscroll-behavior-y: none;
+  /* A faint light from the top: depth without decoration. */
+  background:
+    radial-gradient(120% 60% at 50% -10%, rgba(124, 196, 255, 0.09), transparent 60%),
+    var(--surface-page);
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
 button,
-select {
+select,
+input {
   font: inherit;
   color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
 }
 
 /* Nothing the finger presses on starts text selection or the iOS copy menu. */
@@ -40,12 +68,290 @@ button,
 .strip,
 .date-nav,
 .labels,
-.sheet-handle {
+.sheet-handle,
+.chart svg {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
 }
+
+p {
+  margin: 0;
+}
+
+/* ---- type & tones -------------------------------------------------------------------------- */
+
+/* Values read as numbers: rounded, tabular, slightly heavier than labels. */
+.num,
+.cell-value,
+.cs-val,
+.cs-line,
+.readout,
+.date-button,
+.cell-date,
+.similar-list .v,
+.band-cell b {
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+
+.unit,
+.num small {
+  font-size: 0.62em;
+  color: var(--ink-tertiary);
+  margin-left: 1px;
+  font-weight: var(--weight-regular);
+}
+
+/* Data colours: one colour, one meaning (tokens: DATA). */
+.tone-hot { color: var(--data-hot); }
+.tone-cold { color: var(--data-cold); }
+.tone-temp { color: var(--data-temp); }
+.tone-mean { color: var(--data-mean); }
+.tone-rain { color: var(--data-rain); }
+.tone-snow { color: var(--data-snow); }
+.tone-sun { color: var(--data-sun); }
+.tone-humidity { color: var(--data-humidity); }
+.tone-wind { color: var(--data-wind); }
+.tone-pressure { color: var(--data-pressure); }
+.tone-feel { color: var(--data-feel); }
+
+/* Day tones: only on dates and weekdays. */
+.tone-saturday,
+.tone-saturday small { color: var(--day-saturday); }
+.tone-holiday,
+.tone-holiday small { color: var(--day-holiday); }
+
+.muted { color: var(--ink-secondary); }
+
+.hint {
+  font-size: var(--size-sm);
+  color: var(--ink-tertiary);
+  margin: var(--space-2) 0 var(--space-5);
+}
+
+/* ---- kit ------------------------------------------------------------------------------------ */
+
+/* Chip: a choice. Off is quiet; on is lit with the accent (or the line's own colour). */
+.chip {
+  --chip-tone: var(--accent-base);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: none;
+  white-space: nowrap;
+  min-height: 32px;
+  padding: 5px 13px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-strong);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), var(--surface-raised);
+  color: var(--ink-secondary);
+  font-size: 14px;
+  line-height: 1.2;
+  transition:
+    background-color var(--motion-quick) var(--ease-standard),
+    border-color var(--motion-quick) var(--ease-standard),
+    color var(--motion-quick) var(--ease-standard),
+    transform var(--motion-quick) var(--ease-standard);
+}
+
+.chip:active {
+  transform: scale(0.97);
+}
+
+.chip.on {
+  color: var(--chip-tone);
+  border-color: color-mix(in srgb, var(--chip-tone) 55%, transparent);
+  background: color-mix(in srgb, var(--chip-tone) 13%, var(--surface-raised));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--chip-tone) 18%, transparent) inset;
+}
+
+.chip.sm {
+  min-height: 28px;
+  padding: 3px 10px;
+  font-size: var(--size-sm);
+}
+
+.chip .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.chip .dot.band {
+  width: 12px;
+  height: 7px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--data-hot) 40%, transparent) !important;
+}
+
+.chip:not(.on) .dot {
+  opacity: 0.45;
+}
+
+select.chip {
+  appearance: none;
+  padding-right: 24px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--ink-tertiary) 50%),
+    linear-gradient(135deg, var(--ink-tertiary) 50%, transparent 50%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+  background-position:
+    calc(100% - 13px) 55%,
+    calc(100% - 8.5px) 55%,
+    0 0;
+  background-size:
+    4.5px 4.5px,
+    4.5px 4.5px,
+    100% 100%;
+  background-repeat: no-repeat;
+  background-color: var(--surface-raised);
+  text-overflow: ellipsis;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.chip-row-end {
+  margin-left: auto;
+}
+
+/* Segmented switch: the selected segment is raised and bright (one rule everywhere). */
+.seg {
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 2px;
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  flex: none;
+}
+
+.seg button {
+  border: none;
+  background: none;
+  border-radius: 7px;
+  padding: 5px 12px;
+  min-height: 28px;
+  font-size: var(--size-sm);
+  color: var(--ink-tertiary);
+  white-space: nowrap;
+  transition:
+    background-color var(--motion-base) var(--ease-standard),
+    color var(--motion-base) var(--ease-standard);
+}
+
+.seg button[aria-selected="true"] {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent), var(--surface-overlay);
+  color: var(--ink-primary);
+  font-weight: var(--weight-bold);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* Icon button: a 36 px target; `sm` keeps the target at 32 px. */
+.icon-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex: none;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent), var(--surface-raised);
+  color: var(--ink-secondary);
+  padding: 0;
+  transition: transform var(--motion-quick) var(--ease-standard);
+}
+
+.icon-btn:active {
+  transform: scale(0.94);
+}
+
+.icon-btn.sm {
+  width: 32px;
+  height: 32px;
+}
+
+/* Close (×): always at the right end of an overlay sheet's header. */
+.icon-btn.close {
+  width: 32px;
+  height: 32px;
+  border-color: transparent;
+  background: var(--surface-inset);
+  color: var(--ink-secondary);
+}
+
+/* Badge: the status of a day's values, and 今日/昨日/明日. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  height: 17px;
+  padding: 0 6px;
+  border-radius: var(--radius-sm);
+  font-size: var(--size-xs);
+  font-weight: var(--weight-medium);
+  white-space: nowrap;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-tertiary);
+  flex: none;
+}
+
+.badge.forecast {
+  color: var(--status-forecast);
+  border-color: color-mix(in srgb, var(--status-forecast) 50%, transparent);
+}
+
+.badge.provisional {
+  color: var(--status-provisional);
+  border-color: color-mix(in srgb, var(--status-provisional) 45%, transparent);
+}
+
+.badge.relative {
+  border: none;
+  background: var(--accent-base);
+  color: var(--ink-on-accent);
+  font-weight: var(--weight-bold);
+}
+
+.num.none {
+  color: var(--ink-disabled);
+}
+
+.day-label .wd {
+  font-size: 0.86em;
+}
+
+/* Back (‹ 日別): in-sheet navigation, never a close. */
+.back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border: none;
+  background: none;
+  color: var(--accent-base);
+  font-size: var(--size-base);
+  padding: 6px 4px 6px 0;
+  min-height: 32px;
+}
+
+.link {
+  background: none;
+  border: none;
+  color: var(--accent-base);
+  padding: 0 4px;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---- layout & header ------------------------------------------------------------------------ */
 
 .app {
   max-width: 600px;
@@ -54,134 +360,93 @@ button,
   padding-top: max(12px, env(safe-area-inset-top));
 }
 
-.app-head h1 {
-  font-size: 17px;
-  margin: 0 2px 8px;
-}
-
-/* ---- control rows ---- */
-
-.controls,
-.metrics {
+.app-head {
   display: flex;
-  gap: 8px;
   align-items: center;
-  margin-bottom: 8px;
+  justify-content: space-between;
+  margin: 0 0 var(--space-4);
 }
 
-.spacer {
-  flex: 1;
+.app-head h1 {
+  font-size: var(--size-lg);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.01em;
+  margin: 0 2px;
+  background: linear-gradient(90deg, var(--ink-primary), #bcd9f7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
-.chip {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 6px 14px;
-  font-size: 14px;
-  line-height: 1.2;
-}
-
-.chip.on {
-  background: var(--panel-2);
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.chip.icon {
-  width: 38px;
-  padding: 6px 0;
-  text-align: center;
-}
-
-select.chip {
-  appearance: none;
-  padding-right: 26px;
-  background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-  background-position:
-    calc(100% - 15px) 55%,
-    calc(100% - 10px) 55%;
-  background-size: 5px 5px;
-  background-repeat: no-repeat;
-}
-
+/* The six items fit the width: equal columns, no hidden seventh. */
 .metrics {
-  overflow-x: auto;
-  scrollbar-width: none;
-  /* bleed to the screen edge so the row reads as scrollable */
-  margin-right: -12px;
-  padding-right: 12px;
-}
-
-.metrics::-webkit-scrollbar {
-  display: none;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
 }
 
 .metrics .chip {
-  border-radius: 8px;
-  flex: none;
-  white-space: nowrap;
-  padding-left: 12px;
-  padding-right: 12px;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  padding: 6px 2px;
+  font-size: 13.5px;
+  min-height: 34px;
 }
 
-/* ---- comparison board ---- */
+/* ---- tables ----------------------------------------------------------------------------------- */
 
 .board {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-4);
 }
 
 .side {
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-base));
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
 }
 
+/* The comparison side sits a shade deeper: the target is the subject, the comparison the reference. */
 .side-compare {
-  background: #18232f;
+  background: linear-gradient(180deg, var(--surface-base), var(--surface-inset));
 }
 
 .date-nav {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto auto auto;
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
   align-items: center;
-  gap: 2px;
-  padding: 2px 6px 2px 10px;
-  border-bottom: 1px solid var(--line);
+  justify-content: start;
+  padding: 2px 8px 2px 2px;
+  border-bottom: 1px solid var(--line-soft);
 }
 
-.date-nav-label {
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 600;
+.date-nav-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .today-slot {
   min-height: 26px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
   overflow: hidden;
+  padding-right: 4px;
 }
 
 .today-chip {
   background: transparent;
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  border-radius: 999px;
-  padding: 2px 8px;
-  font-size: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent-base) 60%, transparent);
+  color: var(--accent-base);
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+  font-size: var(--size-sm);
   white-space: nowrap;
-  animation: fade-in 0.2s ease-out;
-}
-
-@keyframes fade-in {
-  from {
-    opacity: 0;
-  }
+  animation: fade-in var(--motion-base) var(--ease-standard);
 }
 
 .arrow-wrap {
@@ -191,10 +456,10 @@ select.chip {
 .arrow {
   background: transparent;
   border: none;
-  width: 36px;
-  height: 36px;
-  font-size: 15px;
-  color: var(--text);
+  width: 32px;
+  height: 34px;
+  font-size: 12px;
+  color: var(--ink-secondary);
   touch-action: none;
 }
 
@@ -207,25 +472,46 @@ select.chip {
   bottom: 40px;
   left: 50%;
   transform: translateX(-50%);
-  background: var(--accent);
-  color: #0b1a2a;
-  font-weight: 700;
-  font-size: 13px;
+  background: var(--accent-base);
+  color: var(--ink-on-accent);
+  font-weight: var(--weight-bold);
+  font-size: var(--size-base);
   padding: 4px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   white-space: nowrap;
-  z-index: 20;
+  z-index: var(--layer-popover);
+  box-shadow: var(--shadow-pinned);
 }
 
 .date-button {
   background: transparent;
   border: none;
-  border-bottom: 1px dashed var(--muted);
-  font-size: 17px;
-  font-weight: 600;
+  border-bottom: 1px dashed var(--ink-tertiary);
+  font-size: var(--size-md);
+  font-weight: var(--weight-bold);
   letter-spacing: 0.02em;
-  padding: 2px 4px;
-  font-variant-numeric: tabular-nums;
+  padding: 2px 2px;
+}
+
+.side-compare .chip.sm {
+  font-size: 11px;
+  padding: 3px 7px;
+  min-height: 26px;
+}
+
+.side-compare select.chip.sm.mode {
+  max-width: 84px;
+  padding-right: 18px;
+}
+
+@media (max-width: 380px) {
+  .side-compare select.chip.sm.mode {
+    max-width: 74px;
+  }
+}
+
+.link-toggle svg {
+  margin-right: 1px;
 }
 
 .side-body {
@@ -244,33 +530,60 @@ select.chip {
   width: var(--label-w);
   flex: none;
   font-size: 11px;
-  color: var(--muted);
-  padding-left: 8px;
-  border-right: 1px solid var(--line);
+  color: var(--ink-tertiary);
+  padding-left: var(--space-4);
+  border-right: 1px solid var(--line-soft);
 }
 
-.labels small {
+.label-value {
+  line-height: 1.05;
+}
+
+.label-value .unit {
   display: block;
-  font-size: 9px;
+  font-size: 8.5px;
+  margin: 0;
+}
+
+.label-value.tone-hot { color: var(--data-hot); }
+.label-value.tone-cold { color: var(--data-cold); }
+.label-value.minor { font-size: 10.5px; color: var(--ink-tertiary); }
+
+button.label-feel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  line-height: 1.15;
+  color: var(--ink-primary);
+  text-align: left;
+}
+
+button.label-feel small {
+  margin-top: 1px;
+  font-size: 8.5px;
+  padding: 0 3px;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+}
+
+button.label-feel.sun small {
+  color: var(--data-sun);
+  border: 1px solid color-mix(in srgb, var(--data-sun) 55%, transparent);
+}
+
+button.label-feel.shade small {
+  color: var(--ink-tertiary);
+  border: 1px solid var(--line-strong);
 }
 
 .strip-wrap {
   position: relative;
   flex: 1;
   min-width: 0;
-}
-
-/* The fixed centre frame the days slide under. */
-.strip-wrap::after {
-  content: "";
-  position: absolute;
-  top: 2px;
-  bottom: 2px;
-  left: calc(100% * 3 / 7);
-  width: calc(100% / 7);
-  border: 1.5px solid var(--accent);
-  border-radius: 10px;
-  pointer-events: none;
 }
 
 .strip {
@@ -303,57 +616,113 @@ select.chip {
   text-align: center;
 }
 
-.strip-col.is-center {
-  background: rgba(124, 196, 255, 0.07);
-}
-
 .cell-stack {
   justify-items: center;
-  font-variant-numeric: tabular-nums;
+}
+
+.cell-stack.tappable {
+  cursor: pointer;
+}
+
+.cell-stack.tappable:active {
+  background: var(--accent-wash);
 }
 
 .cell-date {
-  font-size: 13px;
+  font-size: var(--size-base);
   line-height: 1.1;
 }
 
 .cell-date small {
   display: block;
+  font-family: var(--font-family);
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+}
+
+.cell-icon {
+  display: grid;
+  place-items: center;
+}
+
+.cell-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.cell-note {
   font-size: 10px;
-  color: var(--muted);
+  color: var(--ink-tertiary);
+  writing-mode: vertical-rl;
 }
 
-.tone-holiday,
-.tone-holiday small {
-  color: var(--hot);
-}
-
-.tone-saturday,
-.tone-saturday small {
-  color: var(--cold);
+/* The selected column's values step forward a little. */
+.strip-col.is-center .cell-value {
+  font-weight: var(--weight-bold);
 }
 
 .cell-kind {
   font-size: 9px;
-  color: var(--muted);
+  color: var(--ink-tertiary);
+  white-space: nowrap;
 }
 
 .cell-value {
-  font-size: 15px;
+  font-size: var(--size-md);
 }
 
-.cell-value.tone-hot,
-.label-value.tone-hot {
-  color: var(--hot);
+.cell-value.minor {
+  font-size: 12.5px;
+  color: var(--ink-secondary);
 }
 
-.cell-value.tone-cold,
-.label-value.tone-cold {
-  color: var(--cold);
+.cell-feel {
+  width: 100%;
+  padding: 0 4px;
 }
 
-.state-outside {
-  opacity: 0.35;
+.cell-feel.tappable-feel {
+  cursor: pointer;
+}
+
+.cell-feel.tappable-feel:active {
+  opacity: 0.7;
+}
+
+.feel-bar {
+  display: grid;
+  height: 12px;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  gap: 1px;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+}
+
+.feel-bar i {
+  display: block;
+}
+
+/* Estimate from the daily row until hourly data arrives. */
+.feel-bar.estimate {
+  outline: 1px dashed var(--ink-tertiary);
+  outline-offset: 1px;
+  opacity: 0.85;
+}
+
+/* Forecast (or partly forecast) bands. */
+.feel-bar i.forecast {
+  background-image: repeating-linear-gradient(135deg, rgba(10, 20, 32, 0.35) 0 2px, transparent 2px 5px);
+}
+
+.feel-none,
+.icon-none {
+  color: var(--ink-disabled);
+  font-size: 11px;
+}
+
+.state-outside,
+.cell-stack.state-outside {
+  opacity: 0.32;
 }
 
 .empty-partner {
@@ -363,20 +732,1282 @@ select.chip {
 
 .retry {
   background: transparent;
-  border: 1px solid var(--hot);
-  color: var(--hot);
-  border-radius: 6px;
-  font-size: 10px;
+  border: 1px solid var(--status-error);
+  color: var(--status-error);
+  border-radius: var(--radius-sm);
+  font-size: var(--size-xs);
   padding: 1px 4px;
 }
+
+/* ---- centre band ---------------------------------------------------------------------------- */
+
+.board.linked-band {
+  position: relative;
+}
+
+/* One band joins the selected pair across both tables (and the gap between them). */
+.center-band {
+  position: absolute;
+  z-index: var(--layer-band);
+  pointer-events: none;
+  border: 1.5px solid var(--accent-base);
+  border-radius: 12px;
+  background: linear-gradient(180deg, rgba(124, 196, 255, 0.08), rgba(124, 196, 255, 0.03));
+  box-shadow:
+    0 0 0 1px rgba(124, 196, 255, 0.08),
+    0 0 22px var(--accent-glow);
+  transition:
+    top var(--motion-base) var(--ease-standard),
+    height var(--motion-base) var(--ease-standard);
+}
+
+/* 個別: two separate frames, quieter — the days move on their own. */
+.center-band.apart {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--accent-base) 60%, transparent);
+  box-shadow: none;
+}
+
+/* ---- graph sheet ------------------------------------------------------------------------------ */
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 600px;
+  margin: 0 auto;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 90px),
+    var(--surface-base);
+  border: 1px solid var(--line-soft);
+  border-bottom: none;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: var(--layer-sheet);
+  padding-bottom: env(safe-area-inset-bottom);
+  box-shadow: var(--shadow-sheet);
+  will-change: height;
+  contain: layout paint;
+}
+
+/* The page under the sheet's top edge fades out, so half-hidden headers never peek through. */
+.sheet::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: -28px;
+  height: 28px;
+  background: linear-gradient(180deg, transparent, rgba(10, 20, 32, 0.85));
+  pointer-events: none;
+}
+
+.sheet.dragging {
+  cursor: grabbing;
+}
+
+.sheet[data-detent="max"] {
+  box-shadow: var(--shadow-overlay);
+}
+
+/* The page behind dims (and softens) while the sheet is above the middle height. */
+.sheet-scrim {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--effect-scrim);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  z-index: var(--layer-scrim);
+  opacity: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sheet-handle {
+  touch-action: none;
+  padding: 9px 16px 5px;
+  cursor: grab;
+}
+
+.grabber {
+  display: block;
+  width: 38px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--ink-tertiary);
+  opacity: 0.55;
+  margin: 0 auto 6px;
+  transition:
+    width var(--motion-base) var(--ease-standard),
+    opacity var(--motion-base) var(--ease-standard),
+    background-color var(--motion-base) var(--ease-standard);
+}
+
+/* The grabber answers the finger: wider and brighter while held. */
+.sheet.dragging .grabber,
+.msheet.dragging .grabber,
+.sheet-handle:active .grabber {
+  width: 48px;
+  opacity: 0.95;
+  background: var(--ink-primary);
+}
+
+.sheet-tabs-wrap {
+  touch-action: none;
+}
+
+.sheet-title {
+  font-size: var(--size-md);
+  font-weight: var(--weight-bold);
+}
+
+/* The sheet's head says what it shows; the compare menu sits at its end. */
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-height: 36px;
+  padding: 0 12px 8px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.sheet-head-title {
+  font-size: var(--size-md);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+.sheet-head-hint {
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sheet-head-end {
+  margin-left: auto;
+  display: inline-flex;
+}
+
+.sheet-head select.chip.sm.mode {
+  max-width: 108px;
+}
+
+.sheet-body {
+  flex: 1;
+  overflow: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 8px 12px;
+}
+
+/* ---- daily graph ---------------------------------------------------------------------------- */
+
+.chart {
+  position: relative;
+}
+
+.chart svg {
+  display: block;
+  touch-action: pan-y;
+}
+
+.chart-grid {
+  stroke: var(--line-strong);
+  stroke-dasharray: 3 4;
+}
+
+.chart-tick,
+.chart-unit {
+  fill: var(--ink-tertiary);
+  font-size: 10px;
+  font-family: var(--font-numeric);
+}
+
+.chart-unit {
+  font-size: 9px;
+}
+
+.chart-x {
+  fill: var(--ink-primary);
+  font-size: 11px;
+  font-family: var(--font-numeric);
+}
+
+.chart-x.tone-holiday { fill: var(--day-holiday); }
+.chart-x.tone-saturday { fill: var(--day-saturday); }
+
+.chart-x.partner {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.chart-x-side {
+  fill: var(--ink-tertiary);
+  font-size: 9px;
+}
+
+.chart-center {
+  fill: var(--accent-wash);
+}
+
+.chart-hit {
+  fill: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chart-hit:active {
+  fill: var(--accent-wash);
+}
+
+.chart-spread-band {
+  fill: color-mix(in srgb, var(--data-hot) 11%, transparent);
+}
+
+.chart-spread {
+  fill: var(--ink-primary);
+  font-size: 10.5px;
+  font-family: var(--font-numeric);
+}
+
+.chart-spread.other {
+  fill: var(--ink-tertiary);
+  font-size: 10px;
+}
+
+.chart-spread.label {
+  fill: var(--ink-tertiary);
+  font-size: 8.5px;
+}
+
+.chart-note {
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+  margin: var(--space-2) var(--space-3);
+}
+
+.chart .chip-row {
+  margin: var(--space-3) var(--space-2) 0;
+}
+
+/* Legends speak in the graph's own marks. */
+.line-legend,
+.level-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+  margin: var(--space-3) var(--space-3) 0;
+}
+
+.line-legend span,
+.level-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.line-legend i {
+  display: inline-block;
+  width: 18px;
+  border-top: 2px solid var(--ink-secondary);
+}
+
+.line-legend .ls-solid { border-top-style: solid; }
+.line-legend .ls-dashed { border-top-style: dashed; opacity: 0.75; }
+.line-legend .ls-dotted { border-top-style: dotted; }
+
+.line-legend .ls-fill,
+.line-legend .ls-outline {
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid var(--ink-secondary);
+  border-radius: 2px;
+}
+
+.line-legend .ls-fill { background: var(--ink-secondary); }
+.line-legend .ls-fill.dotted { background: none; border-style: dashed; }
+
+.level-legend i,
+.feel-legend i {
+  display: inline-block;
+  width: 10px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+.feel-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 10px;
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+}
+
+.feel-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.feel-legend i.dashed {
+  outline: 1px dashed var(--ink-tertiary);
+  outline-offset: -1px;
+}
+
+/* ---- 時間帯 -------------------------------------------------------------------------------- */
+
+.hour-face-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin: var(--space-6) var(--space-2) var(--space-3);
+}
+
+.hour-face-head p {
+  font-size: var(--size-sm);
+  font-weight: var(--weight-bold);
+  color: var(--ink-secondary);
+  letter-spacing: 0.04em;
+}
+
+.day-chart {
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.day-night { fill: rgba(0, 0, 0, 0.24); }
+.day-band-edge { stroke: var(--line-soft); }
+
+.day-band-label {
+  fill: var(--ink-tertiary);
+  font-size: 10px;
+}
+
+.day-now {
+  stroke: var(--accent-base);
+  stroke-dasharray: 3 3;
+}
+
+.day-now-label {
+  fill: var(--accent-base);
+  font-size: 10px;
+}
+
+.day-cursor {
+  stroke: var(--ink-primary);
+  opacity: 0.35;
+}
+
+.day-cursor-bar {
+  fill: var(--ink-primary);
+  opacity: 0.08;
+}
+
+.day-status {
+  font-size: var(--size-sm);
+  color: var(--ink-tertiary);
+  margin: var(--space-2);
+}
+
+/* The hour's values: 時刻 · 対象日 · 比較日 · 差. */
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 14px;
+  margin: var(--space-3) var(--space-3) 0;
+  font-size: var(--size-md);
+}
+
+.readout small {
+  font-family: var(--font-family);
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+  margin-right: 4px;
+}
+
+.readout .ro-hour {
+  font-weight: var(--weight-bold);
+}
+
+.readout .ro-b > span {
+  opacity: 0.72;
+}
+
+.readout .ro-diff {
+  font-size: var(--size-base);
+  color: var(--ink-secondary);
+}
+
+.readout.sub {
+  font-size: var(--size-base);
+  margin-top: 2px;
+}
+
+.readout.sub .ro-hour {
+  font-weight: var(--weight-regular);
+  font-size: var(--size-sm);
+  color: var(--ink-tertiary);
+}
+
+.readout .ro-note {
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+}
+
+/* ---- the two days side by side ----------------------------------------------------------- */
+
+.cs-wrap {
+  position: relative;
+}
+
+.cs-wrap.swipeable {
+  touch-action: pan-y;
+  will-change: transform;
+}
+
+.cs-wrap.sticky-line {
+  position: sticky;
+  top: 0;
+  z-index: var(--layer-pinned);
+}
+
+.cs-pin {
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: var(--layer-pinned);
+}
+
+.compare-summary {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-4);
+  margin: 0 2px var(--space-3);
+  padding: 8px 10px 6px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40px), var(--surface-raised);
+  box-shadow:
+    0 0 0 1px var(--line-soft) inset,
+    var(--shadow-card);
+}
+
+.cs-heads {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: var(--space-4);
+  padding: 0 26px var(--space-3) 0;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.cs-head {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1px 4px;
+  min-width: 0;
+}
+
+.cs-head.cs-a {
+  justify-content: flex-end;
+}
+
+.cs-head svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.cs-date {
+  font-size: var(--size-base);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+}
+
+.cs-vs {
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+  letter-spacing: 0.12em;
+}
+
+.cs-row {
+  display: contents;
+}
+
+.cs-val {
+  font-size: var(--size-md);
+  line-height: 1.2;
+  padding: 2px 0;
+}
+
+.cs-a {
+  text-align: right;
+}
+
+.cs-b {
+  text-align: left;
+}
+
+.cs-b.cs-val {
+  opacity: 0.82;
+}
+
+.cs-mid {
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 84px;
+  padding: 2px 6px;
+  border-left: 1px solid var(--line-soft);
+  border-right: 1px solid var(--line-soft);
+}
+
+.cs-label {
+  font-size: 10.5px;
+  color: var(--ink-tertiary);
+}
+
+.cs-diff {
+  font-size: 11.5px;
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-primary);
+}
+
+.cs-none {
+  color: var(--ink-disabled);
+  font-size: var(--size-base);
+}
+
+/* The chosen item's rows stand out. */
+.cs-row.chosen > * {
+  background: var(--accent-wash);
+}
+
+.cs-row.chosen > .cs-a {
+  border-radius: 6px 0 0 6px;
+  padding-right: 4px;
+}
+
+.cs-row.chosen > .cs-b {
+  border-radius: 0 6px 6px 0;
+  padding-left: 4px;
+}
+
+.cs-sun .cs-val {
+  font-size: 11.5px;
+  color: var(--ink-tertiary);
+}
+
+/* ▴ ▾: a 36 px target in the corner. */
+.cs-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--accent-base);
+  font-size: 12px;
+  border-radius: var(--radius-md);
+}
+
+.cs-toggle:active {
+  background: var(--accent-wash);
+}
+
+/* Minimised: the chosen item in one line, with both dates above it. */
+.compare-summary.collapsed {
+  padding: 6px 36px 6px 10px;
+  row-gap: 0;
+}
+
+.cs-line-date {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+  white-space: nowrap;
+  min-height: 0;
+  border: none !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.cs-line-date.cs-a {
+  justify-content: flex-end;
+}
+
+.cs-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--size-md);
+  min-width: 0;
+}
+
+.cs-line.cs-a {
+  justify-content: flex-end;
+}
+
+.cs-line svg {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+
+.cs-line small {
+  font-size: 9.5px;
+  color: var(--ink-tertiary);
+}
+
+.cs-slash {
+  color: var(--ink-tertiary);
+  margin: 0 1px;
+}
+
+.cs-line-mid {
+  gap: 4px;
+}
+
+.cs-pin > .compare-summary.pinned {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  margin: 0 2px;
+  cursor: pointer;
+  background: color-mix(in srgb, var(--surface-overlay) 88%, transparent);
+  -webkit-backdrop-filter: blur(var(--effect-blur));
+  backdrop-filter: blur(var(--effect-blur));
+  box-shadow: var(--shadow-pinned);
+  animation: pin-in var(--motion-base) var(--ease-standard);
+}
+
+/* ---- overlay sheets --------------------------------------------------------------------------- */
+
+.msheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: var(--effect-backdrop);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  z-index: var(--layer-overlay-backdrop);
+  opacity: 0;
+}
+
+.msheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  margin: 0 auto;
+  z-index: var(--layer-overlay);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 14px max(18px, env(safe-area-inset-bottom));
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  border: 1px solid var(--line-soft);
+  border-bottom: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 120px),
+    var(--surface-overlay);
+  box-shadow: var(--shadow-overlay);
+  outline: none;
+  will-change: transform;
+  transform: translateY(100%);
+}
+
+.msheet .sheet-handle {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -14px;
+  padding: 10px 16px 4px;
+  background: linear-gradient(180deg, var(--surface-overlay) 70%, transparent);
+}
+
+/* Every overlay: title at the left, × at the right (the one way to show how to close). */
+.msheet-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin: 0 0 var(--space-5);
+}
+
+.msheet-head h2 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--size-lg);
+  font-weight: var(--weight-bold);
+}
+
+.msheet h3 {
+  font-size: var(--size-base);
+  color: var(--ink-secondary);
+  margin: var(--space-8) 0 var(--space-4);
+  font-weight: var(--weight-bold);
+}
+
+/* ---- feel map & trend ---------------------------------------------------------------------- */
+
+.feel-legend.sheet-legend {
+  margin: 0 2px var(--space-5);
+}
+
+.band-face {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: 0 2px var(--space-6);
+}
+
+.band-face > .seg {
+  align-self: flex-start;
+}
+
+.band-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+}
+
+.band-phrase {
+  font-size: var(--size-lg);
+  font-weight: var(--weight-bold);
+}
+
+.band-phrase small,
+.band-spread small {
+  font-weight: var(--weight-regular);
+  font-size: var(--size-sm);
+  color: var(--ink-tertiary);
+}
+
+.band-spread {
+  font-size: var(--size-base);
+  color: var(--ink-secondary);
+}
+
+.band-spread b {
+  color: var(--ink-primary);
+  font-size: var(--size-lg);
+  font-family: var(--font-numeric);
+}
+
+.band-diff {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.band-diff-label {
+  color: var(--ink-tertiary);
+  width: 4.5em;
+}
+
+.band-diff .warmer { color: var(--data-hot); }
+.band-diff .cooler { color: var(--data-cold); }
+
+.band-map {
+  display: grid;
+  grid-template-columns: 34px repeat(7, minmax(0, 1fr));
+  gap: 3px;
+  align-items: stretch;
+}
+
+.band-map-title {
+  grid-column: 1 / -1;
+  font-size: var(--size-sm);
+  color: var(--ink-secondary);
+  font-weight: var(--weight-bold);
+}
+
+.band-map-date {
+  text-align: center;
+  font-size: 11px;
+  line-height: 1.15;
+  padding: 2px 0;
+  font-family: var(--font-numeric);
+  border-radius: var(--radius-sm);
+}
+
+.band-map-date small {
+  display: block;
+  font-family: var(--font-family);
+  font-size: 9px;
+  color: var(--ink-tertiary);
+}
+
+/* The centre day is marked by its frame, like the tables — not by a colour on the text. */
+.band-map-date.center {
+  box-shadow: 0 0 0 1.5px var(--accent-base) inset;
+  font-weight: var(--weight-bold);
+}
+
+.band-map-label {
+  font-size: 11px;
+  color: var(--ink-tertiary);
+  display: flex;
+  align-items: center;
+}
+
+.band-cell {
+  height: 36px;
+  border: none;
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.05;
+  color: #0b1625;
+  padding: 0;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.2) inset, 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.band-cell b {
+  font-size: 14px;
+}
+
+.band-cell small {
+  font-size: 9px;
+  opacity: 0.72;
+}
+
+.band-cell.forecast {
+  outline: 1.5px dashed rgba(11, 22, 37, 0.55);
+  outline-offset: -3px;
+}
+
+/* An estimate from the daily values (as in the table): lighter, dashed, not selectable. */
+.band-cell.estimate {
+  opacity: 0.62;
+  outline: 1.5px dashed rgba(11, 22, 37, 0.6);
+  outline-offset: -3px;
+  cursor: default;
+}
+
+.band-cell.center {
+  box-shadow: 0 0 0 1.5px var(--accent-base);
+}
+
+.band-cell.selected {
+  box-shadow: 0 0 0 2.5px var(--ink-primary);
+}
+
+.band-cell.missing,
+.band-cell.outside {
+  background: var(--surface-inset);
+  color: var(--ink-disabled);
+  font-size: var(--size-sm);
+  box-shadow: none;
+}
+
+.band-cell.outside {
+  opacity: 0.4;
+}
+
+.band-cell.error {
+  background: transparent;
+  border: 1px solid var(--status-error);
+  color: var(--status-error);
+}
+
+.band-cell .skeleton {
+  width: 60%;
+}
+
+.band-detail {
+  background: var(--surface-inset);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.band-detail header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.band-detail table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.band-detail th,
+.band-detail td {
+  text-align: right;
+  padding: 3px 2px;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.band-detail th:first-child,
+.band-detail td:first-child {
+  text-align: left;
+}
+
+.band-detail p {
+  margin: 4px 0 0;
+  font-size: var(--size-xs);
+}
+
+.band-trend svg {
+  display: block;
+}
+
+.band-trend .chip.on {
+  color: var(--chip-tone);
+}
+
+.trend-note {
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+  margin-top: 2px;
+}
+
+/* ---- similar days ----------------------------------------------------------------------------- */
+
+.similar-face {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: 0 2px var(--space-6);
+}
+
+.similar-origin {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+}
+
+.similar-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  font-size: var(--size-md);
+  font-weight: var(--weight-bold);
+}
+
+.similar-values {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+  font-size: var(--size-sm);
+  color: var(--ink-tertiary);
+}
+
+.similar-values .num {
+  font-size: var(--size-base);
+  margin-right: 6px;
+}
+
+.similar-note {
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+}
+
+.similar-note .loading {
+  margin-left: 6px;
+  color: var(--accent-base);
+}
+
+.similar-current {
+  font-size: var(--size-sm);
+  color: var(--ink-secondary);
+}
+
+.similar-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Fixed columns so every number lines up: # · 日付 · 天気 · 最高 · 最低 · 降水 · 近さ. */
+.similar-list button,
+.similar-head {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr) 20px 44px 44px 30px 44px;
+  align-items: center;
+  column-gap: 5px;
+}
+
+.similar-head {
+  padding: 0 8px;
+  font-size: 9.5px;
+  color: var(--ink-tertiary);
+  text-align: right;
+}
+
+.similar-head span:nth-child(2) {
+  text-align: left;
+}
+
+.similar-list button {
+  background: var(--surface-raised);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  padding: 7px 8px;
+  text-align: left;
+  font-size: var(--size-base);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  transition: transform var(--motion-quick) var(--ease-standard);
+}
+
+.similar-list button:active {
+  transform: scale(0.99);
+}
+
+.similar-list button.current {
+  border-color: var(--accent-base);
+  background: color-mix(in srgb, var(--accent-base) 8%, var(--surface-raised));
+}
+
+.similar-list .rank {
+  color: var(--ink-tertiary);
+  font-size: var(--size-sm);
+  text-align: center;
+}
+
+.similar-list .when {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  font-size: 12.5px;
+}
+
+.similar-list .v {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.1;
+  font-size: var(--size-base);
+}
+
+.similar-list .v small {
+  font-size: 9.5px;
+  color: var(--ink-tertiary);
+}
+
+.similar-list .close {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.similar-list .close b {
+  font-size: var(--size-md);
+  font-family: var(--font-numeric);
+}
+
+.similar-list .close i {
+  display: block;
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent-base));
+  align-self: stretch;
+  max-width: 100%;
+}
+
+/* ---- calendar ----------------------------------------------------------------------------------- */
+
+.calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+  font-weight: var(--weight-bold);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  text-align: center;
+}
+
+.cal-wd {
+  font-size: 11px;
+  color: var(--ink-tertiary);
+}
+
+.cal-wd.holiday,
+.cal-day.holiday { color: var(--day-holiday); }
+.cal-wd.saturday,
+.cal-day.saturday { color: var(--day-saturday); }
+
+.cal-day {
+  height: 42px;
+  background: var(--surface-raised);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+}
+
+.cal-day.selected {
+  box-shadow: 0 0 0 2px var(--accent-base) inset;
+  background: color-mix(in srgb, var(--accent-base) 10%, var(--surface-raised));
+}
+
+.cal-day:disabled {
+  opacity: 0.25;
+}
+
+.calendar-foot,
+.actions {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-7);
+}
+
+.calendar-foot button,
+.actions button,
+.reset {
+  flex: 1;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  font-size: 14px;
+  color: var(--ink-secondary);
+}
+
+/* ---- settings ---------------------------------------------------------------------------------- */
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--size-base);
+  color: var(--ink-secondary);
+  margin-bottom: var(--space-5);
+}
+
+.field select,
+.field input,
+.threshold input {
+  width: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  font-size: var(--size-md);
+  color: var(--ink-primary);
+}
+
+.threshold-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  align-items: end;
+}
+
+.threshold {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ink-tertiary);
+  position: relative;
+}
+
+.reset {
+  width: 100%;
+  flex: none;
+  font-size: var(--size-base);
+}
+
+.report {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 12px;
+  font-size: var(--size-base);
+  margin: 0;
+}
+
+.report dt {
+  color: var(--ink-tertiary);
+}
+
+.report dd {
+  margin: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.warn {
+  color: var(--status-warning);
+  font-size: var(--size-base);
+}
+
+.credit {
+  margin-top: var(--space-7);
+  font-size: 11px;
+  color: var(--ink-tertiary);
+}
+
+.credit a {
+  color: var(--ink-secondary);
+}
+
+/* ---- states & motion ------------------------------------------------------------------------- */
 
 .skeleton {
   display: block;
   width: 70%;
   height: 12px;
   margin: 0 auto;
-  border-radius: 4px;
-  background: linear-gradient(90deg, var(--panel-2) 0%, var(--line) 50%, var(--panel-2) 100%);
+  border-radius: var(--radius-xs);
+  background: linear-gradient(90deg, var(--surface-raised) 0%, var(--line-strong) 50%, var(--surface-raised) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
@@ -395,1935 +2026,10 @@ select.chip {
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .skeleton,
-  .today-chip {
-    animation: none;
-  }
-}
-
-/* ---- graph sheet ---- */
-
-.sheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  max-width: 600px;
-  margin: 0 auto;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-bottom: none;
-  border-radius: 18px 18px 0 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  z-index: 10;
-  padding-bottom: env(safe-area-inset-bottom);
-  /* lifted off the page; the shadow deepens as the sheet rises (scrim does the rest) */
-  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.28);
-  will-change: height;
-  contain: layout paint;
-}
-
-.sheet.dragging {
-  cursor: grabbing;
-}
-
-.sheet[data-detent="max"] {
-  box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.45);
-}
-
-/* The page behind dims while the sheet is above the middle height. */
-.sheet-scrim {
-  position: fixed;
-  inset: 0;
-  background: #02060c;
-  z-index: 9;
-  opacity: 0;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.sheet-handle {
-  touch-action: none;
-  padding: 9px 16px 7px;
-  cursor: grab;
-}
-
-/* The tab row can be dragged too: no native panning there. */
-.sheet-tabs-wrap {
-  touch-action: none;
-}
-
-.sheet-body {
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-}
-
-.grabber {
-  display: block;
-  width: 38px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--muted);
-  opacity: 0.55;
-  margin: 0 auto 8px;
-  transition:
-    width 0.18s ease,
-    opacity 0.18s ease,
-    background-color 0.18s ease;
-}
-
-/* The grabber answers the finger: wider and brighter while held. */
-.sheet.dragging .grabber,
-.msheet.dragging .grabber,
-.sheet-handle:active .grabber {
-  width: 48px;
-  opacity: 0.95;
-  background: var(--text);
-}
-
-.sheet-title {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.sheet-body {
-  flex: 1;
-  overflow: auto;
-  padding: 0 8px 8px;
-}
-
-.chart svg {
-  display: block;
-}
-
-.chart-grid {
-  stroke: var(--line);
-  stroke-dasharray: 4 4;
-}
-
-.chart-tick {
-  fill: var(--muted);
-  font-size: 10px;
-}
-
-.chart-x {
-  fill: var(--text);
-  font-size: 11px;
-}
-
-.chart-x.tone-holiday {
-  fill: var(--hot);
-}
-
-.chart-x.tone-saturday {
-  fill: var(--cold);
-}
-
-.chart-center {
-  fill: rgba(124, 196, 255, 0.08);
-}
-
-.chart-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  font-size: 11px;
-  color: var(--muted);
-  padding: 4px 6px;
-}
-
-.chart-legend i {
-  display: inline-block;
-  width: 18px;
-  margin-right: 4px;
-  vertical-align: middle;
-  border-top: 2px solid var(--muted);
-}
-
-.chart-legend .lg-dotted {
-  border-top-style: dotted;
-}
-
-.chart-legend .lg-dashed {
-  border-top-style: dashed;
-}
-
-/* ---- modals ---- */
-
-.modal-backdrop,
-.msheet-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(5, 10, 18, 0.6);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 30;
-}
-
-.modal,
-.msheet {
-  width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow: auto;
-  background: var(--panel);
-  border-radius: 18px 18px 0 0;
-  padding: 16px 16px max(16px, env(safe-area-inset-bottom));
-  animation: rise 0.22s ease-out;
-}
-
-@keyframes rise {
+@keyframes fade-in {
   from {
-    transform: translateY(24px);
     opacity: 0;
   }
-}
-
-.modal h2,
-.msheet h2 {
-  font-size: 17px;
-  margin: 0 0 12px;
-}
-
-.modal h3,
-.msheet h3 {
-  font-size: 14px;
-  color: var(--muted);
-  margin: 18px 0 8px;
-}
-
-.calendar-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-
-.calendar-grid {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
-  text-align: center;
-}
-
-.cal-wd {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.cal-wd.holiday,
-.cal-day.holiday {
-  color: var(--hot);
-}
-
-.cal-wd.saturday,
-.cal-day.saturday {
-  color: var(--cold);
-}
-
-.cal-day {
-  height: 40px;
-  background: var(--panel-2);
-  border: none;
-  border-radius: 10px;
-  font-variant-numeric: tabular-nums;
-}
-
-.cal-day.selected {
-  outline: 2px solid var(--accent);
-}
-
-.cal-day:disabled {
-  opacity: 0.25;
-}
-
-.calendar-foot,
-.actions {
-  display: flex;
-  gap: 8px;
-  margin-top: 14px;
-}
-
-.calendar-foot button,
-.actions button,
-.settings .close {
-  flex: 1;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 14px;
-}
-
-.settings .close {
-  width: 100%;
-  margin-top: 8px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.field select {
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px;
-  font-size: 15px;
-}
-
-.report {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px 12px;
-  font-size: 13px;
-  margin: 0;
-}
-
-.report dt {
-  color: var(--muted);
-}
-
-.report dd {
-  margin: 0;
-  text-align: right;
-}
-
-.warn {
-  color: var(--hot);
-  font-size: 13px;
-}
-
-.credit {
-  margin-top: 16px;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.credit a {
-  color: var(--muted);
-}
-
-.cell-stack.state-outside {
-  opacity: 0.3;
-}
-
-/* ---- feel row ---- */
-
-.label-feel {
-  font-size: 11px;
-}
-
-.cell-feel {
-  width: 100%;
-  padding: 0 4px;
-}
-
-.feel-bar {
-  display: grid;
-  height: 12px;
-  border-radius: 4px;
-  overflow: hidden;
-  gap: 1px;
-}
-
-.feel-bar i {
-  display: block;
-}
-
-/* Estimate from the daily row until hourly data arrives. */
-.feel-bar.estimate {
-  outline: 1px dashed var(--muted);
-  outline-offset: 1px;
-  opacity: 0.85;
-}
-
-/* Forecast (or partly forecast) bands. */
-.feel-bar i.forecast {
-  background-image: repeating-linear-gradient(135deg, rgba(15, 27, 42, 0.35) 0 2px, transparent 2px 5px);
-}
-
-.feel-none {
-  color: var(--muted);
-  font-size: 11px;
-}
-
-.feel-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 2px 10px;
-  margin: -2px 2px 0;
-  font-size: 10px;
-  color: var(--muted);
-}
-
-.feel-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.feel-legend i {
-  display: inline-block;
-  width: 10px;
-  height: 8px;
-  border-radius: 2px;
-}
-
-.feel-legend i.dashed {
-  outline: 1px dashed var(--muted);
-  outline-offset: -1px;
-}
-
-.sun-toggle {
-  margin-left: auto;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 2px 10px;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.sun-toggle.on {
-  border-color: #f2c46d;
-  color: #f2c46d;
-}
-
-/* ---- sheet faces ---- */
-
-.sheet-tabs {
-  display: flex;
-  gap: 4px;
-  margin: 0 12px 6px;
-  background: var(--bg);
-  border-radius: 10px;
-  padding: 3px;
-}
-
-.sheet-tabs button {
-  flex: 1;
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  padding: 6px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.sheet-tabs button.on {
-  background: var(--panel-2);
-  color: var(--text);
-  font-weight: 600;
-}
-
-/* ---- 時間帯 face ---- */
-
-.band-face {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 0 4px 12px;
-}
-
-.band-summary p {
-  margin: 2px 0;
-}
-
-.band-phrase {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.band-phrase small,
-.band-spread small {
-  font-weight: 400;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.band-spread {
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.band-spread b {
-  color: var(--text);
-  font-size: 16px;
-}
-
-.band-diff {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px 10px;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-
-.band-diff-label {
-  color: var(--muted);
-  width: 4.5em;
-}
-
-.band-diff .warmer {
-  color: var(--hot);
-}
-
-.band-diff .cooler {
-  color: var(--cold);
-}
-
-.muted {
-  color: var(--muted);
-}
-
-.band-map {
-  display: grid;
-  grid-template-columns: 34px repeat(7, minmax(0, 1fr));
-  gap: 2px;
-  align-items: stretch;
-}
-
-.band-map-title {
-  grid-column: 1 / -1;
-  font-size: 12px;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.band-map-date {
-  text-align: center;
-  font-size: 11px;
-  line-height: 1.15;
-  padding: 2px 0;
-}
-
-.band-map-date small {
-  display: block;
-  font-size: 9px;
-  color: var(--muted);
-}
-
-.band-map-date.center {
-  color: var(--accent);
-  font-weight: 700;
-}
-
-.band-map-label {
-  font-size: 11px;
-  color: var(--muted);
-  display: flex;
-  align-items: center;
-}
-
-.band-cell {
-  height: 34px;
-  border: none;
-  border-radius: 5px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  line-height: 1.05;
-  color: #0b1a2a;
-  padding: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.band-cell b {
-  font-size: 14px;
-}
-
-.band-cell small {
-  font-size: 9px;
-  opacity: 0.75;
-}
-
-.band-cell.forecast {
-  outline: 1.5px dashed rgba(11, 26, 42, 0.55);
-  outline-offset: -3px;
-}
-
-.band-cell.center {
-  box-shadow: 0 0 0 1.5px var(--accent);
-}
-
-.band-cell.selected {
-  box-shadow: 0 0 0 2.5px #ffffff;
-}
-
-.band-cell.missing,
-.band-cell.outside {
-  background: var(--panel-2);
-  color: var(--muted);
-  font-size: 9px;
-}
-
-.band-cell.outside {
-  opacity: 0.4;
-}
-
-.band-cell.error {
-  background: transparent;
-  border: 1px solid var(--hot);
-  color: var(--hot);
-}
-
-.band-cell .skeleton {
-  width: 60%;
-}
-
-.band-detail {
-  background: var(--bg);
-  border-radius: 10px;
-  padding: 8px 10px;
-  font-size: 12px;
-}
-
-.band-detail header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.band-detail header button {
-  background: transparent;
-  border: none;
-  font-size: 16px;
-}
-
-.band-detail table {
-  width: 100%;
-  border-collapse: collapse;
-  font-variant-numeric: tabular-nums;
-}
-
-.band-detail th,
-.band-detail td {
-  text-align: right;
-  padding: 3px 2px;
-  border-bottom: 1px solid var(--line);
-}
-
-.band-detail th:first-child,
-.band-detail td:first-child {
-  text-align: left;
-}
-
-.band-detail p {
-  margin: 4px 0 0;
-  font-size: 10px;
-}
-
-/* ---- feel settings ---- */
-
-.threshold-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 4px;
-  align-items: end;
-}
-
-.threshold {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--muted);
-  position: relative;
-}
-
-.threshold input,
-.field input {
-  width: 100%;
-  background: var(--panel-2);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px 6px;
-  font-size: 15px;
-  color: var(--text);
-}
-
-.hint {
-  font-size: 11px;
-  color: var(--muted);
-  margin: 4px 0 10px;
-}
-
-.field {
-  margin-bottom: 10px;
-}
-
-.reset {
-  width: 100%;
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 8px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-/* ---- band map / trend switch and trend chart ---- */
-
-.band-view-switch {
-  display: flex;
-  gap: 4px;
-  align-self: flex-start;
-  background: var(--bg);
-  border-radius: 8px;
-  padding: 2px;
-}
-
-.band-view-switch button {
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  padding: 4px 14px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.band-view-switch button.on {
-  background: var(--panel-2);
-  color: var(--text);
-  font-weight: 600;
-}
-
-.trend-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 4px;
-}
-
-.trend-chips button {
-  background: transparent;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 3px 11px;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.trend-chips button.on {
-  font-weight: 600;
-}
-
-.trend-chips button.compare {
-  margin-left: auto;
-}
-
-.trend-chips button.compare.on {
-  border-color: var(--muted);
-  color: var(--text);
-  border-style: dashed;
-}
-
-.band-trend svg {
-  display: block;
-}
-
-.trend-note {
-  font-size: 10px;
-  color: var(--muted);
-  margin: 2px 0 0;
-}
-
-/* ---- 似た日 face ---- */
-
-.similar-face {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 0 4px 12px;
-}
-
-.similar-origin {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-}
-
-.similar-origin small {
-  width: 100%;
-  font-size: 12px;
-  color: var(--muted);
-}
-
-.similar-scope {
-  margin: 0;
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.similar-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.similar-list button {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 22px 1fr 64px;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg);
-  border: 1px solid transparent;
-  border-radius: 10px;
-  padding: 6px 8px;
-  text-align: left;
-  font-size: 13px;
-}
-
-.similar-list button.current {
-  border-color: var(--accent);
-}
-
-.similar-list .rank {
-  color: var(--muted);
-  font-size: 12px;
-  text-align: center;
-}
-
-.similar-list .who {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.similar-list .values {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-variant-numeric: tabular-nums;
-  font-size: 12px;
-}
-
-.similar-list .values small {
-  color: var(--muted);
-  font-size: 10px;
-  margin-right: 4px;
-}
-
-.similar-list .hot {
-  color: var(--hot);
-}
-
-.similar-list .cold {
-  color: var(--cold);
-}
-
-.similar-list .close {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-}
-
-.similar-list .close b {
-  font-size: 15px;
-}
-
-.similar-list .close i {
-  display: block;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--accent);
-  align-self: stretch;
-  max-width: 100%;
-}
-
-/* ---- day detail ---- */
-
-.cell-stack.tappable {
-  cursor: pointer;
-}
-
-.cell-stack.tappable:active {
-  background: rgba(124, 196, 255, 0.08);
-}
-
-
-
-.msheet .sheet-handle {
-  position: sticky;
-  top: 0;
-  background: var(--panel);
-  z-index: 1;
-}
-
-.day-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 6px;
-}
-
-.day-head h2 {
-  font-size: 18px;
-  margin: 0;
-}
-
-.day-rel {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--bg);
-  background: var(--accent);
-  border-radius: 10px;
-  padding: 1px 8px;
-  margin-right: 8px;
-  vertical-align: 2px;
-}
-
-.day-summary {
-  background: var(--panel-2);
-  border-radius: 12px;
-  padding: 10px 12px;
-}
-
-.day-weather {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 14px;
-}
-
-.day-icon {
-  width: 30px;
-  height: 30px;
-  display: inline-grid;
-  place-items: center;
-}
-
-.day-icon svg {
-  width: 30px;
-  height: 30px;
-}
-
-.day-text {
-  flex: 1;
-}
-
-.day-kind {
-  font-size: 11px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 1px 7px;
-  color: var(--muted);
-}
-
-.day-kind.kind-予報 {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.day-tiles {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 6px;
-  margin: 10px 0 6px;
-}
-
-.day-tile {
-  text-align: center;
-}
-
-.day-tile dt {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.day-tile dd {
-  margin: 0;
-  font-size: 18px;
-  font-variant-numeric: tabular-nums;
-}
-
-.day-tile dd small {
-  font-size: 10px;
-  color: var(--muted);
-  margin-left: 1px;
-}
-
-.day-tile dd.diff,
-.day-readout .diff {
-  font-size: 11px;
-  color: var(--muted);
-}
-
-.day-sun {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: 2px 10px;
-  font-size: 12px;
-  color: var(--muted);
-  margin: 2px 0 0;
-}
-
-
-
-
-
-
-
-.day-switch {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  margin: 12px 0 8px;
-  background: var(--panel-2);
-  border-radius: 10px;
-  padding: 3px;
-}
-
-.day-switch button {
-  border: none;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 13px;
-  padding: 6px;
-  border-radius: 8px;
-}
-
-.day-switch button.on {
-  background: var(--bg);
-  color: var(--text);
-  font-weight: 600;
-}
-
-.day-metrics {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  margin-bottom: 4px;
-}
-
-.day-feel-note,
-.day-status {
-  font-size: 12px;
-  color: var(--muted);
-  margin: 4px 2px;
-}
-
-.day-chart {
-  touch-action: pan-y;
-  user-select: none;
-  -webkit-user-select: none;
-}
-
-.day-night {
-  fill: rgba(0, 0, 0, 0.22);
-}
-
-.day-band-edge {
-  stroke: var(--line);
-}
-
-.day-band-label {
-  fill: var(--muted);
-  font-size: 10px;
-}
-
-.day-now {
-  stroke: var(--accent);
-  stroke-dasharray: 3 3;
-}
-
-.day-now-label {
-  fill: var(--accent);
-  font-size: 10px;
-}
-
-.day-cursor {
-  stroke: var(--text);
-  opacity: 0.35;
-}
-
-.day-readout {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 12px;
-  font-size: 14px;
-  font-variant-numeric: tabular-nums;
-  margin: 2px 4px;
-}
-
-.day-legend {
-  margin: 6px 0 0;
-}
-
-.day-legend-lines {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  font-size: 11px;
-  color: var(--muted);
-  margin: 6px 4px 0;
-}
-
-.day-legend-lines i {
-  display: inline-block;
-  width: 18px;
-  margin-right: 4px;
-  vertical-align: middle;
-  border-top: 2px solid var(--muted);
-}
-
-.day-legend-lines .lg-dotted {
-  border-top-style: dotted;
-}
-
-.day-legend-lines .lg-dashed {
-  border-top-style: dashed;
-}
-
-.day-cursor-bar {
-  fill: var(--text);
-  opacity: 0.08;
-}
-
-.day-vs b {
-  font-weight: 600;
-}
-
-.day-metrics .chip {
-  flex: none;
-  white-space: nowrap;
-  padding-left: 11px;
-  padding-right: 11px;
-}
-
-
-.chart {
-  position: relative;
-}
-
-.chart-note {
-  font-size: 11px;
-  color: var(--muted);
-  margin: 0 6px 2px;
-}
-
-.chart-note + svg {
-  margin-top: 0;
-}
-
-.chart-spread-band {
-  fill: rgba(240, 139, 125, 0.1);
-}
-
-.chart-spread {
-  fill: var(--text);
-  font-size: 10.5px;
-  font-variant-numeric: tabular-nums;
-}
-
-.chart-spread.other {
-  fill: var(--muted);
-  font-size: 10px;
-}
-
-.chart-spread.label {
-  fill: var(--muted);
-}
-
-.chart-toggles {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 2px 4px 4px;
-}
-
-.chart-toggles button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--line);
-  background: none;
-  border-radius: 999px;
-  padding: 3px 10px;
-  font: inherit;
-  font-size: 12px;
-  color: var(--muted);
-  opacity: 0.55;
-}
-
-.chart-toggles button.on {
-  opacity: 1;
-  background: var(--panel-2);
-  border-color: currentColor;
-}
-
-.chart-toggles button:not([style]).on {
-  color: var(--text);
-  border-color: var(--muted);
-}
-
-.chart-toggles i {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.chart-toggles i.band {
-  width: 12px;
-  height: 8px;
-  border-radius: 2px;
-  background: rgba(240, 139, 125, 0.35);
-}
-
-.cell-value.minor {
-  font-size: 12.5px;
-  color: var(--muted);
-}
-
-.label-value.minor {
-  font-size: 10.5px;
-  color: var(--muted);
-}
-
-.chart-note .link {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font: inherit;
-  padding: 0 4px;
-  text-decoration: underline;
-}
-
-.day-readout.sub {
-  font-size: 12px;
-  color: var(--muted);
-  margin-top: 0;
-}
-
-/* ---- sheets over the page (day detail, feel map, similar days, calendar, settings) ---- */
-
-.msheet-backdrop {
-  /* the shared rule above gives position and colour; opacity follows the sheet */
-  display: block;
-  opacity: 0;
-  z-index: 30;
-}
-
-.msheet {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  margin: 0 auto;
-  z-index: 31;
-  max-height: 90vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
-  padding: 0 14px max(16px, env(safe-area-inset-bottom));
-  border: 1px solid var(--line);
-  border-bottom: none;
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
-  animation: none;
-  outline: none;
-  will-change: transform;
-  transform: translateY(100%);
-}
-
-.msheet .sheet-handle {
-  margin: 0 -14px;
-  padding: 10px 16px 6px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .grabber {
-    transition: none;
-  }
-}
-
-/* ---- openers: 肌感 label and legend open the feel map ---- */
-
-button.label-feel {
-  background: none;
-  border: none;
-  padding: 0;
-  font: inherit;
-  font-size: 11px;
-  color: var(--accent);
-  text-align: left;
-  cursor: pointer;
-}
-
-button.label-feel small {
-  margin-left: 1px;
-  font-size: 12px;
-}
-
-.feel-legend .feel-open {
-  background: none;
-  border: none;
-  padding: 2px 0;
-  font: inherit;
-  font-size: 11px;
-  color: var(--accent);
-}
-
-/* ---- 時間帯 tab ---- */
-
-.hour-face-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 4px 4px;
-}
-
-.hour-face-head p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--muted);
-}
-
-.hour-face-head b {
-  color: var(--text);
-  font-weight: 600;
-}
-
-.mini-switch {
-  display: inline-grid;
-  grid-auto-flow: column;
-  background: var(--panel-2);
-  border-radius: 8px;
-  padding: 2px;
-  flex: none;
-}
-
-.mini-switch button {
-  border: none;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 6px;
-}
-
-.mini-switch button.on {
-  background: var(--bg);
-  color: var(--text);
-  font-weight: 600;
-}
-
-
-.hour-face .day-summary {
-  margin: 0 2px 10px;
-}
-
-/* ---- one band through both centre columns ---- */
-
-.board.linked-band {
-  position: relative;
-}
-
-/* The per-table frames give way to one band that runs through both tables (and the gap). */
-.board.linked-band .strip-wrap::after {
-  display: none;
-}
-
-.center-band {
-  position: absolute;
-  z-index: 5;
-  pointer-events: none;
-  border: 1.5px solid var(--accent);
-  border-radius: 12px;
-  background: linear-gradient(rgba(124, 196, 255, 0.07), rgba(124, 196, 255, 0.04));
-  box-shadow: 0 0 0 1px rgba(124, 196, 255, 0.08), 0 0 18px rgba(124, 196, 255, 0.12);
-}
-
-/* Mirrored: the comparison header sits under its table, so the two tables meet in the middle. */
-.board.mirror {
-  gap: 4px;
-}
-
-.board.mirror .side-target {
-  border-bottom-left-radius: 6px;
-  border-bottom-right-radius: 6px;
-}
-
-.board.mirror .side-compare {
-  border-top-left-radius: 6px;
-  border-top-right-radius: 6px;
-}
-
-.board.mirror .side-compare .date-nav {
-  border-bottom: none;
-  border-top: 1px solid var(--line);
-}
-
-/* ---- the two days side by side (時間帯) ---- */
-
-.compare-summary {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  column-gap: 8px;
-  row-gap: 2px;
-  margin: 0 2px 10px;
-  padding: 10px 10px 6px;
-  background: var(--panel-2);
-  border-radius: 12px;
-}
-
-.cs-side {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  padding-bottom: 6px;
-}
-
-.cs-a {
-  align-items: flex-end;
-  text-align: right;
-}
-
-.cs-b {
-  align-items: flex-start;
-  text-align: left;
-}
-
-.cs-date {
-  font-size: 14px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.cs-rel {
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--bg);
-  background: var(--accent);
-  border-radius: 8px;
-  padding: 0 6px;
-  margin-right: 5px;
-  vertical-align: 1px;
-}
-
-.cs-weather {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--muted);
-  max-width: 100%;
-}
-
-.cs-a .cs-weather {
-  flex-direction: row-reverse;
-}
-
-.cs-weather svg {
-  width: 22px;
-  height: 22px;
-  flex: none;
-}
-
-.cs-weather > span:not(.cs-kind) {
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.cs-kind {
-  font-size: 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 0 5px;
-  flex: none;
-}
-
-.cs-kind.kind-予報 {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.cs-vs {
-  font-size: 10px;
-  color: var(--muted);
-  letter-spacing: 0.1em;
-  align-self: start;
-  padding-top: 3px;
-}
-
-.cs-row {
-  display: contents;
-}
-
-.cs-val {
-  font-size: 19px;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.25;
-  padding: 2px 0;
-}
-
-.cs-val small {
-  font-size: 10px;
-  color: var(--muted);
-  margin-left: 1px;
-}
-
-.cs-val.tone-hot {
-  color: var(--hot);
-}
-
-.cs-val.tone-cold,
-.cs-val.tone-rain {
-  color: var(--cold);
-}
-
-.cs-mid {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 64px;
-  border-left: 1px solid var(--line);
-  border-right: 1px solid var(--line);
-  padding: 1px 6px;
-}
-
-.cs-label {
-  font-size: 10.5px;
-  color: var(--muted);
-}
-
-.cs-diff {
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-}
-
-.cs-sun .cs-val {
-  font-size: 13px;
-}
-
-.cs-none {
-  color: var(--muted);
-  font-size: 13px;
-}
-
-.cs-note {
-  grid-column: 1 / -1;
-  margin: 6px 0 0;
-  font-size: 10px;
-  color: var(--muted);
-  text-align: center;
-}
-
-.chart-x.partner {
-  font-size: 10px;
-  opacity: 0.6;
-}
-
-.chart-x-side {
-  fill: var(--muted);
-  font-size: 9px;
-}
-
-.chip.sun-chip.on {
-  color: #f2c46d;
-  border-color: #f2c46d;
-}
-
-.feel-legend.sheet-legend {
-  margin: 0 2px 10px;
-  font-size: 11px;
-}
-
-.controls .chip {
-  white-space: nowrap;
-  flex: none;
-}
-
-.controls select.chip.mode {
-  flex: 0 1 auto;
-  min-width: 0;
-  max-width: 44%;
-  text-overflow: ellipsis;
-}
-
-.controls .sun-chip {
-  padding-left: 10px;
-  padding-right: 10px;
-}
-
-
-.chart-hit {
-  fill: transparent;
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.chart-hit:active {
-  fill: rgba(124, 196, 255, 0.1);
-}
-
-.chart-tap-hint {
-  margin-left: auto;
-  color: var(--accent);
-}
-
-/* 肌感 label: tap switches 日なた ⇄ 日かげ; it shows the current one */
-button.label-feel {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  line-height: 1.15;
-  color: var(--text);
-}
-
-button.label-feel small {
-  margin: 1px 0 0;
-  font-size: 8.5px;
-  padding: 0 3px;
-  border-radius: 4px;
-  white-space: nowrap;
-}
-
-button.label-feel.sun small {
-  color: #f2c46d;
-  border: 1px solid rgba(242, 196, 109, 0.6);
-}
-
-button.label-feel.shade small {
-  color: var(--muted);
-  border: 1px solid var(--line);
-}
-
-.cell-feel.tappable-feel {
-  cursor: pointer;
-}
-
-.cell-feel.tappable-feel:active {
-  opacity: 0.7;
-}
-
-/* ---- compact, left-aligned date header ---- */
-
-.date-nav {
-  grid-template-columns: auto auto auto minmax(0, 1fr);
-  justify-content: start;
-  gap: 0;
-  padding: 2px 8px 2px 2px;
-}
-
-.date-nav .arrow {
-  width: 32px;
-  height: 34px;
-  font-size: 13px;
-}
-
-.date-nav .date-button {
-  font-size: 15px;
-  padding: 2px 2px;
-}
-
-.date-nav .today-slot {
-  justify-content: flex-end;
-}
-
-/* ---- header: title + settings; controls live in the date headers ---- */
-
-.app-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.date-nav {
-  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
-}
-
-.date-nav-extra {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.chip.mini {
-  font-size: 12px;
-  padding: 4px 8px;
-  white-space: nowrap;
-}
-
-.chip.icon.mini {
-  width: 30px;
-  padding: 4px 0;
-}
-
-select.chip.mini.mode {
-  padding-right: 20px;
-  background-position:
-    calc(100% - 12px) 55%,
-    calc(100% - 7px) 55%;
-  max-width: 96px;
-  text-overflow: ellipsis;
-}
-
-/* ---- sheet header: what the sheet shows ---- */
-
-.sheet-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 34px;
-  padding: 0 12px 6px;
-}
-
-.sheet-head-title {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.sheet-head-hint {
-  margin-left: auto;
-  font-size: 11px;
-  color: var(--accent);
-}
-
-.sheet-head .chip.back {
-  color: var(--accent);
-  border-color: transparent;
-  background: none;
-  padding: 4px 4px;
-}
-
-/* The comparison header's controls stay clear of the centre band. */
-.side-compare .chip.mini {
-  font-size: 11px;
-  padding: 4px 6px;
-}
-
-.side-compare select.chip.mini.mode {
-  max-width: 84px;
-  padding-right: 18px;
-}
-
-.date-nav-extra {
-  gap: 3px;
-}
-
-@media (max-width: 380px) {
-  .side-compare select.chip.mini.mode {
-    max-width: 74px;
-  }
-}
-
-/* ---- comparison summary: compact (one line per item) and minimised ---- */
-
-.compare-summary.compact,
-.compare-summary.collapsed {
-  position: relative;
-  row-gap: 0;
-  padding: 6px 8px 4px;
-}
-
-.cs-heads {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
-  column-gap: 8px;
-  padding: 0 22px 4px 0;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 2px;
-}
-
-.cs-head {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-.cs-head.cs-a {
-  justify-content: flex-end;
-}
-
-.cs-head svg {
-  width: 20px;
-  height: 20px;
-  flex: none;
-}
-
-.cs-head .cs-date {
-  font-size: 13px;
-}
-
-.cs-head .cs-rel {
-  margin-right: 0;
-}
-
-.compare-summary.compact .cs-vs {
-  align-self: center;
-  padding: 0;
-}
-
-.compare-summary.compact .cs-val {
-  font-size: 15px;
-  line-height: 1.2;
-  padding: 1px 0;
-}
-
-.compare-summary.compact .cs-mid {
-  flex-direction: row;
-  justify-content: center;
-  gap: 5px;
-  min-width: 82px;
-  padding: 2px 6px;
-}
-
-.compare-summary.compact .cs-label {
-  font-size: 10.5px;
-}
-
-.compare-summary.compact .cs-diff {
-  font-size: 11.5px;
-}
-
-.cs-sub {
-  margin-left: 4px !important;
-  font-size: 9.5px !important;
-}
-
-.cs-val.tone-sun {
-  color: #f2c46d;
-}
-
-/* The chosen item's row stands out. */
-.cs-row.chosen > * {
-  background: rgba(124, 196, 255, 0.1);
-}
-
-.cs-row.chosen > .cs-a {
-  border-radius: 6px 0 0 6px;
-  padding-right: 4px;
-}
-
-.cs-row.chosen > .cs-b {
-  border-radius: 0 6px 6px 0;
-  padding-left: 4px;
-}
-
-.compare-summary.compact .cs-sun .cs-val {
-  font-size: 11.5px;
-  color: var(--muted);
-}
-
-.cs-toggle {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 26px;
-  height: 24px;
-  border: none;
-  background: none;
-  color: var(--accent);
-  font-size: 13px;
-  border-radius: 6px;
-}
-
-.cs-toggle:active {
-  background: rgba(124, 196, 255, 0.12);
-}
-
-/* Minimised: one line. */
-.compare-summary.collapsed {
-  padding: 6px 30px 6px 8px;
-}
-
-.cs-line {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 15px;
-  font-variant-numeric: tabular-nums;
-  min-width: 0;
-}
-
-.cs-line.cs-a {
-  justify-content: flex-end;
-}
-
-.cs-line svg {
-  width: 20px;
-  height: 20px;
-  flex: none;
-}
-
-.cs-line-mid {
-  flex-direction: row !important;
-  font-size: 11.5px;
-  color: var(--text);
-}
-
-.compare-summary.collapsed .cs-toggle {
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.cs-head {
-  flex-wrap: wrap;
-  row-gap: 1px;
-  white-space: normal;
-}
-
-.cs-head .cs-date {
-  white-space: nowrap;
-}
-
-/* ---- one-line summary: the chosen item; pinned while the full one is scrolled away ---- */
-
-.cs-wrap {
-  position: relative;
-}
-
-.cs-pin {
-  position: sticky;
-  top: 0;
-  height: 0;
-  z-index: 4;
-}
-
-.cs-pin > .compare-summary.pinned {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  margin: 0 2px;
-  padding-right: 8px;
-  cursor: pointer;
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
-  animation: pin-in 0.18s ease-out;
 }
 
 @keyframes pin-in {
@@ -2333,90 +2039,18 @@ select.chip.mini.mode {
   }
 }
 
-.cs-wrap.sticky-line {
-  position: sticky;
-  top: 0;
-  z-index: 4;
-}
-
-.cs-slash {
-  color: var(--muted);
-  margin: 0 1px;
-}
-
-.cs-line small {
-  font-size: 9.5px;
-  color: var(--muted);
-}
-
-.cs-line-mid {
-  gap: 4px;
-}
-
 @media (prefers-reduced-motion: reduce) {
+  .skeleton,
+  .today-chip,
   .cs-pin > .compare-summary.pinned {
     animation: none;
   }
-}
-
-/* dates over the one-line summary */
-.cs-line-date {
-  font-size: 10.5px;
-  color: var(--muted);
-  white-space: nowrap;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border: none !important;
-  padding-top: 0 !important;
-  padding-bottom: 0 !important;
-  min-height: 0;
-}
-
-.cs-line-date.cs-a {
-  justify-content: flex-end;
-}
-
-.cs-line-date .cs-rel {
-  font-size: 9.5px;
-  padding: 0 4px;
-}
-
-.compare-summary.collapsed .cs-toggle {
-  top: 4px;
-  transform: none;
-}
-
-.cs-wrap.swipeable {
-  touch-action: pan-y;
-  will-change: transform;
-}
-
-.sheet-head-end {
-  margin-left: auto;
-  display: inline-flex;
-}
-
-.sheet-head .sheet-head-hint {
-  margin-left: 0;
-  color: var(--muted);
-  font-size: 10.5px;
-}
-
-.sheet-head select.chip.mini.mode {
-  font-size: 11px;
-  padding: 4px 18px 4px 8px;
-  max-width: 100px;
-}
-
-/* The selected 日なた/日かげ温度 button switches on a second tap: a small ⇄ says so. */
-.mini-switch button.on:last-child::after {
-  content: " ⇄";
-  font-size: 10px;
-  color: var(--muted);
-}
-
-/* The daily graph pans sideways; vertical moves still scroll and drag the sheet. */
-.chart svg {
-  touch-action: pan-y;
+  .chip,
+  .seg button,
+  .grabber,
+  .center-band,
+  .icon-btn,
+  .similar-list button {
+    transition: none;
+  }
 }

@@ -1,5 +1,5 @@
-// The sheet's 時間帯 face (spec 4.6–4.7): a summary of the target day and the temperature-band map
-// (seven days × five bands) for the target and the comparison side.
+// 肌感マップ (spec 4.6–4.7): a summary of the target day and the map of 肌感 (seven days × the five
+// 時間区分 朝・日中・昼・夕方・夜) for the target and the comparison side. Opened from a 肌感 bar.
 
 import { useContext, useState } from "react";
 import { addDays } from "../../shared/dates";
@@ -8,6 +8,8 @@ import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { BandTrend } from "./BandTrend";
+import { IconButton, Segmented } from "./kit";
+import { monthDay } from "../design/format";
 import { bandsFor, FeelContext, LEVEL_COLORS } from "./FeelBar";
 
 interface Props {
@@ -42,8 +44,9 @@ function Summary({ store, station, target, partner }: Props) {
   const shown = today ?? fallback?.bands ?? null;
   const phrase = shown ? describe(shown) : null;
   const feelSpread = shown ? spread(shown) : null;
-  const temps = (shown ?? []).map((b) => b.temp).filter((v): v is number => v != null);
-  const tempSpread = temps.length > 1 ? Math.max(...temps) - Math.min(...temps) : null;
+  // The air-temperature spread is the day's 最高−最低, the same as the table's 寒暖差.
+  const dayRow = store?.getDay(station, target).row;
+  const tempSpread = typeof dayRow?.max === "number" && typeof dayRow?.min === "number" ? dayRow.max - dayRow.min : null;
 
   const diffRow = (label: string, diffs: (number | null)[]) =>
     diffs.some((d) => d != null) && (
@@ -65,8 +68,8 @@ function Summary({ store, station, target, partner }: Props) {
       </p>
       {feelSpread != null && (
         <p className="band-spread">
-          寒暖差（{name}）<b>{feelSpread.toFixed(0)}℃</b>
-          {tempSpread != null && <small>　気温では {tempSpread.toFixed(0)}℃</small>}
+          {name}の差 <b>{feelSpread.toFixed(0)}℃</b>
+          {tempSpread != null && <small>　気温の寒暖差 {tempSpread.toFixed(1)}℃</small>}
         </p>
       )}
       {diffRow("前日比", bandDiffs(today, before))}
@@ -97,34 +100,44 @@ function MapGrid({
   onSelect: (s: Selected) => void;
 }) {
   const settings = useContext(FeelContext);
+  // Each day: the exact five bands from the hours; until then (or for forecast days without enough
+  // hours) the same estimate the table shows, spread over the bands (朝・夜 from the low, the day from the high).
   const columns = dates.map((date) => {
-    if (!date) return { date, state: "none" as const, bands: null };
+    if (!date) return { date, state: "none" as const, bands: null, estimate: false };
     const hours = store?.getHours(station, date);
     const state = hours?.state ?? "empty";
-    return { date, state, bands: state === "ready" && hours!.rows.length ? hourlyBands(hours!.rows, settings) : null };
+    const exact = state === "ready" && hours!.rows.length ? hourlyBands(hours!.rows, settings) : null;
+    if (exact && exact.some((b) => b.feel != null)) return { date, state, bands: exact, estimate: false };
+    const est = bandsFor(store, station, date, settings);
+    if (est && !est.exact) {
+      const [low, high, late] = est.bands;
+      return { date, state: "ready" as const, bands: [low, high, high, high, late], estimate: true };
+    }
+    return { date, state, bands: exact, estimate: false };
   });
 
   return (
-    <div className="band-map" role="table" aria-label={`${title}の温度帯マップ`}>
+    <div className="band-map" role="table" aria-label={`${title}の肌感マップ`}>
       <span className="band-map-title">{title}</span>
       <span aria-hidden="true" />
       {columns.map(({ date }, i) => (
-        <span key={"h" + i} className={`band-map-date tone-${date ? dayTone(date) : "weekday"}${i === 3 ? " center" : ""}`}>
-          {date ? `${+date.slice(5, 7)}/${+date.slice(8)}` : "—"}
-          <small>{date ? weekdayOf(date) : ""}</small>
+        <span key={"h" + i} className={`band-map-date${i === 3 ? " center" : ""}`}>
+          {date ? monthDay(date) : "—"}
+          <small className={date ? `tone-${dayTone(date)}` : undefined}>{date ? weekdayOf(date) : ""}</small>
         </span>
       ))}
       {BANDS.map((band, b) => [
         <span key={band.id} className="band-map-label">
           {band.label}
         </span>,
-        ...columns.map(({ date, state, bands }, i) => {
+        ...columns.map(({ date, state, bands, estimate }, i) => {
           const cell = bands?.[b];
           const isSelected = selected?.side === title && selected.date === date && selected.band === b;
           const classes = [
             "band-cell",
             i === 3 ? "center" : "",
             cell && cell.source !== "actual" ? "forecast" : "",
+            estimate ? "estimate" : "",
             isSelected ? "selected" : "",
             state === "outside" || state === "none" ? "outside" : "",
           ].join(" ");
@@ -142,8 +155,8 @@ function MapGrid({
             );
           if (!cell || cell.feel == null)
             return (
-              <span key={b + "-" + i} className={classes + " missing"}>
-                {state === "ready" ? "欠測" : ""}
+              <span key={b + "-" + i} className={classes + " missing"} aria-label="データなし">
+                —
               </span>
             );
           return (
@@ -151,11 +164,11 @@ function MapGrid({
               key={b + "-" + i}
               className={classes}
               style={{ background: LEVEL_COLORS[cell.level!] }}
-              onClick={() => date && onSelect({ side: title, date, band: b })}
+              onClick={() => date && !estimate && onSelect({ side: title, date, band: b })}
               aria-label={`${date} ${band.label} ${LEVELS[cell.level!]} ${cell.feel.toFixed(0)}℃`}
             >
               <b>{cell.feel.toFixed(0)}</b>
-              <small>{cell.temp == null ? "" : cell.temp.toFixed(0)}</small>
+              <small>{estimate ? "目安" : cell.temp == null ? "" : cell.temp.toFixed(0)}</small>
             </button>
           );
         }),
@@ -176,9 +189,9 @@ function Detail({ store, station, selected, onClose }: { store: WeatherStore | n
         <b>
           {selected.side} {+selected.date.slice(5, 7)}/{+selected.date.slice(8)}（{weekdayOf(selected.date)}） {band.label}
         </b>
-        <button onClick={onClose} aria-label="閉じる">
+        <IconButton size="sm" label="閉じる" onClick={onClose}>
           ×
-        </button>
+        </IconButton>
       </header>
       <table>
         <thead>
@@ -223,18 +236,15 @@ export function BandMap(props: Props) {
   return (
     <div className="band-face">
       <Summary {...props} />
-      <div className="band-view-switch" role="tablist">
-        {(
-          [
-            ["map", "マップ"],
-            ["trend", "推移"],
-          ] as const
-        ).map(([id, label]) => (
-          <button key={id} role="tab" aria-selected={view === id} className={view === id ? "on" : ""} onClick={() => setView(id)}>
-            {label}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        label="表示"
+        value={view}
+        options={[
+          { id: "map", label: "マップ" },
+          { id: "trend", label: "推移" },
+        ]}
+        onChange={setView}
+      />
       {view === "map" ? (
         <>
           <MapGrid title="対象日" dates={targets} store={store} station={station} selected={selected} onSelect={setSelected} />

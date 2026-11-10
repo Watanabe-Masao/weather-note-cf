@@ -72,7 +72,6 @@ function CalendarModalBody({ title, value, min, max, onPick, onClose: _done }: P
         </div>
         <footer className="calendar-foot">
           <button onClick={() => setMonth(monthOf(value))}>選択中の月へ</button>
-          <button onClick={onClose}>閉じる</button>
         </footer>
     </>
   );
@@ -80,7 +79,7 @@ function CalendarModalBody({ title, value, min, max, onPick, onClose: _done }: P
 
 export function CalendarModal(props: Props) {
   return (
-    <ModalSheet label={props.title} onClose={props.onClose} className="calendar">
+    <ModalSheet title={`${props.title}を選ぶ`} onClose={props.onClose} className="calendar">
       <CalendarModalBody {...props} />
     </ModalSheet>
   );

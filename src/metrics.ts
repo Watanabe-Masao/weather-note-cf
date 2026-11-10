@@ -11,9 +11,5 @@ export const metricById = chartMetricById;
 export const knownMetric = (id: unknown): MetricId =>
   METRICS.some((m) => m.id === id) ? (id as MetricId) : id === "snow" || id === "probability" ? "rain" : id === "sun" ? "radiation" : id === "gust" ? "wind" : "temp";
 
-export const formatValue = (v: unknown, unit: string) =>
-  typeof v === "number" && Number.isFinite(v)
-    ? unit === "%" || unit === "hPa"
-      ? Math.round(v).toString()
-      : v.toFixed(1)
-    : "—";
+/** Table and axis values: the design rule for digits per unit. */
+export { formatValue } from "./design/format";

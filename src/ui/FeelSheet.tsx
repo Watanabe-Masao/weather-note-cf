@@ -6,7 +6,7 @@ import type { WeatherStore } from "../data/store";
 import { BandMap, bandMapDays } from "./BandMap";
 import { FeelContext, LEVEL_COLORS } from "./FeelBar";
 import { LEVELS } from "../../shared/feel";
-import { ModalSheet, SheetCloseButton } from "./ModalSheet";
+import { ModalSheet } from "./ModalSheet";
 
 interface Props {
   store: WeatherStore | null;
@@ -25,11 +25,7 @@ export function FeelSheet({ store, station, target, partner, onClose }: Props) {
   }, [store, station, target, partner]);
 
   return (
-    <ModalSheet label="肌感マップ" onClose={onClose} className="feel-sheet">
-      <header className="day-head">
-        <h2>肌感（{settings.sun ? "日なた温度" : "日かげ温度"}）</h2>
-        <SheetCloseButton />
-      </header>
+    <ModalSheet title={`肌感マップ（${settings.sun ? "日なた温度" : "日かげ温度"}）`} onClose={onClose} className="feel-sheet">
       {/* The colours are explained here, where they are read closely. */}
       <p className="feel-legend sheet-legend">
         {LEVELS.map((label, i) => (

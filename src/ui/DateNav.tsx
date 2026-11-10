@@ -4,6 +4,7 @@
 
 import { type PointerEvent, type ReactNode, useRef, useState } from "react";
 import { weekSteps } from "../compare";
+import { dateLabel } from "../design/format";
 
 const LONG_PRESS_MS = 400;
 
@@ -89,7 +90,7 @@ export function DateNav({ label, date, canBack, canForward, onStep, onOpenCalend
     <div className="date-nav" role="group" aria-label={label}>
       <Arrow dir={-1} disabled={!canBack} onStep={onStep} />
       <button className="date-button" onClick={onOpenCalendar} disabled={!date}>
-        {date ? date.replaceAll("-", "/") : "該当日なし"}
+        {date ? dateLabel(date, { year: true, weekday: false }) : "該当日なし"}
       </button>
       <Arrow dir={1} disabled={!canForward} onStep={onStep} />
       <span className="today-slot">

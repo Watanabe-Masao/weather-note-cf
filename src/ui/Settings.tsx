@@ -136,7 +136,6 @@ function SettingsBody({ store, station, onStation, feel, onClose: _done }: Props
 
   return (
     <>
-        <h2>設定</h2>
         <label className="field">
           観測地点
           <select value={station} onChange={(e) => onStation(e.target.value)}>
@@ -184,9 +183,6 @@ function SettingsBody({ store, station, onStation, feel, onClose: _done }: Props
             保存データを消去
           </button>
         </div>
-        <button className="close" onClick={onClose}>
-          閉じる
-        </button>
         <p className="credit">
           出典：<a href="https://www.jma.go.jp/">気象庁ホームページ</a>（実績）／
           <a href="https://open-meteo.com/">Open-Meteo</a>（予報・CC BY 4.0）
@@ -197,7 +193,7 @@ function SettingsBody({ store, station, onStation, feel, onClose: _done }: Props
 
 export function Settings(props: Props) {
   return (
-    <ModalSheet label={"設定"} onClose={props.onClose} className="settings">
+    <ModalSheet title="設定" onClose={props.onClose} className="settings">
       <SettingsBody {...props} />
     </ModalSheet>
   );

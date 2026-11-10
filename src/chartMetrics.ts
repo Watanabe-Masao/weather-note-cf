@@ -3,6 +3,7 @@
 
 import { daytimeFeel, type FeelSettings, MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
 import type { WeatherRow } from "../shared/types";
+import type { DataColor } from "./design/tokens";
 
 export type ChartMetricId =
   | "temp"
@@ -15,7 +16,8 @@ export type ChartMetricId =
 export interface ChartSeries {
   key: string;
   label: string;
-  tone: "hot" | "cold" | "rain" | "plain" | "feel";
+  /** Data colour (design tokens): one colour, one meaning, everywhere. */
+  tone: DataColor;
   /** The day's value; `hours` is that day's hourly rows (empty until loaded). */
   value: (row: WeatherRow | null | undefined, hours: WeatherRow[] | null, feel: FeelSettings) => number | null;
   /** Shorter name for the narrow table label column. */
@@ -113,11 +115,11 @@ export const CHART_METRICS: ChartMetric[] = [
     series: [
       { key: "max", label: "最高", tone: "hot", value: field("max") },
       { key: "min", label: "最低", tone: "cold", value: field("min") },
-      { key: "temp", label: "平均", tone: "plain", value: field("temp"), thin: true, minor: true },
+      { key: "temp", label: "平均", tone: "mean", value: field("temp"), thin: true, minor: true },
       {
         key: "range",
         label: "寒暖差",
-        tone: "plain",
+        tone: "mean",
         value: (r) => {
           const max = num(r?.max);
           const min = num(r?.min);
@@ -141,10 +143,10 @@ export const CHART_METRICS: ChartMetric[] = [
     series: [
       { key: "rain", label: "降水量", tone: "rain", value: field("rain") },
       // Snow is in cm and rain chance in %: table rows and marks under the graph, never stacked on the bars.
-      { key: "snow", label: "降雪cm", tone: "cold", value: field("snow"), tableOnly: true, minor: true, unit: "cm" },
+      { key: "snow", label: "降雪", tone: "snow", value: field("snow"), tableOnly: true, minor: true, unit: "cm" },
       {
         key: "probability",
-        label: "確率%",
+        label: "確率",
         tone: "rain",
         value: (r) => (r?.type === "forecast" ? num(r.probability) : null),
         tableOnly: true,
@@ -168,8 +170,8 @@ export const CHART_METRICS: ChartMetric[] = [
     zero: true,
     needsHours: true,
     series: [
-      { key: "radiation", label: "日射量", tone: "hot", value: dailyRadiation },
-      { key: "sun", label: "日照h", tone: "hot", value: field("sun"), tableOnly: true, minor: true, unit: "h" },
+      { key: "radiation", label: "日射量", tone: "sun", value: dailyRadiation },
+      { key: "sun", label: "日照", tone: "sun", value: field("sun"), tableOnly: true, minor: true, unit: "h" },
     ],
     under: [{ key: "sun", label: "日照", format: (v) => `${v.toFixed(1)}h`, compare: true }],
   },
@@ -180,7 +182,7 @@ export const CHART_METRICS: ChartMetric[] = [
     chart: "line",
     zero: false,
     series: [
-      { key: "humidity", label: "平均", tone: "plain", value: field("humidity") },
+      { key: "humidity", label: "平均", tone: "humidity", value: field("humidity") },
       { key: "humidityMin", label: "最小", tone: "cold", value: field("humidityMin") },
     ],
   },
@@ -193,7 +195,7 @@ export const CHART_METRICS: ChartMetric[] = [
     chart: "line",
     zero: true,
     series: [
-      { key: "wind", label: "平均", tone: "plain", value: field("wind") },
+      { key: "wind", label: "平均", tone: "wind", value: field("wind") },
       { key: "gust", label: "最大瞬間", tableLabel: "瞬間", tone: "hot", value: field("gust"), tableOnly: true, minor: true },
     ],
     under: [{ key: "gust", label: "瞬間", format: (v) => v.toFixed(1), compare: true }],
@@ -209,7 +211,7 @@ export const CHART_METRICS: ChartMetric[] = [
     series: [
       { key: "pressureMax", label: "最高", tone: "hot", value: (_r, h) => hourlyExtreme(h, "pressure", "max") },
       { key: "pressureMin", label: "最低", tone: "cold", value: (_r, h) => hourlyExtreme(h, "pressure", "min") },
-      { key: "pressure", label: "平均", tone: "plain", value: field("pressure"), thin: true, minor: true },
+      { key: "pressure", label: "平均", tone: "mean", value: field("pressure"), thin: true, minor: true },
     ],
   },
 ];

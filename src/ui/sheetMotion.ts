@@ -6,12 +6,14 @@
 //   views), and the nearest height to that projected point wins: a short quick flick moves one step.
 // - Past the ends the sheet follows the finger with growing resistance (rubber band).
 
-/** iOS-like sheet curve: fast start, long soft landing. */
-export const SHEET_EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
+import { MOTION } from "../design/tokens";
+
+/** iOS-like sheet curve: fast start, long soft landing (design token). */
+export const SHEET_EASE = MOTION.ease.sheet;
 
 /** Duration for a move of `distance` px: short moves are quick, long ones never drag on. */
 export function moveDuration(distance: number): number {
-  return Math.round(Math.min(460, Math.max(220, 180 + Math.abs(distance) * 0.9)));
+  return Math.round(Math.min(MOTION.settleMax, Math.max(MOTION.settleMin, 180 + Math.abs(distance) * 0.9)));
 }
 
 /** Where a release at `position` with `velocity` (px/ms, same direction as position) would come to rest. */

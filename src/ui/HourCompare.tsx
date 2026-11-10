@@ -17,12 +17,25 @@ import {
   initialHour,
   signedDiff,
 } from "../dayDetail";
+import { type DataColor, DATA } from "../design/tokens";
+import { dateLabel, needsYear, niceTicks, tickLabel } from "../design/format";
 import { FeelContext, LEVEL_COLORS } from "./FeelBar";
 
-export const HOUR_COLORS = { main: "#f08b7d", other: "#6fb3f2", air: "#9aa7b8" } as const;
-const COLORS = HOUR_COLORS;
+/** The colour of an hourly item: the same for both days (they differ by solid / dashed). */
+export const HOUR_TONE: Record<DetailMetricId, DataColor> = {
+  temp: "temp",
+  feel: "feel",
+  rain: "rain",
+  snow: "snow",
+  probability: "rain",
+  humidity: "humidity",
+  wind: "wind",
+  radiation: "sun",
+  sun: "sun",
+  pressure: "pressure",
+};
 
-export const shortDate = (d: string) => `${d.slice(0, 4)}/${+d.slice(5, 7)}/${+d.slice(8)}`;
+export const shortDate = (d: string) => dateLabel(d, { year: true, weekday: false });
 
 /** Sunrise and sunset: from the forecast row when it has them, otherwise asked once. */
 export function useSun(station: string, date: string | null, today: string, row: WeatherRow | null | undefined): SunTimes | null {
@@ -72,9 +85,11 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
 
   const at = (points: HourPoint[]) => points[shownHour - 1]?.v ?? null;
   // Same month and day a year apart would read "11/10" twice: the comparison day keeps its year.
-  const mainLabel = shortDate(date).slice(5);
-  const otherLabel = other ? (other.slice(0, 4) !== date.slice(0, 4) ? shortDate(other) : shortDate(other).slice(5)) : "";
+  const mainLabel = dateLabel(date, { weekday: false });
+  const otherLabel = other ? dateLabel(other, { year: needsYear(other, date), weekday: false }) : "";
   const unit = (v: number | null) => (metric.unit !== "h" && v != null ? metric.unit : "");
+  const tone = HOUR_TONE[metricId];
+  const color = DATA[tone];
 
   return (
     <div className="hour-compare">
@@ -90,38 +105,46 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         hour={shownHour}
         onHour={setHour}
         height={height}
+        color={color}
       />
 
-      <p className="day-readout">
-        <b>{shownHour}時</b>
-        <span style={{ color: COLORS.main }}>
-          {mainLabel} {formatDetail(at(main), metric)}
-          {unit(at(main))}
+      {/* The hour's values: the target day solid, the comparison day muted; the difference last. */}
+      <p className="readout">
+        <b className="ro-hour">{shownHour}時</b>
+        <span className="ro-a">
+          <small>{mainLabel}</small>
+          <span className={`tone-${tone}`}>
+            {formatDetail(at(main), metric)}
+            <small className="unit">{unit(at(main))}</small>
+          </span>
         </span>
         {other && (
-          <span style={{ color: COLORS.other }}>
-            {otherLabel} {formatDetail(at(second), metric)}
-            {unit(at(second))}
+          <span className="ro-b">
+            <small>{otherLabel}</small>
+            <span className={`tone-${tone}`}>
+              {formatDetail(at(second), metric)}
+              <small className="unit">{unit(at(second))}</small>
+            </span>
           </span>
         )}
-        {other && metric.unit !== "h" && <span className="diff">{signedDiff(at(main), at(second), metric.unit === "%" ? 0 : 1)}</span>}
+        {other && metric.unit !== "h" && <span className="ro-diff">{signedDiff(at(main), at(second), metric.unit) || "—"}</span>}
       </p>
       {metricId === "radiation" && (
-        <p className="day-readout sub">
-          <span>日照</span>
-          <span style={{ color: COLORS.main }}>{formatDetail(sunMain[shownHour - 1]?.v ?? null, detailMetric("sun"))}</span>
-          {other && <span style={{ color: COLORS.other }}>{formatDetail(sunOther[shownHour - 1]?.v ?? null, detailMetric("sun"))}</span>}
+        <p className="readout sub">
+          <span className="ro-hour">日照</span>
+          <span className="ro-a tone-sun">{formatDetail(sunMain[shownHour - 1]?.v ?? null, detailMetric("sun"))}</span>
+          {other && <span className="ro-b tone-sun">{formatDetail(sunOther[shownHour - 1]?.v ?? null, detailMetric("sun"))}</span>}
         </p>
       )}
       {metricId === "rain" && chance.some((p) => p.v != null) && (
-        <p className="day-readout sub">
-          <span>降水確率</span>
-          <span style={{ color: COLORS.main }}>{at(chance) == null ? "—" : `${Math.round(at(chance)!)}%`}</span>
-          <span>（予報の時間だけ）</span>
+        <p className="readout sub">
+          <span className="ro-hour">降水確率</span>
+          <span className="ro-a tone-rain">{at(chance) == null ? "—" : `${Math.round(at(chance)!)}%`}</span>
+          <span className="ro-note">予報の時間だけ</span>
         </p>
       )}
       {metricId === "feel" && (
-        <p className="feel-legend day-legend">
+        <p className="level-legend">
           {LEVELS.map((label, i) => (
             <span key={label}>
               <i style={{ background: LEVEL_COLORS[i] }} />
@@ -130,24 +153,24 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           ))}
         </p>
       )}
-      <p className="day-legend-lines">
+      <p className="line-legend">
         <span>
-          <i className="lg-solid" style={{ borderColor: COLORS.main }} />
-          {mainLabel}
+          <i className="ls-solid" style={{ borderColor: color }} />
+          対象 {mainLabel}
         </span>
         {other && (
           <span>
-            <i className="lg-dashed" style={{ borderColor: COLORS.other }} />
-            {otherLabel}
+            <i className="ls-dashed" style={{ borderColor: color }} />
+            比較 {otherLabel}
           </span>
         )}
         <span>
-          <i className="lg-dotted" style={{ borderColor: COLORS.main }} />
+          <i className="ls-dotted" style={{ borderColor: color }} />
           予報
         </span>
         {metricId === "feel" && (
           <span>
-            <i className="lg-solid" style={{ borderColor: COLORS.air }} />
+            <i className="ls-solid" style={{ borderColor: DATA.mean }} />
             気温
           </span>
         )}
@@ -184,6 +207,7 @@ function HourChart({
   hour,
   onHour,
   height,
+  color,
 }: {
   metricId: DetailMetricId;
   main: HourPoint[];
@@ -195,6 +219,8 @@ function HourChart({
   hour: number;
   onHour: (h: number) => void;
   height: number;
+  /** The item's data colour (both days). */
+  color: string;
 }) {
   const H = height;
   const ref = useRef<HTMLDivElement>(null);
@@ -213,9 +239,10 @@ function HourChart({
   // Hour n is the value at n o'clock: x runs from 0 to 24 o'clock.
   const xOf = (h: number) => PAD.left + (h / 24) * plotW;
   const values = [main, second ?? [], air ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null);
-  const { lo, hi } = axisRange(values, metric);
+  // Round ticks (10 / 15 / 20): the padded data range widened to whole steps.
+  const range = axisRange(values, metric);
+  const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 3);
   const yOf = (v: number) => PAD.top + ((hi - Math.min(hi, Math.max(lo, v))) * (H - PAD.top - PAD.bottom)) / (hi - lo);
-  const ticks = [0, 0.5, 1].map((f) => lo + (hi - lo) * f);
   const rise = hourOfDay(sun?.sunrise ?? null);
   const set = hourOfDay(sun?.sunset ?? null);
 
@@ -305,10 +332,14 @@ function HourChart({
           <g key={t}>
             <line x1={PAD.left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
             <text x={PAD.left - 6} y={yOf(t) + 4} className="chart-tick" textAnchor="end">
-              {formatDetail(t, metric)}
+              {tickLabel(t)}
             </text>
           </g>
         ))}
+        {/* The unit once, above the axis. */}
+        <text x={PAD.left - 6} y={PAD.top - 6} className="chart-unit" textAnchor="end">
+          {metric.unit === "h" ? "時間" : metric.unit}
+        </text>
 
         {nowHour != null && (
           <g>
@@ -326,18 +357,18 @@ function HourChart({
 
         {metric.chart === "bar" ? (
           <>
-            {second && bars(second, COLORS.other, true)}
-            {bars(main, COLORS.main, false)}
+            {second && bars(second, color, true)}
+            {bars(main, color, false)}
           </>
         ) : (
           <>
-            {air && line(air, COLORS.air, false, 1.4, 0.8)}
-            {second && line(second, COLORS.other, true, 1.6, 0.85)}
-            {line(main, COLORS.main, false, 2.4)}
+            {air && line(air, DATA.mean, false, 1.4, 0.8)}
+            {second && line(second, color, true, 1.6, 0.7)}
+            {line(main, color, false, 2.4)}
             {[main, ...(second ? [second] : [])].map((s, k) => {
               const p = s[hour - 1];
               return p?.v == null ? null : (
-                <circle key={k} cx={xOf(p.hour)} cy={yOf(p.v)} r={3.6} fill={k ? "var(--bg)" : COLORS.main} stroke={k ? COLORS.other : COLORS.main} />
+                <circle key={k} cx={xOf(p.hour)} cy={yOf(p.v)} r={3.6} fill={k ? "var(--surface-base)" : color} stroke={color} opacity={k ? 0.8 : 1} />
               );
             })}
           </>

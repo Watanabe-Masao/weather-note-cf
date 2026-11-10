@@ -8,12 +8,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
-import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { WeatherRow } from "../../shared/types";
 import { dailyRadiation, hourlyExtreme } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { clock, hourOfDay } from "../data/sun";
-import { signedDiff } from "../dayDetail";
+import { digitsOf, num, signedDiff, UNIT } from "../design/format";
+import type { DataColor } from "../design/tokens";
+import { Badge, DayLabel } from "./kit";
 import type { MetricId } from "../metrics";
 import { useSun } from "./HourCompare";
 import { useSwipeDays } from "./useSwipeDays";
@@ -32,24 +33,21 @@ interface Props {
 }
 
 const COLLAPSED = "weather-note:summary-collapsed";
-const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
-function kindOf(store: WeatherStore | null, station: string, date: string) {
+function kindOf(store: WeatherStore | null, station: string, date: string): "予報" | "暫定" | "実績" | null {
   const day = store?.getDay(station, date);
   if (day?.state !== "ready" || !day.row) return null;
   if (day.row.type === "forecast") return "予報";
   return day.kind === "variable" ? "暫定" : "実績";
 }
 
-function relative(date: string, today: string) {
+function relative(date: string, today: string): "今日" | "昨日" | "明日" | null {
   if (date === today) return "今日";
   if (date === addDays(today, -1)) return "昨日";
   if (date === addDays(today, 1)) return "明日";
   return null;
 }
 
-/** "11/10（火）", with the year when the two days are in different years. */
-const label = (d: string, withYear: boolean) => `${withYear ? `${d.slice(0, 4)}/` : ""}${+d.slice(5, 7)}/${+d.slice(8)}（${weekdayOf(d)}）`;
 
 /** Sunrise difference in minutes, "+7分" / "−3分" / "±0". */
 function minutes(a: string | null, b: string | null): string {
@@ -70,9 +68,6 @@ interface Row {
   digits: number;
   a: number | null;
   b: number | null;
-  /** A second, small value after the main one (sunshine hours next to radiation). */
-  subA?: string;
-  subB?: string;
 }
 
 function useCollapsed(): [boolean, (v: boolean) => void] {
@@ -119,38 +114,37 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const sunA = useSun(station, target, today, a);
   const sunB = useSun(station, other, today, b);
   const years = !!other && other.slice(0, 4) !== target.slice(0, 4);
-  const hours = (v: unknown) => (num(v) == null ? undefined : `日照${num(v)!.toFixed(1)}h`);
 
+  // One line per value, units and digits by the design rules (format.ts).
+  const r = (key: string, metric: MetricId, label: string, unit: string, a: number | null, b: number | null, tone?: DataColor): Row => ({
+    key,
+    metric,
+    label,
+    unit,
+    tone,
+    digits: digitsOf(unit),
+    a,
+    b,
+  });
   const rows: Row[] = [
-    { key: "max", metric: "temp", label: "最高", unit: "℃", tone: "hot", digits: 1, a: num(a?.max), b: num(b?.max) },
-    { key: "min", metric: "temp", label: "最低", unit: "℃", tone: "cold", digits: 1, a: num(a?.min), b: num(b?.min) },
-    { key: "rain", metric: "rain", label: "降水", unit: "mm", tone: "rain", digits: 1, a: num(a?.rain), b: num(b?.rain) },
-    {
-      key: "radiation",
-      metric: "radiation",
-      label: "日射",
-      unit: "MJ",
-      tone: "sun",
-      digits: 1,
-      a: dailyRadiation(a, hoursOf(target)),
-      b: dailyRadiation(b, hoursOf(other)),
-      subA: hours(a?.sun),
-      subB: hours(b?.sun),
-    },
-    { key: "humidity", metric: "humidity", label: "湿度", unit: "%", digits: 0, a: num(a?.humidity), b: num(b?.humidity) },
-    { key: "wind", metric: "wind", label: "風速", unit: "m/s", digits: 1, a: num(a?.wind), b: num(b?.wind) },
-    { key: "pMax", metric: "pressure", label: "気圧最高", unit: "hPa", tone: "hot", digits: 0, a: hourlyExtreme(hoursOf(target), "pressure", "max"), b: hourlyExtreme(hoursOf(other), "pressure", "max") },
-    { key: "pMin", metric: "pressure", label: "気圧最低", unit: "hPa", tone: "cold", digits: 0, a: hourlyExtreme(hoursOf(target), "pressure", "min"), b: hourlyExtreme(hoursOf(other), "pressure", "min") },
+    r("max", "temp", "最高", UNIT.temp, num(a?.max), num(b?.max), "hot"),
+    r("min", "temp", "最低", UNIT.temp, num(a?.min), num(b?.min), "cold"),
+    r("rain", "rain", "降水", UNIT.rain, num(a?.rain), num(b?.rain), "rain"),
+    r("radiation", "radiation", "日射", UNIT.radiation, dailyRadiation(a, hoursOf(target)), dailyRadiation(b, hoursOf(other)), "sun"),
+    r("sun", "radiation", "日照", UNIT.hours, num(a?.sun), num(b?.sun), "sun"),
+    r("humidity", "humidity", "湿度", UNIT.percent, num(a?.humidity), num(b?.humidity), "humidity"),
+    r("wind", "wind", "風速", UNIT.wind, num(a?.wind), num(b?.wind), "wind"),
+    r("pMax", "pressure", "気圧最高", UNIT.pressure, hourlyExtreme(hoursOf(target), "pressure", "max"), hourlyExtreme(hoursOf(other), "pressure", "max"), "hot"),
+    r("pMin", "pressure", "気圧最低", UNIT.pressure, hourlyExtreme(hoursOf(target), "pressure", "min"), hourlyExtreme(hoursOf(other), "pressure", "min"), "cold"),
   ];
 
-  const value = (v: number | null, r: Row, sub?: string) =>
+  const value = (v: number | null, row: Row) =>
     v == null ? (
       <span className="cs-none">—</span>
     ) : (
       <>
-        {v.toFixed(r.digits)}
-        <small>{r.unit}</small>
-        {sub && <small className="cs-sub">{sub}</small>}
+        {v.toFixed(row.digits)}
+        <small className="unit">{row.unit}</small>
       </>
     );
 
@@ -160,10 +154,12 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     const kind = kindOf(store, station, d);
     return (
       <span className={`cs-head cs-${side}`}>
-        {rel && <em className="cs-rel">{rel}</em>}
-        <span className={`cs-date tone-${dayTone(d)}`}>{label(d, years && d === other)}</span>
+        {rel && <Badge kind={rel} />}
+        <span className="cs-date">
+          <DayLabel date={d} year={years && d === other} />
+        </span>
         <WeatherIcon text={(r?.dayWeather as string | null) ?? null} />
-        {kind && <span className={`cs-kind kind-${kind}`}>{kind}</span>}
+        {kind && <Badge kind={kind} />}
       </span>
     );
   };
@@ -190,11 +186,11 @@ export function CompareSummary({ store, station, target, other, today, metric, o
       onClick={pinned ? () => full.current?.closest(".sheet-body")?.scrollTo({ top: 0, behavior: "smooth" }) : undefined}
     >
       <span className="cs-line-date cs-a">
-        {relative(target, today) && <em className="cs-rel">{relative(target, today)}</em>}
-        <span className={`tone-${dayTone(target)}`}>{label(target, false)}</span>
+        {relative(target, today) && <Badge kind={relative(target, today)!} />}
+        <DayLabel date={target} />
       </span>
       <span className="cs-line-date cs-mid" />
-      <span className="cs-line-date cs-b">{other && <span className={`tone-${dayTone(other)}`}>{label(other, years)}</span>}</span>
+      <span className="cs-line-date cs-b">{other && <DayLabel date={other} year={years} />}</span>
       <span className="cs-line cs-a">
         <WeatherIcon text={(a?.dayWeather as string | null) ?? null} />
         {lineRows.map((r, i) => (
@@ -246,12 +242,12 @@ export function CompareSummary({ store, station, target, other, today, metric, o
 
       {rows.map((r) => (
         <div key={r.key} className={r.metric === metric ? "cs-row chosen" : "cs-row"}>
-          <span className={`cs-val cs-a${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.a, r, r.subA)}</span>
+          <span className={`cs-val cs-a${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.a, r)}</span>
           <span className="cs-mid">
             <span className="cs-label">{r.label}</span>
             <span className="cs-diff">{signedDiff(r.a, r.b, r.digits)}</span>
           </span>
-          <span className={`cs-val cs-b${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.b, r, r.subB)}</span>
+          <span className={`cs-val cs-b${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.b, r)}</span>
         </div>
       ))}
 

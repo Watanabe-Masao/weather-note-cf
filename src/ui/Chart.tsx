@@ -6,8 +6,10 @@ import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import { type ChartMetric, graphSeries } from "../chartMetrics";
+import { DATA } from "../design/tokens";
+import { Chip } from "./kit";
 import type { WeatherStore } from "../data/store";
-import { formatValue } from "../metrics";
+import { niceTicks, tickLabel } from "../design/format";
 import { FeelContext } from "./FeelBar";
 import { useDrumPan } from "./useDrumPan";
 
@@ -26,7 +28,8 @@ interface Props {
   onShiftDays?: (days: number) => void;
 }
 
-const COLORS = { hot: "#f08b7d", cold: "#6fb3f2", rain: "#6fb3f2", plain: "#9fd3c7", feel: "#c9a3f5" } as const;
+/** Data colours from the design tokens. */
+const COLORS = DATA;
 const HIDDEN_KEY = "weather-note:chart-hidden";
 // Bottom: two rows of dates (the target days, then their comparison days).
 const PAD = { left: 34, right: 10, top: 14, bottom: 44 };
@@ -120,7 +123,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       const b = pick("min", compare).points[i].v;
       return a == null || b == null ? "—" : (a - b).toFixed(1);
     };
-    under.push({ label: "差", cells: days.map((_, i) => gap(false, i)) }, { label: "", cells: days.map((_, i) => gap(true, i)), muted: true });
+    under.push({ label: "寒暖差", cells: days.map((_, i) => gap(false, i)) }, { label: "", cells: days.map((_, i) => gap(true, i)), muted: true });
   }
   for (const row of metric.under ?? []) {
     const own = days.map((d) => cell(d, row.key));
@@ -140,8 +143,12 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   const pad = Math.max((hi - lo) * 0.12, metric.unit === "℃" ? 1 : 0.5);
   if (lo !== 0) lo -= pad;
   hi = metric.max ?? hi + pad;
+  // Round ticks, widened to whole steps (a fixed top such as 100% stays).
+  const nice = niceTicks(lo, hi, 3);
+  if (metric.max == null) hi = nice.hi;
+  lo = metric.zero ? Math.max(0, nice.lo) : nice.lo;
+  const ticks = nice.ticks.filter((t) => t >= lo - 1e-9 && t <= hi + 1e-9);
   const yOf = (v: number) => PAD.top + ((hi - v) * (H - PAD.top - bottom)) / (hi - lo);
-  const ticks = [0, 0.5, 1].map((f) => lo + (hi - lo) * f);
 
   return (
     <div ref={ref} className="chart">
@@ -167,10 +174,14 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           <g key={t}>
             <line x1={PAD.left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
             <text x={PAD.left - 6} y={yOf(t) + 4} className="chart-tick" textAnchor="end">
-              {formatValue(t, metric.unit)}
+              {tickLabel(t)}
             </text>
           </g>
         ))}
+        {/* The unit once, above the axis. */}
+        <text x={PAD.left - 6} y={PAD.top - 6} className="chart-unit" textAnchor="end">
+          {metric.unit === "h" ? "時間" : metric.unit}
+        </text>
 
         <g clipPath={`url(#plot-${metric.id})`}>
         <g style={pan.style}>
@@ -291,45 +302,60 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           比較
         </text>
       </svg>
-      <div className="chart-legend">
-        <span>
-          <i className="lg-solid" />
-          実績
-        </span>
-        <span>
-          <i className="lg-dotted" />
-          予報
-        </span>
-        <span>
-          <i className="lg-dashed" />
-          比較日
-        </span>
-      </div>
+      {/* Legend in the graph's own marks: lines for line graphs, fills and outlines for bars. */}
+      {metric.chart === "bar" ? (
+        <p className="line-legend">
+          <span>
+            <i className="ls-fill" />
+            対象日
+          </span>
+          <span>
+            <i className="ls-outline" />
+            比較日
+          </span>
+          <span>
+            <i className="ls-fill dotted" />
+            予報
+          </span>
+        </p>
+      ) : (
+        <p className="line-legend">
+          <span>
+            <i className="ls-solid" />
+            対象日
+          </span>
+          <span>
+            <i className="ls-dashed" />
+            比較日
+          </span>
+          <span>
+            <i className="ls-dotted" />
+            予報
+          </span>
+        </p>
+      )}
       {(lines.length > 1 || metric.spread) && (
-        <div className="chart-toggles" role="group" aria-label="表示する線">
+        <div className="chip-row" role="group" aria-label="表示する線">
+          {/* Line switches: the chip shows the line's colour; off is dimmed. */}
           {lines.map((s) => (
-            <button
-              key={s.key}
-              className={shown(s.key) ? "on" : ""}
-              aria-pressed={shown(s.key)}
-              style={{ color: COLORS[s.tone] }}
-              onClick={() => toggle(s.key)}
-            >
-              <i style={{ background: COLORS[s.tone] }} />
-              {s.key === "feel" ? (feel.sun ? "肌感（日なた）" : "肌感（日かげ）") : s.label}
-            </button>
+            <Chip key={s.key} size="sm" on={shown(s.key)} tone={COLORS[s.tone]} onClick={() => toggle(s.key)}>
+              <i className="dot" style={{ background: COLORS[s.tone] }} />
+              {s.key === "feel" ? (feel.sun ? "日なた温度" : "日かげ温度") : s.label}
+            </Chip>
           ))}
           {metric.spread && (
-            <button className={spreadOn ? "on" : ""} aria-pressed={spreadOn} onClick={() => toggle("spread")}>
-              <i className="band" />差（{metric.spread}）
-            </button>
+            <Chip size="sm" on={spreadOn} tone={COLORS.hot} onClick={() => toggle("spread")}>
+              <i className="dot band" />
+              {metric.spread}
+            </Chip>
           )}
         </div>
       )}
-      {spreadOn && <p className="chart-note">差の数字は 上：対象日／下：比較日。肌感は日中・昼・夕方の平均</p>}
-      {metric.under?.some((r) => r.key === "probability") && <p className="chart-note">確率は予報の日だけ。雪は降った日だけ印（上：対象日／下：比較日）</p>}
-      {metric.under?.some((r) => r.key === "gust") && <p className="chart-note">線は平均風速、数字は最大瞬間風速（上：対象日／下：比較日）</p>}
-      {metric.under?.some((r) => r.key === "sun") && <p className="chart-note">棒は日射量（暖める力）、数字は日照時間（上：対象日／下：比較日）</p>}
+      {/* One note per item; the row order is always 上＝対象日・下＝比較日. */}
+      {spreadOn && <p className="chart-note">寒暖差は最高−最低（上が対象日、下が比較日）。肌感は日中・昼・夕方の平均。</p>}
+      {metric.under?.some((r) => r.key === "probability") && <p className="chart-note">降水確率は予報の日だけ。雪は降った日だけ表示（上が対象日、下が比較日）。</p>}
+      {metric.under?.some((r) => r.key === "gust") && <p className="chart-note">線は平均風速、数字は最大瞬間風速（上が対象日、下が比較日）。</p>}
+      {metric.under?.some((r) => r.key === "sun") && <p className="chart-note">棒は日射量（暖める力）、数字は日照時間（上が対象日、下が比較日）。</p>}
       {!spreadOn && shown("feel") && lines.some((s) => s.key === "feel") && <p className="chart-note">肌感は日中・昼・夕方の平均</p>}
     </div>
   );
