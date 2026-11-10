@@ -19,6 +19,8 @@ interface Props {
   metric: ChartMetric;
   /** Drawing height: the graph grows with the sheet. */
   height?: number;
+  /** Tap on a day (its column, bars, points or dates): open that day's hours. */
+  onPickDay?: (date: string) => void;
 }
 
 const COLORS = { hot: "#f08b7d", cold: "#6fb3f2", rain: "#6fb3f2", plain: "#9fd3c7", feel: "#c9a3f5" } as const;
@@ -64,7 +66,7 @@ function useHidden(metric: ChartMetric) {
   return { shown: (key: string) => !hidden.has(key), toggle, reset };
 }
 
-export function Chart({ store, station, target, partner, metric, height = 190 }: Props) {
+export function Chart({ store, station, target, partner, metric, height = 190, onPickDay }: Props) {
   const H = height;
   const feel = useContext(FeelContext);
   const { shown, toggle, reset } = useHidden(metric);
@@ -252,6 +254,21 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
             })()}
           </g>
         ))}
+        {/* Tap targets: each day's whole column, on top of everything drawn. */}
+        {onPickDay &&
+          days.map((d, i) => (
+            <rect
+              key={`hit-${d}`}
+              className="chart-hit"
+              x={xOf(i) - step / 2}
+              y={0}
+              width={step}
+              height={H}
+              onClick={() => onPickDay(d)}
+              role="button"
+              aria-label={`${+d.slice(5, 7)}月${+d.slice(8)}日の時間帯を見る`}
+            />
+          ))}
       </svg>
       <div className="chart-legend">
         <span>
@@ -266,6 +283,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
           <i className="lg-dashed" />
           比較日
         </span>
+        {onPickDay && <span className="chart-tap-hint">日をタップで時間帯 ›</span>}
       </div>
       {(lines.length > 1 || metric.spread) && (
         <div className="chart-toggles" role="group" aria-label="表示する線">

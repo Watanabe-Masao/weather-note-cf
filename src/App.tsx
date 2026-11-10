@@ -49,6 +49,7 @@ export function App() {
   const [similar, setSimilar] = useState(false);
   const ab = useAb();
   const legendUp = ab.variant("legendPlace") === "B";
+  const sheetChips = ab.variant("sheetHead") === "B";
 
   /** A column tap: that day becomes the selected day and the sheet shows the two days side by side, hour by hour. */
   const openDay = (date: string, other: string | null, side: "target" | "compare") => {
@@ -227,6 +228,30 @@ export function App() {
           heights={heights}
           onDetent={setDetent}
           tabs={
+            sheetChips ? (
+              // B: the item chips (the same choice as the row at the top, which a raised sheet covers);
+              // 時間帯 is reached by tapping a day, and left with ‹ 日別.
+              <div className="sheet-chips">
+                {face === "hours" && (
+                  <button className="chip back" onClick={() => setFace("chart")} aria-label="日別に戻る">
+                    ‹ 日別
+                  </button>
+                )}
+                {METRICS.map((m) => (
+                  <button
+                    key={m.id}
+                    className={m.id === view.metric ? "chip on" : "chip"}
+                    aria-pressed={m.id === view.metric}
+                    onClick={() => {
+                      set("metric", m.id);
+                      if (sheetDetent === "min") setDetent("mid");
+                    }}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
             <div className="sheet-tabs" role="tablist">
               {(
                 [
@@ -248,6 +273,7 @@ export function App() {
                 </button>
               ))}
             </div>
+            )
           }
         >
           {face === "chart" ? (
@@ -258,6 +284,7 @@ export function App() {
               partner={partner}
               metric={metric}
               height={chartHeight(heights[sheetDetent], metric)}
+              onPickDay={sheetChips ? (d) => openDay(d, partner(d), "target") : undefined}
             />
           ) : (
             <HourFace

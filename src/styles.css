@@ -2023,3 +2023,51 @@ button.label-feel small {
   padding-left: 10px;
   padding-right: 10px;
 }
+
+/* ---- sheet header B: item chips ---- */
+
+.sheet-chips {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 10px 8px;
+  scrollbar-width: none;
+}
+
+.sheet-chips::-webkit-scrollbar {
+  display: none;
+}
+
+/* Horizontal scrolling of the chips stays native; vertical moves still drag the sheet. */
+.sheet-tabs-wrap:has(.sheet-chips) {
+  touch-action: pan-x;
+}
+
+.sheet-chips .chip {
+  flex: none;
+  white-space: nowrap;
+  border-radius: 8px;
+  padding: 5px 12px;
+}
+
+.sheet-chips .chip.back {
+  color: var(--accent);
+  border-color: transparent;
+  background: none;
+  padding-left: 4px;
+}
+
+.chart-hit {
+  fill: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chart-hit:active {
+  fill: rgba(124, 196, 255, 0.1);
+}
+
+.chart-tap-hint {
+  margin-left: auto;
+  color: var(--accent);
+}
