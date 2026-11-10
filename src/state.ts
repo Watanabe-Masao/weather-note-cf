@@ -99,6 +99,11 @@ export function useViewState() {
     });
   }, []);
 
+  /** Make `date` the comparison day (from the similar-day list). Linked: a custom offset keeps the pair. */
+  const pickCompare = useCallback((date: string) => {
+    setView((v) => (v.linked ? { ...v, mode: "custom", offset: offsetOf(v.target, date) } : { ...v, compare: date }));
+  }, []);
+
   const setMode = useCallback((mode: CompareMode) => {
     setView((v) => {
       const offset = mode === "custom" ? (v.linked ? v.offset : offsetOf(v.target, v.compare)) : v.offset;
@@ -111,5 +116,5 @@ export function useViewState() {
     setView((v) => ({ ...v, [key]: value }));
   }, []);
 
-  return { view, today, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, set };
+  return { view, today, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set };
 }
