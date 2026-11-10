@@ -415,31 +415,72 @@ select.chip {
   border: 1px solid var(--line);
   border-bottom: none;
   border-radius: 18px 18px 0 0;
-  transition: height 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
   z-index: 10;
   padding-bottom: env(safe-area-inset-bottom);
+  /* lifted off the page; the shadow deepens as the sheet rises (scrim does the rest) */
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.28);
+  will-change: height;
+  contain: layout paint;
 }
 
 .sheet.dragging {
-  transition: none;
+  cursor: grabbing;
+}
+
+.sheet[data-detent="max"] {
+  box-shadow: 0 -10px 36px rgba(0, 0, 0, 0.45);
+}
+
+/* The page behind dims while the sheet is above the middle height. */
+.sheet-scrim {
+  position: fixed;
+  inset: 0;
+  background: #02060c;
+  z-index: 9;
+  opacity: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .sheet-handle {
   touch-action: none;
-  padding: 8px 16px 6px;
+  padding: 9px 16px 7px;
   cursor: grab;
+}
+
+/* The tab row can be dragged too: no native panning there. */
+.sheet-tabs-wrap {
+  touch-action: none;
+}
+
+.sheet-body {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .grabber {
   display: block;
-  width: 40px;
+  width: 38px;
   height: 5px;
   border-radius: 3px;
   background: var(--muted);
-  opacity: 0.6;
+  opacity: 0.55;
   margin: 0 auto 8px;
+  transition:
+    width 0.18s ease,
+    opacity 0.18s ease,
+    background-color 0.18s ease;
+}
+
+/* The grabber answers the finger: wider and brighter while held. */
+.sheet.dragging .grabber,
+.msheet.dragging .grabber,
+.sheet-handle:active .grabber {
+  width: 48px;
+  opacity: 0.95;
+  background: var(--text);
 }
 
 .sheet-title {
@@ -511,7 +552,8 @@ select.chip {
 
 /* ---- modals ---- */
 
-.modal-backdrop {
+.modal-backdrop,
+.msheet-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(5, 10, 18, 0.6);
@@ -521,7 +563,8 @@ select.chip {
   z-index: 30;
 }
 
-.modal {
+.modal,
+.msheet {
   width: 100%;
   max-width: 600px;
   max-height: 90vh;
@@ -539,12 +582,14 @@ select.chip {
   }
 }
 
-.modal h2 {
+.modal h2,
+.msheet h2 {
   font-size: 17px;
   margin: 0 0 12px;
 }
 
-.modal h3 {
+.modal h3,
+.msheet h3 {
   font-size: 14px;
   color: var(--muted);
   margin: 18px 0 8px;
@@ -1215,30 +1260,9 @@ select.chip {
   background: rgba(124, 196, 255, 0.08);
 }
 
-.day-sheet-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(5, 10, 18, 0.6);
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  z-index: 25;
-}
 
-.day-sheet {
-  width: 100%;
-  max-width: 600px;
-  max-height: 90vh;
-  overflow: auto;
-  overscroll-behavior: contain;
-  background: var(--panel);
-  border-radius: 18px 18px 0 0;
-  padding: 0 12px max(14px, env(safe-area-inset-bottom));
-  animation: rise 0.22s ease-out;
-  transition: transform 0.2s ease-out;
-}
 
-.day-sheet .sheet-handle {
+.msheet .sheet-handle {
   position: sticky;
   top: 0;
   background: var(--panel);
@@ -1592,4 +1616,807 @@ select.chip {
   font-size: 12px;
   color: var(--muted);
   margin-top: 0;
+}
+
+/* ---- sheets over the page (day detail, feel map, similar days, calendar, settings) ---- */
+
+.msheet-backdrop {
+  /* the shared rule above gives position and colour; opacity follows the sheet */
+  display: block;
+  opacity: 0;
+  z-index: 30;
+}
+
+.msheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0 auto;
+  z-index: 31;
+  max-height: 90vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 14px max(16px, env(safe-area-inset-bottom));
+  border: 1px solid var(--line);
+  border-bottom: none;
+  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.5);
+  animation: none;
+  outline: none;
+  will-change: transform;
+  transform: translateY(100%);
+}
+
+.msheet .sheet-handle {
+  margin: 0 -14px;
+  padding: 10px 16px 6px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grabber {
+    transition: none;
+  }
+}
+
+/* ---- openers: 肌感 label and legend open the feel map ---- */
+
+button.label-feel {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--accent);
+  text-align: left;
+  cursor: pointer;
+}
+
+button.label-feel small {
+  margin-left: 1px;
+  font-size: 12px;
+}
+
+.feel-legend .feel-open {
+  background: none;
+  border: none;
+  padding: 2px 0;
+  font: inherit;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+/* ---- 時間帯 tab ---- */
+
+.hour-face-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 4px 4px;
+}
+
+.hour-face-head p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.hour-face-head b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.mini-switch {
+  display: inline-grid;
+  grid-auto-flow: column;
+  background: var(--panel-2);
+  border-radius: 8px;
+  padding: 2px;
+  flex: none;
+}
+
+.mini-switch button {
+  border: none;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.mini-switch button.on {
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 600;
+}
+
+
+.hour-face .day-summary {
+  margin: 0 2px 10px;
+}
+
+/* ---- one band through both centre columns ---- */
+
+.board.linked-band {
+  position: relative;
+}
+
+/* The per-table frames give way to one band that runs through both tables (and the gap). */
+.board.linked-band .strip-wrap::after {
+  display: none;
+}
+
+.center-band {
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  border: 1.5px solid var(--accent);
+  border-radius: 12px;
+  background: linear-gradient(rgba(124, 196, 255, 0.07), rgba(124, 196, 255, 0.04));
+  box-shadow: 0 0 0 1px rgba(124, 196, 255, 0.08), 0 0 18px rgba(124, 196, 255, 0.12);
+}
+
+/* Mirrored: the comparison header sits under its table, so the two tables meet in the middle. */
+.board.mirror {
+  gap: 4px;
+}
+
+.board.mirror .side-target {
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+}
+
+.board.mirror .side-compare {
+  border-top-left-radius: 6px;
+  border-top-right-radius: 6px;
+}
+
+.board.mirror .side-compare .date-nav {
+  border-bottom: none;
+  border-top: 1px solid var(--line);
+}
+
+/* ---- the two days side by side (時間帯) ---- */
+
+.compare-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  margin: 0 2px 10px;
+  padding: 10px 10px 6px;
+  background: var(--panel-2);
+  border-radius: 12px;
+}
+
+.cs-side {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding-bottom: 6px;
+}
+
+.cs-a {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.cs-b {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.cs-date {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.cs-rel {
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bg);
+  background: var(--accent);
+  border-radius: 8px;
+  padding: 0 6px;
+  margin-right: 5px;
+  vertical-align: 1px;
+}
+
+.cs-weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+  max-width: 100%;
+}
+
+.cs-a .cs-weather {
+  flex-direction: row-reverse;
+}
+
+.cs-weather svg {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+
+.cs-weather > span:not(.cs-kind) {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cs-kind {
+  font-size: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 0 5px;
+  flex: none;
+}
+
+.cs-kind.kind-予報 {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.cs-vs {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  align-self: start;
+  padding-top: 3px;
+}
+
+.cs-row {
+  display: contents;
+}
+
+.cs-val {
+  font-size: 19px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.25;
+  padding: 2px 0;
+}
+
+.cs-val small {
+  font-size: 10px;
+  color: var(--muted);
+  margin-left: 1px;
+}
+
+.cs-val.tone-hot {
+  color: var(--hot);
+}
+
+.cs-val.tone-cold,
+.cs-val.tone-rain {
+  color: var(--cold);
+}
+
+.cs-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 64px;
+  border-left: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  padding: 1px 6px;
+}
+
+.cs-label {
+  font-size: 10.5px;
+  color: var(--muted);
+}
+
+.cs-diff {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.cs-sun .cs-val {
+  font-size: 13px;
+}
+
+.cs-none {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.cs-note {
+  grid-column: 1 / -1;
+  margin: 6px 0 0;
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.chart-x.partner {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.chart-x-side {
+  fill: var(--muted);
+  font-size: 9px;
+}
+
+.chip.sun-chip.on {
+  color: #f2c46d;
+  border-color: #f2c46d;
+}
+
+.feel-legend.sheet-legend {
+  margin: 0 2px 10px;
+  font-size: 11px;
+}
+
+.controls .chip {
+  white-space: nowrap;
+  flex: none;
+}
+
+.controls select.chip.mode {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 44%;
+  text-overflow: ellipsis;
+}
+
+.controls .sun-chip {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+
+.chart-hit {
+  fill: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.chart-hit:active {
+  fill: rgba(124, 196, 255, 0.1);
+}
+
+.chart-tap-hint {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+/* 肌感 label: tap switches 日なた ⇄ 日かげ; it shows the current one */
+button.label-feel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+button.label-feel small {
+  margin: 1px 0 0;
+  font-size: 8.5px;
+  padding: 0 3px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+button.label-feel.sun small {
+  color: #f2c46d;
+  border: 1px solid rgba(242, 196, 109, 0.6);
+}
+
+button.label-feel.shade small {
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.cell-feel.tappable-feel {
+  cursor: pointer;
+}
+
+.cell-feel.tappable-feel:active {
+  opacity: 0.7;
+}
+
+/* ---- compact, left-aligned date header ---- */
+
+.date-nav {
+  grid-template-columns: auto auto auto minmax(0, 1fr);
+  justify-content: start;
+  gap: 0;
+  padding: 2px 8px 2px 2px;
+}
+
+.date-nav .arrow {
+  width: 32px;
+  height: 34px;
+  font-size: 13px;
+}
+
+.date-nav .date-button {
+  font-size: 15px;
+  padding: 2px 2px;
+}
+
+.date-nav .today-slot {
+  justify-content: flex-end;
+}
+
+/* ---- header: title + settings; controls live in the date headers ---- */
+
+.app-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.date-nav {
+  grid-template-columns: auto auto auto minmax(0, 1fr) auto;
+}
+
+.date-nav-extra {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip.mini {
+  font-size: 12px;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+.chip.icon.mini {
+  width: 30px;
+  padding: 4px 0;
+}
+
+select.chip.mini.mode {
+  padding-right: 20px;
+  background-position:
+    calc(100% - 12px) 55%,
+    calc(100% - 7px) 55%;
+  max-width: 96px;
+  text-overflow: ellipsis;
+}
+
+/* ---- sheet header: what the sheet shows ---- */
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 12px 6px;
+}
+
+.sheet-head-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.sheet-head-hint {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--accent);
+}
+
+.sheet-head .chip.back {
+  color: var(--accent);
+  border-color: transparent;
+  background: none;
+  padding: 4px 4px;
+}
+
+/* The comparison header's controls stay clear of the centre band. */
+.side-compare .chip.mini {
+  font-size: 11px;
+  padding: 4px 6px;
+}
+
+.side-compare select.chip.mini.mode {
+  max-width: 84px;
+  padding-right: 18px;
+}
+
+.date-nav-extra {
+  gap: 3px;
+}
+
+@media (max-width: 380px) {
+  .side-compare select.chip.mini.mode {
+    max-width: 74px;
+  }
+}
+
+/* ---- comparison summary: compact (one line per item) and minimised ---- */
+
+.compare-summary.compact,
+.compare-summary.collapsed {
+  position: relative;
+  row-gap: 0;
+  padding: 6px 8px 4px;
+}
+
+.cs-heads {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  padding: 0 22px 4px 0;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 2px;
+}
+
+.cs-head {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.cs-head.cs-a {
+  justify-content: flex-end;
+}
+
+.cs-head svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.cs-head .cs-date {
+  font-size: 13px;
+}
+
+.cs-head .cs-rel {
+  margin-right: 0;
+}
+
+.compare-summary.compact .cs-vs {
+  align-self: center;
+  padding: 0;
+}
+
+.compare-summary.compact .cs-val {
+  font-size: 15px;
+  line-height: 1.2;
+  padding: 1px 0;
+}
+
+.compare-summary.compact .cs-mid {
+  flex-direction: row;
+  justify-content: center;
+  gap: 5px;
+  min-width: 82px;
+  padding: 2px 6px;
+}
+
+.compare-summary.compact .cs-label {
+  font-size: 10.5px;
+}
+
+.compare-summary.compact .cs-diff {
+  font-size: 11.5px;
+}
+
+.cs-sub {
+  margin-left: 4px !important;
+  font-size: 9.5px !important;
+}
+
+.cs-val.tone-sun {
+  color: #f2c46d;
+}
+
+/* The chosen item's row stands out. */
+.cs-row.chosen > * {
+  background: rgba(124, 196, 255, 0.1);
+}
+
+.cs-row.chosen > .cs-a {
+  border-radius: 6px 0 0 6px;
+  padding-right: 4px;
+}
+
+.cs-row.chosen > .cs-b {
+  border-radius: 0 6px 6px 0;
+  padding-left: 4px;
+}
+
+.compare-summary.compact .cs-sun .cs-val {
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.cs-toggle {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 26px;
+  height: 24px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-size: 13px;
+  border-radius: 6px;
+}
+
+.cs-toggle:active {
+  background: rgba(124, 196, 255, 0.12);
+}
+
+/* Minimised: one line. */
+.compare-summary.collapsed {
+  padding: 6px 30px 6px 8px;
+}
+
+.cs-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+}
+
+.cs-line.cs-a {
+  justify-content: flex-end;
+}
+
+.cs-line svg {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+
+.cs-line-mid {
+  flex-direction: row !important;
+  font-size: 11.5px;
+  color: var(--text);
+}
+
+.compare-summary.collapsed .cs-toggle {
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.cs-head {
+  flex-wrap: wrap;
+  row-gap: 1px;
+  white-space: normal;
+}
+
+.cs-head .cs-date {
+  white-space: nowrap;
+}
+
+/* ---- one-line summary: the chosen item; pinned while the full one is scrolled away ---- */
+
+.cs-wrap {
+  position: relative;
+}
+
+.cs-pin {
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: 4;
+}
+
+.cs-pin > .compare-summary.pinned {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  margin: 0 2px;
+  padding-right: 8px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  animation: pin-in 0.18s ease-out;
+}
+
+@keyframes pin-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.cs-wrap.sticky-line {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.cs-slash {
+  color: var(--muted);
+  margin: 0 1px;
+}
+
+.cs-line small {
+  font-size: 9.5px;
+  color: var(--muted);
+}
+
+.cs-line-mid {
+  gap: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-pin > .compare-summary.pinned {
+    animation: none;
+  }
+}
+
+/* dates over the one-line summary */
+.cs-line-date {
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 0;
+}
+
+.cs-line-date.cs-a {
+  justify-content: flex-end;
+}
+
+.cs-line-date .cs-rel {
+  font-size: 9.5px;
+  padding: 0 4px;
+}
+
+.compare-summary.collapsed .cs-toggle {
+  top: 4px;
+  transform: none;
+}
+
+.cs-wrap.swipeable {
+  touch-action: pan-y;
+  will-change: transform;
+}
+
+.sheet-head-end {
+  margin-left: auto;
+  display: inline-flex;
+}
+
+.sheet-head .sheet-head-hint {
+  margin-left: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+}
+
+.sheet-head select.chip.mini.mode {
+  font-size: 11px;
+  padding: 4px 18px 4px 8px;
+  max-width: 100px;
+}
+
+/* The selected 日なた/日かげ温度 button switches on a second tap: a small ⇄ says so. */
+.mini-switch button.on:last-child::after {
+  content: " ⇄";
+  font-size: 10px;
+  color: var(--muted);
+}
+
+/* The daily graph pans sideways; vertical moves still scroll and drag the sheet. */
+.chart svg {
+  touch-action: pan-y;
 }

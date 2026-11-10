@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { chartMetricById, tableSeries } from "../../src/chartMetrics";
+import { chartMetricById, hourlyExtreme, tableSeries } from "../../src/chartMetrics";
+import type { WeatherRow } from "../../shared/types";
 import { knownMetric } from "../../src/metrics";
 
 describe("items", () => {
@@ -21,5 +22,25 @@ describe("items", () => {
     expect(tableSeries(chartMetricById("radiation")).map((s) => s.key)).toEqual(["radiation", "sun"]);
     expect(tableSeries(chartMetricById("wind")).map((s) => s.key)).toEqual(["wind", "gust"]);
     expect(tableSeries(chartMetricById("temp")).map((s) => s.key)).toEqual(["max", "min", "temp", "range"]);
+  });
+});
+
+describe("hourly extremes (daily pressure range)", () => {
+  const hour = (n: number, pressure: number | null) =>
+    ({ date: "2026-11-10", n, type: "actual", provider: "JMA", pressure, raw: {}, quality: {} }) as WeatherRow;
+
+  it("gives the day's highest and lowest hourly value", () => {
+    const hours = Array.from({ length: 24 }, (_, i) => hour(i + 1, 1010 + Math.sin(i / 4) * 6));
+    expect(hourlyExtreme(hours, "pressure", "max")).toBeCloseTo(1016, 0);
+    expect(hourlyExtreme(hours, "pressure", "min")).toBeCloseTo(1004, 0);
+  });
+
+  it("waits for enough hours rather than show a partial day", () => {
+    expect(hourlyExtreme(Array.from({ length: 12 }, (_, i) => hour(i + 1, 1010)), "pressure", "max")).toBeNull();
+    expect(hourlyExtreme(null, "pressure", "min")).toBeNull();
+  });
+
+  it("puts the pressure range in the table (mean as a small row)", () => {
+    expect(tableSeries(chartMetricById("pressure")).map((s) => s.key)).toEqual(["pressureMax", "pressureMin", "pressure"]);
   });
 });

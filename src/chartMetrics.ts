@@ -80,6 +80,19 @@ const field =
   (row: WeatherRow | null | undefined): number | null =>
     num(row?.[key]);
 
+/** Hours a day needs before its highest/lowest hourly value is shown (a partial day would mislead). */
+export const EXTREME_MIN_HOURS = 20;
+
+/**
+ * The day's highest or lowest hourly value of `key` (JMA publishes only the mean sea-level pressure
+ * per day, so its extremes come from the hours). Null until enough hours exist.
+ */
+export function hourlyExtreme(hours: WeatherRow[] | null, key: string, pick: "max" | "min"): number | null {
+  const values = (hours ?? []).map((h) => num(h[key])).filter((v): v is number => v != null);
+  if (values.length < EXTREME_MIN_HOURS) return null;
+  return Math.round((pick === "max" ? Math.max(...values) : Math.min(...values)) * 10) / 10;
+}
+
 /** Daily 全天日射量 (MJ/㎡): the forecast row has it; for observations, the 24 hours added up. */
 export function dailyRadiation(row: WeatherRow | null | undefined, hours: WeatherRow[] | null): number | null {
   const own = num(row?.radiation);
@@ -185,7 +198,20 @@ export const CHART_METRICS: ChartMetric[] = [
     ],
     under: [{ key: "gust", label: "瞬間", format: (v) => v.toFixed(1), compare: true }],
   },
-  { id: "pressure", label: "気圧", unit: "hPa", chart: "line", zero: false, series: [{ key: "pressure", label: "気圧", tone: "plain", value: field("pressure") }] },
+  {
+    // Like temperature: the day's highest and lowest (from the hours) with the mean as a thin line.
+    id: "pressure",
+    label: "気圧",
+    unit: "hPa",
+    chart: "line",
+    zero: false,
+    needsHours: true,
+    series: [
+      { key: "pressureMax", label: "最高", tone: "hot", value: (_r, h) => hourlyExtreme(h, "pressure", "max") },
+      { key: "pressureMin", label: "最低", tone: "cold", value: (_r, h) => hourlyExtreme(h, "pressure", "min") },
+      { key: "pressure", label: "平均", tone: "plain", value: field("pressure"), thin: true, minor: true },
+    ],
+  },
 ];
 
 export const chartMetricById = (id: ChartMetricId) => CHART_METRICS.find((m) => m.id === id)!;

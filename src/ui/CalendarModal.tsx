@@ -1,5 +1,6 @@
 // Month calendar for picking a day. Days outside the allowed range cannot be chosen.
 
+import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { useState } from "react";
 import { daysOfMonth, monthOf } from "../../shared/dates";
 import { dayTone, holidayName, WEEKDAYS } from "../../shared/holidays";
@@ -19,7 +20,9 @@ const shiftMonth = (month: string, n: number) => {
   return d.toISOString().slice(0, 7);
 };
 
-export function CalendarModal({ title, value, min, max, onPick, onClose }: Props) {
+function CalendarModalBody({ title, value, min, max, onPick, onClose: _done }: Props) {
+  void _done;
+  const onClose = useSheetClose();
   const [month, setMonth] = useState(monthOf(value));
   const days = daysOfMonth(month);
   const lead = new Date(days[0] + "T00:00:00Z").getUTCDay();
@@ -27,8 +30,7 @@ export function CalendarModal({ title, value, min, max, onPick, onClose }: Props
   const canNext = shiftMonth(month, 1) <= monthOf(max);
 
   return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal calendar" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
+    <>
         <header className="calendar-head">
           <button className="arrow" disabled={!canPrev} onClick={() => setMonth(shiftMonth(month, -1))} aria-label="前の月">
             ◀
@@ -72,7 +74,14 @@ export function CalendarModal({ title, value, min, max, onPick, onClose }: Props
           <button onClick={() => setMonth(monthOf(value))}>選択中の月へ</button>
           <button onClick={onClose}>閉じる</button>
         </footer>
-      </div>
-    </div>
+    </>
+  );
+}
+
+export function CalendarModal(props: Props) {
+  return (
+    <ModalSheet label={props.title} onClose={props.onClose} className="calendar">
+      <CalendarModalBody {...props} />
+    </ModalSheet>
   );
 }
