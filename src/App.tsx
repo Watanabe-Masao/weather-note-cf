@@ -212,7 +212,7 @@ export function App() {
 
       <FeelContext.Provider value={feelSettings}>
         <GraphSheet
-          title={face === "chart" ? "比較グラフ" : "時間帯"}
+          title={face === "chart" ? "日別" : "時間帯"}
           detent={sheetDetent}
           heights={heights}
           onDetent={setDetent}
@@ -220,7 +220,7 @@ export function App() {
             <div className="sheet-tabs" role="tablist">
               {(
                 [
-                  ["chart", "比較グラフ"],
+                  ["chart", "日別"],
                   ["hours", "時間帯"],
                 ] as const
               ).map(([id, label]) => (

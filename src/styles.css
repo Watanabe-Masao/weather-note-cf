@@ -1986,3 +1986,13 @@ button.label-feel small {
   color: var(--muted);
   text-align: center;
 }
+
+.chart-x.partner {
+  font-size: 10px;
+  opacity: 0.6;
+}
+
+.chart-x-side {
+  fill: var(--muted);
+  font-size: 9px;
+}

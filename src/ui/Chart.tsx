@@ -23,7 +23,8 @@ interface Props {
 
 const COLORS = { hot: "#f08b7d", cold: "#6fb3f2", rain: "#6fb3f2", plain: "#9fd3c7", feel: "#c9a3f5" } as const;
 const HIDDEN_KEY = "weather-note:chart-hidden";
-const PAD = { left: 34, right: 10, top: 14, bottom: 30 };
+// Bottom: two rows of dates (the target days, then their comparison days).
+const PAD = { left: 34, right: 10, top: 14, bottom: 44 };
 /** Height of one row of small numbers under the plot (spread, rain chance, snow). */
 const UNDER_ROW = 13;
 
@@ -144,7 +145,7 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
         </p>
       )}
       {metric.forecastOnly && <p className="chart-note">予報の日だけの値です（過去の日にはありません）</p>}
-      <svg width={w} height={H} role="img" aria-label={`${metric.label}の比較グラフ`}>
+      <svg width={w} height={H} role="img" aria-label={`${metric.label}の日別グラフ`}>
         {/* centre day */}
         <rect x={xOf(3) - step / 2} y={PAD.top - 6} width={step} height={H - PAD.top - bottom + 6} className="chart-center" />
         {ticks.map((t) => (
@@ -228,10 +229,28 @@ export function Chart({ store, station, target, partner, metric, height = 190 }:
           </g>
         ))}
 
+        <text x={PAD.left - 6} y={H - 24} textAnchor="end" className="chart-x-side">
+          対象
+        </text>
+        <text x={PAD.left - 6} y={H - 9} textAnchor="end" className="chart-x-side">
+          比較
+        </text>
         {days.map((d, i) => (
-          <text key={d} x={xOf(i)} y={H - 10} textAnchor="middle" className={`chart-x tone-${dayTone(d)}`}>
-            {+d.slice(5, 7)}/{+d.slice(8)}
-          </text>
+          <g key={d}>
+            <text x={xOf(i)} y={H - 24} textAnchor="middle" className={`chart-x tone-${dayTone(d)}`}>
+              {+d.slice(5, 7)}/{+d.slice(8)}
+            </text>
+            {(() => {
+              // The comparison day each column is compared with (it differs from the target date
+              // with 前年同曜日, 前週 or a custom pair).
+              const p = partner(d);
+              return p ? (
+                <text x={xOf(i)} y={H - 9} textAnchor="middle" className={`chart-x partner tone-${dayTone(p)}`}>
+                  {+p.slice(5, 7)}/{+p.slice(8)}
+                </text>
+              ) : null;
+            })()}
+          </g>
         ))}
       </svg>
       <div className="chart-legend">
