@@ -34,6 +34,13 @@ describe("day detail", () => {
     expect(s[12].v).toBeNull();
   });
 
+  it("shows radiation in MJ/㎡ from either source", () => {
+    const s = hourSeries([hour(12, 20, { radiation: 2.17 }), hour(13, 20, { type: "forecast", solar: 500 })], "radiation", DEFAULT_FEEL);
+    expect(s[11].v).toBe(2.17);
+    expect(s[12].v).toBe(1.8);
+    expect(formatDetail(1.8, detailMetric("radiation"))).toBe("1.80");
+  });
+
   it("points first at the current hour today, otherwise at the warmest hour", () => {
     const s = hourSeries([hour(9, 15), hour(15, 22), hour(18, 18)], "temp", DEFAULT_FEEL);
     expect(initialHour(s, true, 10)).toBe(10);

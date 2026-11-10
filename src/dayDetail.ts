@@ -3,12 +3,12 @@
 // Two views: 実測 (the published values: temperature, rain, humidity, wind, sunshine) and
 // 肌感 (this app's 日なた温度 / 日かげ温度, with the five feel levels behind it).
 
-import { type FeelSettings, feelOf, radiationOf } from "../shared/feel";
+import { type FeelSettings, feelOf, MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
 import type { WeatherRow } from "../shared/types";
 import type { MetricId } from "./metrics";
 
 export type DetailView = "measured" | "feel";
-export type DetailMetricId = "temp" | "rain" | "humidity" | "wind" | "sun" | "feel";
+export type DetailMetricId = "temp" | "rain" | "humidity" | "wind" | "radiation" | "sun" | "feel";
 
 export interface DetailMetric {
   id: DetailMetricId;
@@ -26,6 +26,9 @@ export const MEASURED: DetailMetric[] = [
   { id: "rain", label: "降水量", unit: "mm", chart: "bar", floor: 0 },
   { id: "humidity", label: "湿度", unit: "%", chart: "line" },
   { id: "wind", label: "風速", unit: "m/s", chart: "line", floor: 0 },
+  // 全天日射量: the sun's warming power (direct plus scattered light); what 日なた温度 uses.
+  { id: "radiation", label: "日射量", unit: "MJ/㎡", chart: "bar", floor: 0 },
+  // 日照時間: minutes of direct sunshine in the hour — a record of "was it sunny".
   { id: "sun", label: "日照", unit: "h", chart: "bar", floor: 0, ceiling: 1 },
 ];
 
@@ -53,8 +56,16 @@ export function hourSeries(rows: WeatherRow[], id: DetailMetricId, s: FeelSettin
     const r = byHour.get(hour);
     if (!r) return { hour, v: null, forecast: false };
     const forecast = r.type === "forecast";
+    const radiation = radiationOf(r);
     const v =
-      id === "feel" ? feelOf(r.temp, r.humidity, r.wind, forecast, s, radiationOf(r)) : num((r as Record<string, unknown>)[id]);
+      id === "feel"
+        ? feelOf(r.temp, r.humidity, r.wind, forecast, s, radiation)
+        : id === "radiation"
+          ? // JMA gives MJ/㎡ per hour, the forecast W/㎡: shown in JMA's unit.
+            radiation == null
+            ? null
+            : +(radiation / MJ_PER_HOUR_TO_W).toFixed(2)
+          : num((r as Record<string, unknown>)[id]);
     return { hour, v, forecast };
   });
 }
@@ -73,7 +84,7 @@ export function axisRange(values: number[], m: DetailMetric): { lo: number; hi: 
   let hi = values.length ? Math.max(...values) : 1;
   if (m.floor != null) lo = Math.min(lo, m.floor);
   if (m.ceiling != null) hi = Math.max(hi, m.ceiling);
-  const pad = Math.max((hi - lo) * 0.12, m.unit === "℃" ? 1 : m.unit === "h" ? 0 : 0.5);
+  const pad = Math.max((hi - lo) * 0.12, m.unit === "℃" ? 1 : m.unit === "h" ? 0 : m.unit === "MJ/㎡" ? 0.1 : 0.5);
   if (m.floor == null || lo < m.floor) lo -= pad;
   if (m.ceiling == null) hi += pad;
   if (hi <= lo) hi = lo + 1;
@@ -84,6 +95,7 @@ export function formatDetail(v: number | null, m: DetailMetric): string {
   if (v == null) return "—";
   if (m.unit === "%") return Math.round(v).toString();
   if (m.unit === "h") return `${Math.round(v * 60)}分`;
+  if (m.unit === "MJ/㎡") return v.toFixed(2);
   return v.toFixed(1);
 }
 
