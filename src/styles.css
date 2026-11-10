@@ -1731,3 +1731,57 @@ button.label-feel small {
   color: var(--text);
   font-weight: 600;
 }
+
+/* ---- A/B switch (preview builds only) ---- */
+
+.ab-switch {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: -2px 0 8px;
+  padding: 6px 8px;
+  border: 1px dashed #e0b45a;
+  border-radius: 10px;
+  background: rgba(224, 180, 90, 0.08);
+  font-size: 12px;
+}
+
+.ab-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ab-title {
+  color: #e0b45a;
+  font-weight: 600;
+  min-width: 4.5em;
+}
+
+.ab-row button {
+  border: 1px solid var(--line);
+  background: none;
+  color: var(--muted);
+  border-radius: 6px;
+  width: 30px;
+  padding: 3px 0;
+  font: inherit;
+  font-weight: 600;
+}
+
+.ab-row button.on {
+  background: #e0b45a;
+  border-color: #e0b45a;
+  color: var(--bg);
+}
+
+.ab-desc {
+  color: var(--muted);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.hour-face .day-summary {
+  margin: 0 2px 10px;
+}

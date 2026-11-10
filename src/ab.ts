@@ -1,0 +1,53 @@
+// A/B comparisons while designing: each open question gets a key with variants A (current)
+// and B (proposal). The switch is shown on preview builds and locally (or with ?ab on production),
+// and the choice is remembered on this device so a reload keeps it.
+
+import { useCallback, useState } from "react";
+
+export type AbKey = "dayInSheet";
+export type Variant = "A" | "B";
+
+export const AB_QUESTIONS: Record<AbKey, { title: string; A: string; B: string }> = {
+  dayInSheet: {
+    title: "列タップ",
+    A: "日の詳細が上に開く",
+    B: "下のシートの時間帯に要約つきで出る",
+  },
+};
+
+const PRODUCTION = "weather-note-cf.watanabe-masao0804.workers.dev";
+const KEY = "weather-note:ab";
+
+export const abVisible = () => {
+  try {
+    return location.hostname !== PRODUCTION || new URLSearchParams(location.search).has("ab");
+  } catch {
+    return false;
+  }
+};
+
+function load(): Partial<Record<AbKey, Variant>> {
+  try {
+    return JSON.parse(localStorage.getItem(KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+/** Current variants; production without ?ab always runs A (the shipped behaviour). */
+export function useAb() {
+  const [chosen, setChosen] = useState(load);
+  const variant = useCallback((key: AbKey): Variant => (abVisible() ? (chosen[key] ?? "B") : "A"), [chosen]);
+  const choose = useCallback((key: AbKey, v: Variant) => {
+    setChosen((c) => {
+      const next = { ...c, [key]: v };
+      try {
+        localStorage.setItem(KEY, JSON.stringify(next));
+      } catch {
+        // Not remembering is harmless.
+      }
+      return next;
+    });
+  }, []);
+  return { variant, choose };
+}

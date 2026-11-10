@@ -29,7 +29,7 @@ interface Props {
   moveCompare: (date: string) => void;
   onToggleSun: () => void;
   /** Tap on a column: open that day's detail, paired with the day on the other side. */
-  onOpenDay: (date: string, other: string | null) => void;
+  onOpenDay: (date: string, other: string | null, side: "target" | "compare") => void;
   /** Tap on the 肌感 label or legend: open the feel map. */
   onOpenFeel: () => void;
 }
@@ -213,7 +213,7 @@ export function CompareBoard({
                   date={d}
                   metric={metric}
                   faded={d < bounds.min || d > bounds.max}
-                  onOpen={() => onOpenDay(d, view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d)))}
+                  onOpen={() => onOpenDay(d, view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d)), "target")}
                 />
               )}
             />
@@ -251,7 +251,7 @@ export function CompareBoard({
                   faded={view.linked ? d < bounds.min || d > bounds.max : d < "1977-01-01" || d > last}
                   onOpen={() => {
                     const shown = partner(d);
-                    if (shown) onOpenDay(shown, view.linked ? d : addDays(view.target, diffDays(view.compare, d)));
+                    if (shown) onOpenDay(shown, view.linked ? d : addDays(view.target, diffDays(view.compare, d)), "compare");
                   }}
                 />
               )}

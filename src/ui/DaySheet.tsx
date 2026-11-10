@@ -41,49 +41,15 @@ function kindOf(store: WeatherStore | null, station: string, date: string) {
   return day.kind === "variable" ? "暫定" : "実績";
 }
 
-export function DaySheet({ store, station, pick, initialMetric, today, onClose }: Props) {
-  const settings = useContext(FeelContext);
-  const { date, other } = pick;
-  const [metricId, setMetricId] = useState<DetailMetricId>(initialMetric);
-  const lastMeasured = useRef<DetailMetricId>(initialMetric === "feel" ? "temp" : initialMetric);
-  if (metricId !== "feel") lastMeasured.current = metricId;
-
-  // Hourly data for both days, first in line while the sheet is open.
-  useEffect(() => {
-    if (!store) return;
-    store.wantHours(station, [date, ...(other ? [other] : [])], 0, "day");
-    return () => store.wantHours(station, [], 0, "day");
-  }, [store, station, date, other]);
-
+/** The day's summary: weather, kind, max/min/rain/humidity with the difference to `other`, sunrise/sunset. */
+export function DaySummary({ store, station, date, other, today }: { store: WeatherStore | null; station: string; date: string; other: string | null; today: string }) {
   const day = store?.getDay(station, date);
   const otherDay = other ? store?.getDay(station, other) : null;
-  const hours = store?.getHours(station, date);
-  const otherHours = other ? store?.getHours(station, other) : null;
   const row = day?.row;
   const otherRow = otherDay?.row;
   const sun = useSun(station, date, today, row);
-
-  const rel = relative(date, today);
   const kind = kindOf(store, station, date);
-  const feelName = settings.sun ? "日なた温度" : "日かげ温度";
-
-  // Opened on snow or rain chance for days that have none: show temperature instead.
-  const offered = offeredMetrics(hours?.rows ?? [], otherHours?.rows ?? [], settings);
-  const loaded = hours?.state === "ready" && (!other || otherHours?.state === "ready");
-  useEffect(() => {
-    if (loaded && metricId !== "feel" && !offered.some((m) => m.id === metricId)) setMetricId("temp");
-  }, [loaded, metricId, offered]);
-
   return (
-    <ModalSheet label={`${shortDate(date)}の詳細`} onClose={onClose} className="day-sheet">
-        <header className="day-head">
-          <h2 className={`tone-${dayTone(date)}`}>
-            {rel && <span className="day-rel">{rel}</span>}
-            {shortDate(date)}（{weekdayOf(date)}）
-          </h2>
-          <SheetCloseButton />
-        </header>
-
         <div className="day-summary">
           <div className="day-weather">
             <span className="day-icon">{day?.state === "ready" ? <WeatherIcon text={row?.dayWeather as string | null} /> : <span className="skeleton icon" />}</span>
@@ -111,6 +77,47 @@ export function DaySheet({ store, station, pick, initialMetric, today, onClose }
             )}
           </p>
         </div>
+  );
+}
+
+export function DaySheet({ store, station, pick, initialMetric, today, onClose }: Props) {
+  const settings = useContext(FeelContext);
+  const { date, other } = pick;
+  const [metricId, setMetricId] = useState<DetailMetricId>(initialMetric);
+  const lastMeasured = useRef<DetailMetricId>(initialMetric === "feel" ? "temp" : initialMetric);
+  if (metricId !== "feel") lastMeasured.current = metricId;
+
+  // Hourly data for both days, first in line while the sheet is open.
+  useEffect(() => {
+    if (!store) return;
+    store.wantHours(station, [date, ...(other ? [other] : [])], 0, "day");
+    return () => store.wantHours(station, [], 0, "day");
+  }, [store, station, date, other]);
+
+  const hours = store?.getHours(station, date);
+  const otherHours = other ? store?.getHours(station, other) : null;
+
+  const rel = relative(date, today);
+  const feelName = settings.sun ? "日なた温度" : "日かげ温度";
+
+  // Opened on snow or rain chance for days that have none: show temperature instead.
+  const offered = offeredMetrics(hours?.rows ?? [], otherHours?.rows ?? [], settings);
+  const loaded = hours?.state === "ready" && (!other || otherHours?.state === "ready");
+  useEffect(() => {
+    if (loaded && metricId !== "feel" && !offered.some((m) => m.id === metricId)) setMetricId("temp");
+  }, [loaded, metricId, offered]);
+
+  return (
+    <ModalSheet label={`${shortDate(date)}の詳細`} onClose={onClose} className="day-sheet">
+        <header className="day-head">
+          <h2 className={`tone-${dayTone(date)}`}>
+            {rel && <span className="day-rel">{rel}</span>}
+            {shortDate(date)}（{weekdayOf(date)}）
+          </h2>
+          <SheetCloseButton />
+        </header>
+
+        <DaySummary store={store} station={station} date={date} other={other} today={today} />
 
         <div className="day-switch" role="tablist">
           <button

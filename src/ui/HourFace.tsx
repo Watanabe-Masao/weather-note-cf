@@ -7,6 +7,7 @@ import type { ChartMetricId } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { initialDetailMetric } from "../dayDetail";
 import { FeelContext } from "./FeelBar";
+import { DaySummary } from "./DaySheet";
 import { HourCompare, shortDate } from "./HourCompare";
 
 interface Props {
@@ -17,9 +18,11 @@ interface Props {
   metric: ChartMetricId;
   today: string;
   height: number;
+  /** Show the target day's summary above the graph (when a column tap brings the day here). */
+  summary?: boolean;
 }
 
-export function HourFace({ store, station, target, compareDate, metric, today, height }: Props) {
+export function HourFace({ store, station, target, compareDate, metric, today, height, summary = false }: Props) {
   const settings = useContext(FeelContext);
   const base = initialDetailMetric(metric);
   // Temperature can also be read as 肌感 (日なた/日かげ温度) hour by hour.
@@ -29,6 +32,7 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
 
   return (
     <div className="hour-face">
+      {summary && <DaySummary store={store} station={station} date={target} other={compareDate} today={today} />}
       <div className="hour-face-head">
         <p>
           <b className={`tone-${dayTone(target)}`}>

@@ -6,9 +6,11 @@ import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare"
 import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
 import { useFeelSettings } from "./feelSettings";
+import { useAb } from "./ab";
 import { useViewState } from "./state";
 import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
+import { AbSwitch } from "./ui/AbSwitch";
 import { CompareBoard } from "./ui/CompareBoard";
 import { type DayPick, DaySheet } from "./ui/DaySheet";
 import { initialDetailMetric } from "./dayDetail";
@@ -48,6 +50,20 @@ export function App() {
   const [feelMap, setFeelMap] = useState(false);
   const [similar, setSimilar] = useState(false);
   const [dayPick, setDayPick] = useState<DayPick | null>(null);
+  const ab = useAb();
+  const dayInSheet = ab.variant("dayInSheet") === "B";
+
+  /** A column tap. A: the day detail opens over the page. B: the day becomes the selected day and the sheet shows its hours. */
+  const openDay = (date: string, other: string | null, side: "target" | "compare") => {
+    if (!dayInSheet) return setDayPick({ date, other });
+    if (side === "target") moveTarget(date);
+    else if (view.linked && other) moveTarget(other);
+    else moveCompare(date);
+    setFace("hours");
+    setFull(false);
+    // A tap asks to see the day: open high enough for the summary and the graph together.
+    setDetent("max");
+  };
 
 
   // Tell the store what is on screen (both sides, so neither stays empty).
@@ -132,6 +148,7 @@ export function App() {
           <h1>Weather Note</h1>
         </header>
       )}
+      <AbSwitch variant={ab.variant} choose={ab.choose} />
 
       <div className="controls">
         <select
@@ -190,7 +207,7 @@ export function App() {
             moveTarget={moveTarget}
             moveCompare={moveCompare}
             onToggleSun={() => set("sun", !view.sun)}
-            onOpenDay={(date, other) => setDayPick({ date, other })}
+            onOpenDay={openDay}
             onOpenFeel={() => setFeelMap(true)}
           />
         </FeelContext.Provider>
@@ -244,6 +261,7 @@ export function App() {
               metric={view.metric}
               today={today}
               height={hourHeight(heights[sheetDetent])}
+              summary={dayInSheet}
             />
           )}
         </GraphSheet>
