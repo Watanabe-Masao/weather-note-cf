@@ -31,7 +31,7 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
 
   return (
     <div className="hour-face">
-      {summary && <CompareSummary store={store} station={station} target={target} other={compareDate} today={today} />}
+      {summary && <CompareSummary store={store} station={station} target={target} other={compareDate} today={today} metric={metric} />}
       <div className="hour-face-head">
         <p>24時間</p>
         {base === "temp" && (
