@@ -2300,3 +2300,61 @@ select.chip.mini.mode {
 .cs-head .cs-date {
   white-space: nowrap;
 }
+
+/* ---- one-line summary: the chosen item; pinned while the full one is scrolled away ---- */
+
+.cs-wrap {
+  position: relative;
+}
+
+.cs-pin {
+  position: sticky;
+  top: 0;
+  height: 0;
+  z-index: 4;
+}
+
+.cs-pin > .compare-summary.pinned {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  margin: 0 2px;
+  padding-right: 8px;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  animation: pin-in 0.18s ease-out;
+}
+
+@keyframes pin-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+}
+
+.cs-wrap.sticky-line {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.cs-slash {
+  color: var(--muted);
+  margin: 0 1px;
+}
+
+.cs-line small {
+  font-size: 9.5px;
+  color: var(--muted);
+}
+
+.cs-line-mid {
+  gap: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cs-pin > .compare-summary.pinned {
+    animation: none;
+  }
+}

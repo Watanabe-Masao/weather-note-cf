@@ -2,9 +2,11 @@
 // the comparison day (lower table) on the right; item and difference in the middle.
 //
 // Compact: one line per item (value · "item diff" · value), the chosen item highlighted.
-// Minimised: a single line (max/min, weather) — remembered on this device.
+// Minimised: a single line for the chosen item (max and min for temperature) — by ▴/▾ (remembered
+// on this device), and on its own while the full summary is scrolled out of the sheet: the line is
+// pinned at the top then (overlaid, so nothing below jumps), and tapping it scrolls back up.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { WeatherRow } from "../../shared/types";
@@ -93,6 +95,19 @@ function useCollapsed(): [boolean, (v: boolean) => void] {
 
 export function CompareSummary({ store, station, target, other, today, metric }: Props) {
   const [collapsed, setCollapsed] = useCollapsed();
+  const full = useRef<HTMLElement>(null);
+  const [pinned, setPinned] = useState(false);
+  useEffect(() => {
+    const el = full.current;
+    const root = el?.closest(".sheet-body") as HTMLElement | null;
+    if (!el || !root) return setPinned(false);
+    const io = new IntersectionObserver(
+      ([e]) => setPinned(!e.isIntersecting && e.boundingClientRect.top < (e.rootBounds?.top ?? 0)),
+      { root, threshold: 0, rootMargin: "-30px 0px 0px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [collapsed]);
   const rowOf = (d: string | null): WeatherRow | null => (d ? (store?.getDay(station, d).row ?? null) : null);
   const hoursOf = (d: string | null) => (d ? (store?.getHours(station, d).rows ?? null) : null);
   const a = rowOf(target);
@@ -159,28 +174,53 @@ export function CompareSummary({ store, station, target, other, today, metric }:
     </button>
   );
 
-  if (collapsed) {
-    const t = (v: number | null) => (v == null ? "—" : v.toFixed(1));
-    return (
-      <section className="compare-summary collapsed" aria-label="対象日と比較日（畳んだ表示）">
-        <span className="cs-line cs-a">
-          <WeatherIcon text={(a?.dayWeather as string | null) ?? null} />
-          <span className="tone-hot">{t(num(a?.max))}</span>/<span className="tone-cold">{t(num(a?.min))}</span>
-        </span>
-        <span className="cs-mid cs-line-mid">
-          {signedDiff(a?.max, b?.max)} / {signedDiff(a?.min, b?.min)}
-        </span>
-        <span className="cs-line cs-b">
-          <span className="tone-hot">{t(num(b?.max))}</span>/<span className="tone-cold">{t(num(b?.min))}</span>
-          <WeatherIcon text={(b?.dayWeather as string | null) ?? null} />
-        </span>
-        {toggle}
-      </section>
-    );
-  }
+  // The line for the chosen item: its row(s) only.
+  const chosen = rows.filter((r) => r.metric === (metric ?? "temp"));
+  const lineRows = chosen.length ? chosen : rows.slice(0, 2);
+  const short = (v: number | null, r: Row) => (v == null ? "—" : v.toFixed(r.digits));
+  const line = (pinned: boolean) => (
+    <section
+      className={pinned ? "compare-summary collapsed pinned" : "compare-summary collapsed"}
+      aria-label="対象日と比較日（1行）"
+      onClick={pinned ? () => full.current?.closest(".sheet-body")?.scrollTo({ top: 0, behavior: "smooth" }) : undefined}
+    >
+      <span className="cs-line cs-a">
+        <WeatherIcon text={(a?.dayWeather as string | null) ?? null} />
+        {lineRows.map((r, i) => (
+          <span key={r.key} className={r.tone ? `tone-${r.tone}` : undefined}>
+            {i > 0 && <span className="cs-slash">/</span>}
+            {short(r.a, r)}
+          </span>
+        ))}
+        <small>{lineRows[0].unit}</small>
+      </span>
+      <span className="cs-mid cs-line-mid">
+        <span className="cs-label">{lineRows.map((r) => r.label).join("/")}</span>
+        <span className="cs-diff">{lineRows.map((r) => signedDiff(r.a, r.b, r.digits) || "—").join(" / ")}</span>
+      </span>
+      <span className="cs-line cs-b">
+        {lineRows.map((r, i) => (
+          <span key={r.key} className={r.tone ? `tone-${r.tone}` : undefined}>
+            {i > 0 && <span className="cs-slash">/</span>}
+            {short(r.b, r)}
+          </span>
+        ))}
+        <small>{lineRows[0].unit}</small>
+        <WeatherIcon text={(b?.dayWeather as string | null) ?? null} />
+      </span>
+      {!pinned && toggle}
+    </section>
+  );
+
+  if (collapsed) return <div className="cs-wrap sticky-line">{line(false)}</div>;
 
   return (
-    <section className="compare-summary compact" aria-label="対象日と比較日">
+    <div className="cs-wrap">
+      {/* Zero-height sticky holder: the pinned line overlays the top of the sheet without moving anything. */}
+      <div className="cs-pin" aria-hidden={!pinned}>
+        {pinned && line(true)}
+      </div>
+    <section ref={full} className="compare-summary compact" aria-label="対象日と比較日">
       <div className="cs-heads">
         {head(target, a, "a")}
         <span className="cs-vs">比較</span>
@@ -212,5 +252,6 @@ export function CompareSummary({ store, station, target, other, today, metric }:
         </span>
       </div>
     </section>
+    </div>
   );
 }
