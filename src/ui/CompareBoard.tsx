@@ -118,7 +118,7 @@ function Labels({ metric }: { metric: Metric }) {
           <small>{metric.unit}</small>
         </span>
       ))}
-      {metric.id === "temp" && <span className="label-feel">体感</span>}
+      {metric.id === "temp" && <span className="label-feel">肌感</span>}
     </div>
   );
 }
@@ -217,7 +217,7 @@ export function CompareBoard({
 
       {metric.id === "temp" && (
         <p className="feel-legend">
-          体感
+          肌感
           {LEVELS.map((label, i) => (
             <span key={label}>
               <i style={{ background: LEVEL_COLORS[i] }} />

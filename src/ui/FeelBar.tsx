@@ -35,10 +35,13 @@ export function FeelBar({ store, station, date }: { store: WeatherStore | null; 
     return state === "empty" ? <span className="skeleton" /> : <span className="feel-none">—</span>;
   }
   const { bands, exact } = found;
+  // The number is called 日なた温度 (sunshine counted) or 日かげ温度 (none), to keep it apart from
+  // the general term 体感温度: it is this app's own combination of formulas.
+  const name = exact && settings.sun && bands.some((b) => b.sunCounted) ? "日なた温度" : "日かげ温度";
   const title = [
     describe(bands) ?? "",
+    `${name}${exact ? "" : "（日別の値からの目安）"}`,
     ...bands.map((b) => `${b.label} ${b.level == null ? "—" : LEVELS[b.level]}${b.feel == null ? "" : ` ${b.feel.toFixed(0)}℃`}`),
-    exact ? (settings.sun && bands.some((b) => b.sunCounted) ? "（日なた）" : "（日かげ）") : "（日別の値からの目安・日射なし）",
   ]
     .filter(Boolean)
     .join("\n");
