@@ -94,21 +94,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   return (
     <div className="hour-compare">
       <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
-      <HourChart
-        metricId={metricId}
-        main={main}
-        second={other ? second : null}
-        air={air}
-        thresholds={settings.thresholds}
-        sun={sun}
-        nowHour={isToday ? nowHour : null}
-        hour={shownHour}
-        onHour={setHour}
-        height={height}
-        color={color}
-      />
-
-      {/* The hour's values: the target day solid, the comparison day muted; the difference last. */}
+      {/* The hour's values above the graph, where the eye starts: the target day, the comparison day muted, the difference. */}
+      <div className="readout-card">
       <p className="readout">
         <b className="ro-hour">{shownHour}時</b>
         <span className="ro-a">
@@ -143,6 +130,22 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           <span className="ro-note">予報の時間だけ</span>
         </p>
       )}
+      </div>
+
+      <HourChart
+        metricId={metricId}
+        main={main}
+        second={other ? second : null}
+        air={air}
+        thresholds={settings.thresholds}
+        sun={sun}
+        nowHour={isToday ? nowHour : null}
+        hour={shownHour}
+        onHour={setHour}
+        height={height}
+        color={color}
+      />
+
       {metricId === "feel" && (
         <p className="level-legend">
           {LEVELS.map((label, i) => (
