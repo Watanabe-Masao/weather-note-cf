@@ -19,9 +19,11 @@ interface Props {
   height: number;
   /** Show the two days side by side above the graph. */
   summary?: boolean;
+  /** Swipe the summary sideways: move the selected day. */
+  onStep?: (days: number) => void;
 }
 
-export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true }: Props) {
+export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true, onStep }: Props) {
   const settings = useContext(FeelContext);
   const base = initialDetailMetric(metric);
   // Temperature can also be read as 肌感 (日なた/日かげ温度) hour by hour.
@@ -31,7 +33,7 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
 
   return (
     <div className="hour-face">
-      {summary && <CompareSummary store={store} station={station} target={target} other={compareDate} today={today} metric={metric} />}
+      {summary && <CompareSummary store={store} station={station} target={target} other={compareDate} today={today} metric={metric} onStep={onStep} />}
       <div className="hour-face-head">
         <p>24時間</p>
         {base === "temp" && (

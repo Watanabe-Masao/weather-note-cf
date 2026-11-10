@@ -10,12 +10,13 @@ import { useEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { WeatherRow } from "../../shared/types";
-import { dailyRadiation } from "../chartMetrics";
+import { dailyRadiation, hourlyExtreme } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { clock, hourOfDay } from "../data/sun";
 import { signedDiff } from "../dayDetail";
 import type { MetricId } from "../metrics";
 import { useSun } from "./HourCompare";
+import { useSwipeDays } from "./useSwipeDays";
 import { WeatherIcon } from "./WeatherIcon";
 
 interface Props {
@@ -26,6 +27,8 @@ interface Props {
   today: string;
   /** The item chosen in the chips: its row is highlighted. */
   metric?: MetricId;
+  /** Swipe sideways: move the selected day by ±1. */
+  onStep?: (days: number) => void;
 }
 
 const COLLAPSED = "weather-note:summary-collapsed";
@@ -93,7 +96,8 @@ function useCollapsed(): [boolean, (v: boolean) => void] {
   ];
 }
 
-export function CompareSummary({ store, station, target, other, today, metric }: Props) {
+export function CompareSummary({ store, station, target, other, today, metric, onStep }: Props) {
+  const swipe = useSwipeDays(onStep);
   const [collapsed, setCollapsed] = useCollapsed();
   const full = useRef<HTMLElement>(null);
   const [pinned, setPinned] = useState(false);
@@ -135,7 +139,8 @@ export function CompareSummary({ store, station, target, other, today, metric }:
     },
     { key: "humidity", metric: "humidity", label: "湿度", unit: "%", digits: 0, a: num(a?.humidity), b: num(b?.humidity) },
     { key: "wind", metric: "wind", label: "風速", unit: "m/s", digits: 1, a: num(a?.wind), b: num(b?.wind) },
-    { key: "pressure", metric: "pressure", label: "気圧", unit: "hPa", digits: 0, a: num(a?.pressure), b: num(b?.pressure) },
+    { key: "pMax", metric: "pressure", label: "気圧最高", unit: "hPa", tone: "hot", digits: 0, a: hourlyExtreme(hoursOf(target), "pressure", "max"), b: hourlyExtreme(hoursOf(other), "pressure", "max") },
+    { key: "pMin", metric: "pressure", label: "気圧最低", unit: "hPa", tone: "cold", digits: 0, a: hourlyExtreme(hoursOf(target), "pressure", "min"), b: hourlyExtreme(hoursOf(other), "pressure", "min") },
   ];
 
   const value = (v: number | null, r: Row, sub?: string) =>
@@ -184,6 +189,12 @@ export function CompareSummary({ store, station, target, other, today, metric }:
       aria-label="対象日と比較日（1行）"
       onClick={pinned ? () => full.current?.closest(".sheet-body")?.scrollTo({ top: 0, behavior: "smooth" }) : undefined}
     >
+      <span className="cs-line-date cs-a">
+        {relative(target, today) && <em className="cs-rel">{relative(target, today)}</em>}
+        <span className={`tone-${dayTone(target)}`}>{label(target, false)}</span>
+      </span>
+      <span className="cs-line-date cs-mid" />
+      <span className="cs-line-date cs-b">{other && <span className={`tone-${dayTone(other)}`}>{label(other, years)}</span>}</span>
       <span className="cs-line cs-a">
         <WeatherIcon text={(a?.dayWeather as string | null) ?? null} />
         {lineRows.map((r, i) => (
@@ -212,10 +223,15 @@ export function CompareSummary({ store, station, target, other, today, metric }:
     </section>
   );
 
-  if (collapsed) return <div className="cs-wrap sticky-line">{line(false)}</div>;
+  if (collapsed)
+    return (
+      <div ref={swipe.ref} className="cs-wrap sticky-line swipeable" style={swipe.style}>
+        {line(false)}
+      </div>
+    );
 
   return (
-    <div className="cs-wrap">
+    <div ref={swipe.ref} className="cs-wrap swipeable" style={swipe.style}>
       {/* Zero-height sticky holder: the pinned line overlays the top of the sheet without moving anything. */}
       <div className="cs-pin" aria-hidden={!pinned}>
         {pinned && line(true)}

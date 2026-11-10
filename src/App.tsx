@@ -266,6 +266,7 @@ export function App() {
               metric={view.metric}
               today={today}
               height={hourHeight(heights[sheetDetent])}
+              onStep={(n) => moveTarget(addDays(view.target, n))}
             />
           )}
         </GraphSheet>

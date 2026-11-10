@@ -2358,3 +2358,36 @@ select.chip.mini.mode {
     animation: none;
   }
 }
+
+/* dates over the one-line summary */
+.cs-line-date {
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: none !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  min-height: 0;
+}
+
+.cs-line-date.cs-a {
+  justify-content: flex-end;
+}
+
+.cs-line-date .cs-rel {
+  font-size: 9.5px;
+  padding: 0 4px;
+}
+
+.compare-summary.collapsed .cs-toggle {
+  top: 4px;
+  transform: none;
+}
+
+.cs-wrap.swipeable {
+  touch-action: pan-y;
+  will-change: transform;
+}
