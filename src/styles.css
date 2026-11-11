@@ -2948,3 +2948,38 @@ svg.scrub {
   opacity: 0.45;
   transition: opacity var(--motion-quick) var(--ease-standard);
 }
+
+/* ---- β (最近との差): marked as a trial, kept visually apart from 肌感 ----------------------------- */
+
+.beta-tag {
+  display: inline-grid;
+  place-items: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-xs);
+  font-size: 10.5px;
+  font-weight: var(--weight-bold);
+  color: var(--ink-secondary);
+  box-shadow: 0 0 0 1px var(--line-strong) inset;
+  vertical-align: 2px;
+}
+/* The rows join the summary's grid (like .cs-row); the heading spans it. */
+.cs-beta { display: contents; }
+.cs-beta-head {
+  grid-column: 1 / -1;
+  margin-top: var(--space-3) !important;
+  padding-top: var(--space-3);
+  border-top: 1px dashed var(--line-strong);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0 0 4px;
+  font-size: 12.5px;
+  color: var(--ink-secondary);
+}
+.cs-beta-head small { font-size: 11px; color: var(--ink-tertiary); }
+.cs-row.beta .cs-val { font-size: 0.92em; }
+.beta-fc { display: block; font-size: 9.5px; color: var(--status-forecast); line-height: 1.1; }
+.beta-short { font-size: 11px; }

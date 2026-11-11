@@ -7,7 +7,7 @@
 // then docks under the sheet's head (outside the scrolling area, covering nothing); tapping it
 // scrolls back up.
 
-import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CalendarSide } from "./CalendarModal";
 import { createPortal } from "react-dom";
 import { addDays } from "../../shared/dates";
@@ -22,6 +22,10 @@ import type { MetricId } from "../metrics";
 import { useSun } from "./HourCompare";
 import { useSwipeDays } from "./useSwipeDays";
 import { WeatherIcon } from "./WeatherIcon";
+import { BetaContext } from "../beta/settings";
+import { baselineOf, useBaselineHistory } from "../beta/useBaseline";
+import { type Departures, departures } from "../beta/adaptation";
+import { FeelContext } from "./FeelBar";
 
 interface Props {
   store: WeatherStore | null;
@@ -147,6 +151,12 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const sunA = useSun(station, target, today, a);
   const sunB = useSun(station, other, today, b);
   const years = !!other && other.slice(0, 4) !== target.slice(0, 4);
+  // β: each day against its own recent past (最近の基準), in the air, in the sun and in the shade.
+  const beta = useContext(BetaContext);
+  const feelSettings = useContext(FeelContext);
+  useBaselineHistory(store, station, [target, other], "summary-baseline");
+  const depA = departures(a, hoursOf(target), baselineOf(store, station, target, beta.speed), feelSettings);
+  const depB = departures(b, hoursOf(other), baselineOf(store, station, other, beta.speed), feelSettings);
 
   // One line per value, units and digits by the design rules (format.ts).
   const r = (key: string, metric: MetricId, label: string, unit: string, a: number | null, b: number | null, tone?: DataColor): Row => ({
@@ -330,9 +340,60 @@ export function CompareSummary({ store, station, target, other, today, metric, o
           {clock(sunB?.sunrise ?? null)}–{clock(sunB?.sunset ?? null)}
         </span>
       </div>
+
+      <BetaRows a={depA} b={depB} />
     </section>
     </div>
     </div>
     </>
+  );
+}
+
+/**
+ * β rows: each day's 最近の基準 and how far the day is from it. Values are differences in ℃, not a
+ * felt temperature (the label says 差). "履歴不足" when the past days are not there; 予報含む when the
+ * baseline itself includes forecast days.
+ */
+function BetaRows({ a, b }: { a: Departures | null; b: Departures | null }) {
+  const signed = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(1)}`);
+  const cell = (d: Departures | null, pick: (d: Departures) => number | null, base = false) =>
+    !d ? (
+      <span className="cs-none beta-short">履歴不足</span>
+    ) : pick(d) == null ? (
+      <span className="cs-none">—</span>
+    ) : (
+      <>
+        {base ? pick(d)?.toFixed(1) : signed(pick(d))}
+        <small className="unit">℃</small>
+        {base && d.baseline.forecastMixed && <small className="beta-fc">予報含む</small>}
+      </>
+    );
+  const rows: { key: string; label: string; pick: (d: Departures) => number | null; base?: boolean }[] = [
+    { key: "base", label: "最近の基準", pick: (d) => d.baseline.value, base: true },
+    { key: "air", label: "気温の差", pick: (d) => d.air },
+    { key: "sun", label: "日なたの差", pick: (d) => d.sun },
+    { key: "shade", label: "日かげの差", pick: (d) => d.shade },
+  ];
+  return (
+    <div className="cs-beta" role="group" aria-label="最近との差（β版。体感の予測ではない目安）">
+      <p className="cs-beta-head">
+        最近との差 <span className="beta-tag">β</span>
+        <small>基準＝最近の日平均気温の移動平均。体感の予測ではありません</small>
+      </p>
+      {rows.map((r) => {
+        const x = a ? r.pick(a) : null;
+        const y = b ? r.pick(b) : null;
+        return (
+          <div key={r.key} className="cs-row beta">
+            <span className="cs-val cs-a">{cell(a, r.pick, r.base)}</span>
+            <span className="cs-mid">
+              <span className="cs-label">{r.label}</span>
+              <span className="cs-diff">{signedDiff(x, y, 1)}</span>
+            </span>
+            <span className="cs-val cs-b">{cell(b, r.pick, r.base)}</span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
