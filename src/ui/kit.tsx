@@ -3,6 +3,7 @@
 
 import { type CSSProperties, Fragment, type ReactNode } from "react";
 import { dayTone } from "../../shared/holidays";
+import type { Confidence } from "../../shared/confidence";
 import { type BandMark, type DataColor } from "../design/tokens";
 import { dateLabel, digitsOf, monthDay, num, weekdayOf } from "../design/format";
 
@@ -81,10 +82,37 @@ export function IconButton({ label, onClick, children, size = "md" }: { label: s
 export type Kind = "予報" | "暫定" | "実績";
 
 /** Status of a day's values. */
-export function Badge({ kind }: { kind: Kind | "今日" | "昨日" | "明日" }) {
+export function Badge({ kind, confidence }: { kind: Kind | "今日" | "昨日" | "明日"; confidence?: Confidence | null }) {
   const cls = kind === "予報" ? "forecast" : kind === "暫定" ? "provisional" : kind === "実績" ? "actual" : "relative";
-  return <span className={`badge ${cls}`}>{kind}</span>;
+  return (
+    <span className={`badge ${cls}`}>
+      {kind}
+      {kind === "予報" && confidence && <Conf value={confidence} />}
+    </span>
+  );
 }
+
+/**
+ * 信頼度 of a forecast day (A/B/C, from the ensemble's spread; shared/confidence.ts). Written as a
+ * letter after 予報; only C carries a colour (the caution colour) — A and B stay quiet.
+ */
+export function Conf({ value }: { value: Confidence }) {
+  return (
+    <b className={`conf conf-${value}`} title={CONF_TEXT[value]}>
+      {value}
+    </b>
+  );
+}
+
+export const CONF_TEXT: Record<Confidence, string> = {
+  A: "信頼度A：予報の計算がよくそろっている",
+  B: "信頼度B：計算に少しばらつきがある",
+  C: "信頼度C：計算のばらつきが大きい（予報が変わりやすい）",
+};
+
+/** The 信頼度 of a day's row, when it is a forecast with one. */
+export const confidenceOfRow = (row: { type?: unknown; confidence?: unknown } | null | undefined): Confidence | null =>
+  row?.type === "forecast" && (row.confidence === "A" || row.confidence === "B" || row.confidence === "C") ? row.confidence : null;
 
 /**
  * A date as text: the month/day in the normal ink and only the weekday in its day tone

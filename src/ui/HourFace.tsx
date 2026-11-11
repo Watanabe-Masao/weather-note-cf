@@ -6,7 +6,8 @@ import type { ChartMetricId } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { initialDetailMetric } from "../dayDetail";
 import { FeelContext } from "./FeelBar";
-import { CompareSummary, type DatePick } from "./CompareSummary";
+import type { CalendarSide } from "./CalendarModal";
+import { CompareSummary } from "./CompareSummary";
 import { HourCompare } from "./HourCompare";
 import { Segmented } from "./kit";
 
@@ -24,8 +25,8 @@ interface Props {
   onStep?: (days: number) => void;
   /** Tapping the selected 日なた/日かげ温度 button again switches between sun and shade (the shared setting). */
   onToggleSun?: () => void;
-  /** Tap a date in the summary to pick it (the comparison date makes the interval custom). */
-  pick?: DatePick;
+  /** Tap a date in the summary to pick it from the calendar. */
+  pick?: (side: CalendarSide) => void;
 }
 
 export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true, onStep, onToggleSun, pick }: Props) {

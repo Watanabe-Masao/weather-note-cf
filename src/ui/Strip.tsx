@@ -5,7 +5,7 @@
 // - Linked strips share one Sync object: the strip the finger is on leads, the others follow.
 // - While a strip is being moved, `onGesture(true)` lets the store hold screen updates.
 
-import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { centerIndex, COLUMNS, scrollFor } from "../compare";
 
 const SETTLE_MS = 140;
@@ -33,7 +33,17 @@ interface Props {
 export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColumn, selectable, columns = COLUMNS }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [col, setCol] = useState(0);
-  const state = useRef({ touching: false, active: false, timer: 0, programmatic: false, firstDate: "" });
+  const state = useRef({
+    touching: false,
+    active: false,
+    timer: 0,
+    programmatic: false,
+    firstDate: "",
+    /** Where the strip was at the last scroll event (to tell a real stop from late scroll events). */
+    lastLeft: 0,
+    /** Where a programmatic scroll is heading. */
+    goal: 0,
+  });
   const latest = useRef({ dates, center, onSettle, onGesture, selectable, columns });
   latest.current = { dates, center, onSettle, onGesture, selectable, columns };
 
@@ -60,13 +70,25 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     const index = dates.indexOf(center);
     if (index < 0) return;
     const s = state.current;
-    if (s.active) return; // the finger is in charge
+    const moved = s.firstDate !== dates[0];
+    s.firstDate = dates[0];
+    // The finger is in charge — unless the days themselves changed under it (連動/個別 switched,
+    // or the rule changed, mid-glide): then the position means another day, so the gesture is
+    // dropped and the strip is put on its centre at once instead of settling on a wrong day.
+    if (s.active) {
+      if (!moved) return;
+      s.active = false;
+      window.clearTimeout(s.timer);
+      latest.current.onGesture(false);
+      if (sync && sync.leader === id) sync.leader = null;
+      for (const m of sync?.members.values() ?? []) m.classList.remove("following");
+    }
     const target = scrollFor(index, col);
     if (Math.abs(el.scrollLeft - target) < 1) return;
     // A new window (moved range) or first layout jumps; anything else glides.
-    const jump = s.firstDate !== dates[0] || el.scrollLeft === 0;
-    s.firstDate = dates[0];
+    const jump = moved || el.scrollLeft === 0;
     s.programmatic = true;
+    s.goal = target;
     if (sync) sync.leader = null;
     el.scrollTo({ left: target, behavior: jump ? "instant" : "smooth" });
   }, [center, dates, col, sync]);
@@ -75,9 +97,24 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     const el = ref.current;
     const s = state.current;
     if (!el || s.touching) return;
+    // Only settle once the strip has really stopped. While the page is busy (data arriving and being
+    // drawn), iOS can deliver momentum scroll events late: a quiet moment is not a stop. Settling
+    // mid-glide would fix a day there and pull the strip back to it.
+    if (Math.abs(el.scrollLeft - s.lastLeft) > 0.5) {
+      s.lastLeft = el.scrollLeft;
+      window.clearTimeout(s.timer);
+      s.timer = window.setTimeout(settle, SETTLE_MS);
+      return;
+    }
     if (s.programmatic) {
       s.programmatic = false;
-      return;
+      // Our own glide ended where it was heading: nothing to do. If the finger's momentum carried
+      // the strip elsewhere meanwhile, that is the user's choice: settle on it like a gesture.
+      if (Math.abs(el.scrollLeft - s.goal) < 2) return;
+      if (!s.active) {
+        s.active = true;
+        latest.current.onGesture(true);
+      }
     }
     if (!s.active) return;
     s.active = false;
@@ -104,6 +141,7 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     // Already on the edge day: glide back to it (and pull linked strips along).
     s.programmatic = true;
     const left = scrollFor(from, colWidth);
+    s.goal = left;
     el.scrollTo({ left, behavior: "smooth" });
     for (const [key, m] of sync?.members ?? []) if (key !== id) m.scrollTo({ left, behavior: "smooth" });
   }, [id, sync]);
@@ -121,13 +159,39 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     }
   };
 
+  // The days that can be chosen, as scroll positions: a flick stops a little past them (a wall,
+  // not a long glide into faded and unpainted columns that then crawls back).
+  const edges = useMemo(() => {
+    if (!selectable) return null;
+    let first = -1;
+    let last = -1;
+    dates.forEach((d, i) => {
+      if (selectable(d)) {
+        if (first < 0) first = i;
+        last = i;
+      }
+    });
+    return first < 0 ? null : { first, last };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dates]);
+
   const onScroll = () => {
     const el = ref.current!;
     const s = state.current;
     if (sync && sync.leader && sync.leader !== id) return; // following another strip
     if (!s.active && !s.programmatic) begin(); // trackpad or wheel without a touch
+    if (edges && col && s.active) {
+      // Past the last (or first) day by more than half a column: stop there. Setting the position
+      // also ends iOS momentum, so the release glides back to the edge day at once.
+      const over = col * (s.touching ? 0.9 : 0.5);
+      const lo = scrollFor(edges.first, col) - over;
+      const hi = scrollFor(edges.last, col) + over;
+      if (el.scrollLeft > hi) el.scrollLeft = hi;
+      else if (el.scrollLeft < lo) el.scrollLeft = Math.max(0, lo);
+    }
     if (sync && sync.leader === id)
       for (const [key, m] of sync.members) if (key !== id) m.scrollLeft = el.scrollLeft;
+    s.lastLeft = el.scrollLeft;
     window.clearTimeout(s.timer);
     s.timer = window.setTimeout(settle, SETTLE_MS);
   };

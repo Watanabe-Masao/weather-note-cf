@@ -2,6 +2,7 @@
 // Linked: both strips render the same run of target days (the comparison cell is that day's partner)
 // and scroll as one. Independent: each strip has its own run of days.
 
+import { Conf, confidenceOfRow } from "./kit";
 import { signedDiff } from "../design/format";
 import { type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "../../shared/dates";
@@ -11,13 +12,17 @@ import type { WeatherStore } from "../data/store";
 import { tableSeries } from "../chartMetrics";
 import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
-import { CalendarModal } from "./CalendarModal";
+import type { CalendarSide } from "./CalendarModal";
 import { DateNav } from "./DateNav";
 import { FeelBar, FeelContext } from "./FeelBar";
 import { Strip, StripSync } from "./Strip";
 import { WeatherIcon } from "./WeatherIcon";
 
 interface Props {
+  /** A drum is moving (finger down or settling): switches that change the days wait for it. */
+  onMoving?: (moving: boolean) => void;
+  /** Open the calendar for one side (the app shows one calendar for every place). */
+  onOpenCalendar: (side: CalendarSide) => void;
   /** 表に集中 (the table fills the screen). */
   wide?: boolean;
   store: WeatherStore | null;
@@ -110,7 +115,10 @@ function Column({
       <span className="cell-icon">
         {state === "ready" ? <WeatherIcon text={day?.row?.dayWeather as string | null} /> : state === "empty" ? <span className="skeleton icon" /> : null}
       </span>
-      <span className="cell-kind">{state === "outside" ? "範囲外" : kindLabel(store, station, date)}</span>
+      <span className={state === "error" ? "cell-kind failed" : "cell-kind"}>
+        {state === "outside" ? "範囲外" : state === "error" ? "取得失敗" : kindLabel(store, station, date)}
+        {state === "ready" && confidenceOfRow(day?.row) && <Conf value={confidenceOfRow(day?.row)!} />}
+      </span>
       {tableSeries(metric, past).map((s) => (
         <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
           {state === "ready" ? (
@@ -120,15 +128,7 @@ function Column({
               formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel), s.unit ?? metric.unit)
             )
           ) : state === "error" ? (
-            <button
-              className="retry"
-              onClick={(e) => {
-                e.stopPropagation();
-                store?.retryDay(station, date);
-              }}
-            >
-              再試行
-            </button>
+            <span className="cell-failed">—</span>
           ) : state === "empty" ? (
             <span className="skeleton" />
           ) : null}
@@ -215,6 +215,8 @@ function Labels({
 }
 
 export function CompareBoard({
+  onMoving,
+  onOpenCalendar,
   wide = false,
   store,
   view,
@@ -231,7 +233,6 @@ export function CompareBoard({
   targetExtra,
   compareExtra,
 }: Props) {
-  const [calendar, setCalendar] = useState<"target" | "compare" | null>(null);
   const sync = useMemo(() => (view.linked ? new StripSync() : null), [view.linked]);
   const targetDays = useWindow(view.target, bounds.min, bounds.max);
   const compareDays = useWindow(view.linked ? view.target : view.compare, view.linked ? bounds.min : "1977-01-01", view.linked ? bounds.max : last);
@@ -239,6 +240,7 @@ export function CompareBoard({
   const hold = (active: boolean) => {
     gestures.current = Math.max(0, gestures.current + (active ? 1 : -1));
     store?.hold(gestures.current > 0);
+    onMoving?.(gestures.current > 0);
   };
 
   // 表に集中 shows nine days (the numbers a size smaller).
@@ -288,7 +290,7 @@ export function CompareBoard({
           canBack={view.linked ? view.target > bounds.min : view.compare > "1977-01-01"}
           canForward={view.linked ? view.target < bounds.max : view.compare < last}
           onStep={(n) => (view.linked ? moveTarget(addDays(view.target, n)) : moveCompare(addDays(view.compare, n)))}
-          onOpenCalendar={() => setCalendar("compare")}
+          onOpenCalendar={() => onOpenCalendar("compare")}
           extra={compareExtra}
         />
   );
@@ -317,7 +319,7 @@ export function CompareBoard({
           canBack={view.target > bounds.min}
           canForward={view.target < bounds.max}
           onStep={(n) => moveTarget(addDays(view.target, n))}
-          onOpenCalendar={() => setCalendar("target")}
+          onOpenCalendar={() => onOpenCalendar("target")}
           todayChip={chip}
           onToday={() => moveTarget(today)}
           extra={targetExtra}
@@ -355,7 +357,10 @@ export function CompareBoard({
         <div className="side-body">
           <Labels metric={metric} past={comparePast} sun={view.sun} onToggleSun={onToggleSun} diffs />
           <div className="strip-wrap" ref={lowWrap}>
+            {/* 連動 and 個別 lay this strip out differently (the target's days vs its own): switching
+                builds it anew, standing on the comparison day at once — no glide through other days. */}
             <Strip
+              key={view.linked ? "linked" : "own"}
               id="compare"
               columns={columns}
               dates={compareDays}
@@ -385,16 +390,6 @@ export function CompareBoard({
         </div>
       </div>
 
-      {calendar && (
-        <CalendarModal
-          title={calendar === "target" ? "対象日" : "比較日"}
-          value={calendar === "target" ? view.target : (compareDate ?? view.target)}
-          min={calendar === "target" ? bounds.min : "1977-01-01"}
-          max={calendar === "target" ? bounds.max : last}
-          onPick={(d) => (calendar === "target" ? moveTarget(d) : moveCompare(d))}
-          onClose={() => setCalendar(null)}
-        />
-      )}
     </section>
   );
 }

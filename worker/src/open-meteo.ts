@@ -1,5 +1,6 @@
 // Forecast (8 days, daily + hourly) and sunrise/sunset from Open-Meteo.
 
+import { type Confidence, confidenceOf, ensembleSpreads, type Spread } from "../../shared/confidence";
 import type { Station, WeatherRow } from "../../shared/types";
 
 export const weatherCodeText = (code: number | null): string | null =>
@@ -163,7 +164,7 @@ export function forecastUrl(station: Station, optional = true): string {
     new URLSearchParams({
       ...coords(station),
       timezone: "Asia/Tokyo",
-      forecast_days: "8",
+      forecast_days: "16", // today + 15 days (the most Open-Meteo gives)
       wind_speed_unit: "ms",
       hourly: [...Object.values(HOURLY_FIELDS), ...(optional ? Object.values(OPTIONAL_HOURLY) : []), "weather_code"].join(","),
       daily: [...Object.values(DAILY_FIELDS), "weather_code", "sunrise", "sunset"].join(","),
@@ -171,7 +172,36 @@ export function forecastUrl(station: Station, optional = true): string {
   );
 }
 
+/** The ensemble used for 信頼度: ECMWF IFS (51 runs, 15 days), daily max/min and rain per run. */
+export function ensembleUrl(station: Station): string {
+  return (
+    "https://ensemble-api.open-meteo.com/v1/ensemble?" +
+    new URLSearchParams({
+      ...coords(station),
+      timezone: "Asia/Tokyo",
+      models: "ecmwf_ifs025",
+      forecast_days: "16",
+      daily: "temperature_2m_max,temperature_2m_min,precipitation_sum",
+    })
+  );
+}
+
+/** 信頼度 per forecast day; an empty map when the ensemble is unavailable (the forecast still works). */
+async function fetchConfidence(station: Station): Promise<Map<string, { confidence: Confidence; spread: Spread }>> {
+  const out = new Map<string, { confidence: Confidence; spread: Spread }>();
+  try {
+    const r = await fetch(ensembleUrl(station), { signal: AbortSignal.timeout(20_000) });
+    if (!r.ok) return out;
+    const data = (await r.json()) as { daily?: Record<string, unknown> };
+    for (const [date, spread] of ensembleSpreads(data.daily ?? {})) out.set(date, { confidence: confidenceOf(spread), spread });
+  } catch {
+    // No 信頼度 this time.
+  }
+  return out;
+}
+
 export async function fetchForecast(station: Station) {
+  const confidence = fetchConfidence(station);
   let source = forecastUrl(station);
   let r = await fetch(source, { signal: AbortSignal.timeout(25_000) });
   // An unknown variable makes Open-Meteo answer 400: the forecast matters more than the extras.
@@ -182,7 +212,13 @@ export async function fetchForecast(station: Station) {
   if (!r.ok) throw new Error(`予報の取得に失敗しました（${r.status}）。`);
   const data = (await r.json()) as ForecastPayload & { error?: boolean; reason?: string };
   if (data.error || !data.daily?.time?.length) throw new Error(data.reason ?? "予報データがありません。");
-  return { ...normalizeForecast(data), source, provider: "Open-Meteo" };
+  const forecast = normalizeForecast(data);
+  const conf = await confidence;
+  for (const row of forecast.rows) {
+    const c = conf.get(row.date);
+    if (c) Object.assign(row, { confidence: c.confidence, spread: c.spread });
+  }
+  return { ...forecast, source, provider: "Open-Meteo" };
 }
 
 export async function fetchSunTimes(station: Station, day: string, today: string) {

@@ -273,6 +273,19 @@ export class WeatherStore {
     return this.latest.get(station) ?? null;
   }
 
+  /** Days whose daily or hourly values failed to load (for the status bar). */
+  failedDays(): number {
+    return new Set([...this.errors.keys()].map((k) => k.slice(2))).size;
+  }
+
+  /** The status bar's 再試行, and coming back online: try every failed request again now. */
+  retryAll(): void {
+    this.errors.clear();
+    this.blocked.clear();
+    this.emit();
+    this.sync();
+  }
+
   /** Tap on a failed cell: try again now. */
   retryDay(station: string, date: string): void {
     const k = dayKey(station, date);
@@ -442,10 +455,9 @@ export class WeatherStore {
       await task.run();
       this.fresh.add(task.key);
       this.blocked.delete(task.key);
-      for (const k of task.days) {
-        this.errors.delete("d:" + k);
-        this.errors.delete("h:" + k);
-      }
+      // Clear only this kind's failures: a day's hours arriving says nothing about its daily row.
+      const kind = task.key.startsWith("hourly:") ? "h:" : "d:";
+      for (const k of task.days) this.errors.delete(kind + k);
       // A finished month can reveal follow-up work (the AMeDAS fill for the latest days).
       if (task.key.startsWith("daily:")) this.sync();
     } catch (e) {

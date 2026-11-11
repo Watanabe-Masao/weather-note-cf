@@ -442,6 +442,12 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             <i className="ls-forecast" />
             予報
           </span>
+          <span title="予報の計算のそろい具合。A がいちばん確か、C は変わりやすい">
+            <b className="conf">A</b>
+            <b className="conf">B</b>
+            <b className="conf conf-C">C</b>
+            信頼度
+          </span>
         </p>
       ) : (
         <p className="line-legend">
@@ -456,6 +462,12 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           <span>
             <i className="ls-forecast" />
             予報
+          </span>
+          <span title="予報の計算のそろい具合。A がいちばん確か、C は変わりやすい">
+            <b className="conf">A</b>
+            <b className="conf">B</b>
+            <b className="conf conf-C">C</b>
+            信頼度
           </span>
         </p>
       )}

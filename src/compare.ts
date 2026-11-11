@@ -43,6 +43,13 @@ export function matchDate(target: string, mode: CompareMode, customOffset = 0): 
   }
 }
 
+/** The preset (not カスタム) that gives `compare` for `target`, if any. */
+export function presetOf(target: string, compare: string | null): CompareMode | null {
+  if (!compare) return null;
+  for (const { mode } of COMPARE_MODES) if (mode !== "custom" && matchDate(target, mode) === compare) return mode;
+  return null;
+}
+
 /** The offset (in days) that keeps a pair fixed when switching to custom. */
 export const offsetOf = (target: string, compare: string) => diffDays(target, compare);
 

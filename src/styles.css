@@ -732,15 +732,6 @@ button.label-feel.shade small {
   font-size: 11px;
 }
 
-.retry {
-  background: transparent;
-  border: 1px solid var(--status-error);
-  color: var(--status-error);
-  border-radius: var(--radius-sm);
-  font-size: var(--size-xs);
-  padding: 1px 4px;
-}
-
 /* ---- centre band ---------------------------------------------------------------------------- */
 
 .board.linked-band {
@@ -2073,14 +2064,104 @@ svg.scrub {
   max-width: 100%;
 }
 
-/* ---- calendar ----------------------------------------------------------------------------------- */
+/* ---- calendar --------------------------------------------------------------------------------- */
+
+/* The pair as it will be: 対象 ↔ 比較 and the interval in words. */
+.cal-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 2px;
+  padding: 10px 12px;
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  transition: box-shadow var(--motion-base) var(--ease-standard);
+}
+
+.cal-pair.changed {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-base) 55%, transparent) inset,
+    0 0 14px var(--accent-glow);
+}
+
+.cal-pair-side {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-numeric);
+  font-size: var(--size-md);
+  font-weight: var(--weight-bold);
+  white-space: nowrap;
+  color: var(--ink-secondary);
+}
+
+.cal-pair-side:last-of-type {
+  text-align: right;
+  align-items: flex-end;
+}
+
+.cal-pair-side small {
+  font-family: var(--font-family);
+  font-size: var(--size-xs);
+  font-weight: var(--weight-regular);
+  color: var(--ink-tertiary);
+}
+
+/* The side being picked is the bright one. */
+.cal-pair-side.picking {
+  color: var(--ink-primary);
+}
+
+.cal-pair-link {
+  color: var(--ink-tertiary);
+}
+
+.cal-pair-interval {
+  grid-column: 1 / -1;
+  text-align: center;
+  font-size: var(--size-sm);
+  color: var(--accent-base);
+  font-weight: var(--weight-bold);
+}
+
+.cal-presets {
+  margin-bottom: var(--space-4);
+}
 
 .calendar-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3);
   font-weight: var(--weight-bold);
+}
+
+.calendar-head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: var(--size-md);
+}
+
+.icon-btn.flip svg {
+  transform: rotate(180deg);
+}
+
+.icon-btn:disabled {
+  opacity: 0.3;
+}
+
+/* 年: a quiet select that reads as part of the title. */
+.cal-year {
+  appearance: none;
+  border: none;
+  border-bottom: 1px dashed var(--ink-tertiary);
+  background: none;
+  color: var(--ink-primary);
+  font: inherit;
+  padding: 0 2px;
 }
 
 .calendar-grid {
@@ -2088,6 +2169,7 @@ svg.scrub {
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
   text-align: center;
+  touch-action: pan-y;
 }
 
 .cal-wd {
@@ -2095,38 +2177,149 @@ svg.scrub {
   color: var(--ink-tertiary);
 }
 
-.cal-wd.holiday,
-.cal-day.holiday { color: var(--day-holiday); }
-.cal-wd.saturday,
-.cal-day.saturday { color: var(--day-saturday); }
+.cal-wd.holiday { color: var(--day-holiday); }
+.cal-wd.saturday { color: var(--day-saturday); }
 
+/* A day: its number, weather and maximum temperature. */
 .cal-day {
-  height: 42px;
-  background: var(--surface-raised);
+  position: relative;
+  display: grid;
+  grid-template-rows: 15px 18px 13px;
+  justify-items: center;
+  align-items: center;
+  height: 56px;
+  padding: 3px 0;
   border: none;
   border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
   font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  color: var(--ink-primary);
+  transition:
+    transform var(--motion-quick) var(--ease-standard),
+    box-shadow var(--motion-quick) var(--ease-standard);
 }
 
-.cal-day.selected {
-  box-shadow: 0 0 0 2px var(--accent-base) inset;
-  background: color-mix(in srgb, var(--accent-base) 10%, var(--surface-raised));
+.cal-day:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.cal-day.tone-saturday .cal-n { color: var(--day-saturday); }
+.cal-day.tone-holiday .cal-n { color: var(--day-holiday); }
+
+.cal-n {
+  font-size: 13px;
+  font-weight: var(--weight-bold);
+}
+
+.cal-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.cal-max {
+  font-size: 10.5px;
+  color: var(--data-hot);
+}
+
+.cal-c {
+  font-style: normal;
+  margin-left: 2px;
+  padding: 0 2px;
+  border-radius: 2px;
+  font-size: 9px;
+  font-weight: var(--weight-bold);
+  color: var(--status-warning);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warning) 55%, transparent) inset;
 }
 
 .cal-day:disabled {
-  opacity: 0.25;
+  opacity: 0.22;
 }
 
-.calendar-foot,
+/* Forecast days hatched, as in the graphs. */
+.cal-day.forecast {
+  background-image: repeating-linear-gradient(135deg, rgba(219, 232, 245, 0.07) 0 1.5px, transparent 1.5px 5px);
+}
+
+/* Today: a small dot under the number. */
+.cal-day.today .cal-n {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 2px;
+  text-decoration-color: var(--accent-base);
+}
+
+/* The current day: framed (as the table's centre). */
+.cal-day.current {
+  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent-base) 60%, transparent) inset;
+}
+
+/* The previewed day: lit. */
+.cal-day.candidate {
+  background: color-mix(in srgb, var(--accent-base) 22%, var(--surface-raised));
+  box-shadow:
+    0 0 0 2px var(--accent-base) inset,
+    0 0 12px var(--accent-glow);
+}
+
+/* The other side's day: labelled. */
+.cal-other {
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0 4px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-overlay);
+  box-shadow: 0 0 0 1px var(--line-strong);
+  font-family: var(--font-family);
+  font-size: 8.5px;
+  color: var(--ink-secondary);
+  white-space: nowrap;
+}
+
+.calendar-foot {
+  display: flex;
+  gap: var(--space-4);
+  margin-top: var(--space-6);
+}
+
+.calendar-foot button {
+  flex: 1;
+  min-height: 42px;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--ink-secondary);
+}
+
+.calendar-foot button.primary {
+  flex: 2;
+  background: var(--accent-base);
+  border-color: var(--accent-base);
+  color: var(--ink-on-accent);
+  font-weight: var(--weight-bold);
+}
+
+.calendar-foot button.primary:disabled {
+  background: var(--surface-raised);
+  border-color: var(--line-strong);
+  color: var(--ink-disabled);
+}
+
+.cal-hint {
+  margin: var(--space-3) 0 0;
+}
+
 .actions {
   display: flex;
   gap: var(--space-4);
   margin-top: var(--space-7);
 }
 
-.calendar-foot button,
 .actions button,
 .reset {
   flex: 1;
@@ -2426,4 +2619,162 @@ svg.scrub {
 
 .cs-date-btn:active {
   opacity: 0.6;
+}
+
+/* ---- states: loading, slow, failed, offline (rules: 状態の見せ方) ------------------------- */
+
+/* One line under the item chips; nothing when all is well. */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 var(--space-4);
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--size-sm);
+  color: var(--ink-secondary);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  animation: fade-in var(--motion-base) var(--ease-standard);
+}
+
+.status-bar > i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--ink-tertiary);
+}
+
+.status-bar.error {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-error) 45%, transparent) inset;
+}
+
+.status-bar.error > i {
+  background: var(--status-error);
+}
+
+.status-bar.offline > i {
+  background: var(--status-provisional);
+}
+
+.status-bar > span:not(.state-spinner) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 再試行: one look wherever it appears. */
+.state-retry {
+  flex: none;
+  min-height: 30px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-overlay);
+  color: var(--ink-primary);
+  font-size: var(--size-sm);
+  font-weight: var(--weight-bold);
+}
+
+.state-retry:active {
+  transform: scale(0.97);
+}
+
+.state-spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent-base);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Over the graph area while its data is not there: the graph keeps its size, nothing jumps. */
+.hour-chart-wrap {
+  position: relative;
+}
+
+.state-overlay {
+  position: absolute;
+  inset: 18px 10px 26px 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-base) 72%, transparent);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  color: var(--ink-secondary);
+  font-size: var(--size-sm);
+}
+
+.state-overlay small {
+  color: var(--ink-tertiary);
+  font-size: var(--size-xs);
+}
+
+.state-overlay.error b {
+  color: var(--ink-primary);
+  font-size: var(--size-base);
+}
+
+.state-overlay.loading {
+  background: color-mix(in srgb, var(--surface-base) 40%, transparent);
+}
+
+/* A table cell that failed: a quiet dash; the status bar holds the one 再試行. */
+.cell-failed {
+  color: var(--ink-disabled);
+}
+
+.cell-kind.failed {
+  color: var(--status-error);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state-spinner {
+    animation-duration: 3s;
+  }
+  .status-bar {
+    animation: none;
+  }
+}
+
+/* 信頼度 after 予報: a small letter; only C (caution) carries a colour. */
+.conf {
+  display: inline-block;
+  margin-left: 3px;
+  padding: 0 3px;
+  border-radius: 3px;
+  font-family: var(--font-numeric);
+  font-size: 0.92em;
+  font-weight: var(--weight-bold);
+  line-height: 1.25;
+  color: var(--ink-secondary);
+  box-shadow: 0 0 0 1px var(--line-strong) inset;
+}
+
+.conf.conf-C {
+  color: var(--status-warning);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warning) 55%, transparent) inset;
+}
+
+.line-legend .conf {
+  margin: 0 1px 0 0;
+}
+
+/* Switches that change the days wait while a drum moves: dimmed for that moment, not hidden. */
+.chip:disabled {
+  opacity: 0.45;
+  transition: opacity var(--motion-quick) var(--ease-standard);
 }

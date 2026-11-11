@@ -1,5 +1,6 @@
 // A counted stand-in for the Worker API, producing plausible rows for any date.
 
+import { FORECAST_DAYS } from "../../src/data/plan";
 import { addDays, daysBetween, daysOfMonth } from "../../shared/dates";
 import { isFixedDay } from "../../shared/fixed";
 import type { WeatherRow } from "../../shared/types";
@@ -80,7 +81,7 @@ function respond(path: string, today: string): unknown {
         latest: { ...dailyRow(today, today), observedAt: "11:50" },
       };
     case "/api/forecast": {
-      const ds = daysBetween(today, addDays(today, 7));
+      const ds = daysBetween(today, addDays(today, FORECAST_DAYS));
       return {
         rows: ds.map((d) => ({ ...dailyRow(d, today), type: "forecast", provider: "Open-Meteo" })),
         hourlyRows: ds.flatMap((d) =>

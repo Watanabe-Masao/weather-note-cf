@@ -1,7 +1,8 @@
 // Weather Note: compare a target day with a comparison day, around a 7-day centre-fixed strip.
 
+import { CalendarModal, type CalendarSide } from "./ui/CalendarModal";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { addDays } from "../shared/dates";
+import { addDays, FIRST_DAY } from "../shared/dates";
 import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare";
 import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
@@ -11,6 +12,7 @@ import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
 import { CompareBoard } from "./ui/CompareBoard";
 import { ChevronIcon, ExpandIcon, GearIcon, LinkIcon, ShrinkIcon } from "./ui/icons";
+import { StatusBar } from "./ui/StatusBar";
 import { IconButton } from "./ui/kit";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
@@ -34,6 +36,7 @@ function chartHeight(sheet: number, m: { forecastOnly?: boolean; emptyNote?: str
 
 export function App() {
   const store = useWeatherStore();
+  const [calendar, setCalendar] = useState<CalendarSide | null>(null);
   const { view, today: startToday, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set } =
     useViewState();
   const today = store?.today ?? startToday;
@@ -45,6 +48,8 @@ export function App() {
   const feelSettings = feel.settings;
   // The sheet shows the chosen item two ways: seven days (日別) or the 24 hours of the day (時間帯).
   const [face, setFace] = useState<"chart" | "hours">("chart");
+  // While a drum moves, the switches that change which days are shown wait (rule: 動いている間).
+  const [moving, setMoving] = useState(false);
   const [feelMap, setFeelMap] = useState(false);
   const [similar, setSimilar] = useState(false);
 
@@ -53,6 +58,7 @@ export function App() {
     <select
       className="chip sm mode"
       value={view.mode}
+      disabled={moving}
       onChange={(e) => {
         // 似た日 is a way of choosing the day, not a rule: it opens the list and the menu stays as it was.
         if (e.target.value === SIMILAR) setSimilar(true);
@@ -196,9 +202,13 @@ export function App() {
         ))}
       </div>
 
+      <StatusBar store={store} station={view.station} days={[view.target, compareDate]} />
+
       <div ref={boardRef}>
         <FeelContext.Provider value={feelSettings}>
           <CompareBoard
+            onMoving={setMoving}
+            onOpenCalendar={setCalendar}
             wide={full}
             store={store}
             view={view}
@@ -223,6 +233,7 @@ export function App() {
                 <button
                   className={view.linked ? "chip sm link-toggle on" : "chip sm link-toggle"}
                   onClick={() => setLinked(!view.linked)}
+                  disabled={moving}
                   aria-pressed={view.linked}
                   title={view.linked ? "連動中：比較日は対象日に付いて動きます（タップで個別）" : "個別：比較日は別に動きます（タップで連動）"}
                 >
@@ -287,7 +298,7 @@ export function App() {
               height={hourHeight(heights[sheetDetent])}
               onStep={(n) => moveTarget(addDays(view.target, n))}
               onToggleSun={() => set("sun", !view.sun)}
-              pick={{ bounds, last, onTarget: moveTarget, onCompare: pickCompare }}
+              pick={setCalendar}
             />
           )}
         </GraphSheet>
@@ -304,6 +315,25 @@ export function App() {
             onClose={() => setFeelMap(false)}
           />
         </FeelContext.Provider>
+      )}
+
+      {calendar && (
+        <CalendarModal
+          side={calendar}
+          target={view.target}
+          compare={compareDate}
+          mode={view.mode}
+          min={calendar === "target" ? bounds.min : FIRST_DAY}
+          max={calendar === "target" ? bounds.max : last}
+          store={store}
+          station={view.station}
+          today={today}
+          partnerOf={partner}
+          onTarget={moveTarget}
+          onCompare={pickCompare}
+          onPreset={setMode}
+          onClose={() => setCalendar(null)}
+        />
       )}
 
       {similar && (

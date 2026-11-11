@@ -94,7 +94,6 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
 
   return (
     <div className="hour-compare">
-      <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
       {/* The hour's values above the graph, in the card every graph uses. */}
       <GraphReadout
         live={scrubbing}
@@ -131,6 +130,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         ]}
       />
 
+      <div className="hour-chart-wrap">
       <HourChart
         metricId={metricId}
         main={main}
@@ -145,6 +145,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         height={height}
         color={color}
       />
+      <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
+      </div>
 
       {metricId === "feel" && (
         <p className="level-legend">
@@ -182,19 +184,34 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   );
 }
 
+/**
+ * The target day's hours while they are not there (rule: 状態の見せ方): over the graph area, which
+ * keeps its size so nothing jumps — loading shimmers, a failure says so with 再試行 in the same place.
+ */
 function HourStatus({ state, error, onRetry }: { state?: string; error?: string; onRetry: () => void }) {
   if (state === "ready") return null;
   if (state === "error")
     return (
-      <p className="day-status">
-        時間ごとのデータを取得できませんでした。{error ? `（${error}）` : ""}
-        <button className="retry" onClick={onRetry}>
+      <div className="state-overlay error" role="alert">
+        <b>時間ごとのデータを取得できませんでした</b>
+        {error && <small>{error}</small>}
+        <button className="state-retry" onClick={onRetry}>
           再試行
         </button>
-      </p>
+      </div>
     );
-  if (state === "outside") return <p className="day-status">この日の時間ごとのデータはありません。</p>;
-  return <p className="day-status">時間ごとのデータを取得中…</p>;
+  if (state === "outside")
+    return (
+      <div className="state-overlay">
+        <small>この日の時間ごとのデータはありません</small>
+      </div>
+    );
+  return (
+    <div className="state-overlay loading" aria-live="polite">
+      <span className="state-spinner" aria-hidden />
+      <small>時間ごとのデータを取得中…</small>
+    </div>
+  );
 }
 
 const PAD = { left: 34, right: 10, top: 18, bottom: 26 };
