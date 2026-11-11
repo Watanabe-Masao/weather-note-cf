@@ -1,5 +1,7 @@
 // Weather Note: compare a target day with a comparison day, around a 7-day centre-fixed strip.
 
+import { AbContext, useAbState } from "./ab";
+import { AbSwitch } from "./ui/AbSwitch";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays } from "../shared/dates";
 import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare";
@@ -34,6 +36,7 @@ function chartHeight(sheet: number, m: { forecastOnly?: boolean; emptyNote?: str
 
 export function App() {
   const store = useWeatherStore();
+  const ab = useAbState();
   const { view, today: startToday, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set } =
     useViewState();
   const today = store?.today ?? startToday;
@@ -172,7 +175,8 @@ export function App() {
   }, [heights.max]);
 
   return (
-    <div className={full ? "app full" : "app"} style={{ paddingBottom: heights[sheetDetent] + 12 }}>
+    <AbContext.Provider value={ab}>
+    <div className={`${full ? "app full" : "app"}${full && ab.variant("focusDays") === "B" ? " wide" : ""}`} style={{ paddingBottom: heights[sheetDetent] + 12 }}>
       {!full && (
         <header className="app-head">
           <h1>Weather Note</h1>
@@ -195,10 +199,12 @@ export function App() {
           </button>
         ))}
       </div>
+      <AbSwitch />
 
       <div ref={boardRef}>
         <FeelContext.Provider value={feelSettings}>
           <CompareBoard
+            wide={full}
             store={store}
             view={view}
             today={today}
@@ -293,7 +299,14 @@ export function App() {
 
       {feelMap && (
         <FeelContext.Provider value={feelSettings}>
-          <FeelSheet store={store} station={view.station} target={view.target} partner={partner} onClose={() => setFeelMap(false)} />
+          <FeelSheet
+            store={store}
+            station={view.station}
+            target={view.target}
+            partner={partner}
+            onStep={ab.variant("feelSwipe") === "B" ? (n) => moveTarget(addDays(view.target, n)) : undefined}
+            onClose={() => setFeelMap(false)}
+          />
         </FeelContext.Provider>
       )}
 
@@ -318,5 +331,6 @@ export function App() {
         />
       )}
     </div>
+    </AbContext.Provider>
   );
 }

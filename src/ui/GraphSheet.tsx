@@ -239,6 +239,8 @@ export function GraphSheet({ title, tabs, detent, heights, onDetent, children, s
             {tabs}
           </div>
         )}
+        {/* A slot under the head for a line docked outside the scrolling area (A/B pinLine B). */}
+        <div className="sheet-dock" />
         <div ref={bodyRef} className="sheet-body">
           {children}
         </div>

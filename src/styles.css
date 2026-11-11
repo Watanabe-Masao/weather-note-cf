@@ -608,7 +608,7 @@ button.label-feel.shade small {
 
 .strip-pad {
   flex: none;
-  width: calc(var(--col) * 3);
+  width: calc(var(--col) * var(--pad, 3));
 }
 
 .strip-col {
@@ -1270,7 +1270,8 @@ svg.scrub {
 
 .cs-pin {
   position: sticky;
-  top: 0;
+  /* Up through the sheet body's top padding, so nothing peeks out above the line. */
+  top: -10px;
   height: 0;
   z-index: var(--layer-pinned);
 }
@@ -2238,4 +2239,133 @@ svg.scrub {
   .similar-list button {
     transition: none;
   }
+}
+
+/* ---- A/B comparisons (preview only) ------------------------------------------------------- */
+
+.ab-switch {
+  margin: -4px 0 var(--space-4);
+  border: 1px dashed color-mix(in srgb, var(--status-provisional) 70%, transparent);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--status-provisional) 7%, transparent);
+  font-size: var(--size-sm);
+}
+
+.ab-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 6px 10px;
+  color: var(--status-provisional);
+  font-weight: var(--weight-bold);
+  text-align: left;
+}
+
+.ab-head span {
+  font-family: var(--font-numeric);
+  letter-spacing: 0.12em;
+  color: var(--ink-secondary);
+}
+
+.ab-head i {
+  margin-left: auto;
+  font-style: normal;
+}
+
+.ab-row {
+  display: grid;
+  grid-template-columns: 5.6em 32px 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+}
+
+.ab-row:last-child {
+  padding-bottom: 8px;
+}
+
+.ab-title {
+  color: var(--ink-primary);
+}
+
+.ab-row button {
+  border: 1px solid var(--line-strong);
+  background: none;
+  color: var(--ink-tertiary);
+  border-radius: var(--radius-sm);
+  height: 28px;
+  font-weight: var(--weight-bold);
+}
+
+.ab-row button.on {
+  background: var(--status-provisional);
+  border-color: var(--status-provisional);
+  color: var(--ink-on-accent);
+}
+
+.ab-desc {
+  color: var(--ink-secondary);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* B（diffRow）: 差 rows under the comparison table — no colour (differences are never coloured). */
+.label-diff {
+  color: var(--ink-secondary);
+  font-size: 11px;
+}
+
+.label-diff small {
+  display: block;
+  font-size: 8.5px;
+  color: var(--ink-tertiary);
+}
+
+.cell-value.cell-diff {
+  font-size: 13.5px;
+  color: var(--ink-primary);
+}
+
+/* B（focusDays）: nine days in 表に集中 — numbers a size smaller to fit. */
+.app.wide .cell-value {
+  font-size: 13px;
+}
+
+.app.wide .cell-value.minor,
+.app.wide .cell-value.cell-diff {
+  font-size: 11.5px;
+}
+
+.app.wide .cell-date {
+  font-size: 10px;
+  letter-spacing: -0.02em;
+}
+
+.app.wide .cell-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.app.wide .cell-kind {
+  font-size: 8px;
+}
+
+/* B（pinLine）: the line docked under the sheet's head, outside the scrolling area. */
+.sheet-dock:empty {
+  display: none;
+}
+
+.sheet-dock {
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.cs-dock > .compare-summary.pinned {
+  margin: 0 0 6px;
+  cursor: pointer;
+  animation: pin-in var(--motion-base) var(--ease-standard);
 }

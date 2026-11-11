@@ -6,7 +6,9 @@
 // on this device), and on its own while the full summary is scrolled out of the sheet: the line is
 // pinned at the top then (overlaid, so nothing below jumps), and tapping it scrolls back up.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import { useB } from "../ab";
 import { addDays } from "../../shared/dates";
 import type { WeatherRow } from "../../shared/types";
 import { dailyRadiation, hourlyExtreme } from "../chartMetrics";
@@ -95,14 +97,22 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const swipe = useSwipeDays(onStep);
   const [collapsed, setCollapsed] = useCollapsed();
   const full = useRef<HTMLElement>(null);
+  const heads = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(false);
+  const dockMode = useB("pinLine");
+  const [dock, setDock] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setDock(dockMode ? ((full.current?.closest(".sheet")?.querySelector(".sheet-dock") as HTMLElement | null) ?? null) : null);
+  }, [dockMode, collapsed]);
+  // Pinned as soon as the summary's head line (the two dates) has scrolled out of the top — the
+  // rows below may still show, but without their dates they no longer say which day is which.
   useEffect(() => {
-    const el = full.current;
+    const el = heads.current;
     const root = el?.closest(".sheet-body") as HTMLElement | null;
     if (!el || !root) return setPinned(false);
     const io = new IntersectionObserver(
-      ([e]) => setPinned(!e.isIntersecting && e.boundingClientRect.top < (e.rootBounds?.top ?? 0)),
-      { root, threshold: 0, rootMargin: "-30px 0px 0px 0px" },
+      ([e]) => setPinned(!e.isIntersecting && e.boundingClientRect.bottom <= (e.rootBounds?.top ?? 0) + 1),
+      { root, threshold: 0 },
     );
     io.observe(el);
     return () => io.disconnect();
@@ -227,13 +237,20 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     );
 
   return (
+    <>
+      {/* A: a zero-height sticky holder beside the summary (not inside it, so it stays for the whole page
+          below) — the line overlays the top. B（pinLine）: the line docks under the sheet's head, outside
+          the scrolling area, so it never covers anything. */}
+      {dock ? (
+        pinned && createPortal(<div className="cs-dock">{line(true)}</div>, dock)
+      ) : (
+        <div className="cs-pin" aria-hidden={!pinned}>
+          {pinned && line(true)}
+        </div>
+      )}
     <div ref={swipe.ref} className="cs-wrap swipeable" style={swipe.style}>
-      {/* Zero-height sticky holder: the pinned line overlays the top of the sheet without moving anything. */}
-      <div className="cs-pin" aria-hidden={!pinned}>
-        {pinned && line(true)}
-      </div>
     <section ref={full} className="compare-summary compact" aria-label="対象日と比較日">
-      <div className="cs-heads">
+      <div ref={heads} className="cs-heads">
         {head(target, a, "a")}
         <span className="cs-vs">比較</span>
         {head(other, b, "b")}
@@ -265,5 +282,6 @@ export function CompareSummary({ store, station, target, other, today, metric, o
       </div>
     </section>
     </div>
+    </>
   );
 }

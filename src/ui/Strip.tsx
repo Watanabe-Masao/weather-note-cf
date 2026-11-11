@@ -17,6 +17,8 @@ export class StripSync {
 }
 
 interface Props {
+  /** Visible columns (odd, the centre in the middle). */
+  columns?: number;
   id: string;
   dates: string[];
   center: string;
@@ -28,22 +30,22 @@ interface Props {
   selectable?: (date: string) => boolean;
 }
 
-export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColumn, selectable }: Props) {
+export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColumn, selectable, columns = COLUMNS }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [col, setCol] = useState(0);
   const state = useRef({ touching: false, active: false, timer: 0, programmatic: false, firstDate: "" });
-  const latest = useRef({ dates, center, onSettle, onGesture, selectable });
-  latest.current = { dates, center, onSettle, onGesture, selectable };
+  const latest = useRef({ dates, center, onSettle, onGesture, selectable, columns });
+  latest.current = { dates, center, onSettle, onGesture, selectable, columns };
 
   // Column width = a seventh of the visible strip.
   useLayoutEffect(() => {
     const el = ref.current!;
-    const measure = () => setCol(el.clientWidth / COLUMNS);
+    const measure = () => setCol(el.clientWidth / columns);
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
     return () => ro.disconnect();
-  }, []);
+  }, [columns]);
 
   useEffect(() => {
     if (!sync || !ref.current) return;
@@ -82,7 +84,7 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     if (sync && sync.leader === id) sync.leader = null;
     for (const m of sync?.members.values() ?? []) m.classList.remove("following");
     const { dates: ds, center: current, onSettle: done, onGesture: gesture, selectable: canSelect } = latest.current;
-    const colWidth = el.clientWidth / COLUMNS;
+    const colWidth = el.clientWidth / latest.current.columns;
     const index = centerIndex(el.scrollLeft, colWidth, ds.length);
     gesture(false);
     if (!canSelect || canSelect(ds[index])) {
@@ -145,7 +147,7 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     <div
       ref={ref}
       className="strip"
-      style={{ ["--col" as string]: `${col}px` }}
+      style={{ ["--col" as string]: `${col}px`, ["--pad" as string]: (columns - 1) / 2 }}
       onScroll={onScroll}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}

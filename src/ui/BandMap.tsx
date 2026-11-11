@@ -2,13 +2,14 @@
 // comparison day) and one map of 肌感 — seven days × the five 時間区分 朝・日中・昼・夕方・夜 — with the
 // comparison day as a strip in every cell. Opened from a 肌感 bar.
 
-import { useContext, useState } from "react";
+import { type ReactNode, useContext, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { type Band, BANDS, type FeelSettings, describe, feelOf, hourlyBands, LEVELS, radiationOf, spread } from "../../shared/feel";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { BandTrend } from "./BandTrend";
+import { useSwipeDays } from "./useSwipeDays";
 import { CloseIcon } from "./icons";
 import { DayLabel, IconButton, Segmented } from "./kit";
 import { monthDay } from "../design/format";
@@ -19,6 +20,8 @@ interface Props {
   station: string;
   target: string;
   partner: (date: string) => string | null;
+  /** Swipe the map sideways to move the target day (A/B: feelSwipe). */
+  onStep?: (days: number) => void;
 }
 
 /** "6–8時": the hours a band covers (JMA hours: the value at the end of each hour). */
@@ -308,6 +311,16 @@ function Detail({ store, station, selected, onClose }: { store: WeatherStore | n
   );
 }
 
+/** The map's swipe area (mounted with the map, so its listeners come and go with it). */
+function SwipeArea({ onStep, children }: { onStep?: (days: number) => void; children: ReactNode }) {
+  const swipe = useSwipeDays(onStep);
+  return (
+    <div ref={swipe.ref} className={onStep ? "swipeable" : undefined} style={onStep ? swipe.style : undefined}>
+      {children}
+    </div>
+  );
+}
+
 /** The five feel levels: the colours behind every 肌感 view. */
 function LevelLegend() {
   return (
@@ -326,6 +339,7 @@ export function BandMap(props: Props) {
   const { store, station, target, partner } = props;
   const [selected, setSelected] = useState<Selected | null>(null);
   const [view, setView] = useState<"map" | "trend">("map");
+  const onStep = props.onStep;
   const targets = OFFSETS.map((n) => addDays(target, n));
   const p = partner(target);
   const partnerYear = p && p.slice(0, 4) !== target.slice(0, 4) ? p.slice(0, 4) : null;
@@ -343,7 +357,10 @@ export function BandMap(props: Props) {
       />
       {view === "map" ? (
         <>
-          <MapGrid targets={targets} partner={partner} store={store} station={station} selected={selected} onSelect={setSelected} />
+          <SwipeArea onStep={onStep}>
+            <MapGrid targets={targets} partner={partner} store={store} station={station} selected={selected} onSelect={setSelected} />
+          </SwipeArea>
+          {onStep && <p className="hint map-hint">マップを左右にスワイプすると、1日ずつ動きます。</p>}
           {/* Legend right under the map, in the map's own marks. */}
           <p className="line-legend map-legend">
             <span>
