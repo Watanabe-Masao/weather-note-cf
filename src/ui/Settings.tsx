@@ -34,6 +34,8 @@ import { type SavedFeel, SUNSHINE_PRESETS } from "../feelSettings";
 import type { StorageReport, WeatherStore } from "../data/store";
 import { LEVEL_COLORS } from "./FeelBar";
 import { Segmented } from "./kit";
+import { ADAPT_SPEEDS, type AdaptSpeed } from "../beta/adaptation";
+import type { BetaSettings } from "../beta/settings";
 
 const time = (t: number | null) => (t ? new Date(t).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "—");
 const PERSISTED = { granted: "許可", denied: "不許可", unsupported: "未対応" } as const;
@@ -46,6 +48,7 @@ interface Props {
   /** 日なた (true) or 日かげ (false): the shared display setting. */
   sun: boolean;
   onSun: (sun: boolean) => void;
+  beta: { beta: BetaSettings; update: (patch: Partial<BetaSettings>) => void };
   onClose: () => void;
 }
 
@@ -176,7 +179,7 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
   );
 }
 
-function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _done }: Props) {
+function SettingsBody({ store, station, onStation, feel, sun, onSun, beta, onClose: _done }: Props) {
   void _done;
   const onClose = useSheetClose();
   const [stations, setStations] = useState<Station[]>([]);
@@ -254,6 +257,25 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
             onChange={(v) => onSun(v === "sun")}
           />
           <small className="set-help">表・グラフ・時間帯の肌感に共通です。グラフのチップからも切り替えられます。</small>
+        </div>
+      </section>
+
+      <section className="set-group" aria-labelledby="set-beta">
+        <h3 id="set-beta">
+          最近との差 <span className="beta-tag">β</span>
+        </h3>
+        <p className="set-lead">
+          最近の日平均気温の移動平均を「慣れの基準」にして、その日の気温・日なた温度・日かげ温度が基準からどれだけ離れているかを出します。体感の予測ではなく、検証中の目安です（肌感とは別の計算）。
+        </p>
+        <div className="set-row">
+          <span className="set-label">慣れの速さ</span>
+          <Segmented
+            label="慣れの速さ"
+            value={beta.beta.speed}
+            options={ADAPT_SPEEDS.map((s) => ({ id: s.id, label: s.label }))}
+            onChange={(v) => beta.update({ speed: v as AdaptSpeed })}
+          />
+          <small className="set-help">基準がどれだけ早く最近の気温に追いつくか。標準は建物の快適性の規格（EN 16798）の値。春・秋の急な変化に合わせたいときは「速い」。</small>
         </div>
       </section>
 

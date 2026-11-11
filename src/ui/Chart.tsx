@@ -12,6 +12,8 @@ import { Chip, ForecastHatch, GraphReadout, GuideLines } from "./kit";
 import type { WeatherStore } from "../data/store";
 import { dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
 import { FeelContext } from "./FeelBar";
+import { BetaContext } from "../beta/settings";
+import { baselineOf, useBaselineHistory } from "../beta/useBaseline";
 import { useDrumPan } from "./useDrumPan";
 
 interface Props {
@@ -83,6 +85,7 @@ const LONG_PRESS = 280;
 export function Chart({ store, station, target, partner, metric, height = 190, onPickDay, onShiftDays, onToggleSun }: Props) {
   const H = height;
   const feel = useContext(FeelContext);
+  const beta = useContext(BetaContext);
   const { shown, toggle, reset } = useHidden(metric);
   const spreadOn = !!metric.spread && shown("spread");
   const ref = useRef<HTMLDivElement>(null);
@@ -97,6 +100,9 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
 
   // Seven visible days plus a buffer on each side; index BUFFER is the first visible day.
   const days = Array.from({ length: 7 + 2 * BUFFER }, (_, i) => addDays(target, i - 3 - BUFFER));
+  // β: the days before each drawn day, for the 最近の基準 line (only while that line is on).
+  const wantsBaseline = metric.series.some((s) => s.history === "baseline") && shown("baseline");
+  useBaselineHistory(store, station, wantsBaseline ? [...days, ...days.map(partner)] : [], "chart-baseline");
   const step = (w - PAD.left - PAD.right) / 7;
   const xOf = (i: number) => PAD.left + step * (i - BUFFER + 0.5);
   // Long press (or mouse hover) scrubs: a guide follows the finger and the card above reads that day.
@@ -166,6 +172,10 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
 
   const read = (date: string | null, s: ChartMetric["series"][number]): { v: number | null; forecast: boolean } => {
     if (!date) return { v: null, forecast: false };
+    if (s.history === "baseline") {
+      const b = baselineOf(store, station, date, beta.speed);
+      return { v: b?.value ?? null, forecast: !!b?.forecastMixed };
+    }
     const day = store?.getDay(station, date);
     const hours = store?.getHours(station, date).rows ?? null;
     return { v: s.value(day?.row, hours, feel), forecast: day?.row?.type === "forecast" };

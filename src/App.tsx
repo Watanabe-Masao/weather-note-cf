@@ -7,6 +7,7 @@ import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare"
 import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
 import { useFeelSettings } from "./feelSettings";
+import { BetaContext, useBetaSettings } from "./beta/settings";
 import { useViewState } from "./state";
 import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
@@ -46,6 +47,7 @@ export function App() {
   const metric = metricById(view.metric);
   const feel = useFeelSettings(view.station, view.sun);
   const feelSettings = feel.settings;
+  const beta = useBetaSettings();
   // The sheet shows the chosen item two ways: seven days (日別) or the 24 hours of the day (時間帯).
   const [face, setFace] = useState<"chart" | "hours">("chart");
   // While a drum moves, the switches that change which days are shown wait (rule: 動いている間).
@@ -205,7 +207,8 @@ export function App() {
       <StatusBar store={store} station={view.station} days={[view.target, compareDate]} />
 
       <div ref={boardRef}>
-        <FeelContext.Provider value={feelSettings}>
+        <BetaContext.Provider value={beta.beta}>
+<FeelContext.Provider value={feelSettings}>
           <CompareBoard
             onMoving={setMoving}
             onOpenCalendar={setCalendar}
@@ -245,9 +248,11 @@ export function App() {
             }
           />
         </FeelContext.Provider>
+</BetaContext.Provider>
       </div>
 
-      <FeelContext.Provider value={feelSettings}>
+      <BetaContext.Provider value={beta.beta}>
+<FeelContext.Provider value={feelSettings}>
         <GraphSheet
           title={face === "chart" ? "日別" : "時間帯"}
           detent={sheetDetent}
@@ -304,9 +309,11 @@ export function App() {
           )}
         </GraphSheet>
       </FeelContext.Provider>
+</BetaContext.Provider>
 
       {feelMap && (
-        <FeelContext.Provider value={feelSettings}>
+        <BetaContext.Provider value={beta.beta}>
+<FeelContext.Provider value={feelSettings}>
           <FeelSheet
             store={store}
             station={view.station}
@@ -316,6 +323,7 @@ export function App() {
             onClose={() => setFeelMap(false)}
           />
         </FeelContext.Provider>
+</BetaContext.Provider>
       )}
 
       {calendar && (
@@ -356,6 +364,7 @@ export function App() {
           feel={feel}
           sun={view.sun}
           onSun={(v) => set("sun", v)}
+          beta={beta}
           onClose={() => setSettings(false)}
         />
       )}
