@@ -18,7 +18,7 @@ const surface = {
 const ink = {
   primary: "#eaf0f7",
   secondary: "#a9b9cb",
-  tertiary: "#7f93a9",
+  tertiary: "#a9b9cb", // same as secondary since the 補足 comparison (chosen: 3); kept as its own role
   disabled: "#56677b",
   onAccent: "#07121e",
 } as const;

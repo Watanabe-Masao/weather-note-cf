@@ -286,6 +286,7 @@ export function App() {
               height={chartHeight(heights[sheetDetent], metric)}
               onPickDay={(d) => openDay(d, partner(d), "target")}
               onShiftDays={(n) => moveTarget(addDays(view.target, n))}
+              onToggleSun={() => set("sun", !view.sun)}
             />
           ) : (
             <HourFace
@@ -353,6 +354,8 @@ export function App() {
           station={view.station}
           onStation={(id) => set("station", id)}
           feel={feel}
+          sun={view.sun}
+          onSun={(v) => set("sun", v)}
           onClose={() => setSettings(false)}
         />
       )}

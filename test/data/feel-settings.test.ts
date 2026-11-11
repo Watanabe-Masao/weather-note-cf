@@ -19,3 +19,15 @@ describe("feel settings", () => {
     expect(sanitize("garbage")).toMatchObject({ thresholds: [10, 15, 21, 25], alpha: 0.4, absorb: 0.2, heights: {} });
   });
 });
+
+import { moveThreshold } from "../../src/ui/Settings";
+
+describe("level boundaries in settings", () => {
+  it("snaps to 0.5℃ and stays between its neighbours", () => {
+    const t: [number, number, number, number] = [10, 15, 21, 25];
+    expect(moveThreshold(t, 1, 16.2)).toEqual([10, 16, 21, 25]);
+    expect(moveThreshold(t, 1, 30)).toEqual([10, 20.5, 21, 25]);
+    expect(moveThreshold(t, 2, 0)).toEqual([10, 15, 15.5, 25]);
+    expect(moveThreshold(t, 0, -40)).toEqual([-5, 15, 21, 25]);
+  });
+});

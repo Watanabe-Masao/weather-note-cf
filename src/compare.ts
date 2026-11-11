@@ -99,11 +99,12 @@ export const WEEK_DEAD_ZONE_PX = 12;
 export const MAX_WEEKS = 52;
 
 /**
- * Weeks to jump while long-pressing ◀ or ▶: slide in the arrow's direction to add weeks.
- * 0 means "cancel" (finger back at the button).
+ * Weeks to jump while long-pressing ◀ or ▶. Slide down (away from the screen edge, the main way)
+ * or sideways in the arrow's direction: every WEEK_STEP_PX adds a week. Sliding back up or the
+ * other way past the dead zone gives 0, "cancel".
  */
-export function weekSteps(startX: number, x: number, direction: -1 | 1): number {
-  const distance = direction * (x - startX);
-  if (distance < WEEK_DEAD_ZONE_PX) return distance < -WEEK_DEAD_ZONE_PX ? 0 : 1;
+export function weekSteps(dx: number, dy: number, direction: -1 | 1): number {
+  const distance = Math.max(dy, direction * dx);
+  if (distance < WEEK_DEAD_ZONE_PX) return Math.min(dy, direction * dx) < -WEEK_DEAD_ZONE_PX ? 0 : 1;
   return Math.min(MAX_WEEKS, 1 + Math.floor((distance - WEEK_DEAD_ZONE_PX) / WEEK_STEP_PX));
 }

@@ -72,12 +72,18 @@ describe("drum strip", () => {
 });
 
 describe("long press on the arrows", () => {
-  it("adds a week per 40px slid in the arrow's direction and cancels when slid back", () => {
-    expect(weekSteps(100, 100, -1)).toBe(1);
-    expect(weekSteps(100, 100 - 60, -1)).toBe(2);
-    expect(weekSteps(100, 100 - 100, -1)).toBe(3);
-    expect(weekSteps(100, 100 + 30, -1)).toBe(0);
-    expect(weekSteps(100, 100 + 60, 1)).toBe(2);
+  it("adds a week per 40px slid down (or towards the arrow) and cancels when slid back", () => {
+    // Held still: one week.
+    expect(weekSteps(0, 0, -1)).toBe(1);
+    // Down (the main way, clear of the screen edge): weeks grow with the distance, either arrow.
+    expect(weekSteps(0, 60, -1)).toBe(2);
+    expect(weekSteps(0, 100, 1)).toBe(3);
+    // Sideways in the arrow's direction still works.
+    expect(weekSteps(-60, 0, -1)).toBe(2);
+    expect(weekSteps(60, 0, 1)).toBe(2);
+    // Back up, or the other way: cancel.
+    expect(weekSteps(0, -30, 1)).toBe(0);
+    expect(weekSteps(30, 0, -1)).toBe(0);
     expect(weekSteps(0, 99_999, 1)).toBe(52);
   });
 });

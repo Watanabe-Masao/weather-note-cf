@@ -463,27 +463,40 @@ select.chip {
   font-size: 12px;
   color: var(--ink-secondary);
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .arrow:disabled {
   opacity: 0.25;
 }
 
+/* Long-press on ◀ ▶: the date shows the landing day (accent), and a badge over the header's right
+   end says how far. Both stay above the finger, which slides down. */
+.date-nav { position: relative; }
+.week-preview { color: var(--accent-base); }
 .week-badge {
   position: absolute;
-  bottom: 40px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
   background: var(--accent-base);
   color: var(--ink-on-accent);
   font-weight: var(--weight-bold);
-  font-size: var(--size-base);
-  padding: 4px 10px;
-  border-radius: var(--radius-sm);
+  font-size: var(--size-md);
   white-space: nowrap;
   z-index: var(--layer-popover);
   box-shadow: var(--shadow-pinned);
+  pointer-events: none;
+  animation: fade-in var(--motion-quick) var(--ease-standard);
 }
+.week-badge em { font-style: normal; font-size: 10px; font-weight: 400; opacity: 0.8; }
 
 .date-button {
   background: transparent;
@@ -1036,11 +1049,12 @@ button.label-feel.shade small {
   height: 10px;
   border: none;
   border-radius: 2px;
-  background: repeating-linear-gradient(135deg, rgba(219, 232, 245, 0.32) 0 1.5px, rgba(219, 232, 245, 0.06) 1.5px 4px);
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--status-forecast) 55%, transparent) 0 1.5px, color-mix(in srgb, var(--status-forecast) 8%, transparent) 1.5px 4px);
 }
 
-.hatch-bg { fill: rgba(219, 232, 245, 0.035); }
-.hatch-line { stroke: rgba(219, 232, 245, 0.13); stroke-width: 1.4; }
+/* Hatch in the 予報 blue (the label's colour), so forecast reads at a glance (chosen: E). */
+.hatch-bg { fill: color-mix(in srgb, var(--status-forecast) 4%, transparent); }
+.hatch-line { stroke: color-mix(in srgb, var(--status-forecast) 24%, transparent); stroke-width: 1.4; }
 
 .chart-forecast-label {
   fill: var(--status-forecast);
@@ -2238,9 +2252,45 @@ svg.scrub {
   opacity: 0.22;
 }
 
+/* Beyond the forecast: an outline only, so it reads as "no day to pick", not as missing data. */
+.cal-day.is-outside {
+  opacity: 0.4;
+  background: none;
+  box-shadow: 0 0 0 1px var(--line-strong) inset;
+  background-image: none;
+}
+.cal-day.is-outside .cal-n { color: var(--ink-disabled); }
+
+/* Still loading: a soft pulse where the icon and the number will be. */
+.cal-skel {
+  display: inline-block;
+  width: 16px;
+  height: 12px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--ink-tertiary) 30%, transparent);
+  animation: cal-pulse 1.2s var(--ease-standard) infinite alternate;
+}
+.cal-skel.short { width: 14px; height: 8px; vertical-align: middle; }
+@keyframes cal-pulse { from { opacity: 0.35; } to { opacity: 0.9; } }
+@media (prefers-reduced-motion: reduce) { .cal-skel { animation: none; } }
+
+/* Failed or no data that day: a dash, never a blank. */
+.cal-none { color: var(--ink-tertiary); }
+
+.cal-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  align-items: center;
+  margin: 6px 2px 0;
+  font-size: 12px;
+  color: var(--ink-secondary);
+}
+.cal-note span { display: inline-flex; align-items: center; gap: 6px; }
+
 /* Forecast days hatched, as in the graphs. */
 .cal-day.forecast {
-  background-image: repeating-linear-gradient(135deg, rgba(219, 232, 245, 0.07) 0 1.5px, transparent 1.5px 5px);
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--status-forecast) 16%, transparent) 0 1.5px, transparent 1.5px 5px);
 }
 
 /* Today: a small dot under the number. */
@@ -2375,6 +2425,126 @@ svg.scrub {
   flex: none;
   font-size: var(--size-base);
 }
+
+/* Groups: 地点・肌感の基準・表示・保存データ. One raised surface each; rows inside are plain. */
+.set-group {
+  display: grid;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  margin-bottom: var(--space-5);
+  border-radius: var(--radius-lg);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+}
+.set-group h3 { margin: 0; font-size: var(--size-md); color: var(--ink-primary); }
+.set-lead { margin: -6px 0 0; font-size: 12.5px; color: var(--ink-secondary); line-height: 1.55; }
+.set-row { display: grid; gap: 6px; min-width: 0; }
+.set-row.inline { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); }
+.set-label { display: grid; gap: 2px; font-size: var(--size-base); color: var(--ink-secondary); }
+.set-help { font-size: 11.5px; color: var(--ink-tertiary); line-height: 1.5; }
+.set-row select {
+  width: 100%;
+  background: var(--surface-inset);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  font-size: var(--size-md);
+  color: var(--ink-primary);
+}
+.set-number { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-secondary); }
+.set-number input {
+  width: 72px;
+  background: var(--surface-inset);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  font-size: var(--size-md);
+  text-align: right;
+  color: var(--ink-primary);
+  font-variant-numeric: tabular-nums;
+}
+/* Segmented switches fill the row, so four choices fit a phone. */
+.set-row .seg { display: grid; width: 100%; }
+.set-row .seg button { padding: 6px 4px; min-height: 36px; white-space: normal; line-height: 1.25; }
+
+/* The five levels as one band (the 肌感 bar's colours), boundaries as handles. */
+.level-set { display: grid; gap: 6px; }
+.level-band {
+  position: relative;
+  height: 40px;
+  margin: 18px 0 0;
+  border-radius: var(--radius-md);
+  overflow: visible;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: ew-resize;
+}
+.level-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  color: var(--ink-on-accent);
+  font-size: 11px;
+  font-weight: var(--weight-bold);
+}
+.level-seg:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.level-seg:nth-child(5) { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.level-seg span { white-space: nowrap; padding: 0 2px; }
+.level-handle {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  width: 4px;
+  margin-left: -2px;
+  border-radius: 2px;
+  background: var(--ink-primary);
+  box-shadow: 0 0 0 1.5px var(--surface-raised);
+  pointer-events: none;
+}
+.level-handle b {
+  position: absolute;
+  bottom: calc(100% + 2px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--ink-primary);
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+}
+.level-scale { position: relative; height: 14px; font-size: 10px; color: var(--ink-tertiary); font-variant-numeric: tabular-nums; }
+.level-scale span { position: absolute; transform: translateX(-50%); }
+.level-scale span:first-child { transform: none; }
+.level-scale span:last-child { transform: translateX(-100%); }
+.level-steppers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.level-stepper {
+  display: grid;
+  gap: 4px;
+  padding: 8px;
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+}
+.level-stepper small { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--ink-secondary); white-space: nowrap; }
+.level-stepper small i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.level-stepper div { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; }
+.level-stepper button {
+  height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface-raised);
+  color: var(--ink-primary);
+  font-size: 16px;
+}
+.level-stepper output { text-align: center; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-md); }
+
+.set-data summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; list-style: none; cursor: pointer; }
+.set-data summary::-webkit-details-marker { display: none; }
+.set-data summary small { font-size: 12px; color: var(--ink-tertiary); }
+.set-data summary::after { content: "▾"; color: var(--ink-tertiary); margin-left: auto; }
+.set-data[open] summary::after { content: "▴"; }
 
 .report {
   display: grid;
