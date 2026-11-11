@@ -1,7 +1,7 @@
 // Sunrise and sunset for the day detail. They are calculated values that never change,
 // so one request per station and day is kept for the whole session (the edge caches past days).
 
-import { addDays, FIRST_DAY } from "../../shared/dates";
+import { addDays, FIRST_DAY, FORECAST_DAYS } from "../../shared/dates";
 
 export interface SunTimes {
   sunrise: string | null;
@@ -11,8 +11,8 @@ export interface SunTimes {
 const known = new Map<string, SunTimes | null>();
 const pending = new Map<string, Promise<SunTimes | null>>();
 
-/** The API only answers up to a week ahead. */
-export const sunAvailable = (date: string, today: string) => date >= FIRST_DAY && date <= addDays(today, 7);
+/** The API answers as far as the forecast reaches. */
+export const sunAvailable = (date: string, today: string) => date >= FIRST_DAY && date <= addDays(today, FORECAST_DAYS);
 
 export function cachedSun(station: string, date: string): SunTimes | null | undefined {
   return known.get(`${station}/${date}`);

@@ -41,3 +41,5 @@ export const isMonth = (s: unknown): s is string =>
 
 /** Oldest day the JMA daily tables are used for. */
 export const FIRST_DAY = "1977-01-01";
+/** Forecast reach: today + 15 (Open-Meteo forecast_days 16). Shared by the app and the worker. */
+export const FORECAST_DAYS = 15;

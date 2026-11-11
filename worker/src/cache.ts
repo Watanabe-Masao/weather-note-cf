@@ -60,3 +60,33 @@ export function storeValue(origin: string, key: string, value: unknown, waitUnti
   if (!cache) return;
   waitUntil(cache.put(new Request(`${origin}/__cache/${key}`), json(value, true)));
 }
+
+/**
+ * Data that changes slowly (the forecast): keep it at the edge for `ttl` seconds. The key carries
+ * the time slot, so an entry is never served past its slot even if the cache keeps it longer.
+ * The browser always gets no-store, so the app's own refresh rules stay in charge.
+ */
+export async function cachedFor<T>(
+  origin: string,
+  key: string,
+  ttl: number,
+  waitUntil: (p: Promise<unknown>) => void,
+  produce: () => Promise<T>,
+  now: number = Date.now(),
+): Promise<Response> {
+  const cache = edgeCache();
+  const slot = Math.floor(now / (ttl * 1000));
+  const cacheKey = new Request(`${origin}/__cache/${key}/${slot}`);
+  if (cache) {
+    const hit = await cache.match(cacheKey);
+    if (hit) return new Response(hit.body, { headers: { "content-type": "application/json; charset=utf-8", "cache-control": NO_CACHE } });
+  }
+  const body = await produce();
+  if (cache) {
+    const stored = new Response(JSON.stringify(body), {
+      headers: { "content-type": "application/json; charset=utf-8", "cache-control": `public, max-age=${ttl}` },
+    });
+    waitUntil(cache.put(cacheKey, stored));
+  }
+  return jsonResponse(body);
+}

@@ -84,6 +84,34 @@ describe("/api/forecast", () => {
     expect(res.headers.get("cache-control")).toBe(NO_CACHE);
     expect((body.rows as unknown[]).length).toBe(8);
   });
+
+  it("shares one upstream fetch per station for 30 minutes at the edge", async () => {
+    const store = new Map<string, Response>();
+    const fake = {
+      match: async (r: Request) => store.get(r.url)?.clone(),
+      put: async (r: Request, res: Response) => void store.set(r.url, res),
+    };
+    vi.stubGlobal("caches", { default: fake });
+    const pending: Promise<unknown>[] = [];
+    const ctx2 = { waitUntil: (p: Promise<unknown>) => pending.push(p), passThroughOnException: () => {} } as unknown as ExecutionContext;
+    const hit = () => worker.fetch(new Request("https://example.test/api/forecast?station=47893"), {}, ctx2);
+    await hit();
+    await Promise.all(pending);
+    const upstream = calls.length;
+    const again = await hit();
+    expect(calls.length).toBe(upstream); // served from the edge
+    expect(again.headers.get("cache-control")).toBe(NO_CACHE); // the browser still never keeps it
+    vi.setSystemTime(new Date("2026-11-10T03:31:00Z")); // next 30-minute slot
+    await hit();
+    expect(calls.length).toBeGreaterThan(upstream);
+  });
+});
+
+describe("/api/sun", () => {
+  it("reaches as far as the forecast (today + 15) and no further", async () => {
+    expect((await get("/api/sun?station=47893&date=2026-11-25")).res.status).toBe(200);
+    expect((await get("/api/sun?station=47893&date=2026-11-26")).res.status).toBe(400);
+  });
 });
 
 describe("routing", () => {
