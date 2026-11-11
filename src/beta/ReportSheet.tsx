@@ -121,8 +121,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
               className={sensation === s.value ? "report-pick on" : "report-pick"}
               onClick={() => setSensation(s.value)}
             >
-              {/* Break where the words break, so seven fit a phone's width. */}
-              {s.label.replace(/^やや/, "やや\n")}
+              {s.label}
             </button>
           ))}
         </div>

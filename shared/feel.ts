@@ -109,7 +109,7 @@ export function feelOf(
 
 export type Thresholds = [number, number, number, number, number, number];
 
-export const LEVELS = ["寒い", "涼しい", "やや涼しい", "適温", "やや暖かい", "暖かい", "暑い"] as const;
+export const LEVELS = ["極寒", "寒い", "涼しい", "快適", "暖かい", "暑い", "猛暑"] as const;
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export function levelOf(apparent: number, s: FeelSettings = DEFAULT_FEEL): Level {
@@ -125,14 +125,14 @@ export const SCALE_STEPS: Record<Scale, { label: string; of: Level[] }[]> = {
   7: LEVELS.map((label, i) => ({ label, of: [i as Level] })),
   5: [
     { label: "寒い", of: [0, 1] },
-    { label: "肌寒い", of: [2] },
-    { label: "適温", of: [3] },
+    { label: "涼しい", of: [2] },
+    { label: "快適", of: [3] },
     { label: "暖かい", of: [4] },
     { label: "暑い", of: [5, 6] },
   ],
   3: [
     { label: "寒い側", of: [0, 1, 2] },
-    { label: "適温", of: [3] },
+    { label: "快適", of: [3] },
     { label: "暑い側", of: [4, 5, 6] },
   ],
 };
@@ -251,7 +251,7 @@ export function spread(bands: Band[]): number | null {
 
 /**
  * A short phrase for the day, judged mainly on morning, midday and night.
- * Cold = やや涼しい or below, hot = 暖かい or above.
+ * Cold = 涼しい or below, hot = 暑い or above.
  */
 export function describe(bands: Band[]): string | null {
   const pick = (label: string) => bands.find((b) => b.label === label)?.level ?? null;

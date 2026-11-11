@@ -14,15 +14,18 @@ import { hourOrigin, type Origin } from "../data/authority";
 import { type Baseline, type Departures, halfLifeDays, updateRate } from "./adaptation";
 import type { ComfortPrediction } from "./comfort";
 
-/** The 7-point thermal sensation scale (ASHRAE 55, −3 … +3) in its usual Japanese wording. */
+/**
+ * The 7-point thermal sensation scale (−3 … +3, after ASHRAE 55), in short words that fit a
+ * phone's width and match the 肌感 levels one to one. The numbers are what is analysed.
+ */
 export const SENSATIONS = [
-  { value: -3, label: "寒い" },
-  { value: -2, label: "涼しい" },
-  { value: -1, label: "やや涼しい" },
-  { value: 0, label: "適温" },
-  { value: 1, label: "やや暖かい" },
-  { value: 2, label: "暖かい" },
-  { value: 3, label: "暑い" },
+  { value: -3, label: "極寒" },
+  { value: -2, label: "寒い" },
+  { value: -1, label: "涼しい" },
+  { value: 0, label: "快適" },
+  { value: 1, label: "暖かい" },
+  { value: 2, label: "暑い" },
+  { value: 3, label: "猛暑" },
 ] as const;
 export const EXPOSURES = [
   { id: "sun", label: "日なた" },

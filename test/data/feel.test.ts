@@ -63,8 +63,8 @@ group("levels", () => {
     expect([0, 1, 2, 3, 4, 5, 6].map((l) => stepOf(l as Level, 5))).toEqual([0, 0, 1, 2, 3, 4, 4]);
     expect([0, 1, 2, 3, 4, 5, 6].map((l) => stepOf(l as Level, 3))).toEqual([0, 0, 0, 1, 2, 2, 2]);
     expect([0, 1, 2, 3, 4, 5, 6].map((l) => stepOf(l as Level, 7))).toEqual([0, 1, 2, 3, 4, 5, 6]);
-    expect(SCALE_STEPS[5].map((s) => s.label)).toEqual(["寒い", "肌寒い", "適温", "暖かい", "暑い"]);
-    expect(SCALE_STEPS[3].map((s) => s.label)).toEqual(["寒い側", "適温", "暑い側"]);
+    expect(SCALE_STEPS[5].map((s) => s.label)).toEqual(["寒い", "涼しい", "快適", "暖かい", "暑い"]);
+    expect(SCALE_STEPS[3].map((s) => s.label)).toEqual(["寒い側", "快適", "暑い側"]);
   });
 
   it("gives each scale the boundaries between its own steps", () => {

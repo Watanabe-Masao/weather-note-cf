@@ -319,7 +319,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
             onChange={(v) => feel.update({ scale: Number(v) as Scale })}
           />
           <small className="set-help">
-            計算はいつも7段（感じ方の記録と同じ並び）で、表示だけをまとめます。5段：寒い（寒い・涼しい）／肌寒い／適温／暖かい／暑い（暖かい・暑い）。3段：寒い側／適温／暑い側。
+            計算はいつも7段（感じ方の記録と同じ並び）で、表示だけをまとめます。5段：寒い（極寒・寒い）／涼しい／快適／暖かい／暑い（暑い・猛暑）。3段：寒い側／快適／暑い側。
           </small>
         </div>
       </section>
