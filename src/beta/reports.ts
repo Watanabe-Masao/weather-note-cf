@@ -12,6 +12,7 @@ import { feelOf, type FeelSettings, radiationOf } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import { hourOrigin, type Origin } from "../data/authority";
 import { type Baseline, type Departures, halfLifeDays, updateRate } from "./adaptation";
+import type { Prediction } from "./predict";
 
 /** The 7-point thermal sensation scale (ASHRAE 55, −3 … +3) in its usual Japanese wording. */
 export const SENSATIONS = [
@@ -96,6 +97,10 @@ export interface Report {
   windFelt: WindFelt;
   /** The sky the person saw (reports before it was asked have none). */
   sky?: Sky;
+  /** When the report screen was opened (a notification's time can differ from `at`, the sending). */
+  openedAt?: string;
+  /** The prediction made at sending, before the answer was known: its error is the track record. */
+  prediction?: Prediction;
   snapshot: Snapshot | null;
   baseline: (Baseline & { alpha: number }) | null;
   departures: Pick<Departures, "air" | "sun" | "shade"> | null;
@@ -183,11 +188,19 @@ export function jstHourOf(ms: number): number {
 
 const COLUMNS: readonly string[] = [
   "at_jst",
+  "opened_at_jst",
   "station",
   "sensation",
   "sensation_label",
   "exposure",
   "wind_felt",
+  "pred_value",
+  "pred_label",
+  "pred_prior",
+  "pred_correction",
+  "pred_n",
+  "pred_model",
+  "pred_error",
   "sky_reported",
   "sky_forecast",
   "sky_forecast_code",
@@ -236,11 +249,19 @@ export function toCsv(reports: Report[]): string {
   const lines = live.map((r) =>
     [
       jstIso(r.at),
+      r.openedAt ? jstIso(r.openedAt) : null,
       r.station,
       r.sensation,
       SENSATIONS.find((s) => s.value === r.sensation)?.label,
       r.exposure,
       r.windFelt,
+      r.prediction?.value,
+      r.prediction?.label,
+      r.prediction?.prior,
+      r.prediction?.correction,
+      r.prediction?.n,
+      r.prediction?.model,
+      r.prediction ? Math.round((r.sensation - r.prediction.value) * 10) / 10 : null,
       r.sky,
       r.snapshot?.forecastSky,
       r.snapshot?.forecastSkyCode,

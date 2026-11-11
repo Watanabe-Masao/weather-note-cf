@@ -9,6 +9,7 @@ import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
 import { type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
+import { predict } from "./predict";
 import { baselineOf, baselineStateOf, historyOf } from "./useBaseline";
 import { reports } from "./useReports";
 
@@ -28,10 +29,24 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
   const [exposure, setExposure] = useState<Exposure | null>(null);
   const [windFelt, setWindFelt] = useState<WindFelt | null>(null);
   const [sky, setSky] = useState<Sky | null>(null);
+  // Opened now; sent maybe much later (from a notification): both are kept, and the prediction is
+  // computed again at sending, from the values of that moment.
+  const [openedAt] = useState(() => new Date().toISOString());
   const [saving, setSaving] = useState(false);
   // Wait for the past days (the summary asked for them), so the report carries its full history.
   const loading = baselineStateOf(store, station, today, beta.alpha).state === "loading";
   const ready = sensation != null && exposure != null && windFelt != null && sky != null && !loading;
+
+  /** The prediction for a moment, from the station's hour then and the place and wind chosen. */
+  const predictAt = (now: number) => {
+    if (exposure == null || windFelt == null) return null;
+    const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(now), feel);
+    const e = !snap ? null : exposure === "sun" ? snap.sunTemp : exposure === "shade" ? snap.shadeTemp : snap.sunTemp == null || snap.shadeTemp == null ? null : (snap.sunTemp + snap.shadeTemp) / 2;
+    if (e == null) return null;
+    const base = baselineOf(store, station, today, beta.alpha);
+    return predict({ e, d: base && snap?.temp != null ? snap.temp - base.value : null, windFelt }, beta.correction, beta.thresholds, now);
+  };
+  const preview = predictAt(Date.now());
 
   const save = async () => {
     if (!ready || saving) return;
@@ -40,9 +55,12 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
     const hours = store?.getHours(station, today).rows ?? null;
     const base = baselineOf(store, station, today, beta.alpha);
     const dep = departures(store?.getDay(station, today).row, hours, base, feel);
+    const prediction = predictAt(now) ?? undefined; // recomputed at sending
     const report: Report = {
       id: newId(),
       at: new Date(now).toISOString(),
+      openedAt,
+      prediction,
       station,
       sensation,
       exposure,
@@ -94,6 +112,7 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
         <span className="set-label">風</span>
         <Segmented label="風の感じ" value={windFelt ?? ("" as WindFelt)} options={WINDS.map((w) => ({ id: w.id, label: w.label }))} onChange={setWindFelt} />
       </div>
+      <PredictionCard prediction={preview} reported={sensation} />
       <div className="set-row">
         <span className="set-label">今の天気</span>
         <Segmented label="今の天気" value={sky ?? ("" as Sky)} options={SKIES.map((k) => ({ id: k.id, label: k.label }))} onChange={setSky} />
@@ -102,6 +121,30 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
       <button className="report-save" disabled={!ready || saving} onClick={() => void save()}>
         {loading ? "過去の気温を読み込み中…" : ready ? "記録する" : "4つとも選ぶと記録できます"}
       </button>
+    </div>
+  );
+}
+
+/**
+ * The data's prediction, shown once the feeling has been chosen: shown before, it would pull the
+ * answer towards itself and spoil the very misses the correction learns from.
+ */
+function PredictionCard({ prediction, reported }: { prediction: ReturnType<typeof predict> | null; reported: Sensation | null }) {
+  if (reported == null) return <p className="predict-card waiting">感じ方を選ぶと、データからの予測と比べられます。</p>;
+  if (!prediction) return <p className="predict-card waiting">いる場所と風を選ぶと、データからの予測が出ます（その時刻の観測値がないときは出せません）。</p>;
+  const diff = Math.round((reported - prediction.value) * 10) / 10;
+  return (
+    <div className="predict-card" role="status">
+      <p>
+        データからの予測 <b>{prediction.label}</b>
+        <span className="predict-num">（{prediction.value > 0 ? "+" : ""}{prediction.value.toFixed(1)}）</span>
+      </p>
+      <p className="predict-sub">
+        あなたの答えとのずれ {diff > 0 ? "+" : diff < 0 ? "−" : "±"}
+        {Math.abs(diff).toFixed(1)}　内訳：肌感の境目から {prediction.prior.toFixed(1)}・記録からの補正 {prediction.correction >= 0 ? "+" : "−"}
+        {Math.abs(prediction.correction).toFixed(1)}（記録 {prediction.n}件）
+      </p>
+      <p className="predict-sub">送信した時刻の観測値で計算し直して記録します。</p>
     </div>
   );
 }

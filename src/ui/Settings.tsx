@@ -344,6 +344,22 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
           </button>
           {basis && store && <BasisSheet store={store} station={station} target={store.today} other={null} onClose={() => setBasis(false)} />}
         </div>
+        <div className="set-row">
+          <span className="set-label">
+            予測のずれ
+            <small className="set-help">記録のたびに、送信した時点で出した予測と答えの差（答え − 予測）。＋は予測より暖かく感じたこと。</small>
+          </span>
+          <p className="beta-alpha" role="status">
+            {beta.errors.n === 0 ? (
+              <span>まだ記録がありません。</span>
+            ) : (
+              <span>
+                {beta.errors.n}件　偏り {beta.errors.bias! > 0 ? "+" : ""}
+                {beta.errors.bias?.toFixed(1)}・平均のずれ {beta.errors.mae?.toFixed(1)}段階（直近10件 {beta.errors.recentMae?.toFixed(1)}）・予測どおり {Math.round((beta.errors.hit ?? 0) * 100)}%
+              </span>
+            )}
+          </p>
+        </div>
         <ReportData />
       </section>
 

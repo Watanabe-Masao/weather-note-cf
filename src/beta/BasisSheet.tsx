@@ -274,6 +274,37 @@ function AlphaBasis() {
   );
 }
 
+function PredictionBasis() {
+  const fit = useContext(BetaContext);
+  const [t0, t1, t2, t3] = fit.thresholds;
+  const [c0, cd, cs, cn] = fit.correction.coef;
+  const e = fit.errors;
+  const sgn = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(2)}`;
+  return (
+    <section className="basis-sec" aria-labelledby="basis-pred">
+      <h4 id="basis-pred">
+        記録の画面の予測 <b>記録 {fit.correction.n}件で補正</b>
+      </h4>
+      <p className="basis-formula">予測 = 境目からの値(E) + 補正　（−3〜+3）</p>
+      <p className="basis-note">
+        E はその場の温度（日なた・日かげ・半々の平均）。境目からの値は、肌感の境目を7段階に対応させた折れ線です：{t0}℃→−2、{t1}℃→−1、{((t1 + t2) / 2).toFixed(1)}℃→0、{t2}℃→+1、{t3}℃→+2（外側は同じ傾きで延ばし、±3で止める）。
+      </p>
+      <p className="basis-formula">
+        補正 = {sgn(c0)} {sgn(cd)}×(気温−基準) {sgn(cs)}×[風 強い] {sgn(cn)}×[風 なし]
+      </p>
+      <p className="basis-note">
+        補正の係数は「答え − 境目からの値」へのベイズ回帰（0 を中心にした事前分布）で記録から学びます。記録が少ないうちは 0 に近く、増えるほど記録に合わせます。予測は送信した時刻の観測値で計算し直し、記録に残します。
+      </p>
+      <p className="basis-note">
+        これまでの成績（送信時の予測と答え）：
+        {e.n === 0
+          ? "まだ記録がありません。"
+          : `${e.n}件、偏り ${e.bias! > 0 ? "+" : ""}${e.bias?.toFixed(1)}、平均のずれ ${e.mae?.toFixed(1)}段階（直近10件 ${e.recentMae?.toFixed(1)}）、予測どおり ${Math.round((e.hit ?? 0) * 100)}%。`}
+      </p>
+    </section>
+  );
+}
+
 function Body({ store, station, target, other }: Omit<Props, "onClose">) {
   const feel = useContext(FeelContext);
   const fit = useContext(BetaContext);
@@ -297,6 +328,7 @@ function Body({ store, station, target, other }: Omit<Props, "onClose">) {
       )}
       <DayBasis store={store} station={station} date={date} alpha={fit.alpha} feel={feel} />
       <AlphaBasis />
+      <PredictionBasis />
     </div>
   );
 }
