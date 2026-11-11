@@ -428,6 +428,59 @@ describe("正本管理 in the store", () => {
     expect(store.getDay(KOCHI, "2025-06-15").state).toBe("ready");
   });
 
+  it("never puts back data that a clear removed while it was being read", async () => {
+    const storage = await openStorage();
+    const first = makeStore(storage);
+    first.store.setView(KOCHI, ["2025-06-15"]);
+    await first.store.idle();
+
+    let open!: () => void;
+    const gate = new Promise<void>((r) => (open = r));
+    const slowStorage: Storage = {
+      ...storage,
+      getDays: async (keys) => {
+        const read = await storage.getDays(keys); // read before the clear ...
+        await gate; // ... handed over after it
+        return read;
+      },
+    };
+    const g = gated();
+    const { store } = makeStore(slowStorage, g.api);
+    store.setView(KOCHI, ["2025-06-15"]);
+    await new Promise((r) => setTimeout(r, 5));
+    await store.clear();
+    open();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(store.getDay(KOCHI, "2025-06-15").state).toBe("empty"); // not the cleared copy
+  });
+
+  it("re-checks stored fixed data by today's rule: a day saved under the old 24-row count is fetched again", async () => {
+    const storage = await openStorage();
+    const date = "2025-06-15";
+    const good = Array.from({ length: 24 }, (_, i) => ({ date, n: i + 1, type: "actual" as const, provider: "JMA", raw: {}, quality: {}, temp: 20 }));
+    const broken = [...good.slice(0, 5), { ...good[4] }, ...good.slice(6)]; // 24 rows, hour 5 twice, hour 6 missing
+    await storage.putHours([{ key: `${KOCHI}/${date}`, station: KOCHI, date, rows: broken, kind: "fixed", source: "jma", savedAt: 0 }]);
+    const { store, api } = makeStore(storage);
+    store.wantHours(KOCHI, [date]);
+    await store.idle();
+    expect(api.calls.some((c) => c.startsWith("/api/hourly") && c.includes(date))).toBe(true);
+    const hours = store.getHours(KOCHI, date);
+    expect(new Set(hours.rows.map((r) => r.n)).size).toBe(hours.rows.length);
+    expect(hours.kind).toBe("fixed");
+  });
+
+  it("does not show a past day's leftover observations while JMA's table is on its way", async () => {
+    const storage = await openStorage();
+    const yesterday = addDays(TODAY, -1);
+    const row = { date: yesterday, n: 1, type: "actual" as const, provider: "JMA-amedas", raw: {}, quality: {}, temp: 5 };
+    await storage.putHours([{ key: `${KOCHI}/${yesterday}`, station: KOCHI, date: yesterday, rows: [row], kind: "variable", source: "current", savedAt: 0 }]);
+    const g = gated();
+    const { store } = makeStore(storage, g.api);
+    store.wantHours(KOCHI, [yesterday]);
+    await g.until(() => g.held.length > 0);
+    expect(store.getHours(KOCHI, yesterday).state).toBe("empty"); // the same rule the pruning uses
+  });
+
   it("fetches a fixed day again when the corrections ledger lists it, and only that period", async () => {
     const storage = await openStorage();
     const first = makeStore(storage);

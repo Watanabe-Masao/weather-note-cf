@@ -465,23 +465,22 @@ export class WeatherStore {
     const dk = dayKeys.filter((k) => !this.looked.has(k) && !this.days.has(k));
     const hk = hourKeys.filter((k) => !this.looked.has("h:" + k) && !this.hours.has(k));
     if (!dk.length && !hk.length) return;
+    const gen = this.gen;
     const [days, hours] = await Promise.all([this.storage.getDays(dk), this.storage.getHours(hk)]);
+    // Read before 保存データを消去 finished: what was read is gone, never put it back.
+    if (gen !== this.gen) return;
     dk.forEach((k) => this.looked.add(k));
     hk.forEach((k) => this.looked.add("h:" + k));
     let changed = false;
     for (const r of days) {
-      if (r.source === "forecast" && r.date < this.today) continue;
-      if (!this.days.has(r.key)) {
-        this.days.set(r.key, r);
-        changed = true;
-      }
+      if (obsoleteDay(r, this.today) || this.days.has(r.key)) continue;
+      this.days.set(r.key, checkedDay(r, this.today));
+      changed = true;
     }
     for (const r of hours) {
-      if (r.source === "forecast" && r.date < this.today) continue;
-      if (!this.hours.has(r.key)) {
-        this.hours.set(r.key, r);
-        changed = true;
-      }
+      if (obsoleteHours(r, this.today) || this.hours.has(r.key)) continue;
+      this.hours.set(r.key, checkedHours(r, this.today));
+      changed = true;
     }
     if (changed) this.emit();
   }
@@ -601,7 +600,7 @@ export class WeatherStore {
         const data = await this.fetchJson<{ rows: WeatherRow[]; latest: WeatherRow | null }>(
           `/api/current?station=${station}`,
         );
-        if (data.latest && !same(this.latest.get(station), data.latest)) {
+        if (data.latest && ctx.session === this.session && ctx.gen === this.gen && !same(this.latest.get(station), data.latest)) {
           this.latest.set(station, data.latest);
           this.emit();
         }
@@ -703,19 +702,19 @@ export class WeatherStore {
   private async prunePastForecasts(): Promise<void> {
     const dayKeys: string[] = [];
     const hourKeys: string[] = [];
-    for (const [k, r] of this.days) if (r.source === "forecast" && r.date < this.today) dayKeys.push(k);
-    for (const [k, r] of this.hours) if (r.source !== "jma" && r.date < this.today) hourKeys.push(k);
+    for (const [k, r] of this.days) if (obsoleteDay(r, this.today)) dayKeys.push(k);
+    for (const [k, r] of this.hours) if (obsoleteHours(r, this.today)) hourKeys.push(k);
     dayKeys.forEach((k) => this.days.delete(k));
     hourKeys.forEach((k) => this.hours.delete(k));
     // Stored ones too: past forecast days have no value once the day is over.
     const all = await this.storage.allDayKeys();
     const stale = (await this.storage.getDays(all.filter((k) => k.slice(k.indexOf("/") + 1) < this.today)))
-      .filter((r) => r.source === "forecast")
+      .filter((r) => obsoleteDay(r, this.today))
       .map((r) => r.key);
     await this.storage.deleteDays([...new Set([...dayKeys, ...stale])]);
     const allHours = await this.storage.allHourKeys();
     const staleHours = (await this.storage.getHours(allHours.filter((k) => k.slice(k.indexOf("/") + 1) < this.today)))
-      .filter((r) => r.source !== "jma")
+      .filter((r) => obsoleteHours(r, this.today))
       .map((r) => r.key);
     await this.storage.deleteHours([...new Set([...hourKeys, ...staleHours])]);
   }
@@ -742,7 +741,33 @@ export function mergeRecent(base: WeatherRow | null, recent: WeatherRow): Weathe
 
 /** Observed hours replace forecast hours with the same hour; the forecast lends solar radiation. */
 export function mergeHours(forecast: WeatherRow[], observed: WeatherRow[]): WeatherRow[] {
-  const held: HourRecord = { key: "", station: "", date: "", rows: forecast, kind: "variable", source: "forecast", savedAt: 0 };
+  const date = (observed[0] ?? forecast[0])?.date ?? "";
+  const held: HourRecord = { key: "", station: "", date, rows: forecast, kind: "variable", source: "forecast", savedAt: 0 };
   const next: HourRecord = { ...held, rows: observed, source: "current" };
   return decideHours(held, next).rows;
+}
+
+// ---- what stored data is still worth (one rule for reading back and for pruning) ----------
+
+/** A day kept only for its forecast, once the day is over: nothing left to show. */
+export function obsoleteDay(r: Pick<DayRecord, "source" | "date">, today: string): boolean {
+  return r.source === "forecast" && r.date < today;
+}
+
+/** Hours of a past day that are not JMA's table (today's observations and forecast): JMA's replaces them. */
+export function obsoleteHours(r: Pick<HourRecord, "source" | "date">, today: string): boolean {
+  return r.source !== "jma" && r.date < today;
+}
+
+/**
+ * Stored "fixed" data is checked again by today's rule when read back: data saved under an older,
+ * weaker rule (before hours were checked one by one) is treated as not fixed, so it is fetched again
+ * and the 正本管理 rules decide.
+ */
+export function checkedDay(r: DayRecord, today: string): DayRecord {
+  return r.kind === "fixed" && !(r.source === "jma" && isFixedDay(r.row, today)) ? { ...r, kind: "variable" } : r;
+}
+
+export function checkedHours(r: HourRecord, today: string): HourRecord {
+  return r.kind === "fixed" && !(r.source === "jma" && isFixedHourlyDay(r.date, r.rows, today)) ? { ...r, kind: "variable" } : r;
 }

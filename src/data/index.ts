@@ -2,14 +2,9 @@
 
 import { useSyncExternalStore } from "react";
 import { openStorage } from "./db";
+import { fetchJson } from "./fetchJson";
 import { WeatherStore } from "./store";
 
-async function fetchJson<T>(path: string): Promise<T> {
-  const r = await fetch(path, { signal: AbortSignal.timeout(35_000) });
-  const data = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error((data as { error?: string }).error ?? `HTTP ${r.status}`);
-  return data as T;
-}
 
 let version = 0;
 let instance: WeatherStore | null = null;
@@ -28,7 +23,7 @@ export function startStore(): Promise<WeatherStore> {
     })();
     const store = new WeatherStore({
       storage,
-      fetchJson,
+      fetchJson: (path) => fetchJson(path),
       localStore: local,
       persist: navigator.storage?.persist ? () => navigator.storage.persist() : undefined,
     });

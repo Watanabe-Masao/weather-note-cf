@@ -163,9 +163,13 @@ export function decideHours(old: HourRecord | undefined, next: HourRecord): Hour
     return replace ? stamp(next) : old;
   }
   const byHour = new Map<number, { row: WeatherRow; origin: Origin; fetched: number }>();
-  for (const row of old.rows) byHour.set(row.n, { row, origin: hourOrigin(row, old), fetched: old.fetchedAt ?? 0 });
-  let changed = false;
+  // Only rows that belong here (this day, hours 1–24) take part: a stray row from a broken page
+  // saved earlier never survives a merge.
+  const belongs = (r: WeatherRow) => r.date === next.date && Number.isInteger(r.n) && r.n >= 1 && r.n <= 24;
+  let changed = old.rows.some((r) => !belongs(r));
+  for (const row of old.rows) if (belongs(row)) byHour.set(row.n, { row, origin: hourOrigin(row, old), fetched: old.fetchedAt ?? 0 });
   for (const row of next.rows) {
+    if (!belongs(row)) continue;
     const cand = { row, origin: hourOrigin(row, next), fetched: next.fetchedAt ?? 0 };
     const held = byHour.get(row.n);
     if (!held) {

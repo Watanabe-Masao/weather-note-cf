@@ -167,4 +167,10 @@ describe("正本管理: hours", () => {
       ["forecast", 31],
     ]);
   });
+
+  it("drops stray rows saved from a broken page when they meet a merge", () => {
+    const stray = hours([h(1), h(0), h(2, { date: "2026-11-09" })], { source: "jma" });
+    const merged = decideHours(stray, hours([h(1, { temp: 7 })], { source: "jma", fetchedAt: 200 }));
+    expect(merged.rows.map((r) => [r.date, r.n])).toEqual([["2026-11-10", 1]]);
+  });
 });
