@@ -59,7 +59,7 @@ export function FeelBar({ store, station, date }: { store: WeatherStore | null; 
         <i
           key={i}
           className={b.source === "actual" ? undefined : "forecast"}
-          style={{ background: b.level == null ? "var(--line)" : LEVEL_COLORS[b.level] }}
+          style={{ background: b.level == null ? "var(--line-strong)" : LEVEL_COLORS[b.level] }}
         />
       ))}
     </span>

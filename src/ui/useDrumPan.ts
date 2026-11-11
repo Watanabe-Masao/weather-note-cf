@@ -9,12 +9,13 @@ import { prefersReducedMotion, project, SHEET_EASE, softClamp, VelocityTracker }
 const SLOP = 8;
 const MAX_DAYS = 4;
 
-export function useDrumPan(ref: RefObject<HTMLElement | null>, step: number, onShift: ((days: number) => void) | undefined) {
+/** `blocked`: while it returns true (the graph is being scrubbed), the finger does not pan. */
+export function useDrumPan(ref: RefObject<HTMLElement | null>, step: number, onShift: ((days: number) => void) | undefined, blocked?: () => boolean) {
   const [offset, setOffset] = useState(0);
   const [settling, setSettling] = useState<number | null>(null);
   const dragged = useRef(0);
-  const latest = useRef({ step, onShift });
-  latest.current = { step, onShift };
+  const latest = useRef({ step, onShift, blocked });
+  latest.current = { step, onShift, blocked };
 
   useEffect(() => {
     const el = ref.current;
@@ -35,6 +36,10 @@ export function useDrumPan(ref: RefObject<HTMLElement | null>, step: number, onS
     };
     const move = (x: number, y: number, prevent: () => void) => {
       if (!start) return;
+      if (latest.current.blocked?.()) {
+        start = null;
+        return;
+      }
       const dx = x - start.x;
       const dy = y - start.y;
       if (!decided) {

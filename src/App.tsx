@@ -166,6 +166,10 @@ export function App() {
     return () => window.removeEventListener("resize", measure);
   }, [full]);
   const heights = sheetHeights(spaceBelow, window.innerHeight, chipsBottom);
+  // Overlay sheets open to the same height as the graph sheet at its highest (rule: 重なり順と高さ).
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty("--sheet-max", `${heights.max}px`);
+  }, [heights.max]);
 
   return (
     <div className={full ? "app full" : "app"} style={{ paddingBottom: heights[sheetDetent] + 12 }}>

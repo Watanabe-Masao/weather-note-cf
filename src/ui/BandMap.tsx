@@ -62,7 +62,7 @@ function Summary({ store, station, target, partner }: Props) {
       <p className="band-diff">
         <span className="band-diff-label">{label}</span>
         {BANDS.map((b, i) => (
-          <span key={b.id} className={diffs[i] == null ? "muted" : Math.round(diffs[i]!) > 0 ? "warmer" : Math.round(diffs[i]!) < 0 ? "cooler" : ""}>
+          <span key={b.id} className={diffs[i] == null || Math.round(diffs[i]!) === 0 ? "muted" : Math.abs(diffs[i]!) >= 3 ? "big" : ""}>
             {b.label} {diffs[i] == null ? "—" : signed(diffs[i]!)}
           </span>
         ))}
@@ -87,14 +87,14 @@ function Summary({ store, station, target, partner }: Props) {
       </p>
       {feelSpread != null && (
         <p className="band-spread">
-          {name}の差 <b>{feelSpread.toFixed(0)}℃</b>
-          {tempSpread != null && <small>　気温の寒暖差 {tempSpread.toFixed(1)}℃</small>}
+          寒暖差（{name}） <b>{feelSpread.toFixed(0)}℃</b>
+          {tempSpread != null && <small>　寒暖差（気温） {tempSpread.toFixed(1)}℃</small>}
         </p>
       )}
       {most >= 0 && vs[most] !== 0 && !same && (
         <p className="band-most">
           比較日といちばん違うのは
-          <b className={vs[most]! > 0 ? "warmer" : "cooler"}>
+          <b>
             {BANDS[most].label}（{signed(vs[most]!)}℃）
           </b>
         </p>
@@ -106,7 +106,7 @@ function Summary({ store, station, target, partner }: Props) {
           ) : (
             <>
               どの時間区分も比較日より
-              <b className={vs[most]! > 0 ? "warmer" : "cooler"}>{signed(vs[most]!)}℃</b>
+              <b>{signed(vs[most]!)}℃</b>
             </>
           )}
         </p>
@@ -185,9 +185,8 @@ function MapGrid({
         <span key={"h" + i} className={`band-map-date${i === 3 ? " center" : ""}`}>
           {a.date ? monthDay(a.date) : "—"}
           <small className={a.date ? `tone-${dayTone(a.date)}` : undefined}>{a.date ? weekdayOf(a.date) : ""}</small>
-          <em className={b.date ? `tone-${dayTone(b.date)}` : undefined}>
-            {b.date ? monthDay(b.date) : "—"}
-          </em>
+          {/* The comparison date only when it reads differently (前年同日 would repeat "11/8"). */}
+          {b.date && monthDay(b.date) !== (a.date ? monthDay(a.date) : "") && <em className={`tone-${dayTone(b.date)}`}>{monthDay(b.date)}</em>}
         </span>
       ))}
       {BANDS.map((band, bi) => [
@@ -309,6 +308,20 @@ function Detail({ store, station, selected, onClose }: { store: WeatherStore | n
   );
 }
 
+/** The five feel levels: the colours behind every 肌感 view. */
+function LevelLegend() {
+  return (
+    <p className="feel-legend">
+      {LEVELS.map((label, i) => (
+        <span key={label}>
+          <i style={{ background: LEVEL_COLORS[i] }} />
+          {label}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 export function BandMap(props: Props) {
   const { store, station, target, partner } = props;
   const [selected, setSelected] = useState<Selected | null>(null);
@@ -330,17 +343,33 @@ export function BandMap(props: Props) {
       />
       {view === "map" ? (
         <>
-          <p className="band-map-key">
-            <span className="bm-key-a">対象日</span>
-            <span className="bm-key-b">比較日{partnerYear && `（${partnerYear}年）`}</span>
-            マスの上が対象日、下の帯が比較日。タップで時刻ごとの値。
-          </p>
           <MapGrid targets={targets} partner={partner} store={store} station={station} selected={selected} onSelect={setSelected} />
+          {/* Legend right under the map, in the map's own marks. */}
+          <p className="line-legend map-legend">
+            <span>
+              <i className="bm-key-a" />
+              対象日
+            </span>
+            <span>
+              <i className="bm-key-b" />
+              比較日{partnerYear && `（${partnerYear}年）`}
+            </span>
+            <span>
+              <i className="ls-forecast" />
+              予報
+            </span>
+            <span>
+              <i className="ls-estimate" />
+              目安（日別の値から）
+            </span>
+          </p>
+          <p className="hint map-hint">マスをタップすると、その時間区分の時刻ごとの値が開きます。</p>
           {selected && <Detail store={store} station={station} selected={selected} onClose={() => setSelected(null)} />}
         </>
       ) : (
         <BandTrend {...props} />
       )}
+      <LevelLegend />
     </div>
   );
 }

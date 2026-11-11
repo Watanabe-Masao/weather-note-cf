@@ -1,14 +1,17 @@
 // Band trend graph (spec chapter 5): how each part of the day moved over the seven days.
-// One line per chosen 時間区分 (朝・日中・昼・夕方・夜) in 日なた/日かげ温度; the comparison side dashed.
-// Forecast segments dotted; missing values leave a gap (never interpolated).
+// One line per chosen 時間区分 (朝・日中・昼・夕方・夜) in 日なた/日かげ温度: a neutral line family told
+// apart by marker shape (colour is kept for the feel levels behind them); the comparison day dashed.
+// Line style says which day only (target solid, comparison dashed); forecast days are hatched behind.
+// Missing values leave a gap (never interpolated).
 
 import { useContext, useLayoutEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { type Band, BANDS, type FeelSettings, hourlyBands } from "../../shared/feel";
 import { dayTone } from "../../shared/holidays";
 import type { WeatherStore } from "../data/store";
-import { BAND_LINES } from "../design/tokens";
-import { Chip } from "./kit";
+import { BAND_LINES, BAND_MARKS } from "../design/tokens";
+import { niceTicks, signedDiff, tickLabel, monthDay, dateLabel } from "../design/format";
+import { Chip, ForecastHatch, GraphReadout, GuideLines, Mark, MarkIcon } from "./kit";
 import { FeelContext, LEVEL_COLORS } from "./FeelBar";
 
 export const BAND_COLORS = BAND_LINES;
@@ -45,6 +48,8 @@ export function BandTrend({ store, station, target, partner }: Props) {
   const settings = useContext(FeelContext);
   const [chosen, setChosen] = useState<number[]>([0, 2, 4]); // 朝・昼・夜
   const [withCompare, setWithCompare] = useState(true);
+  /** The touched day (index), while the finger is on the graph. */
+  const [touch, setTouch] = useState<number | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   useLayoutEffect(() => {
@@ -67,12 +72,13 @@ export function BandTrend({ store, station, target, partner }: Props) {
   const values = lines.flatMap((l) => l.points.map((p) => p.value)).filter((v): v is number => v != null);
 
   const H = 200;
-  const PAD = { left: 30, right: 8, top: 10, bottom: 28 };
+  const PAD = { left: 30, right: 8, top: 26, bottom: 28 };
   let lo = values.length ? Math.min(...values) : 0;
   let hi = values.length ? Math.max(...values) : 30;
-  const pad = Math.max((hi - lo) * 0.1, 1);
-  lo -= pad;
-  hi += pad;
+  const pad = Math.max((hi - lo) * 0.08, 0.5);
+  const nice = niceTicks(lo - pad, hi + pad, 5);
+  lo = nice.lo;
+  hi = nice.hi;
   const step = (w - PAD.left - PAD.right) / dates.length;
   const x = (i: number) => PAD.left + step * (i + 0.5);
   const y = (v: number) => PAD.top + ((hi - v) * (H - PAD.top - PAD.bottom)) / (hi - lo);
@@ -88,11 +94,25 @@ export function BandTrend({ store, station, target, partner }: Props) {
   const toggle = (i: number) =>
     setChosen((c) => (c.includes(i) ? (c.length > 1 ? c.filter((x) => x !== i) : c) : [...c, i].sort()));
 
+  // The finger picks a day (no sideways panning here, so a touch scrubs at once).
+  const svgRef = useRef<SVGSVGElement>(null);
+  const pickAt = (clientX: number) => {
+    const r = svgRef.current?.getBoundingClientRect();
+    if (!r) return;
+    const i = Math.floor((clientX - r.left - PAD.left) / step);
+    setTouch(Math.max(0, Math.min(dates.length - 1, i)));
+  };
+  const shownDay = touch ?? 3;
+  const fmt = (v: number | null) => (v == null ? "—" : v.toFixed(0));
+  const forecastDay = (k: number) => mine[k]?.some((b) => b && b.source !== "actual") ?? false;
+  const otherDate = partner(dates[shownDay]);
+
   return (
     <div className="band-trend" ref={ref}>
       <div className="chip-row">
         {BANDS.map((b, i) => (
-          <Chip key={b.id} size="sm" on={chosen.includes(i)} tone={BAND_COLORS[i]} onClick={() => toggle(i)}>
+          <Chip key={b.id} size="sm" on={chosen.includes(i)} tone="var(--ink-primary)" onClick={() => toggle(i)}>
+            <MarkIcon shape={BAND_MARKS[i]} color={BAND_COLORS[i]} />
             {b.label}
           </Chip>
         ))}
@@ -105,16 +125,65 @@ export function BandTrend({ store, station, target, partner }: Props) {
       {withCompare && chosen.length > MAX_COMPARED_BANDS && (
         <p className="hint">比較日を重ねられるのは、時間区分を{MAX_COMPARED_BANDS}つまで選んだときです。</p>
       )}
-      <svg width={w} height={H} role="img" aria-label="時間区分ごとの推移">
+      <GraphReadout
+        live={touch != null}
+        unit="℃"
+        title={
+          <>
+            {dateLabel(dates[shownDay])}
+            {otherDate && <small> 比較 {monthDay(otherDate)}</small>}
+          </>
+        }
+        rows={chosen.map((i) => {
+          const a = mine[shownDay]?.[i]?.feel ?? null;
+          const b = theirs[shownDay]?.[i]?.feel ?? null;
+          return { key: BANDS[i].id, label: BANDS[i].label, mark: BAND_MARKS[i], color: BAND_COLORS[i], a: fmt(a), b: fmt(b), diff: signedDiff(a, b, 0) };
+        })}
+      />
+      <svg
+        ref={svgRef}
+        width={w}
+        height={H}
+        role="img"
+        aria-label="時間区分ごとの推移"
+        className="scrub"
+        onPointerDown={(e) => pickAt(e.clientX)}
+        onPointerMove={(e) => (e.pointerType === "mouse" || e.buttons) && pickAt(e.clientX)}
+        onPointerUp={(e) => e.pointerType !== "mouse" && setTouch(null)}
+        onPointerLeave={() => setTouch(null)}
+        onPointerCancel={() => setTouch(null)}
+      >
+        <defs>
+          <ForecastHatch id="fc-trend" />
+        </defs>
         {levelBands.map(
-          (b) => b && <rect key={b.i} x={PAD.left} width={w - PAD.left - PAD.right} y={b.y1} height={b.y2 - b.y1} fill={LEVEL_COLORS[b.i]} opacity={0.1} />,
+          (b) => b && <rect key={b.i} x={PAD.left} width={w - PAD.left - PAD.right} y={b.y1} height={b.y2 - b.y1} fill={LEVEL_COLORS[b.i]} opacity={0.12} />,
         )}
-        <rect x={x(3) - step / 2} y={PAD.top} width={step} height={H - PAD.top - PAD.bottom} className="chart-center" />
-        {[lo + pad, (lo + hi) / 2, hi - pad].map((t) => (
-          <text key={t} x={PAD.left - 5} y={y(t) + 4} textAnchor="end" className="chart-tick">
-            {t.toFixed(0)}
-          </text>
+        {dates.map((d, i) =>
+          !forecastDay(i) ? null : (
+            <g key={`fc-${d}`}>
+              <rect x={x(i) - step / 2} y={PAD.top} width={step} height={H - PAD.top - PAD.bottom} fill="url(#fc-trend)" className="chart-forecast" />
+              {(i === 0 || !forecastDay(i - 1)) && (
+                <text x={x(i) - step / 2 + 4} y={PAD.top + 10} className="chart-forecast-label">
+                  予報
+                </text>
+              )}
+            </g>
+          ),
+        )}
+        {nice.ticks.map((t) => (
+          <g key={t}>
+            <line x1={PAD.left} x2={w - PAD.right} y1={y(t)} y2={y(t)} className="chart-grid" />
+            <text x={PAD.left - 5} y={y(t) + 4} textAnchor="end" className="chart-tick">
+              {tickLabel(t)}
+            </text>
+          </g>
         ))}
+        <text x={PAD.left - 5} y={PAD.top - 12} textAnchor="end" className="chart-unit">
+          ℃
+        </text>
+        {/* The selected day: a frame, as in the tables (the background is for 予報 only). */}
+        <rect x={x(3) - step / 2 + 1} y={PAD.top} width={step - 2} height={H - PAD.top - PAD.bottom} rx={8} className="chart-center" />
         {lines.map(({ band, compare, points }) =>
           points.slice(1).map((p, i) => {
             const a = points[i];
@@ -127,26 +196,29 @@ export function BandTrend({ store, station, target, partner }: Props) {
                 x2={x(i + 1)}
                 y2={y(p.value)}
                 stroke={BAND_COLORS[band]}
-                strokeWidth={compare ? 1.5 : 2.4}
-                strokeDasharray={compare ? "6 4" : p.forecast ? "2 4" : undefined}
+                strokeWidth={compare ? 1.4 : 2.2}
+                strokeDasharray={compare ? "6 4" : undefined}
                 strokeLinecap="round"
                 opacity={compare ? 0.6 : 1}
               />
             );
           }),
         )}
+        {touch != null && (
+          <GuideLines
+            x={x(touch)}
+            top={PAD.top}
+            bottom={H - PAD.bottom}
+            left={PAD.left}
+            points={chosen.flatMap((i) => (mine[touch]?.[i]?.feel != null ? [{ y: y(mine[touch]![i].feel!), color: BAND_COLORS[i] }] : []))}
+          />
+        )}
         {lines.map(({ band, compare, points }) =>
           points.map((p, i) =>
             p.value == null ? null : (
-              <circle
-                key={`${band}-${compare}-dot-${i}`}
-                cx={x(i)}
-                cy={y(p.value)}
-                r={compare ? 2.3 : 3}
-                fill={compare ? "var(--bg)" : BAND_COLORS[band]}
-                stroke={BAND_COLORS[band]}
-                opacity={compare ? 0.7 : 1}
-              />
+              <g key={`${band}-${compare}-dot-${i}`} opacity={compare ? 0.7 : 1}>
+                <Mark shape={BAND_MARKS[band]} x={x(i)} y={y(p.value)} r={(compare ? 2.6 : 3.4) * (i === touch ? 1.35 : 1)} color={BAND_COLORS[band]} hollow={compare} />
+              </g>
             ),
           ),
         )}
@@ -156,8 +228,21 @@ export function BandTrend({ store, station, target, partner }: Props) {
           </text>
         ))}
       </svg>
-      <p className="trend-note">
-        縦軸は{settings.sun ? "日なた温度" : "日かげ温度"}（℃）。実線＝実績、点線＝予報、破線＝比較日。背景の色は肌感の段階。
+      {/* Legend right under the graph, in the graph's own marks. */}
+      <p className="line-legend">
+        <span>
+          <i className="ls-solid" />
+          対象日
+        </span>
+        <span>
+          <i className="ls-dashed" />
+          比較日
+        </span>
+        <span>
+          <i className="ls-forecast" />
+          予報
+        </span>
+        <span>背景の色＝肌感の段階</span>
       </p>
     </div>
   );

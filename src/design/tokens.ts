@@ -61,7 +61,14 @@ export type DataColor = keyof typeof DATA;
 export const FEEL_LEVELS = ["#6474e4", "#a3c7f2", "#a5d48f", "#f3cb6f", "#ec8466"] as const;
 
 /** Lines for the five 時間区分 in the trend graph (朝・日中・昼・夕方・夜): distinct from the level colours. */
-export const BAND_LINES = ["#86b8ff", "#8fd8c4", "#f5c865", "#f39a86", "#c9a6f7"] as const;
+/**
+ * Lines of the five 時間区分 (朝・日中・昼・夕方・夜): a neutral family of their own, told apart by
+ * lightness and marker shape — never a data colour (blue is 最低, yellow 日差し, …) and never a feel
+ * level colour, which the graph shows behind them.
+ */
+export const BAND_LINES = ["#f4f7fb", "#cdd8e6", "#a9b8cb", "#8797ad", "#6a7a91"] as const;
+export const BAND_MARKS = ["circle", "square", "triangle", "diamond", "ring"] as const;
+export type BandMark = (typeof BAND_MARKS)[number];
 
 /** Day tones for dates: only the date and weekday text carry them. */
 const day = {
