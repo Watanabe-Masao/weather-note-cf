@@ -67,6 +67,39 @@ describe("β②: the scale", () => {
   });
 });
 
+describe("β②: CSV with the comfort prediction", () => {
+  it("writes the centre, range and the chance of each answer", () => {
+    const r: Report = {
+      id: "z",
+      at: "2026-11-11T11:30:00.000Z",
+      station: "47893",
+      sensation: 1,
+      exposure: "sun",
+      windFelt: "weak",
+      snapshot: null,
+      baseline: null,
+      departures: null,
+      comfort: {
+        probs: [0, 0, 0.05, 0.3, 0.5, 0.15, 0],
+        mode: 1,
+        expected: 0.8,
+        state: { mu: 19.4, h: 2.8, g: 4.3, s: 0.9 },
+        offset: 3.6,
+        beyond: 0.8,
+        n: 12,
+        alpha: 0.8,
+        at: 0,
+      },
+      updatedAt: 1,
+    };
+    const [header, line] = toCsv([r]).trim().split("\r\n");
+    const cols = header.replace("\uFEFF", "").split(",");
+    const cells = line.split(",");
+    const at = (k: string) => cells[cols.indexOf(k)];
+    expect([at("comfort_mu"), at("comfort_half_range"), at("comfort_beyond"), at("pred_mode"), at("p_p1"), at("pred_error")]).toEqual(["19.4", "2.8", "0.8", "1", "0.5", "0.2"]);
+  });
+});
+
 describe("β②: CSV", () => {
   const base: Report = {
     id: "a",
@@ -86,7 +119,7 @@ describe("β②: CSV", () => {
     expect(csv.startsWith("﻿at_jst,opened_at_jst,station,sensation")).toBe(true);
     const lines = csv.trim().split("\r\n");
     expect(lines).toHaveLength(3);
-    expect(lines[1]).toContain("2026-11-11T20:30:00+09:00,,47893,-1,やや涼しい,shade,strong,,,,,,,,cloudy,"); // no prediction in this one
+    expect(lines[1]).toContain(`2026-11-11T20:30:00+09:00,,47893,-1,やや涼しい,shade,strong,${",".repeat(18)}cloudy,`); // no prediction in this one
     expect(lines[1]).toContain("17.3,0.8,0.2,3.1,0,-2.4,,-4,"); // α, 前日の重み, 半減期
     expect(lines[1].endsWith(",a")).toBe(true);
     const header = lines[0].split(",");

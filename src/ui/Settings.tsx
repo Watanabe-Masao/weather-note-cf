@@ -35,7 +35,6 @@ import type { StorageReport, WeatherStore } from "../data/store";
 import { LEVEL_COLORS } from "./FeelBar";
 import { Segmented } from "./kit";
 import { BetaContext } from "../beta/settings";
-import { MIN_REPORTS, MIN_SPAN_DAYS } from "../beta/fitAlpha";
 import { halfLifeDays, updateRate } from "../beta/adaptation";
 import { BasisSheet } from "../beta/BasisSheet";
 import { toCsv } from "../beta/reports";
@@ -317,13 +316,13 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
           最近との差 <span className="beta-tag">β</span>
         </h3>
         <p className="set-lead">
-          最近の日平均気温の移動平均を「慣れの基準」にして、その日の気温・日なた温度・日かげ温度が基準からどれだけ離れているかを出します。体感の予測ではなく、検証中の目安です（肌感とは別の計算）。
+          その瞬間の「快適の中心」と「快適の範囲」を推定し、今の日なた温度・日かげ温度がそこからどれだけ離れているかを出します。中心も範囲も、最近の気温への慣れや湿度で動きます。感じ方の記録から学び続ける研究中の計算です（肌感とは別）。
         </p>
         <div className="set-row">
           <span className="set-label">
             慣れの速さ α
             <small className="set-help">
-              基準がどれだけ早く最近の気温に追いつくか。自分では選ばず、感じ方の記録から推定します。
+              基準がどれだけ早く最近の気温に追いつくか。自分では選ばず、感じ方の記録から選びます。
             </small>
           </span>
           <p className="beta-alpha" role="status">
@@ -333,11 +332,9 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
                 半減期 {halfLifeDays(beta.alpha)}日・前日の重み {updateRate(beta.alpha)}
               </small>
             </b>
-            {beta.status === "fitted"
-              ? `記録 ${beta.n}件（${beta.spanDays}日間）から推定。基準を入れると当てはまりが ${Math.round((beta.improvement ?? 0) * 100)}% よくなりました。`
-              : beta.status === "no-effect"
-                ? `記録 ${beta.n}件では、最近の基準を入れても当てはまりがよくなりませんでした（情報量基準で判定）。規格の標準値を使っています。`
-                : `規格（EN 16798）の標準値を使っています。推定には記録 ${MIN_REPORTS}件以上・${MIN_SPAN_DAYS}日間以上が必要です（今 ${beta.n}件・${beta.spanDays}日間）。`}
+            {beta.fit.n >= beta.minForAlpha
+              ? `記録 ${beta.fit.n}件の当てはまりから選びました。`
+              : `規格（EN 16798）の標準値です。記録が${beta.minForAlpha}件たまると、当てはまりで選びます（今 ${beta.fit.n}件）。`}
           </p>
           <button className="link-btn" onClick={() => setBasis(true)}>
             計算の根拠を見る（今日）
@@ -347,15 +344,15 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
         <div className="set-row">
           <span className="set-label">
             予測のずれ
-            <small className="set-help">記録のたびに、送信した時点で出した予測と答えの差（答え − 予測）。＋は予測より暖かく感じたこと。</small>
+            <small className="set-help">記録のたびに、送信した時点で出した予測（7段階の確率）と答えを比べます。当たり＝最も確率の高い段階が答えだった割合。偏りの＋は予測より暖かく感じたこと。</small>
           </span>
           <p className="beta-alpha" role="status">
-            {beta.errors.n === 0 ? (
+            {beta.record.n === 0 ? (
               <span>まだ記録がありません。</span>
             ) : (
               <span>
-                {beta.errors.n}件　偏り {beta.errors.bias! > 0 ? "+" : ""}
-                {beta.errors.bias?.toFixed(1)}・平均のずれ {beta.errors.mae?.toFixed(1)}段階（直近10件 {beta.errors.recentMae?.toFixed(1)}）・予測どおり {Math.round((beta.errors.hit ?? 0) * 100)}%
+                {beta.record.n}件　当たり {Math.round((beta.record.hit ?? 0) * 100)}%・対数損失 {beta.record.logLoss?.toFixed(2)}（当てずっぽう 1.95）・偏り {beta.record.bias! > 0 ? "+" : ""}
+                {beta.record.bias?.toFixed(1)}・平均のずれ {beta.record.mae?.toFixed(1)}段階（直近10件 {beta.record.recentMae?.toFixed(1)}）
               </span>
             )}
           </p>
