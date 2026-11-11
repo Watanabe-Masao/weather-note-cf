@@ -1,7 +1,8 @@
 // Weather Note: compare a target day with a comparison day, around a 7-day centre-fixed strip.
 
+import { CalendarModal, type CalendarSide } from "./ui/CalendarModal";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { addDays } from "../shared/dates";
+import { addDays, FIRST_DAY } from "../shared/dates";
 import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare";
 import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
@@ -35,6 +36,7 @@ function chartHeight(sheet: number, m: { forecastOnly?: boolean; emptyNote?: str
 
 export function App() {
   const store = useWeatherStore();
+  const [calendar, setCalendar] = useState<CalendarSide | null>(null);
   const { view, today: startToday, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set } =
     useViewState();
   const today = store?.today ?? startToday;
@@ -202,6 +204,7 @@ export function App() {
       <div ref={boardRef}>
         <FeelContext.Provider value={feelSettings}>
           <CompareBoard
+            onOpenCalendar={setCalendar}
             wide={full}
             store={store}
             view={view}
@@ -290,7 +293,7 @@ export function App() {
               height={hourHeight(heights[sheetDetent])}
               onStep={(n) => moveTarget(addDays(view.target, n))}
               onToggleSun={() => set("sun", !view.sun)}
-              pick={{ bounds, last, onTarget: moveTarget, onCompare: pickCompare }}
+              pick={setCalendar}
             />
           )}
         </GraphSheet>
@@ -307,6 +310,25 @@ export function App() {
             onClose={() => setFeelMap(false)}
           />
         </FeelContext.Provider>
+      )}
+
+      {calendar && (
+        <CalendarModal
+          side={calendar}
+          target={view.target}
+          compare={compareDate}
+          mode={view.mode}
+          min={calendar === "target" ? bounds.min : FIRST_DAY}
+          max={calendar === "target" ? bounds.max : last}
+          store={store}
+          station={view.station}
+          today={today}
+          partnerOf={partner}
+          onTarget={moveTarget}
+          onCompare={pickCompare}
+          onPreset={setMode}
+          onClose={() => setCalendar(null)}
+        />
       )}
 
       {similar && (

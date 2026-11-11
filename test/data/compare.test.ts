@@ -81,3 +81,16 @@ describe("long press on the arrows", () => {
     expect(weekSteps(0, 99_999, 1)).toBe(52);
   });
 });
+
+import { intervalLabel } from "../../src/ui/CalendarModal";
+
+describe("interval in words (calendar)", () => {
+  it("names presets, counts days, and counts from the same date for years", () => {
+    expect(intervalLabel("2026-11-10", "2026-11-09")).toBe("前日");
+    expect(intervalLabel("2026-11-10", "2026-11-17")).toBe("翌週");
+    expect(intervalLabel("2026-11-10", "2026-11-05")).toBe("5日前");
+    expect(intervalLabel("2026-11-10", "2025-11-10")).toBe("前年同日");
+    expect(intervalLabel("2026-11-10", "2025-11-04")).toBe("1年前の6日前");
+    expect(intervalLabel("2026-11-10", "2024-11-10")).toBe("2年前の同じ日");
+  });
+});
