@@ -41,6 +41,7 @@ import { halfLifeDays, updateRate } from "../beta/adaptation";
 import { BasisSheet } from "../beta/BasisSheet";
 import { toCsv } from "../beta/reports";
 import { reports, useReports } from "../beta/useReports";
+import { inputQuality } from "../beta/quality";
 
 const time = (t: number | null) => (t ? new Date(t).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "—");
 const PERSISTED = { granted: "許可", denied: "不許可", unsupported: "未対応" } as const;
@@ -232,6 +233,7 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
 
 function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _done }: Props) {
   const beta = useContext(BetaContext);
+  const reportsList = useReports();
   const [basis, setBasis] = useState(false);
   void _done;
   const onClose = useSheetClose();
@@ -341,6 +343,13 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
             <small className="set-help">
               件数ではなく中身で決めます：寒い側と暑い側の両方の答え、温度の幅、記録した日、ちょうどよい温度の幅（95%区間）、事前の予測の成績。
               {beta.learning.missing.length ? ` まだ足りないもの：${beta.learning.missing.join("、")}。` : ""}
+              {(() => {
+                const live = (reportsList ?? []).filter((r) => !r.deleted);
+                const out = live.map(inputQuality).filter((q) => !q.trainable);
+                if (!out.length) return "";
+                const why = [...new Set(out.map((q) => q.reason))].join("、");
+                return ` 学習に使った記録 ${live.length - out.length}件、使わなかった記録 ${out.length}件（${why}）。`;
+              })()}
               {beta.learning.muInterval && !centreUnknown(beta.learning.state)
                 ? ` ちょうどよい温度（最新の記録の条件）：95% ${beta.learning.muInterval[0].toFixed(1)}〜${beta.learning.muInterval[1].toFixed(1)}℃。`
                 : ""}

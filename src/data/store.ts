@@ -37,6 +37,8 @@ export interface DayView {
   row: WeatherRow | null;
   kind: Kind | null;
   error?: string;
+  /** When the held copy was fetched (ms). */
+  fetchedAt?: number;
 }
 
 export interface HourView {
@@ -45,6 +47,8 @@ export interface HourView {
   rows: WeatherRow[];
   kind: Kind | null;
   error?: string;
+  /** When the held copy was fetched (ms). */
+  fetchedAt?: number;
 }
 
 export interface StorageReport {
@@ -294,7 +298,7 @@ export class WeatherStore {
     if (!this.inRange(date)) return { date, state: "outside", rows: [], kind: null };
     const k = dayKey(station, date);
     const rec = this.hours.get(k);
-    if (rec) return { date, state: "ready", rows: rec.rows, kind: rec.kind };
+    if (rec) return { date, state: "ready", rows: rec.rows, kind: rec.kind, fetchedAt: rec.fetchedAt };
     const error = this.errors.get("h:" + k);
     return { date, state: error ? "error" : "empty", rows: [], kind: null, error };
   }

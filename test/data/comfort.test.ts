@@ -13,6 +13,8 @@ import {
   PRIOR,
   ADAPT_HI,
   ADAPT_LO,
+  DRIVERS,
+  missingDrivers,
   probabilities,
   stateOf,
   centreUnknown,
@@ -181,7 +183,7 @@ describe("β: the comfort centre and range", { timeout: 60_000 }, () => {
 
   it("predicts a mixture over the models, keeping each model's own prediction", () => {
     const ens = fitEnsemble([], 0.8);
-    const p = predictComfort(ens, typical(), 0);
+    const p = predictComfort(ens, typical({ rain1: 0, rain7: 0, sky: true, doy: 100, radDay: 10, night: false, minPrev: -6, windPrev: 2 }), 0);
     expect(p.mode).toBe(0);
     expect(p.probs.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 1);
     expect(p.models.map((m) => m.id)).toEqual(MODELS.map((m) => m.id));
@@ -267,5 +269,35 @@ describe("β: scores", () => {
     expect(p.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
     expect(p[3]).toBeGreaterThan(p[4]);
     expect(p[4]).toBeGreaterThan(p[0]);
+  });
+});
+
+describe("β: missing inputs (MATH-03)", { timeout: 60_000 }, () => {
+  const full = (over: Partial<Drivers> = {}) => typical({ rain1: 0, rain7: 0, sky: true, doy: 100, radDay: 10, night: false, minPrev: -6, windPrev: 2, ...over });
+
+  it("never reads a missing input as a typical one: the models that need it take no part", () => {
+    const ens = fitEnsemble([], 0.8);
+    const p = predictComfort(ens, full({ hNow: null }), 0);
+    expect(p.excluded).toEqual(expect.arrayContaining(["M2", "M5"])); // they use 今の湿度
+    expect(p.missing).toContain("hNow");
+    expect(p.models.map((m) => m.id)).not.toContain("M2");
+    expect(p.models.reduce((s, m) => s + m.weight, 0)).toBeCloseTo(1, 1); // the rest re-weighted
+    expect(missingDrivers(MODELS.find((m) => m.id === "M0")!, full({ hNow: null, trend: null }))).toEqual([]); // M0 always usable
+  });
+
+  it("a value that does not apply (the night's warmth by day) is 0, not missing", () => {
+    expect(DRIVERS.radNight.value(full({ night: false, radDay: null }))).toBe(0);
+    expect(DRIVERS.radNight.value(full({ night: true, radDay: null }))).toBeNull();
+    expect(DRIVERS.radNight.value(full({ night: null }))).toBeNull();
+  });
+
+  it("fits each model on the observations with all of its inputs, and weighs them on the common ones", () => {
+    const M0truth = [18, Math.log(3), Math.log(4), Math.log(0.7), 0, 0];
+    const obs = simulate(120, "M0", M0truth, 31).map((o, i) => (i % 3 === 0 ? { ...o, trend: null } : o));
+    const ens = fitEnsemble(obs, 0.8);
+    const n = (id: string) => ens.fits.find((f) => f.model.id === id)!.n;
+    expect(n("M0")).toBe(120);
+    expect(n("M4")).toBe(80); // 季節の向き is missing in a third
+    expect(ens.weights.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
   });
 });

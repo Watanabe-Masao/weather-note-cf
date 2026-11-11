@@ -82,6 +82,12 @@ export function radiationOf(row: Record<string, unknown>): number | null {
  * Apparent temperature for one reading, or null when temperature, humidity or wind is missing.
  * `radiation` (W/m²) adds the sunshine term when the settings say "in the sun"; null means none.
  */
+/**
+ * Version of how 日なた温度・日かげ温度 are computed from the weather (MATH-03). Stored with each
+ * report, so that a report can be read with the method it was made with.
+ */
+export const FEEL_TRANSFORM = "feel-1";
+
 export function feelOf(
   temp: unknown,
   humidity: unknown,
