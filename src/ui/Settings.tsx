@@ -3,6 +3,8 @@
 // 日かげ). Saved data (spec chapter 1), refresh and clear sit folded at the end.
 
 import { ModalSheet, useSheetClose } from "./ModalSheet";
+import { SyncPanel } from "../beta/SyncPanel";
+import { useSync } from "../beta/useSync";
 import { useContext, useEffect, useRef, useState } from "react";
 
 /** A number field that commits when editing ends (blur or Enter), so half-typed values never apply. */
@@ -149,6 +151,7 @@ function LevelBand({ thresholds, onChange }: { thresholds: SavedFeel["thresholds
 /** β②: the reported feelings on this device — how many, a CSV for analysis, and wiping them. */
 function ReportData() {
   const list = useReports();
+  const synced = useSync().state != null;
   const [confirming, setConfirming] = useState(false);
   const download = async () => {
     const csv = toCsv(await reports.all());
@@ -166,7 +169,7 @@ function ReportData() {
         <small className="set-help">
           {list == null ? "…" : `${list.length}件`}
           {list?.[0] ? `（最後 ${new Date(list[0].at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}）` : ""}
-          。［保存データを消去］では消えません。
+          。［保存データを消去］では消えません。{synced ? "［記録を消す］はこの端末の分だけで、サーバーと他の端末には残ります。" : ""}
         </small>
       </span>
       <div className="actions tight">
@@ -381,6 +384,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
           </p>
         </div>
         <ReportData />
+        <SyncPanel />
       </section>
 
       <details className="set-group set-data">

@@ -13,6 +13,7 @@ import { useWeatherStore } from "./data";
 import { METRICS, metricById } from "./metrics";
 import { useFeelSettings } from "./feelSettings";
 import { BetaContext, useBetaSettings } from "./beta/settings";
+import { useAutoSync } from "./beta/useSync";
 import { useViewState } from "./state";
 import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
@@ -86,6 +87,7 @@ export function App() {
   const feel = useFeelSettings(view.station, view.sun);
   const feelSettings = feel.settings;
   const beta = useBetaSettings();
+  useAutoSync();
   // The sheet shows the chosen item two ways: seven days (日別) or the 24 hours of the day (時間帯).
   const [face, setFace] = useState<"chart" | "hours">("chart");
   // While a drum moves, the switches that change which days are shown wait (rule: 動いている間).

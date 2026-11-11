@@ -9,6 +9,9 @@
     "run_worker_first": ["/api/*"]
   },
   "observability": { "enabled": true },
+  // β③: one Durable Object (with its own SQLite database) per sync key — see worker/src/sync.ts.
+  "durable_objects": { "bindings": [{ "name": "SYNC", "class_name": "ReportSync" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReportSync"] }],
   // Needed by `wrangler preview`, which Workers Builds runs for pull requests.
   "previews": {}
 }

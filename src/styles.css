@@ -3082,3 +3082,46 @@ svg.scrub {
 .beta-in { color: var(--ink-tertiary); }
 .beta-out { color: var(--ink-secondary); font-weight: var(--weight-bold); }
 .beta-range { font-size: 0.9em; white-space: nowrap; }
+
+/* β③ sync key (settings). The key is the only way in, so it reads in groups of four. */
+.sync .actions { flex-wrap: wrap; }
+.sync .actions button { min-width: 0; white-space: normal; line-height: 1.3; }
+.sync .actions button.primary { background: var(--accent-base); border-color: var(--accent-base); color: var(--ink-on-accent); font-weight: var(--weight-bold); }
+.sync .actions button.primary:disabled { background: var(--surface-raised); border-color: var(--line-strong); color: var(--ink-disabled); }
+.sync-enter { display: grid; gap: 8px; }
+.sync-enter input {
+  width: 100%;
+  background: var(--surface-inset);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  font: 600 15px/1.2 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.04em;
+  color: var(--ink-primary);
+}
+.sync-key { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sync-key code {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  background: var(--surface-inset);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font: 600 13px/1.4 ui-monospace, "SF Mono", Menlo, monospace;
+  letter-spacing: 0.04em;
+  color: var(--ink-primary);
+  user-select: all;
+}
+.sync-key button {
+  flex: none;
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 8px 10px;
+  font-size: 13px;
+  color: var(--ink-primary);
+}
+.sync-status { margin: 0; font-size: 12.5px; color: var(--ink-secondary); }
+.sync-actions .sync-now { flex-basis: 100%; }
+.sync-actions button:not(.sync-now) { flex: 1 1 40%; }

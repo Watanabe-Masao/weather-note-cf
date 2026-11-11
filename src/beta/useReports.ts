@@ -44,3 +44,9 @@ export function useReports(): Report[] | null {
   }, []);
   return list;
 }
+
+/** Calls `fn` whenever reports change on this device (added, deleted, merged, wiped). */
+export function onReportsChanged(fn: () => void): () => void {
+  listeners.add(fn);
+  return () => void listeners.delete(fn);
+}

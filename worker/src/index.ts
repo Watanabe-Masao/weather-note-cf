@@ -11,6 +11,10 @@ import { SourceError } from "./errors";
 import { fetchDailyMonth, fetchHourlyDay } from "./jma-tables";
 import { CACHE_VERSION, HOURLY_CONCURRENCY, MAX_HOURLY_DAYS, stations } from "./config";
 import { fetchForecast, fetchSunTimes } from "./open-meteo";
+import { handleSync, type SyncEnv } from "./sync";
+
+// The sync key's store (a Durable Object class must be exported from the main module).
+export { ReportSync } from "./sync";
 
 class BadRequest extends Error {}
 
@@ -135,7 +139,8 @@ async function handle(req: Request, ctx: ExecutionContext): Promise<Response> {
 }
 
 export default {
-  async fetch(req: Request, _env: unknown, ctx: ExecutionContext): Promise<Response> {
+  async fetch(req: Request, env: SyncEnv, ctx: ExecutionContext): Promise<Response> {
+    if (new URL(req.url).pathname === "/api/sync") return handleSync(req, env);
     if (req.method !== "GET") return jsonResponse({ error: "GET only" }, 405);
     try {
       return await handle(req, ctx);
@@ -144,4 +149,4 @@ export default {
       return jsonResponse({ error: publicMessage(e) }, 502);
     }
   },
-} satisfies ExportedHandler;
+} satisfies ExportedHandler<SyncEnv>;
