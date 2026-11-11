@@ -14,7 +14,7 @@ import {
   stateOf,
 } from "../../src/beta/comfort";
 
-const T: [number, number, number, number] = [10, 15, 21, 25];
+const T: [number, number, number, number, number, number] = [5, 10, 15, 21, 25, 29];
 const model = (id: string) => MODELS.find((m) => m.id === id)!;
 
 function rng(seed: number) {

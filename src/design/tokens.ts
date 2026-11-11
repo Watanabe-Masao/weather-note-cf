@@ -58,7 +58,14 @@ export const DATA = {
 export type DataColor = keyof typeof DATA;
 
 /** The five 肌感 levels, cold to hot. The ends are kept apart from the 最低/最高 data colours. */
-export const FEEL_LEVELS = ["#6474e4", "#a3c7f2", "#a5d48f", "#f3cb6f", "#ec8466"] as const;
+/** The seven 肌感 steps, cold to hot (fills only). Five and three use these, by the step they gather. */
+export const FEEL_LEVELS = ["#5262d8", "#7f9cea", "#a9cbf2", "#a5d48f", "#f3d27a", "#f0a463", "#e5705c"] as const;
+/** Colour of each step of the 5 and 3 scales (from the seven: the step's own colour). */
+export const FEEL_SCALE_COLORS = {
+  7: FEEL_LEVELS,
+  5: ["#6474e4", "#a9cbf2", "#a5d48f", "#f3d27a", "#ec8466"],
+  3: ["#8fa9ee", "#a5d48f", "#f0b06a"],
+} as const;
 
 /** Lines for the five 時間区分 in the trend graph (朝・日中・昼・夕方・夜): distinct from the level colours. */
 /**

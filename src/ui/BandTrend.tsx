@@ -12,7 +12,7 @@ import type { WeatherStore } from "../data/store";
 import { BAND_LINES, BAND_MARKS } from "../design/tokens";
 import { niceTicks, signedDiff, tickLabel, monthDay, dateLabel } from "../design/format";
 import { Chip, ForecastHatch, GraphReadout, GuideLines, Mark, MarkIcon } from "./kit";
-import { FeelContext, LEVEL_COLORS } from "./FeelBar";
+import { FeelContext, levelRanges } from "./FeelBar";
 
 export const BAND_COLORS = BAND_LINES;
 export const MAX_COMPARED_BANDS = 3;
@@ -84,11 +84,10 @@ export function BandTrend({ store, station, target, partner }: Props) {
   const y = (v: number) => PAD.top + ((hi - v) * (H - PAD.top - PAD.bottom)) / (hi - lo);
 
   // Level colour bands behind the lines, so a line's height reads as 寒い…暑い at a glance.
-  const edges = [-Infinity, ...settings.thresholds, Infinity];
-  const levelBands = edges.slice(0, -1).map((from, i) => {
-    const top = Math.min(hi, edges[i + 1]);
+  const levelBands = levelRanges(settings.thresholds, settings.scale).map(({ from, to, color }, i) => {
+    const top = Math.min(hi, to);
     const bottom = Math.max(lo, from);
-    return top > bottom ? { i, y1: y(top), y2: y(bottom) } : null;
+    return top > bottom ? { i, color, y1: y(top), y2: y(bottom) } : null;
   });
 
   const toggle = (i: number) =>
@@ -157,7 +156,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
           <ForecastHatch id="fc-trend" />
         </defs>
         {levelBands.map(
-          (b) => b && <rect key={b.i} x={PAD.left} width={w - PAD.left - PAD.right} y={b.y1} height={b.y2 - b.y1} fill={LEVEL_COLORS[b.i]} opacity={0.12} />,
+          (b) => b && <rect key={b.i} x={PAD.left} width={w - PAD.left - PAD.right} y={b.y1} height={b.y2 - b.y1} fill={b.color} opacity={0.12} />,
         )}
         {dates.map((d, i) =>
           !forecastDay(i) ? null : (

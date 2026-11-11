@@ -14,6 +14,11 @@ import {
   levelOf,
   spread,
   windAtPerson,
+  type Level,
+  SCALE_STEPS,
+  scaleThresholds,
+  stepOf,
+  type Thresholds,
 } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 
@@ -50,8 +55,23 @@ group("apparent temperature", () => {
 });
 
 group("levels", () => {
-  it("uses the boundaries 10 / 15 / 21 / 25", () => {
-    expect([9.9, 10, 14.9, 15, 20.9, 21, 24.9, 25, 30].map((v) => levelOf(v))).toEqual([0, 1, 1, 2, 2, 3, 3, 4, 4]);
+  it("uses the boundaries 5 / 10 / 15 / 21 / 25 / 29 (seven steps)", () => {
+    expect([4.9, 5, 9.9, 10, 14.9, 15, 20.9, 21, 24.9, 25, 28.9, 29, 35].map((v) => levelOf(v))).toEqual([0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6]);
+  });
+
+  it("groups the seven steps into five and three for short displays", () => {
+    expect([0, 1, 2, 3, 4, 5, 6].map((l) => stepOf(l as Level, 5))).toEqual([0, 0, 1, 2, 3, 4, 4]);
+    expect([0, 1, 2, 3, 4, 5, 6].map((l) => stepOf(l as Level, 3))).toEqual([0, 0, 0, 1, 2, 2, 2]);
+    expect([0, 1, 2, 3, 4, 5, 6].map((l) => stepOf(l as Level, 7))).toEqual([0, 1, 2, 3, 4, 5, 6]);
+    expect(SCALE_STEPS[5].map((s) => s.label)).toEqual(["寒い", "肌寒い", "適温", "暖かい", "暑い"]);
+    expect(SCALE_STEPS[3].map((s) => s.label)).toEqual(["寒い側", "適温", "暑い側"]);
+  });
+
+  it("gives each scale the boundaries between its own steps", () => {
+    const t = [5, 10, 15, 21, 25, 29] as const;
+    expect(scaleThresholds([...t] as Thresholds, 7)).toEqual([5, 10, 15, 21, 25, 29]);
+    expect(scaleThresholds([...t] as Thresholds, 5)).toEqual([10, 15, 21, 25]);
+    expect(scaleThresholds([...t] as Thresholds, 3)).toEqual([15, 21]);
   });
 });
 
@@ -120,7 +140,7 @@ group("describing the day", () => {
   it("works on the three-segment estimate too", () => {
     const est: Band[] = [
       { label: "朝晩", feel: 9, temp: null, level: 0, source: "actual", sunCounted: false },
-      { label: "昼", feel: 27, temp: null, level: 4, source: "actual", sunCounted: false },
+      { label: "昼", feel: 27, temp: null, level: 5, source: "actual", sunCounted: false },
       { label: "朝晩", feel: 9, temp: null, level: 0, source: "actual", sunCounted: false },
     ];
     expect(describe(est)).toBe("朝晩は冷えるが昼は暑い");

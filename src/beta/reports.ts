@@ -19,7 +19,7 @@ export const SENSATIONS = [
   { value: -3, label: "寒い" },
   { value: -2, label: "涼しい" },
   { value: -1, label: "やや涼しい" },
-  { value: 0, label: "どちらでもない" },
+  { value: 0, label: "適温" },
   { value: 1, label: "やや暖かい" },
   { value: 2, label: "暖かい" },
   { value: 3, label: "暑い" },

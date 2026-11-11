@@ -3,7 +3,7 @@
 
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { jstHour } from "../../shared/dates";
-import { BANDS, LEVELS } from "../../shared/feel";
+import { BANDS } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { ForecastHatch, GraphReadout, GuideLines } from "./kit";
@@ -20,7 +20,7 @@ import {
 } from "../dayDetail";
 import { type DataColor, DATA } from "../design/tokens";
 import { dateLabel, needsYear, niceTicks, tickLabel } from "../design/format";
-import { FeelContext, LEVEL_COLORS } from "./FeelBar";
+import { FeelContext, legendOf, levelRanges } from "./FeelBar";
 
 /** The colour of an hourly item: the same for both days (they differ by solid / dashed). */
 export const HOUR_TONE: Record<DetailMetricId, DataColor> = {
@@ -136,7 +136,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         main={main}
         second={other ? second : null}
         air={air}
-        thresholds={settings.thresholds}
+        ranges={levelRanges(settings.thresholds, settings.scale)}
         sun={sun}
         nowHour={isToday ? nowHour : null}
         hour={shownHour}
@@ -150,9 +150,9 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
 
       {metricId === "feel" && (
         <p className="level-legend">
-          {LEVELS.map((label, i) => (
+          {legendOf(settings.scale).map(({ label, color }) => (
             <span key={label}>
-              <i style={{ background: LEVEL_COLORS[i] }} />
+              <i style={{ background: color }} />
               {label}
             </span>
           ))}
@@ -221,7 +221,7 @@ function HourChart({
   main,
   second,
   air,
-  thresholds,
+  ranges,
   sun,
   nowHour,
   hour,
@@ -234,7 +234,8 @@ function HourChart({
   main: HourPoint[];
   second: HourPoint[] | null;
   air: HourPoint[] | null;
-  thresholds: number[];
+  /** Coloured 肌感 ranges behind the feel graph (the chosen scale). */
+  ranges: { from: number; to: number; color: string }[];
   sun: SunTimes | null;
   nowHour: number | null;
   hour: number;
@@ -340,12 +341,11 @@ function HourChart({
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の時間ごとのグラフ`}>
         {/* Feel levels behind the lines. */}
         {metricId === "feel" &&
-          [lo, ...thresholds, hi].slice(0, -1).map((from, i, edges) => {
-            const to = i + 1 < edges.length ? edges[i + 1] : hi;
+          ranges.map(({ from, to, color }, i) => {
             if (to <= lo || from >= hi) return null;
             const top = yOf(Math.min(hi, to));
             const bottom = yOf(Math.max(lo, from));
-            return <rect key={i} x={PAD.left} width={plotW} y={top} height={Math.max(0, bottom - top)} fill={LEVEL_COLORS[i]} opacity={0.14} />;
+            return <rect key={i} x={PAD.left} width={plotW} y={top} height={Math.max(0, bottom - top)} fill={color} opacity={0.14} />;
           })}
         <defs>
           <ForecastHatch id="fc-hours" />
