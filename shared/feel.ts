@@ -11,8 +11,8 @@ import type { WeatherRow } from "./types";
 // ---- settings --------------------------------------------------------------------------------
 
 export interface FeelSettings {
-  /** Upper bounds of 寒い, 肌寒い, 過ごしやすい, 暖かい (℃ of apparent temperature). */
-  thresholds: [number, number, number, number];
+  /** The six boundaries of the seven steps 寒い … 暑い (℃ of apparent temperature), ascending. */
+  thresholds: Thresholds;
   /** Surroundings exponent: 0.14 open, 0.20 residential, 0.30 urban, 0.40 dense urban. */
   alpha: number;
   /** Anemometer height for observed values (m). Forecast wind is always at 10 m. */
@@ -21,6 +21,8 @@ export interface FeelSettings {
   absorb: number;
   /** In the sun (radiation counted) or in the shade. */
   sun: boolean;
+  /** How many steps to show (the levels are always computed on seven). */
+  scale?: Scale;
 }
 
 export const SURROUNDINGS = [
@@ -32,7 +34,7 @@ export const SURROUNDINGS = [
 
 // Default: dense urban (wind × 0.47 at 10 m), chosen after the first look at real data felt too cold.
 export const DEFAULT_FEEL: FeelSettings = {
-  thresholds: [10, 15, 21, 25],
+  thresholds: [5, 10, 15, 21, 25, 29],
   alpha: 0.4,
   stationHeight: 10,
   absorb: 0.2, // raised from 0.12 after the first look: sunny spots felt warmer than shown
@@ -101,12 +103,58 @@ export function feelOf(
 
 // ---- levels ----------------------------------------------------------------------------------
 
-export const LEVELS = ["寒い", "肌寒い", "過ごしやすい", "暖かい", "暑い"] as const;
-export type Level = 0 | 1 | 2 | 3 | 4;
+// Seven steps, the same words and order as the 感じ方 reports (ASHRAE 55's 7-point scale), so the
+// 肌感 levels and what people report can be set side by side. Five and three are groupings of the
+// seven for compact displays; the calculation is always on the seven.
+
+export type Thresholds = [number, number, number, number, number, number];
+
+export const LEVELS = ["寒い", "涼しい", "やや涼しい", "適温", "やや暖かい", "暖かい", "暑い"] as const;
+export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export function levelOf(apparent: number, s: FeelSettings = DEFAULT_FEEL): Level {
   const i = s.thresholds.findIndex((upTo) => apparent < upTo);
-  return (i < 0 ? 4 : i) as Level;
+  return (i < 0 ? 6 : i) as Level;
+}
+
+export type Scale = 7 | 5 | 3;
+export const SCALES: Scale[] = [7, 5, 3];
+
+/** The steps of each scale: their names and which of the seven each one gathers. */
+export const SCALE_STEPS: Record<Scale, { label: string; of: Level[] }[]> = {
+  7: LEVELS.map((label, i) => ({ label, of: [i as Level] })),
+  5: [
+    { label: "寒い", of: [0, 1] },
+    { label: "肌寒い", of: [2] },
+    { label: "適温", of: [3] },
+    { label: "暖かい", of: [4] },
+    { label: "暑い", of: [5, 6] },
+  ],
+  3: [
+    { label: "寒い側", of: [0, 1, 2] },
+    { label: "適温", of: [3] },
+    { label: "暑い側", of: [4, 5, 6] },
+  ],
+};
+
+/** The step (0-based, within the scale) that a seven-step level falls in. */
+export function stepOf(level: Level, scale: Scale): number {
+  return SCALE_STEPS[scale].findIndex((st) => st.of.includes(level));
+}
+
+/** The boundaries between a scale's steps (a subset of the six). */
+export function scaleThresholds(t: Thresholds, scale: Scale): number[] {
+  return scale === 7 ? [...t] : scale === 5 ? [t[1], t[2], t[3], t[4]] : [t[2], t[3]];
+}
+
+/** Old settings had four boundaries (5 steps): they become the inner four; the outer two are spaced alike. */
+export function thresholdsFrom(saved: number[]): Thresholds | null {
+  if (saved.length === 6) return saved as Thresholds;
+  if (saved.length === 4) {
+    const [t0, t1, t2, t3] = saved;
+    return [t0 - (t1 - t0), t0, t1, t2, t3, t3 + (t3 - t2)];
+  }
+  return null;
 }
 
 // ---- five bands ------------------------------------------------------------------------------
@@ -203,7 +251,7 @@ export function spread(bands: Band[]): number | null {
 
 /**
  * A short phrase for the day, judged mainly on morning, midday and night.
- * Cold = 肌寒い or below, hot = 暑い.
+ * Cold = やや涼しい or below, hot = 暖かい or above.
  */
 export function describe(bands: Band[]): string | null {
   const pick = (label: string) => bands.find((b) => b.label === label)?.level ?? null;
@@ -211,8 +259,8 @@ export function describe(bands: Band[]): string | null {
   const noon = pick("昼");
   const night = pick("夜") ?? pick("朝晩");
   if (morning == null || noon == null || night == null) return null;
-  const cold = (l: Level) => l <= 1;
-  const hot = (l: Level) => l >= 4;
+  const cold = (l: Level) => l <= 2;
+  const hot = (l: Level) => l >= 5;
   if (hot(morning) && hot(noon) && hot(night)) return "一日中暑い";
   if (cold(morning) && cold(noon) && cold(night)) return "一日中寒い";
   if (cold(morning) && cold(night) && hot(noon)) return "朝晩は冷えるが昼は暑い";

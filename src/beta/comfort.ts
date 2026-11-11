@@ -1,6 +1,6 @@
 // β: the comfort centre and range of this moment — several models, compared and combined.
 //
-// The idea: a person feels "どちらでもない" within a range around a centre; past its edges it turns
+// The idea: a person feels "適温" within a range around a centre; past its edges it turns
 // cool or warm step by step. Neither the centre nor the width is fixed: the days before (the recent
 // temperatures and how they changed, humidity, sunshine, rain, the weather) move both. Which of
 // them matter, and how much, is what the reports are for — so several models, each with its own
@@ -14,7 +14,7 @@
 //                                                     humidity and sun already in it)
 //   answer      P(Y ≤ k) = σ((c_k − (E′ − μ)) / s),  c = μ-relative edges ±h, ±(h+g), ±(h+2g)
 //
-// Priors: the person's own 肌感 boundaries give the level (centre = middle of 過ごしやすい, h half its
+// Priors: the person's own 肌感 boundaries give the level (centre = middle of 適温, h half its
 // width, g the spacing of the outer boundaries); the recent-temperature slope starts at 0.33
 // (EN 16798-1's adaptive comfort temperature against the running mean); every other driver starts
 // at 0 with a spread wide enough for the reports to move it.
@@ -201,9 +201,10 @@ export interface Prior {
 
 /** The prior, from the 肌感 boundaries t0 < t1 < t2 < t3. */
 export function priorFor(m: ModelSpec, thresholds: FeelSettings["thresholds"]): Prior {
-  const [t0, t1, t2, t3] = thresholds;
+  // The seven 肌感 steps' boundaries b0…b5: 適温 is [b2, b3].
+  const [b0, b1, t1, t2, b4, b5] = thresholds;
   const h = Math.max(0.5, (t2 - t1) / 2);
-  const g = Math.max(1, (t1 - t0 + (t3 - t2)) / 2);
+  const g = Math.max(1, (b1 - b0 + (t1 - b1) + (b4 - t2) + (b5 - b4)) / 4);
   const es = m.e ?? [];
   const mean = [(t1 + t2) / 2, ...m.mu.map((k) => (k === "a" ? 0.33 : 0)), Math.log(h), ...m.h.map(() => 0), ...es.map(() => 0), Math.log(g), 0, 0, 0];
   const sd = [3, ...m.mu.map((k) => DRIVERS[k].muSd), 0.5, ...m.h.map((k) => DRIVERS[k].hSd), ...es.map((k) => DRIVERS[k].eSd ?? 1), 0.5, 0.5, 1.5, 1.5];

@@ -4,7 +4,7 @@
 
 import { type ReactNode, useContext, useState } from "react";
 import { addDays } from "../../shared/dates";
-import { type Band, BANDS, type FeelSettings, describe, feelOf, hourlyBands, LEVELS, radiationOf, spread } from "../../shared/feel";
+import { type Band, BANDS, type FeelSettings, describe, feelOf, hourlyBands, radiationOf, spread } from "../../shared/feel";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
@@ -13,7 +13,7 @@ import { useSwipeDays } from "./useSwipeDays";
 import { CloseIcon } from "./icons";
 import { DayLabel, IconButton, Segmented, SwipeHint } from "./kit";
 import { monthDay } from "../design/format";
-import { bandsFor, FeelContext, LEVEL_COLORS } from "./FeelBar";
+import { bandsFor, FeelContext, legendOf, levelColor, levelName } from "./FeelBar";
 
 interface Props {
   store: WeatherStore | null;
@@ -175,7 +175,7 @@ function MapGrid({
     if (c.state === "empty") return <span className={cls + " none"}><span className="skeleton" /></span>;
     if (c.state === "error" || !cell || cell.feel == null) return <span className={cls + " none"}>—</span>;
     return (
-      <span className={cls} style={{ background: LEVEL_COLORS[cell.level!] }}>
+      <span className={cls} style={{ background: levelColor(cell.level!, settings.scale) }}>
         {side === "a" ? <b>{cell.feel.toFixed(0)}</b> : <small>{cell.feel.toFixed(0)}</small>}
       </span>
     );
@@ -215,8 +215,8 @@ function MapGrid({
               className={["band-cell", i === 3 ? "center" : "", isSelected ? "selected" : ""].join(" ")}
               disabled={!pickable}
               onClick={() => a.date && onSelect({ date: a.date, partner: b.date, band: bi })}
-              aria-label={`${a.date} ${band.label} 対象 ${ca?.feel != null ? `${LEVELS[ca.level!]} ${ca.feel.toFixed(0)}℃` : "なし"}、比較 ${
-                cb?.feel != null ? `${LEVELS[cb.level!]} ${cb.feel.toFixed(0)}℃` : "なし"
+              aria-label={`${a.date} ${band.label} 対象 ${ca?.feel != null ? `${levelName(ca.level!, settings.scale)} ${ca.feel.toFixed(0)}℃` : "なし"}、比較 ${
+                cb?.feel != null ? `${levelName(cb.level!, settings.scale)} ${cb.feel.toFixed(0)}℃` : "なし"
               }${diff != null ? `、差 ${signed(diff)}℃` : ""}`}
             >
               {half(a, bi, "a")}
@@ -324,13 +324,14 @@ function SwipeArea({ onStep, target, children }: { onStep?: (days: number) => vo
   );
 }
 
-/** The five feel levels: the colours behind every 肌感 view. */
+/** The 肌感 steps of the chosen scale: the colours behind every 肌感 view. */
 function LevelLegend() {
+  const settings = useContext(FeelContext);
   return (
     <p className="feel-legend">
-      {LEVELS.map((label, i) => (
+      {legendOf(settings.scale).map(({ label, color }) => (
         <span key={label}>
-          <i style={{ background: LEVEL_COLORS[i] }} />
+          <i style={{ background: color }} />
           {label}
         </span>
       ))}

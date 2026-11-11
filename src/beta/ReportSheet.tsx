@@ -111,7 +111,7 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
               onClick={() => setSensation(s.value)}
             >
               {/* Break where the words break, so seven fit a phone's width. */}
-              {s.label.replace(/^(やや|どちら)/, "$1\n")}
+              {s.label.replace(/^やや/, "やや\n")}
             </button>
           ))}
         </div>
