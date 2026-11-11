@@ -1,9 +1,9 @@
 // Component kit: the small parts every screen is built from. Each has one look and one behaviour,
 // so the same thing never looks different on two screens (rules: docs/design-system.md).
 
-import type { CSSProperties, ReactNode } from "react";
+import { type CSSProperties, Fragment, type ReactNode } from "react";
 import { dayTone } from "../../shared/holidays";
-import { type DataColor } from "../design/tokens";
+import { type BandMark, type DataColor } from "../design/tokens";
 import { dateLabel, digitsOf, monthDay, num, weekdayOf } from "../design/format";
 
 /** A choice chip. `size="sm"` for filters inside sheets. */
@@ -131,5 +131,96 @@ export function ForecastHatch({ id }: { id: string }) {
       <rect width="6" height="6" className="hatch-bg" />
       <line x1="0" y1="0" x2="0" y2="6" className="hatch-line" />
     </pattern>
+  );
+}
+
+/**
+ * A marker shape for the 時間区分 lines (their colours are a neutral family, so the shape tells them
+ * apart). Drawn centred on (x, y); `hollow` for the comparison day.
+ */
+export function Mark({ shape, x, y, r = 3.4, color, hollow = false }: { shape: BandMark; x: number; y: number; r?: number; color: string; hollow?: boolean }) {
+  const fill = hollow ? "var(--surface-base)" : color;
+  const common = { fill, stroke: color, strokeWidth: 1.4 };
+  switch (shape) {
+    case "square":
+      return <rect x={x - r * 0.9} y={y - r * 0.9} width={r * 1.8} height={r * 1.8} rx={0.6} {...common} />;
+    case "triangle":
+      return <path d={`M${x} ${y - r * 1.1}L${x + r * 1.05} ${y + r * 0.8}H${x - r * 1.05}Z`} {...common} />;
+    case "diamond":
+      return <path d={`M${x} ${y - r * 1.15}L${x + r * 1.05} ${y}L${x} ${y + r * 1.15}L${x - r * 1.05} ${y}Z`} {...common} />;
+    case "ring":
+      return <circle cx={x} cy={y} r={r} fill="var(--surface-base)" stroke={color} strokeWidth={2} />;
+    default:
+      return <circle cx={x} cy={y} r={r} {...common} />;
+  }
+}
+
+/** The same marker as a small inline icon (chips and legends). */
+export function MarkIcon({ shape, color }: { shape: BandMark; color: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden className="mark-icon">
+      <Mark shape={shape} x={6} y={6} r={3.6} color={color} />
+    </svg>
+  );
+}
+
+/**
+ * The guide that follows the finger on a graph (rule: 触っている所に補助線): a vertical line at the
+ * touched position and, for the target day's points, dashed lines across to the value axis.
+ */
+export function GuideLines({ x, top, bottom, left, points }: { x: number; top: number; bottom: number; left: number; points: { y: number; color: string }[] }) {
+  return (
+    <g className="guide" pointerEvents="none">
+      <line x1={x} x2={x} y1={top} y2={bottom} className="guide-v" />
+      {points.map((p, i) => (
+        <line key={i} x1={left} x2={x} y1={p.y} y2={p.y} className="guide-h" stroke={p.color} />
+      ))}
+    </g>
+  );
+}
+
+export interface ReadoutRow {
+  key: string;
+  label: string;
+  /** Text colour of the values (a data colour), or none. */
+  color?: string;
+  mark?: BandMark;
+  /** This row's unit, when it differs from the card's. */
+  unit?: string;
+  a: string;
+  b?: string;
+  diff?: string;
+}
+
+/**
+ * The values at the touched (or selected) position, in a card above the graph — the same card on
+ * every graph: what · target · comparison · difference.
+ */
+export function GraphReadout({ title, rows, unit, live }: { title: ReactNode; rows: ReadoutRow[]; unit: string; live?: boolean }) {
+  return (
+    <div className={live ? "readout-card live" : "readout-card"} aria-live="polite">
+      <div className="ro-grid">
+        <b className="ro-title">{title}</b>
+        <small className="ro-col">対象</small>
+        <small className="ro-col">比較</small>
+        <small className="ro-col">差</small>
+        {rows.map((r) => (
+          <Fragment key={r.key}>
+            <span className="ro-label">
+              {r.mark && <MarkIcon shape={r.mark} color={r.color ?? "currentColor"} />}
+              {r.label}
+            </span>
+            <span className="ro-v" style={r.mark ? undefined : { color: r.color }}>
+              {r.a}
+              {r.a !== "—" && (r.unit ?? unit) && <small className="unit">{r.unit ?? unit}</small>}
+            </span>
+            <span className="ro-v ro-b" style={r.mark ? undefined : { color: r.color }}>
+              {r.b ?? "—"}
+            </span>
+            <span className="ro-v ro-diff">{r.diff || "—"}</span>
+          </Fragment>
+        ))}
+      </div>
+    </div>
   );
 }

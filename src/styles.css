@@ -87,7 +87,6 @@ p {
 .cell-value,
 .cs-val,
 .cs-line,
-.readout,
 .date-button,
 .cell-date,
 .similar-list .v,
@@ -952,8 +951,12 @@ button.label-feel.shade small {
   font-size: 9px;
 }
 
+/* The selected day in a graph: a frame, as in the tables — the background is kept for 予報. */
 .chart-center {
-  fill: var(--accent-wash);
+  fill: none;
+  stroke: var(--accent-base);
+  stroke-width: 1.5;
+  opacity: 0.75;
 }
 
 .chart-hit {
@@ -1123,11 +1126,6 @@ button.label-feel.shade small {
   font-size: 10px;
 }
 
-.day-cursor {
-  stroke: var(--ink-primary);
-  opacity: 0.35;
-}
-
 .day-cursor-bar {
   fill: var(--ink-primary);
   opacity: 0.08;
@@ -1139,63 +1137,101 @@ button.label-feel.shade small {
   margin: var(--space-2);
 }
 
-/* The hour's values: 時刻 · 対象日 · 比較日 · 差 — a card above the graph, fixed in height so the graph never jumps. */
+/* The values at the touched (or selected) position: one card above every graph.
+   Columns: what · 対象 · 比較 · 差. Fixed row heights so the graph below never jumps. */
 .readout-card {
   margin: 0 2px var(--space-3);
   padding: 6px 10px 7px;
-  min-height: 44px;
   border-radius: var(--radius-md);
   background: var(--surface-inset);
   box-shadow: 0 0 0 1px var(--line-soft) inset;
+  transition: box-shadow var(--motion-quick) var(--ease-standard);
 }
 
-.readout-card .readout {
-  margin: 0;
+/* While the finger is on the graph, the card lights up: it is reading what you touch. */
+.readout-card.live {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-base) 55%, transparent) inset,
+    0 0 14px var(--accent-glow);
 }
 
-.readout {
-  display: flex;
-  flex-wrap: wrap;
+.ro-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 64px 64px 50px;
   align-items: baseline;
-  gap: 2px 14px;
-  margin: var(--space-3) var(--space-3) 0;
-  font-size: var(--size-md);
+  column-gap: 6px;
+  row-gap: 1px;
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
 }
 
-.readout small {
+.ro-title {
+  font-size: var(--size-base);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ro-title small {
+  font-family: var(--font-family);
+  font-weight: var(--weight-regular);
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+}
+
+.ro-col {
   font-family: var(--font-family);
   font-size: var(--size-xs);
   color: var(--ink-tertiary);
-  margin-right: 4px;
+  text-align: right;
 }
 
-.readout .ro-hour {
-  font-weight: var(--weight-bold);
+.ro-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-family);
+  font-size: var(--size-sm);
+  color: var(--ink-secondary);
+  white-space: nowrap;
 }
 
-.readout .ro-b > span {
+.ro-v {
+  text-align: right;
+  font-size: var(--size-md);
+  white-space: nowrap;
+}
+
+.ro-v.ro-b {
   opacity: 0.72;
 }
 
-.readout .ro-diff {
+.ro-v.ro-diff {
   font-size: var(--size-base);
-  color: var(--ink-secondary);
+  color: var(--ink-primary);
 }
 
-.readout.sub {
-  font-size: var(--size-base);
-  margin-top: 2px;
+/* The guide that follows the finger. */
+.guide-v {
+  stroke: var(--ink-primary);
+  stroke-width: 1;
+  opacity: 0.55;
 }
 
-.readout.sub .ro-hour {
-  font-weight: var(--weight-regular);
-  font-size: var(--size-sm);
-  color: var(--ink-tertiary);
+.guide-h {
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  opacity: 0.75;
 }
 
-.readout .ro-note {
-  font-size: var(--size-xs);
-  color: var(--ink-tertiary);
+.day-chart,
+svg.scrub {
+  touch-action: pan-y;
+  cursor: crosshair;
+}
+
+.mark-icon {
+  flex: none;
 }
 
 /* ---- the two days side by side ----------------------------------------------------------- */
@@ -1473,6 +1509,17 @@ button.label-feel.shade small {
   transform: translateY(100%);
 }
 
+/* Views (肌感マップ, 似た日, 設定) open exactly as tall as the graph sheet at its highest. */
+.msheet.full {
+  height: var(--sheet-max, 88vh);
+  max-height: none;
+}
+
+/* A short picker (カレンダー) is as tall as its content. */
+.msheet.fit {
+  max-height: 90vh;
+}
+
 .msheet .sheet-handle {
   position: sticky;
   top: 0;
@@ -1564,8 +1611,6 @@ button.label-feel.shade small {
   font-size: var(--size-md);
 }
 
-.band-most .warmer { color: var(--data-hot); }
-.band-most .cooler { color: var(--data-cold); }
 
 .band-diff {
   display: flex;
@@ -1580,8 +1625,8 @@ button.label-feel.shade small {
   width: 4.5em;
 }
 
-.band-diff .warmer { color: var(--data-hot); }
-.band-diff .cooler { color: var(--data-cold); }
+/* Differences are never coloured (red and blue mean 最高 and 最低); a big one is just bolder. */
+.band-diff .big { color: var(--ink-primary); font-weight: var(--weight-bold); }
 
 .band-map {
   display: grid;
@@ -1738,24 +1783,31 @@ button.label-feel.shade small {
   color: var(--ink-tertiary);
 }
 
-.bm-key-a,
-.bm-key-b {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  color: var(--ink-secondary);
-}
-
-.bm-key-a::before,
-.bm-key-b::before {
-  content: "";
+.line-legend .bm-key-a,
+.line-legend .bm-key-b {
   width: 14px;
+  border: none;
   border-radius: 2px;
   background: var(--ink-tertiary);
 }
 
-.bm-key-a::before { height: 10px; }
-.bm-key-b::before { height: 4px; opacity: 0.7; }
+.line-legend .bm-key-a { height: 10px; }
+.line-legend .bm-key-b { height: 4px; opacity: 0.7; }
+
+.line-legend .ls-estimate {
+  width: 14px;
+  height: 10px;
+  border: 1px dashed var(--ink-tertiary);
+  border-radius: 2px;
+}
+
+.map-legend {
+  margin: 0;
+}
+
+.map-hint {
+  margin: 0;
+}
 
 .band-detail-day {
   margin: var(--space-4) 0 2px !important;

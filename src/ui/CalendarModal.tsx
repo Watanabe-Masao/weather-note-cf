@@ -79,7 +79,7 @@ function CalendarModalBody({ title, value, min, max, onPick, onClose: _done }: P
 
 export function CalendarModal(props: Props) {
   return (
-    <ModalSheet title={`${props.title}を選ぶ`} onClose={props.onClose} className="calendar">
+    <ModalSheet title={`${props.title}を選ぶ`} onClose={props.onClose} className="calendar" size="fit">
       <CalendarModalBody {...props} />
     </ModalSheet>
   );

@@ -51,6 +51,11 @@ interface Props {
   headerEnd?: ReactNode;
   onClose: () => void;
   className?: string;
+  /**
+   * "full": the graph sheet's highest height (views: 肌感マップ, 似た日, 設定), so every big surface
+   * is one size. "fit": as tall as the content (a short picker: カレンダー).
+   */
+  size?: "full" | "fit";
   children: ReactNode;
 }
 
@@ -58,7 +63,7 @@ type Phase = "entering" | "open" | "closing";
 
 let openSheets = 0;
 
-export function ModalSheet({ title, label, headerEnd, onClose, className, children }: Props) {
+export function ModalSheet({ title, label, headerEnd, onClose, className, size = "full", children }: Props) {
   const [phase, setPhase] = useState<Phase>("entering");
   const [pull, setPull] = useState<number | null>(null);
   const [settleMs, setSettleMs] = useState(OPEN_MS);
@@ -199,7 +204,7 @@ export function ModalSheet({ title, label, headerEnd, onClose, className, childr
       />
       <section
         ref={panel}
-        className={`msheet${className ? ` ${className}` : ""}${drag.current ? " dragging" : ""}`}
+        className={`msheet ${size}${className ? ` ${className}` : ""}${drag.current ? " dragging" : ""}`}
         role="dialog"
         aria-modal="true"
         aria-label={label ?? (typeof title === "string" ? title : undefined)}

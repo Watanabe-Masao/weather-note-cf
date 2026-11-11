@@ -8,9 +8,9 @@ import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import { type ChartMetric, graphSeries } from "../chartMetrics";
 import { DATA } from "../design/tokens";
-import { Chip, ForecastHatch } from "./kit";
+import { Chip, ForecastHatch, GraphReadout, GuideLines } from "./kit";
 import type { WeatherStore } from "../data/store";
-import { niceTicks, tickLabel } from "../design/format";
+import { dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
 import { FeelContext } from "./FeelBar";
 import { useDrumPan } from "./useDrumPan";
 
@@ -75,6 +75,8 @@ function useHidden(metric: ChartMetric) {
 
 /** Days drawn beyond each edge, so a swipe reveals real data instead of blank space. */
 const BUFFER = 4;
+/** Hold this long (ms) without moving to scrub instead of panning. */
+const LONG_PRESS = 280;
 
 export function Chart({ store, station, target, partner, metric, height = 190, onPickDay, onShiftDays }: Props) {
   const H = height;
@@ -95,7 +97,70 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   const days = Array.from({ length: 7 + 2 * BUFFER }, (_, i) => addDays(target, i - 3 - BUFFER));
   const step = (w - PAD.left - PAD.right) / 7;
   const xOf = (i: number) => PAD.left + step * (i - BUFFER + 0.5);
-  const pan = useDrumPan(ref, step, onShiftDays);
+  // Long press (or mouse hover) scrubs: a guide follows the finger and the card above reads that day.
+  const [scrub, setScrub] = useState<number | null>(null);
+  const scrubbing = useRef(false);
+  const scrubbedAt = useRef(0);
+  const pan = useDrumPan(ref, step, onShiftDays, () => scrubbing.current);
+  const dayAt = (clientX: number) => {
+    const r = ref.current!.getBoundingClientRect();
+    const i = Math.floor((clientX - r.left - PAD.left) / step) + BUFFER;
+    return Math.max(BUFFER, Math.min(BUFFER + 6, i));
+  };
+  useEffect(() => {
+    const el = ref.current!;
+    let timer = 0;
+    let start: { x: number; y: number } | null = null;
+    const stop = () => {
+      window.clearTimeout(timer);
+      start = null;
+      if (scrubbing.current) {
+        scrubbing.current = false;
+        scrubbedAt.current = performance.now();
+        setScrub(null);
+      }
+    };
+    const ts = (e: TouchEvent) => {
+      if (e.touches.length !== 1) return stop();
+      const t = e.touches[0];
+      start = { x: t.clientX, y: t.clientY };
+      timer = window.setTimeout(() => {
+        if (!start) return;
+        scrubbing.current = true;
+        setScrub(dayAt(start.x));
+        navigator.vibrate?.(8);
+      }, LONG_PRESS);
+    };
+    const tm = (e: TouchEvent) => {
+      const t = e.touches[0];
+      if (scrubbing.current) {
+        e.preventDefault();
+        setScrub(dayAt(t.clientX));
+      } else if (start && Math.hypot(t.clientX - start.x, t.clientY - start.y) > 8) {
+        window.clearTimeout(timer);
+        start = null;
+      }
+    };
+    const pm = (e: PointerEvent) => e.pointerType === "mouse" && !e.buttons && setScrub(dayAt(e.clientX));
+    const pl = (e: PointerEvent) => e.pointerType === "mouse" && setScrub(null);
+    el.addEventListener("touchstart", ts, { passive: true });
+    el.addEventListener("touchmove", tm, { passive: false });
+    el.addEventListener("touchend", stop);
+    el.addEventListener("touchcancel", stop);
+    el.addEventListener("pointermove", pm);
+    el.addEventListener("pointerleave", pl);
+    return () => {
+      stop();
+      el.removeEventListener("touchstart", ts);
+      el.removeEventListener("touchmove", tm);
+      el.removeEventListener("touchend", stop);
+      el.removeEventListener("touchcancel", stop);
+      el.removeEventListener("pointermove", pm);
+      el.removeEventListener("pointerleave", pl);
+    };
+    // dayAt reads the current layout through refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   const read = (date: string | null, s: ChartMetric["series"][number]): { v: number | null; forecast: boolean } => {
     if (!date) return { v: null, forecast: false };
@@ -145,11 +210,14 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   if (lo !== 0) lo -= pad;
   hi = metric.max ?? hi + pad;
   // Round ticks, widened to whole steps (a fixed top such as 100% stays).
-  const nice = niceTicks(lo, hi, 3);
+  const nice = niceTicks(lo, hi, 5);
   if (metric.max == null) hi = nice.hi;
   lo = metric.zero ? Math.max(0, nice.lo) : nice.lo;
   const ticks = nice.ticks.filter((t) => t >= lo - 1e-9 && t <= hi + 1e-9);
   const yOf = (v: number) => PAD.top + ((hi - v) * (H - PAD.top - bottom)) / (hi - lo);
+  const shownIndex = scrub ?? BUFFER + 3;
+  const shownDay = days[shownIndex];
+  const shownPartner = partner(shownDay);
 
   return (
     <div ref={ref} className="chart">
@@ -163,6 +231,31 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
         </p>
       )}
       {metric.forecastOnly && <p className="chart-note">予報の日だけの値です（過去の日にはありません）</p>}
+      <GraphReadout
+        live={scrub != null}
+        unit={metric.unit}
+        title={
+          <>
+            {dateLabel(shownDay)}
+            {shownPartner && <small> 比較 {monthDay(shownPartner)}</small>}
+          </>
+        }
+        rows={series
+          .filter((x) => !x.compare && !x.s.thin)
+          .map(({ s, points }) => {
+            const a = points[shownIndex].v;
+            const b = pick(s.key, true).points[shownIndex].v;
+            const d = digitsOf(s.unit ?? metric.unit);
+            return {
+              key: s.key,
+              label: s.key === "feel" ? (feel.sun ? "日なた温度" : "日かげ温度") : s.label,
+              color: COLORS[s.tone],
+              a: a == null ? "—" : a.toFixed(d),
+              b: b == null ? "—" : b.toFixed(d),
+              diff: signedDiff(a, b, d),
+            };
+          })}
+      />
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の日別グラフ`}>
         {/* centre day */}
         <defs>
@@ -171,7 +264,6 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             <rect x={PAD.left - 4} y={0} width={w - PAD.left - PAD.right + 8} height={H} />
           </clipPath>
         </defs>
-        <rect x={xOf(3 + BUFFER) - step / 2} y={PAD.top - 6} width={step} height={H - PAD.top - bottom + 6} className="chart-center" />
         {ticks.map((t) => (
           <g key={t}>
             <line x1={PAD.left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
@@ -202,6 +294,8 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             </g>
           );
         })}
+        {/* The selected day: a frame, as in the tables (the background is for 予報 only). */}
+        <rect x={xOf(3 + BUFFER) - step / 2 + 1} y={PAD.top - 4} width={step - 2} height={H - PAD.top - bottom + 4} rx={8} className="chart-center" />
         {spreadOn && <Spread top={pick("max", false).points} low={pick("min", false).points} yOf={yOf} />}
 
         {metric.chart === "bar"
@@ -258,6 +352,15 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             ),
           )}
 
+        {scrub != null && (
+          <GuideLines
+            x={xOf(scrub)}
+            top={PAD.top}
+            bottom={H - bottom}
+            left={PAD.left}
+            points={series.filter((x) => !x.compare && !x.s.thin).flatMap(({ s, points }) => (points[scrub].v == null ? [] : [{ y: yOf(points[scrub].v!), color: COLORS[s.tone] }]))}
+          />
+        )}
         {under.map((row, k) => (
           <g key={`under-${k}`}>
             {row.cells.map((c, i) => (
@@ -295,7 +398,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
               y={0}
               width={step}
               height={H}
-              onClick={() => !pan.justDragged() && onPickDay(d)}
+              onClick={() => !pan.justDragged() && performance.now() - scrubbedAt.current > 350 && onPickDay(d)}
               role="button"
               aria-label={`${+d.slice(5, 7)}月${+d.slice(8)}日の時間帯を見る`}
             />

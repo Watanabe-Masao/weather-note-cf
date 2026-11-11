@@ -6,7 +6,7 @@ import { jstHour } from "../../shared/dates";
 import { BANDS, LEVELS } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
-import { ForecastHatch } from "./kit";
+import { ForecastHatch, GraphReadout, GuideLines } from "./kit";
 import { cachedSun, hourOfDay, loadSun, sunAvailable, type SunTimes } from "../data/sun";
 import {
   axisRange,
@@ -81,6 +81,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const isToday = date === today;
   const nowHour = jstHour();
   const [hour, setHour] = useState<number | null>(null);
+  const [scrubbing, setScrubbing] = useState(false);
   const shownHour = hour ?? initialHour(main, isToday, nowHour);
   useEffect(() => setHour(null), [date]);
 
@@ -88,50 +89,47 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // Same month and day a year apart would read "11/10" twice: the comparison day keeps its year.
   const mainLabel = dateLabel(date, { weekday: false });
   const otherLabel = other ? dateLabel(other, { year: needsYear(other, date), weekday: false }) : "";
-  const unit = (v: number | null) => (metric.unit !== "h" && v != null ? metric.unit : "");
   const tone = HOUR_TONE[metricId];
   const color = DATA[tone];
 
   return (
     <div className="hour-compare">
       <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
-      {/* The hour's values above the graph, where the eye starts: the target day, the comparison day muted, the difference. */}
-      <div className="readout-card">
-      <p className="readout">
-        <b className="ro-hour">{shownHour}時</b>
-        <span className="ro-a">
-          <small>{mainLabel}</small>
-          <span className={`tone-${tone}`}>
-            {formatDetail(at(main), metric)}
-            <small className="unit">{unit(at(main))}</small>
-          </span>
-        </span>
-        {other && (
-          <span className="ro-b">
-            <small>{otherLabel}</small>
-            <span className={`tone-${tone}`}>
-              {formatDetail(at(second), metric)}
-              <small className="unit">{unit(at(second))}</small>
-            </span>
-          </span>
-        )}
-        {other && metric.unit !== "h" && <span className="ro-diff">{signedDiff(at(main), at(second), metric.unit) || "—"}</span>}
-      </p>
-      {metricId === "radiation" && (
-        <p className="readout sub">
-          <span className="ro-hour">日照</span>
-          <span className="ro-a tone-sun">{formatDetail(sunMain[shownHour - 1]?.v ?? null, detailMetric("sun"))}</span>
-          {other && <span className="ro-b tone-sun">{formatDetail(sunOther[shownHour - 1]?.v ?? null, detailMetric("sun"))}</span>}
-        </p>
-      )}
-      {metricId === "rain" && chance.some((p) => p.v != null) && (
-        <p className="readout sub">
-          <span className="ro-hour">降水確率</span>
-          <span className="ro-a tone-rain">{at(chance) == null ? "—" : `${Math.round(at(chance)!)}%`}</span>
-          <span className="ro-note">予報の時間だけ</span>
-        </p>
-      )}
-      </div>
+      {/* The hour's values above the graph, in the card every graph uses. */}
+      <GraphReadout
+        live={scrubbing}
+        unit={metric.unit === "h" ? "" : metric.unit}
+        title={
+          <>
+            {shownHour}時<small> {mainLabel}{other ? ` / ${otherLabel}` : ""}</small>
+          </>
+        }
+        rows={[
+          {
+            key: "main",
+            label: metric.label,
+            color,
+            a: formatDetail(at(main), metric),
+            b: other ? formatDetail(at(second), metric) : "—",
+            diff: other && metric.unit !== "h" ? signedDiff(at(main), at(second), metric.unit) : "",
+          },
+          ...(metricId === "radiation"
+            ? [
+                {
+                  key: "sun",
+                  label: "日照",
+                  color: DATA.sun,
+                  unit: "",
+                  a: formatDetail(sunMain[shownHour - 1]?.v ?? null, detailMetric("sun")),
+                  b: other ? formatDetail(sunOther[shownHour - 1]?.v ?? null, detailMetric("sun")) : "—",
+                },
+              ]
+            : []),
+          ...(metricId === "rain" && chance.some((p) => p.v != null)
+            ? [{ key: "chance", label: "降水確率", color: DATA.rain, unit: "%", a: at(chance) == null ? "—" : String(Math.round(at(chance)!)) }]
+            : []),
+        ]}
+      />
 
       <HourChart
         metricId={metricId}
@@ -143,6 +141,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         nowHour={isToday ? nowHour : null}
         hour={shownHour}
         onHour={setHour}
+        onScrub={setScrubbing}
         height={height}
         color={color}
       />
@@ -210,6 +209,7 @@ function HourChart({
   nowHour,
   hour,
   onHour,
+  onScrub,
   height,
   color,
 }: {
@@ -222,6 +222,8 @@ function HourChart({
   nowHour: number | null;
   hour: number;
   onHour: (h: number) => void;
+  /** True while the finger is on the graph (the card above reads live). */
+  onScrub?: (on: boolean) => void;
   height: number;
   /** The item's data colour (both days). */
   color: string;
@@ -245,7 +247,7 @@ function HourChart({
   const values = [main, second ?? [], air ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null);
   // Round ticks (10 / 15 / 20): the padded data range widened to whole steps.
   const range = axisRange(values, metric);
-  const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 3);
+  const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
   const yOf = (v: number) => PAD.top + ((hi - Math.min(hi, Math.max(lo, v))) * (H - PAD.top - PAD.bottom)) / (hi - lo);
   const rise = hourOfDay(sun?.sunrise ?? null);
   const set = hourOfDay(sun?.sunset ?? null);
@@ -301,11 +303,22 @@ function HourChart({
       className="chart day-chart"
       onPointerDown={(e) => {
         scrub.current = true;
+        onScrub?.(true);
         pickAt(e.clientX);
       }}
       onPointerMove={(e) => scrub.current && pickAt(e.clientX)}
-      onPointerUp={() => (scrub.current = false)}
-      onPointerLeave={() => (scrub.current = false)}
+      onPointerUp={() => {
+        scrub.current = false;
+        onScrub?.(false);
+      }}
+      onPointerLeave={() => {
+        scrub.current = false;
+        onScrub?.(false);
+      }}
+      onPointerCancel={() => {
+        scrub.current = false;
+        onScrub?.(false);
+      }}
     >
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の時間ごとのグラフ`}>
         {/* Feel levels behind the lines. */}
@@ -373,7 +386,13 @@ function HourChart({
         {metric.chart === "bar" ? (
           <rect x={xOf(hour - 1)} width={step} y={PAD.top} height={H - PAD.top - PAD.bottom} className="day-cursor-bar" />
         ) : (
-          <line x1={xOf(hour)} x2={xOf(hour)} y1={PAD.top} y2={H - PAD.bottom} className="day-cursor" />
+          <GuideLines
+            x={xOf(hour)}
+            top={PAD.top}
+            bottom={H - PAD.bottom}
+            left={PAD.left}
+            points={main[hour - 1]?.v != null ? [{ y: yOf(main[hour - 1].v!), color }] : []}
+          />
         )}
 
         {metric.chart === "bar" ? (
