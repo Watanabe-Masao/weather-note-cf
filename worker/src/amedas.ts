@@ -3,6 +3,7 @@
 
 import { addDays, jstToday } from "../../shared/dates";
 import type { Station, WeatherRow } from "../../shared/types";
+import { SourceError } from "./errors";
 
 type Pair = [number, number] | undefined;
 type Point = Record<string, Pair | unknown>;
@@ -125,7 +126,7 @@ async function amedasStation(station: Station) {
     const r = await fetch("https://www.jma.go.jp/bosai/amedas/const/amedastable.json", {
       signal: AbortSignal.timeout(20_000),
     });
-    if (!r.ok) throw new Error("観測所の一覧を取得できませんでした。");
+    if (!r.ok) throw new SourceError("観測所の一覧を取得できませんでした。");
     amedasTable = await r.json();
   }
   const entries = Object.entries(amedasTable!);
@@ -141,7 +142,7 @@ async function amedasStation(station: Station) {
       .sort((a, b) => a.d - b.d)[0];
     if (nearest && nearest.d < 0.02) found = [nearest.id, nearest.s];
   }
-  if (!found) throw new Error("この地点の最新観測所を対応付けできませんでした。");
+  if (!found) throw new SourceError("この地点の最新観測所を対応付けできませんでした。");
   return { id: found[0], name: found[1].kjName, type: found[1].type };
 }
 
@@ -151,7 +152,7 @@ export async function observations(station: Station, day: string = jstToday()) {
   const latestResponse = await fetch("https://www.jma.go.jp/bosai/amedas/data/latest_time.txt", {
     signal: AbortSignal.timeout(20_000),
   });
-  if (!latestResponse.ok) throw new Error("最新の観測時刻を取得できませんでした。");
+  if (!latestResponse.ok) throw new SourceError("最新の観測時刻を取得できませんでした。");
   const latestTime = (await latestResponse.text()).trim();
   const today = jstToday();
   const lastHour = day < today ? 23 : latestTime.slice(0, 10) === day ? +latestTime.slice(11, 13) : 0;
@@ -161,7 +162,7 @@ export async function observations(station: Station, day: string = jstToday()) {
       const r = await fetch(`https://www.jma.go.jp/bosai/amedas/data/point/${id}/${compact(day)}_${block}.json`, {
         signal: AbortSignal.timeout(20_000),
       });
-      if (!r.ok) throw new Error("観測データを取得できませんでした。");
+      if (!r.ok) throw new SourceError("観測データを取得できませんでした。");
       return (await r.json()) as PointData;
     }),
   );
@@ -169,7 +170,7 @@ export async function observations(station: Station, day: string = jstToday()) {
     {},
     ...results.filter((r): r is PromiseFulfilledResult<PointData> => r.status === "fulfilled").map((r) => r.value),
   );
-  if (!Object.keys(joined).length) throw new Error("最新観測データを取得できませんでした。");
+  if (!Object.keys(joined).length) throw new SourceError("最新観測データを取得できませんでした。");
 
   let recent: ReturnType<typeof aggregateRecentDay> | null = null;
   if (day < today) {

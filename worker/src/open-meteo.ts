@@ -2,6 +2,7 @@
 
 import { type Confidence, confidenceOf, ensembleSpreads, type Spread } from "../../shared/confidence";
 import type { Station, WeatherRow } from "../../shared/types";
+import { SourceError } from "./errors";
 
 export const weatherCodeText = (code: number | null): string | null =>
   code == null
@@ -209,9 +210,9 @@ export async function fetchForecast(station: Station) {
     source = forecastUrl(station, false);
     r = await fetch(source, { signal: AbortSignal.timeout(25_000) });
   }
-  if (!r.ok) throw new Error(`予報の取得に失敗しました（${r.status}）。`);
+  if (!r.ok) throw new SourceError(`予報の取得に失敗しました（${r.status}）。`);
   const data = (await r.json()) as ForecastPayload & { error?: boolean; reason?: string };
-  if (data.error || !data.daily?.time?.length) throw new Error(data.reason ?? "予報データがありません。");
+  if (data.error || !data.daily?.time?.length) throw new SourceError("予報データがありません。");
   const forecast = normalizeForecast(data);
   const conf = await confidence;
   for (const row of forecast.rows) {
@@ -234,7 +235,7 @@ export async function fetchSunTimes(station: Station, day: string, today: string
       daily: "sunrise,sunset",
     });
   const r = await fetch(source, { signal: AbortSignal.timeout(25_000) });
-  if (!r.ok) throw new Error("日の出・日の入りを取得できませんでした。");
+  if (!r.ok) throw new SourceError("日の出・日の入りを取得できませんでした。");
   const data = (await r.json()) as { daily?: { sunrise?: string[]; sunset?: string[] } };
   return { date: day, sunrise: data.daily?.sunrise?.[0] ?? null, sunset: data.daily?.sunset?.[0] ?? null, source };
 }

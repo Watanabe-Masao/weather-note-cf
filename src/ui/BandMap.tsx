@@ -278,7 +278,7 @@ function DetailTable({
                   <td>{fmt(r.humidity, 0)}</td>
                   <td>{fmt(r.wind)}</td>
                   <td>{solar == null ? "—" : Math.round(solar)}</td>
-                  <td className="muted">{r.type === "forecast" ? "予報" : r.solarSource === "forecast" ? "実績＊" : "実績"}</td>
+                  <td className="muted">{r.type === "forecast" ? "予報" : (r.origin as Record<string, string> | undefined)?.solar === "forecast" || r.solarSource === "forecast" ? "実績＊" : "実績"}</td>
                 </tr>
               );
             })}
