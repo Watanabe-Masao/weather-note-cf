@@ -6,7 +6,7 @@ import type { ChartMetricId } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { initialDetailMetric } from "../dayDetail";
 import { FeelContext } from "./FeelBar";
-import { CompareSummary } from "./CompareSummary";
+import { CompareSummary, type DatePick } from "./CompareSummary";
 import { HourCompare } from "./HourCompare";
 import { Segmented } from "./kit";
 
@@ -24,9 +24,11 @@ interface Props {
   onStep?: (days: number) => void;
   /** Tapping the selected 日なた/日かげ温度 button again switches between sun and shade (the shared setting). */
   onToggleSun?: () => void;
+  /** Tap a date in the summary to pick it (the comparison date makes the interval custom). */
+  pick?: DatePick;
 }
 
-export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true, onStep, onToggleSun }: Props) {
+export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true, onStep, onToggleSun, pick }: Props) {
   const settings = useContext(FeelContext);
   const base = initialDetailMetric(metric);
   // Temperature can also be read as 肌感 (日なた/日かげ温度) hour by hour.
@@ -36,7 +38,7 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
 
   return (
     <div className="hour-face">
-      {summary && <CompareSummary store={store} station={station} target={target} other={compareDate} today={today} metric={metric} onStep={onStep} />}
+      {summary && <CompareSummary store={store} station={station} target={target} other={compareDate} today={today} metric={metric} onStep={onStep} pick={pick} />}
       <div className="hour-face-head">
         <p>24時間</p>
         {base === "temp" && (

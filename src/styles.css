@@ -608,7 +608,7 @@ button.label-feel.shade small {
 
 .strip-pad {
   flex: none;
-  width: calc(var(--col) * 3);
+  width: calc(var(--col) * var(--pad, 3));
 }
 
 .strip-col {
@@ -1262,7 +1262,7 @@ svg.scrub {
   will-change: transform;
 }
 
-.cs-wrap.sticky-line {
+.swipe-frame.sticky-line {
   position: sticky;
   top: 0;
   z-index: var(--layer-pinned);
@@ -1270,7 +1270,8 @@ svg.scrub {
 
 .cs-pin {
   position: sticky;
-  top: 0;
+  /* Up through the sheet body's top padding, so nothing peeks out above the line. */
+  top: -10px;
   height: 0;
   z-index: var(--layer-pinned);
 }
@@ -1438,8 +1439,39 @@ svg.scrub {
   padding-bottom: 0 !important;
 }
 
-.cs-line-date.cs-a {
-  justify-content: flex-end;
+.cs-line-dates {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cs-line-dates .cs-line-date {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.cs-year {
+  font-size: inherit;
+  color: inherit;
+}
+
+.cs-line-date svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+/* 対象 / 比較: the side's name before its date. */
+.cs-side {
+  font-size: 9.5px;
+  font-weight: var(--weight-bold);
+  color: var(--ink-secondary);
+  padding: 0 4px;
+  border-radius: var(--radius-xs);
+  background: var(--surface-inset);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
 }
 
 .cs-line {
@@ -2238,4 +2270,160 @@ svg.scrub {
   .similar-list button {
     transition: none;
   }
+}
+
+/* 差 rows under the comparison table — no colour (differences are never coloured). */
+.label-diff {
+  color: var(--ink-secondary);
+  font-size: 11px;
+}
+
+.label-diff small {
+  display: block;
+  font-size: 8.5px;
+  color: var(--ink-tertiary);
+}
+
+.cell-value.cell-diff {
+  font-size: 13.5px;
+  color: var(--ink-primary);
+}
+
+/* Nine days in 表に集中 — numbers a size smaller to fit. */
+.app.wide .cell-value {
+  font-size: 13px;
+}
+
+.app.wide .cell-value.minor,
+.app.wide .cell-value.cell-diff {
+  font-size: 11.5px;
+}
+
+.app.wide .cell-date {
+  font-size: 10px;
+  letter-spacing: -0.02em;
+}
+
+.app.wide .cell-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.app.wide .cell-kind {
+  font-size: 8px;
+}
+
+/* The pinned line, docked under the sheet's head, outside the scrolling area. */
+.sheet-dock:empty {
+  display: none;
+}
+
+.sheet-dock {
+  padding: 6px 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.cs-dock > .compare-summary.pinned {
+  margin: 0 0 6px;
+  cursor: pointer;
+  animation: pin-in var(--motion-base) var(--ease-standard);
+}
+
+/* ---- pulling sideways: where it goes ------------------------------------------------------- */
+
+.swipe-frame {
+  position: relative;
+}
+
+.swipe-frame > .swipeable,
+.swipe-frame > .cs-wrap {
+  position: relative;
+  z-index: 1;
+}
+
+/* The space a pull opens shows the day it moves to; at "far enough" it lights up. */
+.swipe-hint {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  color: var(--ink-tertiary);
+  transition: color var(--motion-quick) var(--ease-standard);
+}
+
+.swipe-hint.to-next {
+  justify-content: flex-end;
+}
+
+.swipe-hint.to-prev {
+  justify-content: flex-start;
+}
+
+.swipe-hint-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0 4px;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--surface-overlay) 92%, transparent);
+  -webkit-backdrop-filter: blur(var(--effect-blur));
+  backdrop-filter: blur(var(--effect-blur));
+  box-shadow: 0 0 0 1px var(--line-strong), var(--shadow-pinned);
+  transition: box-shadow var(--motion-quick) var(--ease-standard);
+}
+
+.swipe-hint.ready .swipe-hint-inner {
+  box-shadow: 0 0 0 1.5px var(--accent-base), 0 0 14px var(--accent-glow);
+}
+
+.swipe-hint-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+}
+
+.swipe-hint.to-next .swipe-hint-text {
+  align-items: flex-end;
+}
+
+.swipe-hint-text b {
+  font-family: var(--font-numeric);
+  font-size: var(--size-sm);
+  white-space: nowrap;
+}
+
+.swipe-hint-text small {
+  font-size: var(--size-xs);
+}
+
+.swipe-hint.ready {
+  color: var(--accent-base);
+}
+
+.swipe-hint.ready .swipe-hint-chevron {
+  transform: scale(1.25);
+}
+
+.swipe-hint-chevron {
+  flex: none;
+  transition: transform var(--motion-quick) var(--ease-standard);
+}
+
+/* A date that opens its calendar: dotted underline, as in the table's date headers. */
+.cs-date-btn {
+  display: inline-flex;
+  align-items: center;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  color: inherit;
+  font: inherit;
+  border-bottom: 1px dashed var(--ink-tertiary);
+}
+
+.cs-date-btn:active {
+  opacity: 0.6;
 }

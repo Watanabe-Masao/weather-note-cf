@@ -13,6 +13,8 @@ const FLICK = 0.45;
 export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
   const ref = useRef<HTMLDivElement>(null);
   const [dx, setDx] = useState(0);
+  /** How far the pull has gone toward a day change: −1 … 1 is "release to move" at ±1 (sign = direction). */
+  const [pull, setPull] = useState(0);
   const [entering, setEntering] = useState<0 | -1 | 1>(0);
   const step = useRef(onStep);
   step.current = onStep;
@@ -45,6 +47,7 @@ export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
       last = mx;
       tracker.add(mx);
       setDx(mx * 0.55);
+      setPull(-mx / DISTANCE);
     };
     const end = () => {
       if (taking && step.current) {
@@ -59,6 +62,7 @@ export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
       start = null;
       taking = false;
       setDx(0);
+      setPull(0);
     };
     const ts = (e: TouchEvent) => e.touches.length === 1 && begin(e.touches[0].clientX, e.touches[0].clientY);
     const tm = (e: TouchEvent) => move(e.touches[0].clientX, e.touches[0].clientY, () => e.preventDefault());
@@ -89,5 +93,5 @@ export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
     : dx
       ? { transform: `translateX(${dx}px)`, opacity: 1 - Math.min(0.5, Math.abs(dx) / 400), transition: "none" }
       : { transform: "translateX(0)", opacity: 1, transition: "transform 260ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease-out" };
-  return { ref, style };
+  return { ref, style, pull };
 }

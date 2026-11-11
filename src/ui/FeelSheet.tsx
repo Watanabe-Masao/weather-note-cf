@@ -12,10 +12,12 @@ interface Props {
   station: string;
   target: string;
   partner: (date: string) => string | null;
+  /** Swipe the map sideways to move the target day. */
+  onStep?: (days: number) => void;
   onClose: () => void;
 }
 
-export function FeelSheet({ store, station, target, partner, onClose }: Props) {
+export function FeelSheet({ store, station, target, partner, onStep, onClose }: Props) {
   const settings = useContext(FeelContext);
   useEffect(() => {
     if (!store) return;
@@ -25,7 +27,7 @@ export function FeelSheet({ store, station, target, partner, onClose }: Props) {
 
   return (
     <ModalSheet title={`肌感マップ（${settings.sun ? "日なた温度" : "日かげ温度"}）`} onClose={onClose} className="feel-sheet">
-      <BandMap store={store} station={station} target={target} partner={partner} />
+      <BandMap store={store} station={station} target={target} partner={partner} onStep={onStep} />
     </ModalSheet>
   );
 }

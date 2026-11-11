@@ -294,8 +294,6 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             </g>
           );
         })}
-        {/* The selected day: a frame, as in the tables (the background is for 予報 only). */}
-        <rect x={xOf(3 + BUFFER) - step / 2 + 1} y={PAD.top - 4} width={step - 2} height={H - PAD.top - bottom + 4} rx={8} className="chart-center" />
         {spreadOn && <Spread top={pick("max", false).points} low={pick("min", false).points} yOf={yOf} />}
 
         {metric.chart === "bar"
@@ -395,6 +393,9 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             />
           ))}
         </g>
+        {/* The selected day: a frame fixed in the middle (like the tables' drum) — the days slide
+            through it while panning; the background is kept for 予報. */}
+        <rect x={xOf(3 + BUFFER) - step / 2 + 1} y={PAD.top - 4} width={step - 2} height={H - PAD.top - bottom + 4} rx={8} className="chart-center" />
         </g>
         {scrub != null && (
           <GuideLines

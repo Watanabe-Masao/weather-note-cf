@@ -107,9 +107,17 @@ export function useViewState() {
 
   const setMode = useCallback((mode: CompareMode) => {
     setView((v) => {
-      const offset = mode === "custom" ? (v.linked ? v.offset : offsetOf(v.target, v.compare)) : v.offset;
-      const compare = matchDate(v.target, mode, offset) ?? v.compare;
-      return { ...v, mode, offset, compare };
+      // Switching to カスタム keeps the pair on screen: the interval is taken from the comparison day
+      // shown now (前日 → −1 day, 前年同曜日 → −364 …), never from an older custom setting.
+      const shown = v.linked ? (matchDate(v.target, v.mode, v.offset) ?? v.compare) : v.compare;
+      const offset = mode === "custom" ? offsetOf(v.target, shown) : v.offset;
+      // A rule may not reach every target day (翌週 needs a forecast day a week later): pull the
+      // target day back inside the new rule's range.
+      const b = v.linked ? targetBounds(mode, offset, lastDay(jstToday())) : null;
+      const target = b ? clampDay(v.target, b.min, b.max) : v.target;
+      if (target !== v.target) setDirection(target < v.target ? -1 : 1);
+      const compare = matchDate(target, mode, offset) ?? v.compare;
+      return { ...v, mode, offset, target, compare };
     });
   }, []);
 

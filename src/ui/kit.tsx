@@ -257,3 +257,33 @@ export function GraphReadout({ title, rows, unit, live }: { title: ReactNode; ro
     </div>
   );
 }
+
+/**
+ * What a sideways pull will do (rule: 引っ張ったときの案内): the day it moves to appears in the space
+ * the pull opens, and turns to "離すと移動" once releasing would move. `pull` is from useSwipeDays
+ * (+ = next day, − = previous day; ±1 = far enough).
+ */
+export function SwipeHint({ pull, prev, next }: { pull: number; prev: string; next: string }) {
+  const toNext = pull > 0;
+  const amount = Math.min(1, Math.abs(pull));
+  const ready = Math.abs(pull) >= 1;
+  if (amount < 0.05) return null;
+  return (
+    <div className={`swipe-hint ${toNext ? "to-next" : "to-prev"}${ready ? " ready" : ""}`} style={{ opacity: Math.min(1, amount * 1.6) }} aria-hidden>
+      <span className="swipe-hint-inner" style={{ transform: `translateX(${(toNext ? 1 : -1) * (1 - amount) * 40}px)` }}>
+        {!toNext && <ChevronGlyph dir="left" />}
+        <span className="swipe-hint-text">
+          <b>{dateLabel(toNext ? next : prev)}</b>
+          <small>{ready ? "離すと移動" : toNext ? "次の日" : "前の日"}</small>
+        </span>
+        {toNext && <ChevronGlyph dir="right" />}
+      </span>
+    </div>
+  );
+}
+
+const ChevronGlyph = ({ dir }: { dir: "left" | "right" }) => (
+  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden className="swipe-hint-chevron">
+    <path d={dir === "left" ? "M10 3L5 8l5 5" : "M6 3l5 5-5 5"} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);

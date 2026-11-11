@@ -3,10 +3,13 @@
 //
 // Compact: one line per item (value · "item diff" · value), the chosen item highlighted.
 // Minimised: a single line for the chosen item (max and min for temperature) — by ▴/▾ (remembered
-// on this device), and on its own while the full summary is scrolled out of the sheet: the line is
-// pinned at the top then (overlaid, so nothing below jumps), and tapping it scrolls back up.
+// on this device), and on its own once the summary's dates have scrolled out of the sheet: the line
+// then docks under the sheet's head (outside the scrolling area, covering nothing); tapping it
+// scrolls back up.
 
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { CalendarModal } from "./CalendarModal";
+import { createPortal } from "react-dom";
 import { addDays } from "../../shared/dates";
 import type { WeatherRow } from "../../shared/types";
 import { dailyRadiation, hourlyExtreme } from "../chartMetrics";
@@ -14,7 +17,7 @@ import type { WeatherStore } from "../data/store";
 import { clock, hourOfDay } from "../data/sun";
 import { digitsOf, num, signedDiff, UNIT } from "../design/format";
 import type { DataColor } from "../design/tokens";
-import { Badge, DayLabel } from "./kit";
+import { Badge, DayLabel, SwipeHint } from "./kit";
 import type { MetricId } from "../metrics";
 import { useSun } from "./HourCompare";
 import { useSwipeDays } from "./useSwipeDays";
@@ -30,6 +33,19 @@ interface Props {
   metric?: MetricId;
   /** Swipe sideways: move the selected day by ±1. */
   onStep?: (days: number) => void;
+  /** Tap a date to pick it from a calendar. */
+  pick?: DatePick;
+}
+
+/**
+ * Picking a date from the summary: the target day moves (the interval stays), and a comparison
+ * day picked freely makes the interval custom (the comparison mode becomes カスタム, still linked).
+ */
+export interface DatePick {
+  bounds: { min: string; max: string };
+  last: string;
+  onTarget: (date: string) => void;
+  onCompare: (date: string) => void;
 }
 
 const COLLAPSED = "weather-note:summary-collapsed";
@@ -91,18 +107,56 @@ function useCollapsed(): [boolean, (v: boolean) => void] {
   ];
 }
 
-export function CompareSummary({ store, station, target, other, today, metric, onStep }: Props) {
+export function CompareSummary({ store, station, target, other, today, metric, onStep, pick }: Props) {
   const swipe = useSwipeDays(onStep);
+  const [calendar, setCalendar] = useState<"target" | "compare" | null>(null);
+  /** A date that opens its calendar when tapped (a button only when picking is offered). */
+  const dateButton = (side: "target" | "compare", children: ReactNode) =>
+    pick ? (
+      <button
+        className="cs-date-btn"
+        onClick={(e) => {
+          e.stopPropagation();
+          setCalendar(side);
+        }}
+        aria-label={side === "target" ? "対象日を選ぶ" : "比較日を選ぶ（区間をカスタムに）"}
+      >
+        {children}
+      </button>
+    ) : (
+      children
+    );
+  const calendarSheet = pick && calendar && (
+    <CalendarModal
+      title={calendar === "target" ? "対象日" : "比較日"}
+      value={calendar === "target" ? target : (other ?? target)}
+      min={calendar === "target" ? pick.bounds.min : "1977-01-01"}
+      max={calendar === "target" ? pick.bounds.max : pick.last}
+      onPick={(d) => (calendar === "target" ? pick.onTarget(d) : pick.onCompare(d))}
+      onClose={() => setCalendar(null)}
+    />
+  );
+  const swipeDock = useSwipeDays(onStep);
+  // The day a sideways pull goes to, shown in the space it opens.
+  const hint = (pull: number) => <SwipeHint pull={pull} prev={addDays(target, -1)} next={addDays(target, 1)} />;
   const [collapsed, setCollapsed] = useCollapsed();
   const full = useRef<HTMLElement>(null);
+  const heads = useRef<HTMLDivElement>(null);
   const [pinned, setPinned] = useState(false);
+  // The pinned line docks in the sheet's slot under its head (outside the scrolling area).
+  const [dock, setDock] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    setDock((full.current?.closest(".sheet")?.querySelector(".sheet-dock") as HTMLElement | null) ?? null);
+  }, [collapsed]);
+  // Pinned as soon as the summary's head line (the two dates) has scrolled out of the top — the
+  // rows below may still show, but without their dates they no longer say which day is which.
   useEffect(() => {
-    const el = full.current;
+    const el = heads.current;
     const root = el?.closest(".sheet-body") as HTMLElement | null;
     if (!el || !root) return setPinned(false);
     const io = new IntersectionObserver(
-      ([e]) => setPinned(!e.isIntersecting && e.boundingClientRect.top < (e.rootBounds?.top ?? 0)),
-      { root, threshold: 0, rootMargin: "-30px 0px 0px 0px" },
+      ([e]) => setPinned(!e.isIntersecting && e.boundingClientRect.bottom <= (e.rootBounds?.top ?? 0) + 1),
+      { root, threshold: 0 },
     );
     io.observe(el);
     return () => io.disconnect();
@@ -155,9 +209,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     return (
       <span className={`cs-head cs-${side}`}>
         {rel && <Badge kind={rel} />}
-        <span className="cs-date">
-          <DayLabel date={d} year={years && d === other} />
-        </span>
+        <span className="cs-date">{dateButton(side === "a" ? "target" : "compare", <DayLabel date={d} year={years && d === other} />)}</span>
         <WeatherIcon text={(r?.dayWeather as string | null) ?? null} />
         {kind && <Badge kind={kind} />}
       </span>
@@ -185,14 +237,29 @@ export function CompareSummary({ store, station, target, other, today, metric, o
       aria-label="対象日と比較日（1行）"
       onClick={pinned ? () => full.current?.closest(".sheet-body")?.scrollTo({ top: 0, behavior: "smooth" }) : undefined}
     >
-      <span className="cs-line-date cs-a">
-        {relative(target, today) && <Badge kind={relative(target, today)!} />}
-        <DayLabel date={target} />
+      {/* Which side is which, said in words: 対象 on the left, 比較 on the right (as in the table).
+          One row across the card, each side at its own end; another year reads as 'YY. */}
+      <span className="cs-line-dates">
+        <span className="cs-line-date">
+          <small className="cs-side">対象</small>
+          {relative(target, today) && <Badge kind={relative(target, today)!} />}
+          {dateButton("target", <DayLabel date={target} />)}
+          <WeatherIcon text={(a?.dayWeather as string | null) ?? null} />
+        </span>
+        <span className="cs-line-date">
+          <small className="cs-side">比較</small>
+          {other &&
+            dateButton(
+              "compare",
+              <span className="day-label">
+                {years && <small className="cs-year">’{other.slice(2, 4)}/</small>}
+                <DayLabel date={other} />
+              </span>,
+            )}
+          <WeatherIcon text={(b?.dayWeather as string | null) ?? null} />
+        </span>
       </span>
-      <span className="cs-line-date cs-mid" />
-      <span className="cs-line-date cs-b">{other && <DayLabel date={other} year={years} />}</span>
       <span className="cs-line cs-a">
-        <WeatherIcon text={(a?.dayWeather as string | null) ?? null} />
         {lineRows.map((r, i) => (
           <span key={r.key} className={r.tone ? `tone-${r.tone}` : undefined}>
             {i > 0 && <span className="cs-slash">/</span>}
@@ -213,7 +280,6 @@ export function CompareSummary({ store, station, target, other, today, metric, o
           </span>
         ))}
         <small>{lineRows[0].unit}</small>
-        <WeatherIcon text={(b?.dayWeather as string | null) ?? null} />
       </span>
       {!pinned && toggle}
     </section>
@@ -221,19 +287,43 @@ export function CompareSummary({ store, station, target, other, today, metric, o
 
   if (collapsed)
     return (
-      <div ref={swipe.ref} className="cs-wrap sticky-line swipeable" style={swipe.style}>
-        {line(false)}
+      <>
+      {calendarSheet}
+      <div className="swipe-frame sticky-line">
+        {hint(swipe.pull)}
+        <div ref={swipe.ref} className="cs-wrap swipeable" style={swipe.style}>
+          {line(false)}
+        </div>
       </div>
+      </>
     );
 
   return (
+    <>
+      {calendarSheet}
+      {/* Pinned: the line docks under the sheet's head, outside the scrolling area, so it never covers
+          anything. Outside a sheet (no dock), a zero-height sticky holder beside the summary overlays it. */}
+      {dock ? (
+        pinned &&
+        createPortal(
+          <div className="swipe-frame cs-dock">
+            {hint(swipeDock.pull)}
+            <div ref={swipeDock.ref} className="swipeable" style={swipeDock.style}>
+              {line(true)}
+            </div>
+          </div>,
+          dock,
+        )
+      ) : (
+        <div className="cs-pin" aria-hidden={!pinned}>
+          {pinned && line(true)}
+        </div>
+      )}
+    <div className="swipe-frame">
+    {hint(swipe.pull)}
     <div ref={swipe.ref} className="cs-wrap swipeable" style={swipe.style}>
-      {/* Zero-height sticky holder: the pinned line overlays the top of the sheet without moving anything. */}
-      <div className="cs-pin" aria-hidden={!pinned}>
-        {pinned && line(true)}
-      </div>
     <section ref={full} className="compare-summary compact" aria-label="対象日と比較日">
-      <div className="cs-heads">
+      <div ref={heads} className="cs-heads">
         {head(target, a, "a")}
         <span className="cs-vs">比較</span>
         {head(other, b, "b")}
@@ -265,5 +355,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
       </div>
     </section>
     </div>
+    </div>
+    </>
   );
 }

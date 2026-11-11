@@ -172,7 +172,7 @@ export function App() {
   }, [heights.max]);
 
   return (
-    <div className={full ? "app full" : "app"} style={{ paddingBottom: heights[sheetDetent] + 12 }}>
+    <div className={full ? "app full wide" : "app"} style={{ paddingBottom: heights[sheetDetent] + 12 }}>
       {!full && (
         <header className="app-head">
           <h1>Weather Note</h1>
@@ -199,6 +199,7 @@ export function App() {
       <div ref={boardRef}>
         <FeelContext.Provider value={feelSettings}>
           <CompareBoard
+            wide={full}
             store={store}
             view={view}
             today={today}
@@ -286,6 +287,7 @@ export function App() {
               height={hourHeight(heights[sheetDetent])}
               onStep={(n) => moveTarget(addDays(view.target, n))}
               onToggleSun={() => set("sun", !view.sun)}
+              pick={{ bounds, last, onTarget: moveTarget, onCompare: pickCompare }}
             />
           )}
         </GraphSheet>
@@ -293,7 +295,14 @@ export function App() {
 
       {feelMap && (
         <FeelContext.Provider value={feelSettings}>
-          <FeelSheet store={store} station={view.station} target={view.target} partner={partner} onClose={() => setFeelMap(false)} />
+          <FeelSheet
+            store={store}
+            station={view.station}
+            target={view.target}
+            partner={partner}
+            onStep={(n) => moveTarget(addDays(view.target, n))}
+            onClose={() => setFeelMap(false)}
+          />
         </FeelContext.Provider>
       )}
 
