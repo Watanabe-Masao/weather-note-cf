@@ -366,6 +366,68 @@ describe("正本管理 in the store", () => {
     expect(store.getDay(KOCHI, "2025-06-15").state).toBe("empty");
   });
 
+  /** A stand-in API whose answers wait until released; each call records when it was made. */
+  function gated() {
+    const api = fakeApi();
+    const held: { path: string; go: () => void }[] = [];
+    const fetchJson: typeof api.fetchJson = async (path) => {
+      await new Promise<void>((go) => held.push({ path, go }));
+      return api.fetchJson(path);
+    };
+    const until = async (ok: () => boolean) => {
+      for (let i = 0; i < 200 && !ok(); i++) await new Promise((r) => setTimeout(r, 1));
+    };
+    const releaseAll = () => held.splice(0).forEach((h) => h.go());
+    /** Answer everything, including what the answers lead to, until the store is quiet. */
+    const drain = async (store: WeatherStore) => {
+      for (let i = 0; i < 300; i++) {
+        releaseAll();
+        await new Promise((r) => setTimeout(r, 1));
+        if (!held.length && store.queue.activeCount === 0 && !store.queue.pendingKeys.length) return;
+      }
+    };
+    return { api: { ...api, fetchJson }, raw: api, held, until, releaseAll, drain };
+  }
+
+  it("asks again after a clear, so the screen fills without another touch", async () => {
+    const g = gated();
+    const { store } = makeStore(await openStorage(), g.api);
+    store.setView(KOCHI, ["2025-06-15"]);
+    await g.until(() => g.held.length > 0);
+    const first = g.held[0].path;
+    await store.clear(); // the view stays
+    await g.drain(store); // the old answers arrive (and are dropped), then the new requests run
+    expect(g.raw.calls.filter((c) => c === first).length).toBe(2); // asked again, not answered by the old one
+    expect(store.getDay(KOCHI, "2025-06-15").state).toBe("ready");
+  });
+
+  it("does not let a request made before the refresh button answer the refresh", async () => {
+    const g = gated();
+    const { store } = makeStore(await openStorage(), g.api);
+    store.setView(KOCHI, [addDays(TODAY, 10)]); // forecast days only: nothing else will ask again
+    await g.until(() => g.held.some((h) => h.path.startsWith("/api/forecast")));
+    const forecasts = () => g.held.filter((h) => h.path.startsWith("/api/forecast")).length;
+    expect(forecasts()).toBe(1);
+    store.refresh();
+    await g.drain(store); // the old forecast answers after the refresh
+    expect(g.raw.calls.filter((c) => c.startsWith("/api/forecast")).length).toBe(2); // asked again
+  });
+
+  it("keeps the current station's screen apart from answers for the station left behind", async () => {
+    const g = gated();
+    const { store } = makeStore(await openStorage(), g.api);
+    store.setView(KOCHI, ["2025-06-15"]);
+    await g.until(() => g.held.length > 0);
+    const OTHER = "47891";
+    store.setView(OTHER, ["2025-06-15"]);
+    await g.drain(store);
+    // The old station's answer is kept under its own key (useful later) and the new one is complete.
+    expect(store.getDay(OTHER, "2025-06-15").state).toBe("ready");
+    expect(store.getDay(OTHER, "2025-06-15").row?.date).toBe("2025-06-15");
+    expect(g.raw.calls.some((c) => c.includes(`station=${OTHER}`))).toBe(true);
+    expect(store.getDay(KOCHI, "2025-06-15").state).toBe("ready");
+  });
+
   it("fetches a fixed day again when the corrections ledger lists it, and only that period", async () => {
     const storage = await openStorage();
     const first = makeStore(storage);

@@ -81,6 +81,7 @@ interface Task {
 interface RunContext {
   at: number;
   gen: number;
+  session: number;
 }
 
 const dayKey = (station: string, date: string) => `${station}/${date}`;
@@ -112,6 +113,11 @@ export class WeatherStore {
   requests = 0;
   /** Bumped by 保存データを消去: answers to requests made before it are dropped. */
   private gen = 0;
+  /**
+   * Bumped by the refresh button, a new day and a clear: answers to requests made before it are
+   * still saved (正本管理 decides) but do not count as this session's fetch, so the day is asked again.
+   */
+  private session = 0;
 
   private storage: Storage;
   private fetchJson: FetchJson;
@@ -165,6 +171,7 @@ export class WeatherStore {
 
   /** Start a new session for variable data (refresh button). Fixed data is untouched. */
   refresh(): void {
+    this.newSession();
     this.fresh.clear();
     this.errors.clear();
     this.blocked.clear();
@@ -176,6 +183,7 @@ export class WeatherStore {
     const today = jstToday(this.now());
     if (today === this.today) return false;
     this.today = today;
+    this.newSession();
     this.fresh.clear();
     this.latest.clear();
     await this.prunePastForecasts();
@@ -184,8 +192,15 @@ export class WeatherStore {
     return true;
   }
 
+  /** Requests already running belong to the old session: new ones must not join them. */
+  private newSession(): void {
+    this.session++;
+    this.queue.detachStarted();
+  }
+
   async clear(): Promise<void> {
     this.gen++;
+    this.newSession();
     for (const t of this.timers) this.clearTimer(t);
     this.timers.clear();
     this.queue.retain(() => false);
@@ -475,10 +490,12 @@ export class WeatherStore {
 
   private async execute(task: Task): Promise<void> {
     this.requests++;
-    const ctx: RunContext = { at: this.now(), gen: this.gen };
+    const ctx: RunContext = { at: this.now(), gen: this.gen, session: this.session };
     try {
       await task.run(ctx);
-      if (ctx.gen !== this.gen) return; // started before 保存データを消去: its result is void
+      // Started before a clear (result dropped) or a refresh (saved, but not this session's):
+      // the new session asks again on its own.
+      if (ctx.gen !== this.gen || ctx.session !== this.session) return;
       this.fresh.add(task.key);
       this.blocked.delete(task.key);
       // Clear only this kind's failures: a day's hours arriving says nothing about its daily row.
@@ -487,6 +504,7 @@ export class WeatherStore {
       // A finished month can reveal follow-up work (the AMeDAS fill for the latest days).
       if (task.key.startsWith("daily:")) this.sync();
     } catch (e) {
+      if (ctx.gen !== this.gen || ctx.session !== this.session) return; // an old session's failure
       const message = (e as Error)?.message || "取得できませんでした";
       for (const k of task.days) this.errors.set((task.key.startsWith("hourly:") ? "h:" : "d:") + k, message);
       const attempt = (this.blocked.get(task.key)?.attempt ?? 0) + 1;
@@ -606,14 +624,15 @@ export class WeatherStore {
         let failed: string | null = null;
         for (const day of data.days) {
           const k = dayKey(station, day.date);
+          const current = ctx.gen === this.gen && ctx.session === this.session;
           if (day.error) {
-            this.errors.set("h:" + k, day.error);
+            if (current) this.errors.set("h:" + k, day.error);
             failed = day.error;
             continue;
           }
           const fixed = day.fixed && isFixedHourlyDay(day.date, day.rows, this.today);
           records.push(this.hourRecord(ctx, station, day.date, day.rows, fixed ? "fixed" : "variable", "jma"));
-          this.fresh.add(`hour:${station}:${day.date}`);
+          if (current) this.fresh.add(`hour:${station}:${day.date}`);
         }
         await this.saveHours(records, ctx);
         if (failed) throw new Error(failed);

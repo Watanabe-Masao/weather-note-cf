@@ -126,11 +126,45 @@ describe("正本管理: hours", () => {
     }
   });
 
-  it("a fixed day is replaced only by a newer complete fixed copy", () => {
-    const fixed = hours([h(1), h(2)], { source: "jma", kind: "fixed" });
-    expect(decideHours(fixed, hours([h(1)], { source: "jma", kind: "fixed", fetchedAt: 200 }))).toBe(fixed);
-    expect(decideHours(fixed, hours([h(1), h(2)], { source: "jma", kind: "variable", fetchedAt: 200 }))).toBe(fixed);
-    const corrected = hours([h(1, { temp: 3 }), h(2)], { source: "jma", kind: "fixed", fetchedAt: 200 });
+  const day24 = (over: (n: number) => Partial<WeatherRow> = () => ({})) =>
+    Array.from({ length: 24 }, (_, i) => h(i + 1, { date: "2026-10-01", ...over(i + 1) }));
+  const jmaDay = (rows: WeatherRow[], over: Partial<HourRecord> = {}) =>
+    hours(rows, { key: "47893/2026-10-01", date: "2026-10-01", source: "jma", kind: "fixed", ...over });
+
+  it("a fixed day is replaced only by a newer whole fixed copy", () => {
+    const fixed = jmaDay(day24());
+    expect(decideHours(fixed, jmaDay(day24().slice(1), { fetchedAt: 200 }))).toBe(fixed); // an hour missing
+    expect(decideHours(fixed, jmaDay(day24(), { kind: "variable", fetchedAt: 200 }))).toBe(fixed);
+    expect(decideHours(fixed, jmaDay(day24((n) => (n === 1 ? { temp: 3 } : {})), { fetchedAt: 50 }))).toBe(fixed); // older
+    const corrected = jmaDay(day24((n) => (n === 1 ? { temp: 3 } : {})), { fetchedAt: 200 });
     expect(decideHours(fixed, corrected).rows[0].temp).toBe(3);
+  });
+
+  it("applies a ledger correction only from a whole page: a withdrawn value yes, a broken page no", () => {
+    const fixed = jmaDay(day24());
+    const withdrawn = jmaDay(day24((n) => (n === 5 ? { temp: null } : {})), { kind: "variable", fetchedAt: 200, rev: 1 });
+    expect(decideHours(fixed, withdrawn).rows[4].temp).toBeNull();
+    const dup = day24();
+    dup[5] = { ...dup[4] }; // hour 6 missing, hour 5 twice: still 24 rows
+    expect(decideHours(fixed, jmaDay(dup, { kind: "variable", fetchedAt: 200, rev: 1 }))).toBe(fixed);
+    const otherDay = day24((n) => (n === 1 ? { date: "2026-10-02" } : {}));
+    expect(decideHours(fixed, jmaDay(otherDay, { kind: "variable", fetchedAt: 200, rev: 1 }))).toBe(fixed);
+    // Daily: a missing row is a broken fetch even with a ledger revision.
+    const held = day(row(), { kind: "fixed" });
+    expect(decideDay(held, day(null, { fetchedAt: 200, rev: 1 }))).toBe(held);
+    expect(decideDay(held, day(row({ max: null }), { fetchedAt: 200, rev: 1 })).row?.max).toBeNull();
+  });
+
+  it("each hour keeps its own source through saving and reading back", () => {
+    const forecast = hours([h(1, { type: "forecast" }), h(2, { type: "forecast" })]);
+    const merged = decideHours(forecast, hours([h(1, { temp: 9 })], { source: "current", fetchedAt: 200 }));
+    expect(merged.rows.map((r) => r.from)).toEqual(["amedas", "forecast"]);
+    // Read back as plain JSON (IndexedDB) under a record whose summary source says "jma":
+    const reread = JSON.parse(JSON.stringify({ ...merged, source: "jma" })) as HourRecord;
+    const later = decideHours(reread, hours([h(1, { type: "forecast", temp: 30 }), h(2, { type: "forecast", temp: 31 })], { fetchedAt: 300 }));
+    expect(later.rows.map((r) => [r.from, r.temp])).toEqual([
+      ["amedas", 9], // the observation still wins over the newer forecast
+      ["forecast", 31],
+    ]);
   });
 });
