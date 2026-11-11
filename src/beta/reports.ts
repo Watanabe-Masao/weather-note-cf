@@ -13,12 +13,15 @@ import type { WeatherRow } from "../../shared/types";
 import { hourOrigin, type Origin } from "../data/authority";
 import type { Baseline, Departures } from "./adaptation";
 
+/** The 7-point thermal sensation scale (ASHRAE 55, −3 … +3) in its usual Japanese wording. */
 export const SENSATIONS = [
-  { value: -2, label: "寒い" },
-  { value: -1, label: "やや寒い" },
+  { value: -3, label: "寒い" },
+  { value: -2, label: "涼しい" },
+  { value: -1, label: "やや涼しい" },
   { value: 0, label: "どちらでもない" },
-  { value: 1, label: "やや暑い" },
-  { value: 2, label: "暑い" },
+  { value: 1, label: "やや暖かい" },
+  { value: 2, label: "暖かい" },
+  { value: 3, label: "暑い" },
 ] as const;
 export const EXPOSURES = [
   { id: "sun", label: "日なた" },

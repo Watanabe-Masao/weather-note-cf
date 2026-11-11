@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { jstHourOf, jstIso, type Report, snapshotOf, toCsv } from "../../src/beta/reports";
+import { jstHourOf, jstIso, type Report, SENSATIONS, snapshotOf, toCsv } from "../../src/beta/reports";
 import { DEFAULT_FEEL } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 
@@ -39,6 +39,20 @@ describe("β②: what a report records", () => {
   });
 });
 
+describe("β②: the scale", () => {
+  it("has seven steps from 寒い (−3) to 暑い (+3), 涼しい and 暖かい included", () => {
+    expect(SENSATIONS.map((s) => [s.value, s.label])).toEqual([
+      [-3, "寒い"],
+      [-2, "涼しい"],
+      [-1, "やや涼しい"],
+      [0, "どちらでもない"],
+      [1, "やや暖かい"],
+      [2, "暖かい"],
+      [3, "暑い"],
+    ]);
+  });
+});
+
 describe("β②: CSV", () => {
   const base: Report = {
     id: "a",
@@ -57,7 +71,7 @@ describe("β②: CSV", () => {
     expect(csv.startsWith("﻿at_jst,station,sensation")).toBe(true);
     const lines = csv.trim().split("\r\n");
     expect(lines).toHaveLength(3);
-    expect(lines[1]).toContain("2026-11-11T20:30:00+09:00,47893,-1,やや寒い,shade,strong");
+    expect(lines[1]).toContain("2026-11-11T20:30:00+09:00,47893,-1,やや涼しい,shade,strong");
     expect(lines[1]).toContain("17.3,0.8,0,-2.4,,-4,a");
     expect(lines[2].endsWith(",b")).toBe(true);
   });

@@ -2996,15 +2996,18 @@ svg.scrub {
   white-space: nowrap;
 }
 .report-form { display: grid; gap: var(--space-5); padding-bottom: var(--space-3); }
-.report-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+/* Seven steps in one row: cold on the left, hot on the right, as on the scale. */
+.report-scale { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
 .report-pick {
-  min-height: 48px;
-  padding: 4px 2px;
+  min-height: 52px;
+  padding: 4px 1px;
+  font-size: 11px;
+  white-space: pre-line;
+  word-break: keep-all;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface-inset);
   color: var(--ink-secondary);
-  font-size: 12px;
   line-height: 1.25;
 }
 .report-pick.on {

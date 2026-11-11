@@ -1,4 +1,4 @@
-// β②: "今の感じ方を記録". Three choices (how it feels, sun or shade, wind) and one button; the
+// β②: "今の感じ方を記録". Three choices (how it feels on the 7-point scale, sun or shade, wind) and one button; the
 // station's values for the hour, the 最近の基準 and the differences are attached automatically.
 
 import { useContext, useState } from "react";
@@ -64,11 +64,13 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
             <button
               key={s.value}
               role="radio"
+              aria-label={s.label}
               aria-checked={sensation === s.value}
-              className={`report-pick lv${s.value + 2}${sensation === s.value ? " on" : ""}`}
+              className={sensation === s.value ? "report-pick on" : "report-pick"}
               onClick={() => setSensation(s.value)}
             >
-              {s.label}
+              {/* Break where the words break, so seven fit a phone's width. */}
+              {s.label.replace(/^(やや|どちら)/, "$1\n")}
             </button>
           ))}
         </div>
