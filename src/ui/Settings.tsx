@@ -36,6 +36,8 @@ import { LEVEL_COLORS } from "./FeelBar";
 import { Segmented } from "./kit";
 import { ADAPT_SPEEDS, type AdaptSpeed } from "../beta/adaptation";
 import type { BetaSettings } from "../beta/settings";
+import { toCsv } from "../beta/reports";
+import { reports, useReports } from "../beta/useReports";
 
 const time = (t: number | null) => (t ? new Date(t).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "—");
 const PERSISTED = { granted: "許可", denied: "不許可", unsupported: "未対応" } as const;
@@ -139,6 +141,53 @@ function LevelBand({ thresholds, onChange }: { thresholds: SavedFeel["thresholds
             </div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+/** β②: the reported feelings on this device — how many, a CSV for analysis, and wiping them. */
+function ReportData() {
+  const list = useReports();
+  const [confirming, setConfirming] = useState(false);
+  const download = async () => {
+    const csv = toCsv(await reports.all());
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `weather-note-reports-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  return (
+    <div className="set-row">
+      <span className="set-label">
+        感じ方の記録
+        <small className="set-help">
+          {list == null ? "…" : `${list.length}件`}
+          {list?.[0] ? `（最後 ${new Date(list[0].at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}）` : ""}
+          。［保存データを消去］では消えません。
+        </small>
+      </span>
+      <div className="actions tight">
+        <button onClick={() => void download()} disabled={!list?.length}>
+          CSVを書き出す
+        </button>
+        {confirming ? (
+          <button
+            className="danger"
+            onClick={() => {
+              void reports.wipe();
+              setConfirming(false);
+            }}
+          >
+            本当に消す（元に戻せません）
+          </button>
+        ) : (
+          <button onClick={() => setConfirming(true)} disabled={!list?.length}>
+            記録を消す
+          </button>
+        )}
       </div>
     </div>
   );
@@ -277,6 +326,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, beta, onClo
           />
           <small className="set-help">基準がどれだけ早く最近の気温に追いつくか。標準は建物の快適性の規格（EN 16798）の値。春・秋の急な変化に合わせたいときは「速い」。</small>
         </div>
+        <ReportData />
       </section>
 
       <details className="set-group set-data">

@@ -2983,3 +2983,45 @@ svg.scrub {
 .cs-row.beta .cs-val { font-size: 0.92em; }
 .beta-fc { display: block; font-size: 9.5px; color: var(--status-forecast); line-height: 1.1; }
 .beta-short { font-size: 11px; }
+
+/* β②: recording how it feels. Neutral buttons (the 肌感 colours stay with 肌感). */
+.beta-report {
+  margin-left: auto;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent-base) 60%, transparent);
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--accent-base);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.report-form { display: grid; gap: var(--space-5); padding-bottom: var(--space-3); }
+.report-scale { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.report-pick {
+  min-height: 48px;
+  padding: 4px 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  color: var(--ink-secondary);
+  font-size: 12px;
+  line-height: 1.25;
+}
+.report-pick.on {
+  border-color: var(--accent-base);
+  box-shadow: 0 0 0 1.5px var(--accent-base) inset;
+  color: var(--ink-primary);
+  font-weight: var(--weight-bold);
+}
+.report-save {
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent-base);
+  color: var(--ink-on-accent);
+  font-weight: var(--weight-bold);
+  font-size: var(--size-md);
+}
+.report-save:disabled { background: var(--surface-raised); color: var(--ink-disabled); }
+.actions.tight { margin-top: 0; }
+.actions .danger { color: var(--status-error); border-color: color-mix(in srgb, var(--status-error) 50%, transparent); }
