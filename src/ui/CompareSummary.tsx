@@ -23,8 +23,10 @@ import { useSun } from "./HourCompare";
 import { useSwipeDays } from "./useSwipeDays";
 import { WeatherIcon } from "./WeatherIcon";
 import { BetaContext } from "../beta/settings";
-import { baselineOf, useBaselineHistory } from "../beta/useBaseline";
+import { baselineStateOf, useBaselineHistory } from "../beta/useBaseline";
 import { type Departures, departures } from "../beta/adaptation";
+import { ReportSheet } from "../beta/ReportSheet";
+import { BasisSheet } from "../beta/BasisSheet";
 import { FeelContext } from "./FeelBar";
 
 interface Props {
@@ -155,8 +157,18 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const beta = useContext(BetaContext);
   const feelSettings = useContext(FeelContext);
   useBaselineHistory(store, station, [target, other], "summary-baseline");
-  const depA = departures(a, hoursOf(target), baselineOf(store, station, target, beta.speed), feelSettings);
-  const depB = departures(b, hoursOf(other), baselineOf(store, station, other, beta.speed), feelSettings);
+  const stA = baselineStateOf(store, station, target, beta.alpha);
+  const stB = baselineStateOf(store, station, other, beta.alpha);
+  const depA = departures(a, hoursOf(target), stA.state === "ready" ? stA.baseline : null, feelSettings);
+  const depB = departures(b, hoursOf(other), stB.state === "ready" ? stB.baseline : null, feelSettings);
+  const [reporting, setReporting] = useState(false);
+  const [basis, setBasis] = useState(false);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => {
+    if (!saved) return;
+    const t = setTimeout(() => setSaved(false), 3000);
+    return () => clearTimeout(t);
+  }, [saved]);
 
   // One line per value, units and digits by the design rules (format.ts).
   const r = (key: string, metric: MetricId, label: string, unit: string, a: number | null, b: number | null, tone?: DataColor): Row => ({
@@ -341,24 +353,42 @@ export function CompareSummary({ store, station, target, other, today, metric, o
         </span>
       </div>
 
-      <BetaRows a={depA} b={depB} />
+      <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} />
     </section>
     </div>
     </div>
+    {basis && <BasisSheet store={store} station={station} target={target} other={other} onClose={() => setBasis(false)} />}
+    {reporting && <ReportSheet store={store} station={station} today={today} onClose={() => setReporting(false)} onSaved={() => setSaved(true)} />}
     </>
   );
 }
 
 /**
  * β rows: each day's 最近の基準 and how far the day is from it. Values are differences in ℃, not a
- * felt temperature (the label says 差). "履歴不足" when the past days are not there; 予報含む when the
+ * felt temperature (the label says 差). "読み込み中" while past days are on their way, "履歴不足" when they came but are too few; 予報含む when the
  * baseline itself includes forecast days.
  */
-function BetaRows({ a, b }: { a: Departures | null; b: Departures | null }) {
+function BetaRows({
+  a,
+  b,
+  loadingA,
+  loadingB,
+  onReport,
+  onBasis,
+  saved,
+}: {
+  a: Departures | null;
+  b: Departures | null;
+  loadingA?: boolean;
+  loadingB?: boolean;
+  onReport?: () => void;
+  onBasis?: () => void;
+  saved?: boolean;
+}) {
   const signed = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(1)}`);
-  const cell = (d: Departures | null, pick: (d: Departures) => number | null, base = false) =>
+  const cell = (d: Departures | null, pick: (d: Departures) => number | null, base = false, loading = false) =>
     !d ? (
-      <span className="cs-none beta-short">履歴不足</span>
+      <span className="cs-none beta-short">{loading ? "読み込み中" : "履歴不足"}</span>
     ) : pick(d) == null ? (
       <span className="cs-none">—</span>
     ) : (
@@ -379,18 +409,28 @@ function BetaRows({ a, b }: { a: Departures | null; b: Departures | null }) {
       <p className="cs-beta-head">
         最近との差 <span className="beta-tag">β</span>
         <small>基準＝最近の日平均気温の移動平均。体感の予測ではありません</small>
+        {onBasis && (
+          <button className="beta-basis" onClick={onBasis} aria-label="最近との差の計算の根拠を見る">
+            根拠
+          </button>
+        )}
+        {onReport && (
+          <button className="beta-report" onClick={onReport}>
+            {saved ? "記録しました" : "今の感じ方を記録"}
+          </button>
+        )}
       </p>
       {rows.map((r) => {
         const x = a ? r.pick(a) : null;
         const y = b ? r.pick(b) : null;
         return (
           <div key={r.key} className="cs-row beta">
-            <span className="cs-val cs-a">{cell(a, r.pick, r.base)}</span>
+            <span className="cs-val cs-a">{cell(a, r.pick, r.base, loadingA)}</span>
             <span className="cs-mid">
               <span className="cs-label">{r.label}</span>
               <span className="cs-diff">{signedDiff(x, y, 1)}</span>
             </span>
-            <span className="cs-val cs-b">{cell(b, r.pick, r.base)}</span>
+            <span className="cs-val cs-b">{cell(b, r.pick, r.base, loadingB)}</span>
           </div>
         );
       })}

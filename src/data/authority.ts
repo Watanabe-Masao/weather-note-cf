@@ -23,9 +23,11 @@ export const RANK: Record<Origin, number> = { "jma-fixed": 4, jma: 3, amedas: 2,
 /**
  * What a forecast may lend to a measured row: only values the measuring source does not have at
  * all (AMeDAS has no solar radiation; 日なた温度 needs it). A forecast never stands in for a
- * measured value that is merely missing: that gap stays a gap.
+ * measured value that is merely missing: that gap stays a gap. The forecast's weather for an
+ * observed hour is kept too (AMeDAS reports none), marked as the forecast's, so a report can set
+ * what was forecast beside what the person saw.
  */
-const FORECAST_LENDS = new Set(["solar"]);
+const FORECAST_LENDS = new Set(["solar", "weather", "weatherCode"]); // AMeDAS has no radiation and no weather text
 
 /** Row keys that describe the row rather than hold a weather value. */
 const META = new Set(["date", "n", "type", "provider", "raw", "quality", "unpublished", "provisional", "origin", "from", "solarSource", "confidence", "spread"]);

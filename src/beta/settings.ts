@@ -1,45 +1,40 @@
-// β settings, kept apart from 肌感's (a convenience on this device only).
+// β: what the reports have taught so far, shared with the screen — the α in use (慣れの速さ), the
+// correction of the predicted sensation, and the predictions' track record.
 
-import { createContext, useCallback, useState } from "react";
-import { ADAPT_SPEEDS, type AdaptSpeed } from "./adaptation";
+import { createContext, useMemo } from "react";
+import type { FeelSettings } from "../../shared/feel";
+import { DEFAULT_FEEL } from "../../shared/feel";
+import { type AlphaFit, fitAlpha, STANDARD_ALPHA } from "./fitAlpha";
+import { type Correction, type ErrorStats, errorStats, fitCorrection } from "./predict";
+import { useReports } from "./useReports";
 
-const KEY = "weather-note:beta";
-
-export interface BetaSettings {
-  speed: AdaptSpeed;
+export interface BetaSettings extends AlphaFit {
+  correction: Correction;
+  errors: ErrorStats;
+  thresholds: FeelSettings["thresholds"];
 }
 
-const DEFAULTS: BetaSettings = { speed: "standard" };
+const DEFAULTS: BetaSettings = {
+  alpha: STANDARD_ALPHA,
+  status: "collecting",
+  n: 0,
+  spanDays: 0,
+  improvement: null,
+  correction: { coef: [0, 0, 0, 0], n: 0 },
+  errors: { n: 0, bias: null, mae: null, recentMae: null, hit: null },
+  thresholds: DEFAULT_FEEL.thresholds,
+};
 
-export function readBeta(raw: string | null): BetaSettings {
-  try {
-    const r = JSON.parse(raw ?? "{}") as Partial<BetaSettings>;
-    return { speed: ADAPT_SPEEDS.some((s) => s.id === r.speed) ? (r.speed as AdaptSpeed) : DEFAULTS.speed };
-  } catch {
-    return DEFAULTS;
-  }
-}
-
-export function useBetaSettings() {
-  const [beta, setBeta] = useState<BetaSettings>(() => {
-    try {
-      return readBeta(localStorage.getItem(KEY));
-    } catch {
-      return DEFAULTS;
-    }
-  });
-  const update = useCallback((patch: Partial<BetaSettings>) => {
-    setBeta((b) => {
-      const next = { ...b, ...patch };
-      try {
-        localStorage.setItem(KEY, JSON.stringify(next));
-      } catch {
-        // Not remembering is harmless.
-      }
-      return next;
-    });
-  }, []);
-  return { beta, update };
+/** Re-learnt whenever the reports (or the 肌感 boundaries the prior reads) change. */
+export function useBetaSettings(thresholds: FeelSettings["thresholds"]): BetaSettings {
+  const list = useReports();
+  const key = thresholds.join(",");
+  return useMemo(() => {
+    if (!list) return { ...DEFAULTS, thresholds };
+    const fit = fitAlpha(list);
+    return { ...fit, correction: fitCorrection(list, fit.alpha, thresholds), errors: errorStats(list), thresholds };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [list, key]);
 }
 
 export const BetaContext = createContext<BetaSettings>(DEFAULTS);
