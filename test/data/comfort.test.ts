@@ -10,11 +10,13 @@ import {
   placeTemp,
   predictComfort,
   priorFor,
+  PRIOR,
+  ADAPT_HI,
+  ADAPT_LO,
   probabilities,
   stateOf,
 } from "../../src/beta/comfort";
 
-const T: [number, number, number, number] = [10, 15, 21, 25];
 const model = (id: string) => MODELS.find((m) => m.id === id)!;
 
 function rng(seed: number) {
@@ -68,13 +70,25 @@ function simulate(n: number, truthModel: string, truth: number[], seed = 3): Obs
 }
 
 describe("β: the comfort centre and range", { timeout: 60_000 }, () => {
-  it("starts every model from the person's own 肌感 boundaries", () => {
+  it("starts every model from fixed values, not from the 肌感 display boundaries", () => {
     for (const m of MODELS) {
-      const st = stateOf(m, priorFor(m, T).mean, typical());
-      expect(st.mu).toBe(18);
-      expect(st.h).toBeCloseTo(3, 5);
-      expect(st.g).toBeCloseTo(4.5, 5);
+      const st = stateOf(m, priorFor(m).mean, typical());
+      expect(st.mu).toBe(PRIOR.m0);
+      expect(st.h).toBeCloseTo(PRIOR.h, 5);
+      expect(st.g).toBeCloseTo(PRIOR.g, 5);
     }
+    // priorFor takes no settings at all: a display boundary cannot reach it.
+    expect(priorFor.length).toBe(1);
+  });
+
+  it("lets adaptation stop outside 10–30 ℃ in the limited model, and not in the straight one", () => {
+    const lim = MODELS.find((m) => m.id === "M9")!;
+    const lin = MODELS.find((m) => m.id === "M1")!;
+    const centre = (m: (typeof MODELS)[number], a: number) => stateOf(m, priorFor(m).mean, { ...typical(), a }).mu;
+    expect(centre(lim, 35)).toBeCloseTo(centre(lim, ADAPT_HI), 5);
+    expect(centre(lim, 2)).toBeCloseTo(centre(lim, ADAPT_LO), 5);
+    expect(centre(lim, 20)).toBeCloseTo(centre(lin, 20), 5);
+    expect(centre(lin, 35)).toBeGreaterThan(centre(lin, ADAPT_HI));
   });
 
   it("is flat inside the range and steps outside it (thresholds, not a line)", () => {
@@ -92,7 +106,7 @@ describe("β: the comfort centre and range", { timeout: 60_000 }, () => {
     const truth = [18, 0.35, 0.5, 0, 0, 0, Math.log(2.5), 0.1, -0.15, Math.log(4), Math.log(0.7), 0, 0];
     expect(truth).toHaveLength(m3.mu.length + m3.h.length + 6);
     const obs = simulate(400, "M3", truth);
-    const ens = fitEnsemble(obs, T, 0.8);
+    const ens = fitEnsemble(obs, 0.8);
     const w = Object.fromEntries(ens.fits.map((f, i) => [f.model.id, ens.weights[i]]));
     expect(w.M3 + w.M5).toBeGreaterThan(0.9); // models with yesterday's change win
     expect(w.M0).toBeLessThan(0.01);
@@ -107,7 +121,7 @@ describe("β: the comfort centre and range", { timeout: 60_000 }, () => {
     const m4 = MODELS.find((m) => m.id === "M4")!;
     const truth = [18, 0.4, 0.4, Math.log(3), 0, 0, Math.log(4.5), Math.log(0.7), 0, 0];
     expect(truth).toHaveLength(m4.mu.length + m4.h.length + 6);
-    const ens = fitEnsemble(simulate(400, "M4", truth, 11), T, 0.8);
+    const ens = fitEnsemble(simulate(400, "M4", truth, 11), 0.8);
     const spring = typical({ e: 15, a: 11, trend: 1.5, doy: 90 }); // after winter, warming
     const autumn = typical({ e: 15, a: 21, trend: -1.5, doy: 290 }); // after summer, cooling
     const ps = predictComfort(ens, spring, 0);
@@ -123,7 +137,7 @@ describe("β: the comfort centre and range", { timeout: 60_000 }, () => {
     // +1.2 ℃ at the place per 5 MJ/m² of the day's sun, at night only; 2 m/s more wind takes 0.6 of it away.
     const truth = [18, 0.33, 0, Math.log(3), 0, 1.2, -0.6, Math.log(4.5), Math.log(0.7), 0, 0];
     expect(truth).toHaveLength(m7.mu.length + m7.h.length + (m7.e ?? []).length + 6);
-    const ens = fitEnsemble(simulate(400, "M7", truth, 17), T, 0.8);
+    const ens = fitEnsemble(simulate(400, "M7", truth, 17), 0.8);
     const fit7 = ens.fits.find((f) => f.model.id === "M7")!;
     const [lo, hi] = interval(fit7, (t) => t[5]);
     expect(lo).toBeGreaterThan(0.5);
@@ -143,7 +157,7 @@ describe("β: the comfort centre and range", { timeout: 60_000 }, () => {
 
   it("prefers the simple model when nothing but the place temperature matters", () => {
     const truth = [18, Math.log(3), Math.log(4.5), 0, 0, 0];
-    const ens = fitEnsemble(simulate(300, "M0", truth, 9), T, 0.8);
+    const ens = fitEnsemble(simulate(300, "M0", truth, 9), 0.8);
     const w = Object.fromEntries(ens.fits.map((f, i) => [f.model.id, ens.weights[i]]));
     expect(w.M4).toBeLessThan(w.M0 + w.M1);
   });
@@ -156,11 +170,11 @@ describe("β: the comfort centre and range", { timeout: 60_000 }, () => {
       const p = probabilities(stateOf(m0, truth, o), o.e + (windFelt === "strong" ? -3 : 0));
       return { ...o, windFelt, y: p.indexOf(Math.max(...p)) - 3 };
     });
-    expect(fitModel(m0, obs, T).theta.at(-2)!).toBeLessThan(-1.5);
+    expect(fitModel(m0, obs).theta.at(-2)!).toBeLessThan(-1.5);
   });
 
   it("predicts a mixture over the models, keeping each model's own prediction", () => {
-    const ens = fitEnsemble([], T, 0.8);
+    const ens = fitEnsemble([], 0.8);
     const p = predictComfort(ens, typical(), 0);
     expect(p.mode).toBe(0);
     expect(p.probs.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 1);

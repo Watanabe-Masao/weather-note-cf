@@ -3,8 +3,6 @@
 // predictions' records. Fitting runs in a worker so the screen never waits for it.
 
 import { createContext, useEffect, useMemo, useRef, useState } from "react";
-import type { FeelSettings } from "../../shared/feel";
-import { DEFAULT_FEEL } from "../../shared/feel";
 import { type Ensemble, ensembleFromReports, fitEnsemble, MIN_FOR_ALPHA, modelRecords, STANDARD_ALPHA, type TrackRecord, trackRecord } from "./comfort";
 import { useReports } from "./useReports";
 
@@ -20,16 +18,18 @@ export interface BetaSettings {
   fitting: boolean;
 }
 
-const initial = (thresholds: FeelSettings["thresholds"]): BetaSettings => {
-  const ens = fitEnsemble([], thresholds, STANDARD_ALPHA);
+const initial = (): BetaSettings => {
+  const ens = fitEnsemble([], STANDARD_ALPHA);
   return { ens, alpha: ens.alpha, record: trackRecord([]), records: modelRecords([]), minForAlpha: MIN_FOR_ALPHA, fitting: false };
 };
 
-/** Re-learnt whenever the reports (or the 肌感 boundaries the priors are built from) change. */
-export function useBetaSettings(thresholds: FeelSettings["thresholds"]): BetaSettings {
+/**
+ * Re-learnt whenever the reports change. The 肌感 display settings play no part: the priors are
+ * fixed, so moving a display boundary never moves the research model.
+ */
+export function useBetaSettings(): BetaSettings {
   const list = useReports();
-  const key = thresholds.join(",");
-  const [ens, setEns] = useState<Ensemble>(() => initial(thresholds).ens);
+  const [ens, setEns] = useState<Ensemble>(() => initial().ens);
   const [fitting, setFitting] = useState(false);
   const worker = useRef<Worker | null>(null);
   const seq = useRef(0);
@@ -45,13 +45,12 @@ export function useBetaSettings(thresholds: FeelSettings["thresholds"]): BetaSet
     try {
       worker.current ??= new Worker(new URL("./fitWorker.ts", import.meta.url), { type: "module" });
       worker.current.onmessage = (ev: MessageEvent<{ id: number; ensemble: Ensemble }>) => ev.data.id === seq.current && done(ev.data.ensemble);
-      worker.current.postMessage({ id, reports: list, thresholds });
+      worker.current.postMessage({ id, reports: list });
     } catch {
       // No workers here: fit on this thread.
-      done(ensembleFromReports(list, thresholds));
+      done(ensembleFromReports(list));
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [list, key]);
+  }, [list]);
   useEffect(() => () => worker.current?.terminate(), []);
   return useMemo(
     () => ({
@@ -66,4 +65,4 @@ export function useBetaSettings(thresholds: FeelSettings["thresholds"]): BetaSet
   );
 }
 
-export const BetaContext = createContext<BetaSettings>(initial(DEFAULT_FEEL.thresholds));
+export const BetaContext = createContext<BetaSettings>(initial());

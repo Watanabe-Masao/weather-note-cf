@@ -2,7 +2,7 @@
 import { ensembleFromReports } from "./comfort";
 import type { Report } from "./reports";
 
-self.onmessage = (ev: MessageEvent<{ id: number; reports: Report[]; thresholds: [number, number, number, number] }>) => {
-  const { id, reports, thresholds } = ev.data;
-  (self as unknown as Worker).postMessage({ id, ensemble: ensembleFromReports(reports, thresholds) });
+self.onmessage = (ev: MessageEvent<{ id: number; reports: Report[] }>) => {
+  const { id, reports } = ev.data;
+  (self as unknown as Worker).postMessage({ id, ensemble: ensembleFromReports(reports) });
 };

@@ -28,7 +28,7 @@ function NumberField({ value, onCommit, label, ...rest }: { value: number; onCom
     />
   );
 }
-import { LEVELS, SURROUNDINGS } from "../../shared/feel";
+import { LEVELS, type Scale, SCALES, SURROUNDINGS } from "../../shared/feel";
 import type { Station } from "../../shared/types";
 import { type SavedFeel, SUNSHINE_PRESETS } from "../feelSettings";
 import type { StorageReport, WeatherStore } from "../data/store";
@@ -55,7 +55,7 @@ interface Props {
 }
 
 const BAND_LO = -5;
-const BAND_HI = 35;
+const BAND_HI = 40;
 const STEP = 0.5;
 const GAP = 0.5; // neighbouring boundaries stay at least this far apart
 
@@ -69,7 +69,7 @@ export function moveThreshold(t: SavedFeel["thresholds"], i: number, v: number):
 }
 
 /**
- * The five levels as one coloured band (the same colours as the 肌感 bar), with the four boundaries
+ * The seven levels as one coloured band (the same colours as the 肌感 bar), with the six boundaries
  * as handles: drag one along the band, or use − ＋ under it. What is set is what the bar will show.
  */
 function LevelBand({ thresholds, onChange }: { thresholds: SavedFeel["thresholds"]; onChange: (t: SavedFeel["thresholds"]) => void }) {
@@ -116,7 +116,7 @@ function LevelBand({ thresholds, onChange }: { thresholds: SavedFeel["thresholds
         ))}
       </div>
       <div className="level-scale" aria-hidden>
-        {[BAND_LO, 5, 15, 25, BAND_HI].map((v) => (
+        {[BAND_LO, 5, 15, 25, 35].map((v) => (
           <span key={v} style={{ left: `${pct(v)}%` }}>
             {v}
           </span>
@@ -199,7 +199,7 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
   return (
     <section className="set-group" aria-labelledby="set-feel">
       <h3 id="set-feel">肌感の基準</h3>
-      <p className="set-lead">日なた温度・日かげ温度が、どの段階に入るかの境目です。帯の境目を指で動かすか、− ＋ で0.5℃ずつ変えられます。</p>
+      <p className="set-lead">日なた温度・日かげ温度が、どの段階に入るかの境目です。帯の境目を指で動かすか、− ＋ で0.5℃ずつ変えられます。表示のための区分で、快適の中心と範囲（β）の計算には使いません。</p>
       <LevelBand thresholds={saved.thresholds} onChange={(thresholds) => update({ thresholds })} />
       <div className="set-row">
         <span className="set-label">周りの様子</span>
@@ -308,6 +308,18 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
             onChange={(v) => onSun(v === "sun")}
           />
           <small className="set-help">表・グラフ・時間帯の肌感に共通です。グラフのチップからも切り替えられます。</small>
+        </div>
+        <div className="set-row">
+          <span className="set-label">肌感の段階</span>
+          <Segmented
+            label="肌感の段階の数"
+            value={String(feel.saved.scale ?? 7)}
+            options={SCALES.map((n) => ({ id: String(n), label: `${n}段` }))}
+            onChange={(v) => feel.update({ scale: Number(v) as Scale })}
+          />
+          <small className="set-help">
+            計算はいつも7段（感じ方の記録と同じ並び）で、表示だけをまとめます。5段：寒い（寒い・涼しい）／肌寒い／適温／暖かい／暑い（暖かい・暑い）。3段：寒い側／適温／暑い側。
+          </small>
         </div>
       </section>
 

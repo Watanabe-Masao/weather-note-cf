@@ -1,6 +1,6 @@
 // β: the comfort centre and range of this moment — several models, compared and combined.
 //
-// The idea: a person feels "どちらでもない" within a range around a centre; past its edges it turns
+// The idea: a person feels "適温" within a range around a centre; past its edges it turns
 // cool or warm step by step. Neither the centre nor the width is fixed: the days before (the recent
 // temperatures and how they changed, humidity, sunshine, rain, the weather) move both. Which of
 // them matter, and how much, is what the reports are for — so several models, each with its own
@@ -14,17 +14,20 @@
 //                                                     humidity and sun already in it)
 //   answer      P(Y ≤ k) = σ((c_k − (E′ − μ)) / s),  c = μ-relative edges ±h, ±(h+g), ±(h+2g)
 //
-// Priors: the person's own 肌感 boundaries give the level (centre = middle of 過ごしやすい, h half its
-// width, g the spacing of the outer boundaries); the recent-temperature slope starts at 0.33
-// (EN 16798-1's adaptive comfort temperature against the running mean); every other driver starts
-// at 0 with a spread wide enough for the reports to move it.
+// Priors: fixed starting values, independent of the 肌感 display settings (moving a display
+// boundary never moves the research model). The centre starts at 18 ℃ (±4) when the recent
+// baseline is 15 ℃ — wide, because outdoor neutral temperatures in the literature spread widely;
+// the half-range at 3 ℃, the outer step at 4 ℃ (log-scale spreads 0.5). The recent-temperature
+// slope starts at 0.33 (EN 16798-1's adaptive comfort temperature against the running mean);
+// every other driver starts at 0 with a spread wide enough for the reports to move it.
+// Adaptation has limits — weeks at 35 ℃ do not make 35 ℃ comfortable — so a model whose baseline
+// effect stops outside 10–30 ℃ (EN 16798-1's range for the running mean) competes with the straight one.
 //
 // Comparison: each model's evidence (marginal likelihood, Laplace approximation) — it already
 // charges for every extra driver — gives its weight; the prediction is the weighted mixture
 // (Bayesian model averaging). Each report also stores every model's own prediction made at sending,
 // so the models are also compared on predictions made before the answer was known.
 
-import type { FeelSettings } from "../../shared/feel";
 import { runningMean } from "./adaptation";
 import type { Report } from "./reports";
 
@@ -82,6 +85,7 @@ export type DriverKey =
   | "sky"
   | "trend"
   | "spring"
+  | "aLim"
   | "radNight"
   | "radNightWind"
   | "coldNight"
@@ -98,10 +102,15 @@ interface DriverInfo {
   eSd?: number;
 }
 
+/** Where adaptation stops, for the limited model (EN 16798-1's range for the running mean). */
+export const ADAPT_LO = 10;
+export const ADAPT_HI = 30;
+
 const c = (v: number | null, ref: number, unit: number) => (v == null ? 0 : (v - ref) / unit);
 
 export const DRIVERS: Record<DriverKey, DriverInfo> = {
   a: { label: "最近の基準", unit: "1℃", value: (d) => d.a - 15, muSd: 0.15, hSd: 0.03 },
+  aLim: { label: "最近の基準（10〜30℃で頭打ち）", unit: "1℃", value: (d) => Math.min(ADAPT_HI, Math.max(ADAPT_LO, d.a)) - 15, muSd: 0.15, hSd: 0.03 },
   dT1: { label: "前日の気温の変化（前日 − 基準）", unit: "1℃", value: (d) => d.dT1 ?? 0, muSd: 0.3, hSd: 0.05 },
   h7: { label: "1週間の湿度", unit: "10%", value: (d) => c(d.h7, 65, 10), muSd: 0.6, hSd: 0.15 },
   h1: { label: "前日の湿度", unit: "10%", value: (d) => c(d.h1, 65, 10), muSd: 0.6, hSd: 0.15 },
@@ -185,6 +194,7 @@ export const MODELS: ModelSpec[] = [
   { id: "M6", name: "慣れ＋暦の季節（確認用）", mu: ["a", "spring"], h: ["v7", "spring"] },
   { id: "M7", name: "慣れ＋季節の向き＋日射の余熱", mu: ["a", "trend"], h: ["v7"], e: ["radNight", "radNightWind"] },
   { id: "M8", name: "慣れ＋季節の向き＋地面の熱（余熱と前夜の冷え、風付き）", mu: ["a", "trend"], h: ["v7"], e: ["radNight", "radNightWind", "coldNight", "coldNightWind"] },
+  { id: "M9", name: "慣れ（頭打ち）", mu: ["aLim"], h: [] },
 ];
 
 /** Parameter names of a model, in theta order. */
@@ -199,14 +209,14 @@ export interface Prior {
   sd: Theta;
 }
 
-/** The prior, from the 肌感 boundaries t0 < t1 < t2 < t3. */
-export function priorFor(m: ModelSpec, thresholds: FeelSettings["thresholds"]): Prior {
-  const [t0, t1, t2, t3] = thresholds;
-  const h = Math.max(0.5, (t2 - t1) / 2);
-  const g = Math.max(1, (t1 - t0 + (t3 - t2)) / 2);
+/** Fixed starting values (see the header): never taken from the 肌感 display settings. */
+export const PRIOR = { m0: 18, m0Sd: 4, h: 3, g: 4, logSd: 0.5, slope: 0.33 } as const;
+
+export function priorFor(m: ModelSpec): Prior {
   const es = m.e ?? [];
-  const mean = [(t1 + t2) / 2, ...m.mu.map((k) => (k === "a" ? 0.33 : 0)), Math.log(h), ...m.h.map(() => 0), ...es.map(() => 0), Math.log(g), 0, 0, 0];
-  const sd = [3, ...m.mu.map((k) => DRIVERS[k].muSd), 0.5, ...m.h.map((k) => DRIVERS[k].hSd), ...es.map((k) => DRIVERS[k].eSd ?? 1), 0.5, 0.5, 1.5, 1.5];
+  const slope = (k: DriverKey) => (k === "a" || k === "aLim" ? PRIOR.slope : 0);
+  const mean = [PRIOR.m0, ...m.mu.map(slope), Math.log(PRIOR.h), ...m.h.map(() => 0), ...es.map(() => 0), Math.log(PRIOR.g), 0, 0, 0];
+  const sd = [PRIOR.m0Sd, ...m.mu.map((k) => DRIVERS[k].muSd), PRIOR.logSd, ...m.h.map((k) => DRIVERS[k].hSd), ...es.map((k) => DRIVERS[k].eSd ?? 1), PRIOR.logSd, 0.5, 1.5, 1.5];
   return { mean, sd };
 }
 
@@ -410,8 +420,8 @@ export interface ModelFit {
   logEvidence: number;
 }
 
-export function fitModel(m: ModelSpec, obs: Observation[], thresholds: FeelSettings["thresholds"]): ModelFit {
-  const prior = priorFor(m, thresholds);
+export function fitModel(m: ModelSpec, obs: Observation[]): ModelFit {
+  const prior = priorFor(m);
   const k = prior.mean.length;
   if (!obs.length) return { model: m, theta: prior.mean, cov: null, prior, n: 0, logEvidence: 0 };
   const f = (t: Theta) => negLogJoint(m, t, obs, prior);
@@ -560,8 +570,8 @@ function weightsOf(fits: ModelFit[]): number[] {
   return raw.map((w) => w / sum);
 }
 
-export function fitEnsemble(obs: Observation[], thresholds: FeelSettings["thresholds"], alpha: number): Ensemble {
-  const fits = MODELS.map((m) => fitModel(m, obs, thresholds));
+export function fitEnsemble(obs: Observation[], alpha: number): Ensemble {
+  const fits = MODELS.map((m) => fitModel(m, obs));
   return { alpha, fits, weights: weightsOf(fits), n: obs.length };
 }
 
@@ -569,7 +579,7 @@ export function fitEnsemble(obs: Observation[], thresholds: FeelSettings["thresh
  * The ensemble in use. With enough reports, α (慣れの速さ) is chosen first, by the evidence of the
  * 慣れ＋1週間 model (each α on the same reports), then every model is fitted at that α.
  */
-export function ensembleFromReports(reports: Report[], thresholds: FeelSettings["thresholds"]): Ensemble {
+export function ensembleFromReports(reports: Report[]): Ensemble {
   let alpha = STANDARD_ALPHA;
   const n = observationsOf(reports, STANDARD_ALPHA).length;
   if (n >= MIN_FOR_ALPHA) {
@@ -578,14 +588,14 @@ export function ensembleFromReports(reports: Report[], thresholds: FeelSettings[
     for (const a of ALPHA_GRID) {
       const obs = observationsOf(reports, a);
       if (obs.length !== n) continue;
-      const ev = fitModel(probe, obs, thresholds).logEvidence;
+      const ev = fitModel(probe, obs).logEvidence;
       if (ev > best) {
         best = ev;
         alpha = a;
       }
     }
   }
-  return fitEnsemble(observationsOf(reports, alpha), thresholds, alpha);
+  return fitEnsemble(observationsOf(reports, alpha), alpha);
 }
 
 // ---- prediction ----------------------------------------------------------------------------------
