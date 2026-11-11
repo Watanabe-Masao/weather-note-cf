@@ -45,6 +45,14 @@ export function useBetaSettings(): BetaSettings {
     try {
       worker.current ??= new Worker(new URL("./fitWorker.ts", import.meta.url), { type: "module" });
       worker.current.onmessage = (ev: MessageEvent<{ id: number; ensemble: Ensemble }>) => ev.data.id === seq.current && done(ev.data.ensemble);
+      // The worker's file could not load (offline before it was cached, an old page after a deploy):
+      // fit on this thread instead of staying "fitting" for ever, and try a new worker next time.
+      worker.current.onerror = (ev) => {
+        ev.preventDefault();
+        worker.current?.terminate();
+        worker.current = null;
+        done(ensembleFromReports(list));
+      };
       worker.current.postMessage({ id, reports: list });
     } catch {
       // No workers here: fit on this thread.
