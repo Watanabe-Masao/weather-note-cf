@@ -357,7 +357,10 @@ export function CompareBoard({
         <div className="side-body">
           <Labels metric={metric} past={comparePast} sun={view.sun} onToggleSun={onToggleSun} diffs />
           <div className="strip-wrap" ref={lowWrap}>
+            {/* 連動 and 個別 lay this strip out differently (the target's days vs its own): switching
+                builds it anew, standing on the comparison day at once — no glide through other days. */}
             <Strip
+              key={view.linked ? "linked" : "own"}
               id="compare"
               columns={columns}
               dates={compareDays}
