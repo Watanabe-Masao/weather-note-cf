@@ -70,6 +70,15 @@ export class RequestQueue {
     return this.running.jma + this.running.forecast;
   }
 
+  /**
+   * Stop sharing the jobs already running: a new request for the same key starts a new job. Used
+   * when a refresh or a clear must not be answered by a request made before it. The detached jobs
+   * still finish (and still count against the channel limit).
+   */
+  detachStarted(): void {
+    for (const job of [...this.jobs.values()]) if (job.started) this.jobs.delete(job.key);
+  }
+
   get pendingKeys(): string[] {
     return [...this.jobs.keys()];
   }
@@ -87,7 +96,7 @@ export class RequestQueue {
         .then(job.resolve, job.reject)
         .finally(() => {
           this.running[job.channel]--;
-          this.jobs.delete(job.key);
+          if (this.jobs.get(job.key) === job) this.jobs.delete(job.key); // not a newer job with the same key
           this.pump();
         });
     }

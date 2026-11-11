@@ -366,6 +366,121 @@ describe("正本管理 in the store", () => {
     expect(store.getDay(KOCHI, "2025-06-15").state).toBe("empty");
   });
 
+  /** A stand-in API whose answers wait until released; each call records when it was made. */
+  function gated() {
+    const api = fakeApi();
+    const held: { path: string; go: () => void }[] = [];
+    const fetchJson: typeof api.fetchJson = async (path) => {
+      await new Promise<void>((go) => held.push({ path, go }));
+      return api.fetchJson(path);
+    };
+    const until = async (ok: () => boolean) => {
+      for (let i = 0; i < 200 && !ok(); i++) await new Promise((r) => setTimeout(r, 1));
+    };
+    const releaseAll = () => held.splice(0).forEach((h) => h.go());
+    /** Answer everything, including what the answers lead to, until the store is quiet. */
+    const drain = async (store: WeatherStore) => {
+      for (let i = 0; i < 300; i++) {
+        releaseAll();
+        await new Promise((r) => setTimeout(r, 1));
+        if (!held.length && store.queue.activeCount === 0 && !store.queue.pendingKeys.length) return;
+      }
+    };
+    return { api: { ...api, fetchJson }, raw: api, held, until, releaseAll, drain };
+  }
+
+  it("asks again after a clear, so the screen fills without another touch", async () => {
+    const g = gated();
+    const { store } = makeStore(await openStorage(), g.api);
+    store.setView(KOCHI, ["2025-06-15"]);
+    await g.until(() => g.held.length > 0);
+    const first = g.held[0].path;
+    await store.clear(); // the view stays
+    await g.drain(store); // the old answers arrive (and are dropped), then the new requests run
+    expect(g.raw.calls.filter((c) => c === first).length).toBe(2); // asked again, not answered by the old one
+    expect(store.getDay(KOCHI, "2025-06-15").state).toBe("ready");
+  });
+
+  it("does not let a request made before the refresh button answer the refresh", async () => {
+    const g = gated();
+    const { store } = makeStore(await openStorage(), g.api);
+    store.setView(KOCHI, [addDays(TODAY, 10)]); // forecast days only: nothing else will ask again
+    await g.until(() => g.held.some((h) => h.path.startsWith("/api/forecast")));
+    const forecasts = () => g.held.filter((h) => h.path.startsWith("/api/forecast")).length;
+    expect(forecasts()).toBe(1);
+    store.refresh();
+    await g.drain(store); // the old forecast answers after the refresh
+    expect(g.raw.calls.filter((c) => c.startsWith("/api/forecast")).length).toBe(2); // asked again
+  });
+
+  it("keeps the current station's screen apart from answers for the station left behind", async () => {
+    const g = gated();
+    const { store } = makeStore(await openStorage(), g.api);
+    store.setView(KOCHI, ["2025-06-15"]);
+    await g.until(() => g.held.length > 0);
+    const OTHER = "47891";
+    store.setView(OTHER, ["2025-06-15"]);
+    await g.drain(store);
+    // The old station's answer is kept under its own key (useful later) and the new one is complete.
+    expect(store.getDay(OTHER, "2025-06-15").state).toBe("ready");
+    expect(store.getDay(OTHER, "2025-06-15").row?.date).toBe("2025-06-15");
+    expect(g.raw.calls.some((c) => c.includes(`station=${OTHER}`))).toBe(true);
+    expect(store.getDay(KOCHI, "2025-06-15").state).toBe("ready");
+  });
+
+  it("never puts back data that a clear removed while it was being read", async () => {
+    const storage = await openStorage();
+    const first = makeStore(storage);
+    first.store.setView(KOCHI, ["2025-06-15"]);
+    await first.store.idle();
+
+    let open!: () => void;
+    const gate = new Promise<void>((r) => (open = r));
+    const slowStorage: Storage = {
+      ...storage,
+      getDays: async (keys) => {
+        const read = await storage.getDays(keys); // read before the clear ...
+        await gate; // ... handed over after it
+        return read;
+      },
+    };
+    const g = gated();
+    const { store } = makeStore(slowStorage, g.api);
+    store.setView(KOCHI, ["2025-06-15"]);
+    await new Promise((r) => setTimeout(r, 5));
+    await store.clear();
+    open();
+    await new Promise((r) => setTimeout(r, 5));
+    expect(store.getDay(KOCHI, "2025-06-15").state).toBe("empty"); // not the cleared copy
+  });
+
+  it("re-checks stored fixed data by today's rule: a day saved under the old 24-row count is fetched again", async () => {
+    const storage = await openStorage();
+    const date = "2025-06-15";
+    const good = Array.from({ length: 24 }, (_, i) => ({ date, n: i + 1, type: "actual" as const, provider: "JMA", raw: {}, quality: {}, temp: 20 }));
+    const broken = [...good.slice(0, 5), { ...good[4] }, ...good.slice(6)]; // 24 rows, hour 5 twice, hour 6 missing
+    await storage.putHours([{ key: `${KOCHI}/${date}`, station: KOCHI, date, rows: broken, kind: "fixed", source: "jma", savedAt: 0 }]);
+    const { store, api } = makeStore(storage);
+    store.wantHours(KOCHI, [date]);
+    await store.idle();
+    expect(api.calls.some((c) => c.startsWith("/api/hourly") && c.includes(date))).toBe(true);
+    const hours = store.getHours(KOCHI, date);
+    expect(new Set(hours.rows.map((r) => r.n)).size).toBe(hours.rows.length);
+    expect(hours.kind).toBe("fixed");
+  });
+
+  it("does not show a past day's leftover observations while JMA's table is on its way", async () => {
+    const storage = await openStorage();
+    const yesterday = addDays(TODAY, -1);
+    const row = { date: yesterday, n: 1, type: "actual" as const, provider: "JMA-amedas", raw: {}, quality: {}, temp: 5 };
+    await storage.putHours([{ key: `${KOCHI}/${yesterday}`, station: KOCHI, date: yesterday, rows: [row], kind: "variable", source: "current", savedAt: 0 }]);
+    const g = gated();
+    const { store } = makeStore(storage, g.api);
+    store.wantHours(KOCHI, [yesterday]);
+    await g.until(() => g.held.length > 0);
+    expect(store.getHours(KOCHI, yesterday).state).toBe("empty"); // the same rule the pruning uses
+  });
+
   it("fetches a fixed day again when the corrections ledger lists it, and only that period", async () => {
     const storage = await openStorage();
     const first = makeStore(storage);

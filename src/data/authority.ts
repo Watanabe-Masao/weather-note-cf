@@ -12,6 +12,7 @@
 //
 // Pure functions: no storage, no network. The store calls `decide*` for every write.
 
+import { hasAllHours } from "../../shared/fixed";
 import type { WeatherRow } from "../../shared/types";
 import type { DayRecord, HourRecord } from "./db";
 
@@ -27,7 +28,7 @@ export const RANK: Record<Origin, number> = { "jma-fixed": 4, jma: 3, amedas: 2,
 const FORECAST_LENDS = new Set(["solar"]);
 
 /** Row keys that describe the row rather than hold a weather value. */
-const META = new Set(["date", "n", "type", "provider", "raw", "quality", "unpublished", "provisional", "origin", "solarSource", "confidence", "spread"]);
+const META = new Set(["date", "n", "type", "provider", "raw", "quality", "unpublished", "provisional", "origin", "from", "solarSource", "confidence", "spread"]);
 
 /** Where a day record as a whole came from. */
 export function dayOrigin(r: Pick<DayRecord, "kind" | "source">): Origin {
@@ -36,8 +37,13 @@ export function dayOrigin(r: Pick<DayRecord, "kind" | "source">): Origin {
   return r.kind === "fixed" ? "jma-fixed" : "jma";
 }
 
-/** Where one hourly row came from (the record tells JMA tables from AMeDAS observations). */
+/**
+ * Where one hourly row came from. Each saved row carries its own source (`from`), because a day's
+ * hours can mix observations and forecast; the record's source is only a summary. Rows saved
+ * before `from` existed fall back to the row type and the record.
+ */
 export function hourOrigin(row: WeatherRow, rec: Pick<HourRecord, "kind" | "source">): Origin {
+  if (typeof row.from === "string" && row.from in RANK) return row.from as Origin;
   if (row.type === "forecast") return "forecast";
   if (rec.source === "jma") return rec.kind === "fixed" ? "jma-fixed" : "jma";
   return "amedas";
@@ -114,12 +120,26 @@ export function verdict(
 
 const corrected = (old: { rev?: number }, next: { rev?: number }) => (next.rev ?? 0) > (old.rev ?? 0);
 
+/**
+ * A correction is applied only from a whole JMA page. Empty values on a whole page are what JMA
+ * now publishes (a withdrawn value is a correction too); a page with a missing row or hour is a
+ * broken fetch and never replaces anything, whatever the ledger says.
+ */
+const wholeDay = (r: DayRecord) => r.source === "jma" && !!r.row && r.row.date === r.date;
+const wholeHours = (r: HourRecord) => r.source === "jma" && hasAllHours(r.date, r.rows);
+
+/** Every row records its own source, so it survives saving and reading back. */
+function stamp(rec: HourRecord): HourRecord {
+  if (rec.rows.every((r) => typeof r.from === "string")) return rec;
+  return { ...rec, rows: rec.rows.map((r) => (typeof r.from === "string" ? r : { ...r, from: hourOrigin(r, rec) })) };
+}
+
 /** The day record to keep when `next` arrives while `old` is held. */
 export function decideDay(old: DayRecord | undefined, next: DayRecord): DayRecord {
   if (!old) return next;
   // A correction listed in the ledger after `old` was saved: JMA's new copy is the authority, even
-  // if it now has fewer values (a value withdrawn is also a correction).
-  if (corrected(old, next) && next.source === "jma") return next;
+  // if it now has fewer values (a value withdrawn is also a correction) — but only from a whole page.
+  if (corrected(old, next)) return wholeDay(next) ? next : old;
   const o = { origin: dayOrigin(old), row: old.row, fetched: old.fetchedAt ?? 0 };
   const n = { origin: dayOrigin(next), row: next.row, fetched: next.fetchedAt ?? 0 };
   if (verdict(o, n) === "replace") {
@@ -134,18 +154,22 @@ export function decideDay(old: DayRecord | undefined, next: DayRecord): DayRecor
 
 /** The hour record to keep: decided hour by hour, so observed hours and forecast hours can meet. */
 export function decideHours(old: HourRecord | undefined, next: HourRecord): HourRecord {
-  if (!old) return next;
-  if (corrected(old, next) && next.source === "jma") return next;
-  // Whole-record rule for JMA tables: a fixed day is replaced only by a complete fixed copy (a
+  if (!old) return stamp(next);
+  if (corrected(old, next)) return wholeHours(next) ? stamp(next) : old;
+  // Whole-record rule for JMA tables: a fixed day is replaced only by a newer whole fixed copy (a
   // correction), never by a partial or older one.
   if (old.kind === "fixed") {
-    const replace = next.kind === "fixed" && (next.fetchedAt ?? 0) >= (old.fetchedAt ?? 0) && next.rows.length >= old.rows.length;
-    return replace ? next : old;
+    const replace = next.kind === "fixed" && wholeHours(next) && (next.fetchedAt ?? 0) >= (old.fetchedAt ?? 0);
+    return replace ? stamp(next) : old;
   }
   const byHour = new Map<number, { row: WeatherRow; origin: Origin; fetched: number }>();
-  for (const row of old.rows) byHour.set(row.n, { row, origin: hourOrigin(row, old), fetched: old.fetchedAt ?? 0 });
-  let changed = false;
+  // Only rows that belong here (this day, hours 1–24) take part: a stray row from a broken page
+  // saved earlier never survives a merge.
+  const belongs = (r: WeatherRow) => r.date === next.date && Number.isInteger(r.n) && r.n >= 1 && r.n <= 24;
+  let changed = old.rows.some((r) => !belongs(r));
+  for (const row of old.rows) if (belongs(row)) byHour.set(row.n, { row, origin: hourOrigin(row, old), fetched: old.fetchedAt ?? 0 });
   for (const row of next.rows) {
+    if (!belongs(row)) continue;
     const cand = { row, origin: hourOrigin(row, next), fetched: next.fetchedAt ?? 0 };
     const held = byHour.get(row.n);
     if (!held) {
@@ -165,8 +189,8 @@ export function decideHours(old: HourRecord | undefined, next: HourRecord): Hour
     }
   }
   if (!changed && next.kind === old.kind) return old;
-  const rows = [...byHour.values()].map((h) => h.row).sort((a, b) => a.n - b.n);
-  // The record's own source: the best source among its rows.
+  const rows = [...byHour.values()].map((h) => (h.row.from === h.origin ? h.row : { ...h.row, from: h.origin })).sort((a, b) => a.n - b.n);
+  // The record's source is a summary (the best among its rows); each row keeps its own in `from`.
   const best = Math.max(...[...byHour.values()].map((h) => RANK[h.origin]));
   const source: HourRecord["source"] = best >= RANK.jma ? "jma" : best === RANK.amedas ? "current" : "forecast";
   const kind = source === "jma" && next.kind === "fixed" ? "fixed" : "variable";

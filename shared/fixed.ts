@@ -48,11 +48,20 @@ export function isFixedMonth(month: string, rows: WeatherRow[], today: string): 
  */
 export function isFixedHourlyDay(day: string, rows: WeatherRow[], today: string): boolean {
   if (day > addDays(today, -FIXED_AFTER_DAYS)) return false;
+  if (!hasAllHours(day, rows)) return false;
+  return rows.every((r) => r.type === "actual" && !r.provisional && (r.unpublished?.length ?? 0) === 0);
+}
+
+/**
+ * The page is whole: hours 1–24 each exactly once, all of `day`. Values may still be empty — an
+ * empty value on a whole page is what JMA published (or withdrew); a missing hour is a broken fetch.
+ */
+export function hasAllHours(day: string, rows: WeatherRow[]): boolean {
   if (rows.length !== 24) return false;
   const hours = new Set<number>();
   for (const r of rows) {
     if (r.date !== day || !Number.isInteger(r.n) || r.n < 1 || r.n > 24 || hours.has(r.n)) return false;
     hours.add(r.n);
   }
-  return rows.every((r) => r.type === "actual" && !r.provisional && (r.unpublished?.length ?? 0) === 0);
+  return true;
 }
