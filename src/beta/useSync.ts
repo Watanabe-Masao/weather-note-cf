@@ -4,6 +4,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 import { api, currentMe, logOut, onAccountChanged, refreshAccount } from "../account/account";
+import { turnOffDevice } from "../account/push";
 import { leavingReports, loadSync, saveSync, type SyncState, syncOnce } from "./sync";
 import { onReportsChanged, reports } from "./useReports";
 
@@ -71,6 +72,7 @@ export async function logOutAndLeave(): Promise<{ kept: number }> {
     kept = all.filter((r) => r.owner === s.userId).length - leave.length;
     await reports.drop(leave);
   }
+  await turnOffDevice(); // this device stops getting this person's notifications
   await logOut();
   return { kept };
 }

@@ -1,6 +1,6 @@
 // β: the comfort centre and range of this moment — several models, compared and combined.
 //
-// The idea: a person feels "適温" within a range around a centre; past its edges it turns
+// The idea: a person feels "快適" (neutral) within a range around a centre; past its edges it turns
 // cool or warm step by step. Neither the centre nor the width is fixed: the days before (the recent
 // temperatures and how they changed, humidity, sunshine, rain, the weather) move both. Which of
 // them matter, and how much, is what the reports are for — so several models, each with its own

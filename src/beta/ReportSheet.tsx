@@ -12,7 +12,7 @@ import { departures, historyDays } from "./adaptation";
 import { type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
 import { type ComfortPrediction, predictComfort } from "./comfort";
-import { baselineOf, baselineStateOf, driversOfDay, historyOf } from "./useBaseline";
+import { baselineOf, baselineStateOf, driversOfDay, historyOf, useBaselineHistory } from "./useBaseline";
 import { reports } from "./useReports";
 
 interface Props {
@@ -21,9 +21,11 @@ interface Props {
   today: string;
   onClose: () => void;
   onSaved?: () => void;
+  /** When a notification asked for this report (ms), if it was opened from one. */
+  notifiedAt?: number;
 }
 
-function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
+function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClose">) {
   const close = useSheetClose();
   const feel = useContext(FeelContext);
   const beta = useContext(BetaContext);
@@ -36,6 +38,8 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
   const [openedAt] = useState(() => new Date().toISOString());
   // Wind is taken as an amount over time (the last 6 and 12 hours, last night), so yesterday's hours are needed too.
   const yesterday = addDays(today, -1);
+  // The past days for the 最近の基準 (opened from the header or a notification, no summary has asked yet).
+  useBaselineHistory(store, station, [today], "report-baseline");
   useEffect(() => {
     store?.wantHours(station, [yesterday, today], Priority.Visible, "report");
     return () => store?.wantHours(station, [], Priority.Visible, "report");
@@ -44,7 +48,13 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
   const [saving, setSaving] = useState(false);
   // Wait for the past days (the summary asked for them), so the report carries its full history.
   const loading = baselineStateOf(store, station, today, beta.alpha).state === "loading";
-  const ready = sensation != null && exposure != null && windFelt != null && sky != null && !loading;
+  // The prediction must be the model's real one, made from this moment's values: wait until the
+  // models have learnt from this person's reports and today's hours have arrived (opened cold from a
+  // notification, neither is there yet). A failed fetch (offline) does not block: the report is
+  // saved without a prediction, and says so.
+  const hoursState = store?.getHours(station, today).state ?? "empty";
+  const waitingFor = loading ? "過去の気温を読み込み中…" : !beta.learned ? "これまでの記録から学習中…" : hoursState === "empty" ? "今日の観測を読み込み中…" : null;
+  const ready = sensation != null && exposure != null && windFelt != null && sky != null && waitingFor == null;
 
   /**
    * The comfort model's prediction for a moment: the station's hour then, the place and wind
@@ -72,6 +82,7 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
       id: newId(),
       at: new Date(now).toISOString(),
       openedAt,
+      ...(notifiedAt ? { notifiedAt: new Date(notifiedAt).toISOString() } : {}),
       comfort,
       station,
       sensation,
@@ -110,8 +121,7 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
               className={sensation === s.value ? "report-pick on" : "report-pick"}
               onClick={() => setSensation(s.value)}
             >
-              {/* Break where the words break, so seven fit a phone's width. */}
-              {s.label.replace(/^やや/, "やや\n")}
+              {s.label}
             </button>
           ))}
         </div>
@@ -131,7 +141,7 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
         <small className="set-help">見たままの空。その時刻の予報の天気は自動で添えるので、あとで予報と実際を突き合わせられます。</small>
       </div>
       <button className="report-save" disabled={!ready || saving} onClick={() => void save()}>
-        {loading ? "過去の気温を読み込み中…" : ready ? "記録する" : "4つとも選ぶと記録できます"}
+        {waitingFor ?? (ready ? "記録する" : "4つとも選ぶと記録できます")}
       </button>
     </div>
   );

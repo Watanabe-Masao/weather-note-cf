@@ -31,6 +31,20 @@ export interface AccountsEnv {
   SETUP_CODE?: string;
 }
 
+import {
+  checkSettings,
+  checkSubscription,
+  NOTIFY_SCHEMA,
+  removeSubscription,
+  rememberOrigin,
+  reportMessage,
+  saveSettings,
+  saveSubscription,
+  sendToUser,
+  settingsOf,
+  vapidKeys,
+} from "./notify";
+
 // ---- schema ----------------------------------------------------------------------------------
 
 export const SCHEMA_VERSION = 1;
@@ -98,13 +112,14 @@ const SCHEMA = [
 ];
 
 const ready = new WeakMap<Db, Promise<void>>();
+const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA];
 
 /** Creates the tables once per database (idempotent: safe on every cold start). */
 export function ensureSchema(db: Db): Promise<void> {
   let p = ready.get(db);
   if (!p) {
     p = (async () => {
-      for (const q of SCHEMA) await db.prepare(q).run();
+      for (const q of ALL_SCHEMA) await db.prepare(q).run();
       const row = await db.prepare("SELECT v FROM schema_version").first<{ v: number }>();
       if (!row) await db.prepare("INSERT INTO schema_version (v) VALUES (?)").bind(SCHEMA_VERSION).run();
     })();
@@ -348,7 +363,7 @@ export async function pullReports(db: Db, userId: string, since: number) {
 
 // ---- routes ----------------------------------------------------------------------------------
 
-export const ACCOUNT_PATHS = ["/api/auth/", "/api/me/", "/api/reports/", "/api/admin/"];
+export const ACCOUNT_PATHS = ["/api/auth/", "/api/me/", "/api/reports/", "/api/admin/", "/api/push/"];
 export const isAccountPath = (p: string) => ACCOUNT_PATHS.some((x) => p.startsWith(x));
 
 export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.now()): Promise<Response> {
@@ -423,6 +438,46 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       await db.prepare("INSERT INTO consents (user_id, kind, version, granted, at) VALUES (?, 'research', ?, ?, ?)").bind(u.id, RESEARCH_CONSENT_VERSION, b.granted ? 1 : 0, now).run();
       return json({ user: await me(db, u) });
     }
+    // -- notifications --
+    if (path === "/api/me/notify") {
+      if (post) {
+        let settings;
+        try {
+          settings = checkSettings(await body(req));
+        } catch (e) {
+          if (e instanceof Refused) throw e;
+          throw new Refused((e as Error).message);
+        }
+        await saveSettings(db, u.id, settings, now);
+      }
+      const devices = (await db.prepare("SELECT COUNT(*) AS n FROM push_subscriptions WHERE user_id = ?").bind(u.id).first<{ n: number }>())?.n ?? 0;
+      return json({ settings: await settingsOf(db, u.id), devices });
+    }
+    if (path === "/api/push/key" && !post) return json({ publicKey: (await vapidKeys(db)).publicKey });
+    if (path === "/api/push/subscribe" && post) {
+      const b = await body(req);
+      let sub;
+      try {
+        sub = checkSubscription(b);
+      } catch (e) {
+        throw new Refused((e as Error).message);
+      }
+      await saveSubscription(db, u, sub, now);
+      await rememberOrigin(db, new URL(req.url).origin);
+      return json({ ok: true });
+    }
+    if (path === "/api/push/unsubscribe" && post) {
+      const b = await body(req);
+      if (typeof b.endpoint === "string") await removeSubscription(db, u, b.endpoint);
+      return json({ ok: true });
+    }
+    if (path === "/api/push/test" && post) {
+      await body(req);
+      const n = await sendToUser(db, u.id, reportMessage(now, true), now);
+      if (!n) throw new Refused("通知を送れる端末がありません。この端末で通知をオンにしてください。", 409);
+      return json({ devices: n });
+    }
+
     if (path === "/api/reports/sync" && post) {
       const b = await body(req);
       const taken = await pushReports(db, u.id, checkReports(b.push), now);

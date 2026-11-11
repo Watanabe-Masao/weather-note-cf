@@ -14,6 +14,8 @@ import { METRICS, metricById } from "./metrics";
 import { useFeelSettings } from "./feelSettings";
 import { BetaContext, useBetaSettings } from "./beta/settings";
 import { useAutoSync } from "./beta/useSync";
+import { ReportSheet } from "./beta/ReportSheet";
+import { useAccount } from "./account/account";
 import { useViewState } from "./state";
 import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
@@ -83,11 +85,40 @@ export function App() {
   const [detent, setDetent] = useState<Detent>("mid");
   const [full, setFull] = useState(false);
   const [settings, setSettings] = useState(false);
+  // 記録: from the header at any time, or from a notification (?report=1&n=<when it was due>).
+  const [reportFrom, setReportFrom] = useState<{ notifiedAt?: number } | null>(null);
+  const [reportSaved, setReportSaved] = useState(false);
+  const account = useAccount();
   const metric = metricById(view.metric);
   const feel = useFeelSettings(view.station, view.sun);
   const feelSettings = feel.settings;
   const beta = useBetaSettings();
   useAutoSync(); // who is logged in, and the reports kept in step with the server
+  // Opened from a notification: as a URL (the app was closed) or as a message (it was open).
+  const [asked, setAsked] = useState<{ notifiedAt?: number } | null>(() => {
+    const q = new URLSearchParams(location.search);
+    if (q.get("report") !== "1") return null;
+    const n = Number(q.get("n"));
+    history.replaceState(null, "", location.pathname); // a reload does not open it again
+    return { notifiedAt: Number.isFinite(n) && n > 0 ? n : undefined };
+  });
+  useEffect(() => {
+    const onMessage = (e: MessageEvent<{ type?: string; n?: number }>) => e.data?.type === "report" && setAsked({ notifiedAt: e.data.n || undefined });
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
+  }, []);
+  // Waits until the login is known: logged in, the record opens; logged out, the settings (to log in).
+  useEffect(() => {
+    if (!asked || account.status !== "ready") return;
+    if (account.me) setReportFrom(asked);
+    else setSettings(true);
+    setAsked(null);
+  }, [asked, account.status, account.me]);
+  useEffect(() => {
+    if (!reportSaved) return;
+    const t = setTimeout(() => setReportSaved(false), 2500);
+    return () => clearTimeout(t);
+  }, [reportSaved]);
   // The sheet shows the chosen item two ways: seven days (日別) or the 24 hours of the day (時間帯).
   const [face, setFace] = useState<"chart" | "hours">("chart");
   // While a drum moves, the switches that change which days are shown wait (rule: 動いている間).
@@ -248,9 +279,16 @@ export function App() {
       {!full && (
         <header className="app-head">
           <h1>Weather Note</h1>
-          <IconButton label="設定" onClick={() => setSettings(true)}>
-            <GearIcon />
-          </IconButton>
+          <div className="app-head-actions">
+            {account.me && (
+              <button className="head-report" onClick={() => setReportFrom({})} aria-label="今の感じ方を記録する">
+                {reportSaved ? "記録しました" : "記録"}
+              </button>
+            )}
+            <IconButton label="設定" onClick={() => setSettings(true)}>
+              <GearIcon />
+            </IconButton>
+          </div>
         </header>
       )}
 
@@ -438,6 +476,21 @@ export function App() {
           onPick={pickCompare}
           onClose={() => setSimilar(false)}
         />
+      )}
+
+      {reportFrom && (
+        <BetaContext.Provider value={beta}>
+          <FeelContext.Provider value={feelSettings}>
+            <ReportSheet
+              store={store}
+              station={view.station}
+              today={today}
+              notifiedAt={reportFrom.notifiedAt}
+              onClose={() => setReportFrom(null)}
+              onSaved={() => setReportSaved(true)}
+            />
+          </FeelContext.Provider>
+        </BetaContext.Provider>
       )}
 
       {settings && (

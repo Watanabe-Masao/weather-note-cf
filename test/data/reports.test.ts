@@ -1,3 +1,4 @@
+import { LEVELS } from "../../shared/feel";
 import { describe, expect, it } from "vitest";
 import { jstHourOf, jstIso, recentDay, type Report, SENSATIONS, snapshotOf, toCsv, windMemory } from "../../src/beta/reports";
 import { DEFAULT_FEEL } from "../../shared/feel";
@@ -66,16 +67,17 @@ describe("β②: wind as an amount over time", () => {
 });
 
 describe("β②: the scale", () => {
-  it("has seven steps from 寒い (−3) to 暑い (+3), 涼しい and 暖かい included", () => {
+  it("has seven steps from 極寒 (−3) to 猛暑 (+3), the same words as the 肌感 levels", () => {
     expect(SENSATIONS.map((s) => [s.value, s.label])).toEqual([
-      [-3, "寒い"],
-      [-2, "涼しい"],
-      [-1, "やや涼しい"],
-      [0, "適温"],
-      [1, "やや暖かい"],
-      [2, "暖かい"],
-      [3, "暑い"],
+      [-3, "極寒"],
+      [-2, "寒い"],
+      [-1, "涼しい"],
+      [0, "快適"],
+      [1, "暖かい"],
+      [2, "暑い"],
+      [3, "猛暑"],
     ]);
+    expect(SENSATIONS.map((s) => s.label)).toEqual([...LEVELS]);
   });
 });
 
@@ -129,10 +131,10 @@ describe("β②: CSV", () => {
   };
   it("writes one row per live report, oldest first, readable by Excel", () => {
     const csv = toCsv([{ ...base, id: "b", at: "2026-11-12T00:00:00.000Z" }, base, { ...base, id: "c", deleted: true }]);
-    expect(csv.startsWith("﻿at_jst,opened_at_jst,station,sensation")).toBe(true);
+    expect(csv.startsWith("﻿at_jst,opened_at_jst,notified_at_jst,station,sensation")).toBe(true);
     const lines = csv.trim().split("\r\n");
     expect(lines).toHaveLength(3);
-    expect(lines[1]).toContain(`2026-11-11T20:30:00+09:00,,47893,-1,やや涼しい,shade,strong,${",".repeat(19)}cloudy,`); // no prediction in this one
+    expect(lines[1]).toContain(`2026-11-11T20:30:00+09:00,,,47893,-1,涼しい,shade,strong,${",".repeat(19)}cloudy,`); // no prediction in this one
     expect(lines[1]).toContain("17.3,0.8,0.2,3.1,0,-2.4,,-4,"); // α, 前日の重み, 半減期
     expect(lines[1].endsWith(",a")).toBe(true);
     const header = lines[0].split(",");
