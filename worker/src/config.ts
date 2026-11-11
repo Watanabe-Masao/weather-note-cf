@@ -1,3 +1,4 @@
+import { DATA_SHAPE } from "../../shared/versions";
 import type { Station } from "../../shared/types";
 import stationList from "./stations.json";
 
@@ -6,5 +7,5 @@ export const stations = stationList as Station[];
 export const MAX_HOURLY_DAYS = 14;
 export const HOURLY_CONCURRENCY = 3;
 
-/** Bumped when parsed rows gain fields, so a year of edge-cached tables is read again (v2: snow, humidityMin, windMax). */
-export const CACHE_VERSION = "v2";
+/** Edge cache keys carry the shared data shape, so the edge and the app are rebuilt together. */
+export const CACHE_VERSION = `v${DATA_SHAPE}`;

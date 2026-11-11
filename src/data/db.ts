@@ -4,9 +4,10 @@
 import { type IDBPDatabase, openDB } from "idb";
 import type { WeatherRow } from "../../shared/types";
 
-/** Bump when the stored shape changes; old data is then discarded and fetched again. */
-/** Bumped when rows gain fields (2: snow, humidityMin, windMax): days and hours are read again, meta is kept. */
-export const DATA_VERSION = 2;
+import { DATA_SHAPE } from "../../shared/versions";
+
+/** The stored shape (shared with the edge cache keys): bumping it rebuilds both. Meta is kept. */
+export const DATA_VERSION = DATA_SHAPE;
 const DB_NAME = "weather-note";
 
 export type Kind = "fixed" | "variable";
@@ -19,6 +20,10 @@ export interface DayRecord {
   kind: Kind;
   source: "jma" | "recent" | "forecast";
   savedAt: number;
+  /** When the request that brought it was made (正本管理: an older answer never wins). */
+  fetchedAt?: number;
+  /** Corrections-ledger revision it reflects (shared/corrections.ts). */
+  rev?: number;
 }
 
 export interface HourRecord {
@@ -29,6 +34,8 @@ export interface HourRecord {
   kind: Kind;
   source: "jma" | "current" | "forecast";
   savedAt: number;
+  fetchedAt?: number;
+  rev?: number;
 }
 
 interface Meta {

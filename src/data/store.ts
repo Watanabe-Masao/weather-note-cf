@@ -12,8 +12,10 @@
 //   4. Navigating never refreshes variable data; only missing days are fetched.
 
 import { addDays, daysBetween, FIRST_DAY, jstToday, monthOf } from "../../shared/dates";
-import { isFixedDay, isFixedHourlyDay } from "../../shared/fixed";
+import { type Correction, CORRECTIONS, correctionRev } from "../../shared/corrections";
+import { inRevalidation, isFixedDay, isFixedHourlyDay } from "../../shared/fixed";
 import type { DailyMonthResponse, HourlyResponse, WeatherRow } from "../../shared/types";
+import { decideDay, decideHours, fillFrom } from "./authority";
 import { DATA_VERSION, type DayRecord, type HourRecord, type Kind, type Storage } from "./db";
 import { type Direction, isRecent, lastDay, Priority, sourceFor, viewPlan } from "./plan";
 import { RequestQueue } from "./queue";
@@ -63,6 +65,8 @@ export interface StoreOptions {
   clearTimer?: (id: unknown) => void;
   localStore?: Pick<globalThis.Storage, "getItem" | "setItem"> | null;
   persist?: () => Promise<boolean>;
+  /** The corrections ledger (default: shared/corrections.ts; tests pass their own). */
+  corrections?: Correction[];
 }
 
 interface Task {
@@ -70,7 +74,13 @@ interface Task {
   channel: "jma" | "forecast";
   priority: number;
   days: string[]; // day keys the task fills, for error reporting
-  run: () => Promise<void>;
+  /** `at`: when the request was made; `gen`: the store generation it belongs to. */
+  run: (ctx: RunContext) => Promise<void>;
+}
+
+interface RunContext {
+  at: number;
+  gen: number;
 }
 
 const dayKey = (station: string, date: string) => `${station}/${date}`;
@@ -100,6 +110,8 @@ export class WeatherStore {
   today: string;
   /** Number of network requests started (for tests and the check page). */
   requests = 0;
+  /** Bumped by 保存データを消去: answers to requests made before it are dropped. */
+  private gen = 0;
 
   private storage: Storage;
   private fetchJson: FetchJson;
@@ -108,6 +120,7 @@ export class WeatherStore {
   private clearTimer: (id: unknown) => void;
   private localStore: StoreOptions["localStore"];
   private persist?: () => Promise<boolean>;
+  private corrections: Correction[];
 
   constructor(options: StoreOptions) {
     this.storage = options.storage;
@@ -117,6 +130,7 @@ export class WeatherStore {
     this.clearTimer = options.clearTimer ?? ((id) => clearTimeout(id as number));
     this.localStore = options.localStore ?? null;
     this.persist = options.persist;
+    this.corrections = options.corrections ?? CORRECTIONS;
     this.today = jstToday(this.now());
   }
 
@@ -171,6 +185,7 @@ export class WeatherStore {
   }
 
   async clear(): Promise<void> {
+    this.gen++;
     for (const t of this.timers) this.clearTimer(t);
     this.timers.clear();
     this.queue.retain(() => false);
@@ -360,7 +375,7 @@ export class WeatherStore {
 
     for (const [k, { station, date, priority }] of wanted) {
       if (!looked(k)) continue;
-      if (this.days.get(k)?.kind === "fixed") continue;
+      if (this.days.get(k)?.kind === "fixed" && !this.recheck(this.days.get(k)!)) continue;
       const source = sourceFor(date, this.today);
       if (source.kind === "forecast") {
         addTask(this.forecastTask(station, priority));
@@ -384,7 +399,7 @@ export class WeatherStore {
       if (!lookedHour(k)) continue;
       const station = k.slice(0, k.indexOf("/"));
       const date = k.slice(k.indexOf("/") + 1);
-      if (this.hours.get(k)?.kind === "fixed") continue;
+      if (this.hours.get(k)?.kind === "fixed" && !this.recheck(this.hours.get(k)!)) continue;
       if (date > this.today) {
         addTask(this.forecastTask(station, priority));
       } else if (date === this.today) {
@@ -422,6 +437,15 @@ export class WeatherStore {
     }
   }
 
+  /**
+   * Fixed is not "never changes" (正本管理): fixed data is fetched again once per session while
+   * still in its re-check period, and whenever the corrections ledger lists its day after it was
+   * saved. The month/day request itself is still made at most once per session (rule 4).
+   */
+  private recheck(r: { station: string; date: string; rev?: number }): boolean {
+    return inRevalidation(r.date, this.today) || correctionRev(r.station, r.date, r.date, this.corrections) > (r.rev ?? 0);
+  }
+
   private async hydrate(dayKeys: string[], hourKeys: string[]): Promise<void> {
     const dk = dayKeys.filter((k) => !this.looked.has(k) && !this.days.has(k));
     const hk = hourKeys.filter((k) => !this.looked.has("h:" + k) && !this.hours.has(k));
@@ -451,8 +475,10 @@ export class WeatherStore {
 
   private async execute(task: Task): Promise<void> {
     this.requests++;
+    const ctx: RunContext = { at: this.now(), gen: this.gen };
     try {
-      await task.run();
+      await task.run(ctx);
+      if (ctx.gen !== this.gen) return; // started before 保存データを消去: its result is void
       this.fresh.add(task.key);
       this.blocked.delete(task.key);
       // Clear only this kind's failures: a day's hours arriving says nothing about its daily row.
@@ -485,25 +511,19 @@ export class WeatherStore {
       channel: "jma",
       priority,
       days,
-      run: async () => {
+      run: async (ctx) => {
         const data = await this.fetchJson<DailyMonthResponse>(`/api/daily?station=${station}&month=${month}`);
         const byDate = new Map(data.rows.map((r) => [r.date, r]));
         const records: DayRecord[] = [];
         for (const k of days) {
           const date = k.slice(k.indexOf("/") + 1);
           if (date >= this.today) continue;
-          let row = byDate.get(date) ?? null;
-          let source: DayRecord["source"] = "jma";
-          // Keep AMeDAS values already filled into still-unpublished columns, so a refresh never blanks them.
-          const old = this.days.get(dayKey(station, date));
-          if (row && old?.source === "recent" && old.row && (row.unpublished?.length ?? 0) > 0) {
-            row = mergeRecent(row, old.row);
-            source = "recent";
-          }
-          const fixed = row && source === "jma" && isFixedDay(row, this.today);
-          records.push(this.dayRecord(station, date, row, fixed ? "fixed" : "variable", source));
+          // AMeDAS values already filling still-unpublished columns are kept by the 正本管理 rules.
+          const row = byDate.get(date) ?? null;
+          const fixed = row && isFixedDay(row, this.today);
+          records.push(this.dayRecord(ctx, station, date, row, fixed ? "fixed" : "variable", "jma"));
         }
-        await this.saveDays(records);
+        await this.saveDays(records, ctx);
       },
     };
   }
@@ -514,13 +534,13 @@ export class WeatherStore {
       channel: "jma",
       priority,
       days: [dayKey(station, date)],
-      run: async () => {
+      run: async (ctx) => {
         const data = await this.fetchJson<{ daily?: WeatherRow; rows?: WeatherRow[] }>(
           `/api/recent?station=${station}&date=${date}`,
         );
         if (!data.daily) throw new Error("速報データがありません");
-        const base = this.days.get(dayKey(station, date))?.row ?? null;
-        await this.saveDays([this.dayRecord(station, date, mergeRecent(base, data.daily), "variable", "recent")]);
+        // Fills only the columns JMA has not published yet (正本管理: AMeDAS ranks below JMA).
+        await this.saveDays([this.dayRecord(ctx, station, date, data.daily, "variable", "recent")], ctx);
       },
     };
   }
@@ -532,26 +552,22 @@ export class WeatherStore {
       channel: "forecast",
       priority,
       days: dates.map((d) => dayKey(station, d)),
-      run: async () => {
+      run: async (ctx) => {
         const data = await this.fetchJson<{ rows: WeatherRow[]; hourlyRows: WeatherRow[] }>(
           `/api/forecast?station=${station}`,
         );
         await this.saveDays(
-          data.rows.filter((r) => r.date >= this.today).map((r) => this.dayRecord(station, r.date, r, "variable", "forecast")),
+          data.rows.filter((r) => r.date >= this.today).map((r) => this.dayRecord(ctx, station, r.date, r, "variable", "forecast")),
+          ctx,
         );
         const byDate = new Map<string, WeatherRow[]>();
         for (const r of data.hourlyRows ?? []) {
           if (r.date < this.today) continue;
           byDate.set(r.date, [...(byDate.get(r.date) ?? []), r]);
         }
-        const records: HourRecord[] = [];
-        for (const [date, rows] of byDate) {
-          const existing = this.hours.get(dayKey(station, date));
-          // Observed hours (today) win over forecast hours.
-          const merged = existing?.source === "current" ? mergeHours(rows, existing.rows) : rows;
-          records.push(this.hourRecord(station, date, merged, "variable", existing?.source === "current" ? "current" : "forecast"));
-        }
-        await this.saveHours(records);
+        // Observed hours (today) keep winning over forecast hours: decided hour by hour on save.
+        const records = [...byDate].map(([date, rows]) => this.hourRecord(ctx, station, date, rows, "variable", "forecast"));
+        await this.saveHours(records, ctx);
       },
     };
   }
@@ -563,7 +579,7 @@ export class WeatherStore {
       channel: "jma",
       priority,
       days: [dayKey(station, date)],
-      run: async () => {
+      run: async (ctx) => {
         const data = await this.fetchJson<{ rows: WeatherRow[]; latest: WeatherRow | null }>(
           `/api/current?station=${station}`,
         );
@@ -571,8 +587,8 @@ export class WeatherStore {
           this.latest.set(station, data.latest);
           this.emit();
         }
-        const forecastRows = this.hours.get(dayKey(station, date))?.rows.filter((r) => r.type === "forecast") ?? [];
-        await this.saveHours([this.hourRecord(station, date, mergeHours(forecastRows, data.rows ?? []), "variable", "current")]);
+        // Observed hours replace forecast hours; the forecast still lends solar radiation (AMeDAS has none).
+        await this.saveHours([this.hourRecord(ctx, station, date, data.rows ?? [], "variable", "current")], ctx);
       },
     };
   }
@@ -584,7 +600,7 @@ export class WeatherStore {
       channel: "jma",
       priority,
       days: dates.map((d) => dayKey(station, d)),
-      run: async () => {
+      run: async (ctx) => {
         const data = await this.fetchJson<HourlyResponse>(`/api/hourly?station=${station}&from=${from}&to=${to}`);
         const records: HourRecord[] = [];
         let failed: string | null = null;
@@ -596,10 +612,10 @@ export class WeatherStore {
             continue;
           }
           const fixed = day.fixed && isFixedHourlyDay(day.date, day.rows, this.today);
-          records.push(this.hourRecord(station, day.date, day.rows, fixed ? "fixed" : "variable", "jma"));
+          records.push(this.hourRecord(ctx, station, day.date, day.rows, fixed ? "fixed" : "variable", "jma"));
           this.fresh.add(`hour:${station}:${day.date}`);
         }
-        await this.saveHours(records);
+        await this.saveHours(records, ctx);
         if (failed) throw new Error(failed);
       },
     };
@@ -607,20 +623,29 @@ export class WeatherStore {
 
   // ---- saving ----------------------------------------------------------------------------
 
-  private dayRecord(station: string, date: string, row: WeatherRow | null, kind: Kind, source: DayRecord["source"]): DayRecord {
-    return { key: dayKey(station, date), station, date, row, kind, source, savedAt: this.now() };
+  private dayRecord(ctx: RunContext, station: string, date: string, row: WeatherRow | null, kind: Kind, source: DayRecord["source"]): DayRecord {
+    const rev = correctionRev(station, date, date, this.corrections);
+    return { key: dayKey(station, date), station, date, row, kind, source, savedAt: this.now(), fetchedAt: ctx.at, ...(rev ? { rev } : {}) };
   }
 
-  private hourRecord(station: string, date: string, rows: WeatherRow[], kind: Kind, source: HourRecord["source"]): HourRecord {
-    return { key: dayKey(station, date), station, date, rows, kind, source, savedAt: this.now() };
+  private hourRecord(ctx: RunContext, station: string, date: string, rows: WeatherRow[], kind: Kind, source: HourRecord["source"]): HourRecord {
+    const rev = correctionRev(station, date, date, this.corrections);
+    return { key: dayKey(station, date), station, date, rows, kind, source, savedAt: this.now(), fetchedAt: ctx.at, ...(rev ? { rev } : {}) };
   }
 
-  /** Save only what changed; unchanged values neither write nor redraw. */
-  private async saveDays(records: DayRecord[]): Promise<void> {
-    const changed = records.filter((r) => {
+  /**
+   * Every write goes through the 正本管理 rules (authority.ts): the record kept is decided from the
+   * held one and the new one. Save only what changed; unchanged values neither write nor redraw.
+   * Results of requests made before the last 保存データを消去 are dropped.
+   */
+  private async saveDays(records: DayRecord[], ctx: RunContext): Promise<void> {
+    if (ctx.gen !== this.gen) return;
+    const changed: DayRecord[] = [];
+    for (const r of records) {
       const old = this.days.get(r.key);
-      return !old || old.kind !== r.kind || !same(old.row, r.row);
-    });
+      const kept = decideDay(old, r);
+      if (!old || old.kind !== kept.kind || old.source !== kept.source || !same(old.row, kept.row)) changed.push(kept);
+    }
     if (!changed.length) return;
     for (const r of changed) this.days.set(r.key, r);
     this.emit();
@@ -628,11 +653,14 @@ export class WeatherStore {
     await this.noteSaved();
   }
 
-  private async saveHours(records: HourRecord[]): Promise<void> {
-    const changed = records.filter((r) => {
+  private async saveHours(records: HourRecord[], ctx: RunContext): Promise<void> {
+    if (ctx.gen !== this.gen) return;
+    const changed: HourRecord[] = [];
+    for (const r of records) {
       const old = this.hours.get(r.key);
-      return !old || old.kind !== r.kind || !same(old.rows, r.rows);
-    });
+      const kept = decideHours(old, r);
+      if (!old || old.kind !== kept.kind || old.source !== kept.source || !same(old.rows, kept.rows)) changed.push(kept);
+    }
     if (!changed.length) return;
     for (const r of changed) this.hours.set(r.key, r);
     this.emit();
@@ -688,29 +716,14 @@ export class WeatherStore {
   }
 }
 
-/** Fill columns the JMA table has not published yet with AMeDAS values. */
+/** Fill columns the JMA table has not published yet with AMeDAS values (正本管理: kept for callers). */
 export function mergeRecent(base: WeatherRow | null, recent: WeatherRow): WeatherRow {
-  if (!base) return recent;
-  const missing = new Set(base.unpublished ?? []);
-  const row: WeatherRow = { ...base, raw: { ...base.raw }, quality: { ...base.quality }, provisional: true };
-  for (const k of missing) {
-    if (recent[k] === undefined) continue;
-    row[k] = recent[k];
-    row.raw[k] = recent.raw[k] ?? "";
-    if (recent.quality[k]) row.quality[k] = recent.quality[k];
-  }
-  return row;
+  return base ? fillFrom(base, "jma", recent, "amedas") : recent;
 }
 
-/** Observed hours replace forecast hours with the same hour number. */
+/** Observed hours replace forecast hours with the same hour; the forecast lends solar radiation. */
 export function mergeHours(forecast: WeatherRow[], observed: WeatherRow[]): WeatherRow[] {
-  const byHour = new Map<number, WeatherRow>();
-  for (const r of forecast) byHour.set(r.n, r);
-  for (const r of observed) {
-    // AMeDAS has no radiation: keep the forecast's for that hour so the sunshine term still works.
-    const f = byHour.get(r.n);
-    const solar = typeof r.solar === "number" ? r.solar : f?.type === "forecast" ? f.solar : undefined;
-    byHour.set(r.n, solar === undefined ? r : { ...r, solar, solarSource: r.solar === solar ? "observed" : "forecast" });
-  }
-  return [...byHour.values()].sort((a, b) => a.n - b.n);
+  const held: HourRecord = { key: "", station: "", date: "", rows: forecast, kind: "variable", source: "forecast", savedAt: 0 };
+  const next: HourRecord = { ...held, rows: observed, source: "current" };
+  return decideHours(held, next).rows;
 }

@@ -107,6 +107,29 @@ describe("/api/forecast", () => {
   });
 });
 
+describe("errors and the re-check period", () => {
+  it("answers our own messages as they are and hides anything else", async () => {
+    vi.stubGlobal("fetch", vi.fn(() => Promise.reject(new TypeError("internal: socket 10.0.0.1 reset"))));
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
+    const { res, body } = await get("/api/forecast?station=47893");
+    expect(res.status).toBe(502);
+    expect(body.error).toBe("取得に失敗しました。時間をおいて再試行してください。");
+    expect(err).toHaveBeenCalled();
+    err.mockRestore();
+  });
+
+  it("keeps a fixed month at the edge for a day while it is being re-checked, a year after", async () => {
+    vi.setSystemTime(new Date("2025-12-05T03:00:00Z")); // November 2025 ended 4 days before
+    const recent = await get("/api/daily?station=47893&month=2025-11");
+    expect(recent.body.fixed).toBe(true);
+    expect(recent.res.headers.get("cache-control")).toBe("public, max-age=86400");
+    vi.setSystemTime(new Date("2026-11-10T03:00:00Z"));
+    const old = await get("/api/daily?station=47893&month=2025-11");
+    expect(old.body.fixed).toBe(true);
+    expect(old.res.headers.get("cache-control")).toBe(FIXED_CACHE);
+  });
+});
+
 describe("/api/sun", () => {
   it("reaches as far as the forecast (today + 15) and no further", async () => {
     expect((await get("/api/sun?station=47893&date=2026-11-25")).res.status).toBe(200);

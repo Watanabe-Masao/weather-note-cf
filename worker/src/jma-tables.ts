@@ -2,6 +2,7 @@
 // Daily tables: one page per month. Hourly tables: one page per day.
 
 import type { Quality, Station, WeatherRow } from "../../shared/types";
+import { SourceError } from "./errors";
 
 const text = (s: string): string =>
   s
@@ -31,7 +32,7 @@ export interface ParsedRow {
 /** Parse the "tablefix1" table of a daily or hourly page into rows keyed by day / hour. */
 export function parseTable(html: string, hourly = false): ParsedRow[] {
   const table = html.match(/<table[^>]*id=['"]tablefix1['"][^>]*>([\s\S]*?)<\/table>/i)?.[1];
-  if (!table) throw new Error("気象庁の表を読み取れませんでした。時間をおいて再取得してください。");
+  if (!table) throw new SourceError("気象庁の表を読み取れませんでした。時間をおいて再取得してください。");
   const rows = [...table.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi)].map((x) => x[1]);
   const heads = rows.filter((x) => /<th\b/i.test(x));
 
@@ -86,7 +87,7 @@ export function parseTable(html: string, hourly = false): ParsedRow[] {
         nightWeather: find(/天気概況/, /夜/),
       };
   if (map.temp < 0 || map.rain < 0)
-    throw new Error("気象庁の表の形式が変わりました。列の対応を確認する必要があります。");
+    throw new SourceError("気象庁の表の形式が変わりました。列の対応を確認する必要があります。");
 
   const out: ParsedRow[] = [];
   for (const r of rows) {
@@ -136,7 +137,7 @@ export async function fetchDailyMonth(station: Station, month: string, today: st
   const [y, m] = month.split("-").map(Number);
   const source = tableUrl(station, y, m);
   const r = await fetch(source, { signal: signal ?? AbortSignal.timeout(25_000) });
-  if (!r.ok) throw new Error(`気象庁への接続に失敗しました（${r.status}）。`);
+  if (!r.ok) throw new SourceError(`気象庁への接続に失敗しました（${r.status}）。`);
   const rows: WeatherRow[] = parseTable(await r.text())
     .map((row) => ({ ...row, date: `${y}-${pad(m)}-${pad(row.n)}`, type: "actual" as const, provider: "JMA" }))
     .filter((row) => row.date < today);
@@ -147,7 +148,7 @@ export async function fetchHourlyDay(station: Station, day: string, signal?: Abo
   const [y, m, d] = day.split("-").map(Number);
   const source = tableUrl(station, y, m, d);
   const r = await fetch(source, { signal: signal ?? AbortSignal.timeout(25_000) });
-  if (!r.ok) throw new Error(`気象庁への接続に失敗しました（${r.status}）。`);
+  if (!r.ok) throw new SourceError(`気象庁への接続に失敗しました（${r.status}）。`);
   const rows: WeatherRow[] = parseTable(await r.text(), true).map((row) => ({
     ...row,
     date: day,

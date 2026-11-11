@@ -105,17 +105,24 @@ describe("acceptance criteria (spec 2.7)", () => {
     expect(firstRound).toBeGreaterThan(0);
   });
 
-  it("refreshes variable data on the refresh button and when the date changes, never fixed data", async () => {
+  it("refreshes variable data on the refresh button and when the date changes; fixed data only while being re-checked", async () => {
     let now = NOW;
     const { store, api } = makeStore(await openStorage(), fakeApi(), () => now);
+    store.setView(KOCHI, ["2026-08-15"]);
+    await store.idle();
+    api.calls.length = 0;
+    store.refresh();
+    await store.idle();
+    expect(api.calls.some((c) => c.includes("month=2026-08"))).toBe(false); // fixed, past its re-check period
+
     store.setView(KOCHI, [TODAY]);
     await store.idle();
-
     api.calls.length = 0;
     store.refresh();
     await store.idle();
     expect(api.calls.some((c) => c.startsWith("/api/forecast"))).toBe(true);
-    expect(api.calls.some((c) => c.includes("month=2026-10"))).toBe(false); // October is fixed
+    // October is fixed but ended less than 30 days ago: checked again once per session (正本管理).
+    expect(api.calls.some((c) => c.includes("month=2026-10"))).toBe(true);
 
     api.calls.length = 0;
     now += 86_400_000;
@@ -337,6 +344,46 @@ describe("today's hours", () => {
     const forecast = [{ date: TODAY, n: 10, type: "forecast", provider: "Open-Meteo", solar: 420, raw: {}, quality: {} }];
     const observed = [{ date: TODAY, n: 10, type: "actual", provider: "JMA-amedas", temp: 18, raw: {}, quality: {} }];
     const [merged] = mergeHours(forecast as never, observed as never);
-    expect(merged).toMatchObject({ type: "actual", temp: 18, solar: 420, solarSource: "forecast" });
+    expect(merged).toMatchObject({ type: "actual", temp: 18, solar: 420, origin: { solar: "forecast" } });
+  });
+});
+
+describe("正本管理 in the store", () => {
+  it("drops answers to requests made before 保存データを消去", async () => {
+    const api = fakeApi();
+    const held: (() => void)[] = [];
+    const slow: typeof api.fetchJson = async (path) => {
+      await new Promise<void>((r) => held.push(r));
+      return api.fetchJson(path);
+    };
+    const { store } = makeStore(await openStorage(), { ...api, fetchJson: slow });
+    store.setView(KOCHI, ["2025-06-15"]);
+    while (!held.length) await new Promise((r) => setTimeout(r, 1)); // a request is in flight
+    store.setView(KOCHI, []); // nothing new is wanted
+    await store.clear();
+    held.forEach((r) => r()); // the old answers arrive after the clear
+    await store.idle();
+    expect(store.getDay(KOCHI, "2025-06-15").state).toBe("empty");
+  });
+
+  it("fetches a fixed day again when the corrections ledger lists it, and only that period", async () => {
+    const storage = await openStorage();
+    const first = makeStore(storage);
+    first.store.setView(KOCHI, ["2025-06-15"]);
+    await first.store.idle();
+    expect(first.store.getDay(KOCHI, "2025-06-15").kind).toBe("fixed");
+
+    const api = fakeApi();
+    const store = new WeatherStore({
+      storage,
+      fetchJson: api.fetchJson,
+      now: () => NOW,
+      corrections: [{ id: 1, from: "2025-06-10", to: "2025-06-12", note: "test" }],
+    });
+    store.setView(KOCHI, ["2025-06-15"]);
+    await store.idle();
+    expect(api.calls).toContain(`/api/daily?station=${KOCHI}&month=2025-06`);
+    expect(api.calls.some((c) => c.includes("month=2025-05"))).toBe(false); // outside the listed period
+    expect(store.getDay(KOCHI, "2025-06-11").row).not.toBeNull();
   });
 });
