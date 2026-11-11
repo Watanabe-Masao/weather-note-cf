@@ -25,7 +25,7 @@ import { WeatherIcon } from "./WeatherIcon";
 import { BetaContext } from "../beta/settings";
 import { baselineStateOf, driversOfDay, useBaselineHistory } from "../beta/useBaseline";
 import type { BaselineState } from "../beta/adaptation";
-import { beyondRange, stateOf, type State } from "../beta/comfort";
+import { beyondRange, ensembleState, type State } from "../beta/comfort";
 import type { BetaSettings } from "../beta/settings";
 import { daytimeFeel, type FeelSettings } from "../../shared/feel";
 import { ReportSheet } from "../beta/ReportSheet";
@@ -389,9 +389,10 @@ function comfortOfDay(
   const rows = hours ?? [];
   const sun = daytimeFeel(rows, { ...feel, sun: true });
   const shade = daytimeFeel(rows, { ...feel, sun: false });
-  const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade ?? 0, num(row?.humidity));
+  // The day's values are daytime (9–17時): the night drivers are off, last night's cold is on.
+  const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade ?? 0, num(row?.humidity), { hour: 12 });
   if (!x) return null;
-  return { base: base.baseline.value, forecastMixed: base.baseline.forecastMixed, st: stateOf(beta.fit.theta, x), sun, shade };
+  return { base: base.baseline.value, forecastMixed: base.baseline.forecastMixed, st: ensembleState(beta.ens, x), sun, shade };
 }
 
 /**

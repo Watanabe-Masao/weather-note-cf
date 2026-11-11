@@ -67,6 +67,28 @@ export interface Snapshot {
   /** The forecast's weather for that hour (Open-Meteo), to compare with what was seen. */
   forecastSky: string | null;
   forecastSkyCode: number | null;
+  /** Global radiation summed over the day's hours up to this one (MJ/m²), and how many of those
+   *  hours were measured (the rest lent by the forecast: AMeDAS has no radiation). */
+  radDay?: number | null;
+  radDayMeasuredHours?: number;
+  /** Wind as an amount, not an instant: the mean of the last 6 hours, of the last 12 hours, and of
+   *  last night (18時 the day before to 6時), m/s. The day before's hours come from the store. */
+  wind6h?: number | null;
+  wind12h?: number | null;
+  windLastNight?: number | null;
+}
+
+/**
+ * Wind over time from the hourly rows of the day before and of the day (JMA hour n = n:00),
+ * placed on one line: the day before's hour n at n − 24.
+ */
+export function windMemory(today: WeatherRow[], before: WeatherRow[] | null, hour: number): Pick<Snapshot, "wind6h" | "wind12h" | "windLastNight"> {
+  const line = [...(before ?? []).map((r) => ({ t: r.n - 24, w: num(r.wind) })), ...today.map((r) => ({ t: r.n, w: num(r.wind) }))];
+  const meanOf = (from: number, to: number) => {
+    const ws = line.filter((p) => p.t > from && p.t <= to && p.w != null).map((p) => p.w as number);
+    return ws.length >= Math.min(3, to - from) ? Math.round((ws.reduce((a, b) => a + b, 0) / ws.length) * 10) / 10 : null;
+  };
+  return { wind6h: meanOf(hour - 6, hour), wind12h: meanOf(hour - 12, hour), windLastNight: meanOf(-7, 6) };
 }
 
 /** One of the days before, as the daily table has it, with its source. */
@@ -81,6 +103,8 @@ export interface RecentDay {
   /** 全天日射量 (MJ/m²). */
   radiation: number | null;
   rain: number | null;
+  /** Mean wind (m/s). */
+  wind?: number | null;
   weather: string | null;
   from: Origin | null;
 }
@@ -123,7 +147,7 @@ const round1 = (v: number | null) => (v == null ? null : Math.round(v * 10) / 10
  * The station's hour closest before `hour` that has a measured or forecast temperature, and its
  * values with their sources. Today's hours mix AMeDAS and forecast; each row says which it is.
  */
-export function snapshotOf(rows: WeatherRow[] | null, hour: number, feel: FeelSettings): Snapshot | null {
+export function snapshotOf(rows: WeatherRow[] | null, hour: number, feel: FeelSettings, before: WeatherRow[] | null = null): Snapshot | null {
   if (!rows?.length) return null;
   const row = [...rows]
     .filter((r) => r.n <= hour && num(r.temp) != null)
@@ -150,7 +174,26 @@ export function snapshotOf(rows: WeatherRow[] | null, hour: number, feel: FeelSe
     sunTemp: round1(feelOf(row.temp, row.humidity, row.wind, forecast, { ...feel, sun: true }, solar)),
     shadeTemp: round1(feelOf(row.temp, row.humidity, row.wind, forecast, { ...feel, sun: false }, solar)),
     ...forecastSkyOf(rows, row),
+    ...radDayOf(rows, row.n),
+    ...windMemory(rows, before, row.n),
   };
+}
+
+/** The day's radiation so far: W/m² per hour → MJ/m² (× 0.0036), hours 1…n with a value. */
+function radDayOf(rows: WeatherRow[], n: number): Pick<Snapshot, "radDay" | "radDayMeasuredHours"> {
+  let sum = 0;
+  let any = false;
+  let measured = 0;
+  for (const r of rows) {
+    if (r.n > n) continue;
+    const w = radiationOf(r);
+    if (w == null) continue;
+    any = true;
+    sum += w * 0.0036;
+    const lent = (r.origin as Record<string, Origin> | undefined)?.solar === "forecast" || r.type === "forecast";
+    if (!lent) measured++;
+  }
+  return { radDay: any ? Math.round(sum * 100) / 100 : null, radDayMeasuredHours: measured };
 }
 
 /** The forecast's weather for the hour: its own row, or the weather it lent to the observed row. */
@@ -174,6 +217,7 @@ export function recentDay(date: string, row: WeatherRow | null | undefined, kind
     sun: num(row?.sun),
     radiation: num(row?.radiation),
     rain: num(row?.rain),
+    wind: num(row?.wind),
     weather: typeof row?.dayWeather === "string" ? row.dayWeather : null,
     from: !row ? null : row.type === "forecast" ? "forecast" : kind === "fixed" ? "jma-fixed" : "jma",
   };
@@ -212,6 +256,7 @@ const COLUMNS: readonly string[] = [
   "p_p3",
   "pred_n",
   "pred_alpha",
+  "pred_models",
   "pred_error",
   "sky_reported",
   "sky_forecast",
@@ -228,6 +273,11 @@ const COLUMNS: readonly string[] = [
   "solar_from",
   "sun_temp",
   "shade_temp",
+  "rad_day_mj",
+  "rad_day_measured_h",
+  "wind_6h",
+  "wind_12h",
+  "wind_last_night",
   "baseline",
   "baseline_alpha",
   "update_rate",
@@ -238,7 +288,7 @@ const COLUMNS: readonly string[] = [
   "dep_shade",
   "history_60d",
   ...Array.from({ length: RECENT_DAYS }, (_, i) =>
-    ["mean", "max", "min", "humidity", "sun_h", "radiation_mj", "rain_mm", "weather", "from"].map((f) => `d${i + 1}_${f}`),
+    ["mean", "max", "min", "humidity", "sun_h", "radiation_mj", "rain_mm", "wind", "weather", "from"].map((f) => `d${i + 1}_${f}`),
   ).flat(),
   "id",
 ] as const;
@@ -278,6 +328,7 @@ export function toCsv(reports: Report[]): string {
       ...(r.comfort?.probs ?? Array(7).fill(null)),
       r.comfort?.n,
       r.comfort?.alpha,
+      r.comfort?.models?.map((m) => `${m.id}:${m.weight}:${m.mode}:${m.mu}:${m.h}`).join(";"),
       r.comfort ? Math.round((r.sensation - r.comfort.expected) * 10) / 10 : null,
       r.sky,
       r.snapshot?.forecastSky,
@@ -294,6 +345,11 @@ export function toCsv(reports: Report[]): string {
       r.snapshot?.from.solar,
       r.snapshot?.sunTemp,
       r.snapshot?.shadeTemp,
+      r.snapshot?.radDay,
+      r.snapshot?.radDayMeasuredHours,
+      r.snapshot?.wind6h,
+      r.snapshot?.wind12h,
+      r.snapshot?.windLastNight,
       r.baseline?.value,
       r.baseline?.alpha,
       r.baseline ? updateRate(r.baseline.alpha) : null,
@@ -305,7 +361,7 @@ export function toCsv(reports: Report[]): string {
       r.history?.map((v) => (v == null ? "" : v)).join(";"),
       ...Array.from({ length: RECENT_DAYS }, (_, i) => {
         const d = r.recent?.[i];
-        return [d?.mean, d?.max, d?.min, d?.humidity, d?.sun, d?.radiation, d?.rain, d?.weather, d?.from];
+        return [d?.mean, d?.max, d?.min, d?.humidity, d?.sun, d?.radiation, d?.rain, d?.wind, d?.weather, d?.from];
       }).flat(),
       r.id,
     ]

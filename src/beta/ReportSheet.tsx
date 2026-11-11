@@ -1,7 +1,9 @@
 // β②: "今の感じ方を記録". Three choices (how it feels on the 7-point scale, sun or shade, wind) and one button; the
 // station's values for the hour, the 最近の基準 and the differences are attached automatically.
 
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState } from "react";
+import { addDays } from "../../shared/dates";
+import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
@@ -32,6 +34,13 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
   // Opened now; sent maybe much later (from a notification): both are kept, and the prediction is
   // computed again at sending, from the values of that moment.
   const [openedAt] = useState(() => new Date().toISOString());
+  // Wind is taken as an amount over time (the last 6 and 12 hours, last night), so yesterday's hours are needed too.
+  const yesterday = addDays(today, -1);
+  useEffect(() => {
+    store?.wantHours(station, [yesterday, today], Priority.Visible, "report");
+    return () => store?.wantHours(station, [], Priority.Visible, "report");
+  }, [store, station, yesterday, today]);
+  const yesterdayHours = store?.getHours(station, yesterday).rows ?? null;
   const [saving, setSaving] = useState(false);
   // Wait for the past days (the summary asked for them), so the report carries its full history.
   const loading = baselineStateOf(store, station, today, beta.alpha).state === "loading";
@@ -43,10 +52,11 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
    */
   const predictAt = (now: number) => {
     if (exposure == null || windFelt == null) return null;
-    const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(now), feel);
+    const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(now), feel, yesterdayHours);
     const e = !snap ? null : exposure === "sun" ? snap.sunTemp : exposure === "shade" ? snap.shadeTemp : snap.sunTemp == null || snap.shadeTemp == null ? null : (snap.sunTemp + snap.shadeTemp) / 2;
-    const x = driversOfDay(store, station, today, beta.alpha, e, snap?.humidity ?? null);
-    return x ? predictComfort(beta.fit, { ...x, windFelt }, now) : null;
+    const sunny = sky == null ? null : sky === "clear" || sky === "sunny";
+    const x = driversOfDay(store, station, today, beta.alpha, e, snap?.humidity ?? null, { radDay: snap?.radDay ?? null, hour: snap?.hour ?? null, sky: sunny, wind6h: snap?.wind6h ?? null, windLastNight: snap?.windLastNight ?? null });
+    return x ? predictComfort(beta.ens, { ...x, windFelt }, now) : null;
   };
   const preview = predictAt(Date.now());
 
@@ -68,7 +78,7 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
       exposure,
       windFelt,
       sky,
-      snapshot: snapshotOf(hours, jstHourOf(now), feel),
+      snapshot: snapshotOf(hours, jstHourOf(now), feel, yesterdayHours),
       baseline: base ? { ...base, alpha: beta.alpha } : null,
       departures: dep ? { air: dep.air, sun: dep.sun, shade: dep.shade } : null,
       history: store ? historyOf(store, station, today).map((p) => (p.forecast ? null : p.mean)) : [],

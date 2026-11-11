@@ -313,7 +313,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
 
       <section className="set-group" aria-labelledby="set-beta">
         <h3 id="set-beta">
-          最近との差 <span className="beta-tag">β</span>
+          快適の中心と範囲 <span className="beta-tag">β</span>
         </h3>
         <p className="set-lead">
           その瞬間の「快適の中心」と「快適の範囲」を推定し、今の日なた温度・日かげ温度がそこからどれだけ離れているかを出します。中心も範囲も、最近の気温への慣れや湿度で動きます。感じ方の記録から学び続ける研究中の計算です（肌感とは別）。
@@ -332,9 +332,20 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
                 半減期 {halfLifeDays(beta.alpha)}日・前日の重み {updateRate(beta.alpha)}
               </small>
             </b>
-            {beta.fit.n >= beta.minForAlpha
-              ? `記録 ${beta.fit.n}件の当てはまりから選びました。`
-              : `規格（EN 16798）の標準値です。記録が${beta.minForAlpha}件たまると、当てはまりで選びます（今 ${beta.fit.n}件）。`}
+            {beta.ens.n >= beta.minForAlpha
+              ? `記録 ${beta.ens.n}件の当てはまりから選びました。`
+              : `規格（EN 16798）の標準値です。記録が${beta.minForAlpha}件たまると、当てはまりで選びます（今 ${beta.ens.n}件）。`}
+          </p>
+          <p className="beta-alpha" role="status">
+            <span>
+              モデル {beta.ens.fits.length}つを比べています。いちばん重いのは{" "}
+              {(() => {
+                const i = beta.ens.weights.indexOf(Math.max(...beta.ens.weights));
+                return `${beta.ens.fits[i].model.id} ${beta.ens.fits[i].model.name}（${Math.round(beta.ens.weights[i] * 100)}%）`;
+              })()}
+              {beta.ens.n === 0 ? "。記録がないうちは、どれも同じ重みです。" : "。"}
+              {beta.fitting ? "（計算中）" : ""}
+            </span>
           </p>
           <button className="link-btn" onClick={() => setBasis(true)}>
             計算の根拠を見る（今日）
