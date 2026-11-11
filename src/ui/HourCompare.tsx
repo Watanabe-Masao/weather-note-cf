@@ -6,6 +6,7 @@ import { jstHour } from "../../shared/dates";
 import { BANDS, LEVELS } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
+import { ForecastHatch } from "./kit";
 import { cachedSun, hourOfDay, loadSun, sunAvailable, type SunTimes } from "../data/sun";
 import {
   axisRange,
@@ -168,7 +169,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           </span>
         )}
         <span>
-          <i className="ls-dotted" style={{ borderColor: color }} />
+          <i className="ls-forecast" />
           予報
         </span>
         {metricId === "feel" && (
@@ -271,7 +272,7 @@ function HourChart({
           y2={yOf(p.v)}
           stroke={color}
           strokeWidth={width}
-          strokeDasharray={dashed ? "6 4" : p.forecast ? "2 4" : undefined}
+          strokeDasharray={dashed ? "6 4" : undefined}
           strokeLinecap="round"
           opacity={opacity}
         />
@@ -289,7 +290,6 @@ function HourChart({
           height={Math.max(0, yOf(0) - yOf(p.v))}
           fill={other ? "none" : color}
           stroke={color}
-          strokeDasharray={!other && p.forecast ? "2 2" : undefined}
           opacity={other ? 0.8 : 1}
         />
       ),
@@ -317,6 +317,24 @@ function HourChart({
             const bottom = yOf(Math.max(lo, from));
             return <rect key={i} x={PAD.left} width={plotW} y={top} height={Math.max(0, bottom - top)} fill={LEVEL_COLORS[i]} opacity={0.14} />;
           })}
+        <defs>
+          <ForecastHatch id="fc-hours" />
+        </defs>
+        {/* Forecast hours (of either day): hatched, 予報 over the first of them. */}
+        {Array.from({ length: 24 }, (_, i) => i + 1).map((h) => {
+          const fc = (k: number) => !!main[k - 1]?.forecast || !!second?.[k - 1]?.forecast;
+          if (!fc(h)) return null;
+          return (
+            <g key={`fc-${h}`}>
+              <rect x={xOf(h - 1)} width={xOf(h) - xOf(h - 1)} y={PAD.top} height={H - PAD.top - PAD.bottom} fill="url(#fc-hours)" className="chart-forecast" />
+              {(h === 1 || !fc(h - 1)) && (
+                <text x={xOf(h - 1) + 4} y={PAD.top + 12} className="chart-forecast-label">
+                  予報
+                </text>
+              )}
+            </g>
+          );
+        })}
         {/* Night before sunrise and after sunset. */}
         {rise != null && <rect x={xOf(0)} width={xOf(rise) - xOf(0)} y={PAD.top} height={H - PAD.top - PAD.bottom} className="day-night" />}
         {set != null && <rect x={xOf(set)} width={xOf(24) - xOf(set)} y={PAD.top} height={H - PAD.top - PAD.bottom} className="day-night" />}

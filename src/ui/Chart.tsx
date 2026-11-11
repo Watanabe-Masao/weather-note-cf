@@ -1,5 +1,6 @@
 // Comparison chart for the seven days around the target day.
-// Target: solid where observed, dotted where forecast. Comparison: dashed and lighter.
+// Line style says which day, nothing else: target solid (bars filled), comparison dashed (bars
+// outlined) and lighter. Forecast days are a hatched background with 予報 at the top.
 // Missing values break the line (never interpolated).
 
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -7,7 +8,7 @@ import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import { type ChartMetric, graphSeries } from "../chartMetrics";
 import { DATA } from "../design/tokens";
-import { Chip } from "./kit";
+import { Chip, ForecastHatch } from "./kit";
 import type { WeatherStore } from "../data/store";
 import { niceTicks, tickLabel } from "../design/format";
 import { FeelContext } from "./FeelBar";
@@ -165,6 +166,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の日別グラフ`}>
         {/* centre day */}
         <defs>
+          <ForecastHatch id={`fc-${metric.id}`} />
           <clipPath id={`plot-${metric.id}`}>
             <rect x={PAD.left - 4} y={0} width={w - PAD.left - PAD.right + 8} height={H} />
           </clipPath>
@@ -185,6 +187,21 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
 
         <g clipPath={`url(#plot-${metric.id})`}>
         <g style={pan.style}>
+        {/* Forecast days: hatched behind everything, 予報 over the first of them. */}
+        {days.map((d, i) => {
+          if (store?.getDay(station, d).row?.type !== "forecast") return null;
+          const first = i === 0 || store?.getDay(station, days[i - 1]).row?.type !== "forecast";
+          return (
+            <g key={`fc-${d}`}>
+              <rect x={xOf(i) - step / 2} y={PAD.top} width={step} height={H - PAD.top - bottom} fill={`url(#fc-${metric.id})`} className="chart-forecast" />
+              {first && (
+                <text x={xOf(i) - step / 2 + 4} y={PAD.top + 10} className="chart-forecast-label">
+                  予報
+                </text>
+              )}
+            </g>
+          );
+        })}
         {spreadOn && <Spread top={pick("max", false).points} low={pick("min", false).points} yOf={yOf} />}
 
         {metric.chart === "bar"
@@ -199,7 +216,6 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
                     height={Math.max(0, yOf(0) - yOf(p.v))}
                     fill={compare ? "none" : COLORS[s.tone]}
                     stroke={COLORS[s.tone]}
-                    strokeDasharray={!compare && p.forecast ? "3 2" : undefined}
                     opacity={compare ? 0.7 : 1}
                   />
                 ),
@@ -218,7 +234,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
                     y2={yOf(p.v)}
                     stroke={COLORS[s.tone]}
                     strokeWidth={s.thin ? (compare ? 1 : 1.4) : compare ? 1.5 : 2.2}
-                    strokeDasharray={compare ? "6 4" : p.forecast ? "2 4" : undefined}
+                    strokeDasharray={compare ? "6 4" : undefined}
                     strokeLinecap="round"
                     opacity={compare ? 0.65 : 1}
                   />
@@ -234,7 +250,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
                   cx={p.x}
                   cy={yOf(p.v)}
                   r={compare ? 2.5 : 3.2}
-                  fill={compare ? "var(--bg)" : COLORS[s.tone]}
+                  fill={compare ? "var(--surface-base)" : COLORS[s.tone]}
                   stroke={COLORS[s.tone]}
                   opacity={compare ? 0.75 : 1}
                 />
@@ -314,7 +330,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             比較日
           </span>
           <span>
-            <i className="ls-fill dotted" />
+            <i className="ls-forecast" />
             予報
           </span>
         </p>
@@ -329,7 +345,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             比較日
           </span>
           <span>
-            <i className="ls-dotted" />
+            <i className="ls-forecast" />
             予報
           </span>
         </p>
