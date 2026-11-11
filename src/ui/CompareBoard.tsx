@@ -243,6 +243,9 @@ export function CompareBoard({
 
   // 表に集中 shows nine days (the numbers a size smaller).
   const columns = wide ? 9 : 7;
+  // The comparison table drops forecast-only rows (降水確率) — unless its day is a forecast day
+  // (翌週, or a カスタム interval into the future).
+  const comparePast = !(compareDate && compareDate >= today);
   const partner = (d: string) => (view.linked ? matchDate(d, view.mode, view.offset) : d);
   const station = view.station;
 
@@ -350,7 +353,7 @@ export function CompareBoard({
       <div className="side side-compare">
         {compareNav}
         <div className="side-body">
-          <Labels metric={metric} past sun={view.sun} onToggleSun={onToggleSun} diffs />
+          <Labels metric={metric} past={comparePast} sun={view.sun} onToggleSun={onToggleSun} diffs />
           <div className="strip-wrap" ref={lowWrap}>
             <Strip
               id="compare"
@@ -367,7 +370,7 @@ export function CompareBoard({
                   station={station}
                   date={partner(d)}
                   metric={metric}
-                  past
+                  past={comparePast}
                   onOpenFeel={onOpenFeel}
                   against={view.linked ? d : addDays(view.target, diffDays(view.compare, d))}
                   faded={view.linked ? d < bounds.min || d > bounds.max : d < "1977-01-01" || d > last}
