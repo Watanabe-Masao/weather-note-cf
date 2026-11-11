@@ -57,11 +57,8 @@ function useWindow(center: string, min: string, max: string) {
 function kindLabel(store: WeatherStore | null, station: string, date: string) {
   const day = store?.getDay(station, date);
   if (day?.state !== "ready" || !day.row) return "";
-  if (day.row.type === "forecast") {
-    // Rain chance rides along with the forecast label, whatever item is chosen.
-    const p = day.row.probability;
-    return typeof p === "number" ? `予報 ${Math.round(p)}%` : "予報";
-  }
+  // The status only (one meaning per row): the rain chance has its own row under 降水.
+  if (day.row.type === "forecast") return "予報";
   return day.kind === "variable" ? "暫定" : "実績";
 }
 
