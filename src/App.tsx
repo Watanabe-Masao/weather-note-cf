@@ -85,7 +85,7 @@ export function App() {
   const metric = metricById(view.metric);
   const feel = useFeelSettings(view.station, view.sun);
   const feelSettings = feel.settings;
-  const beta = useBetaSettings(feelSettings.thresholds);
+  const beta = useBetaSettings();
   // The sheet shows the chosen item two ways: seven days (日別) or the 24 hours of the day (時間帯).
   const [face, setFace] = useState<"chart" | "hours">("chart");
   // While a drum moves, the switches that change which days are shown wait (rule: 動いている間).
