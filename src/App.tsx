@@ -1,7 +1,5 @@
 // Weather Note: compare a target day with a comparison day, around a 7-day centre-fixed strip.
 
-import { AbContext, useAbState } from "./ab";
-import { AbSwitch } from "./ui/AbSwitch";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays } from "../shared/dates";
 import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "./compare";
@@ -36,7 +34,6 @@ function chartHeight(sheet: number, m: { forecastOnly?: boolean; emptyNote?: str
 
 export function App() {
   const store = useWeatherStore();
-  const ab = useAbState();
   const { view, today: startToday, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set } =
     useViewState();
   const today = store?.today ?? startToday;
@@ -175,8 +172,7 @@ export function App() {
   }, [heights.max]);
 
   return (
-    <AbContext.Provider value={ab}>
-    <div className={`${full ? "app full" : "app"}${full && ab.variant("focusDays") === "B" ? " wide" : ""}`} style={{ paddingBottom: heights[sheetDetent] + 12 }}>
+    <div className={full ? "app full wide" : "app"} style={{ paddingBottom: heights[sheetDetent] + 12 }}>
       {!full && (
         <header className="app-head">
           <h1>Weather Note</h1>
@@ -199,7 +195,6 @@ export function App() {
           </button>
         ))}
       </div>
-      <AbSwitch />
 
       <div ref={boardRef}>
         <FeelContext.Provider value={feelSettings}>
@@ -292,6 +287,7 @@ export function App() {
               height={hourHeight(heights[sheetDetent])}
               onStep={(n) => moveTarget(addDays(view.target, n))}
               onToggleSun={() => set("sun", !view.sun)}
+              pick={{ bounds, last, onTarget: moveTarget, onCompare: pickCompare }}
             />
           )}
         </GraphSheet>
@@ -304,7 +300,7 @@ export function App() {
             station={view.station}
             target={view.target}
             partner={partner}
-            onStep={ab.variant("feelSwipe") === "B" ? (n) => moveTarget(addDays(view.target, n)) : undefined}
+            onStep={(n) => moveTarget(addDays(view.target, n))}
             onClose={() => setFeelMap(false)}
           />
         </FeelContext.Provider>
@@ -331,6 +327,5 @@ export function App() {
         />
       )}
     </div>
-    </AbContext.Provider>
   );
 }

@@ -11,7 +11,7 @@ import type { WeatherStore } from "../data/store";
 import { BandTrend } from "./BandTrend";
 import { useSwipeDays } from "./useSwipeDays";
 import { CloseIcon } from "./icons";
-import { DayLabel, IconButton, Segmented } from "./kit";
+import { DayLabel, IconButton, Segmented, SwipeHint } from "./kit";
 import { monthDay } from "../design/format";
 import { bandsFor, FeelContext, LEVEL_COLORS } from "./FeelBar";
 
@@ -20,7 +20,7 @@ interface Props {
   station: string;
   target: string;
   partner: (date: string) => string | null;
-  /** Swipe the map sideways to move the target day (A/B: feelSwipe). */
+  /** Swipe the map sideways to move the target day. */
   onStep?: (days: number) => void;
 }
 
@@ -312,11 +312,14 @@ function Detail({ store, station, selected, onClose }: { store: WeatherStore | n
 }
 
 /** The map's swipe area (mounted with the map, so its listeners come and go with it). */
-function SwipeArea({ onStep, children }: { onStep?: (days: number) => void; children: ReactNode }) {
+function SwipeArea({ onStep, target, children }: { onStep?: (days: number) => void; target: string; children: ReactNode }) {
   const swipe = useSwipeDays(onStep);
   return (
-    <div ref={swipe.ref} className={onStep ? "swipeable" : undefined} style={onStep ? swipe.style : undefined}>
-      {children}
+    <div className="swipe-frame">
+      <SwipeHint pull={swipe.pull} prev={addDays(target, -1)} next={addDays(target, 1)} />
+      <div ref={swipe.ref} className={onStep ? "swipeable" : undefined} style={onStep ? swipe.style : undefined}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -357,7 +360,7 @@ export function BandMap(props: Props) {
       />
       {view === "map" ? (
         <>
-          <SwipeArea onStep={onStep}>
+          <SwipeArea onStep={onStep} target={target}>
             <MapGrid targets={targets} partner={partner} store={store} station={station} selected={selected} onSelect={setSelected} />
           </SwipeArea>
           {onStep && <p className="hint map-hint">マップを左右にスワイプすると、1日ずつ動きます。</p>}

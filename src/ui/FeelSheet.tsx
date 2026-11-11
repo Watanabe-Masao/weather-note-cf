@@ -12,7 +12,7 @@ interface Props {
   station: string;
   target: string;
   partner: (date: string) => string | null;
-  /** A/B（feelSwipe）: swipe the map sideways to move the target day. */
+  /** Swipe the map sideways to move the target day. */
   onStep?: (days: number) => void;
   onClose: () => void;
 }

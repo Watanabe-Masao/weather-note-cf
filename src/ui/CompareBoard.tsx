@@ -2,7 +2,6 @@
 // Linked: both strips render the same run of target days (the comparison cell is that day's partner)
 // and scroll as one. Independent: each strip has its own run of days.
 
-import { useB } from "../ab";
 import { signedDiff } from "../design/format";
 import { type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "../../shared/dates";
@@ -85,7 +84,7 @@ function Column({
   onOpen?: () => void;
   past?: boolean;
   onOpenFeel?: () => void;
-  /** A/B（diffRow）: the target day this comparison column is read against; adds 差 rows. */
+  /** The target day this comparison column is read against: adds the 差 rows. */
   against?: string | null;
 }) {
   const feel = useContext(FeelContext);
@@ -167,7 +166,7 @@ function Column({
   );
 }
 
-/** The rows a 差 line is shown for (A/B diffRow): the item's main values. */
+/** The rows a 差 line is shown for: the item's main values. */
 const diffSeries = (metric: Metric) => tableSeries(metric, true).filter((s) => !s.minor);
 
 function Labels({
@@ -242,9 +241,8 @@ export function CompareBoard({
     store?.hold(gestures.current > 0);
   };
 
-  const diffRow = useB("diffRow");
-  // A/B（focusDays）: 表に集中 shows nine days.
-  const columns = useB("focusDays") && wide ? 9 : 7;
+  // 表に集中 shows nine days (the numbers a size smaller).
+  const columns = wide ? 9 : 7;
   const partner = (d: string) => (view.linked ? matchDate(d, view.mode, view.offset) : d);
   const station = view.station;
 
@@ -352,7 +350,7 @@ export function CompareBoard({
       <div className="side side-compare">
         {compareNav}
         <div className="side-body">
-          <Labels metric={metric} past sun={view.sun} onToggleSun={onToggleSun} diffs={diffRow} />
+          <Labels metric={metric} past sun={view.sun} onToggleSun={onToggleSun} diffs />
           <div className="strip-wrap" ref={lowWrap}>
             <Strip
               id="compare"
@@ -371,7 +369,7 @@ export function CompareBoard({
                   metric={metric}
                   past
                   onOpenFeel={onOpenFeel}
-                  against={diffRow ? (view.linked ? d : addDays(view.target, diffDays(view.compare, d))) : undefined}
+                  against={view.linked ? d : addDays(view.target, diffDays(view.compare, d))}
                   faded={view.linked ? d < bounds.min || d > bounds.max : d < "1977-01-01" || d > last}
                   onOpen={() => {
                     const shown = partner(d);
