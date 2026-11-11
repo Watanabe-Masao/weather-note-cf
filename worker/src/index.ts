@@ -1,16 +1,18 @@
 // Weather Note API. Static files (the app) are served by Workers static assets;
 // only /api/* reaches this code (see wrangler.jsonc).
 
-import { addDays, daysBetween, FIRST_DAY, isDay, isMonth, jstToday, monthOf } from "../../shared/dates";
+import { addDays, daysBetween, FIRST_DAY, FORECAST_DAYS, isDay, isMonth, jstToday, monthOf } from "../../shared/dates";
 import { isFixedHourlyDay, isFixedMonth } from "../../shared/fixed";
 import type { DailyMonthResponse, HourlyDay, HourlyResponse, Station } from "../../shared/types";
 import { observations } from "./amedas";
-import { cachedJson, cachedValue, jsonResponse, storeValue } from "./cache";
+import { cachedFor, cachedJson, cachedValue, jsonResponse, storeValue } from "./cache";
 import { fetchDailyMonth, fetchHourlyDay } from "./jma-tables";
 import { CACHE_VERSION, HOURLY_CONCURRENCY, MAX_HOURLY_DAYS, stations } from "./config";
 import { fetchForecast, fetchSunTimes } from "./open-meteo";
 
 class BadRequest extends Error {}
+
+const FORECAST_TTL = 30 * 60; // seconds
 
 const findStation = (id: string | null): Station => {
   const s = stations.find((x) => x.blockNo === id);
@@ -97,13 +99,18 @@ async function handle(req: Request, ctx: ExecutionContext): Promise<Response> {
 
     case "/api/forecast": {
       const station = findStation(q.get("station"));
-      return jsonResponse({ ...(await fetchForecast(station)), fetchedAt: new Date().toISOString() });
+      // The forecast (and its 51-member ensemble) changes a few times a day: share one fetch per
+      // station for 30 minutes, so opening the app does not call Open-Meteo every time.
+      return cachedFor(url.origin, `${CACHE_VERSION}/forecast/${station.blockNo}`, FORECAST_TTL, waitUntil, async () => ({
+        ...(await fetchForecast(station)),
+        fetchedAt: new Date().toISOString(),
+      }));
     }
 
     case "/api/sun": {
       const station = findStation(q.get("station"));
       const day = q.get("date");
-      if (!isDay(day) || day < FIRST_DAY || day > addDays(today, 7)) throw new BadRequest("日付を確認してください。");
+      if (!isDay(day) || day < FIRST_DAY || day > addDays(today, FORECAST_DAYS)) throw new BadRequest("日付を確認してください。");
       // Sunrise and sunset are calculated, so past days never change.
       return cachedJson(url.origin, `sun/${station.blockNo}/${day}`, waitUntil, async () => ({
         body: await fetchSunTimes(station, day, today),

@@ -1,7 +1,9 @@
 // Which days to have, in which order (spec 2.2 rule 2), and where each day comes from.
 // Pure functions: no network, no storage.
 
-import { addDays, daysBetween, FIRST_DAY, monthOf } from "../../shared/dates";
+import { addDays, daysBetween, FIRST_DAY, FORECAST_DAYS, monthOf } from "../../shared/dates";
+
+export { FORECAST_DAYS };
 
 export const Priority = {
   /** The seven days on screen. */
@@ -22,7 +24,6 @@ export const VISIBLE_RADIUS = 3; // 7 columns, centre ±3
 export const AHEAD_DAYS = 30;
 export const BEHIND_DAYS = 7;
 export const IDLE_AHEAD_DAYS = 14;
-export const FORECAST_DAYS = 15; // today + 15 (Open-Meteo forecast_days 16)
 
 export function lastDay(today: string): string {
   return addDays(today, FORECAST_DAYS);
