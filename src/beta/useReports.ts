@@ -69,3 +69,18 @@ export function useReports(): Report[] | null {
   }, []);
   return list;
 }
+
+/** The date in Japan of a time (ISO or ms). */
+const jstDate = (t: string | number) => new Date((typeof t === "number" ? t : Date.parse(t)) + 9 * 3_600_000).toISOString().slice(0, 10);
+
+/**
+ * Whether today's ちょうどよい温度 may be shown: only once the person has made a report today. Seen
+ * before, the day's centre would pull the answer towards itself (#38); the record screen likewise
+ * shows its prediction only after the feeling is chosen. Other days are always shown.
+ */
+export function useCentreVisible(): (date: string) => boolean {
+  const list = useReports();
+  const today = jstDate(Date.now());
+  const reportedToday = (list ?? []).some((r) => jstDate(r.at) === today);
+  return (date: string) => date !== today || reportedToday;
+}

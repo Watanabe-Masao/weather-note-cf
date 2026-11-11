@@ -30,6 +30,7 @@ import type { BetaSettings } from "../beta/settings";
 import { daytimeFeel, type FeelSettings } from "../../shared/feel";
 import { ReportSheet } from "../beta/ReportSheet";
 import { BasisSheet } from "../beta/BasisSheet";
+import { useCentreVisible } from "../beta/useReports";
 import { FeelContext } from "./FeelBar";
 
 interface Props {
@@ -162,6 +163,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   useBaselineHistory(store, station, beta.enabled ? [target, other] : [], "summary-baseline");
   const stA = baselineStateOf(store, station, target, beta.alpha);
   const stB = baselineStateOf(store, station, other, beta.alpha);
+  const centreVisible = useCentreVisible();
   const depA = comfortOfDay(store, station, target, a, hoursOf(target), stA, beta, feelSettings);
   const depB = comfortOfDay(store, station, other, b, hoursOf(other), stB, beta, feelSettings);
   const [reporting, setReporting] = useState(false);
@@ -356,7 +358,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
         </span>
       </div>
 
-      {beta.enabled && <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} learning={beta.learning} />}
+      {beta.enabled && <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} learning={beta.learning} hidden={{ a: !centreVisible(target), b: other != null && !centreVisible(other) }} />}
     </section>
     </div>
     </div>
@@ -409,8 +411,11 @@ function BetaRows({
   onBasis,
   saved,
   learning,
+  hidden,
 }: {
   learning?: LearningView;
+  /** Today's centre before the day's first report (a, b: the two columns). */
+  hidden?: { a: boolean; b: boolean };
   a: DayComfort | null;
   b: DayComfort | null;
   loadingA?: boolean;
@@ -471,8 +476,10 @@ function BetaRows({
   // The person's centre is not known yet (未学習・情報不足): only the 最近の基準 (from the weather)
   // is shown; a centre the reports have not given is not drawn as if it were known.
   const unknown = centreUnknown(learning?.state);
-  const cell = (d: DayComfort | null, r: (typeof rows)[number], loading?: boolean) =>
-    unknown && r.key !== "base" ? (
+  const cell = (d: DayComfort | null, r: (typeof rows)[number], loading?: boolean, later?: boolean) =>
+    later && r.key !== "base" ? (
+      <span className="cs-none beta-short">記録後に表示</span>
+    ) : unknown && r.key !== "base" ? (
       <span className="cs-none beta-short">未特定</span>
     ) : d ? (
       r.show(d)
@@ -503,12 +510,12 @@ function BetaRows({
         const y = b ? r.value(b) : null;
         return (
           <div key={r.key} className="cs-row beta">
-            <span className="cs-val cs-a">{cell(a, r, loadingA)}</span>
+            <span className="cs-val cs-a">{cell(a, r, loadingA, hidden?.a)}</span>
             <span className="cs-mid">
               <span className="cs-label">{r.label}</span>
               <span className="cs-diff">{r.key === "range" ? (x != null && y != null ? `幅 ${signedDiff(x, y, 1) || "±0"}` : "") : signedDiff(x, y, 1)}</span>
             </span>
-            <span className="cs-val cs-b">{cell(b, r, loadingB)}</span>
+            <span className="cs-val cs-b">{cell(b, r, loadingB, hidden?.b)}</span>
           </div>
         );
       })}

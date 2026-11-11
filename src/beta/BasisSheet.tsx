@@ -11,7 +11,8 @@ import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet } from "../ui/ModalSheet";
 import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } from "./adaptation";
-import { beyondRange, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
+import { beyondRange, centreUnknown, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
+import { useCentreVisible } from "./useReports";
 import { BetaContext } from "./settings";
 import { baselineStateOf, driversOfDay } from "./useBaseline";
 
@@ -368,12 +369,25 @@ function ComfortBasis() {
 /** The day's centre and range (weighted over the models), and where 日なた／日かげ sit. */
 function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null; station: string; date: string; feel: FeelSettings }) {
   const beta = useContext(BetaContext);
+  const visible = useCentreVisible()(date);
   const rows = store?.getHours(station, date).rows ?? [];
   const row = store?.getDay(station, date).row;
   const hNow = num(row?.humidity);
   const sun = daytimeFeel(rows, { ...feel, sun: true });
   const shade = daytimeFeel(rows, { ...feel, sun: false });
   const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade, hNow, { hour: 12 });
+  if (!visible || centreUnknown(beta.learning.state)) {
+    return (
+      <section className="basis-day">
+        <h4>この日のちょうどよい温度と範囲</h4>
+        <p className="set-help">
+          {!visible
+            ? "今日のちょうどよい温度は、今日の感じ方を記録した後に表示します（先に見ると、答えがその数字に引っ張られるため）。"
+            : `ちょうどよい温度は、記録からまだ特定できません（${beta.learning.missing.join("、")}）。`}
+        </p>
+      </section>
+    );
+  }
   if (!x) {
     return (
       <section className="basis-sec">
