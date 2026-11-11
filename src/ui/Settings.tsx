@@ -4,6 +4,7 @@
 
 import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { AccountSection } from "../account/AccountSection";
+import { centreUnknown, LEARNING_LABELS } from "../beta/comfort";
 import { useContext, useEffect, useRef, useState } from "react";
 
 /** A number field that commits when editing ends (blur or Enter), so half-typed values never apply. */
@@ -334,6 +335,18 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
         <p className="set-lead">
           その瞬間の「快適の中心」と「快適の範囲」を推定し、今の日なた温度・日かげ温度がそこからどれだけ離れているかを出します。中心も範囲も、最近の気温への慣れや湿度で動きます。感じ方の記録から学び続ける研究中の計算です（肌感とは別）。
         </p>
+        <div className="set-row">
+          <span className="set-label">
+            学習の段階 <span className={`learn-tag ${beta.learning.state}`}>{LEARNING_LABELS[beta.learning.state]}</span>
+            <small className="set-help">
+              件数ではなく中身で決めます：寒い側と暑い側の両方の答え、温度の幅、記録した日、快適の中心の幅（95%区間）、事前の予測の成績。
+              {beta.learning.missing.length ? ` まだ足りないもの：${beta.learning.missing.join("、")}。` : ""}
+              {beta.learning.muInterval && !centreUnknown(beta.learning.state)
+                ? ` 快適の中心（最新の記録の条件）：95% ${beta.learning.muInterval[0].toFixed(1)}〜${beta.learning.muInterval[1].toFixed(1)}℃。`
+                : ""}
+            </small>
+          </span>
+        </div>
         <div className="set-row">
           <span className="set-label">
             慣れの速さ α

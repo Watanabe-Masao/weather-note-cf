@@ -599,6 +599,60 @@ export function ensembleFromReports(reports: Report[]): Ensemble {
 }
 
 // ---- prediction ----------------------------------------------------------------------------------
+//
+// A prediction says three different things, kept apart (they mean different things when it misses):
+//   - where the moment sits in the person's range: z = (E′ − μ) / h (inside the range |z| ≤ 1);
+//   - how the answers spread even when the model is right: the ordinal model's own spread;
+//   - how unsure the model is about the person: the spread of its parameters (from the Laplace
+//     approximation, or the starting values while there are no reports).
+// The probabilities are the posterior predictive: averaged over parameter draws, so with few
+// reports they are wide by themselves, instead of a sure answer made from the starting values.
+//   Var(Y) = E_θ[Var(Y | θ)]  (answers)  +  Var_θ[E(Y | θ)]  (parameters)
+
+/** Version of the prediction (stored with every report, so past predictions stay readable). */
+export const MODEL_VERSION = "comfort-2";
+/** Parameter draws per model. */
+export const DRAWS = 200;
+
+/** A small seeded generator: the same moment gives the same prediction (testable, repeatable). */
+function rng(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+const gauss = (r: () => number) => Math.sqrt(-2 * Math.log(Math.max(r(), 1e-12))) * Math.cos(2 * Math.PI * r());
+
+function choleskyOf(a: number[][]): number[][] | null {
+  const n = a.length;
+  const L = Array.from({ length: n }, () => Array(n).fill(0));
+  for (let i = 0; i < n; i++)
+    for (let j = 0; j <= i; j++) {
+      let sum = a[i][j];
+      for (let k = 0; k < j; k++) sum -= L[i][k] * L[j][k];
+      if (i === j) {
+        if (!(sum > 0)) return null;
+        L[i][i] = Math.sqrt(sum);
+      } else L[i][j] = sum / L[j][j];
+    }
+  return L;
+}
+
+/** Parameter draws of one fit: the Laplace posterior, or the starting values' spread without one. */
+export function drawsOf(fit: ModelFit, n = DRAWS, seed = 1): Theta[] {
+  const k = fit.theta.length;
+  const cov = fit.cov ?? fit.prior.sd.map((sd, i) => fit.prior.sd.map((_, j) => (i === j ? sd * sd : 0)));
+  const L = choleskyOf(cov) ?? choleskyOf(cov.map((row, i) => row.map((v, j) => (i === j ? v + 1e-6 : v))));
+  const r = rng(seed);
+  return Array.from({ length: n }, () => {
+    const z = Array.from({ length: k }, () => gauss(r));
+    return fit.theta.map((t, i) => t + (L ? L[i].reduce((sum, l, j) => sum + l * z[j], 0) : 0));
+  });
+}
 
 export interface ModelPrediction {
   id: string;
@@ -609,12 +663,14 @@ export interface ModelPrediction {
   h: number;
 }
 
+export type Learning = "untrained" | "sparse" | "provisional" | "testable" | "verified";
+
 export interface ComfortPrediction {
-  /** Mixture over the models: probability of each answer −3…+3. */
+  /** Posterior predictive over the models and their parameters: P(answer −3…+3). */
   probs: number[];
   mode: number;
   expected: number;
-  /** Weighted centre, half-range, outer step and blur. */
+  /** Weighted centre, half-range, outer step and blur (at the fitted values). */
   state: State;
   /** E′ − μ, and how far past the range's edge (0 inside). */
   offset: number;
@@ -624,6 +680,18 @@ export interface ComfortPrediction {
   n: number;
   alpha: number;
   at: number;
+  /** Cold side (−3…−1), 快適 (0), warm side (+1…+3). */
+  sides?: { cold: number; neutral: number; warm: number };
+  /** Where the moment sits in the range, z = (E′ − μ)/h, with its 95% interval. */
+  z?: number;
+  zInterval?: [number, number];
+  /** 95% interval of the centre μ. */
+  muInterval?: [number, number];
+  /** Spread of the answer in steps (SD): from the answers themselves, and from the parameters. */
+  spread?: { answer: number; param: number };
+  /** How far the learning had got when this was predicted. */
+  learning?: Learning;
+  version?: string;
 }
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
@@ -637,15 +705,65 @@ export function ensembleState(ens: Ensemble, x: Drivers): State {
   return { mu: mix("mu"), h: mix("h"), g: mix("g"), s: mix("s") };
 }
 
-export function predictComfort(ens: Ensemble, x: Drivers, at: number): ComfortPrediction {
+/** Weighted quantile of (value, weight) pairs. */
+function quantile(pairs: [number, number][], q: number): number {
+  const sorted = [...pairs].sort((a, b) => a[0] - b[0]);
+  const total = sorted.reduce((s, p) => s + p[1], 0);
+  let acc = 0;
+  for (const [v, w] of sorted) {
+    acc += w;
+    if (acc >= q * total) return v;
+  }
+  return sorted[sorted.length - 1][0];
+}
+
+/** One model's draws at a moment: probabilities, E(Y), Var(Y), μ and z for each draw. */
+function drawn(fit: ModelFit, x: Drivers, seed: number) {
+  return drawsOf(fit, DRAWS, seed).map((t) => {
+    const st = stateOf(fit.model, t, x);
+    const e = placeTemp(fit.model, t, x);
+    const p = probabilities(st, e);
+    const ey = p.reduce((s, v, k) => s + v * (k - 3), 0);
+    const vy = p.reduce((s, v, k) => s + v * (k - 3) ** 2, 0) - ey * ey;
+    return { p, ey, vy, mu: st.mu, z: (e - st.mu) / st.h };
+  });
+}
+
+/** The 95% interval of the centre μ at a moment, over the models and their parameters. */
+export function muIntervalOf(ens: Ensemble, x: Drivers): [number, number] {
+  const pairs: [number, number][] = [];
+  ens.fits.forEach((f, i) => {
+    if (ens.weights[i] < 1e-3) return;
+    for (const d of drawsOf(f, DRAWS, 7 + i)) pairs.push([stateOf(f.model, d, x).mu, ens.weights[i]]);
+  });
+  return [quantile(pairs, 0.025), quantile(pairs, 0.975)];
+}
+
+export function predictComfort(ens: Ensemble, x: Drivers, at: number, learning?: Learning): ComfortPrediction {
+  const seed = Math.floor(at / 60_000); // the same minute, the same draws
+  let eySum = 0;
+  let ey2Sum = 0;
+  let vySum = 0;
+  const muPairs: [number, number][] = [];
+  const zPairs: [number, number][] = [];
   const models = ens.fits.map((f, i) => {
+    const w = ens.weights[i];
+    const ds = drawn(f, x, seed + i);
+    const probs = Array.from({ length: 7 }, (_, k) => ds.reduce((s, d) => s + d.p[k], 0) / ds.length);
+    for (const d of ds) {
+      eySum += (w * d.ey) / ds.length;
+      ey2Sum += (w * d.ey * d.ey) / ds.length;
+      vySum += (w * d.vy) / ds.length;
+      muPairs.push([d.mu, w]);
+      zPairs.push([d.z, w]);
+    }
     const st = stateOf(f.model, f.theta, x);
-    const probs = probabilities(st, placeTemp(f.model, f.theta, x));
-    return { id: f.model.id, weight: r2(ens.weights[i]), probs, mode: probs.indexOf(Math.max(...probs)) - 3, mu: r1(st.mu), h: r1(st.h), e: placeTemp(f.model, f.theta, x) };
+    return { id: f.model.id, weight: r2(w), probs, mode: probs.indexOf(Math.max(...probs)) - 3, mu: r1(st.mu), h: r1(st.h), e: placeTemp(f.model, f.theta, x) };
   });
   const probs = Array.from({ length: 7 }, (_, k) => models.reduce((s, m, i) => s + ens.weights[i] * m.probs[k], 0));
   const st = ensembleState(ens, x);
   const e = models.reduce((s, m, i) => s + ens.weights[i] * m.e, 0);
+  const sum = (a: number, b: number) => probs.slice(a, b).reduce((s, v) => s + v, 0);
   return {
     probs: probs.map(r2),
     mode: probs.indexOf(Math.max(...probs)) - 3,
@@ -657,8 +775,102 @@ export function predictComfort(ens: Ensemble, x: Drivers, at: number): ComfortPr
     n: ens.n,
     alpha: ens.alpha,
     at,
+    sides: { cold: r2(sum(0, 3)), neutral: r2(sum(3, 4)), warm: r2(sum(4, 7)) },
+    z: r2((e - st.mu) / st.h),
+    zInterval: [r2(quantile(zPairs, 0.025)), r2(quantile(zPairs, 0.975))],
+    muInterval: [r1(quantile(muPairs, 0.025)), r1(quantile(muPairs, 0.975))],
+    spread: { answer: r2(Math.sqrt(Math.max(0, vySum))), param: r2(Math.sqrt(Math.max(0, ey2Sum - eySum * eySum))) },
+    ...(learning ? { learning } : {}),
+    version: MODEL_VERSION,
   };
 }
+
+// ---- how far the learning has got ------------------------------------------------------------------
+//
+// Not a count of reports: a centre can be found only when the answers lie on both sides of 快適,
+// over a spread of temperatures, on several days, and the interval of μ is narrow. Verified needs
+// the predictions made in advance to beat a plain reference. The thresholds are provisional: they
+// are to be set from the data once there is some (README 8).
+
+export const LEARNING_RULES = {
+  /** The answers' place temperatures must span at least this (℃). */
+  minSpan: 5,
+  /** Reports on at least this many different days. */
+  minDays: 3,
+  /** The 95% interval of μ at most this wide (℃) to be testable. */
+  maxMuWidth: 4,
+  /** Predictions made while testable, needed before verdict. */
+  minChecked: 20,
+} as const;
+
+export const LEARNING_LABELS: Record<Learning, string> = {
+  untrained: "未学習",
+  sparse: "情報不足",
+  provisional: "暫定",
+  testable: "検証可能",
+  verified: "検証済み",
+};
+
+export interface LearningView {
+  state: Learning;
+  /** What is still missing, in words (empty when nothing is). */
+  missing: string[];
+  muInterval: [number, number] | null;
+}
+
+/** Ranked probability score of one prediction (0 best; the 7 steps' order counts). */
+export function rps(probs: number[], y: number): number {
+  let cp = 0;
+  let s = 0;
+  for (let k = 0; k < 6; k++) {
+    cp += probs[k];
+    const co = y + 3 <= k ? 1 : 0;
+    s += (cp - co) ** 2;
+  }
+  return s / 6;
+}
+
+/** The reference a prediction must beat: the person's earlier answers' frequencies (add-one). */
+export function referenceProbs(earlier: number[]): number[] {
+  const c = Array(7).fill(1);
+  for (const y of earlier) c[y + 3] += 1;
+  const t = c.reduce((a, b) => a + b, 0);
+  return c.map((v) => v / t);
+}
+
+export function learningOf(reports: Report[], ens: Ensemble): LearningView {
+  const live = reports.filter((r) => !r.deleted).sort((a, b) => (a.at < b.at ? -1 : 1));
+  const checked = live
+    .map((r, i) => ({ r, earlier: live.slice(0, i).map((x) => x.sensation as number) }))
+    .filter(({ r }) => r.comfort && (r.comfort.learning === "testable" || r.comfort.learning === "verified"))
+    .map(({ r, earlier }) => ({ probs: r.comfort!.probs, y: r.sensation as number, earlier }));
+  return learningFrom(observationsOf(reports, ens.alpha), new Set(live.map((r) => r.at.slice(0, 10))).size, checked, ens);
+}
+
+/** The rule itself, on observations (testable without whole reports). */
+export function learningFrom(obs: Observation[], days: number, checked: { probs: number[]; y: number; earlier: number[] }[], ens: Ensemble): LearningView {
+  if (!obs.length) return { state: "untrained", missing: ["感じ方の記録がまだありません"], muInterval: null };
+  const missing: string[] = [];
+  const ys = obs.map((o) => o.y);
+  if (!ys.some((y) => y < 0) || !ys.some((y) => y > 0)) missing.push("快適より寒い側と暑い側の両方の答え");
+  const es = obs.map((o) => o.e);
+  const span = Math.max(...es) - Math.min(...es);
+  if (span < LEARNING_RULES.minSpan) missing.push(`温度の幅（今 ${r1(span)}℃、${LEARNING_RULES.minSpan}℃以上）`);
+  if (days < LEARNING_RULES.minDays) missing.push(`記録した日（今 ${days}日、${LEARNING_RULES.minDays}日以上）`);
+  const muInterval = muIntervalOf(ens, obs[obs.length - 1]);
+  if (missing.length) return { state: "sparse", missing, muInterval };
+  const width = muInterval[1] - muInterval[0];
+  if (width > LEARNING_RULES.maxMuWidth) return { state: "provisional", missing: [`快適の中心の幅（今 ${r1(width)}℃、${LEARNING_RULES.maxMuWidth}℃以下）`], muInterval };
+  // Verified: predictions made in advance while testable, better (RPS) than the plain reference.
+  if (checked.length < LEARNING_RULES.minChecked)
+    return { state: "testable", missing: [`検証用の予測（今 ${checked.length}件、${LEARNING_RULES.minChecked}件以上）`], muInterval };
+  const model = checked.reduce((s, c) => s + rps(c.probs, c.y), 0) / checked.length;
+  const ref = checked.reduce((s, c) => s + rps(referenceProbs(c.earlier), c.y), 0) / checked.length;
+  return model < ref ? { state: "verified", missing: [], muInterval } : { state: "testable", missing: ["過去の答えの割合より当たる予測"], muInterval };
+}
+
+/** States where the person's centre is not yet known: show the distribution, not a centre. */
+export const centreUnknown = (s: Learning | undefined) => s === "untrained" || s === "sparse";
 
 // ---- track records -------------------------------------------------------------------------------
 

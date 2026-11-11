@@ -25,7 +25,7 @@ import { WeatherIcon } from "./WeatherIcon";
 import { BetaContext } from "../beta/settings";
 import { baselineStateOf, driversOfDay, useBaselineHistory } from "../beta/useBaseline";
 import type { BaselineState } from "../beta/adaptation";
-import { beyondRange, ensembleState, type State } from "../beta/comfort";
+import { beyondRange, centreUnknown, ensembleState, LEARNING_LABELS, type LearningView, type State } from "../beta/comfort";
 import type { BetaSettings } from "../beta/settings";
 import { daytimeFeel, type FeelSettings } from "../../shared/feel";
 import { ReportSheet } from "../beta/ReportSheet";
@@ -356,7 +356,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
         </span>
       </div>
 
-      {beta.enabled && <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} />}
+      {beta.enabled && <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} learning={beta.learning} />}
     </section>
     </div>
     </div>
@@ -408,7 +408,9 @@ function BetaRows({
   onReport,
   onBasis,
   saved,
+  learning,
 }: {
+  learning?: LearningView;
   a: DayComfort | null;
   b: DayComfort | null;
   loadingA?: boolean;
@@ -466,13 +468,25 @@ function BetaRows({
     { key: "sun", label: "日なた 中心から", value: (d) => (d.sun == null ? null : d.sun - d.st.mu), show: (d) => where(d, d.sun) },
     { key: "shade", label: "日かげ 中心から", value: (d) => (d.shade == null ? null : d.shade - d.st.mu), show: (d) => where(d, d.shade) },
   ];
+  // The person's centre is not known yet (未学習・情報不足): only the 最近の基準 (from the weather)
+  // is shown; a centre the reports have not given is not drawn as if it were known.
+  const unknown = centreUnknown(learning?.state);
   const cell = (d: DayComfort | null, r: (typeof rows)[number], loading?: boolean) =>
-    d ? r.show(d) : <span className="cs-none beta-short">{loading ? "読み込み中" : "履歴不足"}</span>;
+    unknown && r.key !== "base" ? (
+      <span className="cs-none beta-short">未特定</span>
+    ) : d ? (
+      r.show(d)
+    ) : (
+      <span className="cs-none beta-short">{loading ? "読み込み中" : "履歴不足"}</span>
+    );
   return (
     <div className="cs-beta" role="group" aria-label="快適の中心と範囲（β版。研究中の推定）">
       <p className="cs-beta-head">
         快適の中心と範囲 <span className="beta-tag">β</span>
-        <small>中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です</small>
+        {learning && <span className={`learn-tag ${learning.state}`}>{LEARNING_LABELS[learning.state]}</span>}
+        <small>
+          {unknown ? `快適の中心は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
+        </small>
         {onBasis && (
           <button className="beta-basis" onClick={onBasis} aria-label="快適の中心と範囲の計算の根拠を見る">
             根拠

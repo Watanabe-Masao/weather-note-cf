@@ -3165,3 +3165,11 @@ svg.scrub {
 .notify-bands button.on { background: color-mix(in srgb, var(--accent-base) 22%, var(--surface-raised)); border-color: var(--accent-base); }
 .notify-bands button.on b { font-weight: var(--weight-bold); }
 .notify-time em { font-style: normal; font-family: var(--font-sans, inherit); font-size: 11px; color: var(--ink-secondary); margin-right: 2px; }
+
+/* β: how far the learning has got (comfort.ts: learningOf). */
+.learn-tag { display: inline-block; width: fit-content; justify-self: start; margin-right: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: var(--weight-bold); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
+.learn-tag.provisional { border-color: color-mix(in srgb, var(--accent-base) 50%, transparent); color: var(--ink-primary); }
+.learn-tag.testable, .learn-tag.verified { border-color: var(--accent-base); color: var(--ink-primary); }
+.predict-state { font-size: 12.5px; color: var(--ink-secondary); }
+.predict-sides { font-size: 12.5px; color: var(--ink-secondary); }
+.predict-sides b { color: var(--ink-primary); }
