@@ -166,15 +166,48 @@ export function MarkIcon({ shape, color }: { shape: BandMark; color: string }) {
 
 /**
  * The guide that follows the finger on a graph (rule: 触っている所に補助線): a vertical line at the
- * touched position and, for the target day's points, dashed lines across to the value axis.
+ * touched position and, for the target day's points, dashed lines across to the value axis, where
+ * a tag in the line's colour gives the value (tags close together are pushed apart, never overlap).
  */
-export function GuideLines({ x, top, bottom, left, points }: { x: number; top: number; bottom: number; left: number; points: { y: number; color: string }[] }) {
+export function GuideLines({
+  x,
+  top,
+  bottom,
+  left,
+  points,
+}: {
+  x: number;
+  top: number;
+  bottom: number;
+  left: number;
+  points: { y: number; color: string; label?: string }[];
+}) {
+  const TAG_H = 15;
+  // Lay the tags out top to bottom with at least one tag height between them.
+  const tags = points
+    .map((p, i) => ({ ...p, i, ty: p.y }))
+    .filter((p) => p.label)
+    .sort((a, b) => a.y - b.y);
+  for (let k = 1; k < tags.length; k++) tags[k].ty = Math.max(tags[k].ty, tags[k - 1].ty + TAG_H + 1);
+  const overflow = tags.length ? tags[tags.length - 1].ty - (bottom - TAG_H / 2) : 0;
+  if (overflow > 0) for (const t of tags) t.ty -= overflow;
   return (
     <g className="guide" pointerEvents="none">
       <line x1={x} x2={x} y1={top} y2={bottom} className="guide-v" />
       {points.map((p, i) => (
         <line key={i} x1={left} x2={x} y1={p.y} y2={p.y} className="guide-h" stroke={p.color} />
       ))}
+      {tags.map((t) => {
+        const w = Math.max(20, t.label!.length * 5.6 + 6);
+        return (
+          <g key={`tag-${t.i}`} transform={`translate(${left - 2 - w}, ${t.ty - TAG_H / 2})`}>
+            <rect width={w} height={TAG_H} rx={4} fill={t.color} className="guide-tag" />
+            <text x={w / 2} y={11} textAnchor="middle" className="guide-tag-text">
+              {t.label}
+            </text>
+          </g>
+        );
+      })}
     </g>
   );
 }

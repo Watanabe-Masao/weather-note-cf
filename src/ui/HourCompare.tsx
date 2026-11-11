@@ -391,7 +391,7 @@ function HourChart({
             top={PAD.top}
             bottom={H - PAD.bottom}
             left={PAD.left}
-            points={main[hour - 1]?.v != null ? [{ y: yOf(main[hour - 1].v!), color }] : []}
+            points={main[hour - 1]?.v != null ? [{ y: yOf(main[hour - 1].v!), color, label: formatDetail(main[hour - 1].v, metric) }] : []}
           />
         )}
 

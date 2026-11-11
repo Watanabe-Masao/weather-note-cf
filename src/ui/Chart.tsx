@@ -352,15 +352,6 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             ),
           )}
 
-        {scrub != null && (
-          <GuideLines
-            x={xOf(scrub)}
-            top={PAD.top}
-            bottom={H - bottom}
-            left={PAD.left}
-            points={series.filter((x) => !x.compare && !x.s.thin).flatMap(({ s, points }) => (points[scrub].v == null ? [] : [{ y: yOf(points[scrub].v!), color: COLORS[s.tone] }]))}
-          />
-        )}
         {under.map((row, k) => (
           <g key={`under-${k}`}>
             {row.cells.map((c, i) => (
@@ -405,6 +396,20 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           ))}
         </g>
         </g>
+        {scrub != null && (
+          <GuideLines
+            x={xOf(scrub)}
+            top={PAD.top}
+            bottom={H - bottom}
+            left={PAD.left}
+            points={series
+              .filter((x) => !x.compare && !x.s.thin)
+              .flatMap(({ s, points }) => {
+                const v = points[scrub].v;
+                return v == null ? [] : [{ y: yOf(v), color: COLORS[s.tone], label: v.toFixed(digitsOf(s.unit ?? metric.unit)) }];
+              })}
+          />
+        )}
 
         {/* Fixed labels at the left edge (they do not move with the days). */}
         {under.map((row, k) =>
