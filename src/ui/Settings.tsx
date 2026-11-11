@@ -36,6 +36,8 @@ import { LEVEL_COLORS } from "./FeelBar";
 import { Segmented } from "./kit";
 import { BetaContext } from "../beta/settings";
 import { MIN_REPORTS, MIN_SPAN_DAYS } from "../beta/fitAlpha";
+import { halfLifeDays, updateRate } from "../beta/adaptation";
+import { BasisSheet } from "../beta/BasisSheet";
 import { toCsv } from "../beta/reports";
 import { reports, useReports } from "../beta/useReports";
 
@@ -229,6 +231,7 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
 
 function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _done }: Props) {
   const beta = useContext(BetaContext);
+  const [basis, setBasis] = useState(false);
   void _done;
   const onClose = useSheetClose();
   const [stations, setStations] = useState<Station[]>([]);
@@ -324,13 +327,22 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
             </small>
           </span>
           <p className="beta-alpha" role="status">
-            <b>{beta.alpha.toFixed(2)}</b>
+            <b>
+              {beta.alpha.toFixed(2)}
+              <small>
+                半減期 {halfLifeDays(beta.alpha)}日・前日の重み {updateRate(beta.alpha)}
+              </small>
+            </b>
             {beta.status === "fitted"
               ? `記録 ${beta.n}件（${beta.spanDays}日間）から推定。基準を入れると当てはまりが ${Math.round((beta.improvement ?? 0) * 100)}% よくなりました。`
               : beta.status === "no-effect"
                 ? `記録 ${beta.n}件では、最近の基準を入れても当てはまりがよくなりませんでした（情報量基準で判定）。規格の標準値を使っています。`
                 : `規格（EN 16798）の標準値を使っています。推定には記録 ${MIN_REPORTS}件以上・${MIN_SPAN_DAYS}日間以上が必要です（今 ${beta.n}件・${beta.spanDays}日間）。`}
           </p>
+          <button className="link-btn" onClick={() => setBasis(true)}>
+            計算の根拠を見る（今日）
+          </button>
+          {basis && store && <BasisSheet store={store} station={station} target={store.today} other={null} onClose={() => setBasis(false)} />}
         </div>
         <ReportData />
       </section>

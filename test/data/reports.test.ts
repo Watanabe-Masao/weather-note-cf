@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { jstHourOf, jstIso, type Report, SENSATIONS, snapshotOf, toCsv } from "../../src/beta/reports";
+import { jstHourOf, jstIso, recentDay, type Report, SENSATIONS, snapshotOf, toCsv } from "../../src/beta/reports";
 import { DEFAULT_FEEL } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 
@@ -39,6 +39,20 @@ describe("β②: what a report records", () => {
   });
 });
 
+describe("β②: the sky and the days before", () => {
+  it("keeps the forecast's weather for an observed hour, as the forecast's", () => {
+    const rows = [hour(12, { weather: "曇り", weatherCode: 3, origin: { weather: "forecast", weatherCode: "forecast" } })];
+    expect(snapshotOf(rows, 12, DEFAULT_FEEL)).toMatchObject({ forecastSky: "曇り", forecastSkyCode: 3 });
+    expect(snapshotOf([hour(12)], 12, DEFAULT_FEEL)).toMatchObject({ forecastSky: null });
+  });
+
+  it("records a past day with its source", () => {
+    const row = { date: "2026-11-10", n: 10, type: "actual" as const, provider: "JMA", raw: {}, quality: {}, temp: 16, humidity: 70, sun: 4.2, rain: 0, dayWeather: "晴" };
+    expect(recentDay("2026-11-10", row, "fixed")).toMatchObject({ mean: 16, humidity: 70, sun: 4.2, weather: "晴", from: "jma-fixed" });
+    expect(recentDay("2026-11-10", null, null)).toMatchObject({ mean: null, from: null });
+  });
+});
+
 describe("β②: the scale", () => {
   it("has seven steps from 寒い (−3) to 暑い (+3), 涼しい and 暖かい included", () => {
     expect(SENSATIONS.map((s) => [s.value, s.label])).toEqual([
@@ -61,6 +75,7 @@ describe("β②: CSV", () => {
     sensation: -1,
     exposure: "shade",
     windFelt: "strong",
+    sky: "cloudy",
     snapshot: null,
     baseline: { value: 17.3, forecastMixed: false, coverage: 1, alpha: 0.8 },
     departures: { air: -2.4, sun: null, shade: -4 },
@@ -71,8 +86,13 @@ describe("β②: CSV", () => {
     expect(csv.startsWith("﻿at_jst,station,sensation")).toBe(true);
     const lines = csv.trim().split("\r\n");
     expect(lines).toHaveLength(3);
-    expect(lines[1]).toContain("2026-11-11T20:30:00+09:00,47893,-1,やや涼しい,shade,strong");
-    expect(lines[1]).toContain("17.3,0.8,0,-2.4,,-4,,a");
+    expect(lines[1]).toContain("2026-11-11T20:30:00+09:00,47893,-1,やや涼しい,shade,strong,cloudy,");
+    expect(lines[1]).toContain("17.3,0.8,0.2,3.1,0,-2.4,,-4,"); // α, 前日の重み, 半減期
+    expect(lines[1].endsWith(",a")).toBe(true);
+    const header = lines[0].split(",");
+    expect(header.indexOf("d1_humidity")).toBeGreaterThan(0);
+    expect(header.indexOf("d7_from")).toBe(header.length - 2);
+    expect(lines[1].split(",")).toHaveLength(header.length);
     expect(lines[2].endsWith(",b")).toBe(true);
   });
 });

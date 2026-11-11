@@ -1,6 +1,6 @@
 // β: 慣れの速さ (α) estimated from the person's own reports, never chosen by hand.
 //
-// Each report keeps the 30 daily means before it (Report.history), so the 最近の基準 can be
+// Each report keeps the 60 daily means before it (Report.history), so the 最近の基準 can be
 // recomputed for any α. For each candidate α the reports are fitted by least squares:
 //   M1(α):  sensation ≈ b0 + b1·E + γ·d(α)      E = 日なた／日かげ温度 of the place reported,
 //                                               d = air temperature then − 最近の基準(α)
@@ -29,6 +29,11 @@ export interface AlphaFit {
   spanDays: number;
   /** Share of M0's squared error that the history removes (0.12 = 12% better), when fitted or checked. */
   improvement: number | null;
+  /** The evidence, for the 根拠 screen: each α's squared error, and the BIC of both models. */
+  curve?: { alpha: number; sse: number }[];
+  sse0?: number;
+  bic0?: number;
+  bic1?: number;
 }
 
 interface Point {
@@ -100,6 +105,7 @@ export function fitAlpha(reports: Report[]): AlphaFit {
   if (sse0 == null) return collecting;
 
   let best: { alpha: number; sse: number } | null = null;
+  const curve: { alpha: number; sse: number }[] = [];
   for (const alpha of ALPHA_GRID) {
     const rows: number[][] = [];
     const ys: number[] = [];
@@ -111,13 +117,16 @@ export function fitAlpha(reports: Report[]): AlphaFit {
     });
     if (rows.length < n) continue; // compare every α on the same reports
     const sse = leastSquaresSse(rows, ys);
+    if (sse != null) curve.push({ alpha, sse });
     if (sse != null && (!best || sse < best.sse)) best = { alpha, sse };
   }
   if (!best) return collecting;
   const improvement = Math.round((1 - best.sse / sse0) * 100) / 100;
   // M1 has two more parameters than M0: γ and α.
-  const better = bic(best.sse, n, 4) < bic(sse0, n, 2);
-  return better
-    ? { alpha: best.alpha, status: "fitted", n, spanDays, improvement }
-    : { alpha: STANDARD_ALPHA, status: "no-effect", n, spanDays, improvement };
+  const bic0 = bic(sse0, n, 2);
+  const bic1 = bic(best.sse, n, 4);
+  const evidence = { curve, sse0, bic0, bic1 };
+  return bic1 < bic0
+    ? { alpha: best.alpha, status: "fitted", n, spanDays, improvement, ...evidence }
+    : { alpha: STANDARD_ALPHA, status: "no-effect", n, spanDays, improvement, ...evidence };
 }

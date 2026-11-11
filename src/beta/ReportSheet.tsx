@@ -6,10 +6,10 @@ import type { WeatherStore } from "../data/store";
 import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
-import { departures } from "./adaptation";
-import { type Exposure, EXPOSURES, jstHourOf, newId, type Report, type Sensation, SENSATIONS, snapshotOf, type WindFelt, WINDS } from "./reports";
+import { departures, historyDays } from "./adaptation";
+import { type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
-import { baselineOf, historyOf } from "./useBaseline";
+import { baselineOf, baselineStateOf, historyOf } from "./useBaseline";
 import { reports } from "./useReports";
 
 interface Props {
@@ -27,8 +27,11 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
   const [sensation, setSensation] = useState<Sensation | null>(null);
   const [exposure, setExposure] = useState<Exposure | null>(null);
   const [windFelt, setWindFelt] = useState<WindFelt | null>(null);
+  const [sky, setSky] = useState<Sky | null>(null);
   const [saving, setSaving] = useState(false);
-  const ready = sensation != null && exposure != null && windFelt != null;
+  // Wait for the past days (the summary asked for them), so the report carries its full history.
+  const loading = baselineStateOf(store, station, today, beta.alpha).state === "loading";
+  const ready = sensation != null && exposure != null && windFelt != null && sky != null && !loading;
 
   const save = async () => {
     if (!ready || saving) return;
@@ -44,10 +47,17 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
       sensation,
       exposure,
       windFelt,
+      sky,
       snapshot: snapshotOf(hours, jstHourOf(now), feel),
       baseline: base ? { ...base, alpha: beta.alpha } : null,
       departures: dep ? { air: dep.air, sun: dep.sun, shade: dep.shade } : null,
       history: store ? historyOf(store, station, today).map((p) => (p.forecast ? null : p.mean)) : [],
+      recent: historyDays(today)
+        .slice(0, RECENT_DAYS)
+        .map((d) => {
+          const day = store?.getDay(station, d);
+          return recentDay(d, day?.row, day?.kind ?? null);
+        }),
       updatedAt: now,
     };
     await reports.add(report);
@@ -57,7 +67,7 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
 
   return (
     <div className="report-form">
-      <p className="set-lead">今いる場所の感じ方を選んでください。観測所の気温・湿度・風・日射と最近の基準は自動で添えます。</p>
+      <p className="set-lead">今いる場所の様子を選んでください。観測所の気温・湿度・風・日射、その時刻の予報、直近7日の天気・湿度・日射、最近の基準は自動で添えます。</p>
       <div className="set-row">
         <span className="set-label">感じ方</span>
         <div className="report-scale" role="radiogroup" aria-label="感じ方">
@@ -84,8 +94,13 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
         <span className="set-label">風</span>
         <Segmented label="風の感じ" value={windFelt ?? ("" as WindFelt)} options={WINDS.map((w) => ({ id: w.id, label: w.label }))} onChange={setWindFelt} />
       </div>
+      <div className="set-row">
+        <span className="set-label">今の天気</span>
+        <Segmented label="今の天気" value={sky ?? ("" as Sky)} options={SKIES.map((k) => ({ id: k.id, label: k.label }))} onChange={setSky} />
+        <small className="set-help">見たままの空。その時刻の予報の天気は自動で添えるので、あとで予報と実際を突き合わせられます。</small>
+      </div>
       <button className="report-save" disabled={!ready || saving} onClick={() => void save()}>
-        {ready ? "記録する" : "3つとも選ぶと記録できます"}
+        {loading ? "過去の気温を読み込み中…" : ready ? "記録する" : "4つとも選ぶと記録できます"}
       </button>
     </div>
   );

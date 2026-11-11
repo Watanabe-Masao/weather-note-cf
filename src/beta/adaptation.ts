@@ -14,8 +14,19 @@ import { addDays } from "../../shared/dates";
 import { daytimeFeel, type FeelSettings } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 
-/** Past days looked at; beyond these the weights are negligible (0.9^30 ≈ 4%). */
-export const HISTORY_DAYS = 30;
+/**
+ * Past days looked at. 60 so that even a slow α keeps nearly all of its weight (0.95^60 ≈ 5%;
+ * 30 days would cut α = 0.95 to 79% of it) — the warm-up the plan asks for.
+ */
+export const HISTORY_DAYS = 60;
+
+/**
+ * Two ways to say the same α, because the research notes use the other one: here α is EN 16798's
+ * weight on the previous baseline; the notes' "更新率" is the weight on yesterday, 1 − α.
+ * The half-life (days until a change counts half) reads the same in both.
+ */
+export const updateRate = (alpha: number) => Math.round((1 - alpha) * 100) / 100;
+export const halfLifeDays = (alpha: number) => Math.round((Math.log(0.5) / Math.log(alpha)) * 10) / 10;
 /** Share of the total weight that must be present; less is "履歴不足" (never guessed). */
 export const MIN_COVERAGE = 0.8;
 
@@ -36,6 +47,8 @@ export interface Baseline {
 export interface PastDay {
   mean: number | null;
   forecast: boolean;
+  /** Not loaded yet (the request is on its way): "読み込み中", not "履歴不足". */
+  loading?: boolean;
 }
 
 /** Running mean over past days (newest first). Null when too little history is there. */
@@ -59,8 +72,17 @@ export function runningMean(past: PastDay[], alpha: number): Baseline | null {
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
 /** A day's mean air temperature from its daily row. */
-export function pastDay(row: WeatherRow | null | undefined): PastDay {
-  return { mean: num(row?.temp), forecast: row?.type === "forecast" };
+export function pastDay(row: WeatherRow | null | undefined, loading = false): PastDay {
+  return { mean: num(row?.temp), forecast: row?.type === "forecast", loading };
+}
+
+export type BaselineState = { state: "ready"; baseline: Baseline } | { state: "loading" } | { state: "short" };
+
+/** Ready, still loading (some past day not fetched yet), or 履歴不足 (fetched, but too little). */
+export function baselineState(past: PastDay[], alpha: number): BaselineState {
+  const baseline = runningMean(past, alpha);
+  if (baseline) return { state: "ready", baseline };
+  return past.some((d) => d.loading) ? { state: "loading" } : { state: "short" };
 }
 
 export interface Departures {

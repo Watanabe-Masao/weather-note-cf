@@ -11,7 +11,7 @@ import { type IDBPDatabase, openDB } from "idb";
 import { feelOf, type FeelSettings, radiationOf } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import { hourOrigin, type Origin } from "../data/authority";
-import type { Baseline, Departures } from "./adaptation";
+import { type Baseline, type Departures, halfLifeDays, updateRate } from "./adaptation";
 
 /** The 7-point thermal sensation scale (ASHRAE 55, −3 … +3) in its usual Japanese wording. */
 export const SENSATIONS = [
@@ -34,6 +34,17 @@ export const WINDS = [
   { id: "none", label: "なし" },
 ] as const;
 
+/** What the sky looks like where the person is (JMA's observation words), to set beside the forecast. */
+export const SKIES = [
+  { id: "clear", label: "快晴" },
+  { id: "sunny", label: "晴れ" },
+  { id: "thin", label: "薄曇り" },
+  { id: "cloudy", label: "曇り" },
+  { id: "rain", label: "雨" },
+  { id: "snow", label: "雪" },
+] as const;
+export type Sky = (typeof SKIES)[number]["id"];
+
 export type Sensation = (typeof SENSATIONS)[number]["value"];
 export type Exposure = (typeof EXPOSURES)[number]["id"];
 export type WindFelt = (typeof WINDS)[number]["id"];
@@ -52,7 +63,28 @@ export interface Snapshot {
   /** 日なた温度 / 日かげ温度 for that hour (with the 肌感 settings of the moment). */
   sunTemp: number | null;
   shadeTemp: number | null;
+  /** The forecast's weather for that hour (Open-Meteo), to compare with what was seen. */
+  forecastSky: string | null;
+  forecastSkyCode: number | null;
 }
+
+/** One of the days before, as the daily table has it, with its source. */
+export interface RecentDay {
+  date: string;
+  mean: number | null;
+  max: number | null;
+  min: number | null;
+  humidity: number | null;
+  /** 日照時間 (h). */
+  sun: number | null;
+  /** 全天日射量 (MJ/m²). */
+  radiation: number | null;
+  rain: number | null;
+  weather: string | null;
+  from: Origin | null;
+}
+
+export const RECENT_DAYS = 7;
 
 export interface Report {
   id: string;
@@ -62,12 +94,17 @@ export interface Report {
   sensation: Sensation;
   exposure: Exposure;
   windFelt: WindFelt;
+  /** The sky the person saw (reports before it was asked have none). */
+  sky?: Sky;
   snapshot: Snapshot | null;
   baseline: (Baseline & { alpha: number }) | null;
   departures: Pick<Departures, "air" | "sun" | "shade"> | null;
-  /** The 30 daily mean temperatures before the day, newest first (null where missing): lets the
+  /** The 60 daily mean temperatures before the day, newest first (null where missing): lets the
    *  最近の基準 be recomputed for any α when 慣れの速さ is estimated (fitAlpha.ts). */
   history?: (number | null)[];
+  /** The 7 days before, newest first: how the previous day and week (humidity, sunshine, rain,
+   *  weather) carry into the feeling, for the analysis in research/. */
+  recent?: RecentDay[];
   /** For syncing: last change (ms) and a soft delete. */
   updatedAt: number;
   deleted?: boolean;
@@ -106,6 +143,33 @@ export function snapshotOf(rows: WeatherRow[] | null, hour: number, feel: FeelSe
     },
     sunTemp: round1(feelOf(row.temp, row.humidity, row.wind, forecast, { ...feel, sun: true }, solar)),
     shadeTemp: round1(feelOf(row.temp, row.humidity, row.wind, forecast, { ...feel, sun: false }, solar)),
+    ...forecastSkyOf(rows, row),
+  };
+}
+
+/** The forecast's weather for the hour: its own row, or the weather it lent to the observed row. */
+function forecastSkyOf(rows: WeatherRow[], row: WeatherRow): Pick<Snapshot, "forecastSky" | "forecastSkyCode"> {
+  const lent = (row.origin as Record<string, Origin> | undefined)?.weather === "forecast" || row.type === "forecast";
+  const source = lent ? row : rows.find((r) => r.n === row.n && r.type === "forecast");
+  return {
+    forecastSky: typeof source?.weather === "string" ? source.weather : null,
+    forecastSkyCode: num(source?.weatherCode),
+  };
+}
+
+/** A past day from its daily row and how the store holds it. */
+export function recentDay(date: string, row: WeatherRow | null | undefined, kind: "fixed" | "variable" | null): RecentDay {
+  return {
+    date,
+    mean: num(row?.temp),
+    max: num(row?.max),
+    min: num(row?.min),
+    humidity: num(row?.humidity),
+    sun: num(row?.sun),
+    radiation: num(row?.radiation),
+    rain: num(row?.rain),
+    weather: typeof row?.dayWeather === "string" ? row.dayWeather : null,
+    from: !row ? null : row.type === "forecast" ? "forecast" : kind === "fixed" ? "jma-fixed" : "jma",
   };
 }
 
@@ -117,13 +181,16 @@ export function jstHourOf(ms: number): number {
 
 // ---- CSV ---------------------------------------------------------------------------------------
 
-const COLUMNS = [
+const COLUMNS: readonly string[] = [
   "at_jst",
   "station",
   "sensation",
   "sensation_label",
   "exposure",
   "wind_felt",
+  "sky_reported",
+  "sky_forecast",
+  "sky_forecast_code",
   "obs_date",
   "obs_hour",
   "temp",
@@ -138,11 +205,16 @@ const COLUMNS = [
   "shade_temp",
   "baseline",
   "baseline_alpha",
+  "update_rate",
+  "half_life_days",
   "baseline_forecast_mixed",
   "dep_air",
   "dep_sun",
   "dep_shade",
-  "history_30d",
+  "history_60d",
+  ...Array.from({ length: RECENT_DAYS }, (_, i) =>
+    ["mean", "max", "min", "humidity", "sun_h", "radiation_mj", "rain_mm", "weather", "from"].map((f) => `d${i + 1}_${f}`),
+  ).flat(),
   "id",
 ] as const;
 
@@ -169,6 +241,9 @@ export function toCsv(reports: Report[]): string {
       SENSATIONS.find((s) => s.value === r.sensation)?.label,
       r.exposure,
       r.windFelt,
+      r.sky,
+      r.snapshot?.forecastSky,
+      r.snapshot?.forecastSkyCode,
       r.snapshot?.date,
       r.snapshot?.hour,
       r.snapshot?.temp,
@@ -183,11 +258,17 @@ export function toCsv(reports: Report[]): string {
       r.snapshot?.shadeTemp,
       r.baseline?.value,
       r.baseline?.alpha,
+      r.baseline ? updateRate(r.baseline.alpha) : null,
+      r.baseline ? halfLifeDays(r.baseline.alpha) : null,
       r.baseline ? (r.baseline.forecastMixed ? 1 : 0) : null,
       r.departures?.air,
       r.departures?.sun,
       r.departures?.shade,
       r.history?.map((v) => (v == null ? "" : v)).join(";"),
+      ...Array.from({ length: RECENT_DAYS }, (_, i) => {
+        const d = r.recent?.[i];
+        return [d?.mean, d?.max, d?.min, d?.humidity, d?.sun, d?.radiation, d?.rain, d?.weather, d?.from];
+      }).flat(),
       r.id,
     ]
       .map(cell)

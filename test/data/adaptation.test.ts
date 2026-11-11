@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { departures, historyDays, HISTORY_DAYS, runningMean } from "../../src/beta/adaptation";
+import { baselineState, departures, halfLifeDays, historyDays, HISTORY_DAYS, runningMean, updateRate } from "../../src/beta/adaptation";
 import { DEFAULT_FEEL } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 
@@ -30,9 +30,40 @@ describe("β: 最近の基準 (running mean of past daily means)", () => {
     expect(runningMean(days(Array(HISTORY_DAYS).fill(15), true), 0.8)?.forecastMixed).toBe(true);
   });
 
-  it("reads the 30 days before the day, newest first", () => {
-    expect(historyDays("2026-11-10").slice(0, 2)).toEqual(["2026-11-09", "2026-11-08"]);
-    expect(historyDays("2026-11-10")).toHaveLength(HISTORY_DAYS);
+  it("reads only the days before the day, newest first (the day itself and later never count)", () => {
+    const h = historyDays("2026-11-10");
+    expect(h.slice(0, 2)).toEqual(["2026-11-09", "2026-11-08"]);
+    expect(h).toHaveLength(HISTORY_DAYS);
+    expect(h.every((d) => d < "2026-11-10")).toBe(true);
+  });
+
+  it("turns a sudden rise or fall into a difference of the right sign, the same day reading opposite after each", () => {
+    const after = (recent: number, older: number) => days([...Array(7).fill(recent), ...Array(HISTORY_DAYS - 7).fill(older)]);
+    const warmedUp = runningMean(after(25, 15), 0.8)!.value; // a warm week after a cool month
+    const cooledDown = runningMean(after(15, 25), 0.8)!.value;
+    expect(20 - warmedUp).toBeLessThan(0); // 20℃ reads cool after the warm spell
+    expect(20 - cooledDown).toBeGreaterThan(0); // and warm after the cool one
+  });
+
+  it("stays defined at the ends of the α range", () => {
+    const flat = days(Array(HISTORY_DAYS).fill(12));
+    expect(runningMean(flat, 0.5)?.value).toBe(12);
+    expect(runningMean(flat, 0.95)?.value).toBe(12);
+    // 60 days keep almost all of a slow α's weight (30 would keep 79%).
+    expect(1 - 0.95 ** HISTORY_DAYS).toBeGreaterThan(0.95);
+  });
+
+  it("says 読み込み中 while past days are on their way, 履歴不足 once they came without enough", () => {
+    const loading = days(Array(HISTORY_DAYS).fill(null)).map((d) => ({ ...d, loading: true }));
+    expect(baselineState(loading, 0.8).state).toBe("loading");
+    expect(baselineState(days(Array(HISTORY_DAYS).fill(null)), 0.8).state).toBe("short");
+    expect(baselineState(days(Array(HISTORY_DAYS).fill(14)), 0.8)).toMatchObject({ state: "ready" });
+  });
+
+  it("says α both ways: half-life and the weight on yesterday (the notes' 更新率)", () => {
+    expect(updateRate(0.8)).toBe(0.2);
+    expect(halfLifeDays(0.8)).toBe(3.1);
+    expect(halfLifeDays(0.85)).toBe(4.3); // the notes' 更新率 0.15
   });
 });
 

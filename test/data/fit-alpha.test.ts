@@ -29,7 +29,7 @@ function simulate(trueAlpha: number, gamma: number, days = 60, perDay = 1, seed 
         sensation,
         exposure: "shade",
         windFelt: "weak",
-        snapshot: { date: "", hour: 12, temp: t, humidity: 60, wind: 2, solar: 0, from: {}, sunTemp: e + 3, shadeTemp: e },
+        snapshot: { date: "", hour: 12, temp: t, humidity: 60, wind: 2, solar: 0, from: {}, sunTemp: e + 3, shadeTemp: e, forecastSky: null, forecastSkyCode: null },
         baseline: null,
         departures: null,
         history,
