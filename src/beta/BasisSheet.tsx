@@ -11,9 +11,9 @@ import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet } from "../ui/ModalSheet";
 import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } from "./adaptation";
-import { MIN_REPORTS, MIN_SPAN_DAYS, STANDARD_ALPHA } from "./fitAlpha";
+import { beyondRange, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
 import { BetaContext } from "./settings";
-import { baselineStateOf } from "./useBaseline";
+import { baselineStateOf, driversOfDay } from "./useBaseline";
 
 interface Props {
   store: WeatherStore | null;
@@ -219,88 +219,193 @@ function DayBasis({ store, station, date, alpha, feel }: { store: WeatherStore |
   );
 }
 
-function AlphaBasis() {
-  const fit = useContext(BetaContext);
-  const best = fit.curve?.length ? Math.min(...fit.curve.map((c) => c.sse)) : null;
+/** One parameter, for people: what it is, and how to show its value (levels on their own scale). */
+function describeParam(name: string): { what: string; show: (v: number) => string; effect: boolean } {
+  const [kind, key] = name.includes(":") ? name.split(":") : [name, ""];
+  const d = key ? DRIVERS[key as DriverKey] : null;
+  switch (kind) {
+    case "m0":
+      return { what: "中心（どの要因もふつうのとき）", show: (v) => `${v.toFixed(1)}℃`, effect: false };
+    case "l0":
+      return { what: "範囲の半分の幅（ふつうのとき）", show: (v) => `${Math.exp(v).toFixed(1)}℃`, effect: false };
+    case "q0":
+      return { what: "範囲の外の1段階の幅", show: (v) => `${Math.exp(v).toFixed(1)}℃`, effect: false };
+    case "r0":
+      return { what: "境目のぼやけ", show: (v) => `${Math.exp(v).toFixed(2)}℃`, effect: false };
+    case "wS":
+      return { what: "風が強いときのその場の温度のずれ", show: (v) => `${v.toFixed(1)}℃`, effect: true };
+    case "wN":
+      return { what: "風がないときのその場の温度のずれ", show: (v) => `${v.toFixed(1)}℃`, effect: true };
+    case "中心":
+      return { what: `${d!.label}（${d!.unit}ごとの中心の動き）`, show: (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}℃`, effect: true };
+    case "範囲":
+      return { what: `${d!.label}（${d!.unit}ごとの範囲の幅の倍率）`, show: (v) => `×${Math.exp(v).toFixed(2)}`, effect: true };
+    default:
+      return { what: `${d!.label}（${d!.unit}ごとのその場の温度の上がり）`, show: (v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}℃`, effect: true };
+  }
+}
+
+const driversText = (m: ModelSpec) =>
+  [
+    m.mu.length ? `中心：${m.mu.map((k) => DRIVERS[k].label).join("・")}` : "",
+    m.h.length ? `範囲：${m.h.map((k) => DRIVERS[k].label).join("・")}` : "",
+    m.e?.length ? `その場：${m.e.map((k) => DRIVERS[k].label).join("・")}` : "",
+  ]
+    .filter(Boolean)
+    .join("／") || "動かない（比較の基準）";
+
+/** The models side by side, then one model's parameters (prior → now, 95% interval). */
+function ComfortBasis() {
+  const beta = useContext(BetaContext);
+  const { ens, record: r, records } = beta;
+  const best = ens.weights.indexOf(Math.max(...ens.weights));
+  const [chosen, setChosen] = useState<number>(best);
+  const fit = ens.fits[chosen] ?? ens.fits[best];
+  const names = paramNames(fit.model);
   return (
-    <section className="basis-sec" aria-labelledby="basis-alpha">
-      <h4 id="basis-alpha">
-        慣れの速さ α <b>{fit.alpha.toFixed(2)}</b>
-      </h4>
-      <p className="basis-note">
-        {fit.status === "fitted"
-          ? `感じ方の記録 ${fit.n}件（${fit.spanDays}日間）から推定しました。`
-          : fit.status === "no-effect"
-            ? `記録 ${fit.n}件では最近の基準の効果が見えなかったので、規格の標準値 ${STANDARD_ALPHA} を使っています。`
-            : `記録が ${MIN_REPORTS}件・${MIN_SPAN_DAYS}日間に満たない（今 ${fit.n}件・${fit.spanDays}日間）ので、規格（EN 16798-1）の標準値 ${STANDARD_ALPHA} を使っています。`}
-      </p>
-      <p className="basis-formula">
-        感じ方 ≈ b<sub>0</sub> + b<sub>1</sub>·E + γ·(気温 − A<sub>α</sub>)
-      </p>
-      <p className="basis-note">
-        E はその場（日なた・日かげ・半々）の温度。α の候補ごとに記録へ当てはめ（最小二乗）、誤差がいちばん小さい α を選びます。基準を入れないモデル（b<sub>0</sub> + b<sub>1</sub>·E）より情報量基準 BIC が小さいときだけ採用します。
-      </p>
-      {fit.curve && fit.sse0 != null && best != null && (
-        <>
-          <div className="basis-scroll">
-<table className="basis-table">
+    <>
+      <section className="basis-sec" aria-labelledby="basis-models">
+        <h4 id="basis-models">
+          モデルの比較 <b>記録 {ens.n}件{beta.fitting ? "・計算中" : ""}</b>
+        </h4>
+        <p className="basis-formula">
+          中心 μ = m0 + Σ 係数 × 中心の要因
+          <br />
+          範囲の半分 h = e^(l0 + Σ 係数 × 範囲の要因)
+          <br />
+          境目 = μ ± h, μ ± (h + g), μ ± (h + 2g)
+          <br />
+          P(答え ≤ k) = σ((境目 − (E′ − μ)) ÷ s)
+          <br />
+          E′ = E + Σ 係数 × その場の要因 + 風のずれ
+        </p>
+        <p className="basis-note">
+          要因の組み合わせが違うモデルを並べて当てはめ、比べます。重みは「証拠の強さ」（周辺尤度のラプラス近似）から出し、要因が多いほど不利になるので、当てはめすぎたモデルは得をしません。画面の予測は重みで混ぜたものです。成績は、送信のたびに各モデルが出していた予測と答えの比較です。
+        </p>
+        <div className="basis-scroll">
+          <table className="basis-table">
             <thead>
               <tr>
-                <th>α</th>
-                <th>半減期</th>
-                <th>誤差（基準なし＝100）</th>
+                <th>モデル</th>
+                <th>重み</th>
+                <th>成績</th>
               </tr>
             </thead>
             <tbody>
-              {fit.curve.map((c) => (
-                <tr key={c.alpha} className={c.sse === best ? "best" : undefined}>
-                  <td className="num">{c.alpha.toFixed(2)}</td>
-                  <td className="num">{halfLifeDays(c.alpha)}日</td>
-                  <td className="num">
-                    <span className="basis-bar" style={{ width: `${Math.min(100, (c.sse / fit.sse0!) * 100)}%` }} />
-                    {((c.sse / fit.sse0!) * 100).toFixed(1)}
-                  </td>
-                </tr>
-              ))}
+              {ens.fits.map((f, i) => {
+                const rec = records[f.model.id];
+                return (
+                  <tr key={f.model.id} className={i === best ? "best" : undefined} onClick={() => setChosen(i)} style={{ cursor: "pointer" }}>
+                    <td className="wrap">
+                      {f.model.id} {f.model.name}
+                      <small>
+                        <br />
+                        {driversText(f.model)}
+                      </small>
+                    </td>
+                    <td className="num">{Math.round(ens.weights[i] * 100)}%</td>
+                    <td className="num">{rec && rec.n ? `損失 ${rec.logLoss?.toFixed(2)}・当たり ${Math.round((rec.hit ?? 0) * 100)}%` : "—"}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-</div>
-          <p className="basis-note">
-            BIC：基準なし {fit.bic0?.toFixed(1)} ／ 基準あり {fit.bic1?.toFixed(1)}（小さい方がよい。基準ありは α と γ の2つ分の不利を含む）
-          </p>
-        </>
-      )}
-    </section>
+        </div>
+        <p className="basis-note">
+          M6（暦の季節）は確認用です。気温の履歴のモデル（M4 など）より強い証拠を得たら、春と秋の違いは気温の履歴だけでは説明しきれない（服装や日の長さなど）ことになります。
+          {ens.n < beta.minForAlpha ? ` α は記録が${beta.minForAlpha}件たまってから選びます（今は標準の0.8）。` : ` α（${ens.alpha.toFixed(2)}・半減期 ${halfLifeDays(ens.alpha)}日）は記録の当てはまりで選んでいます。`}
+        </p>
+        <p className="basis-note">
+          混ぜた予測の成績：
+          {r.n === 0
+            ? "まだ記録がありません。"
+            : `${r.n}件、対数損失 ${r.logLoss?.toFixed(2)}（当てずっぽうは 1.95）、当たり ${Math.round((r.hit ?? 0) * 100)}%、偏り ${r.bias! > 0 ? "+" : ""}${r.bias?.toFixed(1)}、平均のずれ ${r.mae?.toFixed(1)}段階（直近10件 ${r.recentMae?.toFixed(1)}）。`}
+        </p>
+      </section>
+
+      <section className="basis-sec" aria-labelledby="basis-params">
+        <h4 id="basis-params">
+          {fit.model.id} {fit.model.name}の中身 <b>重み {Math.round(ens.weights[ens.fits.indexOf(fit)] * 100)}%</b>
+        </h4>
+        <p className="basis-note">上の表の行を押すと、そのモデルの中身に切り替わります。初めの値は固定の事前分布（肌感の表示の境目とは無関係）、今の値は記録からの推定です。</p>
+        <div className="basis-scroll">
+          <table className="basis-table">
+            <thead>
+              <tr>
+                <th>要素</th>
+                <th>初め</th>
+                <th>今</th>
+                <th>95%区間</th>
+              </tr>
+            </thead>
+            <tbody>
+              {names.map((name, i) => {
+                const d = describeParam(name);
+                const [lo, hi] = interval(fit, (t) => t[i]);
+                const spans = d.effect && lo < 0 && hi > 0;
+                return (
+                  <tr key={name} className={d.effect && !spans ? "best" : undefined}>
+                    <td className="wrap">
+                      {d.what}
+                      {d.effect && <small>{spans ? "　まだ分からない" : "　効いている"}</small>}
+                    </td>
+                    <td className="num">{d.show(fit.prior.mean[i])}</td>
+                    <td className="num">{d.show(fit.theta[i])}</td>
+                    <td className="num">
+                      {d.show(lo)}〜{d.show(hi)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </>
   );
 }
 
-function PredictionBasis() {
-  const fit = useContext(BetaContext);
-  const [t0, t1, t2, t3] = fit.thresholds;
-  const [c0, cd, cs, cn] = fit.correction.coef;
-  const e = fit.errors;
-  const sgn = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(2)}`;
+/** The day's centre and range (weighted over the models), and where 日なた／日かげ sit. */
+function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null; station: string; date: string; feel: FeelSettings }) {
+  const beta = useContext(BetaContext);
+  const rows = store?.getHours(station, date).rows ?? [];
+  const row = store?.getDay(station, date).row;
+  const hNow = num(row?.humidity);
+  const sun = daytimeFeel(rows, { ...feel, sun: true });
+  const shade = daytimeFeel(rows, { ...feel, sun: false });
+  const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade, hNow, { hour: 12 });
+  if (!x) {
+    return (
+      <section className="basis-sec">
+        <h4>この日の快適の中心と範囲</h4>
+        <p className="basis-note">最近の基準が出せないか、日中の時間別データがないため、出せません。</p>
+      </section>
+    );
+  }
+  const st = ensembleState(beta.ens, x);
+  const best = beta.ens.fits[beta.ens.weights.indexOf(Math.max(...beta.ens.weights))];
+  const [muLo, muHi] = interval(best, (t) => stateOf(best.model, t, x).mu);
+  const [hLo, hHi] = interval(best, (t) => Math.log(stateOf(best.model, t, x).h)).map(Math.exp);
+  const place = (e: number | null) =>
+    e == null ? "—" : `${signed(Math.round((e - st.mu) * 10) / 10)}（${beyondRange(st, e) === 0 ? "範囲の中" : `範囲の外 ${signed(Math.round(beyondRange(st, e) * 10) / 10)}`}）`;
   return (
-    <section className="basis-sec" aria-labelledby="basis-pred">
-      <h4 id="basis-pred">
-        記録の画面の予測 <b>記録 {fit.correction.n}件で補正</b>
+    <section className="basis-sec" aria-labelledby="basis-cday">
+      <h4 id="basis-cday">
+        この日の快適の中心と範囲 <b>{f1(st.mu)}℃（{f1(st.mu - st.h)}〜{f1(st.mu + st.h)}）</b>
       </h4>
-      <p className="basis-formula">予測 = 境目からの値(E) + 補正　（−3〜+3）</p>
-      <p className="basis-note">
-        E はその場の温度（日なた・日かげ・半々の平均）。境目からの値は、肌感の境目を7段階に対応させた折れ線です：{t0}℃→−2、{t1}℃→−1、{((t1 + t2) / 2).toFixed(1)}℃→0、{t2}℃→+1、{t3}℃→+2（外側は同じ傾きで延ばし、±3で止める）。
-      </p>
-      <p className="basis-formula">
-        補正 = {sgn(c0)} {sgn(cd)}×(気温−基準) {sgn(cs)}×[風 強い] {sgn(cn)}×[風 なし]
-      </p>
-      <p className="basis-note">
-        補正の係数は「答え − 境目からの値」へのベイズ回帰（0 を中心にした事前分布）で記録から学びます。記録が少ないうちは 0 に近く、増えるほど記録に合わせます。予測は送信した時刻の観測値で計算し直し、記録に残します。
-      </p>
-      <p className="basis-note">
-        これまでの成績（送信時の予測と答え）：
-        {e.n === 0
-          ? "まだ記録がありません。"
-          : `${e.n}件、偏り ${e.bias! > 0 ? "+" : ""}${e.bias?.toFixed(1)}、平均のずれ ${e.mae?.toFixed(1)}段階（直近10件 ${e.recentMae?.toFixed(1)}）、予測どおり ${Math.round((e.hit ?? 0) * 100)}%。`}
-      </p>
+      <ul className="basis-list">
+        <li>
+          入力：最近の基準 {f1(x.a)}℃、前日の変化 {signed(x.dT1 == null ? null : Math.round(x.dT1 * 10) / 10)}℃、季節の向き {signed(x.trend == null ? null : Math.round(x.trend * 10) / 10)}℃/週、1週間の湿度 {x.h7 == null ? "—" : Math.round(x.h7)}%、前日の湿度 {x.h1 == null ? "—" : Math.round(x.h1)}%、1週間の気温の振れ {f1(x.v7)}℃、前日の日照 {f1(x.sun1)}時間、前日の雨 {f1(x.rain1)}mm、前夜の冷え込み（前日の最低 − 基準） {signed(x.minPrev == null ? null : Math.round(x.minPrev * 10) / 10)}℃、前夜の風（18〜6時の平均） {f1(x.windPrev)}m/s、この日の湿度 {hNow == null ? "—" : Math.round(hNow)}%
+        </li>
+        <li>
+          重みで混ぜた中心 μ = {f1(st.mu)}℃、範囲の半分 h = {f1(st.h)}℃、外の1段階 g = {f1(st.g)}℃
+        </li>
+        <li>
+          いちばん重い {best.model.id} での95%区間：中心 {f1(muLo)}〜{f1(muHi)}℃、範囲の半分 {f1(hLo)}〜{f1(hHi)}℃
+        </li>
+        <li>日中の日なた温度 {f1(sun)}℃：中心から {place(sun)}</li>
+        <li>日中の日かげ温度 {f1(shade)}℃：中心から {place(shade)}</li>
+      </ul>
     </section>
   );
 }
@@ -327,8 +432,8 @@ function Body({ store, station, target, other }: Omit<Props, "onClose">) {
         />
       )}
       <DayBasis store={store} station={station} date={date} alpha={fit.alpha} feel={feel} />
-      <AlphaBasis />
-      <PredictionBasis />
+      <ComfortDay store={store} station={station} date={date} feel={feel} />
+      <ComfortBasis />
     </div>
   );
 }

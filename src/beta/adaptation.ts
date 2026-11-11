@@ -3,7 +3,7 @@
 // The baseline is the running mean of past daily mean air temperatures, the quantity adaptive
 // comfort standards use for outdoor exposure (EN 16798-1: θrm = (1 − α)·θ(d−1) + α·θrm(d−1)). In
 // closed form, day d−k weighs (1 − α)·α^(k−1). α (慣れの速さ) is not chosen by hand: it is
-// estimated from the person's reports (fitAlpha.ts) and stays at the standard 0.8 until they show it.
+// chosen with the comfort model from the person's reports (comfort.ts), standard 0.8 until then.
 //
 // What this module gives are differences in ℃ from the baseline: the day's mean air temperature,
 // and its daytime 日なた温度 / 日かげ温度 (which already carry wind, humidity and sunshine). They are

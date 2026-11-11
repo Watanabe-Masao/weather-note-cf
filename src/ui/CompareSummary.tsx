@@ -23,8 +23,11 @@ import { useSun } from "./HourCompare";
 import { useSwipeDays } from "./useSwipeDays";
 import { WeatherIcon } from "./WeatherIcon";
 import { BetaContext } from "../beta/settings";
-import { baselineStateOf, useBaselineHistory } from "../beta/useBaseline";
-import { type Departures, departures } from "../beta/adaptation";
+import { baselineStateOf, driversOfDay, useBaselineHistory } from "../beta/useBaseline";
+import type { BaselineState } from "../beta/adaptation";
+import { beyondRange, ensembleState, type State } from "../beta/comfort";
+import type { BetaSettings } from "../beta/settings";
+import { daytimeFeel, type FeelSettings } from "../../shared/feel";
 import { ReportSheet } from "../beta/ReportSheet";
 import { BasisSheet } from "../beta/BasisSheet";
 import { FeelContext } from "./FeelBar";
@@ -159,8 +162,8 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   useBaselineHistory(store, station, [target, other], "summary-baseline");
   const stA = baselineStateOf(store, station, target, beta.alpha);
   const stB = baselineStateOf(store, station, other, beta.alpha);
-  const depA = departures(a, hoursOf(target), stA.state === "ready" ? stA.baseline : null, feelSettings);
-  const depB = departures(b, hoursOf(other), stB.state === "ready" ? stB.baseline : null, feelSettings);
+  const depA = comfortOfDay(store, station, target, a, hoursOf(target), stA, beta, feelSettings);
+  const depB = comfortOfDay(store, station, other, b, hoursOf(other), stB, beta, feelSettings);
   const [reporting, setReporting] = useState(false);
   const [basis, setBasis] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -363,10 +366,39 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   );
 }
 
+/** A day's β values: its 最近の基準, comfort centre and range, and 日なた／日かげ against them. */
+interface DayComfort {
+  base: number;
+  forecastMixed: boolean;
+  st: State;
+  sun: number | null;
+  shade: number | null;
+}
+
+function comfortOfDay(
+  store: WeatherStore | null,
+  station: string,
+  date: string | null,
+  row: WeatherRow | null,
+  hours: WeatherRow[] | null,
+  base: BaselineState,
+  beta: BetaSettings,
+  feel: FeelSettings,
+): DayComfort | null {
+  if (!date || base.state !== "ready") return null;
+  const rows = hours ?? [];
+  const sun = daytimeFeel(rows, { ...feel, sun: true });
+  const shade = daytimeFeel(rows, { ...feel, sun: false });
+  // The day's values are daytime (9–17時): the night drivers are off, last night's cold is on.
+  const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade ?? 0, num(row?.humidity), { hour: 12 });
+  if (!x) return null;
+  return { base: base.baseline.value, forecastMixed: base.baseline.forecastMixed, st: ensembleState(beta.ens, x), sun, shade };
+}
+
 /**
- * β rows: each day's 最近の基準 and how far the day is from it. Values are differences in ℃, not a
- * felt temperature (the label says 差). "読み込み中" while past days are on their way, "履歴不足" when they came but are too few; 予報含む when the
- * baseline itself includes forecast days.
+ * β rows: each day's 最近の基準, the comfort centre and range of that day (they move with it), and
+ * where the day's 日なた／日かげ温度 sit: ℃ from the centre, and "範囲内" or how far past the edge.
+ * "読み込み中" while past days are on their way, "履歴不足" when they came but are too few.
  */
 function BetaRows({
   a,
@@ -377,40 +409,72 @@ function BetaRows({
   onBasis,
   saved,
 }: {
-  a: Departures | null;
-  b: Departures | null;
+  a: DayComfort | null;
+  b: DayComfort | null;
   loadingA?: boolean;
   loadingB?: boolean;
   onReport?: () => void;
   onBasis?: () => void;
   saved?: boolean;
 }) {
-  const signed = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(1)}`);
-  const cell = (d: Departures | null, pick: (d: Departures) => number | null, base = false, loading = false) =>
-    !d ? (
-      <span className="cs-none beta-short">{loading ? "読み込み中" : "履歴不足"}</span>
-    ) : pick(d) == null ? (
-      <span className="cs-none">—</span>
-    ) : (
+  const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(1)}`;
+  const where = (d: DayComfort, e: number | null) => {
+    if (e == null) return <span className="cs-none">—</span>;
+    const out = beyondRange(d.st, e);
+    return (
       <>
-        {base ? pick(d)?.toFixed(1) : signed(pick(d))}
+        {signed(Math.round((e - d.st.mu) * 10) / 10)}
         <small className="unit">℃</small>
-        {base && d.baseline.forecastMixed && <small className="beta-fc">予報含む</small>}
+        <small className={out === 0 ? "beta-in" : "beta-out"}>{out === 0 ? "範囲内" : `外 ${signed(Math.round(out * 10) / 10)}`}</small>
       </>
     );
-  const rows: { key: string; label: string; pick: (d: Departures) => number | null; base?: boolean }[] = [
-    { key: "base", label: "最近の基準", pick: (d) => d.baseline.value, base: true },
-    { key: "air", label: "気温の差", pick: (d) => d.air },
-    { key: "sun", label: "日なたの差", pick: (d) => d.sun },
-    { key: "shade", label: "日かげの差", pick: (d) => d.shade },
+  };
+  const rows: { key: string; label: string; show: (d: DayComfort) => ReactNode; value: (d: DayComfort) => number | null }[] = [
+    {
+      key: "base",
+      label: "最近の基準",
+      value: (d) => d.base,
+      show: (d) => (
+        <>
+          {d.base.toFixed(1)}
+          <small className="unit">℃</small>
+          {d.forecastMixed && <small className="beta-fc">予報含む</small>}
+        </>
+      ),
+    },
+    {
+      key: "mu",
+      label: "快適の中心",
+      value: (d) => d.st.mu,
+      show: (d) => (
+        <>
+          {d.st.mu.toFixed(1)}
+          <small className="unit">℃</small>
+        </>
+      ),
+    },
+    {
+      key: "range",
+      label: "快適の範囲",
+      value: (d) => d.st.h * 2,
+      show: (d) => (
+        <span className="beta-range">
+          {(d.st.mu - d.st.h).toFixed(1)}〜{(d.st.mu + d.st.h).toFixed(1)}
+        </span>
+      ),
+    },
+    { key: "sun", label: "日なた 中心から", value: (d) => (d.sun == null ? null : d.sun - d.st.mu), show: (d) => where(d, d.sun) },
+    { key: "shade", label: "日かげ 中心から", value: (d) => (d.shade == null ? null : d.shade - d.st.mu), show: (d) => where(d, d.shade) },
   ];
+  const cell = (d: DayComfort | null, r: (typeof rows)[number], loading?: boolean) =>
+    d ? r.show(d) : <span className="cs-none beta-short">{loading ? "読み込み中" : "履歴不足"}</span>;
   return (
-    <div className="cs-beta" role="group" aria-label="最近との差（β版。体感の予測ではない目安）">
+    <div className="cs-beta" role="group" aria-label="快適の中心と範囲（β版。研究中の推定）">
       <p className="cs-beta-head">
-        最近との差 <span className="beta-tag">β</span>
-        <small>基準＝最近の日平均気温の移動平均。体感の予測ではありません</small>
+        快適の中心と範囲 <span className="beta-tag">β</span>
+        <small>中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です</small>
         {onBasis && (
-          <button className="beta-basis" onClick={onBasis} aria-label="最近との差の計算の根拠を見る">
+          <button className="beta-basis" onClick={onBasis} aria-label="快適の中心と範囲の計算の根拠を見る">
             根拠
           </button>
         )}
@@ -421,16 +485,16 @@ function BetaRows({
         )}
       </p>
       {rows.map((r) => {
-        const x = a ? r.pick(a) : null;
-        const y = b ? r.pick(b) : null;
+        const x = a ? r.value(a) : null;
+        const y = b ? r.value(b) : null;
         return (
           <div key={r.key} className="cs-row beta">
-            <span className="cs-val cs-a">{cell(a, r.pick, r.base, loadingA)}</span>
+            <span className="cs-val cs-a">{cell(a, r, loadingA)}</span>
             <span className="cs-mid">
               <span className="cs-label">{r.label}</span>
-              <span className="cs-diff">{signedDiff(x, y, 1)}</span>
+              <span className="cs-diff">{r.key === "range" ? (x != null && y != null ? `幅 ${signedDiff(x, y, 1) || "±0"}` : "") : signedDiff(x, y, 1)}</span>
             </span>
-            <span className="cs-val cs-b">{cell(b, r.pick, r.base, loadingB)}</span>
+            <span className="cs-val cs-b">{cell(b, r, loadingB)}</span>
           </div>
         );
       })}

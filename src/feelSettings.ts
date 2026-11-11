@@ -2,7 +2,7 @@
 // and the anemometer height for each observation point.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { DEFAULT_FEEL, type FeelSettings } from "../shared/feel";
+import { DEFAULT_FEEL, type FeelSettings, type Scale, SCALES, thresholdsFrom } from "../shared/feel";
 
 const KEY = "weather-note:feel";
 
@@ -12,6 +12,8 @@ export interface SavedFeel {
   absorb: number;
   /** Anemometer height (m) by station id; missing means 10 m. */
   heights: Record<string, number>;
+  /** How many 肌感 steps to show: 7, 5 or 3. */
+  scale?: Scale;
 }
 
 export const SUNSHINE_PRESETS = [
@@ -25,12 +27,14 @@ const DEFAULTS: SavedFeel = {
   alpha: DEFAULT_FEEL.alpha,
   absorb: DEFAULT_FEEL.absorb,
   heights: {},
+  scale: 7,
 };
 
 /** Keep only sensible values; anything else falls back to `fallback` (the previous settings, or the defaults). */
 export function sanitize(raw: unknown, fallback: SavedFeel = DEFAULTS): SavedFeel {
   const r = (raw ?? {}) as Partial<SavedFeel>;
-  const t = Array.isArray(r.thresholds) && r.thresholds.length === 4 ? r.thresholds.map(Number) : null;
+  // Four boundaries (the old five steps) become the inner four of the seven.
+  const t = Array.isArray(r.thresholds) ? thresholdsFrom((r.thresholds as unknown[]).map(Number)) : null;
   const ascending = t && t.every((v, i) => Number.isFinite(v) && (i === 0 || v > t[i - 1]));
   const heights: Record<string, number> = {};
   for (const [id, h] of Object.entries(r.heights ?? {}))
@@ -41,6 +45,7 @@ export function sanitize(raw: unknown, fallback: SavedFeel = DEFAULTS): SavedFee
     alpha: Number.isFinite(r.alpha) && r.alpha! >= 0.05 && r.alpha! <= 0.6 ? r.alpha! : fallback.alpha,
     absorb: Number.isFinite(r.absorb) && r.absorb! >= 0 && r.absorb! <= 0.5 ? r.absorb! : fallback.absorb,
     heights,
+    scale: SCALES.includes(r.scale as Scale) ? (r.scale as Scale) : (fallback.scale ?? 7),
   };
 }
 
@@ -64,7 +69,8 @@ export function useFeelSettings(station: string, sun: boolean) {
   }, [saved]);
 
   const update = useCallback((patch: Partial<SavedFeel>) => setSaved((s) => sanitize({ ...s, ...patch }, s)), []);
-  const reset = useCallback(() => setSaved(DEFAULTS), []);
+  // Back to the default boundaries; the display choice (how many steps) stays.
+  const reset = useCallback(() => setSaved((s) => ({ ...DEFAULTS, scale: s.scale })), []);
 
   const settings: FeelSettings = useMemo(
     () => ({
@@ -73,6 +79,7 @@ export function useFeelSettings(station: string, sun: boolean) {
       absorb: saved.absorb,
       stationHeight: saved.heights[station] ?? DEFAULT_FEEL.stationHeight,
       sun,
+      scale: saved.scale ?? 7,
     }),
     [saved, station, sun],
   );
