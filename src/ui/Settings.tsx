@@ -3,6 +3,7 @@
 // 日かげ). Saved data (spec chapter 1), refresh and clear sit folded at the end.
 
 import { ModalSheet, useSheetClose } from "./ModalSheet";
+import { AccountSection } from "../account/AccountSection";
 import { useContext, useEffect, useRef, useState } from "react";
 
 /** A number field that commits when editing ends (blur or Enter), so half-typed values never apply. */
@@ -166,7 +167,7 @@ function ReportData() {
         <small className="set-help">
           {list == null ? "…" : `${list.length}件`}
           {list?.[0] ? `（最後 ${new Date(list[0].at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}）` : ""}
-          。［保存データを消去］では消えません。
+          。［保存データを消去］では消えません。［記録を消す］はこの端末からだけ消し、サーバーには残ります。
         </small>
       </span>
       <div className="actions tight">
@@ -185,7 +186,7 @@ function ReportData() {
           </button>
         ) : (
           <button onClick={() => setConfirming(true)} disabled={!list?.length}>
-            記録を消す
+            この端末から消す
           </button>
         )}
       </div>
@@ -323,6 +324,9 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
         </div>
       </section>
 
+      <AccountSection />
+
+      {beta.enabled && (
       <section className="set-group" aria-labelledby="set-beta">
         <h3 id="set-beta">
           快適の中心と範囲 <span className="beta-tag">β</span>
@@ -382,6 +386,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
         </div>
         <ReportData />
       </section>
+      )}
 
       <details className="set-group set-data">
         <summary>

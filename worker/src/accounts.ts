@@ -1,0 +1,488 @@
+// Accounts, reports on the server, and the ground for analysis (one D1 database).
+//
+// Who can use it: only people the administrator issued an account to. There is no sign-up. The
+// administrator adds a person in the app's 管理 screen; the server makes a login ID's password (16
+// random characters, shown once) and keeps only a salted hash of it. The very first administrator
+// is made once, with a setup code set as a secret (SETUP_CODE) in Cloudflare.
+//
+// What a logged-in person can reach: their own reports only. Whose reports they are is decided
+// here from the session, never from anything the app sends. The database itself is not reachable
+// from the internet; only this Worker's binding can query it.
+//
+// The ground for analysis: every report keeps its whole body plus the columns analysis filters on;
+// each person has a research ID (random, unrelated to the login ID); consent to research is kept as
+// a history (given, withdrawn, with its version). The view `research_reports` shows only the
+// reports of people whose latest answer is "yes", under their research ID.
+
+export interface Stmt {
+  bind(...values: unknown[]): Stmt;
+  first<T = Record<string, unknown>>(): Promise<T | null>;
+  all<T = Record<string, unknown>>(): Promise<{ results: T[] }>;
+  run(): Promise<{ meta: { changes?: number } }>;
+}
+/** The part of D1 used here (also met by the tests' SQLite stand-in). */
+export interface Db {
+  prepare(query: string): Stmt;
+  batch(statements: Stmt[]): Promise<unknown[]>;
+}
+
+export interface AccountsEnv {
+  DB?: Db;
+  SETUP_CODE?: string;
+}
+
+// ---- schema ----------------------------------------------------------------------------------
+
+export const SCHEMA_VERSION = 1;
+export const RESEARCH_CONSENT_VERSION = 1;
+
+const SCHEMA = [
+  "CREATE TABLE IF NOT EXISTS schema_version (v INTEGER NOT NULL)",
+  `CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    login_id TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    name TEXT,
+    role TEXT NOT NULL DEFAULT 'user',
+    pw_hash TEXT NOT NULL,
+    pw_salt TEXT NOT NULL,
+    pw_iter INTEGER NOT NULL,
+    research_id TEXT NOT NULL UNIQUE,
+    sync_seq INTEGER NOT NULL DEFAULT 0,
+    failed INTEGER NOT NULL DEFAULT 0,
+    locked_until INTEGER,
+    created_at INTEGER NOT NULL,
+    last_login INTEGER,
+    disabled_at INTEGER
+  )`,
+  `CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    last_seen INTEGER NOT NULL
+  )`,
+  "CREATE INDEX IF NOT EXISTS sessions_user ON sessions (user_id)",
+  `CREATE TABLE IF NOT EXISTS reports (
+    user_id TEXT NOT NULL,
+    id TEXT NOT NULL,
+    seq INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    deleted INTEGER NOT NULL DEFAULT 0,
+    at TEXT NOT NULL,
+    station TEXT,
+    sensation INTEGER,
+    exposure TEXT,
+    wind_felt TEXT,
+    sky TEXT,
+    body TEXT NOT NULL,
+    received_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, id)
+  )`,
+  "CREATE INDEX IF NOT EXISTS reports_user_seq ON reports (user_id, seq)",
+  `CREATE TABLE IF NOT EXISTS consents (
+    user_id TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    granted INTEGER NOT NULL,
+    at INTEGER NOT NULL
+  )`,
+  "CREATE INDEX IF NOT EXISTS consents_user ON consents (user_id, kind, at)",
+  `CREATE VIEW IF NOT EXISTS research_reports AS
+    SELECT u.research_id, r.id AS report_id, r.at, r.station, r.sensation, r.exposure, r.wind_felt, r.sky, r.body
+    FROM reports r JOIN users u ON u.id = r.user_id
+    WHERE r.deleted = 0 AND (
+      SELECT c.granted FROM consents c
+      WHERE c.user_id = r.user_id AND c.kind = 'research'
+      ORDER BY c.at DESC, c.rowid DESC LIMIT 1
+    ) = 1`,
+];
+
+const ready = new WeakMap<Db, Promise<void>>();
+
+/** Creates the tables once per database (idempotent: safe on every cold start). */
+export function ensureSchema(db: Db): Promise<void> {
+  let p = ready.get(db);
+  if (!p) {
+    p = (async () => {
+      for (const q of SCHEMA) await db.prepare(q).run();
+      const row = await db.prepare("SELECT v FROM schema_version").first<{ v: number }>();
+      if (!row) await db.prepare("INSERT INTO schema_version (v) VALUES (?)").bind(SCHEMA_VERSION).run();
+    })();
+    p.catch(() => ready.delete(db));
+    ready.set(db, p);
+  }
+  return p;
+}
+
+// ---- secrets ---------------------------------------------------------------------------------
+
+const enc = new TextEncoder();
+const hex = (b: ArrayBuffer | Uint8Array) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
+const random = (n: number) => crypto.getRandomValues(new Uint8Array(n));
+const PW_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"; // no 0/O, 1/l/I
+
+/** A new password: 16 characters (about 93 bits), without letters that look alike. */
+export function newPassword(): string {
+  let out = "";
+  while (out.length < 16) {
+    for (const b of random(32)) if (b < 224 && out.length < 16) out += PW_ALPHABET[b % 56]; // 224 = 4·56: no bias
+  }
+  return out;
+}
+
+export const newId = () => hex(random(16));
+
+/**
+ * The stored form of a password. Passwords are always made by the server (never chosen by people),
+ * so they are long and random; a moderate PBKDF2 count is enough and keeps login fast on Workers.
+ */
+export const PW_ITER = 20_000;
+export async function hashPassword(password: string, salt: string, iter = PW_ITER): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", hash: "SHA-256", salt: enc.encode(salt), iterations: iter }, key, 256);
+  return hex(bits);
+}
+
+const sha256 = async (s: string) => hex(await crypto.subtle.digest("SHA-256", enc.encode(s)));
+
+/** Equal strings in time that does not depend on where they differ. */
+async function same(a: string, b: string): Promise<boolean> {
+  const [x, y] = await Promise.all([sha256(a), sha256(b)]);
+  let d = 0;
+  for (let i = 0; i < x.length; i++) d |= x.charCodeAt(i) ^ y.charCodeAt(i);
+  return d === 0;
+}
+
+// ---- sessions --------------------------------------------------------------------------------
+
+export const COOKIE = "wn_session";
+export const SESSION_DAYS = 180;
+const DAY = 86_400_000;
+export const MAX_FAILED = 5;
+export const LOCK_MS = 15 * 60_000;
+
+const cookieOf = (req: Request, name: string) =>
+  (req.headers.get("Cookie") ?? "")
+    .split(";")
+    .map((c) => c.trim().split("="))
+    .find(([k]) => k === name)?.[1] ?? null;
+
+const sessionCookie = (token: string, maxAge: number) =>
+  `${COOKIE}=${token}; Path=/api; HttpOnly; Secure; SameSite=Strict; Max-Age=${maxAge}`;
+
+export interface User {
+  id: string;
+  login_id: string;
+  name: string | null;
+  role: "user" | "admin";
+  research_id: string;
+  disabled_at: number | null;
+}
+
+async function startSession(db: Db, userId: string, now: number): Promise<string> {
+  const token = btoa(String.fromCharCode(...random(32))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  await db
+    .prepare("INSERT INTO sessions (token_hash, user_id, created_at, expires_at, last_seen) VALUES (?, ?, ?, ?, ?)")
+    .bind(await sha256(token), userId, now, now + SESSION_DAYS * DAY, now)
+    .run();
+  return token;
+}
+
+/** The person behind the request's session, or null. A session in use is extended (180 days). */
+export async function currentUser(db: Db, req: Request, now = Date.now()): Promise<User | null> {
+  const token = cookieOf(req, COOKIE);
+  if (!token) return null;
+  const h = await sha256(token);
+  const row = await db
+    .prepare(
+      "SELECT s.expires_at, s.last_seen, u.id, u.login_id, u.name, u.role, u.research_id, u.disabled_at FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?",
+    )
+    .bind(h)
+    .first<User & { expires_at: number; last_seen: number }>();
+  if (!row || row.expires_at < now || row.disabled_at) return null;
+  if (now - row.last_seen > DAY) await db.prepare("UPDATE sessions SET last_seen = ?, expires_at = ? WHERE token_hash = ?").bind(now, now + SESSION_DAYS * DAY, h).run();
+  return { id: row.id, login_id: row.login_id, name: row.name, role: row.role, research_id: row.research_id, disabled_at: row.disabled_at };
+}
+
+// ---- requests --------------------------------------------------------------------------------
+
+export class Refused extends Error {
+  constructor(
+    message: string,
+    readonly status = 400,
+  ) {
+    super(message);
+  }
+}
+
+const json = (v: unknown, status = 200, headers: Record<string, string> = {}) =>
+  new Response(JSON.stringify(v), { status, headers: { "Content-Type": "application/json", "Cache-Control": "no-store", ...headers } });
+
+const LOGIN_RE = /^[a-zA-Z0-9._-]{3,32}$/;
+const loginIdOf = (v: unknown) => {
+  if (typeof v !== "string" || !LOGIN_RE.test(v.trim())) throw new Refused("ログインIDは3〜32文字の英数字（. _ - も可）です。");
+  return v.trim();
+};
+
+/** POST only from this site, as JSON (with SameSite=Strict, this closes cross-site requests). */
+async function body(req: Request): Promise<Record<string, unknown>> {
+  const origin = req.headers.get("Origin");
+  if (origin && origin !== new URL(req.url).origin) throw new Refused("このサイトからの操作ではありません。", 403);
+  if (!(req.headers.get("Content-Type") ?? "").includes("application/json")) throw new Refused("送り方が正しくありません。", 415);
+  const b = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!b || typeof b !== "object") throw new Refused("送り方が正しくありません。");
+  return b;
+}
+
+async function researchConsent(db: Db, userId: string): Promise<{ granted: boolean; version: number | null; at: number | null }> {
+  const c = await db
+    .prepare("SELECT granted, version, at FROM consents WHERE user_id = ? AND kind = 'research' ORDER BY at DESC, rowid DESC LIMIT 1")
+    .bind(userId)
+    .first<{ granted: number; version: number; at: number }>();
+  return { granted: c?.granted === 1, version: c?.version ?? null, at: c?.at ?? null };
+}
+
+async function me(db: Db, u: User) {
+  return { id: u.id, loginId: u.login_id, name: u.name, role: u.role, research: await researchConsent(db, u.id), consentVersion: RESEARCH_CONSENT_VERSION };
+}
+
+async function createUser(db: Db, loginId: string, name: string | null, role: "user" | "admin", now: number) {
+  const taken = await db.prepare("SELECT 1 FROM users WHERE login_id = ?").bind(loginId).first();
+  if (taken) throw new Refused("そのログインIDはもう使われています。", 409);
+  const password = newPassword();
+  const salt = hex(random(16));
+  const id = newId();
+  await db
+    .prepare("INSERT INTO users (id, login_id, name, role, pw_hash, pw_salt, pw_iter, research_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(id, loginId, name, role, await hashPassword(password, salt), salt, PW_ITER, newId(), now)
+    .run();
+  return { id, loginId, password };
+}
+
+// ---- reports on the server (the sync log, per person) -----------------------------------------
+
+export const MAX_PUSH = 200;
+export const PULL_PAGE = 200;
+export const MAX_REPORT_BYTES = 64 * 1024;
+export const MAX_REPORTS = 20_000;
+
+interface ReportIn {
+  id: string;
+  updatedAt: number;
+  at: string;
+  deleted?: boolean;
+  station?: unknown;
+  sensation?: unknown;
+  exposure?: unknown;
+  windFelt?: unknown;
+  sky?: unknown;
+}
+
+export function checkReports(raw: unknown): ReportIn[] {
+  if (raw == null) return [];
+  if (!Array.isArray(raw)) throw new Refused("記録の形が正しくありません。");
+  if (raw.length > MAX_PUSH) throw new Refused(`一度に送れる記録は${MAX_PUSH}件までです。`);
+  return raw.map((r) => {
+    const ok =
+      r && typeof r === "object" && typeof r.id === "string" && r.id.length > 0 && r.id.length <= 80 && typeof r.updatedAt === "number" && Number.isFinite(r.updatedAt) && typeof r.at === "string";
+    if (!ok) throw new Refused("記録の形が正しくありません。");
+    if (JSON.stringify(r).length > MAX_REPORT_BYTES) throw new Refused("大きすぎる記録があります。");
+    return r as ReportIn;
+  });
+}
+
+const str = (v: unknown) => (typeof v === "string" ? v.slice(0, 40) : null);
+const int = (v: unknown) => (typeof v === "number" && Number.isInteger(v) ? v : null);
+
+/**
+ * Keeps each report that is newer than the copy held. Every write gets this person's next number
+ * (seq), in one transaction, so two devices pushing at once never share a number; the upsert's
+ * condition keeps the newer copy even if both read the old one.
+ */
+export async function pushReports(db: Db, userId: string, list: ReportIn[], now: number): Promise<number> {
+  if (!list.length) return 0;
+  // D1 takes at most 100 values per statement, so the lookup goes in pieces.
+  const held = new Map<string, number>();
+  for (let i = 0; i < list.length; i += 90) {
+    const ids = list.slice(i, i + 90).map((r) => r.id);
+    const rows = await db
+      .prepare(`SELECT id, updated_at FROM reports WHERE user_id = ? AND id IN (${ids.map(() => "?").join(",")})`)
+      .bind(userId, ...ids)
+      .all<{ id: string; updated_at: number }>();
+    for (const r of rows.results) held.set(r.id, r.updated_at);
+  }
+  const fresh = list.filter((r) => !held.has(r.id) || held.get(r.id)! < r.updatedAt);
+  if (!fresh.length) return 0;
+  const added = fresh.filter((r) => !held.has(r.id)).length;
+  if (added) {
+    const n = (await db.prepare("SELECT COUNT(*) AS n FROM reports WHERE user_id = ?").bind(userId).first<{ n: number }>())?.n ?? 0;
+    if (n + added > MAX_REPORTS) throw new Refused("保存できる記録の上限に達しました。", 413);
+  }
+  const statements = fresh.map((r, k) =>
+    db
+      .prepare(
+        `INSERT INTO reports (user_id, id, seq, updated_at, deleted, at, station, sensation, exposure, wind_felt, sky, body, received_at)
+         VALUES (?, ?, (SELECT sync_seq FROM users WHERE id = ?) + ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT (user_id, id) DO UPDATE SET seq = excluded.seq, updated_at = excluded.updated_at, deleted = excluded.deleted, at = excluded.at,
+           station = excluded.station, sensation = excluded.sensation, exposure = excluded.exposure, wind_felt = excluded.wind_felt, sky = excluded.sky,
+           body = excluded.body, received_at = excluded.received_at
+         WHERE excluded.updated_at > reports.updated_at`,
+      )
+      .bind(userId, r.id, userId, k + 1, r.updatedAt, r.deleted ? 1 : 0, r.at, str(r.station), int(r.sensation), str(r.exposure), str(r.windFelt), str(r.sky), JSON.stringify(r), now),
+  );
+  statements.push(db.prepare("UPDATE users SET sync_seq = sync_seq + ? WHERE id = ?").bind(fresh.length, userId));
+  await db.batch(statements);
+  return fresh.length;
+}
+
+export async function pullReports(db: Db, userId: string, since: number) {
+  const rows = (
+    await db.prepare("SELECT seq, body FROM reports WHERE user_id = ? AND seq > ? ORDER BY seq LIMIT ?").bind(userId, since, PULL_PAGE).all<{ seq: number; body: string }>()
+  ).results;
+  return {
+    reports: rows.map((r) => JSON.parse(r.body)),
+    seq: rows.length ? rows[rows.length - 1].seq : Math.max(since, 0),
+    more: rows.length === PULL_PAGE,
+  };
+}
+
+// ---- routes ----------------------------------------------------------------------------------
+
+export const ACCOUNT_PATHS = ["/api/auth/", "/api/me/", "/api/reports/", "/api/admin/"];
+export const isAccountPath = (p: string) => ACCOUNT_PATHS.some((x) => p.startsWith(x));
+
+export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.now()): Promise<Response> {
+  try {
+    const db = env.DB;
+    if (!db) throw new Refused("記録の保存はこのサーバーではまだ使えません。", 503);
+    await ensureSchema(db);
+    const path = new URL(req.url).pathname;
+    const method = req.method;
+    const post = method === "POST";
+    if (!post && method !== "GET") throw new Refused("この操作はできません。", 405);
+
+    // -- signing in --
+    if (path === "/api/auth/me" && !post) {
+      const u = await currentUser(db, req, now);
+      const empty = !(await db.prepare("SELECT 1 FROM users LIMIT 1").first());
+      return json({ user: u ? await me(db, u) : null, setup: empty && !!env.SETUP_CODE });
+    }
+    if (path === "/api/auth/login" && post) {
+      const b = await body(req);
+      const loginId = typeof b.loginId === "string" ? b.loginId.trim() : "";
+      const password = typeof b.password === "string" ? b.password.trim() : "";
+      const wrong = new Refused("ログインIDかパスワードが違います。", 401);
+      const u = await db
+        .prepare("SELECT id, pw_hash, pw_salt, pw_iter, failed, locked_until, disabled_at FROM users WHERE login_id = ?")
+        .bind(loginId)
+        .first<{ id: string; pw_hash: string; pw_salt: string; pw_iter: number; failed: number; locked_until: number | null; disabled_at: number | null }>();
+      if (!u) {
+        await hashPassword(password, "no-such-user"); // the same work either way: timing does not tell IDs apart
+        throw wrong;
+      }
+      if (u.locked_until && u.locked_until > now) throw new Refused("続けて間違えたため、しばらくログインできません。15分ほどおいてお試しください。", 429);
+      const ok = await same(await hashPassword(password, u.pw_salt, u.pw_iter), u.pw_hash);
+      if (!ok) {
+        const failed = u.failed + 1;
+        await db
+          .prepare("UPDATE users SET failed = ?, locked_until = ? WHERE id = ?")
+          .bind(failed >= MAX_FAILED ? 0 : failed, failed >= MAX_FAILED ? now + LOCK_MS : null, u.id)
+          .run();
+        throw wrong;
+      }
+      if (u.disabled_at) throw wrong;
+      await db.prepare("UPDATE users SET failed = 0, locked_until = NULL, last_login = ? WHERE id = ?").bind(now, u.id).run();
+      const token = await startSession(db, u.id, now);
+      const user = (await currentUser(db, new Request(req.url, { headers: { Cookie: `${COOKIE}=${token}` } }), now))!;
+      return json({ user: await me(db, user) }, 200, { "Set-Cookie": sessionCookie(token, SESSION_DAYS * 86_400) });
+    }
+    if (path === "/api/auth/logout" && post) {
+      await body(req);
+      const token = cookieOf(req, COOKIE);
+      if (token) await db.prepare("DELETE FROM sessions WHERE token_hash = ?").bind(await sha256(token)).run();
+      return json({ ok: true }, 200, { "Set-Cookie": sessionCookie("", 0) });
+    }
+    if (path === "/api/auth/setup" && post) {
+      const b = await body(req);
+      if (!env.SETUP_CODE) throw new Refused("初期設定はできません。", 403);
+      if (await db.prepare("SELECT 1 FROM users LIMIT 1").first()) throw new Refused("初期設定はもう済んでいます。", 409);
+      if (typeof b.code !== "string" || !(await same(b.code.trim(), env.SETUP_CODE))) throw new Refused("初期設定コードが違います。", 403);
+      const made = await createUser(db, loginIdOf(b.loginId), typeof b.name === "string" ? b.name.slice(0, 40) : null, "admin", now);
+      const token = await startSession(db, made.id, now);
+      const user = (await currentUser(db, new Request(req.url, { headers: { Cookie: `${COOKIE}=${token}` } }), now))!;
+      return json({ user: await me(db, user), password: made.password }, 200, { "Set-Cookie": sessionCookie(token, SESSION_DAYS * 86_400) });
+    }
+
+    // -- everything below needs a session --
+    const u = await currentUser(db, req, now);
+    if (!u) throw new Refused("ログインしてください。", 401);
+
+    if (path === "/api/me/consent" && post) {
+      const b = await body(req);
+      if (typeof b.granted !== "boolean") throw new Refused("同意の答えが正しくありません。");
+      await db.prepare("INSERT INTO consents (user_id, kind, version, granted, at) VALUES (?, 'research', ?, ?, ?)").bind(u.id, RESEARCH_CONSENT_VERSION, b.granted ? 1 : 0, now).run();
+      return json({ user: await me(db, u) });
+    }
+    if (path === "/api/reports/sync" && post) {
+      const b = await body(req);
+      const taken = await pushReports(db, u.id, checkReports(b.push), now);
+      const since = typeof b.since === "number" && Number.isInteger(b.since) && b.since >= 0 ? b.since : null;
+      const total = (await db.prepare("SELECT COUNT(*) AS n FROM reports WHERE user_id = ? AND deleted = 0").bind(u.id).first<{ n: number }>())?.n ?? 0;
+      return json({ taken, total, ...(since == null ? {} : await pullReports(db, u.id, since)) });
+    }
+
+    // -- the administrator --
+    if (path.startsWith("/api/admin/")) {
+      if (u.role !== "admin") throw new Refused("管理者だけの操作です。", 403);
+      if (path === "/api/admin/users" && !post) {
+        const users = (
+          await db
+            .prepare(
+              `SELECT u.id, u.login_id, u.name, u.role, u.created_at, u.last_login, u.disabled_at,
+                (SELECT COUNT(*) FROM reports r WHERE r.user_id = u.id AND r.deleted = 0) AS reports,
+                (SELECT c.granted FROM consents c WHERE c.user_id = u.id AND c.kind = 'research' ORDER BY c.at DESC, c.rowid DESC LIMIT 1) AS research
+               FROM users u ORDER BY u.created_at`,
+            )
+            .all()
+        ).results;
+        return json({ users });
+      }
+      if (path === "/api/admin/users" && post) {
+        const b = await body(req);
+        const made = await createUser(db, loginIdOf(b.loginId), typeof b.name === "string" && b.name.trim() ? b.name.trim().slice(0, 40) : null, "user", now);
+        return json(made);
+      }
+      if ((path === "/api/admin/users/reset" || path === "/api/admin/users/disable") && post) {
+        const b = await body(req);
+        const target = typeof b.id === "string" ? await db.prepare("SELECT id, role FROM users WHERE id = ?").bind(b.id).first<{ id: string; role: string }>() : null;
+        if (!target) throw new Refused("そのユーザーは見つかりません。", 404);
+        if (path.endsWith("/reset")) {
+          const password = newPassword();
+          const salt = hex(random(16));
+          await db.batch([
+            db.prepare("UPDATE users SET pw_hash = ?, pw_salt = ?, pw_iter = ?, failed = 0, locked_until = NULL WHERE id = ?").bind(await hashPassword(password, salt), salt, PW_ITER, target.id),
+            db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(target.id), // the old password's sessions end too
+          ]);
+          return json({ id: target.id, password });
+        }
+        if (target.id === u.id) throw new Refused("自分自身は停止できません。");
+        const disabled = b.disabled !== false;
+        await db.batch([
+          db.prepare("UPDATE users SET disabled_at = ? WHERE id = ?").bind(disabled ? now : null, target.id),
+          ...(disabled ? [db.prepare("DELETE FROM sessions WHERE user_id = ?").bind(target.id)] : []),
+        ]);
+        return json({ id: target.id, disabled });
+      }
+      if (path === "/api/admin/research" && !post) {
+        const offset = Math.max(0, Number(new URL(req.url).searchParams.get("offset")) || 0);
+        const rows = (await db.prepare("SELECT research_id, body FROM research_reports ORDER BY at LIMIT 1000 OFFSET ?").bind(offset).all<{ research_id: string; body: string }>()).results;
+        return json({ rows: rows.map((r) => ({ researchId: r.research_id, report: JSON.parse(r.body) })), next: rows.length === 1000 ? offset + 1000 : null });
+      }
+    }
+    throw new Refused("見つかりません。", 404);
+  } catch (e) {
+    if (e instanceof Refused) return json({ error: e.message }, e.status);
+    console.error("weather-note: accounts failure", e);
+    return json({ error: "処理に失敗しました。時間をおいて再試行してください。" }, 500);
+  }
+}

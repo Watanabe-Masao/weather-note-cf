@@ -379,11 +379,15 @@ describe("正本管理 in the store", () => {
     };
     const releaseAll = () => held.splice(0).forEach((h) => h.go());
     /** Answer everything, including what the answers lead to, until the store is quiet. */
+    // Quiet must last a while: after a clear or a refresh, the store plans its new requests only
+    // once storage has answered, which on a slow machine (CI) comes a few ticks after the queue
+    // first looks empty.
     const drain = async (store: WeatherStore) => {
-      for (let i = 0; i < 300; i++) {
+      let quiet = 0;
+      for (let i = 0; i < 1000 && quiet < 25; i++) {
         releaseAll();
-        await new Promise((r) => setTimeout(r, 1));
-        if (!held.length && store.queue.activeCount === 0 && !store.queue.pendingKeys.length) return;
+        await new Promise((r) => setTimeout(r, 2));
+        quiet = !held.length && store.queue.activeCount === 0 && !store.queue.pendingKeys.length ? quiet + 1 : 0;
       }
     };
     return { api: { ...api, fetchJson }, raw: api, held, until, releaseAll, drain };

@@ -159,7 +159,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   // β: each day against its own recent past (最近の基準), in the air, in the sun and in the shade.
   const beta = useContext(BetaContext);
   const feelSettings = useContext(FeelContext);
-  useBaselineHistory(store, station, [target, other], "summary-baseline");
+  useBaselineHistory(store, station, beta.enabled ? [target, other] : [], "summary-baseline");
   const stA = baselineStateOf(store, station, target, beta.alpha);
   const stB = baselineStateOf(store, station, other, beta.alpha);
   const depA = comfortOfDay(store, station, target, a, hoursOf(target), stA, beta, feelSettings);
@@ -356,7 +356,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
         </span>
       </div>
 
-      <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} />
+      {beta.enabled && <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} />}
     </section>
     </div>
     </div>
