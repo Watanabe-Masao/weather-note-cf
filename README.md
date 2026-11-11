@@ -43,7 +43,7 @@
 | `GET /api/hourly?station=47893&from=2025-11-01&to=2025-11-07` | 気象庁の時間別実績（最大14日、今日より前） |
 | `GET /api/recent?station=47893&date=2026-11-09` | 一昨日・昨日の速報（AMeDAS） |
 | `GET /api/current?station=47893` | 今日の観測（AMeDAS） |
-| `GET /api/forecast?station=47893` | 8日間の予報（Open-Meteo） |
+| `GET /api/forecast?station=47893` | 16日間の予報（今日＋15日、Open-Meteo） |
 | `GET /api/sun?station=47893&date=2026-11-10` | 日の出・日の入り（Open-Meteo） |
 
 ## 開発

@@ -22,7 +22,7 @@ export const VISIBLE_RADIUS = 3; // 7 columns, centre ±3
 export const AHEAD_DAYS = 30;
 export const BEHIND_DAYS = 7;
 export const IDLE_AHEAD_DAYS = 14;
-export const FORECAST_DAYS = 7; // today + 7
+export const FORECAST_DAYS = 15; // today + 15 (Open-Meteo forecast_days 16)
 
 export function lastDay(today: string): string {
   return addDays(today, FORECAST_DAYS);

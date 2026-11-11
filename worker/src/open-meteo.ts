@@ -163,7 +163,7 @@ export function forecastUrl(station: Station, optional = true): string {
     new URLSearchParams({
       ...coords(station),
       timezone: "Asia/Tokyo",
-      forecast_days: "8",
+      forecast_days: "16", // today + 15 days (the most Open-Meteo gives)
       wind_speed_unit: "ms",
       hourly: [...Object.values(HOURLY_FIELDS), ...(optional ? Object.values(OPTIONAL_HOURLY) : []), "weather_code"].join(","),
       daily: [...Object.values(DAILY_FIELDS), "weather_code", "sunrise", "sunset"].join(","),

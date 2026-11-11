@@ -11,6 +11,7 @@ import { FeelContext } from "./ui/FeelBar";
 import { Chart } from "./ui/Chart";
 import { CompareBoard } from "./ui/CompareBoard";
 import { ChevronIcon, ExpandIcon, GearIcon, LinkIcon, ShrinkIcon } from "./ui/icons";
+import { StatusBar } from "./ui/StatusBar";
 import { IconButton } from "./ui/kit";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
@@ -195,6 +196,8 @@ export function App() {
           </button>
         ))}
       </div>
+
+      <StatusBar store={store} station={view.station} days={[view.target, compareDate]} />
 
       <div ref={boardRef}>
         <FeelContext.Provider value={feelSettings}>

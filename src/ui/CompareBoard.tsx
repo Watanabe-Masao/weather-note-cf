@@ -110,7 +110,9 @@ function Column({
       <span className="cell-icon">
         {state === "ready" ? <WeatherIcon text={day?.row?.dayWeather as string | null} /> : state === "empty" ? <span className="skeleton icon" /> : null}
       </span>
-      <span className="cell-kind">{state === "outside" ? "範囲外" : kindLabel(store, station, date)}</span>
+      <span className={state === "error" ? "cell-kind failed" : "cell-kind"}>
+        {state === "outside" ? "範囲外" : state === "error" ? "取得失敗" : kindLabel(store, station, date)}
+      </span>
       {tableSeries(metric, past).map((s) => (
         <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
           {state === "ready" ? (
@@ -120,15 +122,7 @@ function Column({
               formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel), s.unit ?? metric.unit)
             )
           ) : state === "error" ? (
-            <button
-              className="retry"
-              onClick={(e) => {
-                e.stopPropagation();
-                store?.retryDay(station, date);
-              }}
-            >
-              再試行
-            </button>
+            <span className="cell-failed">—</span>
           ) : state === "empty" ? (
             <span className="skeleton" />
           ) : null}

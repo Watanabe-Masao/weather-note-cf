@@ -3,7 +3,7 @@ import { IDBFactory } from "fake-indexeddb";
 import { beforeEach, describe, expect, it } from "vitest";
 import { addDays, daysBetween } from "../../shared/dates";
 import { DATA_VERSION, memoryStorage, openStorage, type Storage } from "../../src/data/db";
-import { viewPlan } from "../../src/data/plan";
+import { FORECAST_DAYS, viewPlan } from "../../src/data/plan";
 import { WeatherStore } from "../../src/data/store";
 import { fakeApi, NOW, TODAY } from "./fake-api";
 
@@ -47,7 +47,7 @@ describe("plan", () => {
 
   it("never plans beyond the forecast or before 1977", () => {
     const plan = viewPlan([TODAY], 1, TODAY);
-    expect([...plan.keys()].every((d) => d <= addDays(TODAY, 7))).toBe(true);
+    expect([...plan.keys()].every((d) => d <= addDays(TODAY, FORECAST_DAYS))).toBe(true);
     expect([...viewPlan(["1977-01-02"], -1, TODAY).keys()].every((d) => d >= "1977-01-01")).toBe(true);
   });
 });
@@ -277,12 +277,13 @@ describe("requests are declared, not accumulated", () => {
 describe("days that can never load", () => {
   it("reports days beyond the forecast or before 1977 as outside, not as loading", async () => {
     const { store } = makeStore(memoryStorage());
-    store.setView(KOCHI, [addDays(TODAY, 7)]);
+    // The forecast reaches today + FORECAST_DAYS (15): that day loads, the next one is outside.
+    store.setView(KOCHI, [addDays(TODAY, FORECAST_DAYS)]);
     await store.idle();
-    expect(store.getDay(KOCHI, addDays(TODAY, 7)).state).toBe("ready");
-    expect(store.getDay(KOCHI, addDays(TODAY, 8)).state).toBe("outside");
+    expect(store.getDay(KOCHI, addDays(TODAY, FORECAST_DAYS)).state).toBe("ready");
+    expect(store.getDay(KOCHI, addDays(TODAY, FORECAST_DAYS + 1)).state).toBe("outside");
     expect(store.getDay(KOCHI, "1976-12-31").state).toBe("outside");
-    expect(store.getHours(KOCHI, addDays(TODAY, 9)).state).toBe("outside");
+    expect(store.getHours(KOCHI, addDays(TODAY, FORECAST_DAYS + 2)).state).toBe("outside");
   });
 });
 

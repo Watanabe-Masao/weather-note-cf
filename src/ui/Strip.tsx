@@ -33,7 +33,17 @@ interface Props {
 export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColumn, selectable, columns = COLUMNS }: Props) {
   const ref = useRef<HTMLDivElement>(null);
   const [col, setCol] = useState(0);
-  const state = useRef({ touching: false, active: false, timer: 0, programmatic: false, firstDate: "" });
+  const state = useRef({
+    touching: false,
+    active: false,
+    timer: 0,
+    programmatic: false,
+    firstDate: "",
+    /** Where the strip was at the last scroll event (to tell a real stop from late scroll events). */
+    lastLeft: 0,
+    /** Where a programmatic scroll is heading. */
+    goal: 0,
+  });
   const latest = useRef({ dates, center, onSettle, onGesture, selectable, columns });
   latest.current = { dates, center, onSettle, onGesture, selectable, columns };
 
@@ -67,6 +77,7 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     const jump = s.firstDate !== dates[0] || el.scrollLeft === 0;
     s.firstDate = dates[0];
     s.programmatic = true;
+    s.goal = target;
     if (sync) sync.leader = null;
     el.scrollTo({ left: target, behavior: jump ? "instant" : "smooth" });
   }, [center, dates, col, sync]);
@@ -75,9 +86,24 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     const el = ref.current;
     const s = state.current;
     if (!el || s.touching) return;
+    // Only settle once the strip has really stopped. While the page is busy (data arriving and being
+    // drawn), iOS can deliver momentum scroll events late: a quiet moment is not a stop. Settling
+    // mid-glide would fix a day there and pull the strip back to it.
+    if (Math.abs(el.scrollLeft - s.lastLeft) > 0.5) {
+      s.lastLeft = el.scrollLeft;
+      window.clearTimeout(s.timer);
+      s.timer = window.setTimeout(settle, SETTLE_MS);
+      return;
+    }
     if (s.programmatic) {
       s.programmatic = false;
-      return;
+      // Our own glide ended where it was heading: nothing to do. If the finger's momentum carried
+      // the strip elsewhere meanwhile, that is the user's choice: settle on it like a gesture.
+      if (Math.abs(el.scrollLeft - s.goal) < 2) return;
+      if (!s.active) {
+        s.active = true;
+        latest.current.onGesture(true);
+      }
     }
     if (!s.active) return;
     s.active = false;
@@ -104,6 +130,7 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     // Already on the edge day: glide back to it (and pull linked strips along).
     s.programmatic = true;
     const left = scrollFor(from, colWidth);
+    s.goal = left;
     el.scrollTo({ left, behavior: "smooth" });
     for (const [key, m] of sync?.members ?? []) if (key !== id) m.scrollTo({ left, behavior: "smooth" });
   }, [id, sync]);
@@ -128,6 +155,7 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     if (!s.active && !s.programmatic) begin(); // trackpad or wheel without a touch
     if (sync && sync.leader === id)
       for (const [key, m] of sync.members) if (key !== id) m.scrollLeft = el.scrollLeft;
+    s.lastLeft = el.scrollLeft;
     window.clearTimeout(s.timer);
     s.timer = window.setTimeout(settle, SETTLE_MS);
   };

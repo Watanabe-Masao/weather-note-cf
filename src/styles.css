@@ -732,15 +732,6 @@ button.label-feel.shade small {
   font-size: 11px;
 }
 
-.retry {
-  background: transparent;
-  border: 1px solid var(--status-error);
-  color: var(--status-error);
-  border-radius: var(--radius-sm);
-  font-size: var(--size-xs);
-  padding: 1px 4px;
-}
-
 /* ---- centre band ---------------------------------------------------------------------------- */
 
 .board.linked-band {
@@ -2426,4 +2417,133 @@ svg.scrub {
 
 .cs-date-btn:active {
   opacity: 0.6;
+}
+
+/* ---- states: loading, slow, failed, offline (rules: 状態の見せ方) ------------------------- */
+
+/* One line under the item chips; nothing when all is well. */
+.status-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 var(--space-4);
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  font-size: var(--size-sm);
+  color: var(--ink-secondary);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  animation: fade-in var(--motion-base) var(--ease-standard);
+}
+
+.status-bar > i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--ink-tertiary);
+}
+
+.status-bar.error {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-error) 45%, transparent) inset;
+}
+
+.status-bar.error > i {
+  background: var(--status-error);
+}
+
+.status-bar.offline > i {
+  background: var(--status-provisional);
+}
+
+.status-bar > span:not(.state-spinner) {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 再試行: one look wherever it appears. */
+.state-retry {
+  flex: none;
+  min-height: 30px;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-strong);
+  background: var(--surface-overlay);
+  color: var(--ink-primary);
+  font-size: var(--size-sm);
+  font-weight: var(--weight-bold);
+}
+
+.state-retry:active {
+  transform: scale(0.97);
+}
+
+.state-spinner {
+  width: 14px;
+  height: 14px;
+  flex: none;
+  border-radius: 50%;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent-base);
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Over the graph area while its data is not there: the graph keeps its size, nothing jumps. */
+.hour-chart-wrap {
+  position: relative;
+}
+
+.state-overlay {
+  position: absolute;
+  inset: 18px 10px 26px 34px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--surface-base) 72%, transparent);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  color: var(--ink-secondary);
+  font-size: var(--size-sm);
+}
+
+.state-overlay small {
+  color: var(--ink-tertiary);
+  font-size: var(--size-xs);
+}
+
+.state-overlay.error b {
+  color: var(--ink-primary);
+  font-size: var(--size-base);
+}
+
+.state-overlay.loading {
+  background: color-mix(in srgb, var(--surface-base) 40%, transparent);
+}
+
+/* A table cell that failed: a quiet dash; the status bar holds the one 再試行. */
+.cell-failed {
+  color: var(--ink-disabled);
+}
+
+.cell-kind.failed {
+  color: var(--status-error);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .state-spinner {
+    animation-duration: 3s;
+  }
+  .status-bar {
+    animation: none;
+  }
 }
