@@ -48,6 +48,8 @@ export function App() {
   const feelSettings = feel.settings;
   // The sheet shows the chosen item two ways: seven days (日別) or the 24 hours of the day (時間帯).
   const [face, setFace] = useState<"chart" | "hours">("chart");
+  // While a drum moves, the switches that change which days are shown wait (rule: 動いている間).
+  const [moving, setMoving] = useState(false);
   const [feelMap, setFeelMap] = useState(false);
   const [similar, setSimilar] = useState(false);
 
@@ -56,6 +58,7 @@ export function App() {
     <select
       className="chip sm mode"
       value={view.mode}
+      disabled={moving}
       onChange={(e) => {
         // 似た日 is a way of choosing the day, not a rule: it opens the list and the menu stays as it was.
         if (e.target.value === SIMILAR) setSimilar(true);
@@ -204,6 +207,7 @@ export function App() {
       <div ref={boardRef}>
         <FeelContext.Provider value={feelSettings}>
           <CompareBoard
+            onMoving={setMoving}
             onOpenCalendar={setCalendar}
             wide={full}
             store={store}
@@ -229,6 +233,7 @@ export function App() {
                 <button
                   className={view.linked ? "chip sm link-toggle on" : "chip sm link-toggle"}
                   onClick={() => setLinked(!view.linked)}
+                  disabled={moving}
                   aria-pressed={view.linked}
                   title={view.linked ? "連動中：比較日は対象日に付いて動きます（タップで個別）" : "個別：比較日は別に動きます（タップで連動）"}
                 >

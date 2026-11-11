@@ -6,9 +6,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { addDays, FIRST_DAY, jstToday } from "../shared/dates";
-import { clampDay, type CompareMode, matchDate, offsetOf, targetBounds } from "./compare";
+import { clampDay, type CompareMode, matchDate, offsetOf, presetOf, targetBounds } from "./compare";
 import { lastDay } from "./data/plan";
 import { knownMetric, type MetricId } from "./metrics";
+
+/**
+ * 個別: the days move on their own, so the rule shown is whatever the pair now is — its preset's
+ * name when it matches one, else カスタム (with that interval), never a preset the pair has left.
+ */
+function named(v: ViewState): ViewState {
+  const preset = presetOf(v.target, v.compare);
+  return { ...v, mode: preset ?? "custom", offset: preset ? v.offset : offsetOf(v.target, v.compare) };
+}
 
 export interface ViewState {
   station: string;
@@ -69,7 +78,7 @@ export function useViewState() {
         const b = v.linked ? targetBounds(v.mode, v.offset, lastDay(jstToday())) : { min: FIRST_DAY, max: lastDay(jstToday()) };
         const t = clampDay(next, b.min, b.max);
         if (t !== v.target) setDirection(t < v.target ? -1 : 1);
-        return { ...v, target: t };
+        return v.linked ? { ...v, target: t } : named({ ...v, target: t });
       });
     },
     [],
@@ -88,21 +97,24 @@ export function useViewState() {
       }
       const c = clampDay(next, FIRST_DAY, lastDay(jstToday()));
       if (c !== v.compare) setDirection(c < v.compare ? -1 : 1);
-      return { ...v, compare: c };
+      return named({ ...v, compare: c });
     });
   }, []);
 
   const setLinked = useCallback((linked: boolean) => {
     setView((v) => {
       if (linked === v.linked) return v;
-      if (linked) return { ...v, linked, mode: "custom", offset: offsetOf(v.target, v.compare) };
+      // Linking keeps the pair on screen; it stays under its preset's name when it is one (前日 stays 前日).
+      if (linked) return { ...v, linked, mode: presetOf(v.target, v.compare) ?? "custom", offset: offsetOf(v.target, v.compare) };
       return { ...v, linked, compare: matchDate(v.target, v.mode, v.offset) ?? addDays(v.target, -364) };
     });
   }, []);
 
   /** Make `date` the comparison day (from the similar-day list). Linked: a custom offset keeps the pair. */
   const pickCompare = useCallback((date: string) => {
-    setView((v) => (v.linked ? { ...v, mode: "custom", offset: offsetOf(v.target, date) } : { ...v, compare: date }));
+    setView((v) =>
+      v.linked ? { ...v, mode: presetOf(v.target, date) ?? "custom", offset: offsetOf(v.target, date) } : named({ ...v, compare: date }),
+    );
   }, []);
 
   const setMode = useCallback((mode: CompareMode) => {

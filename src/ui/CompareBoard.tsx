@@ -19,6 +19,8 @@ import { Strip, StripSync } from "./Strip";
 import { WeatherIcon } from "./WeatherIcon";
 
 interface Props {
+  /** A drum is moving (finger down or settling): switches that change the days wait for it. */
+  onMoving?: (moving: boolean) => void;
   /** Open the calendar for one side (the app shows one calendar for every place). */
   onOpenCalendar: (side: CalendarSide) => void;
   /** 表に集中 (the table fills the screen). */
@@ -213,6 +215,7 @@ function Labels({
 }
 
 export function CompareBoard({
+  onMoving,
   onOpenCalendar,
   wide = false,
   store,
@@ -237,6 +240,7 @@ export function CompareBoard({
   const hold = (active: boolean) => {
     gestures.current = Math.max(0, gestures.current + (active ? 1 : -1));
     store?.hold(gestures.current > 0);
+    onMoving?.(gestures.current > 0);
   };
 
   // 表に集中 shows nine days (the numbers a size smaller).

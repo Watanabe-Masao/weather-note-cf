@@ -70,12 +70,23 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     const index = dates.indexOf(center);
     if (index < 0) return;
     const s = state.current;
-    if (s.active) return; // the finger is in charge
+    const moved = s.firstDate !== dates[0];
+    s.firstDate = dates[0];
+    // The finger is in charge — unless the days themselves changed under it (連動/個別 switched,
+    // or the rule changed, mid-glide): then the position means another day, so the gesture is
+    // dropped and the strip is put on its centre at once instead of settling on a wrong day.
+    if (s.active) {
+      if (!moved) return;
+      s.active = false;
+      window.clearTimeout(s.timer);
+      latest.current.onGesture(false);
+      if (sync && sync.leader === id) sync.leader = null;
+      for (const m of sync?.members.values() ?? []) m.classList.remove("following");
+    }
     const target = scrollFor(index, col);
     if (Math.abs(el.scrollLeft - target) < 1) return;
     // A new window (moved range) or first layout jumps; anything else glides.
-    const jump = s.firstDate !== dates[0] || el.scrollLeft === 0;
-    s.firstDate = dates[0];
+    const jump = moved || el.scrollLeft === 0;
     s.programmatic = true;
     s.goal = target;
     if (sync) sync.leader = null;

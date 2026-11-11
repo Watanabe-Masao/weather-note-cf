@@ -2772,3 +2772,9 @@ svg.scrub {
 .line-legend .conf {
   margin: 0 1px 0 0;
 }
+
+/* Switches that change the days wait while a drum moves: dimmed for that moment, not hidden. */
+.chip:disabled {
+  opacity: 0.45;
+  transition: opacity var(--motion-quick) var(--ease-standard);
+}
