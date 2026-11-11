@@ -101,7 +101,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   // Seven visible days plus a buffer on each side; index BUFFER is the first visible day.
   const days = Array.from({ length: 7 + 2 * BUFFER }, (_, i) => addDays(target, i - 3 - BUFFER));
   // β: the days before each drawn day, for the 最近の基準 line (only while that line is on).
-  const wantsBaseline = metric.series.some((s) => s.history === "baseline") && shown("baseline");
+  const wantsBaseline = beta.enabled && metric.series.some((s) => s.history === "baseline") && shown("baseline");
   useBaselineHistory(store, station, wantsBaseline ? [...days, ...days.map(partner)] : [], "chart-baseline");
   const step = (w - PAD.left - PAD.right) / 7;
   const xOf = (i: number) => PAD.left + step * (i - BUFFER + 0.5);
@@ -181,7 +181,8 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
     return { v: s.value(day?.row, hours, feel), forecast: day?.row?.type === "forecast" };
   };
 
-  const lines = graphSeries(metric);
+  // β lines (最近の基準) only for a logged-in person.
+  const lines = graphSeries(metric).filter((s) => beta.enabled || s.history !== "baseline");
   const all = lines.flatMap((s) => [
     { s, compare: false, points: days.map((d, i): Point => ({ x: xOf(i), ...read(d, s) })) },
     { s, compare: true, points: days.map((d, i): Point => ({ x: xOf(i), ...read(partner(d), s) })) },

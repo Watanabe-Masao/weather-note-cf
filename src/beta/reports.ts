@@ -138,6 +138,8 @@ export interface Report {
   /** For syncing: last change (ms) and a soft delete. */
   updatedAt: number;
   deleted?: boolean;
+  /** Whose report it is (the account's id); none until the first sync after a login (sync.ts). */
+  owner?: string;
 }
 
 const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
@@ -383,6 +385,8 @@ export interface ReportStore {
   remove(id: string): Promise<void>;
   /** Remove every report from this device. */
   wipe(): Promise<void>;
+  /** Remove these reports from this device only (at logout; the server keeps them). */
+  drop(ids: string[]): Promise<void>;
 }
 
 let opened: Promise<IDBPDatabase> | null = null;
@@ -418,6 +422,14 @@ export function reportStore(): ReportStore {
         },
       ),
     wipe: () => safe((d) => d.clear(STORE), () => memory.clear()),
+    drop: (ids) =>
+      safe(
+        async (d) => {
+          const tx = d.transaction(STORE, "readwrite");
+          await Promise.all([...ids.map((id) => tx.store.delete(id)), tx.done]);
+        },
+        () => ids.forEach((id) => memory.delete(id)),
+      ),
   };
 }
 

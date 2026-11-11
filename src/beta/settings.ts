@@ -5,6 +5,7 @@
 import { createContext, useEffect, useMemo, useRef, useState } from "react";
 import { type Ensemble, ensembleFromReports, fitEnsemble, MIN_FOR_ALPHA, modelRecords, STANDARD_ALPHA, type TrackRecord, trackRecord } from "./comfort";
 import { useReports } from "./useReports";
+import { useAccount } from "../account/account";
 
 export interface BetaSettings {
   ens: Ensemble;
@@ -16,11 +17,13 @@ export interface BetaSettings {
   minForAlpha: number;
   /** True while the latest reports are still being fitted. */
   fitting: boolean;
+  /** Someone is logged in: β (and reports) are shown. Logged out, β stays hidden. */
+  enabled: boolean;
 }
 
 const initial = (): BetaSettings => {
   const ens = fitEnsemble([], STANDARD_ALPHA);
-  return { ens, alpha: ens.alpha, record: trackRecord([]), records: modelRecords([]), minForAlpha: MIN_FOR_ALPHA, fitting: false };
+  return { ens, alpha: ens.alpha, record: trackRecord([]), records: modelRecords([]), minForAlpha: MIN_FOR_ALPHA, fitting: false, enabled: false };
 };
 
 /**
@@ -29,6 +32,7 @@ const initial = (): BetaSettings => {
  */
 export function useBetaSettings(): BetaSettings {
   const list = useReports();
+  const enabled = useAccount().me != null;
   const [ens, setEns] = useState<Ensemble>(() => initial().ens);
   const [fitting, setFitting] = useState(false);
   const worker = useRef<Worker | null>(null);
@@ -68,8 +72,9 @@ export function useBetaSettings(): BetaSettings {
       records: modelRecords(list ?? []),
       minForAlpha: MIN_FOR_ALPHA,
       fitting,
+      enabled,
     }),
-    [ens, list, fitting],
+    [ens, list, fitting, enabled],
   );
 }
 

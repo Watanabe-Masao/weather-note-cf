@@ -3082,3 +3082,40 @@ svg.scrub {
 .beta-in { color: var(--ink-tertiary); }
 .beta-out { color: var(--ink-secondary); font-weight: var(--weight-bold); }
 .beta-range { font-size: 0.9em; white-space: nowrap; }
+
+/* Accounts (settings) and the administrator's screen. */
+.login-form { display: grid; gap: 10px; }
+.login-form label { display: grid; gap: 4px; font-size: 12.5px; color: var(--ink-secondary); }
+.login-form input {
+  width: 100%;
+  background: var(--surface-inset);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 10px;
+  font-size: 16px; /* 16px keeps iPhone from zooming in */
+  color: var(--ink-primary);
+}
+.login-form .actions, .once-secret .actions, .admin .actions { flex-wrap: wrap; }
+.login-form .actions button, .admin .actions button { min-width: 0; white-space: normal; line-height: 1.3; }
+.set-group .actions button.primary { background: var(--accent-base); border-color: var(--accent-base); color: var(--ink-on-accent); font-weight: var(--weight-bold); }
+.set-group .actions button.primary:disabled { opacity: 0.6; }
+.set-small {
+  background: var(--surface-raised);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--ink-primary);
+  white-space: nowrap;
+}
+.once-secret { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--accent-base); border-radius: var(--radius-md); background: var(--surface-inset); }
+.once-secret code { font: 700 18px/1.3 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.06em; color: var(--ink-primary); user-select: all; overflow-wrap: anywhere; }
+.once-secret small { color: var(--ink-secondary); font-size: 12px; }
+.admin { display: grid; gap: var(--space-5); }
+.admin-users { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.admin-users li { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.admin-users li.off { opacity: 0.6; }
+.admin-users li > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.admin-users li small { color: var(--ink-tertiary); font-size: 12px; }
+.admin-tag { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink-secondary); }
+.admin-tag.off { color: var(--status-error); border-color: color-mix(in srgb, var(--status-error) 50%, transparent); }

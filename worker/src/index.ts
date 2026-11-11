@@ -11,6 +11,7 @@ import { SourceError } from "./errors";
 import { fetchDailyMonth, fetchHourlyDay } from "./jma-tables";
 import { CACHE_VERSION, HOURLY_CONCURRENCY, MAX_HOURLY_DAYS, stations } from "./config";
 import { fetchForecast, fetchSunTimes } from "./open-meteo";
+import { type AccountsEnv, handleAccounts, isAccountPath } from "./accounts";
 
 class BadRequest extends Error {}
 
@@ -135,7 +136,9 @@ async function handle(req: Request, ctx: ExecutionContext): Promise<Response> {
 }
 
 export default {
-  async fetch(req: Request, _env: unknown, ctx: ExecutionContext): Promise<Response> {
+  async fetch(req: Request, env: AccountsEnv, ctx: ExecutionContext): Promise<Response> {
+    // Accounts and reports (D1): their own rules, never the edge cache.
+    if (isAccountPath(new URL(req.url).pathname)) return handleAccounts(req, env);
     if (req.method !== "GET") return jsonResponse({ error: "GET only" }, 405);
     try {
       return await handle(req, ctx);
@@ -144,4 +147,4 @@ export default {
       return jsonResponse({ error: publicMessage(e) }, 502);
     }
   },
-} satisfies ExportedHandler;
+} satisfies ExportedHandler<AccountsEnv>;
