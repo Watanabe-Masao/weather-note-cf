@@ -4,6 +4,7 @@
 import { type FormEvent, useState } from "react";
 import { syncNow, logOutAndLeave, useSync } from "../beta/useSync";
 import { AdminSheet } from "./AdminSheet";
+import { NotifySection } from "./NotifySection";
 import { Segmented } from "../ui/kit";
 import { answerResearch, logIn, setUp, useAccount } from "./account";
 
@@ -209,6 +210,7 @@ export function AccountSection() {
           </div>
           {leaving === "ask" ? <small className="set-help">ログアウトすると、サーバーに保存済みの記録はこの端末から消えます（サーバーには残り、再ログインで戻ります）。</small> : null}
           <SyncStatus />
+          <NotifySection />
           <Research />
           {me.role === "admin" ? (
             <div className="actions tight">

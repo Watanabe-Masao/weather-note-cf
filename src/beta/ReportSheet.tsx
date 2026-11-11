@@ -12,7 +12,7 @@ import { departures, historyDays } from "./adaptation";
 import { type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
 import { type ComfortPrediction, predictComfort } from "./comfort";
-import { baselineOf, baselineStateOf, driversOfDay, historyOf } from "./useBaseline";
+import { baselineOf, baselineStateOf, driversOfDay, historyOf, useBaselineHistory } from "./useBaseline";
 import { reports } from "./useReports";
 
 interface Props {
@@ -21,9 +21,11 @@ interface Props {
   today: string;
   onClose: () => void;
   onSaved?: () => void;
+  /** When a notification asked for this report (ms), if it was opened from one. */
+  notifiedAt?: number;
 }
 
-function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
+function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClose">) {
   const close = useSheetClose();
   const feel = useContext(FeelContext);
   const beta = useContext(BetaContext);
@@ -36,6 +38,8 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
   const [openedAt] = useState(() => new Date().toISOString());
   // Wind is taken as an amount over time (the last 6 and 12 hours, last night), so yesterday's hours are needed too.
   const yesterday = addDays(today, -1);
+  // The past days for the 最近の基準 (opened from the header or a notification, no summary has asked yet).
+  useBaselineHistory(store, station, [today], "report-baseline");
   useEffect(() => {
     store?.wantHours(station, [yesterday, today], Priority.Visible, "report");
     return () => store?.wantHours(station, [], Priority.Visible, "report");
@@ -72,6 +76,7 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
       id: newId(),
       at: new Date(now).toISOString(),
       openedAt,
+      ...(notifiedAt ? { notifiedAt: new Date(notifiedAt).toISOString() } : {}),
       comfort,
       station,
       sensation,

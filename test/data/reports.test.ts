@@ -129,10 +129,10 @@ describe("β②: CSV", () => {
   };
   it("writes one row per live report, oldest first, readable by Excel", () => {
     const csv = toCsv([{ ...base, id: "b", at: "2026-11-12T00:00:00.000Z" }, base, { ...base, id: "c", deleted: true }]);
-    expect(csv.startsWith("﻿at_jst,opened_at_jst,station,sensation")).toBe(true);
+    expect(csv.startsWith("﻿at_jst,opened_at_jst,notified_at_jst,station,sensation")).toBe(true);
     const lines = csv.trim().split("\r\n");
     expect(lines).toHaveLength(3);
-    expect(lines[1]).toContain(`2026-11-11T20:30:00+09:00,,47893,-1,やや涼しい,shade,strong,${",".repeat(19)}cloudy,`); // no prediction in this one
+    expect(lines[1]).toContain(`2026-11-11T20:30:00+09:00,,,47893,-1,やや涼しい,shade,strong,${",".repeat(19)}cloudy,`); // no prediction in this one
     expect(lines[1]).toContain("17.3,0.8,0.2,3.1,0,-2.4,,-4,"); // α, 前日の重み, 半減期
     expect(lines[1].endsWith(",a")).toBe(true);
     const header = lines[0].split(",");

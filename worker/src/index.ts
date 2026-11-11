@@ -11,7 +11,8 @@ import { SourceError } from "./errors";
 import { fetchDailyMonth, fetchHourlyDay } from "./jma-tables";
 import { CACHE_VERSION, HOURLY_CONCURRENCY, MAX_HOURLY_DAYS, stations } from "./config";
 import { fetchForecast, fetchSunTimes } from "./open-meteo";
-import { type AccountsEnv, handleAccounts, isAccountPath } from "./accounts";
+import { type AccountsEnv, ensureSchema, handleAccounts, isAccountPath } from "./accounts";
+import { runSchedule } from "./notify";
 
 class BadRequest extends Error {}
 
@@ -146,5 +147,11 @@ export default {
       if (e instanceof BadRequest) return jsonResponse({ error: e.message }, 400);
       return jsonResponse({ error: publicMessage(e) }, 502);
     }
+  },
+  /** Every 5 minutes (wrangler.jsonc): the report notifications that are due. */
+  async scheduled(_event: ScheduledController, env: AccountsEnv, ctx: ExecutionContext): Promise<void> {
+    if (!env.DB) return;
+    const db = env.DB;
+    ctx.waitUntil(ensureSchema(db).then(() => runSchedule(db)));
   },
 } satisfies ExportedHandler<AccountsEnv>;

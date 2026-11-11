@@ -104,3 +104,41 @@ self.addEventListener("fetch", (event) => {
     );
   }
 });
+
+// ---- report notifications (worker/src/notify.ts) ------------------------------------------------
+
+self.addEventListener("push", (event) => {
+  let m = {};
+  try {
+    m = event.data ? event.data.json() : {};
+  } catch {
+    m = {};
+  }
+  event.waitUntil(
+    self.registration.showNotification(m.title || "Weather Note", {
+      body: m.body || "",
+      tag: m.tag || "weather-note",
+      renotify: true,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: { url: m.url || "/" },
+    }),
+  );
+});
+
+// Tapping it opens the record: in the app already open (a message), or a new window (a URL).
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || "/", self.location.origin);
+  const n = Number(url.searchParams.get("n")) || undefined;
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((list) => {
+      const open = list.find((c) => new URL(c.url).origin === self.location.origin);
+      if (open && url.searchParams.get("report") === "1") {
+        open.postMessage({ type: "report", n });
+        return open.focus();
+      }
+      return self.clients.openWindow(url.href);
+    }),
+  );
+});

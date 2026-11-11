@@ -11,6 +11,8 @@
   "observability": { "enabled": true },
   // Accounts, reports and the ground for analysis (worker/src/accounts.ts). No database_id: the
   // first deploy creates the database; the tables are created by the Worker itself.
+  // The report notifications that are due are sent every 5 minutes (worker/src/notify.ts).
+  "triggers": { "crons": ["*/5 * * * *"] },
   "d1_databases": [{ "binding": "DB", "database_name": "weather-note" }],
   // Needed by `wrangler preview`, which Workers Builds runs for pull requests.
   "previews": {}

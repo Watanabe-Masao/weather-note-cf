@@ -3119,3 +3119,39 @@ svg.scrub {
 .admin-users li small { color: var(--ink-tertiary); font-size: 12px; }
 .admin-tag { font-size: 11px; padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink-secondary); }
 .admin-tag.off { color: var(--status-error); border-color: color-mix(in srgb, var(--status-error) 50%, transparent); }
+
+/* The header's 記録 button (logged in): reporting at any time, not only from a notification. */
+.app-head-actions { display: flex; align-items: center; gap: 8px; }
+.head-report {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-base);
+  background: color-mix(in srgb, var(--accent-base) 16%, transparent);
+  color: var(--ink-primary);
+  font-size: 14px;
+  font-weight: var(--weight-bold);
+}
+
+/* Settings › 記録の通知 */
+.notify-times { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.notify-time {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 4px 4px 12px; border-radius: 999px;
+  background: var(--surface-inset); border: 1px solid var(--line-strong);
+  font: 600 14px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink-primary);
+}
+.notify-time button { width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; color: var(--ink-secondary); font-size: 15px; }
+.notify-add { display: inline-flex; gap: 6px; align-items: center; }
+.notify-add input {
+  background: var(--surface-inset); border: 1px solid var(--line-strong); border-radius: var(--radius-md);
+  padding: 6px 8px; font-size: 16px; color: var(--ink-primary); color-scheme: dark;
+}
+.notify-add button, .notify-days button {
+  min-height: 34px; padding: 0 12px; border-radius: var(--radius-md);
+  border: 1px solid var(--line-strong); background: var(--surface-raised); color: var(--ink-primary); font-size: 13px;
+}
+.notify-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.notify-days button { padding: 0; }
+.notify-days button.on { background: color-mix(in srgb, var(--accent-base) 22%, var(--surface-raised)); border-color: var(--accent-base); font-weight: var(--weight-bold); }
+.notify .actions { flex-wrap: wrap; }

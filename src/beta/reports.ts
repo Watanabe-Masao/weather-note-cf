@@ -123,6 +123,9 @@ export interface Report {
   sky?: Sky;
   /** When the report screen was opened (a notification's time can differ from `at`, the sending). */
   openedAt?: string;
+  /** When the notification that led here was due (ISO), if the report came from one: how long
+   *  people take to answer is part of the analysis. */
+  notifiedAt?: string;
   /** The comfort model's prediction made at sending, before the answer was known (comfort.ts):
    *  the centre and range of that moment and the chance of each answer. Its misses are the record. */
   comfort?: ComfortPrediction;
@@ -236,6 +239,7 @@ export function jstHourOf(ms: number): number {
 const COLUMNS: readonly string[] = [
   "at_jst",
   "opened_at_jst",
+  "notified_at_jst",
   "station",
   "sensation",
   "sensation_label",
@@ -314,6 +318,7 @@ export function toCsv(reports: Report[]): string {
     [
       jstIso(r.at),
       r.openedAt ? jstIso(r.openedAt) : null,
+      r.notifiedAt ? jstIso(r.notifiedAt) : null,
       r.station,
       r.sensation,
       SENSATIONS.find((s) => s.value === r.sensation)?.label,
