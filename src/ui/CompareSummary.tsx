@@ -446,7 +446,7 @@ function BetaRows({
     },
     {
       key: "mu",
-      label: "快適の中心",
+      label: "ちょうどよい温度",
       value: (d) => d.st.mu,
       show: (d) => (
         <>
@@ -457,7 +457,7 @@ function BetaRows({
     },
     {
       key: "range",
-      label: "快適の範囲",
+      label: "ちょうどよい範囲",
       value: (d) => d.st.h * 2,
       show: (d) => (
         <span className="beta-range">
@@ -480,15 +480,15 @@ function BetaRows({
       <span className="cs-none beta-short">{loading ? "読み込み中" : "履歴不足"}</span>
     );
   return (
-    <div className="cs-beta" role="group" aria-label="快適の中心と範囲（β版。研究中の推定）">
+    <div className="cs-beta" role="group" aria-label="ちょうどよい温度と範囲（β版。研究中の推定）">
       <p className="cs-beta-head">
-        快適の中心と範囲 <span className="beta-tag">β</span>
+        ちょうどよい温度と範囲 <span className="beta-tag">β</span>
         {learning && <span className={`learn-tag ${learning.state}`}>{LEARNING_LABELS[learning.state]}</span>}
         <small>
-          {unknown ? `快適の中心は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
+          {unknown ? `ちょうどよい温度は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
         </small>
         {onBasis && (
-          <button className="beta-basis" onClick={onBasis} aria-label="快適の中心と範囲の計算の根拠を見る">
+          <button className="beta-basis" onClick={onBasis} aria-label="ちょうどよい温度と範囲の計算の根拠を見る">
             根拠
           </button>
         )}

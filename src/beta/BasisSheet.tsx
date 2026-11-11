@@ -377,7 +377,7 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   if (!x) {
     return (
       <section className="basis-sec">
-        <h4>この日の快適の中心と範囲</h4>
+        <h4>この日のちょうどよい温度と範囲</h4>
         <p className="basis-note">最近の基準が出せないか、日中の時間別データがないため、出せません。</p>
       </section>
     );
@@ -391,7 +391,7 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   return (
     <section className="basis-sec" aria-labelledby="basis-cday">
       <h4 id="basis-cday">
-        この日の快適の中心と範囲 <b>{f1(st.mu)}℃（{f1(st.mu - st.h)}〜{f1(st.mu + st.h)}）</b>
+        この日のちょうどよい温度と範囲 <b>{f1(st.mu)}℃（{f1(st.mu - st.h)}〜{f1(st.mu + st.h)}）</b>
       </h4>
       <ul className="basis-list">
         <li>

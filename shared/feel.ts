@@ -109,7 +109,7 @@ export function feelOf(
 
 export type Thresholds = [number, number, number, number, number, number];
 
-export const LEVELS = ["極寒", "寒い", "涼しい", "快適", "暖かい", "暑い", "猛暑"] as const;
+export const LEVELS = ["極寒", "寒い", "涼しい", "ちょうどよい", "暖かい", "暑い", "猛暑"] as const;
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export function levelOf(apparent: number, s: FeelSettings = DEFAULT_FEEL): Level {
@@ -126,13 +126,13 @@ export const SCALE_STEPS: Record<Scale, { label: string; of: Level[] }[]> = {
   5: [
     { label: "寒い", of: [0, 1] },
     { label: "涼しい", of: [2] },
-    { label: "快適", of: [3] },
+    { label: "ちょうどよい", of: [3] },
     { label: "暖かい", of: [4] },
     { label: "暑い", of: [5, 6] },
   ],
   3: [
     { label: "寒い側", of: [0, 1, 2] },
-    { label: "快適", of: [3] },
+    { label: "ちょうどよい", of: [3] },
     { label: "暑い側", of: [4, 5, 6] },
   ],
 };
