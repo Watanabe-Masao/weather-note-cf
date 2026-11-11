@@ -3,7 +3,7 @@
 // 日かげ). Saved data (spec chapter 1), refresh and clear sit folded at the end.
 
 import { ModalSheet, useSheetClose } from "./ModalSheet";
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 
 /** A number field that commits when editing ends (blur or Enter), so half-typed values never apply. */
 function NumberField({ value, onCommit, label, ...rest }: { value: number; onCommit: (v: number) => void; label: string; min?: number; max?: number }) {
@@ -34,8 +34,8 @@ import { type SavedFeel, SUNSHINE_PRESETS } from "../feelSettings";
 import type { StorageReport, WeatherStore } from "../data/store";
 import { LEVEL_COLORS } from "./FeelBar";
 import { Segmented } from "./kit";
-import { ADAPT_SPEEDS, type AdaptSpeed } from "../beta/adaptation";
-import type { BetaSettings } from "../beta/settings";
+import { BetaContext } from "../beta/settings";
+import { MIN_REPORTS, MIN_SPAN_DAYS } from "../beta/fitAlpha";
 import { toCsv } from "../beta/reports";
 import { reports, useReports } from "../beta/useReports";
 
@@ -50,7 +50,6 @@ interface Props {
   /** 日なた (true) or 日かげ (false): the shared display setting. */
   sun: boolean;
   onSun: (sun: boolean) => void;
-  beta: { beta: BetaSettings; update: (patch: Partial<BetaSettings>) => void };
   onClose: () => void;
 }
 
@@ -228,7 +227,8 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
   );
 }
 
-function SettingsBody({ store, station, onStation, feel, sun, onSun, beta, onClose: _done }: Props) {
+function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _done }: Props) {
+  const beta = useContext(BetaContext);
   void _done;
   const onClose = useSheetClose();
   const [stations, setStations] = useState<Station[]>([]);
@@ -317,14 +317,20 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, beta, onClo
           最近の日平均気温の移動平均を「慣れの基準」にして、その日の気温・日なた温度・日かげ温度が基準からどれだけ離れているかを出します。体感の予測ではなく、検証中の目安です（肌感とは別の計算）。
         </p>
         <div className="set-row">
-          <span className="set-label">慣れの速さ</span>
-          <Segmented
-            label="慣れの速さ"
-            value={beta.beta.speed}
-            options={ADAPT_SPEEDS.map((s) => ({ id: s.id, label: s.label }))}
-            onChange={(v) => beta.update({ speed: v as AdaptSpeed })}
-          />
-          <small className="set-help">基準がどれだけ早く最近の気温に追いつくか。標準は建物の快適性の規格（EN 16798）の値。春・秋の急な変化に合わせたいときは「速い」。</small>
+          <span className="set-label">
+            慣れの速さ α
+            <small className="set-help">
+              基準がどれだけ早く最近の気温に追いつくか。自分では選ばず、感じ方の記録から推定します。
+            </small>
+          </span>
+          <p className="beta-alpha" role="status">
+            <b>{beta.alpha.toFixed(2)}</b>
+            {beta.status === "fitted"
+              ? `記録 ${beta.n}件（${beta.spanDays}日間）から推定。基準を入れると当てはまりが ${Math.round((beta.improvement ?? 0) * 100)}% よくなりました。`
+              : beta.status === "no-effect"
+                ? `記録 ${beta.n}件では、最近の基準を入れても当てはまりがよくなりませんでした（情報量基準で判定）。規格の標準値を使っています。`
+                : `規格（EN 16798）の標準値を使っています。推定には記録 ${MIN_REPORTS}件以上・${MIN_SPAN_DAYS}日間以上が必要です（今 ${beta.n}件・${beta.spanDays}日間）。`}
+          </p>
         </div>
         <ReportData />
       </section>

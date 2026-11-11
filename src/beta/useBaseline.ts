@@ -2,14 +2,16 @@
 
 import { useEffect, useMemo } from "react";
 import type { WeatherStore } from "../data/store";
-import { type AdaptSpeed, alphaOf, type Baseline, historyDays, pastDay, runningMean } from "./adaptation";
+import { type Baseline, historyDays, pastDay, runningMean } from "./adaptation";
 
-export function baselineOf(store: WeatherStore | null, station: string, date: string | null, speed: AdaptSpeed): Baseline | null {
+export function baselineOf(store: WeatherStore | null, station: string, date: string | null, alpha: number): Baseline | null {
   if (!store || !date) return null;
-  return runningMean(
-    historyDays(date).map((d) => pastDay(store.getDay(station, d).row)),
-    alphaOf(speed),
-  );
+  return runningMean(historyOf(store, station, date).map((p) => p), alpha);
+}
+
+/** The past days behind a day's baseline, newest first. */
+export function historyOf(store: WeatherStore, station: string, date: string) {
+  return historyDays(date).map((d) => pastDay(store.getDay(station, d).row));
 }
 
 /** Ask the store, quietly, for the past days behind the baselines of `dates`. */

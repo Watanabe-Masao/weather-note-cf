@@ -173,7 +173,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   const read = (date: string | null, s: ChartMetric["series"][number]): { v: number | null; forecast: boolean } => {
     if (!date) return { v: null, forecast: false };
     if (s.history === "baseline") {
-      const b = baselineOf(store, station, date, beta.speed);
+      const b = baselineOf(store, station, date, beta.alpha);
       return { v: b?.value ?? null, forecast: !!b?.forecastMixed };
     }
     const day = store?.getDay(station, date);

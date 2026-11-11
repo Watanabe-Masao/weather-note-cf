@@ -3028,3 +3028,5 @@ svg.scrub {
 .report-save:disabled { background: var(--surface-raised); color: var(--ink-disabled); }
 .actions.tight { margin-top: 0; }
 .actions .danger { color: var(--status-error); border-color: color-mix(in srgb, var(--status-error) 50%, transparent); }
+.beta-alpha { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: baseline; font-size: 12px; color: var(--ink-secondary); line-height: 1.55; }
+.beta-alpha b { font-family: var(--font-numeric); font-size: var(--size-lg, 20px); color: var(--ink-primary); font-variant-numeric: tabular-nums; }

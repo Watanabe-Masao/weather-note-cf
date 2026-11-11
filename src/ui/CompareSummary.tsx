@@ -156,8 +156,8 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const beta = useContext(BetaContext);
   const feelSettings = useContext(FeelContext);
   useBaselineHistory(store, station, [target, other], "summary-baseline");
-  const depA = departures(a, hoursOf(target), baselineOf(store, station, target, beta.speed), feelSettings);
-  const depB = departures(b, hoursOf(other), baselineOf(store, station, other, beta.speed), feelSettings);
+  const depA = departures(a, hoursOf(target), baselineOf(store, station, target, beta.alpha), feelSettings);
+  const depB = departures(b, hoursOf(other), baselineOf(store, station, other, beta.alpha), feelSettings);
   const [reporting, setReporting] = useState(false);
   const [saved, setSaved] = useState(false);
   useEffect(() => {

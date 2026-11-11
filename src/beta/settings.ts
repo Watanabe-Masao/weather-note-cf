@@ -1,45 +1,17 @@
-// β settings, kept apart from 肌感's (a convenience on this device only).
+// β: the α in use (慣れの速さ), estimated from the reports (fitAlpha.ts), shared with the screen.
 
-import { createContext, useCallback, useState } from "react";
-import { ADAPT_SPEEDS, type AdaptSpeed } from "./adaptation";
+import { createContext, useMemo } from "react";
+import { type AlphaFit, fitAlpha, STANDARD_ALPHA } from "./fitAlpha";
+import { useReports } from "./useReports";
 
-const KEY = "weather-note:beta";
+export type BetaSettings = AlphaFit;
 
-export interface BetaSettings {
-  speed: AdaptSpeed;
-}
+const DEFAULTS: BetaSettings = { alpha: STANDARD_ALPHA, status: "collecting", n: 0, spanDays: 0, improvement: null };
 
-const DEFAULTS: BetaSettings = { speed: "standard" };
-
-export function readBeta(raw: string | null): BetaSettings {
-  try {
-    const r = JSON.parse(raw ?? "{}") as Partial<BetaSettings>;
-    return { speed: ADAPT_SPEEDS.some((s) => s.id === r.speed) ? (r.speed as AdaptSpeed) : DEFAULTS.speed };
-  } catch {
-    return DEFAULTS;
-  }
-}
-
-export function useBetaSettings() {
-  const [beta, setBeta] = useState<BetaSettings>(() => {
-    try {
-      return readBeta(localStorage.getItem(KEY));
-    } catch {
-      return DEFAULTS;
-    }
-  });
-  const update = useCallback((patch: Partial<BetaSettings>) => {
-    setBeta((b) => {
-      const next = { ...b, ...patch };
-      try {
-        localStorage.setItem(KEY, JSON.stringify(next));
-      } catch {
-        // Not remembering is harmless.
-      }
-      return next;
-    });
-  }, []);
-  return { beta, update };
+/** Re-estimated whenever the reports change. */
+export function useBetaSettings(): BetaSettings {
+  const list = useReports();
+  return useMemo(() => (list ? fitAlpha(list) : DEFAULTS), [list]);
 }
 
 export const BetaContext = createContext<BetaSettings>(DEFAULTS);

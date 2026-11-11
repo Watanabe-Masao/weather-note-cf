@@ -6,10 +6,10 @@ import type { WeatherStore } from "../data/store";
 import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
-import { alphaOf, departures } from "./adaptation";
+import { departures } from "./adaptation";
 import { type Exposure, EXPOSURES, jstHourOf, newId, type Report, type Sensation, SENSATIONS, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
-import { baselineOf } from "./useBaseline";
+import { baselineOf, historyOf } from "./useBaseline";
 import { reports } from "./useReports";
 
 interface Props {
@@ -35,7 +35,7 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
     setSaving(true);
     const now = Date.now();
     const hours = store?.getHours(station, today).rows ?? null;
-    const base = baselineOf(store, station, today, beta.speed);
+    const base = baselineOf(store, station, today, beta.alpha);
     const dep = departures(store?.getDay(station, today).row, hours, base, feel);
     const report: Report = {
       id: newId(),
@@ -45,8 +45,9 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
       exposure,
       windFelt,
       snapshot: snapshotOf(hours, jstHourOf(now), feel),
-      baseline: base ? { ...base, alpha: alphaOf(beta.speed) } : null,
+      baseline: base ? { ...base, alpha: beta.alpha } : null,
       departures: dep ? { air: dep.air, sun: dep.sun, shade: dep.shade } : null,
+      history: store ? historyOf(store, station, today).map((p) => (p.forecast ? null : p.mean)) : [],
       updatedAt: now,
     };
     await reports.add(report);

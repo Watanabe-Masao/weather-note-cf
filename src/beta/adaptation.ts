@@ -2,9 +2,8 @@
 //
 // The baseline is the running mean of past daily mean air temperatures, the quantity adaptive
 // comfort standards use for outdoor exposure (EN 16798-1: θrm = (1 − α)·θ(d−1) + α·θrm(d−1)). In
-// closed form, day d−k weighs (1 − α)·α^(k−1). α sets how quickly the baseline follows a change:
-// Japan's spring and autumn move fast, so α is a setting (慣れの速さ), not fixed, until reported
-// feelings (β②) can fit it.
+// closed form, day d−k weighs (1 − α)·α^(k−1). α (慣れの速さ) is not chosen by hand: it is
+// estimated from the person's reports (fitAlpha.ts) and stays at the standard 0.8 until they show it.
 //
 // What this module gives are differences in ℃ from the baseline: the day's mean air temperature,
 // and its daytime 日なた温度 / 日かげ温度 (which already carry wind, humidity and sunshine). They are
@@ -14,14 +13,6 @@
 import { addDays } from "../../shared/dates";
 import { daytimeFeel, type FeelSettings } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
-
-export const ADAPT_SPEEDS = [
-  { id: "fast", label: "速い", alpha: 0.7 },
-  { id: "standard", label: "標準", alpha: 0.8 }, // EN 16798-1's recommended value
-  { id: "slow", label: "遅い", alpha: 0.9 },
-] as const;
-export type AdaptSpeed = (typeof ADAPT_SPEEDS)[number]["id"];
-export const alphaOf = (speed: AdaptSpeed) => ADAPT_SPEEDS.find((s) => s.id === speed)!.alpha;
 
 /** Past days looked at; beyond these the weights are negligible (0.9^30 ≈ 4%). */
 export const HISTORY_DAYS = 30;

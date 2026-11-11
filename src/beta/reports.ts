@@ -65,6 +65,9 @@ export interface Report {
   snapshot: Snapshot | null;
   baseline: (Baseline & { alpha: number }) | null;
   departures: Pick<Departures, "air" | "sun" | "shade"> | null;
+  /** The 30 daily mean temperatures before the day, newest first (null where missing): lets the
+   *  最近の基準 be recomputed for any α when 慣れの速さ is estimated (fitAlpha.ts). */
+  history?: (number | null)[];
   /** For syncing: last change (ms) and a soft delete. */
   updatedAt: number;
   deleted?: boolean;
@@ -139,6 +142,7 @@ const COLUMNS = [
   "dep_air",
   "dep_sun",
   "dep_shade",
+  "history_30d",
   "id",
 ] as const;
 
@@ -183,6 +187,7 @@ export function toCsv(reports: Report[]): string {
       r.departures?.air,
       r.departures?.sun,
       r.departures?.shade,
+      r.history?.map((v) => (v == null ? "" : v)).join(";"),
       r.id,
     ]
       .map(cell)

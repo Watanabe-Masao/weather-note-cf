@@ -72,7 +72,7 @@ describe("β②: CSV", () => {
     const lines = csv.trim().split("\r\n");
     expect(lines).toHaveLength(3);
     expect(lines[1]).toContain("2026-11-11T20:30:00+09:00,47893,-1,やや涼しい,shade,strong");
-    expect(lines[1]).toContain("17.3,0.8,0,-2.4,,-4,a");
+    expect(lines[1]).toContain("17.3,0.8,0,-2.4,,-4,,a");
     expect(lines[2].endsWith(",b")).toBe(true);
   });
 });
