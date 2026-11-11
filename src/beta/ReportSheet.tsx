@@ -122,7 +122,8 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
               className={sensation === s.value ? "report-pick on" : "report-pick"}
               onClick={() => setSensation(s.value)}
             >
-              {s.label}
+              {/* Two lines where the word is long, so seven fit a phone's width. */}
+              {s.label.replace("ちょうどよい", "ちょうど\nよい")}
             </button>
           ))}
         </div>
@@ -150,11 +151,11 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
 
 /** Where in the range the moment sits, in words (z = (E′ − μ)/h; the range is |z| ≤ 1). */
 function placeWords(z: number): string {
-  if (z < -1) return "快適の範囲より寒い側";
-  if (z > 1) return "快適の範囲より暑い側";
-  if (z < -0.4) return "快適の範囲の寒い側寄り";
-  if (z > 0.4) return "快適の範囲の暑い側寄り";
-  return "快適の範囲の中ほど";
+  if (z < -1) return "ちょうどよい範囲より寒い側";
+  if (z > 1) return "ちょうどよい範囲より暑い側";
+  if (z < -0.4) return "ちょうどよい範囲の寒い側寄り";
+  if (z > 0.4) return "ちょうどよい範囲の暑い側寄り";
+  return "ちょうどよい範囲の中ほど";
 }
 
 /**
@@ -177,7 +178,7 @@ function PredictionCard({ prediction, reported, learning }: { prediction: Comfor
         {learning.state === "untrained"
           ? "あなたの記録がまだないので、初期値による参考です。"
           : learning.state === "sparse"
-            ? "快適の中心はまだ特定できません。"
+            ? "ちょうどよい温度はまだ特定できません。"
             : learning.state === "provisional"
               ? "推定の幅がまだ広い、暫定の予測です。"
               : learning.state === "testable"
@@ -198,14 +199,14 @@ function PredictionCard({ prediction, reported, learning }: { prediction: Comfor
       </div>
       {prediction.sides && (
         <p className="predict-sides">
-          寒い側 <b>{pct(prediction.sides.cold)}</b>・快適 <b>{pct(prediction.sides.neutral)}</b>・暑い側 <b>{pct(prediction.sides.warm)}</b>
+          寒い側 <b>{pct(prediction.sides.cold)}</b>・ちょうどよい <b>{pct(prediction.sides.neutral)}</b>・暑い側 <b>{pct(prediction.sides.warm)}</b>
         </p>
       )}
       {unknown ? (
         <p className="predict-sub">まだ足りないもの：{learning.missing.join("、")}。</p>
       ) : (
         <p className="predict-sub">
-          快適の中心 {st.mu.toFixed(1)}℃
+          ちょうどよい温度 {st.mu.toFixed(1)}℃
           {prediction.muInterval ? `（95%：${prediction.muInterval[0].toFixed(1)}〜${prediction.muInterval[1].toFixed(1)}℃）` : ""}
           。今は{prediction.z != null ? placeWords(prediction.z) : "—"}
           {prediction.zInterval ? `（位置 ${prediction.z?.toFixed(1)}、95%：${prediction.zInterval[0].toFixed(1)}〜${prediction.zInterval[1].toFixed(1)}。±1が範囲の端）` : ""}。

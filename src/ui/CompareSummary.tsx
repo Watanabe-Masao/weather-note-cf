@@ -30,6 +30,7 @@ import type { BetaSettings } from "../beta/settings";
 import { daytimeFeel, type FeelSettings } from "../../shared/feel";
 import { ReportSheet } from "../beta/ReportSheet";
 import { BasisSheet } from "../beta/BasisSheet";
+import { useCentreVisible } from "../beta/useReports";
 import { FeelContext } from "./FeelBar";
 
 interface Props {
@@ -162,6 +163,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   useBaselineHistory(store, station, beta.enabled ? [target, other] : [], "summary-baseline");
   const stA = baselineStateOf(store, station, target, beta.alpha);
   const stB = baselineStateOf(store, station, other, beta.alpha);
+  const centreVisible = useCentreVisible();
   const depA = comfortOfDay(store, station, target, a, hoursOf(target), stA, beta, feelSettings);
   const depB = comfortOfDay(store, station, other, b, hoursOf(other), stB, beta, feelSettings);
   const [reporting, setReporting] = useState(false);
@@ -356,7 +358,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
         </span>
       </div>
 
-      {beta.enabled && <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} learning={beta.learning} />}
+      {beta.enabled && <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} learning={beta.learning} hidden={{ a: !centreVisible(target), b: other != null && !centreVisible(other) }} />}
     </section>
     </div>
     </div>
@@ -409,8 +411,11 @@ function BetaRows({
   onBasis,
   saved,
   learning,
+  hidden,
 }: {
   learning?: LearningView;
+  /** Today's centre before the day's first report (a, b: the two columns). */
+  hidden?: { a: boolean; b: boolean };
   a: DayComfort | null;
   b: DayComfort | null;
   loadingA?: boolean;
@@ -446,7 +451,7 @@ function BetaRows({
     },
     {
       key: "mu",
-      label: "快適の中心",
+      label: "ちょうどよい温度",
       value: (d) => d.st.mu,
       show: (d) => (
         <>
@@ -457,7 +462,7 @@ function BetaRows({
     },
     {
       key: "range",
-      label: "快適の範囲",
+      label: "ちょうどよい範囲",
       value: (d) => d.st.h * 2,
       show: (d) => (
         <span className="beta-range">
@@ -471,8 +476,10 @@ function BetaRows({
   // The person's centre is not known yet (未学習・情報不足): only the 最近の基準 (from the weather)
   // is shown; a centre the reports have not given is not drawn as if it were known.
   const unknown = centreUnknown(learning?.state);
-  const cell = (d: DayComfort | null, r: (typeof rows)[number], loading?: boolean) =>
-    unknown && r.key !== "base" ? (
+  const cell = (d: DayComfort | null, r: (typeof rows)[number], loading?: boolean, later?: boolean) =>
+    later && r.key !== "base" ? (
+      <span className="cs-none beta-short">記録後に表示</span>
+    ) : unknown && r.key !== "base" ? (
       <span className="cs-none beta-short">未特定</span>
     ) : d ? (
       r.show(d)
@@ -480,15 +487,15 @@ function BetaRows({
       <span className="cs-none beta-short">{loading ? "読み込み中" : "履歴不足"}</span>
     );
   return (
-    <div className="cs-beta" role="group" aria-label="快適の中心と範囲（β版。研究中の推定）">
+    <div className="cs-beta" role="group" aria-label="ちょうどよい温度と範囲（β版。研究中の推定）">
       <p className="cs-beta-head">
-        快適の中心と範囲 <span className="beta-tag">β</span>
+        ちょうどよい温度と範囲 <span className="beta-tag">β</span>
         {learning && <span className={`learn-tag ${learning.state}`}>{LEARNING_LABELS[learning.state]}</span>}
         <small>
-          {unknown ? `快適の中心は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
+          {unknown ? `ちょうどよい温度は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
         </small>
         {onBasis && (
-          <button className="beta-basis" onClick={onBasis} aria-label="快適の中心と範囲の計算の根拠を見る">
+          <button className="beta-basis" onClick={onBasis} aria-label="ちょうどよい温度と範囲の計算の根拠を見る">
             根拠
           </button>
         )}
@@ -503,12 +510,12 @@ function BetaRows({
         const y = b ? r.value(b) : null;
         return (
           <div key={r.key} className="cs-row beta">
-            <span className="cs-val cs-a">{cell(a, r, loadingA)}</span>
+            <span className="cs-val cs-a">{cell(a, r, loadingA, hidden?.a)}</span>
             <span className="cs-mid">
               <span className="cs-label">{r.label}</span>
               <span className="cs-diff">{r.key === "range" ? (x != null && y != null ? `幅 ${signedDiff(x, y, 1) || "±0"}` : "") : signedDiff(x, y, 1)}</span>
             </span>
-            <span className="cs-val cs-b">{cell(b, r, loadingB)}</span>
+            <span className="cs-val cs-b">{cell(b, r, loadingB, hidden?.b)}</span>
           </div>
         );
       })}

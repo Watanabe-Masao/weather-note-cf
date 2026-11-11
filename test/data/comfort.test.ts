@@ -202,13 +202,13 @@ describe("β: what a prediction means (position, answers' spread, the model's un
     expect(learningFrom([], 0, [], ens).state).toBe("untrained");
   });
 
-  it("tells a cold-leaning 快適 from a central one: the same 寒い answer is judged differently", () => {
+  it("tells a cold-leaning ちょうどよい from a central one: the same 寒い answer is judged differently", () => {
     const ens = fitEnsemble(simulate(300, "M0", M0truth(), 21), 0.8);
     const mu = predictComfort(ens, typical(), 0).state.mu;
     const centre = predictComfort(ens, typical({ e: mu }), 0);
     const coldSide = predictComfort(ens, typical({ e: mu - 2.4 }), 0);
     expect(centre.mode).toBe(0);
-    expect(coldSide.mode).toBe(0); // both say 快適 …
+    expect(coldSide.mode).toBe(0); // both say ちょうどよい …
     expect(coldSide.z!).toBeLessThan(-0.5); // … but one sits at the cold side of the range
     expect(Math.abs(centre.z!)).toBeLessThan(0.3);
     expect(coldSide.sides!.cold).toBeGreaterThan(centre.sides!.cold);

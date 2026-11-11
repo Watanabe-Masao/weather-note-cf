@@ -1,6 +1,6 @@
 // β: the comfort centre and range of this moment — several models, compared and combined.
 //
-// The idea: a person feels "快適" (neutral) within a range around a centre; past its edges it turns
+// The idea: a person feels "ちょうどよい" (thermal neutral: neither warm nor cold — not the same thing as comfort, which is asked of no one yet) within a range around a centre; past its edges it turns
 // cool or warm step by step. Neither the centre nor the width is fixed: the days before (the recent
 // temperatures and how they changed, humidity, sunshine, rain, the weather) move both. Which of
 // them matter, and how much, is what the reports are for — so several models, each with its own
@@ -680,7 +680,7 @@ export interface ComfortPrediction {
   n: number;
   alpha: number;
   at: number;
-  /** Cold side (−3…−1), 快適 (0), warm side (+1…+3). */
+  /** Cold side (−3…−1), ちょうどよい (0), warm side (+1…+3). */
   sides?: { cold: number; neutral: number; warm: number };
   /** Where the moment sits in the range, z = (E′ − μ)/h, with its 95% interval. */
   z?: number;
@@ -787,7 +787,7 @@ export function predictComfort(ens: Ensemble, x: Drivers, at: number, learning?:
 
 // ---- how far the learning has got ------------------------------------------------------------------
 //
-// Not a count of reports: a centre can be found only when the answers lie on both sides of 快適,
+// Not a count of reports: a centre can be found only when the answers lie on both sides of ちょうどよい,
 // over a spread of temperatures, on several days, and the interval of μ is narrow. Verified needs
 // the predictions made in advance to beat a plain reference. The thresholds are provisional: they
 // are to be set from the data once there is some (README 8).
@@ -852,7 +852,7 @@ export function learningFrom(obs: Observation[], days: number, checked: { probs:
   if (!obs.length) return { state: "untrained", missing: ["感じ方の記録がまだありません"], muInterval: null };
   const missing: string[] = [];
   const ys = obs.map((o) => o.y);
-  if (!ys.some((y) => y < 0) || !ys.some((y) => y > 0)) missing.push("快適より寒い側と暑い側の両方の答え");
+  if (!ys.some((y) => y < 0) || !ys.some((y) => y > 0)) missing.push("ちょうどよいより寒い側と暑い側の両方の答え");
   const es = obs.map((o) => o.e);
   const span = Math.max(...es) - Math.min(...es);
   if (span < LEARNING_RULES.minSpan) missing.push(`温度の幅（今 ${r1(span)}℃、${LEARNING_RULES.minSpan}℃以上）`);
@@ -860,7 +860,7 @@ export function learningFrom(obs: Observation[], days: number, checked: { probs:
   const muInterval = muIntervalOf(ens, obs[obs.length - 1]);
   if (missing.length) return { state: "sparse", missing, muInterval };
   const width = muInterval[1] - muInterval[0];
-  if (width > LEARNING_RULES.maxMuWidth) return { state: "provisional", missing: [`快適の中心の幅（今 ${r1(width)}℃、${LEARNING_RULES.maxMuWidth}℃以下）`], muInterval };
+  if (width > LEARNING_RULES.maxMuWidth) return { state: "provisional", missing: [`ちょうどよい温度の幅（今 ${r1(width)}℃、${LEARNING_RULES.maxMuWidth}℃以下）`], muInterval };
   // Verified: predictions made in advance while testable, better (RPS) than the plain reference.
   if (checked.length < LEARNING_RULES.minChecked)
     return { state: "testable", missing: [`検証用の予測（今 ${checked.length}件、${LEARNING_RULES.minChecked}件以上）`], muInterval };

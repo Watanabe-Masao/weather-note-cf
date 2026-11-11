@@ -19,17 +19,20 @@ import type { ComfortPrediction } from "./comfort";
  * phone's width and match the 肌感 levels one to one. The numbers are what is analysed.
  */
 /**
- * Version of the words of the scale. 1: 寒い・涼しい・やや涼しい・どちらでもない／適温・やや暖かい・
- * 暖かい・暑い; 2: 極寒・寒い・涼しい・快適・暖かい・暑い・猛暑. The numbers are the same, but the
- * same number was asked in other words, so analysis can tell the two apart. Reports without it are 1.
+ * Version of the words of the scale (the numbers −3…+3 never change, but the same number was asked
+ * in other words, so analysis can tell them apart; reports without it are 1):
+ *   1: 寒い・涼しい・やや涼しい・どちらでもない／適温・やや暖かい・暖かい・暑い
+ *   2: 極寒・寒い・涼しい・快適・暖かい・暑い・猛暑
+ *   3: 極寒・寒い・涼しい・ちょうどよい・暖かい・暑い・猛暑 — 0 is thermal neutral (neither warm nor
+ *      cold), not comfort: "暖かいけれど快適" is possible, and comfort would be a question of its own.
  */
-export const SCALE_VERSION = 2;
+export const SCALE_VERSION = 3;
 
 export const SENSATIONS = [
   { value: -3, label: "極寒" },
   { value: -2, label: "寒い" },
   { value: -1, label: "涼しい" },
-  { value: 0, label: "快適" },
+  { value: 0, label: "ちょうどよい" },
   { value: 1, label: "暖かい" },
   { value: 2, label: "暑い" },
   { value: 3, label: "猛暑" },
