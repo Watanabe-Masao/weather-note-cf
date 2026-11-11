@@ -210,7 +210,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
             top={PAD.top}
             bottom={H - PAD.bottom}
             left={PAD.left}
-            points={chosen.flatMap((i) => (mine[touch]?.[i]?.feel != null ? [{ y: y(mine[touch]![i].feel!), color: BAND_COLORS[i] }] : []))}
+            points={chosen.flatMap((i) => (mine[touch]?.[i]?.feel != null ? [{ y: y(mine[touch]![i].feel!), color: BAND_COLORS[i], label: mine[touch]![i].feel!.toFixed(0) }] : []))}
           />
         )}
         {lines.map(({ band, compare, points }) =>

@@ -63,17 +63,20 @@ button:disabled {
   outline-offset: 2px;
 }
 
-/* Nothing the finger presses on starts text selection or the iOS copy menu. */
-button,
-.strip,
-.date-nav,
-.labels,
-.sheet-handle,
-.chart svg {
+/* Nothing in the app is text to copy: a long press (the graph's guide) must never bring up the
+   iOS loupe, selection or the copy menu. Only fields people type into keep selection. */
+html {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
+}
+
+input,
+textarea,
+select {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 p {
@@ -1216,6 +1219,20 @@ button.label-feel.shade small {
   stroke: var(--ink-primary);
   stroke-width: 1;
   opacity: 0.55;
+}
+
+/* The value where a guide meets the axis: a tag in the line's colour. */
+.guide-tag {
+  stroke: rgba(10, 20, 32, 0.6);
+  stroke-width: 1;
+}
+
+.guide-tag-text {
+  fill: #0b1625;
+  font-family: var(--font-numeric);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  font-weight: var(--weight-bold);
 }
 
 .guide-h {
