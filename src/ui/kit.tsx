@@ -123,3 +123,13 @@ export function Num({
     </span>
   );
 }
+
+/** The forecast mark in graphs: a hatch behind the lines (line style only ever says which day). */
+export function ForecastHatch({ id }: { id: string }) {
+  return (
+    <pattern id={id} width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="6" height="6" className="hatch-bg" />
+      <line x1="0" y1="0" x2="0" y2="6" className="hatch-line" />
+    </pattern>
+  );
+}

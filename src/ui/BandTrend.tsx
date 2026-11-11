@@ -1,6 +1,7 @@
 // Band trend graph (spec chapter 5): how each part of the day moved over the seven days.
 // One line per chosen 時間区分 (朝・日中・昼・夕方・夜) in 日なた/日かげ温度; the comparison side dashed.
-// Forecast segments dotted; missing values leave a gap (never interpolated).
+// Line style says which day only (target solid, comparison dashed); forecast days are hatched behind.
+// Missing values leave a gap (never interpolated).
 
 import { useContext, useLayoutEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
@@ -8,7 +9,7 @@ import { type Band, BANDS, type FeelSettings, hourlyBands } from "../../shared/f
 import { dayTone } from "../../shared/holidays";
 import type { WeatherStore } from "../data/store";
 import { BAND_LINES } from "../design/tokens";
-import { Chip } from "./kit";
+import { Chip, ForecastHatch } from "./kit";
 import { FeelContext, LEVEL_COLORS } from "./FeelBar";
 
 export const BAND_COLORS = BAND_LINES;
@@ -109,6 +110,23 @@ export function BandTrend({ store, station, target, partner }: Props) {
         {levelBands.map(
           (b) => b && <rect key={b.i} x={PAD.left} width={w - PAD.left - PAD.right} y={b.y1} height={b.y2 - b.y1} fill={LEVEL_COLORS[b.i]} opacity={0.1} />,
         )}
+        <defs>
+          <ForecastHatch id="fc-trend" />
+        </defs>
+        {dates.map((d, i) => {
+          const fc = (k: number) => mine[k]?.some((b) => b && b.source !== "actual") ?? false;
+          if (!fc(i)) return null;
+          return (
+            <g key={`fc-${d}`}>
+              <rect x={x(i) - step / 2} y={PAD.top} width={step} height={H - PAD.top - PAD.bottom} fill="url(#fc-trend)" className="chart-forecast" />
+              {(i === 0 || !fc(i - 1)) && (
+                <text x={x(i) - step / 2 + 4} y={PAD.top + 10} className="chart-forecast-label">
+                  予報
+                </text>
+              )}
+            </g>
+          );
+        })}
         <rect x={x(3) - step / 2} y={PAD.top} width={step} height={H - PAD.top - PAD.bottom} className="chart-center" />
         {[lo + pad, (lo + hi) / 2, hi - pad].map((t) => (
           <text key={t} x={PAD.left - 5} y={y(t) + 4} textAnchor="end" className="chart-tick">
@@ -128,7 +146,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
                 y2={y(p.value)}
                 stroke={BAND_COLORS[band]}
                 strokeWidth={compare ? 1.5 : 2.4}
-                strokeDasharray={compare ? "6 4" : p.forecast ? "2 4" : undefined}
+                strokeDasharray={compare ? "6 4" : undefined}
                 strokeLinecap="round"
                 opacity={compare ? 0.6 : 1}
               />
@@ -143,7 +161,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
                 cx={x(i)}
                 cy={y(p.value)}
                 r={compare ? 2.3 : 3}
-                fill={compare ? "var(--bg)" : BAND_COLORS[band]}
+                fill={compare ? "var(--surface-base)" : BAND_COLORS[band]}
                 stroke={BAND_COLORS[band]}
                 opacity={compare ? 0.7 : 1}
               />
@@ -157,7 +175,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
         ))}
       </svg>
       <p className="trend-note">
-        縦軸は{settings.sun ? "日なた温度" : "日かげ温度"}（℃）。実線＝実績、点線＝予報、破線＝比較日。背景の色は肌感の段階。
+        縦軸は{settings.sun ? "日なた温度" : "日かげ温度"}（℃）。実線＝対象日、破線＝比較日、網かけ＝予報の日。背景の色は肌感の段階。
       </p>
     </div>
   );

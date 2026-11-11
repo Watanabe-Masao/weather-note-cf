@@ -1033,6 +1033,24 @@ button.label-feel.shade small {
   border-radius: 2px;
 }
 
+/* Forecast: the hatch the graphs draw behind forecast days and hours. */
+.line-legend .ls-forecast {
+  width: 14px;
+  height: 10px;
+  border: none;
+  border-radius: 2px;
+  background: repeating-linear-gradient(135deg, rgba(219, 232, 245, 0.32) 0 1.5px, rgba(219, 232, 245, 0.06) 1.5px 4px);
+}
+
+.hatch-bg { fill: rgba(219, 232, 245, 0.035); }
+.hatch-line { stroke: rgba(219, 232, 245, 0.13); stroke-width: 1.4; }
+
+.chart-forecast-label {
+  fill: var(--status-forecast);
+  font-size: 9.5px;
+  opacity: 0.9;
+}
+
 .line-legend .ls-fill { background: var(--ink-secondary); }
 .line-legend .ls-fill.dotted { background: none; border-style: dashed; }
 
