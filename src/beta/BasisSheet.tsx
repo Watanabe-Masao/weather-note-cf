@@ -327,7 +327,7 @@ function ComfortBasis() {
         <h4 id="basis-params">
           {fit.model.id} {fit.model.name}の中身 <b>重み {Math.round(ens.weights[ens.fits.indexOf(fit)] * 100)}%</b>
         </h4>
-        <p className="basis-note">上の表の行を押すと、そのモデルの中身に切り替わります。初めの値は肌感の境目から作った事前分布、今の値は記録からの推定です。</p>
+        <p className="basis-note">上の表の行を押すと、そのモデルの中身に切り替わります。初めの値は固定の事前分布（肌感の表示の境目とは無関係）、今の値は記録からの推定です。</p>
         <div className="basis-scroll">
           <table className="basis-table">
             <thead>

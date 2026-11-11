@@ -199,7 +199,7 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
   return (
     <section className="set-group" aria-labelledby="set-feel">
       <h3 id="set-feel">肌感の基準</h3>
-      <p className="set-lead">日なた温度・日かげ温度が、どの段階に入るかの境目です。帯の境目を指で動かすか、− ＋ で0.5℃ずつ変えられます。</p>
+      <p className="set-lead">日なた温度・日かげ温度が、どの段階に入るかの境目です。帯の境目を指で動かすか、− ＋ で0.5℃ずつ変えられます。表示のための区分で、快適の中心と範囲（β）の計算には使いません。</p>
       <LevelBand thresholds={saved.thresholds} onChange={(thresholds) => update({ thresholds })} />
       <div className="set-row">
         <span className="set-label">周りの様子</span>
