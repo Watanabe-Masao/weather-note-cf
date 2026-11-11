@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { COOKIE, ensureSchema } from "../worker/src/accounts";
 import worker from "../worker/src/index";
-import { checkSettings, dueSlots, runSchedule, WINDOW_MS } from "../worker/src/notify";
+import { checkSettings, DEFAULT_TIMES, dueSlots, reportMessage, runSchedule, WINDOW_MS } from "../worker/src/notify";
 import { b64u, encryptPayload, hkdf, newVapidKeys, type Subscription, unb64u, vapidAuth } from "../worker/src/webpush";
 import { d1 } from "./d1";
 
@@ -93,6 +93,10 @@ describe("when to notify (Japan time)", () => {
     expect(dueSlots(s, at("2026-11-13T00:02:00+09:00")).map((d) => d.slot)).toEqual(["2026-11-12 23:55"]);
   });
 
+  it("defaults to the middle of the 肌感 map's 時間帯", () => {
+    expect(DEFAULT_TIMES).toEqual(["07:00", "10:00", "13:00", "16:00", "19:00"]);
+  });
+
   it("accepts only real times and days, at most six times", () => {
     expect(checkSettings({ enabled: true, times: ["18:30", "07:05", "07:05", "25:00", "7:5"], days: [6, 0, 9] })).toEqual({ enabled: true, times: ["07:05", "18:30"], days: [0, 6] });
     expect(() => checkSettings({ enabled: true, times: ["01:00", "02:00", "03:00", "04:00", "05:00", "06:00", "07:00"], days: [] })).toThrow();
@@ -133,6 +137,9 @@ describe("the scheduled run", () => {
     expect(await runSchedule(db, now, send)).toBe(1);
     expect(sent.map((s) => s.endpoint).sort()).toEqual(["https://push.test/a-gone", "https://push.test/a1"]);
     expect(sent[0].url).toBe(`/?report=1&n=${Date.parse("2026-11-12T07:30:00+09:00")}`);
+    expect(reportMessage(Date.parse("2026-11-12T07:30:00+09:00")).title).toBe("朝の感じ方は？");
+    expect(reportMessage(Date.parse("2026-11-12T13:00:00+09:00")).title).toBe("昼の感じ方は？");
+    expect(reportMessage(Date.parse("2026-11-12T22:00:00+09:00")).title).toBe("今、外はどう感じますか？");
     expect(db.raw.prepare("SELECT endpoint FROM push_subscriptions WHERE user_id = 'A'").all()).toEqual([{ endpoint: "https://push.test/a1" }]);
     // The next run (5 minutes later) does not send the same slot again.
     expect(await runSchedule(db, now + 5 * 60_000, send)).toBe(0);
@@ -167,7 +174,8 @@ describe("notification settings over the API", () => {
     const me = (await call("/api/auth/setup", { code: "code", loginId: "masao" })).cookie!;
     expect((await call("/api/me/notify")).status).toBe(401);
     const first = await call("/api/me/notify", undefined, me);
-    expect(first.body).toEqual({ settings: { enabled: false, times: ["07:30", "12:30", "18:30"], days: [0, 1, 2, 3, 4, 5, 6] }, devices: 0 });
+    // The default: the middle of each of the 肌感 map's five 時間帯.
+    expect(first.body).toEqual({ settings: { enabled: false, times: ["07:00", "10:00", "13:00", "16:00", "19:00"], days: [0, 1, 2, 3, 4, 5, 6] }, devices: 0 });
     const saved = await call("/api/me/notify", { enabled: true, times: ["08:00"], days: [1, 2, 3, 4, 5] }, me);
     expect(saved.body.settings).toEqual({ enabled: true, times: ["08:00"], days: [1, 2, 3, 4, 5] });
     expect((await call("/api/me/notify", { enabled: true, times: "08:00", days: [] }, me)).status).toBe(400);

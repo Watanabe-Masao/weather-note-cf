@@ -2,10 +2,15 @@
 // account), and whether this device receives the notifications.
 
 import { useEffect, useState } from "react";
+import { BANDS } from "../../shared/feel";
 import { Segmented } from "../ui/kit";
 import { type DeviceState, loadNotify, type NotifySettings, saveNotify, testNotify, turnOffDevice, turnOnDevice, deviceState } from "./push";
 
 const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
+
+/** The 肌感 map's 時間帯, each with a notification at its middle (worker/src/notify.ts: BAND_TIMES). */
+const BAND_TIMES = BANDS.map((b) => ({ label: b.label, time: `${String(b.hours[1]).padStart(2, "0")}:00`, hours: b.hours as readonly number[] }));
+const bandOf = (t: string) => BAND_TIMES.find((b) => b.hours.includes(Number(t.slice(0, 2))))?.label ?? null;
 
 const DEVICE_TEXT: Record<DeviceState, string> = {
   unsupported: "このブラウザは通知に対応していません。",
@@ -70,9 +75,28 @@ export function NotifySection() {
       />
       {settings.enabled && (
         <>
+          <div className="notify-bands" role="group" aria-label="肌感マップの時間帯で通知する">
+            {BAND_TIMES.map((b) => {
+              const on = settings.times.includes(b.time);
+              return (
+                <button
+                  key={b.time}
+                  aria-pressed={on}
+                  className={on ? "on" : ""}
+                  disabled={busy || (!on && settings.times.length >= 6)}
+                  onClick={() => void save({ ...settings, times: on ? settings.times.filter((x) => x !== b.time) : [...settings.times, b.time].sort() })}
+                >
+                  <b>{b.label}</b>
+                  <small>{b.time}</small>
+                </button>
+              );
+            })}
+          </div>
+          <small className="set-help">肌感マップの時間帯の真ん中に通知します。記録がその時間帯の値と比べられます。ほかの時刻も足せます。</small>
           <div className="notify-times" role="group" aria-label="通知の時刻">
-            {settings.times.map((t) => (
+            {settings.times.filter((t) => !BAND_TIMES.some((b) => b.time === t)).map((t) => (
               <span key={t} className="notify-time">
+                {bandOf(t) ? <em>{bandOf(t)}</em> : null}
                 {t}
                 <button aria-label={`${t} の通知をやめる`} disabled={busy} onClick={() => void save({ ...settings, times: settings.times.filter((x) => x !== t) })}>
                   ×

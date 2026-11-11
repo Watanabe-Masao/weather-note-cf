@@ -3155,3 +3155,13 @@ svg.scrub {
 .notify-days button { padding: 0; }
 .notify-days button.on { background: color-mix(in srgb, var(--accent-base) 22%, var(--surface-raised)); border-color: var(--accent-base); font-weight: var(--weight-bold); }
 .notify .actions { flex-wrap: wrap; }
+.notify-bands { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.notify-bands button {
+  display: grid; gap: 2px; justify-items: center; padding: 6px 0;
+  border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--surface-raised); color: var(--ink-secondary);
+}
+.notify-bands button b { font-size: 14px; color: var(--ink-primary); }
+.notify-bands button small { font: 600 11px/1 ui-monospace, "SF Mono", Menlo, monospace; }
+.notify-bands button.on { background: color-mix(in srgb, var(--accent-base) 22%, var(--surface-raised)); border-color: var(--accent-base); }
+.notify-bands button.on b { font-weight: var(--weight-bold); }
+.notify-time em { font-style: normal; font-family: var(--font-sans, inherit); font-size: 11px; color: var(--ink-secondary); margin-right: 2px; }

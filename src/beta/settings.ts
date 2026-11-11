@@ -19,11 +19,16 @@ export interface BetaSettings {
   fitting: boolean;
   /** Someone is logged in: β (and reports) are shown. Logged out, β stays hidden. */
   enabled: boolean;
+  /**
+   * The models in use were fitted to this person's current reports. Until then (just opened, e.g.
+   * from a notification) a prediction would come from the bare starting values, so a report waits.
+   */
+  learned: boolean;
 }
 
 const initial = (): BetaSettings => {
   const ens = fitEnsemble([], STANDARD_ALPHA);
-  return { ens, alpha: ens.alpha, record: trackRecord([]), records: modelRecords([]), minForAlpha: MIN_FOR_ALPHA, fitting: false, enabled: false };
+  return { ens, alpha: ens.alpha, record: trackRecord([]), records: modelRecords([]), minForAlpha: MIN_FOR_ALPHA, fitting: false, enabled: false, learned: false };
 };
 
 /**
@@ -35,6 +40,7 @@ export function useBetaSettings(): BetaSettings {
   const enabled = useAccount().me != null;
   const [ens, setEns] = useState<Ensemble>(() => initial().ens);
   const [fitting, setFitting] = useState(false);
+  const [fittedFor, setFittedFor] = useState<typeof list>(null);
   const worker = useRef<Worker | null>(null);
   const seq = useRef(0);
   useEffect(() => {
@@ -44,6 +50,7 @@ export function useBetaSettings(): BetaSettings {
     const done = (e: Ensemble) => {
       if (id !== seq.current) return; // a newer fit is on its way
       setEns(e);
+      setFittedFor(list);
       setFitting(false);
     };
     try {
@@ -73,8 +80,9 @@ export function useBetaSettings(): BetaSettings {
       minForAlpha: MIN_FOR_ALPHA,
       fitting,
       enabled,
+      learned: list != null && fittedFor === list,
     }),
-    [ens, list, fitting, enabled],
+    [ens, list, fitting, enabled, fittedFor],
   );
 }
 

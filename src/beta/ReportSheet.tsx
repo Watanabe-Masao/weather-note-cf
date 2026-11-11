@@ -48,7 +48,13 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   const [saving, setSaving] = useState(false);
   // Wait for the past days (the summary asked for them), so the report carries its full history.
   const loading = baselineStateOf(store, station, today, beta.alpha).state === "loading";
-  const ready = sensation != null && exposure != null && windFelt != null && sky != null && !loading;
+  // The prediction must be the model's real one, made from this moment's values: wait until the
+  // models have learnt from this person's reports and today's hours have arrived (opened cold from a
+  // notification, neither is there yet). A failed fetch (offline) does not block: the report is
+  // saved without a prediction, and says so.
+  const hoursState = store?.getHours(station, today).state ?? "empty";
+  const waitingFor = loading ? "過去の気温を読み込み中…" : !beta.learned ? "これまでの記録から学習中…" : hoursState === "empty" ? "今日の観測を読み込み中…" : null;
+  const ready = sensation != null && exposure != null && windFelt != null && sky != null && waitingFor == null;
 
   /**
    * The comfort model's prediction for a moment: the station's hour then, the place and wind
@@ -136,7 +142,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
         <small className="set-help">見たままの空。その時刻の予報の天気は自動で添えるので、あとで予報と実際を突き合わせられます。</small>
       </div>
       <button className="report-save" disabled={!ready || saving} onClick={() => void save()}>
-        {loading ? "過去の気温を読み込み中…" : ready ? "記録する" : "4つとも選ぶと記録できます"}
+        {waitingFor ?? (ready ? "記録する" : "4つとも選ぶと記録できます")}
       </button>
     </div>
   );
