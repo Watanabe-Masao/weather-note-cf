@@ -9,9 +9,9 @@ import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
-import { type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
+import { SCALE_VERSION, type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
-import { type ComfortPrediction, predictComfort } from "./comfort";
+import { centreUnknown, type ComfortPrediction, LEARNING_LABELS, type LearningView, predictComfort } from "./comfort";
 import { baselineOf, baselineStateOf, driversOfDay, historyOf, useBaselineHistory } from "./useBaseline";
 import { reports } from "./useReports";
 
@@ -66,7 +66,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
     const e = !snap ? null : exposure === "sun" ? snap.sunTemp : exposure === "shade" ? snap.shadeTemp : snap.sunTemp == null || snap.shadeTemp == null ? null : (snap.sunTemp + snap.shadeTemp) / 2;
     const sunny = sky == null ? null : sky === "clear" || sky === "sunny";
     const x = driversOfDay(store, station, today, beta.alpha, e, snap?.humidity ?? null, { radDay: snap?.radDay ?? null, hour: snap?.hour ?? null, sky: sunny, wind6h: snap?.wind6h ?? null, windLastNight: snap?.windLastNight ?? null });
-    return x ? predictComfort(beta.ens, { ...x, windFelt }, now) : null;
+    return x ? predictComfort(beta.ens, { ...x, windFelt }, now, beta.learning.state) : null;
   };
   const preview = predictAt(Date.now());
 
@@ -83,6 +83,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       at: new Date(now).toISOString(),
       openedAt,
       ...(notifiedAt ? { notifiedAt: new Date(notifiedAt).toISOString() } : {}),
+      scaleVersion: SCALE_VERSION,
       comfort,
       station,
       sensation,
@@ -134,7 +135,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
         <span className="set-label">風</span>
         <Segmented label="風の感じ" value={windFelt ?? ("" as WindFelt)} options={WINDS.map((w) => ({ id: w.id, label: w.label }))} onChange={setWindFelt} />
       </div>
-      <PredictionCard prediction={preview} reported={sensation} />
+      <PredictionCard prediction={preview} reported={sensation} learning={beta.learning} />
       <div className="set-row">
         <span className="set-label">今の天気</span>
         <Segmented label="今の天気" value={sky ?? ("" as Sky)} options={SKIES.map((k) => ({ id: k.id, label: k.label }))} onChange={setSky} />
@@ -147,20 +148,45 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   );
 }
 
+/** Where in the range the moment sits, in words (z = (E′ − μ)/h; the range is |z| ≤ 1). */
+function placeWords(z: number): string {
+  if (z < -1) return "快適の範囲より寒い側";
+  if (z > 1) return "快適の範囲より暑い側";
+  if (z < -0.4) return "快適の範囲の寒い側寄り";
+  if (z > 0.4) return "快適の範囲の暑い側寄り";
+  return "快適の範囲の中ほど";
+}
+
 /**
  * The data's prediction, shown once the feeling has been chosen: shown before, it would pull the
- * answer towards itself and spoil the very misses the model learns from.
+ * answer towards itself and spoil the very misses the model learns from. It is always computed and
+ * kept with the report; while the centre is not yet known (未学習・情報不足) only the answers'
+ * distribution is shown, never a centre temperature that the reports have not yet given.
  */
-function PredictionCard({ prediction, reported }: { prediction: ComfortPrediction | null; reported: Sensation | null }) {
+function PredictionCard({ prediction, reported, learning }: { prediction: ComfortPrediction | null; reported: Sensation | null; learning: LearningView }) {
   if (reported == null) return <p className="predict-card waiting">感じ方を選ぶと、データからの予測と比べられます。</p>;
   if (!prediction) return <p className="predict-card waiting">いる場所と風を選ぶと、データからの予測が出ます（その時刻の観測値や最近の基準がないときは出せません）。</p>;
   const { state: st } = prediction;
   const maxP = Math.max(...prediction.probs);
+  const unknown = centreUnknown(learning.state);
+  const pct = (v: number | undefined) => `${Math.round((v ?? 0) * 100)}%`;
   return (
     <div className="predict-card" role="status">
+      <p className="predict-state">
+        <span className={`learn-tag ${learning.state}`}>{LEARNING_LABELS[learning.state]}</span>
+        {learning.state === "untrained"
+          ? "あなたの記録がまだないので、初期値による参考です。"
+          : learning.state === "sparse"
+            ? "快適の中心はまだ特定できません。"
+            : learning.state === "provisional"
+              ? "推定の幅がまだ広い、暫定の予測です。"
+              : learning.state === "testable"
+                ? "事前の予測を検証している段階です。"
+                : "事前の予測が、過去の答えの割合より当たっています。"}
+      </p>
       <p>
-        データからの予測 <b>{labelOf(prediction.mode)}</b>
-        <span className="predict-num">（{Math.round(maxP * 100)}%・期待値 {prediction.expected > 0 ? "+" : ""}{prediction.expected.toFixed(1)}）</span>
+        {unknown ? "答えの分布" : "データからの予測"} <b>{labelOf(prediction.mode)}</b>
+        <span className="predict-num">（{Math.round(maxP * 100)}%）</span>
       </p>
       <div className="predict-bars" aria-label="7段階それぞれの確率">
         {prediction.probs.map((p, k) => (
@@ -170,10 +196,26 @@ function PredictionCard({ prediction, reported }: { prediction: ComfortPredictio
           </span>
         ))}
       </div>
-      <p className="predict-sub">
-        今の快適の中心 {st.mu.toFixed(1)}℃・範囲 {(st.mu - st.h).toFixed(1)}〜{(st.mu + st.h).toFixed(1)}℃。その場の温度は中心から {prediction.offset > 0 ? "+" : ""}
-        {prediction.offset.toFixed(1)}℃{prediction.beyond === 0 ? "（範囲の中）" : `（範囲の外 ${prediction.beyond > 0 ? "+" : ""}${prediction.beyond.toFixed(1)}℃）`}。記録 {prediction.n}件から学習。
-      </p>
+      {prediction.sides && (
+        <p className="predict-sides">
+          寒い側 <b>{pct(prediction.sides.cold)}</b>・快適 <b>{pct(prediction.sides.neutral)}</b>・暑い側 <b>{pct(prediction.sides.warm)}</b>
+        </p>
+      )}
+      {unknown ? (
+        <p className="predict-sub">まだ足りないもの：{learning.missing.join("、")}。</p>
+      ) : (
+        <p className="predict-sub">
+          快適の中心 {st.mu.toFixed(1)}℃
+          {prediction.muInterval ? `（95%：${prediction.muInterval[0].toFixed(1)}〜${prediction.muInterval[1].toFixed(1)}℃）` : ""}
+          。今は{prediction.z != null ? placeWords(prediction.z) : "—"}
+          {prediction.zInterval ? `（位置 ${prediction.z?.toFixed(1)}、95%：${prediction.zInterval[0].toFixed(1)}〜${prediction.zInterval[1].toFixed(1)}。±1が範囲の端）` : ""}。
+        </p>
+      )}
+      {prediction.spread && (
+        <p className="predict-sub">
+          予測の幅：答えそのもののばらつき ±{prediction.spread.answer.toFixed(1)}段、推定の不確かさ ±{prediction.spread.param.toFixed(1)}段。記録 {prediction.n}件から学習。
+        </p>
+      )}
       <p className="predict-sub">枠があなたの答え、塗りが最も確率の高い段階です。送信した時刻の観測値で計算し直して記録します。</p>
     </div>
   );

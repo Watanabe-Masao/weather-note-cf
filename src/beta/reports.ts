@@ -18,6 +18,13 @@ import type { ComfortPrediction } from "./comfort";
  * The 7-point thermal sensation scale (−3 … +3, after ASHRAE 55), in short words that fit a
  * phone's width and match the 肌感 levels one to one. The numbers are what is analysed.
  */
+/**
+ * Version of the words of the scale. 1: 寒い・涼しい・やや涼しい・どちらでもない／適温・やや暖かい・
+ * 暖かい・暑い; 2: 極寒・寒い・涼しい・快適・暖かい・暑い・猛暑. The numbers are the same, but the
+ * same number was asked in other words, so analysis can tell the two apart. Reports without it are 1.
+ */
+export const SCALE_VERSION = 2;
+
 export const SENSATIONS = [
   { value: -3, label: "極寒" },
   { value: -2, label: "寒い" },
@@ -144,6 +151,8 @@ export interface Report {
   /** For syncing: last change (ms) and a soft delete. */
   updatedAt: number;
   deleted?: boolean;
+  /** The words the answer was given in (SCALE_VERSION; missing: 1). */
+  scaleVersion?: number;
   /** Whose report it is (the account's id); none until the first sync after a login (sync.ts). */
   owner?: string;
 }
@@ -300,6 +309,20 @@ const COLUMNS: readonly string[] = [
     ["mean", "max", "min", "humidity", "sun_h", "radiation_mj", "rain_mm", "wind", "weather", "from"].map((f) => `d${i + 1}_${f}`),
   ).flat(),
   "id",
+  // Added later, at the end so earlier columns keep their places.
+  "scale_version",
+  "model_version",
+  "learning_state",
+  "p_cold",
+  "p_neutral",
+  "p_warm",
+  "pred_z",
+  "pred_z_lo",
+  "pred_z_hi",
+  "pred_mu_lo",
+  "pred_mu_hi",
+  "sd_answer",
+  "sd_param",
 ] as const;
 
 const cell = (v: unknown) => {
@@ -374,6 +397,19 @@ export function toCsv(reports: Report[]): string {
         return [d?.mean, d?.max, d?.min, d?.humidity, d?.sun, d?.radiation, d?.rain, d?.wind, d?.weather, d?.from];
       }).flat(),
       r.id,
+      r.scaleVersion ?? 1,
+      r.comfort?.version ?? (r.comfort ? "comfort-1" : null),
+      r.comfort?.learning,
+      r.comfort?.sides?.cold,
+      r.comfort?.sides?.neutral,
+      r.comfort?.sides?.warm,
+      r.comfort?.z,
+      r.comfort?.zInterval?.[0],
+      r.comfort?.zInterval?.[1],
+      r.comfort?.muInterval?.[0],
+      r.comfort?.muInterval?.[1],
+      r.comfort?.spread?.answer,
+      r.comfort?.spread?.param,
     ]
       .map(cell)
       .join(","),

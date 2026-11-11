@@ -3,7 +3,7 @@
 // predictions' records. Fitting runs in a worker so the screen never waits for it.
 
 import { createContext, useEffect, useMemo, useRef, useState } from "react";
-import { type Ensemble, ensembleFromReports, fitEnsemble, MIN_FOR_ALPHA, modelRecords, STANDARD_ALPHA, type TrackRecord, trackRecord } from "./comfort";
+import { type Ensemble, ensembleFromReports, learningOf, type LearningView, fitEnsemble, MIN_FOR_ALPHA, modelRecords, STANDARD_ALPHA, type TrackRecord, trackRecord } from "./comfort";
 import { useReports } from "./useReports";
 import { useAccount } from "../account/account";
 
@@ -24,11 +24,13 @@ export interface BetaSettings {
    * from a notification) a prediction would come from the bare starting values, so a report waits.
    */
   learned: boolean;
+  /** How far the learning has got, and what is still missing (comfort.ts: learningOf). */
+  learning: LearningView;
 }
 
 const initial = (): BetaSettings => {
   const ens = fitEnsemble([], STANDARD_ALPHA);
-  return { ens, alpha: ens.alpha, record: trackRecord([]), records: modelRecords([]), minForAlpha: MIN_FOR_ALPHA, fitting: false, enabled: false, learned: false };
+  return { ens, alpha: ens.alpha, record: trackRecord([]), records: modelRecords([]), minForAlpha: MIN_FOR_ALPHA, fitting: false, enabled: false, learned: false, learning: { state: "untrained", missing: [], muInterval: null } };
 };
 
 /**
@@ -71,6 +73,7 @@ export function useBetaSettings(): BetaSettings {
     }
   }, [list]);
   useEffect(() => () => worker.current?.terminate(), []);
+  const learning = useMemo(() => learningOf(list ?? [], ens), [list, ens]);
   return useMemo(
     () => ({
       ens,
@@ -81,8 +84,9 @@ export function useBetaSettings(): BetaSettings {
       fitting,
       enabled,
       learned: list != null && fittedFor === list,
+      learning,
     }),
-    [ens, list, fitting, enabled, fittedFor],
+    [ens, list, fitting, enabled, fittedFor, learning],
   );
 }
 

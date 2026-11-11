@@ -15,6 +15,12 @@ import {
   ADAPT_LO,
   probabilities,
   stateOf,
+  centreUnknown,
+  learningFrom,
+  LEARNING_RULES,
+  MODEL_VERSION,
+  referenceProbs,
+  rps,
 } from "../../src/beta/comfort";
 
 const model = (id: string) => MODELS.find((m) => m.id === id)!;
@@ -180,5 +186,86 @@ describe("β: the comfort centre and range", { timeout: 60_000 }, () => {
     expect(p.probs.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 1);
     expect(p.models.map((m) => m.id)).toEqual(MODELS.map((m) => m.id));
     expect(p.models.every((m) => Math.abs(m.weight - 1 / MODELS.length) < 0.01)).toBe(true); // no reports: equal
+  });
+});
+
+describe("β: what a prediction means (position, answers' spread, the model's uncertainty)", { timeout: 60_000 }, () => {
+  const M0truth = (h = 3, s = 0.7) => [18, Math.log(h), Math.log(4), Math.log(s), 0, 0];
+
+  it("with no reports, is wide by itself (the starting values are unsure), and says it is untrained", () => {
+    const ens = fitEnsemble([], 0.8);
+    const p = predictComfort(ens, typical({ e: 18 }), 0, "untrained");
+    expect(Math.max(...p.probs)).toBeLessThan(0.6); // no confident answer from starting values
+    expect(p.spread!.param).toBeGreaterThan(0.5);
+    expect(p.learning).toBe("untrained");
+    expect(p.version).toBe(MODEL_VERSION);
+    expect(learningFrom([], 0, [], ens).state).toBe("untrained");
+  });
+
+  it("tells a cold-leaning 快適 from a central one: the same 寒い answer is judged differently", () => {
+    const ens = fitEnsemble(simulate(300, "M0", M0truth(), 21), 0.8);
+    const mu = predictComfort(ens, typical(), 0).state.mu;
+    const centre = predictComfort(ens, typical({ e: mu }), 0);
+    const coldSide = predictComfort(ens, typical({ e: mu - 2.4 }), 0);
+    expect(centre.mode).toBe(0);
+    expect(coldSide.mode).toBe(0); // both say 快適 …
+    expect(coldSide.z!).toBeLessThan(-0.5); // … but one sits at the cold side of the range
+    expect(Math.abs(centre.z!)).toBeLessThan(0.3);
+    expect(coldSide.sides!.cold).toBeGreaterThan(centre.sides!.cold);
+    // An answer of 涼しい (−1) costs less where it was more expected.
+    expect(rps(coldSide.probs, -1)).toBeLessThan(rps(centre.probs, -1));
+    expect(-Math.log(coldSide.probs[2])).toBeLessThan(-Math.log(centre.probs[2]));
+  });
+
+  it("keeps the answers' own spread apart from the uncertainty of the parameters", () => {
+    // Many reports from a person whose answers scatter a lot: the spread is in the answers.
+    const scattered = predictComfort(fitEnsemble(simulate(400, "M0", M0truth(3, 2.5), 5), 0.8), typical({ e: 18 }), 0);
+    // A few reports from a steady person: what is unsure is the model.
+    const few = predictComfort(fitEnsemble(simulate(8, "M0", M0truth(3, 0.4), 5), 0.8), typical({ e: 18 }), 0);
+    expect(scattered.spread!.answer).toBeGreaterThan(scattered.spread!.param * 2);
+    expect(few.spread!.param).toBeGreaterThan(scattered.spread!.param);
+  });
+
+  it("does not claim a centre from one-sided, narrow or single-day answers", () => {
+    const ens = fitEnsemble([], 0.8);
+    const obs = simulate(40, "M0", M0truth(), 4);
+    const coldOnly = obs.map((o) => ({ ...o, y: Math.min(o.y, -1) }));
+    const sparse = learningFrom(coldOnly, 10, [], ens);
+    expect(sparse.state).toBe("sparse");
+    expect(sparse.missing.join()).toContain("両方");
+    const narrow = obs.map((o, i) => ({ ...o, e: 18 + (i % 3) }));
+    expect(learningFrom(narrow, 10, [], ens).missing.join()).toContain("温度の幅");
+    expect(learningFrom(obs, 1, [], ens).missing.join()).toContain("記録した日");
+    expect(centreUnknown("sparse")).toBe(true);
+    expect(centreUnknown("provisional")).toBe(false);
+  });
+
+  it("moves from provisional to testable as the interval of the centre narrows, and to verified only by beating the reference", () => {
+    const fewObs = simulate(6, "M0", M0truth(), 8); // both sides, but too few to pin the centre
+    const manyObs = simulate(300, "M0", M0truth(), 8);
+    expect(learningFrom(fewObs, 10, [], fitEnsemble(fewObs, 0.8)).state).toBe("provisional");
+    const many = fitEnsemble(manyObs, 0.8);
+    expect(learningFrom(manyObs, 30, [], many).state).toBe("testable");
+    // Predictions made while testable: good ones verify, poor ones do not.
+    const good = Array.from({ length: LEARNING_RULES.minChecked }, (_, i) => ({ probs: [0, 0, 0.05, 0.9, 0.05, 0, 0], y: 0, earlier: Array(i).fill(i % 2 ? -2 : 2) }));
+    const poor = good.map((c) => ({ ...c, probs: [0.9, 0.05, 0.05, 0, 0, 0, 0] }));
+    expect(learningFrom(manyObs, 30, good, many).state).toBe("verified");
+    expect(learningFrom(manyObs, 30, poor, many).state).toBe("testable");
+  });
+});
+
+describe("β: scores", () => {
+  it("RPS is 0 for a sure right answer and grows with the distance of the miss", () => {
+    const sure = (k: number) => Array.from({ length: 7 }, (_, i) => (i === k + 3 ? 1 : 0));
+    expect(rps(sure(0), 0)).toBe(0);
+    expect(rps(sure(0), -1)).toBeLessThan(rps(sure(0), -3));
+    expect(rps(sure(1), 0)).toBeCloseTo(rps(sure(-1), 0), 10);
+  });
+
+  it("the reference is the person's earlier answers, smoothed", () => {
+    const p = referenceProbs([0, 0, 1]);
+    expect(p.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 10);
+    expect(p[3]).toBeGreaterThan(p[4]);
+    expect(p[4]).toBeGreaterThan(p[0]);
   });
 });
