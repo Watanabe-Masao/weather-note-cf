@@ -27,6 +27,8 @@ interface Props {
   onPickDay?: (date: string) => void;
   /** Swipe sideways: the graph follows the finger and moves the selected day by whole days. */
   onShiftDays?: (days: number) => void;
+  /** Switch 日なた ↔ 日かげ (the shared setting). The 肌感 chip cycles 日なた → 日かげ → オフ. */
+  onToggleSun?: () => void;
 }
 
 /** Data colours from the design tokens. */
@@ -78,7 +80,7 @@ const BUFFER = 4;
 /** Hold this long (ms) without moving to scrub instead of panning. */
 const LONG_PRESS = 280;
 
-export function Chart({ store, station, target, partner, metric, height = 190, onPickDay, onShiftDays }: Props) {
+export function Chart({ store, station, target, partner, metric, height = 190, onPickDay, onShiftDays, onToggleSun }: Props) {
   const H = height;
   const feel = useContext(FeelContext);
   const { shown, toggle, reset } = useHidden(metric);
@@ -475,7 +477,22 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
         <div className="chip-row" role="group" aria-label="表示する線">
           {/* Line switches: the chip shows the line's colour; off is dimmed. */}
           {lines.map((s) => (
-            <Chip key={s.key} size="sm" on={shown(s.key)} tone={COLORS[s.tone]} onClick={() => toggle(s.key)}>
+            <Chip
+              key={s.key}
+              size="sm"
+              on={shown(s.key)}
+              tone={COLORS[s.tone]}
+              onClick={() => {
+                // 肌感: 日なた温度 → 日かげ温度 → オフ → 日なた温度 …
+                if (s.key !== "feel" || !onToggleSun) return toggle(s.key);
+                if (!shown("feel")) {
+                  if (!feel.sun) onToggleSun();
+                  toggle("feel");
+                } else if (feel.sun) onToggleSun();
+                else toggle("feel");
+              }}
+              label={s.key === "feel" && onToggleSun ? `肌感の線：${!shown("feel") ? "オフ" : feel.sun ? "日なた温度" : "日かげ温度"}（タップで切り替え）` : undefined}
+            >
               <i className="dot" style={{ background: COLORS[s.tone] }} />
               {s.key === "feel" ? (feel.sun ? "日なた温度" : "日かげ温度") : s.label}
             </Chip>

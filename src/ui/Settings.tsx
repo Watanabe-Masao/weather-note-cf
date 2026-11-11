@@ -1,7 +1,9 @@
-// Settings: observation point, saved data report (spec chapter 1), refresh and clear.
+// Settings, in three groups that match how the app is used: 地点 (where), 肌感の基準 (how a
+// temperature feels: the five levels drawn as the same coloured band as the 肌感 bar), 表示 (日なた /
+// 日かげ). Saved data (spec chapter 1), refresh and clear sit folded at the end.
 
 import { ModalSheet, useSheetClose } from "./ModalSheet";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /** A number field that commits when editing ends (blur or Enter), so half-typed values never apply. */
 function NumberField({ value, onCommit, label, ...rest }: { value: number; onCommit: (v: number) => void; label: string; min?: number; max?: number }) {
@@ -30,6 +32,8 @@ import { LEVELS, SURROUNDINGS } from "../../shared/feel";
 import type { Station } from "../../shared/types";
 import { type SavedFeel, SUNSHINE_PRESETS } from "../feelSettings";
 import type { StorageReport, WeatherStore } from "../data/store";
+import { LEVEL_COLORS } from "./FeelBar";
+import { Segmented } from "./kit";
 
 const time = (t: number | null) => (t ? new Date(t).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" }) : "—");
 const PERSISTED = { granted: "許可", denied: "不許可", unsupported: "未対応" } as const;
@@ -39,74 +43,140 @@ interface Props {
   station: string;
   onStation: (id: string) => void;
   feel: { saved: SavedFeel; update: (patch: Partial<SavedFeel>) => void; reset: () => void };
+  /** 日なた (true) or 日かげ (false): the shared display setting. */
+  sun: boolean;
+  onSun: (sun: boolean) => void;
   onClose: () => void;
 }
 
-/** Spec 4.8: the boundaries between the five levels, surroundings, sunshine and anemometer height. */
-function FeelSection({ station, feel }: { station: string; feel: Props["feel"] }) {
-  const { saved, update, reset } = feel;
-  const height = saved.heights[station] ?? 10;
+const BAND_LO = -5;
+const BAND_HI = 35;
+const STEP = 0.5;
+const GAP = 0.5; // neighbouring boundaries stay at least this far apart
+
+/** Move boundary `i` to `v`, kept between its neighbours and on the 0.5℃ grid. */
+export function moveThreshold(t: SavedFeel["thresholds"], i: number, v: number): SavedFeel["thresholds"] {
+  const lo = i > 0 ? t[i - 1] + GAP : BAND_LO;
+  const hi = i < t.length - 1 ? t[i + 1] - GAP : BAND_HI;
+  const next = [...t] as SavedFeel["thresholds"];
+  next[i] = Math.min(hi, Math.max(lo, Math.round(v / STEP) * STEP));
+  return next;
+}
+
+/**
+ * The five levels as one coloured band (the same colours as the 肌感 bar), with the four boundaries
+ * as handles: drag one along the band, or use − ＋ under it. What is set is what the bar will show.
+ */
+function LevelBand({ thresholds, onChange }: { thresholds: SavedFeel["thresholds"]; onChange: (t: SavedFeel["thresholds"]) => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const drag = useRef<number | null>(null);
+  const pct = (v: number) => ((v - BAND_LO) / (BAND_HI - BAND_LO)) * 100;
+  const valueAt = (clientX: number) => {
+    const r = ref.current!.getBoundingClientRect();
+    return BAND_LO + ((clientX - r.left) / r.width) * (BAND_HI - BAND_LO);
+  };
+  const edges = [BAND_LO, ...thresholds, BAND_HI];
   return (
-    <>
-      <h3>肌感（日なた温度・日かげ温度）</h3>
-      <div className="threshold-row">
-        {saved.thresholds.map((value, i) => (
-          <label key={i} className="threshold">
-            <small>
-              {LEVELS[i]}｜{LEVELS[i + 1]}
-            </small>
-            <NumberField
-              value={value}
-              label={`${LEVELS[i]}と${LEVELS[i + 1]}の境目（℃）`}
-              onCommit={(v) => {
-                const t = [...saved.thresholds] as SavedFeel["thresholds"];
-                t[i] = v;
-                update({ thresholds: t });
-              }}
-            />
-          </label>
+    <div className="level-set">
+      <div
+        ref={ref}
+        className="level-band"
+        onPointerDown={(e) => {
+          const v = valueAt(e.clientX);
+          // The nearest boundary follows the finger.
+          let best = 0;
+          thresholds.forEach((t, i) => Math.abs(t - v) < Math.abs(thresholds[best] - v) && (best = i));
+          drag.current = best;
+          e.currentTarget.setPointerCapture(e.pointerId);
+          onChange(moveThreshold(thresholds, best, v));
+        }}
+        onPointerMove={(e) => drag.current != null && onChange(moveThreshold(thresholds, drag.current, valueAt(e.clientX)))}
+        onPointerUp={() => (drag.current = null)}
+        onPointerCancel={() => (drag.current = null)}
+      >
+        {LEVELS.map((name, i) => (
+          <span
+            key={name}
+            className="level-seg"
+            style={{ left: `${pct(edges[i])}%`, width: `${pct(edges[i + 1]) - pct(edges[i])}%`, background: LEVEL_COLORS[i] }}
+          >
+            {/* Names only where they fit; the steppers below name every boundary. */}
+            {pct(edges[i + 1]) - pct(edges[i]) >= 22 && <span>{name}</span>}
+          </span>
+        ))}
+        {thresholds.map((t, i) => (
+          <span key={i} className="level-handle" style={{ left: `${pct(t)}%` }} aria-hidden>
+            <b>{t % 1 ? t.toFixed(1) : t}</b>
+          </span>
         ))}
       </div>
-      <p className="hint">それぞれの段階の境目の温度（℃）。左から順に大きくなるように入力してください。</p>
-      <label className="field">
-        周りの様子（風の弱まり方）
-        <select value={saved.alpha} onChange={(e) => update({ alpha: Number(e.target.value) })}>
-          {SURROUNDINGS.map((s) => (
-            <option key={s.alpha} value={s.alpha}>
-              {s.label}（α {s.alpha.toFixed(2)}）
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        日なたの日差しの強さ
-        <select value={saved.absorb} onChange={(e) => update({ absorb: Number(e.target.value) })}>
-          {SUNSHINE_PRESETS.map((p) => (
-            <option key={p.absorb} value={p.absorb}>
-              {p.label}（k {p.absorb.toFixed(2)}）
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        この観測地点の風速計の高さ（m）
-        <NumberField
-          value={height}
-          label="風速計の高さ（m）"
-          min={2}
-          max={200}
-          onCommit={(v) => update({ heights: { ...saved.heights, [station]: v } })}
-        />
-      </label>
-      <p className="hint">気象庁の観測所の地点情報に載っています。分からない間は10m。</p>
-      <button className="reset" onClick={reset}>
-        肌感の設定を初期値に戻す
-      </button>
-    </>
+      <div className="level-scale" aria-hidden>
+        {[BAND_LO, 5, 15, 25, BAND_HI].map((v) => (
+          <span key={v} style={{ left: `${pct(v)}%` }}>
+            {v}
+          </span>
+        ))}
+      </div>
+      <div className="level-steppers">
+        {thresholds.map((t, i) => (
+          <div key={i} className="level-stepper" role="group" aria-label={`${LEVELS[i]}と${LEVELS[i + 1]}の境目`}>
+            <small>
+              <i style={{ background: LEVEL_COLORS[i] }} />
+              {LEVELS[i]}｜{LEVELS[i + 1]}
+              <i style={{ background: LEVEL_COLORS[i + 1] }} />
+            </small>
+            <div>
+              <button onClick={() => onChange(moveThreshold(thresholds, i, t - STEP))} aria-label={`${LEVELS[i]}と${LEVELS[i + 1]}の境目を0.5度下げる`}>
+                −
+              </button>
+              <output aria-live="polite">{t.toFixed(1)}℃</output>
+              <button onClick={() => onChange(moveThreshold(thresholds, i, t + STEP))} aria-label={`${LEVELS[i]}と${LEVELS[i + 1]}の境目を0.5度上げる`}>
+                ＋
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
-function SettingsBody({ store, station, onStation, feel, onClose: _done }: Props) {
+/** Spec 4.8: the boundaries between the five levels, surroundings and sunshine. */
+function FeelSection({ feel }: { feel: Props["feel"] }) {
+  const { saved, update, reset } = feel;
+  return (
+    <section className="set-group" aria-labelledby="set-feel">
+      <h3 id="set-feel">肌感の基準</h3>
+      <p className="set-lead">日なた温度・日かげ温度が、どの段階に入るかの境目です。帯の境目を指で動かすか、− ＋ で0.5℃ずつ変えられます。</p>
+      <LevelBand thresholds={saved.thresholds} onChange={(thresholds) => update({ thresholds })} />
+      <div className="set-row">
+        <span className="set-label">周りの様子</span>
+        <Segmented
+          label="周りの様子（風の弱まり方）"
+          value={String(saved.alpha)}
+          options={SURROUNDINGS.map((s) => ({ id: String(s.alpha), label: s.label }))}
+          onChange={(v) => update({ alpha: Number(v) })}
+        />
+        <small className="set-help">建物が多いほど風が弱まり、暖かく感じる計算になります。</small>
+      </div>
+      <div className="set-row">
+        <span className="set-label">日差しの強さ</span>
+        <Segmented
+          label="日なたの日差しの強さ"
+          value={String(saved.absorb)}
+          options={SUNSHINE_PRESETS.map((p) => ({ id: String(p.absorb), label: p.label }))}
+          onChange={(v) => update({ absorb: Number(v) })}
+        />
+        <small className="set-help">日なた温度で、日差しをどれだけ足すか。</small>
+      </div>
+      <button className="reset" onClick={reset}>
+        肌感の基準を初期値に戻す
+      </button>
+    </section>
+  );
+}
+
+function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _done }: Props) {
   void _done;
   const onClose = useSheetClose();
   const [stations, setStations] = useState<Station[]>([]);
@@ -134,10 +204,14 @@ function SettingsBody({ store, station, onStation, feel, onClose: _done }: Props
     };
   }, [store]);
 
+  const height = feel.saved.heights[station] ?? 10;
+  const current = stations.find((s) => s.blockNo === station);
   return (
     <>
-        <label className="field">
-          観測地点
+      <section className="set-group" aria-labelledby="set-station">
+        <h3 id="set-station">地点</h3>
+        <label className="set-row">
+          <span className="set-label">観測地点</span>
           <select value={station} onChange={(e) => onStation(e.target.value)}>
             {stations.map((s) => (
               <option key={s.blockNo} value={s.blockNo}>
@@ -146,10 +220,50 @@ function SettingsBody({ store, station, onStation, feel, onClose: _done }: Props
             ))}
           </select>
         </label>
+        <label className="set-row inline">
+          <span className="set-label">
+            風速計の高さ
+            <small className="set-help">{current ? `${current.name}の観測所。` : ""}気象庁の地点情報に載っています。分からなければ10m。</small>
+          </span>
+          <span className="set-number">
+            <NumberField
+              value={height}
+              label="風速計の高さ（m）"
+              min={2}
+              max={200}
+              onCommit={(v) => feel.update({ heights: { ...feel.saved.heights, [station]: v } })}
+            />
+            m
+          </span>
+        </label>
+      </section>
 
-        <FeelSection station={station} feel={feel} />
+      <FeelSection feel={feel} />
 
-        <h3>保存データ</h3>
+      <section className="set-group" aria-labelledby="set-view">
+        <h3 id="set-view">表示</h3>
+        <div className="set-row">
+          <span className="set-label">肌感の温度</span>
+          <Segmented
+            label="肌感の温度"
+            value={sun ? "sun" : "shade"}
+            options={[
+              { id: "sun", label: "日なた温度" },
+              { id: "shade", label: "日かげ温度" },
+            ]}
+            onChange={(v) => onSun(v === "sun")}
+          />
+          <small className="set-help">表・グラフ・時間帯の肌感に共通です。グラフのチップからも切り替えられます。</small>
+        </div>
+      </section>
+
+      <details className="set-group set-data">
+        <summary>
+          <h3>保存データ</h3>
+          <small>
+            日別 {report?.days ?? "…"}・時間別 {report?.hours ?? "…"}
+          </small>
+        </summary>
         <dl className="report">
           <dt>保存件数</dt>
           <dd>
@@ -165,6 +279,7 @@ function SettingsBody({ store, station, onStation, feel, onClose: _done }: Props
           <dd>{store?.requests ?? 0}回</dd>
         </dl>
         {report?.lostSince ? <p className="warn">保存データが消えていました（前回 {report.lostSince}件）</p> : null}
+      </details>
 
         <div className="actions">
           <button

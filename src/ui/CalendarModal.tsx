@@ -7,7 +7,7 @@
 // same day, or 決定, confirms. Months move with ‹ › or a sideways swipe; 年 jumps far.
 
 import { useEffect, useMemo, useState } from "react";
-import { daysOfMonth, monthOf } from "../../shared/dates";
+import { addDays, daysOfMonth, FORECAST_DAYS, monthOf } from "../../shared/dates";
 import { dayTone, holidayName, WEEKDAYS } from "../../shared/holidays";
 import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "../compare";
 import type { WeatherStore } from "../data/store";
@@ -213,6 +213,8 @@ function Body(p: Props) {
           const row = day?.state === "ready" ? day.row : null;
           const max = typeof row?.max === "number" ? Math.round(row.max as number) : null;
           const forecast = d >= p.today;
+          // Each cell says which of four it is: a value, still loading, failed, or no data that day.
+          const status = !enabled ? "outside" : !day || day.state === "empty" ? "loading" : day.state === "error" ? "failed" : max == null ? "none" : "ready";
           const cls = [
             "cal-day",
             `tone-${dayTone(d)}`,
@@ -221,7 +223,10 @@ function Body(p: Props) {
             d === other ? "other" : "",
             d === p.today ? "today" : "",
             forecast && enabled ? "forecast" : "",
+            `is-${status}`,
           ].join(" ");
+          const spoken =
+            status === "outside" ? (d > p.max ? "予報の範囲外" : "選べません") : status === "loading" ? "読み込み中" : status === "failed" ? "取得できませんでした" : status === "none" ? "データなし" : `最高${max}℃`;
           return (
             <button
               key={d}
@@ -229,13 +234,15 @@ function Body(p: Props) {
               disabled={!enabled}
               title={holidayName(d) || undefined}
               onClick={() => tap(d)}
-              aria-label={`${dateLabel(d)}${holidayName(d) ? ` ${holidayName(d)}` : ""}${max != null ? ` 最高${max}℃` : ""}`}
+              aria-label={`${dateLabel(d)}${holidayName(d) ? ` ${holidayName(d)}` : ""}${d === p.today ? " 今日" : ""}${forecast && enabled ? " 予報" : ""} ${spoken}${confidenceOfRow(row) === "C" ? " 信頼度C" : ""}${d === other ? (p.side === "target" ? " 比較日" : " 対象日") : ""}${d === value ? " 選択中" : ""}`}
               aria-pressed={d === cand?.date}
             >
               <span className="cal-n">{+d.slice(8)}</span>
-              <span className="cal-icon">{row ? <WeatherIcon text={(row.dayWeather as string | null) ?? null} /> : null}</span>
-              <span className="cal-max">
-                {max ?? ""}
+              <span className="cal-icon" aria-hidden>
+                {row ? <WeatherIcon text={(row.dayWeather as string | null) ?? null} /> : status === "loading" ? <i className="cal-skel" /> : null}
+              </span>
+              <span className="cal-max" aria-hidden>
+                {status === "loading" ? <i className="cal-skel short" /> : status === "failed" || status === "none" ? <span className="cal-none">—</span> : (max ?? "")}
                 {confidenceOfRow(row) === "C" ? <i className="cal-c">C</i> : null}
               </span>
               {d === other && <span className="cal-other">{p.side === "target" ? "比較" : "対象"}</span>}
@@ -243,6 +250,27 @@ function Body(p: Props) {
           );
         })}
       </div>
+
+      {(() => {
+        // Say why cells are blank, once, under the month.
+        const ds = days.filter((d) => d >= p.min && d <= p.max);
+        const failed = ds.some((d) => p.store?.getDay(p.station, d).state === "error");
+        const beyond = days.some((d) => d > p.max);
+        if (!failed && !beyond) return null;
+        return (
+          <p className="cal-note" role="status">
+            {beyond && <span>{dateLabel(addDays(p.max, 1))}以降は予報がありません（{FORECAST_DAYS + 1}日先まで）。</span>}
+            {failed && (
+              <span>
+                取得できなかった日があります（—）。
+                <button className="state-retry" onClick={() => p.store?.retryAll()}>
+                  再試行
+                </button>
+              </span>
+            )}
+          </p>
+        );
+      })()}
 
       <footer className="calendar-foot">
         <button
