@@ -12,7 +12,7 @@ import { feelOf, type FeelSettings, radiationOf } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import { hourOrigin, type Origin } from "../data/authority";
 import { type Baseline, type Departures, halfLifeDays, updateRate } from "./adaptation";
-import type { Prediction } from "./predict";
+import type { ComfortPrediction } from "./comfort";
 
 /** The 7-point thermal sensation scale (ASHRAE 55, −3 … +3) in its usual Japanese wording. */
 export const SENSATIONS = [
@@ -99,13 +99,14 @@ export interface Report {
   sky?: Sky;
   /** When the report screen was opened (a notification's time can differ from `at`, the sending). */
   openedAt?: string;
-  /** The prediction made at sending, before the answer was known: its error is the track record. */
-  prediction?: Prediction;
+  /** The comfort model's prediction made at sending, before the answer was known (comfort.ts):
+   *  the centre and range of that moment and the chance of each answer. Its misses are the record. */
+  comfort?: ComfortPrediction;
   snapshot: Snapshot | null;
   baseline: (Baseline & { alpha: number }) | null;
   departures: Pick<Departures, "air" | "sun" | "shade"> | null;
   /** The 60 daily mean temperatures before the day, newest first (null where missing): lets the
-   *  最近の基準 be recomputed for any α when 慣れの速さ is estimated (fitAlpha.ts). */
+   *  最近の基準 be recomputed for any α when 慣れの速さ is chosen by the comfort fit (comfort.ts). */
   history?: (number | null)[];
   /** The 7 days before, newest first: how the previous day and week (humidity, sunshine, rain,
    *  weather) carry into the feeling, for the analysis in research/. */
@@ -194,12 +195,23 @@ const COLUMNS: readonly string[] = [
   "sensation_label",
   "exposure",
   "wind_felt",
-  "pred_value",
-  "pred_label",
-  "pred_prior",
-  "pred_correction",
+  "comfort_mu",
+  "comfort_half_range",
+  "comfort_step",
+  "comfort_blur",
+  "comfort_offset",
+  "comfort_beyond",
+  "pred_mode",
+  "pred_expected",
+  "p_m3",
+  "p_m2",
+  "p_m1",
+  "p_0",
+  "p_p1",
+  "p_p2",
+  "p_p3",
   "pred_n",
-  "pred_model",
+  "pred_alpha",
   "pred_error",
   "sky_reported",
   "sky_forecast",
@@ -255,13 +267,18 @@ export function toCsv(reports: Report[]): string {
       SENSATIONS.find((s) => s.value === r.sensation)?.label,
       r.exposure,
       r.windFelt,
-      r.prediction?.value,
-      r.prediction?.label,
-      r.prediction?.prior,
-      r.prediction?.correction,
-      r.prediction?.n,
-      r.prediction?.model,
-      r.prediction ? Math.round((r.sensation - r.prediction.value) * 10) / 10 : null,
+      r.comfort?.state.mu,
+      r.comfort?.state.h,
+      r.comfort?.state.g,
+      r.comfort?.state.s,
+      r.comfort?.offset,
+      r.comfort?.beyond,
+      r.comfort?.mode,
+      r.comfort?.expected,
+      ...(r.comfort?.probs ?? Array(7).fill(null)),
+      r.comfort?.n,
+      r.comfort?.alpha,
+      r.comfort ? Math.round((r.sensation - r.comfort.expected) * 10) / 10 : null,
       r.sky,
       r.snapshot?.forecastSky,
       r.snapshot?.forecastSkyCode,

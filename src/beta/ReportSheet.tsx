@@ -9,8 +9,8 @@ import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
 import { type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
-import { predict } from "./predict";
-import { baselineOf, baselineStateOf, historyOf } from "./useBaseline";
+import { type ComfortPrediction, predictComfort } from "./comfort";
+import { baselineOf, baselineStateOf, driversOfDay, historyOf } from "./useBaseline";
 import { reports } from "./useReports";
 
 interface Props {
@@ -37,14 +37,16 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
   const loading = baselineStateOf(store, station, today, beta.alpha).state === "loading";
   const ready = sensation != null && exposure != null && windFelt != null && sky != null && !loading;
 
-  /** The prediction for a moment, from the station's hour then and the place and wind chosen. */
+  /**
+   * The comfort model's prediction for a moment: the station's hour then, the place and wind
+   * chosen, and the centre and range of that moment (comfort.ts).
+   */
   const predictAt = (now: number) => {
     if (exposure == null || windFelt == null) return null;
     const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(now), feel);
     const e = !snap ? null : exposure === "sun" ? snap.sunTemp : exposure === "shade" ? snap.shadeTemp : snap.sunTemp == null || snap.shadeTemp == null ? null : (snap.sunTemp + snap.shadeTemp) / 2;
-    if (e == null) return null;
-    const base = baselineOf(store, station, today, beta.alpha);
-    return predict({ e, d: base && snap?.temp != null ? snap.temp - base.value : null, windFelt }, beta.correction, beta.thresholds, now);
+    const x = driversOfDay(store, station, today, beta.alpha, e, snap?.humidity ?? null);
+    return x ? predictComfort(beta.fit, { ...x, windFelt }, now) : null;
   };
   const preview = predictAt(Date.now());
 
@@ -55,12 +57,12 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
     const hours = store?.getHours(station, today).rows ?? null;
     const base = baselineOf(store, station, today, beta.alpha);
     const dep = departures(store?.getDay(station, today).row, hours, base, feel);
-    const prediction = predictAt(now) ?? undefined; // recomputed at sending
+    const comfort = predictAt(now) ?? undefined; // recomputed at sending
     const report: Report = {
       id: newId(),
       at: new Date(now).toISOString(),
       openedAt,
-      prediction,
+      comfort,
       station,
       sensation,
       exposure,
@@ -127,27 +129,37 @@ function Body({ store, station, today, onSaved }: Omit<Props, "onClose">) {
 
 /**
  * The data's prediction, shown once the feeling has been chosen: shown before, it would pull the
- * answer towards itself and spoil the very misses the correction learns from.
+ * answer towards itself and spoil the very misses the model learns from.
  */
-function PredictionCard({ prediction, reported }: { prediction: ReturnType<typeof predict> | null; reported: Sensation | null }) {
+function PredictionCard({ prediction, reported }: { prediction: ComfortPrediction | null; reported: Sensation | null }) {
   if (reported == null) return <p className="predict-card waiting">感じ方を選ぶと、データからの予測と比べられます。</p>;
-  if (!prediction) return <p className="predict-card waiting">いる場所と風を選ぶと、データからの予測が出ます（その時刻の観測値がないときは出せません）。</p>;
-  const diff = Math.round((reported - prediction.value) * 10) / 10;
+  if (!prediction) return <p className="predict-card waiting">いる場所と風を選ぶと、データからの予測が出ます（その時刻の観測値や最近の基準がないときは出せません）。</p>;
+  const { state: st } = prediction;
+  const maxP = Math.max(...prediction.probs);
   return (
     <div className="predict-card" role="status">
       <p>
-        データからの予測 <b>{prediction.label}</b>
-        <span className="predict-num">（{prediction.value > 0 ? "+" : ""}{prediction.value.toFixed(1)}）</span>
+        データからの予測 <b>{labelOf(prediction.mode)}</b>
+        <span className="predict-num">（{Math.round(maxP * 100)}%・期待値 {prediction.expected > 0 ? "+" : ""}{prediction.expected.toFixed(1)}）</span>
       </p>
+      <div className="predict-bars" aria-label="7段階それぞれの確率">
+        {prediction.probs.map((p, k) => (
+          <span key={k} className={k - 3 === reported ? "mine" : k - 3 === prediction.mode ? "mode" : undefined} title={`${labelOf(k - 3)} ${Math.round(p * 100)}%`}>
+            <i style={{ height: `${Math.max(2, (p / maxP) * 100)}%` }} />
+            <small>{Math.round(p * 100)}</small>
+          </span>
+        ))}
+      </div>
       <p className="predict-sub">
-        あなたの答えとのずれ {diff > 0 ? "+" : diff < 0 ? "−" : "±"}
-        {Math.abs(diff).toFixed(1)}　内訳：肌感の境目から {prediction.prior.toFixed(1)}・記録からの補正 {prediction.correction >= 0 ? "+" : "−"}
-        {Math.abs(prediction.correction).toFixed(1)}（記録 {prediction.n}件）
+        今の快適の中心 {st.mu.toFixed(1)}℃・範囲 {(st.mu - st.h).toFixed(1)}〜{(st.mu + st.h).toFixed(1)}℃。その場の温度は中心から {prediction.offset > 0 ? "+" : ""}
+        {prediction.offset.toFixed(1)}℃{prediction.beyond === 0 ? "（範囲の中）" : `（範囲の外 ${prediction.beyond > 0 ? "+" : ""}${prediction.beyond.toFixed(1)}℃）`}。記録 {prediction.n}件から学習。
       </p>
-      <p className="predict-sub">送信した時刻の観測値で計算し直して記録します。</p>
+      <p className="predict-sub">枠があなたの答え、塗りが最も確率の高い段階です。送信した時刻の観測値で計算し直して記録します。</p>
     </div>
   );
 }
+
+const labelOf = (v: number) => SENSATIONS.find((s) => s.value === v)?.label ?? "";
 
 export function ReportSheet(props: Props) {
   return (
