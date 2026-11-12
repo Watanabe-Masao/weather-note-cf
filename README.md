@@ -523,6 +523,8 @@ P(答え ≤ k) = σ( (境目_k − (E′ − μ)) ÷ s )      σ(x) = 1 ÷ (1 +
 
 ## 9. 分析（research/）
 
+**βモデルの検証**：[research/comfort-model/](research/comfort-model/README.md) に、数学的正本と、合成データによる検証（答えの分かっている仮想の人で、取り戻せるか・推定できないと言えるか・学習の段階の境目）があります。
+
 アプリの外で、CSV を使って行う分析です（numpy と scipy だけを使います）。アプリの動きには影響しません。詳しくは [research/README.md](research/README.md)。
 
 - **`compare_models.py`**：最近の気温の効き方の形を比べます。
