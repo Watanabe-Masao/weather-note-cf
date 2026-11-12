@@ -67,9 +67,12 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
   }
   const data = (await res.json().catch(() => null)) as (T & { error?: string }) | null;
   if (res.status === 401 && path !== "/api/auth/login") set({ me: null }); // the session ended (expired, reset, stopped)
-  if (!res.ok || !data) throw new Error(data?.error ?? "処理に失敗しました。時間をおいて再試行してください。");
+  if (!res.ok || !data) throw Object.assign(new Error(data?.error ?? "処理に失敗しました。時間をおいて再試行してください。"), { status: res.status });
   return data;
 }
+
+/** The server asks for the password again before the research data (#86). */
+export const needsReauth = (e: unknown) => (e as { status?: number })?.status === 428;
 
 /** Asks the server who is logged in. Offline, the last answer stands. */
 export async function refreshAccount(): Promise<void> {

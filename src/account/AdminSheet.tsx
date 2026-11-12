@@ -9,7 +9,8 @@ import { ModalSheet } from "../ui/ModalSheet";
 import { OnceSecret } from "./AccountSection";
 import { ResearchSheet } from "./ResearchSheet";
 import { MIN_PEOPLE } from "../research/analysis";
-import { api } from "./account";
+import { api, needsReauth } from "./account";
+import { ReauthForm } from "./ReauthForm";
 
 interface Row {
   id: string;
@@ -36,14 +37,16 @@ function ExportToken() {
       .then((r) => setActive(r.active))
       .catch(() => setActive(null));
   }, []);
+  const [reauth, setReauth] = useState<boolean | null>(null);
   const ask = (revoke: boolean) => {
     setBusy(true);
     setError(null);
     api<{ token?: string; active: { expiresAt: number } | null }>("/api/admin/export-token", revoke ? { revoke: true } : {})
       .then((r) => (setActive(r.active), setToken(r.token ?? null)))
-      .catch((e) => setError((e as Error).message))
+      .catch((e) => (needsReauth(e) ? setReauth(revoke) : setError((e as Error).message)))
       .finally(() => setBusy(false));
   };
+  if (reauth != null) return <ReauthForm lead="取り出し用のトークンを作るには、パスワードをもう一度入れてください（15分有効）。" onDone={() => (setReauth(null), ask(reauth))} />;
   const until = (ms: number) => new Date(ms).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
   return (
     <>

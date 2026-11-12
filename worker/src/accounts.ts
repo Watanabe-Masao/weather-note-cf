@@ -144,6 +144,12 @@ const RESEARCH_SCHEMA = [
   )`,
   // A token for taking the research data out (#55): read-only, short-lived, stored as a hash,
   // shown once. A new one replaces the old; it can be revoked.
+  // The administrator typed the password again on this session (#86): the research data needs it
+  // within REAUTH_MS, so a phone left unlocked does not open everyone's reports.
+  `CREATE TABLE IF NOT EXISTS session_reauth (
+    token_hash TEXT PRIMARY KEY,
+    at INTEGER NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS export_tokens (
     token_hash TEXT PRIMARY KEY,
     admin_id TEXT NOT NULL,
@@ -152,6 +158,19 @@ const RESEARCH_SCHEMA = [
     revoked_at INTEGER
   )`,
 ];
+
+/** How long typing the password again opens the research data (#86). */
+export const REAUTH_MS = 15 * 60_000;
+/** The status that asks for the password again (the app shows a password field). */
+export const REAUTH_STATUS = 428;
+
+/** Whether this session typed the password again recently enough. */
+async function reauthed(db: Db, req: Request, now: number): Promise<boolean> {
+  const token = cookieOf(req, COOKIE);
+  if (!token) return false;
+  const row = await db.prepare("SELECT at FROM session_reauth WHERE token_hash = ?").bind(await sha256(token)).first<{ at: number }>();
+  return !!row && now - row.at <= REAUTH_MS;
+}
 
 /** How long an export token lasts. */
 export const EXPORT_TOKEN_MS = 24 * 3600_000;
@@ -707,6 +726,17 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         await deleteAccount(db, target, now);
         return json({ id: target.id, deleted: true });
       }
+      if (path === "/api/admin/reauth" && post) {
+        const b = await body(req);
+        const row = await db.prepare("SELECT pw_hash, pw_salt, pw_iter FROM users WHERE id = ?").bind(u.id).first<{ pw_hash: string; pw_salt: string; pw_iter: number }>();
+        const password = typeof b.password === "string" ? b.password.trim() : "";
+        if (!row || !(await same(await hashPassword(password, row.pw_salt, row.pw_iter), row.pw_hash))) throw new Refused("パスワードが違います。", 403);
+        await db.prepare("INSERT OR REPLACE INTO session_reauth (token_hash, at) VALUES (?, ?)").bind(await sha256(cookieOf(req, COOKIE)!), now).run();
+        return json({ until: now + REAUTH_MS });
+      }
+      // Everyone's reports, and the token to take them out: only with the password typed again lately.
+      const REAUTH = "研究用のデータを開くには、パスワードをもう一度入れてください（15分有効）。";
+      if (path === "/api/admin/analysis" && !post && !(await reauthed(db, req, now))) throw new Refused(REAUTH, REAUTH_STATUS);
       if (path === "/api/admin/analysis" && !post) {
         // The in-app analysis (iPhone only): the same view, read with the administrator's login.
         // The app keeps it in memory only and never stores it, so a withdrawal reaches it the
@@ -716,6 +746,8 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       if (path === "/api/admin/export-token") {
         if (post) {
           const b = await body(req);
+          // Revoking needs nothing more; a new token needs the password typed again lately.
+          if (b.revoke !== true && !(await reauthed(db, req, now))) throw new Refused(REAUTH, REAUTH_STATUS);
           await db.prepare("UPDATE export_tokens SET revoked_at = ? WHERE revoked_at IS NULL AND expires_at > ?").bind(now, now).run();
           if (b.revoke === true) return json({ active: null });
           const token = hex(random(32));

@@ -606,8 +606,9 @@ Service Worker（`public/sw.js`）は、画面のファイルだけを扱いま�
 | `POST /api/admin/users/reset` | 管理者：`{ id }` パスワードの再発行（その人のログインはすべて終わる） |
 | `POST /api/admin/users/disable` | 管理者：`{ id, disabled }` 停止・再開 |
 | `GET /api/admin/research?dataset=&after=` | 取り出し用のトークン（`Authorization: Bearer`）だけで：研究用のビューの記録（1000件ずつ、キーでページ送り）。アカウントの ID は除く。取り出すたびに記録を残す。最初のページに撤回した番号（`withdrawn`）を付ける |
-| `GET /api/admin/analysis?after=` | 管理者：アプリ内の分析のための研究用ビューの記録（取り出しと同じ形・同じ記録。アプリは保存しない） |
-| `GET/POST /api/admin/export-token` | 管理者：取り出し用のトークンの状態／作り直す（24時間・1回だけ表示）・`{ revoke: true }` で無効に |
+| `POST /api/admin/reauth` | 管理者：`{ password }` パスワードをもう一度入れる。このセッションで15分、研究用のデータを開ける（#86） |
+| `GET /api/admin/analysis?after=` | 管理者：アプリ内の分析のための研究用ビューの記録（取り出しと同じ形・同じ記録。アプリは保存しない）。15分以内のパスワードの再入力が必要（なければ 428） |
+| `GET/POST /api/admin/export-token` | 管理者：取り出し用のトークンの状態／作り直す（24時間・1回だけ表示。15分以内のパスワードの再入力が必要）・`{ revoke: true }` で無効に（再入力は不要） |
 | `GET /api/admin/exports` | 管理者：研究用データの書き出しの記録（直近200回） |
 | `POST /api/admin/users/delete` | 管理者：`{ id, confirm }`（confirm はログインID）でアカウントとその人の記録をすべて消す。研究用の写しから外すため、撤回として記録する |
 
