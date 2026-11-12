@@ -6,5 +6,8 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false
   },
-  "include": ["research", "src", "shared"]
+  "include": ["research", "src", "shared"],
+  // research/data has its own dependencies (DuckDB): checked in the research-data workflow, after
+  // they are installed (tsconfig.research-data.json).
+  "exclude": ["research/data"]
 }

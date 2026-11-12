@@ -1,0 +1,9 @@
+{
+  // research/data with its own dependencies installed (npm ci in research/data): the research-data workflow.
+  "extends": "./tsconfig.research.json",
+  "compilerOptions": {
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.research-data.tsbuildinfo"
+  },
+  "include": ["research/data", "src", "shared"],
+  "exclude": ["research/data/node_modules"]
+}
