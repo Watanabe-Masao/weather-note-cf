@@ -2,7 +2,7 @@
 // consent, the sync status, the administrator's screen and logging out.
 
 import { type FormEvent, useState } from "react";
-import { syncNow, logOutAndLeave, useSync } from "../beta/useSync";
+import { deleteAccountAndLeave, syncNow, logOutAndLeave, useSync } from "../beta/useSync";
 import { AdminSheet } from "./AdminSheet";
 import { NotifySection } from "./NotifySection";
 import { Segmented } from "../ui/kit";
@@ -166,6 +166,45 @@ function SyncStatus() {
   );
 }
 
+/** The person deletes their own account (#55). Confirmed with the password. */
+function DeleteAccount() {
+  const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!open)
+    return (
+      <div className="actions tight">
+        <button className="danger" onClick={() => setOpen(true)}>
+          アカウントを削除
+        </button>
+      </div>
+    );
+  const go = (e: FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    deleteAccountAndLeave(password).catch((err) => (setError((err as Error).message), setBusy(false)));
+  };
+  return (
+    <form className="admin-delete" onSubmit={go}>
+      <small className="set-help">
+        アカウントと、あなたの感じ方の記録・通知の設定・同意の履歴を、サーバーとこの端末からすべて消します。まだ送れていない記録も消えます。元に戻せません。研究に協力していた場合は、書き出した研究用の写しからも消します。確認のため、パスワードを入れてください。
+      </small>
+      <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" aria-label="パスワード" required />
+      {error ? <p className="warn">{error}</p> : null}
+      <div className="actions tight">
+        <button type="button" onClick={() => (setOpen(false), setPassword(""), setError(null))}>
+          やめる
+        </button>
+        <button type="submit" className="danger" disabled={busy || !password}>
+          削除する
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function AccountSection() {
   const { me, status } = useAccount();
   const [admin, setAdmin] = useState(false);
@@ -212,6 +251,7 @@ export function AccountSection() {
           <SyncStatus />
           <NotifySection />
           <Research />
+          {me.role !== "admin" ? <DeleteAccount /> : null}
           {me.role === "admin" ? (
             <div className="actions tight">
               <button onClick={() => setAdmin(true)}>ユーザー管理</button>

@@ -268,6 +268,18 @@ async function body(req: Request): Promise<Record<string, unknown>> {
   return b;
 }
 
+/**
+ * Removes everything of one person. The research ID is kept only in the withdrawals, so exported
+ * copies drop the person too (#45).
+ */
+async function deleteAccount(db: Db, who: { id: string; research_id: string }, now: number) {
+  await db.batch([
+    db.prepare("INSERT INTO research_withdrawals (research_id, at, reason) VALUES (?, ?, 'account-deleted')").bind(who.research_id, now),
+    ...["reports", "sessions", "consents", "push_subscriptions", "notify_settings", "notify_log"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(who.id)),
+    db.prepare("DELETE FROM users WHERE id = ?").bind(who.id),
+  ]);
+}
+
 async function researchConsent(db: Db, userId: string): Promise<{ granted: boolean; version: number | null; at: number | null }> {
   const c = await db
     .prepare("SELECT granted, version, at FROM consents WHERE user_id = ? AND kind = 'research' ORDER BY at DESC, rowid DESC LIMIT 1")
@@ -460,6 +472,17 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       await db.prepare("INSERT INTO consents (user_id, kind, version, granted, at) VALUES (?, 'research', ?, ?, ?)").bind(u.id, RESEARCH_CONSENT_VERSION, b.granted ? 1 : 0, now).run();
       return json({ user: await me(db, u) });
     }
+    if (path === "/api/me/delete" && post) {
+      // The person deletes their own account (#55), confirmed by the password. An administrator
+      // cannot: someone has to stay able to manage the accounts.
+      const b = await body(req);
+      if (u.role === "admin") throw new Refused("管理者のアカウントは、ここからは削除できません。");
+      const row = await db.prepare("SELECT pw_hash, pw_salt, pw_iter FROM users WHERE id = ?").bind(u.id).first<{ pw_hash: string; pw_salt: string; pw_iter: number }>();
+      const password = typeof b.password === "string" ? b.password.trim() : "";
+      if (!row || !(await same(await hashPassword(password, row.pw_salt, row.pw_iter), row.pw_hash))) throw new Refused("パスワードが違います。", 403);
+      await deleteAccount(db, u, now);
+      return json({ deleted: true }, 200, { "Set-Cookie": sessionCookie("", 0) });
+    }
     // -- notifications --
     if (path === "/api/me/notify") {
       if (post) {
@@ -558,11 +581,7 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         if (!target) throw new Refused("そのユーザーは見つかりません。", 404);
         if (target.id === u.id) throw new Refused("自分自身は削除できません。");
         if (typeof b.confirm !== "string" || b.confirm.trim().toLowerCase() !== target.login_id.toLowerCase()) throw new Refused("確認のため、ログインIDを正しく入れてください。");
-        await db.batch([
-          db.prepare("INSERT INTO research_withdrawals (research_id, at, reason) VALUES (?, ?, 'account-deleted')").bind(target.research_id, now),
-          ...["reports", "sessions", "consents", "push_subscriptions", "notify_settings", "notify_log"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(target.id)),
-          db.prepare("DELETE FROM users WHERE id = ?").bind(target.id),
-        ]);
+        await deleteAccount(db, target, now);
         return json({ id: target.id, deleted: true });
       }
       if (path === "/api/admin/research" && !post) {

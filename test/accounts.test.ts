@@ -284,4 +284,21 @@ describe("#45: research data leaving the server", () => {
     const self = (await call("/api/auth/me", { cookie: a.cookie })).body.user.id;
     expect((await call("/api/admin/users/delete", { body: { id: self, confirm: "masao" }, cookie: a.cookie })).status).toBe(400);
   });
+  it("lets a person delete their own account with the password, but not an administrator", async () => {
+    const a = await admin();
+    const p = await issue(a.cookie, "tanaka");
+    const t = (await login("tanaka", p.password)).cookie!;
+    await call("/api/reports/sync", { body: { push: [rep("t1", 1)] }, cookie: t });
+    await call("/api/me/consent", { body: { granted: true }, cookie: t });
+    expect((await call("/api/me/delete", { body: { password: "wrong" }, cookie: t })).status).toBe(403);
+    expect((await call("/api/auth/me", { cookie: t })).body.user).not.toBeNull();
+    const done = await call("/api/me/delete", { body: { password: p.password }, cookie: t });
+    expect(done.body).toEqual({ deleted: true });
+    expect((await call("/api/auth/me", { cookie: t })).body.user).toBeNull();
+    expect((await call("/api/auth/login", { body: { loginId: "tanaka", password: p.password } })).status).toBe(401);
+    const research = await call("/api/admin/research", { cookie: a.cookie });
+    expect(research.body.rows).toEqual([]);
+    expect(research.body.withdrawn).toEqual([expect.objectContaining({ reason: "account-deleted" })]);
+    expect((await call("/api/me/delete", { body: { password: "x" }, cookie: a.cookie })).status).toBe(400);
+  });
 });
