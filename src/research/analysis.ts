@@ -318,12 +318,12 @@ export function preferenceTimeSeries(people: [string, Report[]][], kind: Prefere
 }
 
 /**
- * Two settings on the same reports (#54; comfort-4 against comfort-5 by default): each of a
+ * Two settings on the same reports (#54; comfort-5 against comfort-6 by default): each of a
  * person's latest `lastN` reports predicted from their earlier reports only, fitted and read each
  * way (observationsOf). Slow (two full fits per report), so the screen runs it a person at a time
  * on request.
  */
-export function compareSettings(list: Report[], lastN = 10, a: ObsSettings = "comfort-4", b: ObsSettings = "comfort-5"): { n: number; rpsA: number; rpsB: number; ref: number } {
+export function compareSettings(list: Report[], lastN = 10, a: ObsSettings = "comfort-5", b: ObsSettings = "comfort-6"): { n: number; rpsA: number; rpsB: number; ref: number } {
   const live = list.filter((r) => !r.deleted && (r.scaleVersion ?? 1) === SCALE_VERSION).sort((x, y) => (x.at < y.at ? -1 : 1));
   let n = 0;
   let sa = 0;

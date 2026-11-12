@@ -4,7 +4,8 @@ import { useEffect, useMemo } from "react";
 import type { WeatherStore } from "../data/store";
 import { type Baseline, type BaselineState, baselineState, historyDays, pastDay } from "./adaptation";
 import { weatherGroup } from "../../shared/similar";
-import { type Drivers, driversFrom, nightAt } from "./comfort";
+import { type Drivers, driversFrom, nightOf } from "./comfort";
+import { addDays } from "../../shared/dates";
 import { windMemory } from "./reports";
 
 export function baselineOf(store: WeatherStore | null, station: string, date: string | null, alpha: number): Baseline | null {
@@ -63,8 +64,16 @@ export function driversOfDay(
     return g == null ? null : g === "sun";
   })();
   // Night from sunset to sunrise of the moment (comfort-5); a moment not given is unknown.
-  const night = moment.at == null || !Number.isFinite(moment.at) ? null : nightAt(moment.at, station, moment.sun);
-  return driversFrom(e, past.map((p) => p.mean), recent, hNow, sky, alpha, date, moment.radDay ?? null, night, moment.wind6h ?? null, moment.windLastNight ?? lastNightWind(store, station, date));
+  const n = moment.at == null || !Number.isFinite(moment.at) ? null : nightOf(moment.at, station, moment.sun);
+  const d = driversFrom(e, past.map((p) => p.mean), recent, hNow, sky, alpha, date, moment.radDay ?? null, n?.night ?? null, moment.wind6h ?? null, moment.windLastNight ?? lastNightWind(store, station, date));
+  if (!d || !n?.night) return d;
+  // comfort-6: the latest daytime's radiation and the hours since that sunset. In the evening the
+  // day's running total; before sunrise the day before's — the running total when the moment was
+  // read on the day before's hours (0時台), else the day before's daily total.
+  const sunsetDay = n.beforeSunrise ? addDays(n.date, -1) : n.date;
+  const readOn = moment.sun?.date ?? date;
+  const storedRad = readOn === sunsetDay ? (moment.radDay ?? null) : num(store.getDay(station, sunsetDay).row?.radiation);
+  return { ...d, storedRad, sinceSunset: n.sinceSunset };
 }
 
 /** Last night's mean wind (sunset the day before to sunrise) from the hourly rows, if both days are loaded. */

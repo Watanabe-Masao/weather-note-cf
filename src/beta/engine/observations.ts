@@ -2,6 +2,7 @@
 // Contract: research/comfort-model/mathematical-contract.md
 
 import { DEFAULT_LAT_LON, solarTimes, stationLatLon } from "../../../shared/sunTimes";
+import { addDays } from "../../../shared/dates";
 import { runningMean } from "../adaptation";
 import { inputQuality } from "../quality";
 import type { Report } from "../reports";
@@ -103,19 +104,55 @@ const jst = (at: number) => new Date(at + 9 * 3_600_000).toISOString();
  * station's, from the sun API) and are otherwise calculated for the station (shared/sunTimes.ts).
  * `sun` belongs to `sunDate`; it is used only when that is the moment's own JST date.
  */
-export function nightAt(at: number, station: string | null | undefined, sun?: { sunrise?: string | null; sunset?: string | null; date?: string | null } | null): boolean {
+export function nightAt(at: number, station: string | null | undefined, sun?: SunOfDay | null): boolean {
+  return nightOf(at, station, sun).night;
+}
+
+type SunOfDay = { sunrise?: string | null; sunset?: string | null; date?: string | null };
+
+/** Sunrise and sunset (minutes JST) of a date: the stored ones when they are that date's, else calculated. */
+function riseSet(date: string, station: string | null | undefined, sun?: SunOfDay | null) {
+  const own = sun && (sun.date == null || sun.date === date);
+  const rise = own ? hm(sun.sunrise) : null;
+  const set = own ? hm(sun.sunset) : null;
+  if (rise != null && set != null) return { rise, set };
+  const c = stationLatLon(station) ?? DEFAULT_LAT_LON;
+  return solarTimes(date, c.lat, c.lon);
+}
+
+/**
+ * The night of a moment (comfort-5) and, at night, the hours since the sunset it follows
+ * (comfort-6): this evening's, or the day before's when it is before sunrise.
+ */
+export function nightOf(at: number, station: string | null | undefined, sun?: SunOfDay | null): { night: boolean; date: string; sinceSunset: number | null; beforeSunrise: boolean } {
   const iso = jst(at);
   const date = iso.slice(0, 10);
-  const min = +iso.slice(11, 13) * 60 + +iso.slice(14, 16);
-  let rise = sun && (sun.date == null || sun.date === date) ? hm(sun.sunrise) : null;
-  let set = sun && (sun.date == null || sun.date === date) ? hm(sun.sunset) : null;
-  if (rise == null || set == null) {
-    const c = stationLatLon(station) ?? DEFAULT_LAT_LON;
-    const t = solarTimes(date, c.lat, c.lon);
-    rise = t.rise;
-    set = t.set;
+  const min = +iso.slice(11, 13) * 60 + +iso.slice(14, 16) + +iso.slice(17, 19) / 60;
+  const { rise, set } = riseSet(date, station, sun);
+  if (min >= set) return { night: true, date, sinceSunset: (min - set) / 60, beforeSunrise: false };
+  if (min < rise) {
+    const before = addDays(date, -1);
+    return { night: true, date, sinceSunset: (min + 1440 - riseSet(before, station, sun).set) / 60, beforeSunrise: true };
   }
-  return min < rise || min >= set;
+  return { night: false, date, sinceSunset: null, beforeSunrise: false };
+}
+
+/**
+ * comfort-6: the stored sun of a report's night — the latest daytime's radiation total (MJ/m²) and
+ * the hours since that sunset. In the evening the day's own running total (by then its whole day);
+ * before sunrise the day before's: its running total when the report was read on the day before's
+ * hours (0時台, 24時), otherwise the day before's total from the daily table (the report's `recent`).
+ */
+export function storedSunOf(r: Report): { storedRad: number | null; sinceSunset: number | null } {
+  const at = Date.parse(r.at);
+  if (!Number.isFinite(at)) return { storedRad: null, sinceSunset: null };
+  const n = nightOf(at, r.station, { sunrise: r.snapshot?.sunrise, sunset: r.snapshot?.sunset, date: r.snapshot?.date ?? null });
+  if (!n.night) return { storedRad: null, sinceSunset: null };
+  const snapDate = r.snapshot?.date ?? null;
+  const sunsetDay = n.beforeSunrise ? addDays(n.date, -1) : n.date;
+  if (snapDate === sunsetDay) return { storedRad: r.snapshot?.radDay ?? null, sinceSunset: n.sinceSunset };
+  const day = r.recent?.find((d) => d.date === sunsetDay);
+  return { storedRad: day?.radiation ?? null, sinceSunset: n.sinceSunset };
 }
 
 /**
@@ -125,13 +162,16 @@ export function nightAt(at: number, station: string | null | undefined, sun?: { 
  *   - comfort-4: reports in a row weigh less (runs end at a 2-hour gap).
  *   - comfort-5: runs also end 3 hours after their first report; night from sunset to sunrise;
  *     the sky counts in daylight only (a clear night is not a sunny moment).
+ *   - comfort-6: the stored sun at night is the latest daytime's total, fading after sunset (the
+ *     day's running total, read until comfort-5, was the new day's — about 0 — after 1時).
  */
-export type ObsSettings = "comfort-3" | "comfort-4" | "comfort-5";
-export const CURRENT_SETTINGS: ObsSettings = "comfort-5";
+export type ObsSettings = "comfort-3" | "comfort-4" | "comfort-5" | "comfort-6";
+export const CURRENT_SETTINGS: ObsSettings = "comfort-6";
+const sunBased = (s: ObsSettings) => s === "comfort-5" || s === "comfort-6";
 
 /** The night of a report under these settings (null when its moment is unknown). */
 export function reportNight(r: Report, settings: ObsSettings = CURRENT_SETTINGS): boolean | null {
-  if (settings !== "comfort-5") return r.snapshot?.hour == null ? null : isNight(r.snapshot.hour);
+  if (!sunBased(settings)) return r.snapshot?.hour == null ? null : isNight(r.snapshot.hour);
   const at = Date.parse(r.at);
   return Number.isFinite(at) ? nightAt(at, r.station, { sunrise: r.snapshot?.sunrise, sunset: r.snapshot?.sunset, date: r.snapshot?.date ?? null }) : null;
 }
@@ -183,9 +223,10 @@ export function observationsOf(reports: Report[], alpha: number, settings: ObsSe
     if (r.deleted || !inputQuality(r).trainable) continue;
     const e = placeTempOf(r);
     if (e == null) continue;
-    const d = driversFrom(e, r.history ?? [], r.recent, r.snapshot?.humidity ?? null, reportedSunny(r), alpha, r.snapshot?.date ?? r.at.slice(0, 10), r.snapshot?.radDay ?? null, reportNight(r, settings), r.snapshot?.wind6h ?? null, r.snapshot?.windLastNight ?? null, settings !== "comfort-5");
+    const d = driversFrom(e, r.history ?? [], r.recent, r.snapshot?.humidity ?? null, reportedSunny(r), alpha, r.snapshot?.date ?? r.at.slice(0, 10), r.snapshot?.radDay ?? null, reportNight(r, settings), r.snapshot?.wind6h ?? null, r.snapshot?.windLastNight ?? null, !sunBased(settings));
     if (d) {
-      out.push({ ...d, windFelt: r.windFelt, y: r.sensation });
+      const stored = settings === "comfort-6" ? storedSunOf(r) : { legacyRad: true };
+      out.push({ ...d, ...stored, windFelt: r.windFelt, y: r.sensation });
       used.push(r);
     }
   }

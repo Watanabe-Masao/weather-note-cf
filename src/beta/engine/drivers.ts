@@ -40,6 +40,15 @@ export interface Drivers {
   windFelt?: "strong" | "weak" | "none" | null;
   /** comfort-3/4 only (comparisons): the sky counted at night too. */
   skyAtNight?: boolean;
+  /**
+   * comfort-6 (night only): the radiation of the latest daytime (MJ/m²: the day's own total after
+   * sunset, the day before's before sunrise) and the hours since that sunset. `radTauH` overrides
+   * the fading time (checks); `legacyRad` reads the night as comfort-3/4/5 did (comparisons).
+   */
+  storedRad?: number | null;
+  sinceSunset?: number | null;
+  radTauH?: number;
+  legacyRad?: boolean;
 }
 
 export type DriverKey =
@@ -84,6 +93,26 @@ export const ADAPT_HI = 30;
 
 const c = (v: number | null, ref: number, unit: number) => (v == null ? null : (v - ref) / unit);
 
+/**
+ * Hours for the stored warmth to fall to 1/e after sunset (comfort-6, #86). None for now: on
+ * synthetic people (research/comfort-model/stored-heat-results.md) the true fading time cannot be
+ * known in advance, and a fixed one loses most when it is wrong — τ = 4 h lost as much as comfort-5
+ * for a person who keeps the warmth all night — while no fading lost least in every case (0.0003 of
+ * RPS at most). The fading stays in the formula, to be compared again on real reports (#54).
+ */
+export const RAD_TAU_H = Infinity;
+
+/**
+ * The stored sun at night, in units of 5 MJ/m² from an ordinary 10 MJ/m² day, fading with the
+ * hours since sunset: ((R − 10) / 5) · e^(−t/τ). comfort-3/4/5 read the day's running total
+ * without fading — and after midnight that was the new day's total (about 0), a cliff at 1時.
+ */
+export function storedHeat(d: Drivers): number | null {
+  if (d.legacyRad) return d.radDay == null ? null : (d.radDay - 10) / 5;
+  if (d.storedRad == null || d.sinceSunset == null) return null;
+  return ((d.storedRad - 10) / 5) * Math.exp(-Math.max(0, d.sinceSunset) / (d.radTauH ?? RAD_TAU_H));
+}
+
 export const DRIVERS: Record<DriverKey, DriverInfo> = {
   a: { label: "最近の基準", unit: "1℃", value: (d) => d.a - 15, muSd: 0.15, hSd: 0.03 },
   aLim: { label: "最近の基準（10〜30℃で頭打ち）", unit: "1℃", value: (d) => Math.min(ADAPT_HI, Math.max(ADAPT_LO, d.a)) - 15, muSd: 0.15, hSd: 0.03 },
@@ -110,7 +139,7 @@ export const DRIVERS: Record<DriverKey, DriverInfo> = {
   radNight: {
     label: "日中の日射の余熱（夜）",
     unit: "5MJ/m²",
-    value: (d) => (d.night == null ? null : !d.night ? 0 : d.radDay == null ? null : (d.radDay - 10) / 5),
+    value: (d) => (d.night == null ? null : !d.night ? 0 : storedHeat(d)),
     muSd: 0.6,
     hSd: 0.15,
     eSd: 1.5,
@@ -120,7 +149,12 @@ export const DRIVERS: Record<DriverKey, DriverInfo> = {
   radNightWind: {
     label: "余熱 × 直近6時間の風",
     unit: "5MJ/m² × 2m/s",
-    value: (d) => (d.night == null ? null : !d.night ? 0 : d.radDay == null || d.wind6h == null ? null : ((d.radDay - 10) / 5) * ((d.wind6h - 2) / 2)),
+    value: (d) => {
+      if (d.night == null) return null;
+      if (!d.night) return 0;
+      const s = storedHeat(d);
+      return s == null || d.wind6h == null ? null : s * ((d.wind6h - 2) / 2);
+    },
     muSd: 0.3,
     hSd: 0.1,
     eSd: 1.0,

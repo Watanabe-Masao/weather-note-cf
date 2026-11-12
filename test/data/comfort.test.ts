@@ -33,7 +33,7 @@ function rng(seed: number) {
   return () => (s = (s * 1664525 + 1013904223) % 2 ** 32) / 2 ** 32;
 }
 
-const typical = (over: Partial<Drivers> = {}): Drivers => ({ e: 18, a: 15, dT1: 0, h7: 65, h1: 65, hNow: 65, v7: 2, sun1: 5, sun7: 5, rain1: null, rain7: null, sky: null, trend: 0, doy: null, radDay: null, night: null, wind6h: 2, minPrev: -6, windPrev: 2, ...over });
+const typical = (over: Partial<Drivers> = {}): Drivers => ({ e: 18, a: 15, dT1: 0, h7: 65, h1: 65, hNow: 65, v7: 2, sun1: 5, sun7: 5, rain1: null, rain7: null, sky: null, trend: 0, doy: null, radDay: null, night: null, wind6h: 2, minPrev: -6, windPrev: 2, ...over, storedRad: over.storedRad ?? over.radDay ?? null, sinceSunset: over.sinceSunset ?? 2 }); // the night's stored sun = the day's (comfort-6)
 
 /** Answers drawn from a "true" model over varied days. */
 function simulate(n: number, truthModel: string, truth: number[], seed = 3): Observation[] {
