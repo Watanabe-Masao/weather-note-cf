@@ -49,6 +49,27 @@ export const WINDS = [
   { id: "none", label: "なし" },
 ] as const;
 
+/**
+ * Two optional questions after the feeling (#63 P1): which way the person would like to feel, and
+ * which drink temperature they would choose now. Separate from the 7-step feeling (what is felt):
+ * these ask what is wanted. Skipping is allowed and is not "either": an unanswered question stays
+ * undefined. Only the temperature of the drink is asked — not whether they want to drink.
+ */
+export const THERMAL_PREFERENCES = [
+  { id: "warmer", label: "もう少し暖かく" },
+  { id: "same", label: "このままでよい" },
+  { id: "cooler", label: "もう少し涼しく" },
+] as const;
+export type ThermalPreference = (typeof THERMAL_PREFERENCES)[number]["id"];
+export const DRINK_PREFERENCES = [
+  { id: "warm", label: "温かい飲み物" },
+  { id: "either", label: "どちらでもよい" },
+  { id: "cold", label: "冷たい飲み物" },
+] as const;
+export type DrinkPreference = (typeof DRINK_PREFERENCES)[number]["id"];
+/** The version of these two questions' wording; set on every report they were shown on. */
+export const PREFERENCE_VERSION = 1;
+
 /** What the sky looks like where the person is (JMA's observation words), to set beside the forecast. */
 export const SKIES = [
   { id: "clear", label: "快晴" },
@@ -143,6 +164,11 @@ export interface Report {
   windFelt: WindFelt;
   /** The sky the person saw (reports before it was asked have none). */
   sky?: Sky;
+  /** The two optional preference questions (#63 P1). Undefined = not answered; reports without
+   *  `preferenceVersion` were made before the questions existed. */
+  thermalPreference?: ThermalPreference;
+  drinkPreference?: DrinkPreference;
+  preferenceVersion?: number;
   /** When the report screen was opened (a notification's time can differ from `at`, the sending). */
   openedAt?: string;
   /** When the notification that led here was due (ISO), if the report came from one: how long
@@ -373,6 +399,9 @@ const COLUMNS: readonly string[] = [
   "feel_transform",
   "retrieved_at",
   "obs_minute",
+  "thermal_preference",
+  "drink_preference",
+  "preference_version",
 ] as const;
 
 const cell = (v: unknown) => {
@@ -469,6 +498,9 @@ export function toCsv(reports: Report[]): string {
       r.snapshot?.transform,
       r.snapshot?.retrievedAt ? jstIso(r.snapshot.retrievedAt) : null,
       r.snapshot?.minute ?? null,
+      r.thermalPreference ?? null,
+      r.drinkPreference ?? null,
+      r.preferenceVersion ?? null,
     ]
       .map(cell)
       .join(","),

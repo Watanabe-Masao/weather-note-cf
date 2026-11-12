@@ -30,6 +30,7 @@ export const TABLES: Record<string, string> = {
     reported_at TIMESTAMPTZ NOT NULL, sensation TINYINT NOT NULL, scale_version TINYINT NOT NULL,
     exposure VARCHAR, wind_felt VARCHAR, sky VARCHAR, opened_at TIMESTAMPTZ, notified_at TIMESTAMPTZ,
     trainable BOOLEAN NOT NULL, excluded_reason VARCHAR,
+    thermal_preference VARCHAR, drink_preference VARCHAR, preference_version TINYINT,
     PRIMARY KEY (dataset_id, report_id))`,
   weather_snapshots: `CREATE TABLE weather_snapshots (
     dataset_id VARCHAR NOT NULL, report_id VARCHAR NOT NULL, observed_at TIMESTAMPTZ, lag_min INTEGER,
@@ -100,7 +101,7 @@ export function tablesOf(ex: Export, hash: string): Rows {
   const predictions: Cell[][] = [];
   for (const { researchId, report: r } of live) {
     const q = inputQuality(r);
-    reports.push([ex.datasetId, r.id, researchId, iso(r.at), r.sensation, r.scaleVersion ?? 1, r.exposure ?? null, r.windFelt ?? null, r.sky ?? null, iso(r.openedAt), iso(r.notifiedAt), q.trainable, q.reason]);
+    reports.push([ex.datasetId, r.id, researchId, iso(r.at), r.sensation, r.scaleVersion ?? 1, r.exposure ?? null, r.windFelt ?? null, r.sky ?? null, iso(r.openedAt), iso(r.notifiedAt), q.trainable, q.reason, r.thermalPreference ?? null, r.drinkPreference ?? null, r.preferenceVersion ?? null]);
     const s = r.snapshot;
     weather.push([
       ex.datasetId,

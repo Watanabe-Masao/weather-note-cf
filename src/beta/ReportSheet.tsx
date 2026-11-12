@@ -9,7 +9,7 @@ import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
-import { SCALE_VERSION, type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
+import { DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
 import { inputQuality } from "./quality";
 import { bandOf, centreUnknown, type ComfortPrediction, LEARNING_LABELS, LEARNING_RULES, type LearningView, predictComfort, TIME_BANDS } from "./comfort";
@@ -34,6 +34,8 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   const [exposure, setExposure] = useState<Exposure | null>(null);
   const [windFelt, setWindFelt] = useState<WindFelt | null>(null);
   const [sky, setSky] = useState<Sky | null>(null);
+  const [thermal, setThermal] = useState<ThermalPreference | null>(null);
+  const [drink, setDrink] = useState<DrinkPreference | null>(null);
   // Opened now; sent maybe much later (from a notification): both are kept, and the prediction is
   // computed again at sending, from the values of that moment.
   const [openedAt] = useState(() => new Date().toISOString());
@@ -97,6 +99,9 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       exposure,
       windFelt,
       sky,
+      ...(thermal ? { thermalPreference: thermal } : {}),
+      ...(drink ? { drinkPreference: drink } : {}),
+      preferenceVersion: PREFERENCE_VERSION,
       snapshot: snapshotOf(hours, jstHourOf(now), feel, yesterdayHours, store?.getHours(station, today).fetchedAt, { latest: store?.getLatest(station) ?? null, now }),
       baseline: base ? { ...base, alpha: beta.alpha } : null,
       departures: dep ? { air: dep.air, sun: dep.sun, shade: dep.shade } : null,
@@ -134,6 +139,20 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
             </button>
           ))}
         </div>
+      </div>
+      {/* #63 P1: what is wanted, apart from what is felt. Optional; tap the chosen one again to clear. */}
+      <div className="set-row">
+        <span className="set-label">
+          今より、どう感じたいですか<small className="set-help">（任意）</small>
+        </span>
+        <Segmented label="今より、どう感じたいか" value={thermal ?? ("" as ThermalPreference)} options={THERMAL_PREFERENCES.map((t) => ({ id: t.id, label: t.label }))} onChange={setThermal} onReselect={() => setThermal(null)} />
+      </div>
+      <div className="set-row">
+        <span className="set-label">
+          今飲むとしたら、どの温度の飲み物を選びますか<small className="set-help">（任意）</small>
+        </span>
+        <Segmented label="今飲むとしたら、どの温度の飲み物か" value={drink ?? ("" as DrinkPreference)} options={DRINK_PREFERENCES.map((d) => ({ id: d.id, label: d.label }))} onChange={setDrink} onReselect={() => setDrink(null)} />
+        <small className="set-help">飲み物の種類や味ではなく、温度だけを考えてください。選んだものをもう一度押すと、答えない状態に戻ります。</small>
       </div>
       <div className="set-row">
         <span className="set-label">いる場所</span>
