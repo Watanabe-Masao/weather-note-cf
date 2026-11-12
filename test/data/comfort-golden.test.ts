@@ -257,7 +257,7 @@ describe("#43: the comfort model's behaviour, fixed", { timeout: 120_000 }, () =
     for (const k of Object.keys(golden.fromReports) as (keyof Snap["fromReports"])[]) {
       const a = now.fromReports[k];
       const g = golden.fromReports[k];
-      expect([a.state, a.n, a.alpha], k).toEqual([g.state, g.n, g.alpha]);
+      expect([a.state, a.n, a.alpha], String(k)).toEqual([g.state, g.n, g.alpha]);
       close(a.bands, g.bands, 1e-6, `${k}.bands`);
       close(a.m1, g.m1, 1e-3, `${k}.m1`);
     }
