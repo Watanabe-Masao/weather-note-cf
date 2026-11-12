@@ -37,3 +37,18 @@ describe("in-app research analysis", () => {
     for (const line of csv.split("\r\n").slice(2).filter(Boolean)) expect(Number(line.split(",").at(-2))).toBeGreaterThanOrEqual(MIN_PEOPLE);
   });
 });
+
+describe("learning states without refitting", () => {
+  it("takes each person's state from their latest report", () => {
+    const rows = [
+      { researchId: "a", report: makeReport("a1", 8, 12, 0, { comfort: { ...makeReport("x", 8, 12, 0).comfort!, learning: "sparse" } }) },
+      { researchId: "a", report: makeReport("a2", 15, 20, 1, { comfort: { ...makeReport("x", 8, 12, 0).comfort!, learning: "testable" } }) },
+      { researchId: "b", report: makeReport("b1", 9, 14, 0) },
+    ];
+    const cells = analyse(rows).cells.filter((c) => c.section.startsWith("学習の段階"));
+    expect(cells.map((c) => [c.item, c.people])).toEqual([
+      ["暫定", 1],
+      ["検証可能", 1],
+    ]);
+  });
+});

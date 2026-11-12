@@ -7,7 +7,7 @@
 //   - an aggregate may be shared (sent out of the iPhone) only when MIN_PEOPLE or more people are
 //     in it — cells with fewer are left out of the shared file.
 
-import { ensembleFromReports, LEARNING_LABELS, type Learning, learningOf, trackRecord } from "../beta/comfort";
+import { LEARNING_LABELS, type Learning, trackRecord } from "../beta/comfort";
 import { inputQuality, MAX_LAG_MIN } from "../beta/quality";
 import type { Report } from "../beta/reports";
 
@@ -69,10 +69,20 @@ function counted(section: string, rows: { who: string; key: string }[]): Cell[] 
 }
 
 /**
- * The aggregates. `fitted` gives each person's learning state (the slow part: one model fit per
- * person); the screen runs it a person at a time and passes the results in.
+ * Each person's learning state as of their latest report: saved with the report's prediction, so
+ * nothing is refitted here (refitting took ~0.7 s a person; #60).
  */
-export function analyse(rows: Row[], fitted: Map<string, Learning> = new Map()): Analysis {
+export function latestLearning(people: Map<string, Report[]>): Map<string, Learning> {
+  const out = new Map<string, Learning>();
+  for (const [who, list] of people) {
+    const last = [...list].filter((r) => r.comfort?.learning).sort((a, b) => (a.at < b.at ? 1 : -1))[0];
+    if (last) out.set(who, last.comfort!.learning!);
+  }
+  return out;
+}
+
+/** The aggregates (fast: no model is fitted). */
+export function analyse(rows: Row[]): Analysis {
   const people = byPerson(rows);
   const live = rows.filter((r) => !r.report.deleted);
   const all = live.length;
@@ -127,15 +137,11 @@ export function analyse(rows: Row[], fitted: Map<string, Learning> = new Map()):
     cells.push({ section: "較正（予測した確率 → 実際）", item: label, value: predicted == null ? null : `${predicted} → ${observed}`, people: inBin.length, reports: m });
   }
 
-  // Learning states, by people (filled in as the fits finish).
-  if (fitted.size) cells.push(...counted("学習の段階（人数）", [...fitted.entries()].map(([who, s]) => ({ who, key: LEARNING_LABELS[s] }))).map((c) => ({ ...c, value: c.people })));
+  // Learning states, by people, as of each person's latest report.
+  const learning = latestLearning(people);
+  cells.push(...counted("学習の段階（最後の記録の時点・人数）", [...learning.entries()].map(([who, s]) => ({ who, key: LEARNING_LABELS[s] }))).map((c) => ({ ...c, value: c.people, reports: c.people })));
 
   return { people: nPeople, reports: all, from: ats[0] ?? null, to: ats[ats.length - 1] ?? null, cells };
-}
-
-/** One person's learning state, as the app would show it to them now (the slow part). */
-export function learningStateOf(reports: Report[]): Learning {
-  return learningOf(reports, ensembleFromReports(reports)).state;
 }
 
 /** Whether a cell may leave the iPhone. */
