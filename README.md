@@ -460,6 +460,7 @@ P(答え ≤ k) = σ( (境目_k − (E′ − μ)) ÷ s )      σ(x) = 1 ÷ (1 +
 | `input_status`, `input_lag_min`, `input_flags`, `train_excluded_reason` | 気温の状態、観測から記録までの分、品質の印、学習に使わなかった理由（使ったときは空） |
 | `pred_models_excluded`, `pred_inputs_missing` | 入力が欠けて予測に参加しなかったモデルと、その入力 |
 | `feel_transform`, `retrieved_at` | 日なた温度・日かげ温度の計算方式の版、気象データを取得した時刻 |
+| `obs_minute` | 使った観測の、正時からの分（10分値を使ったとき。空なら正時の値）。12時15分の答えなら `obs_hour` 12・`obs_minute` 10 |
 
 後から足した列は `id` の後ろに並べるので、前からある列の位置は変わりません。
 

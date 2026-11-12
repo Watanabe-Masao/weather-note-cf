@@ -105,7 +105,7 @@ export function tablesOf(ex: Export, hash: string): Rows {
     weather.push([
       ex.datasetId,
       r.id,
-      s ? iso(observedAt(s.date, s.hour)) : null,
+      s ? iso(observedAt(s.date, s.hour) + (s.minute ?? 0) * 60_000) : null,
       q.lagMin,
       q.status,
       q.flags.join(";"),
