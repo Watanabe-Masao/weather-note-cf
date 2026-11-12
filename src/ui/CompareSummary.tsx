@@ -216,7 +216,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
       <span className={`cs-head cs-${side}`}>
         {rel && <Badge kind={rel} />}
         <span className="cs-date">{dateButton(side === "a" ? "target" : "compare", <DayLabel date={d} year={years && d === other} />)}</span>
-        <DayWeatherIcon row={r} />
+        <DayWeatherIcon row={r} station={station} />
         {kind && <Badge kind={kind} confidence={confidenceOfRow(r)} />}
       </span>
     );
@@ -250,7 +250,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
           <small className="cs-side">対象</small>
           {relative(target, today) && <Badge kind={relative(target, today)!} />}
           {dateButton("target", <DayLabel date={target} />)}
-          <DayWeatherIcon row={a} />
+          <DayWeatherIcon row={a} station={station} />
         </span>
         <span className="cs-line-date">
           <small className="cs-side">比較</small>
@@ -262,7 +262,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
                 <DayLabel date={other} />
               </span>,
             )}
-          <DayWeatherIcon row={b} />
+          <DayWeatherIcon row={b} station={station} />
         </span>
       </span>
       <span className="cs-line cs-a">

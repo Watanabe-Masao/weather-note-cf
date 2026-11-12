@@ -239,7 +239,7 @@ function Body(p: Props) {
             >
               <span className="cal-n">{+d.slice(8)}</span>
               <span className="cal-icon" aria-hidden>
-                {row ? <DayWeatherIcon row={row} /> : status === "loading" ? <i className="cal-skel" /> : null}
+                {row ? <DayWeatherIcon row={row} station={p.station} /> : status === "loading" ? <i className="cal-skel" /> : null}
               </span>
               <span className="cal-max" aria-hidden>
                 {status === "loading" ? <i className="cal-skel short" /> : status === "failed" || status === "none" ? <span className="cal-none">—</span> : (max ?? "")}

@@ -60,7 +60,7 @@ export function SimilarFace({ store, station, target, compareDate, onPick }: Pro
         {origin ? (
           <>
             <p className="similar-title">
-              <DayWeatherIcon row={originDay?.row} size={22} />
+              <DayWeatherIcon row={originDay?.row} station={station} size={22} />
               <DayLabel date={target} year />
               <span>{originDay?.row?.type === "forecast" ? "の予報" : ""}に近い日</span>
             </p>
@@ -108,7 +108,7 @@ export function SimilarFace({ store, station, target, compareDate, onPick }: Pro
                 <DayLabel date={m.date} year />
                 {m.date === compareDate && <span className="badge relative">比較中</span>}
               </span>
-              <DayWeatherIcon row={rows.get(m.date)} size={18} />
+              <DayWeatherIcon row={rows.get(m.date)} station={station} size={18} />
               <span className="v">
                 <Num value={m.values.max} unit={UNIT.temp} tone="hot" showUnit={false} />
                 <small>{signedDiff(m.values.max, origin!.max, UNIT.temp)}</small>

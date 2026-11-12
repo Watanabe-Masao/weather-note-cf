@@ -39,6 +39,8 @@ jobs:
       - run: npm ci
         working-directory: .
       - run: npm ci
+      - run: npx tsc --noEmit -p tsconfig.research-data.json
+        working-directory: .
       - run: npm run fixture
       - run: npm run build
       - run: npm run run-models

@@ -16,9 +16,9 @@ const show = async (title: string, sql: string, must = false) => {
 await show("データセット", "SELECT dataset_id, strftime(exported_at, '%Y-%m-%d %H:%M') AS exported_at, n_reports, n_people, n_purged, n_trimmed, left(hash, 12) AS hash FROM datasets ORDER BY exported_at");
 await show("尺度の版", "SELECT dataset_id, scale_version, count(*) AS n FROM sensation_reports GROUP BY ALL ORDER BY ALL");
 await show("学習に使わない記録（理由ごと）", "SELECT dataset_id, coalesce(excluded_reason, '（使う）') AS reason, count(*) AS n FROM sensation_reports GROUP BY ALL ORDER BY ALL");
-await show("気温の状態", "SELECT status, count(*) AS n, round(avg(lag_min)) AS mean_lag_min FROM weather_snapshots GROUP BY ALL ORDER BY ALL");
+await show("気温の状態", "SELECT dataset_id, status, count(*) AS n, round(avg(lag_min)) AS mean_lag_min FROM weather_snapshots GROUP BY ALL ORDER BY ALL");
 await show("確率の合計が1から外れる予測", "SELECT dataset_id, report_id, p0+p1+p2+p3+p4+p5+p6 AS total FROM prediction_snapshots WHERE abs(p0+p1+p2+p3+p4+p5+p6 - 1) > 0.05", true);
-await show("予測の版", "SELECT model_version, count(*) AS n FROM prediction_snapshots GROUP BY ALL ORDER BY ALL");
+await show("予測の版", "SELECT dataset_id, model_version, count(*) AS n FROM prediction_snapshots GROUP BY ALL ORDER BY ALL");
 await show("同じ記録の重複", "SELECT dataset_id, report_id, count(*) AS n FROM sensation_reports GROUP BY ALL HAVING n > 1", true);
 await show("範囲外の答え（-3〜3 以外）", "SELECT dataset_id, report_id, sensation FROM sensation_reports WHERE sensation NOT BETWEEN -3 AND 3", true);
 await show("天気の記録がない答え", "SELECT r.dataset_id, r.report_id FROM sensation_reports r LEFT JOIN weather_snapshots w USING (dataset_id, report_id) WHERE w.temp IS NULL");
@@ -31,5 +31,5 @@ await show(
 );
 await show(
   "任意の2問（#63）：答えと未回答（問いが出た記録だけ）",
-  "SELECT coalesce(thermal_preference, '（未回答）') AS thermal, coalesce(drink_preference, '（未回答）') AS drink, count(*) AS n, count(DISTINCT research_id) AS people FROM sensation_reports WHERE preference_version IS NOT NULL GROUP BY ALL ORDER BY ALL",
+  "SELECT dataset_id, coalesce(thermal_preference, '（未回答）') AS thermal, coalesce(drink_preference, '（未回答）') AS drink, count(*) AS n, count(DISTINCT research_id) AS people FROM sensation_reports WHERE preference_version IS NOT NULL GROUP BY ALL ORDER BY ALL",
 );

@@ -15,6 +15,7 @@ import { fitPreference, PREF_DEFAULT, type PrefObs, predictPreference, preferenc
 import { useCentreVisible, useReports } from "./useReports";
 import { baselineOf } from "./useBaseline";
 import { BetaContext } from "./settings";
+import { preferenceText } from "../flows/screenFlows";
 
 const DAY = 86_400_000;
 /** "Before" for the comparison with oneself: answers older than this many days. */
@@ -25,34 +26,18 @@ const KINDS: { kind: PreferenceKind; title: string; plus: string; minus: string;
   { kind: "drink", title: "飲み物の温度", plus: "温かい飲み物", minus: "冷たい飲み物", labels: DRINK_PREFERENCES },
 ];
 
-const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(2)}`;
-const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 function One({ obs, past, k, e, a, now }: { obs: PrefObs[]; past: PrefObs[]; k: (typeof KINDS)[number]; e: number; a: number; now: number }) {
   const fit = useMemo(() => fitPreference(obs, { withFeeling: false, halfLifeDays: PREF_DEFAULT.halfLifeDays, now }), [obs, now]);
   const at = obs.length ? predictPreference(fit, { e, a }) : null;
   const lr = preferenceLearning(obs, fit, at);
-  const counts = [1, 0, -1].map((v) => obs.filter((o) => o.k === v).length);
-  if (!obs.length) return <li>{k.title}：まだ答えがありません（記録画面の任意の質問）。</li>;
-  if (!lr.show || !at)
-    return (
-      <li>
-        {k.title}：これまでの答え {k.labels.map((l, i) => `${l.label} ${counts[i]}件`).join("・")}。指数はまだ出しません（足りないもの：{lr.missing.join("、")}）。
-      </li>
-    );
-  const [lo, hi] = at.indexInterval;
-  const lean = lo <= 0 && hi >= 0 ? "はっきりした傾きはありません" : at.index > 0 ? `${k.plus}寄り` : `${k.minus}寄り`;
+  const counts = [1, 0, -1].map((v) => obs.filter((o) => o.k === v).length) as [number, number, number];
   // Oneself before: the same conditions, from answers older than PAST_DAYS only.
-  const pastFit = past.length ? fitPreference(past, { withFeeling: false, halfLifeDays: PREF_DEFAULT.halfLifeDays, now: now - PAST_DAYS * DAY }) : null;
+  const pastFit = lr.show && at && past.length ? fitPreference(past, { withFeeling: false, halfLifeDays: PREF_DEFAULT.halfLifeDays, now: now - PAST_DAYS * DAY }) : null;
   const pastAt = pastFit ? predictPreference(pastFit, { e, a }) : null;
-  const pastOk = pastFit && pastAt ? preferenceLearning(past, pastFit, pastAt).show : false;
-  const diff = pastOk && pastAt ? at.index - pastAt.index : null;
-  return (
-    <li>
-      {k.title}：<b>{lean}</b>（指数 {signed(at.index)}、95%：{signed(lo)}〜{signed(hi)}。{k.labels.map((l, i) => `${l.label} ${pct(at.probs[2 - i])}`).join("・")}）
-      {diff != null && Math.abs(diff) >= 0.2 ? `。同じ条件で、${PAST_DAYS}日より前の自分と比べて ${diff > 0 ? k.plus : k.minus}を選ぶことが多くなっています（${signed(diff)}）` : diff != null ? `。${PAST_DAYS}日より前の自分と、ほぼ同じです（${signed(diff)}）` : ""}
-    </li>
-  );
+  const pastView = pastFit && pastAt ? { index: pastAt.index, shown: preferenceLearning(past, pastFit, pastAt).show } : null;
+  // The words are decided in preferenceText (src/flows/screenFlows.ts, tested).
+  return <li>{preferenceText(k, counts, at, lr, pastView, PAST_DAYS).text}</li>;
 }
 
 export function PreferenceDay({ store, station, date, feel }: { store: WeatherStore | null; station: string; date: string; feel: FeelSettings }) {

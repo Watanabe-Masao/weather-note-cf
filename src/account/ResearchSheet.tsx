@@ -6,6 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { compareCells } from "../flows/screenFlows";
 import { analyse, byPerson, type Cell, compareSettings, MIN_PEOPLE, type Row, sharedCells, sharedCsv } from "../research/analysis";
 import { ModalSheet } from "../ui/ModalSheet";
 import { api, needsReauth } from "./account";
@@ -37,7 +38,11 @@ function Body() {
         after = page.next;
         if (!stop) setLoad({ phase: "reading", got: rows.length });
       } while (after && !stop);
-      if (!stop) setLoad({ phase: "ready", rows, at: Date.now() });
+      // A report that arrived or changed during the reading comes again on the last page (late
+      // rows): keep its newest copy, once (review #86).
+      const newest = new Map<string, Row>();
+      for (const r of rows) newest.set(`${r.researchId}/${r.report.id}`, r);
+      if (!stop) setLoad({ phase: "ready", rows: [...newest.values()], at: Date.now() });
     })().catch((e) => !stop && setLoad(needsReauth(e) ? { phase: "reauth" } : { phase: "error", message: (e as Error).message }));
     return () => {
       stop = true;
@@ -74,20 +79,12 @@ function Body() {
   };
   const a = useMemo(() => {
     if (!base || !cmp || cmp.done < cmp.of || !cmp.per.length) return base;
-    const n = cmp.per.reduce((s, c) => s + c.n, 0);
-    const pooled = (k: "rpsA" | "rpsB" | "ref") => Math.round((cmp.per.reduce((s, c) => s + c[k] * c.n, 0) / n) * 1000) / 1000;
-    const perPerson = (k: "rpsA" | "rpsB" | "ref") => Math.round((cmp.per.reduce((s, c) => s + c[k], 0) / cmp.per.length) * 1000) / 1000;
-    const section = "comfort-5 と comfort-6（同じ記録を、それより前の記録だけで予測。RPS）";
-    const extra: Cell[] = (
-      [
-        ["comfort-5（夜の余熱はその日の累計のまま）", "rpsA"],
-        ["comfort-6（夜の余熱は前の昼の合計、0時をまたいでも）", "rpsB"],
-        ["基準（それまでの答えの割合）", "ref"],
-      ] as const
-    ).flatMap(([item, k]) => [
-      { section, item: `${item}・件数で平均`, value: pooled(k), people: cmp.per.length, reports: n },
-      { section, item: `${item}・人ごとに平均`, value: perPerson(k), people: cmp.per.length, reports: n },
-    ]);
+    // Pooled by reports and by people (src/flows/screenFlows.ts, tested).
+    const extra = compareCells(
+      cmp.per,
+      { a: "comfort-5（夜の余熱はその日の累計のまま）", b: "comfort-6（夜の余熱は前の昼の合計、0時をまたいでも）", ref: "基準（それまでの答えの割合）" },
+      "comfort-5 と comfort-6（同じ記録を、それより前の記録だけで予測。RPS）",
+    );
     return { ...base, cells: [...base.cells, ...extra] };
   }, [base, cmp]);
 

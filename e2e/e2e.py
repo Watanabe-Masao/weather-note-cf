@@ -1,0 +1,423 @@
+# The app end to end in a real browser (Playwright, Python): every screen and the main flows,
+# against the built app (dist/client) with the weather API answered by made-up data.
+#
+# Run:  npx vite build && python3 e2e/e2e.py [width]
+#       WN_CHROME=/path/to/chrome to use a given browser; exits 1 when a check fails (CI).
+import json, re, sys, datetime, random, threading, http.server, functools, os
+from playwright.sync_api import sync_playwright
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+DIST = os.environ.get("WN_DIST", os.path.join(HERE, "..", "dist", "client"))
+OUT = os.environ.get("WN_SHOTS", os.path.join(HERE, "shots"))
+TODAY = datetime.date(2026, 11, 10)
+SKY = ["晴", "曇時々晴", "晴後一時曇", "曇一時雨", "雨後曇", "快晴", "曇"]
+
+def row(d, kind="actual"):
+    r = random.Random(d.toordinal())
+    mx = round(19 + 6 * r.random() - (d.month in (12, 1, 2)) * 9, 1)
+    mn = round(mx - 6 - 4 * r.random(), 1)
+    rain = round(max(0, r.random() * 30 - 18), 1)
+    return {"date": d.isoformat(), "n": d.day, "type": kind, "provider": "JMA", "max": mx, "min": mn, "rain": rain,
+            "humidity": round(55 + 30 * r.random()), "wind": round(1 + 4 * r.random(), 1),
+            "dayWeather": SKY[d.toordinal() % len(SKY)], "snow": (2.0 if (d.year, d.day) == (2025, 8) else 0), "pressure": round(1012 + 8 * r.random(), 1), "gust": round(6 + 6 * r.random(), 1), "humidityMin": round(30 + 20 * r.random()), "sun": round(9 * r.random(), 1), "temp": round(mx - 4, 1), "raw": {"max": str(mx)}, "quality": {}, "unpublished": []}
+
+ME = {"id": "u1", "loginId": "masao", "name": "渡辺", "role": "admin", "research": {"granted": False, "version": None, "at": None}, "consentVersion": 1}
+LOGGED_IN = os.environ.get("WN_LOGGED_OUT") != "1"
+def api(path, q):
+    if path == "/api/auth/me":
+        return {"user": ME if LOGGED_IN else None, "setup": False}
+    if path == "/api/me/notify":
+        return {"settings": {"enabled": True, "times": ["07:30", "12:30", "18:30"], "days": [1, 2, 3, 4, 5]}, "devices": 1}
+    if path == "/api/push/key":
+        return {"publicKey": "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8"}
+    if path == "/api/reports/sync":
+        return {"taken": 0, "total": 0, "reports": [], "seq": 0, "more": False}
+    if path == "/api/admin/users":
+        return {"users": [{"id": "u1", "login_id": "masao", "name": "渡辺", "role": "admin", "created_at": 1762800000000, "last_login": 1762800000000, "disabled_at": None, "reports": 0, "research": None}, {"id": "u2", "login_id": "tanaka", "name": None, "role": "user", "created_at": 1762800000000, "last_login": None, "disabled_at": None, "reports": 3, "research": 1}]}
+    if path == "/api/stations":
+        return [{"precNo": 74, "blockNo": "47893", "name": "高知", "prefecture": "高知県", "lat": [33, 33.8], "lon": [133, 33.1]}]
+    if path == "/api/daily":
+        y, m = map(int, q["month"].split("-"))
+        d = datetime.date(y, m, 1); rows = []
+        while d.month == m:
+            if d < TODAY: rows.append(row(d))
+            d += datetime.timedelta(days=1)
+        return {"station": "47893", "month": q["month"], "rows": rows, "fixed": True, "source": None, "fetchedAt": ""}
+    if path == "/api/forecast":
+        rows = [dict(row(TODAY + datetime.timedelta(days=i), "forecast"), probability=[10, 30, 70, 50, 20, 0, 40, 60][i % 8], radiation=round(6 + i * 0.7, 1), confidence=("A" if i < 3 else "B" if i < 8 else "C") if i < 15 else None) for i in range(16)]
+        import math
+        hourly = []
+        for i in range(4):
+            d = TODAY + datetime.timedelta(days=i); base = row(d)
+            for n in range(1, 25):
+                t = round(base["min"] + (base["max"] - base["min"]) * math.sin(math.pi * max(0, min(1, (n - 5) / 14))), 1)
+                hourly.append({"date": d.isoformat(), "n": n, "type": "forecast", "provider": "Open-Meteo", "temp": t, "humidity": 70, "wind": 2.0,
+                               "pressure": 1015.0, "rain": 0, "probability": 20, "solar": round(max(0, 600 * math.sin(math.pi * (n - 6) / 12)), 0) if 6 < n < 18 else 0,
+                               "raw": {}, "quality": {}})
+        return {"rows": rows, "hourlyRows": hourly}
+    if path == "/api/hourly":
+        import math
+        start = datetime.date.fromisoformat(q["from"]); end = datetime.date.fromisoformat(q["to"])
+        days = []
+        d = start
+        while d <= end:
+            if d.year < 2020:
+                days.append({"date": d.isoformat(), "rows": [], "fixed": False, "error": "テスト用に取得失敗"})
+            else:
+                base = row(d)
+                rows = []
+                for n in range(1, 25):
+                    f = (1 - math.cos((n - 5) / 24 * 2 * math.pi)) / 2 if 5 <= n <= 29 else 0
+                    t = round(base["min"] + (base["max"] - base["min"]) * (math.sin(math.pi * max(0, min(1, (n - 5) / 14)))), 1)
+                    rows.append({"date": d.isoformat(), "n": n, "type": ("forecast" if (d > TODAY or (d == TODAY and n > 12)) else "actual"), "provider": "JMA", "temp": t,
+                                 "humidity": 80 - (t - base["min"]) * 2, "pressure": round(base["pressure"] + 3 * math.sin(n / 4), 1), "wind": 1.5 + (n % 5) * 0.4,
+                                 "sun": round(max(0, min(1, 1.1 * math.sin(math.pi * (n - 6) / 12))), 1) if 6 < n < 18 else 0, "rain": 1.5 if n in (20, 21) else 0, "radiation": round(max(0, 2.2 * math.sin(math.pi * (n - 6) / 12)), 2) if 6 < n < 18 else None,
+                                 "raw": {}, "quality": {}, "unpublished": []})
+                days.append({"date": d.isoformat(), "rows": rows, "fixed": True})
+            d += datetime.timedelta(days=1)
+        return {"station": "47893", "days": days, "fetchedAt": ""}
+    if path == "/api/sun":
+        return {"date": q["date"], "sunrise": q["date"] + "T06:31", "sunset": q["date"] + "T17:12"}
+    if path == "/api/current":
+        return {"rows": [], "latest": None}
+    if path == "/api/recent":
+        return {"daily": row(datetime.date.fromisoformat(q["date"])), "rows": []}
+    return {"error": "nope"}
+
+class H(http.server.SimpleHTTPRequestHandler):
+    def log_message(self, *a): pass
+    def do_GET(self):
+        if not self.path.startswith("/api/") and not os.path.exists(DIST + self.path.split("?")[0]):
+            self.path = "/index.html"
+        return super().do_GET()
+
+srv = http.server.ThreadingHTTPServer(("127.0.0.1", 8799), functools.partial(H, directory=DIST))
+threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+
+results = []
+def check(name, cond, detail=""):
+    results.append((bool(cond), name, detail))
+
+def step(name, fn):
+    try:
+        fn()
+    except Exception as e:
+        results.append((False, name, "EXCEPTION " + str(e).splitlines()[0][:160]))
+
+errors = []
+W = int(sys.argv[1]) if len(sys.argv) > 1 else 390
+with sync_playwright() as p:
+    # A given browser (WN_CHROME), else Playwright's own Chromium (CI installs it).
+    chrome = os.environ.get("WN_CHROME")
+    b = p.chromium.launch(**({"executable_path": chrome} if chrome else {}), args=["--no-sandbox"])
+    ctx = b.new_context(viewport={"width": W, "height": 844}, device_scale_factor=1, is_mobile=True, has_touch=True, locale="ja-JP", timezone_id="Asia/Tokyo")
+    ctx.add_init_script("""{const T=Date.parse('2026-11-10T03:00:00Z');const RD=Date;const off=T-RD.now();
+      class D extends RD{constructor(...a){super(...(a.length?a:[RD.now()+off]))} static now(){return RD.now()+off}}
+      globalThis.Date=D;}""")
+    def handle(route):
+        from urllib.parse import urlparse, parse_qs
+        u = urlparse(route.request.url)
+        q = {k: v[0] for k, v in parse_qs(u.query).items()}
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(api(u.path, q)))
+    ctx.route("**/api/**", handle)
+    pg = ctx.new_page()
+    pg.on("console", lambda m: m.type in ("error", "warning") and errors.append(m.text))
+    pg.on("pageerror", lambda e: errors.append("PAGEERROR " + str(e)))
+    pg.goto("http://127.0.0.1:8799/")
+    pg.wait_for_timeout(1500)
+    pg.add_script_tag(path=os.path.join(HERE, "flick.js"))
+    cdp = ctx.new_cdp_session(pg)
+    wait = pg.wait_for_timeout
+    txt = lambda sel: pg.locator(sel).first.inner_text()
+    title = lambda: txt(".sheet-head-title")
+    no_overflow = lambda: pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
+    def touch(kind, x, y):
+        cdp.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": [] if kind == "touchEnd" else [{"x": x, "y": y}]})
+    def sheet_h():
+        return pg.evaluate("document.querySelector('.sheet').getBoundingClientRect().height")
+    def esc():
+        pg.keyboard.press("Escape"); wait(500)
+
+    # A. first view
+    def a():
+        check("A1 表が対象・比較の2つ", pg.locator(".side").count() == 2)
+        check("A2 対象日の見出し", "2026/11/10" in txt(".side .date-button"), txt(".side .date-button"))
+        check("A3 中央の帯", pg.locator(".center-band").count() == 1)
+        check("A4 横にはみ出さない", no_overflow())
+        check("A5 シートの見出し", title() == "気温の日別", title())
+    step("A", a)
+
+    # B. every item chip
+    def bb():
+        for i, label in enumerate(["気温", "降水", "日差し", "日照", "湿度", "風速", "気圧"]):
+            pg.click(f".metrics .chip:nth-child({i+1})"); wait(500)
+            check(f"B{i+1} {label}: チップがオン", "on" in pg.locator(f".metrics .chip:nth-child({i+1})").get_attribute("class"))
+            check(f"B{i+1} {label}: シート見出し", title().startswith(label), title())
+            check(f"B{i+1} {label}: 読み取りカード", pg.locator(".sheet .readout-card").count() == 1)
+            check(f"B{i+1} {label}: 凡例がグラフの下", pg.locator(".sheet .line-legend").count() >= 1)
+        pg.click(".metrics .chip:nth-child(1)"); wait(400)
+    step("B", bb)
+
+    # C. sheet heights
+    def c():
+        h0 = sheet_h()
+        pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)
+        h1 = sheet_h()
+        top = pg.evaluate("document.querySelector('.sheet').getBoundingClientRect().top")
+        chips = pg.evaluate("document.querySelector('.metrics').getBoundingClientRect().bottom")
+        check("C1 上へ弾くと高くなる", h1 > h0 + 50, f"{h0:.0f}→{h1:.0f}")
+        check("C2 最大はチップの下で止まる", top >= chips - 1, f"top {top:.0f} chips {chips:.0f}")
+        pg.evaluate("__flick('.sheet-handle',600,120)"); wait(800)
+        h2 = sheet_h()
+        check("C3 下へ弾くと低くなる", h2 < h1 - 50, f"{h1:.0f}→{h2:.0f}")
+        pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)
+    step("C", c)
+
+    # D. daily -> hours -> back, every item
+    def d():
+        pg.locator(".chart-hit").nth(7).click(force=True); wait(700)
+        check("D1 日をタップで時間帯", title().endswith("の時間帯"), title())
+        check("D2 戻るボタン", pg.locator(".back-btn").count() == 1)
+        for i, label in enumerate(["気温", "降水", "日差し", "日照時間と明るさ", "湿度", "風速", "気圧"]):
+            pg.click(f".metrics .chip:nth-child({i+1})"); wait(500)
+            check(f"D3 時間帯 {label}", title() == f"{label}の時間帯" and pg.locator(".day-chart > svg").count() == 1, title())
+        pg.click(".metrics .chip:nth-child(1)"); wait(300)
+        pg.click(".back-btn"); wait(600)
+        check("D4 ‹日別で戻る", title() == "気温の日別", title())
+    step("D", d)
+
+    # E. forecast hatch in hours (tomorrow)
+    def e():
+        pg.locator(".chart-hit").nth(8).click(force=True); wait(800)
+        check("E1 予報の時間に網かけ", pg.locator(".day-chart .chart-forecast").count() >= 20, str(pg.locator(".day-chart .chart-forecast").count()))
+        check("E2 予報の線は実線のまま", pg.evaluate("[...document.querySelectorAll('.day-chart line[stroke-dasharray=\"2 4\"]')].length") == 0)
+        pg.locator(".day-chart > svg").scroll_into_view_if_needed(); wait(300)
+        b = pg.locator(".day-chart > svg").bounding_box()
+        pg.mouse.move(b["x"] + b["width"] * 0.6, b["y"] + 100); pg.mouse.down(); pg.mouse.move(b["x"] + b["width"] * 0.7, b["y"] + 100)
+        check("E3 触ると補助線と軸のタグ", pg.locator(".day-chart .guide-tag").count() >= 1)
+        check("E4 触っている間カードが光る", pg.locator(".readout-card.live").count() == 1)
+        pg.mouse.up(); wait(200)
+        check("E5 離すとカードは戻る", pg.locator(".readout-card.live").count() == 0)
+        pg.click(".back-btn"); wait(600)
+    step("E", e)
+
+    # F. long press on the daily graph (touch) scrubs, no day opens; a swipe moves days
+    def f():
+        b = pg.locator(".chart svg").first.bounding_box()
+        x, y = b["x"] + b["width"] * 0.3, b["y"] + b["height"] * 0.4
+        touch("touchStart", x, y); wait(450)
+        touch("touchMove", x + 40, y); wait(200)
+        check("F1 長押しでカードが光る", pg.locator(".readout-card.live").count() == 1)
+        check("F2 長押しで補助線", pg.locator(".chart .guide").count() == 1)
+        touch("touchEnd", x + 40, y); wait(700)
+        check("F3 長押しの後に時間帯へ飛ばない", title().endswith("の日別"), title())
+        before = txt(".side .date-button")
+        sx = b["x"] + b["width"] * 0.7
+        touch("touchStart", sx, y)
+        for k in range(1, 9):
+            touch("touchMove", sx - k * 22, y); wait(16)
+        touch("touchEnd", sx - 176, y); wait(900)
+        after = txt(".side .date-button")
+        check("F4 横スワイプで日が動く", before != after, f"{before}→{after}")
+        pg.click(".today-chip") if pg.locator(".today-chip").count() else None; wait(600)
+    step("F", f)
+
+    # G. compare presets and link
+    def g():
+        sel = pg.locator(".side-compare select.mode")
+        opts = [o for o in sel.locator("option").evaluate_all("os => os.map(o => o.value)") if o != "__similar"]
+        seen = set()
+        for o in opts:
+            sel.select_option(o); wait(500)
+            seen.add(txt(".side-compare .date-button"))
+        check("G1 比較のプリセットで比較日が変わる", len(seen) >= len(opts) - 1, f"{len(opts)} 種類 → {len(seen)} 通り")
+        sel.select_option(opts[0]); wait(400)
+        pg.click(".link-toggle"); wait(400)
+        check("G2 個別にすると帯が2つ", pg.locator(".center-band.apart").count() == 2)
+        pg.click(".link-toggle"); wait(400)
+        check("G3 連動に戻すと帯が1つ", pg.locator(".center-band").count() == 1 and pg.locator(".center-band.apart").count() == 0)
+    step("G", g)
+
+    # H. date arrows and 今日
+    def h():
+        before = txt(".side .date-button")
+        pg.locator(".side .arrow").nth(1).click(); wait(500)
+        check("H1 ▶で次の日", txt(".side .date-button") != before)
+        check("H2 今日へ戻るボタンが出る", pg.locator(".today-chip").count() == 1)
+        pg.click(".today-chip"); wait(500)
+        check("H3 今日へ戻る", txt(".side .date-button") == before)
+    step("H", h)
+
+    # I. close rules on the calendar: Esc, backdrop, ×, drag; pick closes
+    def i_():
+        for how in ["Esc", "背景", "×", "つまみ"]:
+            pg.locator(".side .date-button").first.click(); wait(600)
+            ok_open = pg.locator(".msheet.calendar").count() == 1
+            if how == "Esc": pg.keyboard.press("Escape")
+            elif how == "背景": pg.mouse.click(200, 30)
+            elif how == "×": pg.click(".msheet .icon-btn.close")
+            else:
+                hb = pg.locator(".msheet .sheet-handle").bounding_box()
+                pg.mouse.move(hb["x"] + hb["width"]/2, hb["y"] + 8); pg.mouse.down(); pg.mouse.move(hb["x"] + hb["width"]/2, hb["y"] + 300, steps=6); pg.mouse.up()
+            wait(700)
+            check(f"I 閉じ方（{how}）", ok_open and pg.locator(".msheet").count() == 0)
+        pg.locator(".side .date-button").first.click(); wait(600)
+        check("I カレンダーは中身の高さ", "fit" in pg.locator(".msheet").get_attribute("class"))
+        pg.locator(".cal-day:not(:disabled)").nth(3).click(); wait(400)
+        check("I 1回目のタップは仮（閉じない、上の組み合わせが変わる）", pg.locator(".msheet").count() == 1 and pg.locator(".cal-pair.changed").count() == 1)
+        pg.locator(".cal-day:not(:disabled)").nth(3).click(); wait(700)
+        check("I 同じ日をもう一度で決まって閉じる", pg.locator(".msheet").count() == 0 and txt(".side .date-button") != "2026/11/10", txt(".side .date-button"))
+        had = pg.locator(".today-chip").count()
+        pg.click(".today-chip") if had else None; wait(600)
+        check("I 今日ボタンで今日に戻る", had and txt(".side .date-button") == "2026/11/10", f"chip {had} → {txt('.side .date-button')}")
+    step("I", i_)
+
+    # J. settings
+    def j():
+        pg.click(".app-head .icon-btn"); wait(600)
+        check("J1 設定が開く", pg.locator(".msheet.settings").count() == 1)
+        check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
+        esc()
+    step("J", j)
+
+    # K. feel map
+    def k():
+        pg.evaluate("__flick('.sheet-handle',600,120)"); wait(800)
+        pg.locator(".side-target .strip-col.is-center .cell-feel.tappable-feel").first.click(); wait(800)
+        head = pg.evaluate("document.querySelector('.side-target .date-button').innerText")
+        md = txt(".band-map-date.center").split()[0]
+        check("K0 中央の日のマップ", head.endswith("/" + md.split("/")[0] + "/" + md.split("/")[1]), f"マップ {md} / 表 {head}")
+        check("K1 肌感マップが開く", pg.locator(".msheet.feel-sheet").count() == 1)
+        mh = pg.evaluate("document.querySelector('.msheet').getBoundingClientRect().height")
+        sm = pg.evaluate("parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-max'))")
+        check("K2 グラフシート最大と同じ高さ", abs(mh - sm) <= 2, f"{mh:.0f} vs {sm:.0f}")
+        check("K3 1枚の比較マップ（35マス）", pg.locator(".band-cell").count() == 35, str(pg.locator(".band-cell").count()))
+        check("K4 予報のマスに網かけ", pg.locator(".bm-a.forecast").count() >= 1)
+        check("K5 凡例がマップの下", pg.evaluate("document.querySelector('.map-legend').getBoundingClientRect().top > document.querySelector('.band-map').getBoundingClientRect().bottom"))
+        pg.locator(".band-cell.center").nth(2).click(); wait(400)
+        check("K6 マスで両日の詳細", pg.locator(".band-detail table").count() == 2)
+        pg.locator(".seg button", has_text="推移").click(); wait(500)
+        bx = pg.locator("svg.scrub").bounding_box()
+        pg.mouse.move(bx["x"] + bx["width"] * 0.3, bx["y"] + 80); wait(200)
+        check("K7 推移で補助線とタグ", pg.locator("svg.scrub .guide-tag").count() >= 1)
+        check("K8 時間区分の線にデータ色を使わない", pg.evaluate("![...document.querySelectorAll('svg.scrub line[stroke]')].some(l => ['#86b8ff','#f5c865','#c9a6f7','#f39a86','#8fd8c4'].includes(l.getAttribute('stroke')))"))
+        check("K9 横にはみ出さない", no_overflow())
+        pg.click(".msheet .icon-btn.close"); wait(600)
+        check("K10 ×で閉じる", pg.locator(".msheet").count() == 0)
+    step("K", k)
+
+    # L. similar days
+    def l():
+        before = txt(".side-compare .date-button")
+        pg.locator(".side-compare select.mode").select_option("__similar"); wait(1200)
+        check("L1 似た日が開く", pg.locator(".msheet.similar-sheet").count() == 1)
+        n = pg.locator(".similar-list li button").count()
+        check("L2 候補の一覧", n >= 3, str(n))
+        pg.locator(".similar-list li button").nth(1).click(); wait(900)
+        check("L3 選ぶと閉じて比較日が変わる", pg.locator(".msheet").count() == 0 and txt(".side-compare .date-button") != before, txt(".side-compare .date-button"))
+        pg.locator(".side-compare select.mode").select_option(index=0); wait(500)
+    step("L", l)
+
+    # M. summary minimise and 表に集中
+    def m():
+        pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)
+        pg.locator(".chart-hit").nth(7).click(force=True); wait(700)
+        pg.click(".cs-toggle"); wait(300)
+        check("M1 要約を畳む", pg.locator(".compare-summary.collapsed").count() >= 1)
+        pg.click(".cs-toggle"); wait(300)
+        check("M2 要約を広げる", pg.locator(".compare-summary.compact").count() == 1)
+        pg.click(".back-btn"); wait(500)
+        pg.locator(".side .icon-btn").first.click(); wait(500)
+        check("M3 表に集中", pg.evaluate("document.querySelector('.app').classList.contains('full')"))
+        pg.locator(".side .icon-btn").first.click(); wait(500)
+        check("M4 表示を戻す", not pg.evaluate("document.querySelector('.app').classList.contains('full')"))
+    step("M", m)
+
+    # N. long press guard: no text selection anywhere
+    def n_():
+        us = pg.evaluate("getComputedStyle(document.querySelector('.chart')).webkitUserSelect || getComputedStyle(document.querySelector('.chart')).userSelect")
+        check("N1 グラフの文字は選択されない", us == "none", us)
+    step("N", n_)
+
+    # Q. calendar: presets and custom
+    def q():
+        pg.locator(".side-compare .date-button").click(); wait(600)
+        check("Q1 比較日のカレンダーにプリセット", pg.locator(".cal-presets .chip").count() == 5)
+        check("Q2 マスに天気と最高気温", pg.locator(".cal-day .cal-max").filter(has_text=re.compile(r"\d")).count() >= 20)
+        pg.locator(".cal-presets .chip", has_text="前週").click(); wait(300)
+        check("Q3 プリセットで組み合わせが前週に", "前週" in txt(".cal-pair-interval"), txt(".cal-pair-interval"))
+        pg.click(".calendar-foot .primary"); wait(700)
+        check("Q4 決定で前週になる", pg.locator(".side-compare select.mode").input_value() == "lastWeek" and txt(".side-compare .date-button") == "2026/11/3", txt(".side-compare .date-button"))
+        pg.locator(".side-compare .date-button").click(); wait(600)
+        pg.locator(".cal-day:not(:disabled)").nth(1).click(); wait(300)
+        check("Q5 日を選ぶとカスタムと表示", "カスタム" in txt(".cal-pair-interval"), txt(".cal-pair-interval"))
+        pg.click(".calendar-foot .primary"); wait(700)
+        check("Q6 決定でカスタムになる", pg.locator(".side-compare select.mode").input_value() == "custom")
+        pg.locator(".side-compare select.mode").select_option("sameDate"); wait(500)
+    step("Q", q)
+
+    # P. the four decisions (all B)
+    def pp():
+        check("P1 比較の表に差の行", pg.locator(".side-compare .label-diff").count() >= 2 and pg.locator(".side-compare .cell-diff").count() > 0)
+        pg.locator(".side .icon-btn").first.click(); wait(600)
+        wb = pg.locator(".side-target .strip-wrap").bounding_box()
+        cols = pg.evaluate("[...document.querySelectorAll('.side-target .strip-col')].filter(c=>{const r=c.getBoundingClientRect();return r.left>=%f-1&&r.right<=%f+1}).length" % (wb["x"], wb["x"] + wb["width"]))
+        check("P2 表に集中で9日", cols == 9, str(cols))
+        check("P2b 横にはみ出さない", no_overflow())
+        pg.locator(".side .icon-btn").first.click(); wait(600)
+        pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)
+        pg.locator(".chart-hit").nth(7).click(force=True); wait(800)
+        pg.evaluate("document.querySelector('.sheet-body').scrollTo(0,260)"); wait(600)
+        dock = pg.locator(".sheet-dock .compare-summary.pinned").count()
+        top = pg.evaluate("document.querySelector('.sheet-body').getBoundingClientRect().top")
+        dbot = pg.evaluate("document.querySelector('.sheet-dock').getBoundingClientRect().bottom")
+        check("P3 固定の1行は見出しの下（重ならない）", dock == 1 and top >= dbot - 1, f"dock {dock} body {top:.0f} dock下 {dbot:.0f}")
+        pg.locator(".sheet-dock .compare-summary.pinned").click(); wait(700)
+        check("P3b 1行をタップで要約に戻る", pg.locator(".sheet-dock .compare-summary").count() == 0)
+        pg.click(".back-btn"); wait(500)
+        pg.evaluate("__flick('.sheet-handle',600,120)"); wait(800)
+        pg.locator(".side-target .strip-col.is-center .cell-feel.tappable-feel").first.click(); wait(900)
+        c = lambda: txt(".band-map-date.center").split()[0]
+        before = c()
+        bb = pg.locator(".band-map").bounding_box(); y = bb["y"] + 120; x = bb["x"] + bb["width"] * 0.75
+        touch("touchStart", x, y)
+        for k in range(1, 9):
+            touch("touchMove", x - k * 18, y); wait(16)
+        touch("touchEnd", x - 144, y); wait(900)
+        check("P4 肌感マップを横スワイプで1日進む", c() != before and pg.locator(".msheet").count() == 1, f"{before}→{c()}")
+        esc()
+    step("P", pp)
+
+    # T. 日照 › 移り変わり (時刻で・明るさで, 1週間〜1年)
+    def tt():
+        pg.click(".metrics .chip:nth-child(4)"); wait(600)
+        check("T1 日照の日別に［移り変わり］", pg.locator(".trend-btn").count() == 1, title())
+        pg.click(".trend-btn"); wait(700)
+        check("T2 見出し", title() == "明るさの移り変わり", title())
+        check("T3 時刻で：見出しが分で言う", "分" in txt(".lt-head-main"), txt(".lt-head-main"))
+        check("T4 時刻で：グラフ", pg.locator(".light-trend svg.lt-chart").count() == 1)
+        for span in ["1か月", "1年", "1週間"]:
+            pg.locator(".lt-controls button", has_text=span).click(); wait(500)
+            check(f"T5 時刻で {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())
+        pg.locator(".lt-controls button", has_text="明るさで").click(); wait(600)
+        check("T6 明るさで：読み取りに長さ", "長さ" in txt(".light-trend .readout-card"), txt(".light-trend .readout-card"))
+        for span in ["1か月", "1年", "1週間"]:
+            pg.locator(".lt-controls button", has_text=span).click(); wait(700)
+            check(f"T7 明るさで {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())
+        pg.locator(".lt-controls button", has_text="時刻で").click(); wait(400)
+        pg.click(".back-btn"); wait(600)
+        check("T8 ‹日別で戻る", title() == "日照時間と明るさの日別", title())
+        pg.click(".metrics .chip:nth-child(3)"); wait(500)
+        check("T9 日差しには［移り変わり］がない", pg.locator(".trend-btn").count() == 0)
+        pg.click(".metrics .chip:nth-child(1)"); wait(400)
+    step("T", tt)
+
+    check("Z コンソールのエラーなし", not errors, "; ".join(errors[:5]))
+    b.close()
+srv.shutdown()
+ok = sum(r[0] for r in results)
+print(f"WIDTH {W}: {ok}/{len(results)} passed")
+for r in results:
+    if not r[0]: print("  NG", r[1], r[2])
+sys.exit(0 if ok == len(results) else 1)

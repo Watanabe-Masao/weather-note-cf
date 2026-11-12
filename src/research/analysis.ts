@@ -116,13 +116,17 @@ export function analyse(rows: Row[]): Analysis {
   const n = records.reduce((s, x) => s + x.rec.n, 0);
   // Two averages side by side (#62): by report (people who report a lot weigh more) and by
   // person (each person counts once, whatever they reported).
-  const pooled = (k: "rps" | "refRps" | "logLoss" | "hit" | "bias" | "mae") => (n ? r3(records.reduce((s, x) => s + (x.rec[k] ?? 0) * x.rec.n, 0) / n) : null);
+  // From each person's unrounded means (rounding comes last, review #86).
+  const pooledRaw = (k: "rps" | "refRps" | "logLoss" | "hit" | "bias" | "mae") => (n ? records.reduce((s, x) => s + (x.rec.raw[k] ?? 0) * x.rec.n, 0) / n : null);
+  const pooled = (k: "rps" | "refRps" | "logLoss" | "hit" | "bias" | "mae") => r3(pooledRaw(k));
   const perPerson = (k: "rps" | "refRps" | "logLoss" | "hit" | "bias" | "mae" | "skill") => {
-    const vs = records.map((x) => x.rec[k]).filter((v): v is number => v != null);
+    const vs = records.map((x) => x.rec.raw[k]).filter((v): v is number => v != null);
     return vs.length ? r3(vs.reduce((a, b) => a + b, 0) / vs.length) : null;
   };
-  const rps = pooled("rps");
-  const ref = pooled("refRps");
+  const rpsRaw = pooledRaw("rps");
+  const refRaw = pooledRaw("refRps");
+  const rps = r3(rpsRaw);
+  const ref = r3(refRaw);
   const scored = records.length;
   const both = (item: string, byReport: number | null, byPerson: number | null): Cell[] => [
     { section: "予測の成績", item: `${item}・件数で平均`, value: byReport, people: scored, reports: n },
@@ -131,7 +135,7 @@ export function analyse(rows: Row[]): Analysis {
   cells.push(
     ...both("RPS（小さいほどよい）", rps, perPerson("rps")),
     ...both("比べる基準の RPS", ref, perPerson("refRps")),
-    ...both("スキル（0より上なら基準よりよい）", rps != null && ref ? r3(1 - rps / ref) : null, perPerson("skill")),
+    ...both("スキル（0より上なら基準よりよい）", rpsRaw != null && refRaw ? r3(1 - rpsRaw / refRaw) : null, perPerson("skill")),
     ...both("対数損失", pooled("logLoss"), perPerson("logLoss")),
     ...both("最も確からしい段が当たった割合", pooled("hit"), perPerson("hit")),
     ...both("偏り（答え − 予測の平均）", pooled("bias"), perPerson("bias")),

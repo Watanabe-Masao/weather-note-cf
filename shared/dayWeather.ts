@@ -6,20 +6,15 @@
 // length of the day — and shown as an estimate. It is never stored as the day's weather: JMA's
 // summary replaces it as soon as it comes, and nothing that decides whether a day is fixed reads it.
 
+import { dayEdges, type Where } from "./dayParts";
 import type { WeatherRow } from "./types";
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
 /** Hours between sunrise and sunset (standard formula with refraction; within a few minutes). */
-export function dayLengthHours(date: string, latDeg: number): number {
-  const d = new Date(`${date}T12:00:00Z`);
-  const n = Math.floor((d.getTime() - Date.UTC(d.getUTCFullYear(), 0, 0)) / 86_400_000);
-  const decl = (23.44 * Math.PI) / 180 * Math.sin(((2 * Math.PI) / 365) * (n - 81));
-  const lat = (latDeg * Math.PI) / 180;
-  const h0 = (-0.833 * Math.PI) / 180;
-  const cosH = (Math.sin(h0) - Math.sin(lat) * Math.sin(decl)) / (Math.cos(lat) * Math.cos(decl));
-  const H = Math.acos(Math.max(-1, Math.min(1, cosH)));
-  return (2 * H * 180) / Math.PI / 15;
+export function dayLengthHours(date: string, station: Where): number {
+  const e = dayEdges(date, station);
+  return (e.set - e.rise) / 60;
 }
 
 /** Sunshine share at or above this: 晴. Between: 曇時々晴. Below the lower one: 曇. */
@@ -29,12 +24,12 @@ export const CLOUDY_SHARE = 0.25;
 export const RAINY_MM = 1;
 
 /** The weather estimated from a measured day's values, or null when they are not enough. */
-export function estimateDayWeather(row: WeatherRow, latDeg = 35): string | null {
+export function estimateDayWeather(row: WeatherRow, station: Where): string | null {
   if (row.type !== "actual") return null;
   const rain = num(row.rain);
   const snow = num(row.snow);
   const sun = num(row.sun);
-  const share = sun == null ? null : sun / dayLengthHours(row.date, latDeg);
+  const share = sun == null ? null : sun / dayLengthHours(row.date, station);
   if (snow != null && snow > 0) return "雪";
   if (rain != null && rain >= RAINY_MM) return share != null && share >= SUNNY_SHARE ? "晴時々雨" : share != null && share >= CLOUDY_SHARE ? "曇時々雨" : "雨";
   if (share == null) return null;
@@ -42,11 +37,11 @@ export function estimateDayWeather(row: WeatherRow, latDeg = 35): string | null 
 }
 
 /** What to show for a day's weather: JMA's summary, or else the estimate (marked). */
-export function dayWeatherOf(row: WeatherRow | null | undefined, latDeg?: number): { text: string | null; estimated: boolean } {
+export function dayWeatherOf(row: WeatherRow | null | undefined, station: Where): { text: string | null; estimated: boolean } {
   if (!row) return { text: null, estimated: false };
   const jma = typeof row.dayWeather === "string" && row.dayWeather ? row.dayWeather : null;
   if (jma) return { text: jma, estimated: false };
-  const guess = estimateDayWeather(row, latDeg);
+  const guess = estimateDayWeather(row, station);
   return { text: guess, estimated: guess != null };
 }
 
@@ -55,7 +50,7 @@ export function dayWeatherOf(row: WeatherRow | null | undefined, latDeg?: number
  * carry (JMA's hourly 天気, or the forecast's), else an estimate from precipitation and sunshine
  * in daylight. Null when neither is there (e.g. a night band without weather text).
  */
-export function hoursWeather(rows: WeatherRow[], hours: readonly number[], latDeg = 35, minSun = 2): { text: string | null; estimated: boolean } {
+export function hoursWeather(rows: WeatherRow[], hours: readonly number[], station: Where, minSun = 2): { text: string | null; estimated: boolean } {
   const all = rows.filter((r) => hours.includes(r.n));
   if (!all.length) return { text: null, estimated: false };
   // Hours already observed speak for the band: a forecast's text for the rest would be shown as if seen.
@@ -78,9 +73,10 @@ export function hoursWeather(rows: WeatherRow[], hours: readonly number[], latDe
   if (snow) return { text: "雪", estimated: true };
   if (rain.length && rain.reduce((a, b) => a + b, 0) >= 0.5) return { text: "雨", estimated: true };
   // Sunshine only means something in daylight (JMA hour n covers n−1 to n o'clock).
-  const date = inBand[0].date;
-  const half = dayLengthHours(date, latDeg) / 2;
-  const day = inBand.filter((r) => r.n - 0.5 > 12 - half + 0.5 && r.n - 0.5 < 12 + half - 0.5);
+  // An hour counts as daylight when its middle is at least half an hour after sunrise and before
+  // sunset at the station (shared/dayParts.ts; not a noon fixed at 12時).
+  const e = dayEdges(inBand[0].date, station);
+  const day = inBand.filter((r) => (r.n - 0.5) * 60 > e.rise + 30 && (r.n - 0.5) * 60 < e.set - 30);
   const sun = day.map((r) => num(r.sun)).filter((v): v is number => v != null);
   if (sun.length < minSun) return { text: null, estimated: false };
   const share = sun.reduce((a, b) => a + b, 0) / sun.length;

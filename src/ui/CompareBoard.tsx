@@ -113,7 +113,7 @@ function Column({
         <small>{weekdayOf(date)}</small>
       </span>
       <span className="cell-icon">
-        {state === "ready" ? <DayWeatherIcon row={day?.row} /> : state === "empty" ? <span className="skeleton icon" /> : null}
+        {state === "ready" ? <DayWeatherIcon row={day?.row} station={station} /> : state === "empty" ? <span className="skeleton icon" /> : null}
       </span>
       <span className={state === "error" ? "cell-kind failed" : "cell-kind"}>
         {state === "outside" ? "範囲外" : state === "error" ? "取得失敗" : kindLabel(store, station, date)}
