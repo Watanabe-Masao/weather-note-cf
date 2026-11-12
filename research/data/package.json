@@ -1,0 +1,19 @@
+{
+  "name": "weather-note-research-data",
+  "private": true,
+  "type": "module",
+  "description": "研究用の分析データ（DuckDB）。アプリの依存には入れない（#45）",
+  "scripts": {
+    "export": "vite-node export.ts",
+    "build": "vite-node build.ts",
+    "run-models": "vite-node run-models.ts",
+    "check": "vite-node check.ts",
+    "fixture": "vite-node make-fixture.ts"
+  },
+  "dependencies": {
+    "@duckdb/node-api": "^1.4.1-r.4"
+  },
+  "devDependencies": {
+    "vite-node": "^3.2.4"
+  }
+}

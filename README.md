@@ -530,6 +530,8 @@ P(答え ≤ k) = σ( (境目_k − (E′ − μ)) ÷ s )      σ(x) = 1 ÷ (1 +
 
 **βモデルの検証**：[research/comfort-model/](research/comfort-model/README.md) に、数学的正本と、合成データによる検証（答えの分かっている仮想の人で、取り戻せるか・推定できないと言えるか・学習の段階の境目）があります。
 
+**研究用の分析データ**：[research/data/](research/data/README.md) で、同意した人の記録を管理者が読み取り専用で取り出し、DuckDB と Parquet の表（答え・気象・予測・計算・成績を分けたもの）にします。データはコミットしません。撤回した人は過去の写しからも消えます。
+
 アプリの外で、CSV を使って行う分析です（numpy と scipy だけを使います）。アプリの動きには影響しません。詳しくは [research/README.md](research/README.md)。
 
 - **`compare_models.py`**：最近の気温の効き方の形を比べます。
@@ -593,7 +595,9 @@ Service Worker（`public/sw.js`）は、画面のファイルだけを扱いま�
 | `POST /api/admin/users` | 管理者：`{ loginId, name }` でアカウントを作る。パスワードを返す（この1回だけ） |
 | `POST /api/admin/users/reset` | 管理者：`{ id }` パスワードの再発行（その人のログインはすべて終わる） |
 | `POST /api/admin/users/disable` | 管理者：`{ id, disabled }` 停止・再開 |
-| `GET /api/admin/research?offset=` | 管理者：研究用のビューの記録（1000件ずつ） |
+| `GET /api/admin/research?offset=&dataset=` | 管理者：研究用のビューの記録（1000件ずつ）。取り出すたびに記録を残す。最初のページに撤回した人の番号（`withdrawn`）を付ける |
+| `GET /api/admin/exports` | 管理者：研究用データの書き出しの記録（直近200回） |
+| `POST /api/admin/users/delete` | 管理者：`{ id, confirm }`（confirm はログインID）でアカウントとその人の記録をすべて消す。研究用の写しから外すため、撤回として記録する |
 
 エラーは `{ "error": "日本語の文言" }` で返します（入力の誤りは 400、取得の失敗は 502。アカウントでは、ログインが必要 401、権限がない 403、ロック中 429、データベースの準備がない 503）。
 
