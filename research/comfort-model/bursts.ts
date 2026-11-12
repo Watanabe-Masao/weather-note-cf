@@ -79,7 +79,9 @@ interface Sim {
 }
 
 /** About n reports in sessions (bursty) or one at a time (spread). */
-function simulate(n: number, seed: number, bursty: boolean): Sim {
+type Mode = boolean | "chain";
+
+function simulate(n: number, seed: number, bursty: Mode): Sim {
   const u = rng(seed);
   const obs: Observation[] = [];
   const times: number[] = [];
@@ -89,6 +91,25 @@ function simulate(n: number, seed: number, bursty: boolean): Sim {
     const keep = Math.exp(-dtH / TAU_H);
     delta = delta * keep + Math.sqrt(1 - keep * keep) * DELTA_SD * gauss(u);
   };
+  if (bursty === "chain") {
+    // Through the day, every 1.5–1.95 hours (8 a day), each at its own weather of the hour: the
+    // runs of comfort-4 never end within a day.
+    while (obs.length < n) {
+      t = Math.ceil(t / 24) * 24 + 7; // the next morning
+      step(12);
+      const day = sessionWeather(u);
+      for (let j = 0; j < 8 && obs.length < n; j++) {
+        const dt = 1.5 + 0.45 * u();
+        t += dt;
+        step(dt);
+        const hourOfDay = 7 + j * 1.7;
+        const x = { ...day, e: day.e + 4 * Math.sin(((hourOfDay - 9) / 12) * Math.PI) + gauss(u) * 0.8 };
+        obs.push({ ...x, y: draw(u, probsAt(x, delta)) });
+        times.push(t * 3_600_000);
+      }
+    }
+    return { obs, times };
+  }
   while (obs.length < n) {
     // The next session: a few hours to a day later.
     const gap = bursty ? 4 + 20 * u() : 6 + 30 * u();
@@ -134,17 +155,17 @@ const log = (s: string) => {
   console.log(s);
 };
 
-type Rule = { gap: number; rho: number } | null;
-const label = (g: Rule) => (g == null ? "重みなし（今まで）" : `${g.gap}時間・ρ ${g.rho}`);
+type Rule = { gap: number; rho: number; span?: number } | null;
+const label = (g: Rule) => (g == null ? "重みなし" : `${g.gap}時間・ρ ${g.rho}${g.span ? `・長さ ${g.span}時間まで` : ""}`);
 
-function run(n: number, bursty: boolean, rule: Rule, R = 100) {
+function run(n: number, bursty: Mode, rule: Rule, R = 100) {
   let cover = 0;
   const width: number[] = [];
   const err: number[] = [];
   const held: number[] = [];
   for (let r = 0; r < R; r++) {
-    const sim = simulate(n, 7000 + 131 * r + n + (bursty ? 0 : 50_000), bursty);
-    const w = rule == null ? null : burstWeights(sim.times, rule.gap, rule.rho);
+    const sim = simulate(n, 7000 + 131 * r + n + (bursty === "chain" ? 90_000 : bursty ? 0 : 50_000), bursty);
+    const w = rule == null ? null : burstWeights(sim.times, rule.gap, rule.rho, rule.span ?? Infinity);
     const obs = w ? sim.obs.map((o, i) => ({ ...o, w: w[i] })) : sim.obs;
     const fit = fitModel(M1, obs);
     const x15 = { ...sessionWeather(rng(1)), a: 15 };
@@ -157,6 +178,28 @@ function run(n: number, bursty: boolean, rule: Rule, R = 100) {
   return `| ${label(rule)} | ${pct(cover / R)} | ${f(mean(width), 1)} | ${f(mean(err))} | ${f(mean(held), 4)} |`;
 }
 const head = ["| 決まり | μ の被覆率 | μ の区間の幅（℃） | μ の誤差（℃） | 予測の RPS |", "| --- | --- | --- | --- | --- |"];
+
+if (process.env.ONLY === "cap") {
+  // #86: a run without an upper length (comfort-4) against runs that end after 2 or 3 hours.
+  out.length = 0;
+  log("# まとまりの長さの上限（#86、comfort-5 の候補）\n");
+  log("comfort-4 は「前の記録から2時間以内」だけでまとまりを決めるので、長さに上限がない。上限（最初の記録から2・3時間）を足した場合と比べた。各100人。\n");
+  const rules: Rule[] = [null, { gap: 2, rho: 0.5 }, { gap: 2, rho: 0.5, span: 3 }, { gap: 2, rho: 0.5, span: 2 }];
+  for (const [mode, title] of [
+    ["chain", "1日中、1.5〜1.95時間おきに記録する人（1日8件、時刻ごとに天気が違う）"],
+    [true, "続けて記録する人（1日1〜2回、1回に1〜6件、5〜40分おき）"],
+    [false, "1件ずつ記録する人（6〜36時間おき）"],
+  ] as const) {
+    for (const n of [40, 120]) {
+      log(`### ${title}・約${n}件\n`);
+      log(head.join("\n"));
+      for (const rule of rules) log(run(n, mode, rule));
+      log("");
+    }
+  }
+  writeFileSync(new URL("./burst-cap-results.md", import.meta.url), out.join("\n") + "\n");
+  process.exit(0);
+}
 
 log("## 1. まとまりとみなす間隔（ρ = 1：まとまりを1件分に）\n");
 log("続けて記録する人（1日1〜2回、1回に1〜6件、5〜40分おき）、約90件。\n");

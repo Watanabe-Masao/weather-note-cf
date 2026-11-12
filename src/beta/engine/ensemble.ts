@@ -5,7 +5,7 @@ import type { Report } from "../reports";
 import { type Drivers } from "./drivers";
 import { fitModel, type ModelFit, type Observation } from "./estimation";
 import { MODELS, usable } from "./model";
-import { observationsOf } from "./observations";
+import { CURRENT_SETTINGS, observationsOf, type ObsSettings } from "./observations";
 
 export const ALPHA_GRID = [0.6, 0.7, 0.8, 0.85, 0.9, 0.95];
 export const STANDARD_ALPHA = 0.8;
@@ -60,14 +60,14 @@ export function weightsAt(ens: Ensemble, x: Drivers): number[] {
  * The ensemble in use. With enough reports, α (慣れの速さ) is chosen first, by the evidence of the
  * 慣れ＋1週間 model (each α on the same reports), then every model is fitted at that α.
  */
-export function ensembleFromReports(reports: Report[], weighted = true): Ensemble {
+export function ensembleFromReports(reports: Report[], settings: ObsSettings = CURRENT_SETTINGS): Ensemble {
   let alpha = STANDARD_ALPHA;
-  const n = observationsOf(reports, STANDARD_ALPHA, weighted).length;
+  const n = observationsOf(reports, STANDARD_ALPHA, settings).length;
   if (n >= MIN_FOR_ALPHA) {
     const probe = MODELS.find((m) => m.id === "M2")!;
     let best = -Infinity;
     for (const a of ALPHA_GRID) {
-      const obs = observationsOf(reports, a, weighted);
+      const obs = observationsOf(reports, a, settings);
       if (obs.length !== n) continue;
       const ev = fitModel(probe, obs).logEvidence;
       if (ev > best) {
@@ -76,5 +76,5 @@ export function ensembleFromReports(reports: Report[], weighted = true): Ensembl
       }
     }
   }
-  return fitEnsemble(observationsOf(reports, alpha, weighted), alpha);
+  return fitEnsemble(observationsOf(reports, alpha, settings), alpha);
 }

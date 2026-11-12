@@ -7,7 +7,7 @@
 //   - an aggregate may be shared (sent out of the iPhone) only when MIN_PEOPLE or more people are
 //     in it — cells with fewer are left out of the shared file.
 
-import { ensembleFromReports, LEARNING_LABELS, type Learning, observationsOf, predictComfort, referenceProbs, rps as rpsOf, trackRecord } from "../beta/comfort";
+import { ensembleFromReports, LEARNING_LABELS, type Learning, type ObsSettings, observationsOf, predictComfort, referenceProbs, rps as rpsOf, trackRecord } from "../beta/comfort";
 import { fitPreference, type PrefObs, predictPreference, PREF_RULES, prefRps, preferenceObservations, type PreferenceKind } from "../beta/preferenceModel";
 import { inputQuality, MAX_LAG_MIN } from "../beta/quality";
 import { DRINK_PREFERENCES, type Report, SCALE_VERSION, THERMAL_PREFERENCES } from "../beta/reports";
@@ -318,32 +318,33 @@ export function preferenceTimeSeries(people: [string, Report[]][], kind: Prefere
 }
 
 /**
- * comfort-3 against comfort-4 on the same reports (#54): each of a person's latest `lastN`
- * reports predicted from their earlier reports only, fitted both ways (comfort-3: every report
- * the same weight; comfort-4: reports in a row weigh less). Slow (two full fits per report), so
- * the screen runs it a person at a time on request.
+ * Two settings on the same reports (#54; comfort-4 against comfort-5 by default): each of a
+ * person's latest `lastN` reports predicted from their earlier reports only, fitted and read each
+ * way (observationsOf). Slow (two full fits per report), so the screen runs it a person at a time
+ * on request.
  */
-export function compareSettings(list: Report[], lastN = 10): { n: number; rps3: number; rps4: number; ref: number } {
-  const live = list.filter((r) => !r.deleted && (r.scaleVersion ?? 1) === SCALE_VERSION).sort((a, b) => (a.at < b.at ? -1 : 1));
+export function compareSettings(list: Report[], lastN = 10, a: ObsSettings = "comfort-4", b: ObsSettings = "comfort-5"): { n: number; rpsA: number; rpsB: number; ref: number } {
+  const live = list.filter((r) => !r.deleted && (r.scaleVersion ?? 1) === SCALE_VERSION).sort((x, y) => (x.at < y.at ? -1 : 1));
   let n = 0;
-  let s3 = 0;
-  let s4 = 0;
+  let sa = 0;
+  let sb = 0;
   let sr = 0;
   for (let i = Math.max(3, live.length - lastN); i < live.length; i++) {
     const prev = live.slice(0, i);
     const r = live[i];
     const out: number[] = [];
-    for (const weighted of [false, true]) {
-      const ens = ensembleFromReports(prev, weighted);
-      const x = observationsOf([r], ens.alpha, false)[0];
+    for (const settings of [a, b]) {
+      const ens = ensembleFromReports(prev, settings);
+      // The report itself read the same way (its night and its sky).
+      const x = observationsOf([r], ens.alpha, settings)[0];
       if (!x) break;
       out.push(rpsOf(predictComfort(ens, x, Date.parse(r.at)).probs, r.sensation));
     }
     if (out.length < 2) continue;
-    s3 += out[0];
-    s4 += out[1];
+    sa += out[0];
+    sb += out[1];
     sr += rpsOf(referenceProbs(prev.map((x) => x.sensation as number)), r.sensation);
     n++;
   }
-  return { n, rps3: n ? s3 / n : NaN, rps4: n ? s4 / n : NaN, ref: n ? sr / n : NaN };
+  return { n, rpsA: n ? sa / n : NaN, rpsB: n ? sb / n : NaN, ref: n ? sr / n : NaN };
 }

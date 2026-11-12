@@ -38,6 +38,8 @@ export interface Drivers {
   minPrev: number | null;
   windPrev: number | null;
   windFelt?: "strong" | "weak" | "none" | null;
+  /** comfort-3/4 only (comparisons): the sky counted at night too. */
+  skyAtNight?: boolean;
 }
 
 export type DriverKey =
@@ -94,7 +96,9 @@ export const DRIVERS: Record<DriverKey, DriverInfo> = {
   sun7: { label: "1週間の日照", unit: "3時間", value: (d) => c(d.sun7, 5, 3), muSd: 0.6, hSd: 0.15 },
   rain1: { label: "前日の雨", unit: "log(1+mm)", value: (d) => (d.rain1 == null ? null : Math.log1p(d.rain1) - 0.5), muSd: 0.6, hSd: 0.15 },
   rain7: { label: "1週間の雨", unit: "log(1+mm)", value: (d) => (d.rain7 == null ? null : Math.log1p(d.rain7) - 0.5), muSd: 0.6, hSd: 0.15 },
-  sky: { label: "晴れている", unit: "晴れ=1", value: (d) => (d.sky == null ? null : (d.sky ? 1 : 0) - 0.5), muSd: 1.0, hSd: 0.2 },
+  // Sunshine on the person: daylight only (comfort-5). After sunset a clear sky cools instead, which
+  // the place temperature already carries, so the sky says nothing then (0, not missing).
+  sky: { label: "晴れている（日中）", unit: "晴れ=1", value: (d) => (d.night && !d.skyAtNight ? 0 : d.sky == null ? null : (d.sky ? 1 : 0) - 0.5), muSd: 1.0, hSd: 0.2 },
   // 春と秋: the same 15 ℃ after a cold winter and after a hot summer. The 最近の基準 carries most of
   // it; the trend says whether the season is warming or cooling.
   trend: { label: "季節の向き（2週間の気温の傾き）", unit: "1℃/週", value: (d) => d.trend, muSd: 0.5, hSd: 0.1 },

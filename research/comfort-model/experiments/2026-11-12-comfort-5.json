@@ -1,0 +1,47 @@
+{
+  "id": "2026-11-12-comfort-5",
+  "date": "2026-11-12",
+  "modelVersion": "comfort-5",
+  "scaleVersion": 3,
+  "commit": "6902494",
+  "dataset": {
+    "id": "synthetic-daylight-and-burst-cap-86",
+    "hash": "sha256:daylight.ts:4f4d44af9f21a795+bursts.ts:4c77faf817799e4e",
+    "kind": "synthetic",
+    "period": null,
+    "n": 0,
+    "excluded": {}
+  },
+  "seed": 5000,
+  "settings": {
+    "prior": "PRIOR m0 18±4, h 3, g 4 (log ±0.5), slope 0.33（comfort-4 と同じ）",
+    "optimiser": "BFGS 200 iterations, Laplace (Cholesky), 200 draws per model（comfort-4 と同じ）",
+    "alpha": "0.8 until 30 reports, then chosen by M2 evidence（comfort-4 と同じ）",
+    "night": "日の入り〜日の出（snapshot.sunrise/sunset、なければ観測所の位置から計算）。comfort-4 は時計の18〜5時",
+    "sky": "日中だけ（夜は 0）。comfort-4 は夜も",
+    "bursts": "BURST_GAP_H 2, BURST_RHO 0.5, BURST_MAX_SPAN_H 3（comfort-4 は上限なし）"
+  },
+  "compared": [
+    "comfort-4（夜は18〜5時、晴れは夜も、まとまりの長さに上限なし）",
+    "comfort-5（夜は日の入り〜日の出、晴れは日中だけ、まとまりは3時間まで）"
+  ],
+  "results": {
+    "rps": null,
+    "logLoss": null,
+    "skill": null,
+    "calibration": null,
+    "notes": "合成データ。昼夜と晴れ（daylight-results.md、M5、各60人）：日中の晴れと夜の余熱が効く人で、新しい場面への RPS が 60件 0.0443 → 0.0432・150件 0.0376 → 0.0369（日の入りの前後 0.0449 → 0.0436、夜 0.0466 → 0.0448）、夜の晴れがさらに冷やす人（comfort-5 では表せない）でも 0.0467 → 0.0454・0.0393 → 0.0379。昼夜が関係ない人では同じ（0.0430・0.0359）。真の昼夜を太陽で決めたのは前提で、結果ではない。まとまりの上限（burst-cap-results.md、M1、各100人）：1.5〜1.95時間おきに1日中記録する人で、μ の区間の被覆率 100% → 92%（約40件）・95%（約120件）、幅 3.5 → 2.2℃・2.1 → 1.2℃、予測の RPS は 0.0420 → 0.0436・0.0399 → 0.0402 と少し悪くなる。続けて記録する人・1件ずつ記録する人では変化なし。"
+  },
+  "checks": {
+    "mathematical": true,
+    "recovery": true,
+    "performance": "実データがないため未評価（合成データでは、昼夜と晴れの変更はすべての条件で RPS が同じか良い。まとまりの上限は、1日中記録する人で RPS が少し悪くなる代わりに区間が正直になる）。実データがたまったら、研究用の分析の比較ボタン（comfort-4 と comfort-5）で確かめる",
+    "calibration": "実データがないため未評価（合成データでは μ の区間の被覆率が 95% に近づいた）",
+    "stability": true,
+    "compatibility": true,
+    "contract": true
+  },
+  "decision": "adopted",
+  "reason": "夜を時計（18〜5時）で決めると、冬の17時台を昼、夏の18時台を夜と読み、夜の余熱・前夜の冷え込みの切り替えがずれる。晴れを夜にも数えると、夜の晴れ（放射冷却、その冷えは日かげ温度に入っている）を日なたと同じ向きの要因として学ぶ。どちらも気象以外の変数（時計の区切り）が混ざる問題（#86）。まとまりの上限は、長く続く記録を1つのまとまりにしすぎないため",
+  "approvedBy": "渡辺正雄（2026-11-12、PR #90 の3つの変更すべての採用を承認。D10）"
+}

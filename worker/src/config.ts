@@ -1,6 +1,6 @@
 import { DATA_SHAPE } from "../../shared/versions";
 import type { Station } from "../../shared/types";
-import stationList from "./stations.json";
+import stationList from "../../shared/stations.json";
 
 // The Worker entry (index.ts) may only export handlers, so shared values live here.
 export const stations = stationList as Station[];

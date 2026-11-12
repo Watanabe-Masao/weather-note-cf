@@ -28,7 +28,8 @@ export interface Manifest {
   results: { rps: number | null; logLoss: number | null; skill: number | null; calibration: string | null; notes: string };
   /** The checklist of #47: each item true (passed), false (failed) or a string saying why not applicable. */
   checks: Record<(typeof CHECKS)[number], boolean | string>;
-  decision: "adopted" | "rejected";
+  /** "pending": a candidate waiting for 渡辺さん's approval (D10); the app cannot use it until adopted. */
+  decision: "adopted" | "rejected" | "pending";
   reason: string;
   approvedBy: string;
 }
@@ -63,6 +64,6 @@ export function problems(m: Partial<Manifest>): string[] {
   }
   if (m.checks) for (const c of CHECKS) if (!(c in m.checks)) out.push(`checks.${c} がない`);
   if (m.decision === "adopted" && m.checks && Object.values(m.checks).some((v) => v === false)) out.push("不合格の項目があるのに採用している");
-  if (m.decision && m.decision !== "adopted" && m.decision !== "rejected") out.push("decision は adopted か rejected");
+  if (m.decision && m.decision !== "adopted" && m.decision !== "rejected" && m.decision !== "pending") out.push("decision は adopted・rejected・pending のどれか");
   return out;
 }

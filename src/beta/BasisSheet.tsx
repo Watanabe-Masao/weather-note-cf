@@ -458,7 +458,7 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   const hNow = num(row?.humidity);
   const sun = daytimeFeel(rows, { ...feel, sun: true });
   const shade = daytimeFeel(rows, { ...feel, sun: false });
-  const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade, hNow, { hour: 12 });
+  const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade, hNow, { at: Date.parse(`${date}T12:00:00+09:00`) });
   if (!visible || centreUnknown(beta.learning.state)) {
     return (
       <section className="basis-sec">
