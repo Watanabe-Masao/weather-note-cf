@@ -1,6 +1,6 @@
 # βモデルの数学的正本（MATH-01〜08）
 
-この文書が、βモデル（ちょうどよい温度と範囲）の**数学的な正本**です。コードはこの文書の実装です。コードのコメントは、ここの ID（`MATH-04` など）で参照します。README 8章はこの文書の要約です。
+この文書が、βモデル（ちょうどよい温度と範囲）の**数学的な正本**です。コードはこの文書の実装です。計算の本体は `src/beta/engine/` にあり、この文書の項目ごとにファイルを分けています（`drivers.ts`＝MATH-03、`model.ts`＝MATH-04、`estimation.ts`・`ensemble.ts`・`prediction.ts`＝MATH-05、`observations.ts`＝MATH-02 の判定を使って学習用の記録を作る、`learning.ts`＝MATH-07、`evaluation.ts`＝MATH-08）。コードのコメントは、ここの ID（`MATH-04` など）で参照します。README 8章はこの文書の要約です。
 
 各項目に、次のことを書きます。
 
@@ -125,7 +125,7 @@
 - 「その時点では当てはまらない」値は 0 で、欠損ではありません（例：昼間の夜の余熱）。
 - 体感指標 E 自体が計算できない記録は、学習に使いません（MATH-02）。
 
-- **実装**：`shared/feel.ts`（`feelOf`、`FEEL_TRANSFORM`）、`src/beta/comfort.ts`（`DRIVERS`、`missingDrivers`、`usable`、`weightsAt`）
+- **実装**：`shared/feel.ts`（`feelOf`、`FEEL_TRANSFORM`）、`src/beta/engine/drivers.ts`（`DRIVERS`）、`model.ts`（`missingDrivers`、`usable`）、`ensemble.ts`（`weightsAt`）
 - **状態**：定義済み・実装済み
 
 ## MATH-04 7段階の確率モデル
@@ -143,7 +143,7 @@ E′ = E + Σ e_j x_j + w_S·[強い風] + w_N·[風なし]
 - **識別**：位置と尺度は、観測された E（℃）で固定されます。潜在変数の尺度を自由にしないので、普通の順序ロジットにある「位置と尺度の不定性」は、E の係数を1に固定することで解いています。ただし、h・g・s が同時に識別できるかは、データの散らばり方によります（片側の答えだけ、狭い温度だけ、では識別できない。MATH-07）。
 - **仮定**：境目は中心について対称で、外の段の幅は g で共通です。この仮定を緩めるのは、データで必要と分かってからにします。
 - **モデルの一覧**：M0〜M9（README 8章の表）。どれも同じ形で、x の選び方だけが違います。
-- **実装**：`src/beta/comfort.ts`（`stateOf`、`placeTemp`、`probabilities`、`MODELS`）
+- **実装**：`src/beta/engine/model.ts`（`stateOf`、`placeTemp`、`probabilities`、`MODELS`）
 - **検証（#35）**：合成データで、μ・慣れの傾き・h・s を取り戻せること（95%区間の被覆率 91〜100%）と、識別できない条件（片側の答え・狭い温度・1日に集中）を「情報不足」にできることを確かめました。2つの入力が一緒に動くときは、推定の相関（|r| ≥ 0.9）で「分けられない組」として検出し、根拠の画面に出します（`confoundedPairs`）。両側で段の幅が違う人では、μ に 0.5℃前後の偏りが残ります（形の仮定の限界。#37 の候補）。
 - **状態**：定義済み・実装済み・合成データで検証済み（実データでの検証は今後）
 
@@ -173,7 +173,7 @@ P(Y = k │ x, D) = Σ_m w_m(x) ∫ P(Y = k │ x, θ, m) p(θ │ D, m) dθ
   - 肌感の表示の境目からは作りません。
   - 記録がないうちは、予測が自然に広がります。画面では、中心の温度を「学習結果」として示しません（MATH-07）。
 - **α（慣れの速さ）**：記録が30件以上あるとき、M2 の証拠で格子 {0.6, 0.7, 0.8, 0.85, 0.9, 0.95} から選びます。この件数の条件は暫定で、#35 で見直します。
-- **実装**：`src/beta/comfort.ts`（`fitModel`、`laplace`、`drawsOf`、`predictComfort`、`muIntervalOf`、`PRIOR`）
+- **実装**：`src/beta/engine/estimation.ts`（`fitModel`、ラプラス近似、`interval`）、`model.ts`（`PRIOR`、`priorFor`）、`ensemble.ts`（`fitEnsemble`、`ensembleFromReports`）、`prediction.ts`（`drawsOf`、`predictComfort`、`muIntervalOf`）
 - **検証（#35）**：ラプラス近似の μ の区間は、重点サンプリングによる区間より、5〜40件で平均 4〜8% 狭いだけでした。被覆率も 91〜100% だったので、補正は入れていません。
 - **状態**：定義済み・実装済み・合成データで検証済み
 
@@ -215,7 +215,7 @@ P(Y = k │ x, D) = Σ_m w_m(x) ∫ P(Y = k │ x, θ, m) p(θ │ D, m) dθ
 - 境目（5℃、3日、4℃、20件）は、#35 の合成データの検証で根拠を確かめました（[README.md](README.md) の表）。μ の区間 4℃ は、理想的な場合には緩めてもよい結果でしたが、実データのずれを見込んで保守的なままにしています。
 - 同じ日の連続した回答は、独立な観測として数えすぎないよう、日数を条件にしています。
 - 説明変数どうしの強い相関（例：風と気温）がある場合、効果を分けて推定できません。推定の相関が |r| ≥ 0.9 の組を「分けられない組」として検出し、根拠の画面に出します（`confoundedPairs`）。
-- **実装**：`src/beta/comfort.ts`（`learningOf`、`learningFrom`、`LEARNING_RULES`、`centreUnknown`）
+- **実装**：`src/beta/engine/learning.ts`（`learningOf`、`learningFrom`、`LEARNING_RULES`、`centreUnknown`）、`estimation.ts`（`confoundedPairs`）
 - **状態**：定義済み・実装済み・境目は合成データで確認済み（実データで見直す）
 
 ## MATH-08 予測の評価とモデル選択
@@ -230,7 +230,7 @@ P(Y = k │ x, D) = Σ_m w_m(x) ∫ P(Y = k │ x, θ, m) p(θ │ D, m) dθ
 
 - **基準モデル**：その人のそれまでの答えの割合（各段に1を足して平滑化）。初期の快適温度を仮定した基準は使いません。
 - **モデル選択**：重みは証拠（ラプラス近似の周辺尤度）で決めます。ただし「複雑なモデルの方が良い」と判断するのは、回答前に出した予測の成績が良くなったときだけです（#34）。
-- **実装**：`src/beta/comfort.ts`（`rps`、`referenceProbs`、`trackRecord`）
+- **実装**：`src/beta/engine/evaluation.ts`（`rps`、`referenceProbs`、`trackRecord`、`modelRecords`）
 - **状態**：RPS と基準は実装済み。画面の成績・較正・時系列評価は #34。
 
 ---
@@ -260,3 +260,4 @@ P(Y = k │ x, D) = Σ_m w_m(x) ∫ P(Y = k │ x, θ, m) p(θ │ D, m) dθ
 | 2026-11-12 | データの意味の変更 | 0 を「ちょうどよい」に（scaleVersion 3） | 版で区別 |
 | 2026-11-12 | 数式の変更 | 欠けた入力を0とみなさず、そのモデルを外す（comfort-3）。品質の条件で学習から外す | 予測の版で区別 |
 | 2026-11-12 | 実装の最適化 | 分けられない組の検出（confoundedPairs）を追加。境目は合成データの検証で据え置き（#35） | 比較に影響なし |
+| 2026-11-12 | 実装の最適化 | 計算部分を src/beta/engine/ に項目ごとに分割（数式は不変。回帰テスト #43 で確認、#44） | 比較に影響なし |
