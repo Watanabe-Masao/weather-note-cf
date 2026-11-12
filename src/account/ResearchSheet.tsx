@@ -6,8 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Learning } from "../beta/comfort";
-import { analyse, byPerson, type Cell, learningStateOf, MIN_PEOPLE, type Row, shareable, sharedCsv } from "../research/analysis";
+import { analyse, type Cell, MIN_PEOPLE, type Row, shareable, sharedCsv } from "../research/analysis";
 import { ModalSheet } from "../ui/ModalSheet";
 import { api } from "./account";
 
@@ -22,7 +21,6 @@ function show(v: Cell["value"]) {
 
 function Body() {
   const [load, setLoad] = useState<Load>({ phase: "reading", got: 0 });
-  const [fitted, setFitted] = useState<Map<string, Learning>>(new Map());
   const [note, setNote] = useState<string | null>(null);
 
   // Read every page into memory (never into storage).
@@ -44,27 +42,7 @@ function Body() {
     };
   }, []);
 
-  // Learning states: one fit per person, a person at a time so the screen stays responsive.
-  useEffect(() => {
-    if (load.phase !== "ready") return;
-    let stop = false;
-    const people = [...byPerson(load.rows).entries()];
-    (async () => {
-      const done = new Map<string, Learning>();
-      for (const [who, reports] of people) {
-        await new Promise((r) => setTimeout(r, 0));
-        if (stop) return;
-        done.set(who, learningStateOf(reports));
-        setFitted(new Map(done));
-      }
-    })();
-    return () => {
-      stop = true;
-    };
-  }, [load]);
-
-  const a = useMemo(() => (load.phase === "ready" ? analyse(load.rows, fitted) : null), [load, fitted]);
-  const people = load.phase === "ready" ? byPerson(load.rows).size : 0;
+  const a = useMemo(() => (load.phase === "ready" ? analyse(load.rows) : null), [load]);
 
   if (load.phase === "reading") return <p className="set-help">記録を読み込んでいます…（{load.got}件）</p>;
   if (load.phase === "error") return <p className="warn">{load.message}</p>;
@@ -100,7 +78,6 @@ function Body() {
       <p className="set-lead">
         {a.people}人・{a.reports}件（{day(a.from)}〜{day(a.to)}）。開くたびにサーバーの最新の記録から計算し、この端末には保存しません。集計だけを示し、一人ひとりの値は出しません。
       </p>
-      {fitted.size < people ? <p className="set-help">学習の段階を計算しています…（{fitted.size}/{people}人）</p> : null}
       {sections.map((s) => (
         <section key={s} className="set-group research-table">
           <h3>{s}</h3>
