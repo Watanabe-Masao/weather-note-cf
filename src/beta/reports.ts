@@ -170,7 +170,9 @@ export interface Report {
   at: string;
   station: string;
   sensation: Sensation;
-  exposure: Exposure;
+  /** 日なた・日かげ・半々. Null at night (sunset to sunrise, as the model's night): not asked, the sun
+   *  cannot matter then — 日なた and 日かげ are the same temperature without sunshine. */
+  exposure: Exposure | null;
   windFelt: WindFelt;
   /** The sky the person saw (reports before it was asked have none). */
   sky?: Sky;

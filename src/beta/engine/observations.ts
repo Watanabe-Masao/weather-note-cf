@@ -180,7 +180,8 @@ export function placeTempOf(r: Report): number | null {
   const s = r.snapshot;
   if (!s) return null;
   if (r.exposure === "sun") return s.sunTemp;
-  if (r.exposure === "shade") return s.shadeTemp;
+  // Night (no place asked): without sunshine 日なた and 日かげ are the same; the shade's is that value.
+  if (r.exposure === "shade" || r.exposure == null) return s.shadeTemp;
   return s.sunTemp == null || s.shadeTemp == null ? null : (s.sunTemp + s.shadeTemp) / 2;
 }
 
