@@ -386,6 +386,28 @@ describe("#45: research data leaving the server", () => {
     expect(new Set(seen).size).toBe(2300);
     expect(seen).toHaveLength(2300);
   });
+
+  it("brings a report synced during a run behind the cursor on the last page (review #86)", async () => {
+    const a = await admin();
+    await call("/api/me/consent", { body: { granted: true }, cookie: a.cookie });
+    const many = Array.from({ length: 1500 }, (_, i) => rep(`q${i}`, 1, { at: new Date(Date.UTC(2026, 10, 2, 0, i)).toISOString() }));
+    for (let i = 0; i < many.length; i += 200) await call("/api/reports/sync", { body: { push: many.slice(i, i + 200) }, cookie: a.cookie });
+    const token = (await call("/api/admin/export-token", { body: {}, cookie: a.cookie })).body.token;
+    const first = await call("/api/admin/research", { token });
+    expect(first.body.next).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 5));
+    // Offline on the phone, synced now: older than every report already read.
+    await call("/api/reports/sync", { body: { push: [rep("old-offline", 1, { at: "2026-11-01T00:00:00.000Z" })] }, cookie: a.cookie });
+    const last = await call(`/api/admin/research?after=${first.body.next}`, { token });
+    expect(last.body.next).toBeNull();
+    const ids = [...first.body.rows, ...last.body.rows].map((r: { report: { id: string } }) => r.report.id);
+    expect(ids).toContain("old-offline");
+    expect(last.body.late).toBe(1);
+    // A cursor from before the change (three parts) still reads.
+    const old = JSON.parse(atob(first.body.next.replace(/-/g, "+").replace(/_/g, "/"))).slice(0, 3);
+    const legacy = btoa(JSON.stringify(old)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+    expect((await call(`/api/admin/research?after=${legacy}`, { token })).status).toBe(200);
+  });
   it("the in-app analysis reads the same view with the administrator's login, logged (iPhone only)", async () => {
     const a = await admin();
     const p = await issue(a.cookie, "tanaka");

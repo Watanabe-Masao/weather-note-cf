@@ -75,10 +75,13 @@ export interface TrackRecord {
   series: { from: string; to: string; n: number; rps: number; refRps: number }[];
   /** Predictions left out because they were answered on another scale version. */
   otherScale: number;
+  /** The same means unrounded, for pooling across people (the rounded ones are for display; #86). */
+  raw: { rps: number | null; refRps: number | null; skill: number | null; logLoss: number | null; hit: number | null; bias: number | null; mae: number | null };
 }
 
 const mean = (xs: number[], d = 1) => (xs.length ? Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 10 ** d) / 10 ** d : null);
 const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+const avgOrNull = (xs: number[]) => (xs.length ? avg(xs) : null);
 
 interface Item {
   y: number;
@@ -106,7 +109,17 @@ function recordOf(items: Item[], otherScale: number): TrackRecord {
     const chunk = items.slice(i, i + 10);
     series.push({ from: chunk[0].at, to: chunk[chunk.length - 1].at, n: chunk.length, rps: round3(avg(rpsOf.slice(i, i + 10))), refRps: round3(avg(refOf.slice(i, i + 10))) });
   }
+  const raw: TrackRecord["raw"] = {
+    rps: r,
+    refRps: ref,
+    skill: r == null || !ref ? null : 1 - r / ref,
+    logLoss: avgOrNull(items.map((d) => -Math.log(Math.max(d.probs[d.y + 3], 1e-3)))),
+    hit: avgOrNull(items.map((d) => (d.mode === d.y ? 1 : 0))),
+    bias: avgOrNull(items.map((d) => d.y - exp(d.probs))),
+    mae: avgOrNull(items.map((d) => Math.abs(d.y - exp(d.probs)))),
+  };
   return {
+    raw,
     n: items.length,
     rps: r == null ? null : round3(r),
     refRps: ref == null ? null : round3(ref),

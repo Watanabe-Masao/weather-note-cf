@@ -123,6 +123,20 @@ const SCHEMA = [
       SELECT strftime('%Y-%m-%dT%H:%M:%fZ', max(c.at) / 1000.0, 'unixepoch') FROM consents c
       WHERE c.user_id = r.user_id AND c.kind = 'research' AND c.granted = 0
     ), '')`,
+  // v3 (review #86): v2 with when each row last arrived, so one run of pages can be cut at the
+  // moment it started (a report synced during the run, with an older time, would otherwise fall
+  // behind the cursor and be missed by that run only).
+  `CREATE VIEW IF NOT EXISTS research_reports_v3 AS
+    SELECT u.research_id, r.id AS report_id, r.at, r.station, r.sensation, r.exposure, r.wind_felt, r.sky, r.body, r.received_at
+    FROM reports r JOIN users u ON u.id = r.user_id
+    WHERE r.deleted = 0 AND (
+      SELECT c.granted FROM consents c
+      WHERE c.user_id = r.user_id AND c.kind = 'research'
+      ORDER BY c.at DESC, c.rowid DESC LIMIT 1
+    ) = 1 AND r.at > coalesce((
+      SELECT strftime('%Y-%m-%dT%H:%M:%fZ', max(c.at) / 1000.0, 'unixepoch') FROM consents c
+      WHERE c.user_id = r.user_id AND c.kind = 'research' AND c.granted = 0
+    ), '')`,
 ];
 
 // The research data that left the server (#45): every export is logged, and every withdrawal
@@ -176,6 +190,8 @@ async function reauthed(db: Db, req: Request, now: number): Promise<boolean> {
 export const EXPORT_TOKEN_MS = 24 * 3600_000;
 /** Rows per page of the research export. */
 export const RESEARCH_PAGE = 1000;
+/** At most this many late rows on a run's last page (a run is minutes; more would be a very large sync). */
+const RESEARCH_LATE_MAX = 2_000;
 
 /**
  * A report as it leaves for research (#55): without the account it belongs to (`owner`), which
@@ -341,20 +357,30 @@ async function deleteAccount(db: Db, who: { id: string; research_id: string }, n
  * research ID, report ID), so reports added meanwhile neither repeat nor go missing. Reports
  * leave without the account they belong to; the first page lists the withdrawn research IDs.
  */
+/**
+ * One page of the consenting people's reports, in order of (time, research ID, report ID). The
+ * cursor carries when the run began (`asOf`). A report synced during the run with an older time
+ * falls behind the cursor, so the last page also brings every row that arrived or changed during
+ * the run behind it (`late`); readers keep the newest copy of each report (review #86). Nothing is
+ * left out — leaving rows out would make the PC export trim them from its older copies. A cursor
+ * from before (3 parts) still reads, without the late rows.
+ */
 async function researchPage(db: Db, adminId: string, path: string, afterParam: string | null, dataset: string | null, now: number) {
-  let after: [string, string, string] | null = null;
+  let after: string[] | null = null;
   try {
     if (afterParam) after = JSON.parse(atob(afterParam.replace(/-/g, "+").replace(/_/g, "/")));
   } catch {
     throw new Refused("ページの指定が正しくありません。");
   }
-  if (after && !(Array.isArray(after) && after.length === 3 && after.every((v) => typeof v === "string"))) throw new Refused("ページの指定が正しくありません。");
+  if (after && !(Array.isArray(after) && (after.length === 3 || after.length === 4) && after.every((v) => typeof v === "string"))) throw new Refused("ページの指定が正しくありません。");
+  if (after?.length === 4 && !/^\d{1,16}$/.test(after[3])) throw new Refused("ページの指定が正しくありません。");
+  const asOf = after ? (after.length === 4 ? Number(after[3]) : null) : now;
   const rows = (
     await (after
       ? db
-          .prepare("SELECT research_id, report_id, at, body FROM research_reports_v2 WHERE (at, research_id, report_id) > (?, ?, ?) ORDER BY at, research_id, report_id LIMIT ?")
+          .prepare("SELECT research_id, report_id, at, body FROM research_reports_v3 WHERE (at, research_id, report_id) > (?, ?, ?) ORDER BY at, research_id, report_id LIMIT ?")
           .bind(after[0], after[1], after[2], RESEARCH_PAGE)
-      : db.prepare("SELECT research_id, report_id, at, body FROM research_reports_v2 ORDER BY at, research_id, report_id LIMIT ?").bind(RESEARCH_PAGE)
+      : db.prepare("SELECT research_id, report_id, at, body FROM research_reports_v3 ORDER BY at, research_id, report_id LIMIT ?").bind(RESEARCH_PAGE)
     ).all<{ research_id: string; report_id: string; at: string; body: string }>()
   ).results;
   // The in-app analysis reads every page each time it opens: one line per opening (the first page,
@@ -362,15 +388,32 @@ async function researchPage(db: Db, adminId: string, path: string, afterParam: s
   if (path !== "/api/admin/analysis") {
     await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, ?, ?, ?)").bind(adminId, now, path, after ? 1 : 0, rows.length, dataset).run();
   } else if (!after) {
-    const total = (await db.prepare("SELECT COUNT(*) AS n FROM research_reports_v2").first<{ n: number }>())?.n ?? rows.length;
+    const total = (await db.prepare("SELECT COUNT(*) AS n FROM research_reports_v3").first<{ n: number }>())?.n ?? rows.length;
     await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, 0, ?, NULL)").bind(adminId, now, path, total).run();
   }
   const last = rows[rows.length - 1];
-  const next = rows.length === RESEARCH_PAGE ? btoa(JSON.stringify([last.at, last.research_id, last.report_id])).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : null;
+  const next = rows.length === RESEARCH_PAGE ? btoa(JSON.stringify([last.at, last.research_id, last.report_id, String(asOf ?? now)])).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : null;
+  // The last page of a run that began on a later page: the rows that arrived or changed during it
+  // behind this page's end (the cursor had passed them). On the first page nothing is behind.
+  const late =
+    next == null && after && asOf != null
+      ? (
+          await db
+            .prepare("SELECT research_id, report_id, at, body FROM research_reports_v3 WHERE received_at > ? AND (at, research_id, report_id) <= (?, ?, ?) ORDER BY at, research_id, report_id LIMIT ?")
+            .bind(asOf, last?.at ?? after[0], last?.research_id ?? after[1], last?.report_id ?? after[2], RESEARCH_LATE_MAX)
+            .all<{ research_id: string; report_id: string; at: string; body: string }>()
+        ).results
+      : [];
   const withdrawn = after
     ? undefined
     : (await db.prepare("SELECT research_id, at, reason FROM research_withdrawals ORDER BY at").all<{ research_id: string; at: number; reason: string }>()).results.map((w) => ({ researchId: w.research_id, at: w.at, reason: w.reason }));
-  return { exportedAt: now, rows: rows.map((r) => ({ researchId: r.research_id, report: forResearch(JSON.parse(r.body)) })), next, ...(withdrawn ? { withdrawn } : {}) };
+  return {
+    exportedAt: now,
+    rows: [...rows, ...late].map((r) => ({ researchId: r.research_id, report: forResearch(JSON.parse(r.body)) })),
+    next,
+    ...(withdrawn ? { withdrawn } : {}),
+    ...(late.length ? { late: late.length, lateCapped: late.length === RESEARCH_LATE_MAX } : {}),
+  };
 }
 
 async function researchConsent(db: Db, userId: string): Promise<{ granted: boolean; version: number | null; at: number | null }> {

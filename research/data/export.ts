@@ -26,7 +26,7 @@ let after: string | null = null;
 let first = true;
 while (first || after) {
   const res = await fetch(`${base}/api/admin/research?dataset=${datasetId}${after ? `&after=${after}` : ""}`, { headers: { Authorization: `Bearer ${token}` } });
-  const body = (await res.json()) as { rows: Export["rows"]; next: string | null; withdrawn?: Export["withdrawn"]; exportedAt: number; error?: string };
+  const body = (await res.json()) as { rows: Export["rows"]; next: string | null; withdrawn?: Export["withdrawn"]; exportedAt: number; error?: string; late?: number; lateCapped?: boolean };
   if (!res.ok) {
     console.error(body.error ?? `取り出せませんでした（${res.status}）`);
     process.exit(1);
@@ -34,9 +34,20 @@ while (first || after) {
   rows.push(...body.rows.map((r) => ({ ...r, report: anonymous(r.report) })));
   if (body.withdrawn) withdrawn = body.withdrawn;
   if (first) exportedAt = body.exportedAt;
+  if (body.late) console.log(`取り出しの途中に届いた・変わった記録 ${body.late}件も含めました。`);
+  if (body.lateCapped) {
+    console.error("取り出しの途中に届いた記録が多すぎます。少し待ってから、もう一度取り出してください。");
+    process.exit(1);
+  }
   first = false;
   after = body.next;
 }
+
+// A report that arrived or changed during the run comes again at the end (the server's late rows):
+// keep its newest copy, once.
+const newest = new Map<string, Export["rows"][number]>();
+for (const r of rows) newest.set(`${r.researchId}/${r.report.id}`, r);
+rows.splice(0, rows.length, ...newest.values());
 
 const ex = purge({ datasetId, exportedAt, rows, withdrawn }, withdrawn);
 const earlier = readExports().filter(({ ex: old }) => old.datasetId !== "ds-fixture");

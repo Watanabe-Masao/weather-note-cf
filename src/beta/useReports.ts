@@ -78,9 +78,39 @@ const jstDate = (t: string | number) => new Date((typeof t === "number" ? t : Da
  * before, the day's centre would pull the answer towards itself (#38); the record screen likewise
  * shows its prediction only after the feeling is chosen. Other days are always shown.
  */
+/** Milliseconds from `now` to the next 0:00 JST. */
+export const msToJstMidnight = (now: number) => 86_400_000 - ((now + 9 * 3_600_000) % 86_400_000);
+
+/**
+ * Today's JST date, kept current: the screen re-renders at 0:00 JST and when the app comes back
+ * into view (a timer does not run while the phone sleeps), so an app left open across midnight
+ * does not keep treating yesterday as today (review #86).
+ */
+export function useJstToday(): string {
+  const [today, setToday] = useState(() => jstDate(Date.now()));
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const check = () => setToday(jstDate(Date.now()));
+    const arm = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => (check(), arm()), msToJstMidnight(Date.now()) + 1_000);
+    };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") (check(), arm());
+    };
+    arm();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, []);
+  return today;
+}
+
 export function useCentreVisible(): (date: string) => boolean {
   const list = useReports();
-  const today = jstDate(Date.now());
+  const today = useJstToday();
   const reportedToday = (list ?? []).some((r) => jstDate(r.at) === today);
   return (date: string) => date !== today || reportedToday;
 }

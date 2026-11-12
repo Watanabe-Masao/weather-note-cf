@@ -37,7 +37,11 @@ function Body() {
         after = page.next;
         if (!stop) setLoad({ phase: "reading", got: rows.length });
       } while (after && !stop);
-      if (!stop) setLoad({ phase: "ready", rows, at: Date.now() });
+      // A report that arrived or changed during the reading comes again on the last page (late
+      // rows): keep its newest copy, once (review #86).
+      const newest = new Map<string, Row>();
+      for (const r of rows) newest.set(`${r.researchId}/${r.report.id}`, r);
+      if (!stop) setLoad({ phase: "ready", rows: [...newest.values()], at: Date.now() });
     })().catch((e) => !stop && setLoad(needsReauth(e) ? { phase: "reauth" } : { phase: "error", message: (e as Error).message }));
     return () => {
       stop = true;
