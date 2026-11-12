@@ -178,7 +178,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
     }
     const day = store?.getDay(station, date);
     const hours = store?.getHours(station, date).rows ?? null;
-    return { v: s.value(day?.row, hours, feel), forecast: day?.row?.type === "forecast" };
+    return { v: s.value(day?.row, hours, feel, station), forecast: day?.row?.type === "forecast" };
   };
 
   // β lines (最近の基準) only for a logged-in person.

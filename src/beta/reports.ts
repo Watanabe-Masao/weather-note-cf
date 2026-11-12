@@ -10,6 +10,8 @@
 import { type IDBPDatabase, openDB } from "idb";
 import { inputQuality } from "./quality";
 import { FEEL_TRANSFORM, feelOf, type FeelSettings, radiationOf } from "../../shared/feel";
+import { addDays } from "../../shared/dates";
+import { dayEdges } from "../../shared/dayParts";
 import type { WeatherRow } from "../../shared/types";
 import { hourOrigin, type Origin } from "../data/authority";
 import { type Baseline, type Departures, halfLifeDays, updateRate } from "./adaptation";
@@ -115,7 +117,8 @@ export interface Snapshot {
   radDay?: number | null;
   radDayMeasuredHours?: number;
   /** Wind as an amount, not an instant: the mean of the last 6 hours, of the last 12 hours, and of
-   *  last night (18時 the day before to 6時), m/s. The day before's hours come from the store. */
+   *  last night (sunset the day before to sunrise, at the station; 18時–6時 in reports made before
+   *  2026-11-12), m/s. The day before's hours come from the store. */
   wind6h?: number | null;
   wind12h?: number | null;
   windLastNight?: number | null;
@@ -127,15 +130,18 @@ export interface Snapshot {
 
 /**
  * Wind over time from the hourly rows of the day before and of the day (JMA hour n = n:00),
- * placed on one line: the day before's hour n at n − 24.
+ * placed on one line: the day before's hour n at n − 24. Last night is from the day before's
+ * sunset to the day's sunrise at the station (calculated, shared/dayParts.ts), not a clock window.
  */
-export function windMemory(today: WeatherRow[], before: WeatherRow[] | null, hour: number): Pick<Snapshot, "wind6h" | "wind12h" | "windLastNight"> {
+export function windMemory(today: WeatherRow[], before: WeatherRow[] | null, hour: number, station: string | null = null): Pick<Snapshot, "wind6h" | "wind12h" | "windLastNight"> {
   const line = [...(before ?? []).map((r) => ({ t: r.n - 24, w: num(r.wind) })), ...today.map((r) => ({ t: r.n, w: num(r.wind) }))];
   const meanOf = (from: number, to: number) => {
     const ws = line.filter((p) => p.t > from && p.t <= to && p.w != null).map((p) => p.w as number);
     return ws.length >= Math.min(3, to - from) ? Math.round((ws.reduce((a, b) => a + b, 0) / ws.length) * 10) / 10 : null;
   };
-  return { wind6h: meanOf(hour - 6, hour), wind12h: meanOf(hour - 12, hour), windLastNight: meanOf(-7, 6) };
+  const date = today[0]?.date ?? before?.[0]?.date ?? null;
+  const night = date ? { from: dayEdges(addDays(date, -1), station).set / 60 - 24, to: dayEdges(date, station).rise / 60 } : { from: -7, to: 6 };
+  return { wind6h: meanOf(hour - 6, hour), wind12h: meanOf(hour - 12, hour), windLastNight: meanOf(night.from, night.to) };
 }
 
 /** One of the days before, as the daily table has it, with its source. */
@@ -212,7 +218,7 @@ export function snapshotOf(
   feel: FeelSettings,
   before: WeatherRow[] | null = null,
   retrievedAt?: number,
-  live?: { latest: WeatherRow | null; now: number; sun?: { sunrise: string | null; sunset: string | null } | null },
+  live?: { latest: WeatherRow | null; now: number; sun?: { sunrise: string | null; sunset: string | null } | null; station?: string | null },
 ): Snapshot | null {
   if (!rows?.length) return null;
   const usable = [...rows].filter((r) => r.n <= hour && num(r.temp) != null).sort((a, b) => b.n - a.n);
@@ -258,7 +264,7 @@ export function snapshotOf(
     shadeTemp: round1(feelOf(temp, humidity, wind, forecast, { ...feel, sun: false }, solar)),
     ...forecastSkyOf(rows, row),
     ...radDayOf(rows, row.n),
-    ...windMemory(rows, before, row.n),
+    ...windMemory(rows, before, row.n, live?.station ?? null),
     ...sunOf(live?.sun),
     transform: FEEL_TRANSFORM,
     ...(retrievedAt ? { retrievedAt: new Date(retrievedAt).toISOString() } : {}),

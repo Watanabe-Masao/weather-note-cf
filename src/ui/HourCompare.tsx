@@ -3,7 +3,7 @@
 
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { jstHour } from "../../shared/dates";
-import { BANDS } from "../../shared/feel";
+import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
 import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
@@ -73,6 +73,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const hours = store?.getHours(station, date);
   const otherHours = other ? store?.getHours(station, other) : null;
   const sun = useSun(station, date, today, store?.getDay(station, date).row);
+  // The parts of the day and the sun's height, by the sun at this station (shared/dayParts.ts).
+  const day = useMemo(() => ({ parts: dayParts(date, station), edges: dayEdges(date, station), curve: altitudeCurve(date, station, 10) }), [date, station]);
 
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings), [otherHours, metricId, settings]);
@@ -156,6 +158,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         air={air}
         ranges={levelRanges(settings.thresholds, settings.scale)}
         sun={sun}
+        day={day}
         nowHour={isToday ? nowHour : null}
         hour={shownHour}
         onHour={setHour}
@@ -277,6 +280,7 @@ function HourChart({
   air,
   ranges,
   sun,
+  day,
   nowHour,
   hour,
   onHour,
@@ -293,6 +297,8 @@ function HourChart({
   /** Coloured 肌感 ranges behind the feel graph (the chosen scale). */
   ranges: { from: number; to: number; color: string }[];
   sun: SunTimes | null;
+  /** The five parts (by the sun's altitude), the day's edges, and the altitude through the day. */
+  day: { parts: PartWindow[]; edges: DayEdges; curve: { min: number; deg: number }[] };
   nowHour: number | null;
   hour: number;
   onHour: (h: number) => void;
@@ -323,8 +329,18 @@ function HourChart({
   const range = axisRange(values, metric);
   const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
   const yOf = (v: number) => PAD.top + ((hi - Math.min(hi, Math.max(lo, v))) * (H - PAD.top - PAD.bottom)) / (hi - lo);
-  const rise = hourOfDay(sun?.sunrise ?? null);
-  const set = hourOfDay(sun?.sunset ?? null);
+  // Sunrise and sunset from the sun API when known (the stored ones), else calculated.
+  const rise = hourOfDay(sun?.sunrise ?? null) ?? day.edges.rise / 60;
+  const set = hourOfDay(sun?.sunset ?? null) ?? day.edges.set / 60;
+  const dawn = day.edges.dawn / 60;
+  const dusk = day.edges.dusk / 60;
+  const plotTop = PAD.top;
+  const plotBottom = H - PAD.bottom;
+  // The sun's height as a faint hill along the bottom: 90° would fill a third of the graph.
+  const sunY = (deg: number) => plotBottom - (Math.max(0, deg) / 90) * (plotBottom - plotTop) * 0.33;
+  const above = day.curve.filter((p, i, a) => p.deg > 0 || (a[i - 1]?.deg ?? -1) > 0 || (a[i + 1]?.deg ?? -1) > 0);
+  const sunPath = above.length ? `M${xOf(above[0].min / 60)},${plotBottom} ` + above.map((p) => `L${xOf(p.min / 60)},${sunY(p.deg)}`).join(" ") + ` L${xOf(above.at(-1)!.min / 60)},${plotBottom} Z` : null;
+  const clip = (m: number) => Math.min(24, Math.max(0, m / 60));
 
   const pickAt = (clientX: number) => {
     const box = ref.current!.getBoundingClientRect();
@@ -421,19 +437,31 @@ function HourChart({
             </g>
           );
         })}
-        {/* Night before sunrise and after sunset. */}
-        {rise != null && <rect x={xOf(0)} width={xOf(rise) - xOf(0)} y={PAD.top} height={H - PAD.top - PAD.bottom} className="day-night" />}
-        {set != null && <rect x={xOf(set)} width={xOf(24) - xOf(set)} y={PAD.top} height={H - PAD.top - PAD.bottom} className="day-night" />}
-        {/* The five feel bands (3-hour windows), named along the top. */}
-        {BANDS.map((b) => (
-          <g key={b.id}>
-            <line x1={xOf(b.hours[0] - 0.5)} x2={xOf(b.hours[0] - 0.5)} y1={PAD.top} y2={H - PAD.bottom} className="day-band-edge" />
-            <text x={xOf(b.hours[1])} y={PAD.top - 6} textAnchor="middle" className="day-band-label">
-              {b.label}
-            </text>
-          </g>
-        ))}
-        <line x1={xOf(20.5)} x2={xOf(20.5)} y1={PAD.top} y2={H - PAD.bottom} className="day-band-edge" />
+        {/* Night (the sun more than 6° below the horizon) dark; twilight (sunrise and sunset to 6° below) lighter. */}
+        <rect x={xOf(0)} width={xOf(dawn) - xOf(0)} y={plotTop} height={plotBottom - plotTop} className="day-night" />
+        <rect x={xOf(dusk)} width={xOf(24) - xOf(dusk)} y={plotTop} height={plotBottom - plotTop} className="day-night" />
+        <rect x={xOf(dawn)} width={Math.max(0, xOf(rise) - xOf(dawn))} y={plotTop} height={plotBottom - plotTop} className="day-twilight" />
+        <rect x={xOf(set)} width={Math.max(0, xOf(dusk) - xOf(set))} y={plotTop} height={plotBottom - plotTop} className="day-twilight" />
+        {/* The sun's height through the day, and its highest point. */}
+        {sunPath && <path d={sunPath} className="day-sun" />}
+        <text x={xOf(day.edges.noon / 60)} y={sunY(day.edges.noonAltitude) - 4} textAnchor="middle" className="day-sun-label">
+          南中 {Math.round(day.edges.noonAltitude)}°
+        </text>
+        {/* The five parts of the day (by the sun's height), named along the top. */}
+        {day.parts.map((p) => {
+          const from = clip(p.from);
+          const to = clip(p.to);
+          if (to - from < 0.2) return null;
+          return (
+            <g key={p.id}>
+              <line x1={xOf(from)} x2={xOf(from)} y1={plotTop} y2={plotBottom} className="day-band-edge" />
+              <text x={xOf((from + to) / 2)} y={plotTop - 6} textAnchor="middle" className="day-band-label">
+                {p.label}
+              </text>
+            </g>
+          );
+        })}
+        {day.parts.at(-1)!.to < 1440 && <line x1={xOf(day.parts.at(-1)!.to / 60)} x2={xOf(day.parts.at(-1)!.to / 60)} y1={plotTop} y2={plotBottom} className="day-band-edge" />}
 
         {ticks.map((t) => (
           <g key={t}>

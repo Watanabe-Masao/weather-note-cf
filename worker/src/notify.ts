@@ -4,7 +4,7 @@
 // Every slot sent is kept (notify_log), so a report made from a notification can be set beside the
 // time it was asked for (how long people take to answer is part of the analysis).
 
-import { BANDS } from "../../shared/feel";
+import { BAND_ALARMS, bandAt } from "../../shared/dayParts";
 import type { Db, User } from "./accounts";
 import { newVapidKeys, sendPush, type Subscription, type VapidKeys } from "./webpush";
 
@@ -37,14 +37,12 @@ export const NOTIFY_SCHEMA = [
 ];
 
 /**
- * The five 時間帯 of the 肌感 map (朝 6–8, 日中 9–11, 昼 12–14, 夕方 15–17, 夜 18–20): a notification
- * at the middle of each, so a report sits inside the band it will be compared with.
+ * The five 時間帯 of the 肌感 map: a notification near the middle of each (shared/dayParts.ts:
+ * BAND_ALARMS, the middles at the equinox). The parts follow the sun; what a notification is called
+ * is read from the sun at the person's station on the day it rings.
  */
-export const BAND_TIMES = BANDS.map((b) => ({ label: b.label, time: `${String(b.hours[1]).padStart(2, "0")}:00`, hours: b.hours as readonly number[] }));
+export const BAND_TIMES = BAND_ALARMS;
 export const DEFAULT_TIMES = BAND_TIMES.map((b) => b.time);
-
-/** The 時間帯 a time ("HH:MM") falls in, if any. */
-export const bandOf = (time: string) => BAND_TIMES.find((b) => b.hours.includes(Number(time.slice(0, 2))))?.label ?? null;
 export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
 export const MAX_TIMES = 6;
 /** A slot is still sent this long after its time (the scheduled run is every 5 minutes). */
@@ -154,8 +152,9 @@ export interface Message {
   tag: string;
 }
 
-export const reportMessage = (at: number, test = false): Message => {
-  const band = bandOf(new Date(at + JST).toISOString().slice(11, 16));
+/** `station`: the person's (their latest report's), whose sun names the 時間帯; null: Japan's middle. */
+export const reportMessage = (at: number, test = false, station: string | null = null): Message => {
+  const band = bandAt(at, station)?.label ?? null;
   return {
   title: test ? "通知のテスト" : band ? `${band}の感じ方は？` : "今、外はどう感じますか？",
   body: test ? "この通知を押すと、感じ方の記録が開きます。" : "Weather Note：感じ方を記録しましょう（数秒で終わります）",
@@ -206,7 +205,8 @@ export async function runSchedule(db: Db, now = Date.now(), send = sendPush): Pr
       // Claim the slot first: a second run at the same moment finds it taken.
       const claim = await db.prepare("INSERT OR IGNORE INTO notify_log (user_id, slot, sent_at, devices) VALUES (?, ?, ?, 0)").bind(r.user_id, due.slot, now).run();
       if (!claim.meta.changes) continue;
-      const n = await sendToUser(db, r.user_id, reportMessage(due.at), now, send);
+      const st = await db.prepare("SELECT station FROM reports WHERE user_id = ? AND deleted = 0 ORDER BY at DESC LIMIT 1").bind(r.user_id).first<{ station: string | null }>();
+      const n = await sendToUser(db, r.user_id, reportMessage(due.at, false, st?.station ?? null), now, send);
       await db.prepare("UPDATE notify_log SET devices = ? WHERE user_id = ? AND slot = ?").bind(n, r.user_id, due.slot).run();
       sent += n;
     }

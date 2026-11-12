@@ -33,7 +33,7 @@ export interface Drivers {
   night: boolean | null;
   /** Wind as an amount: mean of the last 6 hours (m/s) — how much of the stored warmth it has carried off. */
   wind6h: number | null;
-  /** Last night: the day before's minimum − 最近の基準 (℃), and last night's mean wind (18時–6時; the
+  /** Last night: the day before's minimum − 最近の基準 (℃), and last night's mean wind (sunset to sunrise; the
    *  day before's mean when the hours are missing) (m/s). */
   minPrev: number | null;
   windPrev: number | null;

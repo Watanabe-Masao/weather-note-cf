@@ -219,7 +219,8 @@ function DeletionNote() {
   return note ? <p className="warn">{note}</p> : null;
 }
 
-export function AccountSection() {
+/** `station`: the one chosen in the settings (its sun names the notification times). */
+export function AccountSection({ station }: { station: string }) {
   const { me, status } = useAccount();
   const [admin, setAdmin] = useState(false);
   const [leaving, setLeaving] = useState<null | "ask" | "busy">(null);
@@ -264,7 +265,7 @@ export function AccountSection() {
           </div>
           {leaving === "ask" ? <small className="set-help">ログアウトすると、サーバーに保存済みの記録はこの端末から消えます（サーバーには残り、再ログインで戻ります）。</small> : null}
           <SyncStatus />
-          <NotifySection />
+          <NotifySection station={station} />
           <Research />
           {me.role !== "admin" ? <DeleteAccount /> : null}
           {me.role === "admin" ? (

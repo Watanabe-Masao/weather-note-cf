@@ -1117,6 +1117,11 @@ button.label-feel.shade small {
 }
 
 .day-night { fill: rgba(0, 0, 0, 0.24); }
+/* Twilight (sunrise and sunset to 6° below the horizon): half the night's shade. */
+.day-twilight { fill: rgba(0, 0, 0, 0.12); }
+/* The sun's height through the day: a faint hill along the bottom of the graph. */
+.day-sun { fill: var(--data-sun, #e8b44a); fill-opacity: 0.1; stroke: var(--data-sun, #e8b44a); stroke-opacity: 0.45; stroke-width: 1; }
+.day-sun-label { fill: var(--ink-tertiary); font-size: 9px; }
 .day-band-edge { stroke: var(--line-soft); }
 
 .day-band-label {

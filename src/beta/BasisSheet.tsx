@@ -4,7 +4,8 @@
 
 import { PreferenceDay } from "./PreferenceDay";
 import { useContext, useState } from "react";
-import { BANDS, DAYTIME_BANDS, daytimeFeel, feelOf, type FeelSettings, FORECAST_WIND_HEIGHT, PERSON_HEIGHT, radiationOf, windAtPerson } from "../../shared/feel";
+import { clockOf, dayParts, hoursIn } from "../../shared/dayParts";
+import { DAYTIME_BANDS, daytimeFeel, feelOf, type FeelSettings, FORECAST_WIND_HEIGHT, PERSON_HEIGHT, radiationOf, windAtPerson } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { dateLabel, monthDay } from "../design/format";
@@ -129,13 +130,16 @@ function DayBasis({ store, station, date, alpha, feel }: { store: WeatherStore |
   const day = store?.getDay(station, date);
   const row = day?.row ?? null;
   const rows = store?.getHours(station, date).rows ?? [];
+  // The parts by the sun (shared/dayParts.ts): which hours each holds depends on the day.
+  const parts = dayParts(date, station);
   const bands = DAYTIME_BANDS.map((id) => {
-    const b = BANDS.find((x) => x.id === id)!;
-    return { label: b.label, hours: b.hours, ...bandBasis(rows, b.hours, feel) };
+    const w = parts.find((x) => x.id === id)!;
+    return { label: w.label, window: w, ...bandBasis(rows, hoursIn(w), feel) };
   });
+  const span = `${clockOf(bands[0].window.from)}〜${clockOf(bands.at(-1)!.window.to)}`;
   // The totals come from the very functions the summary uses, so the two always agree.
-  const sunMean = daytimeFeel(rows, { ...feel, sun: true });
-  const shadeMean = daytimeFeel(rows, { ...feel, sun: false });
+  const sunMean = daytimeFeel(rows, { ...feel, sun: true }, station);
+  const shadeMean = daytimeFeel(rows, { ...feel, sun: false }, station);
   const minus = (v: number | null) => (v == null || base == null ? null : Math.round((v - base) * 10) / 10);
   const dayMean = num(row?.temp);
   return (
@@ -159,7 +163,7 @@ function DayBasis({ store, station, date, alpha, feel }: { store: WeatherStore |
           日なた・日かげの差 <b>{signed(minus(sunMean))} ／ {signed(minus(shadeMean))}℃</b>
         </h4>
         <p className="basis-note">
-          日中・昼・夕方（9〜17時）の日なた温度・日かげ温度の平均から基準を引きます。3つの時間帯がそろわないときは出しません。
+          日中・昼・夕方（この日は {span}。太陽の高さで区切ります）の日なた温度・日かげ温度の平均から基準を引きます。3つの時間帯がそろわないときは出しません。
         </p>
         <div className="basis-scroll">
 <table className="basis-table">
@@ -178,7 +182,7 @@ function DayBasis({ store, station, date, alpha, feel }: { store: WeatherStore |
             {bands.map((b) => (
               <tr key={b.label}>
                 <td>
-                  {b.label} <small>{b.hours[0]}–{b.hours.at(-1)}時{b.forecast ? "・予報" : ""}</small>
+                  {b.label} <small>{clockOf(b.window.from)}–{clockOf(b.window.to)}{b.forecast ? "・予報" : ""}</small>
                 </td>
                 <td className="num">{f1(b.temp)}</td>
                 <td className="num">{b.humidity == null ? "—" : Math.round(b.humidity)}</td>
@@ -456,8 +460,8 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   const rows = store?.getHours(station, date).rows ?? [];
   const row = store?.getDay(station, date).row;
   const hNow = num(row?.humidity);
-  const sun = daytimeFeel(rows, { ...feel, sun: true });
-  const shade = daytimeFeel(rows, { ...feel, sun: false });
+  const sun = daytimeFeel(rows, { ...feel, sun: true }, station);
+  const shade = daytimeFeel(rows, { ...feel, sun: false }, station);
   const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade, hNow, { at: Date.parse(`${date}T12:00:00+09:00`) });
   if (!visible || centreUnknown(beta.learning.state)) {
     return (

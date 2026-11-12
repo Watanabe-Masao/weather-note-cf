@@ -59,7 +59,7 @@ export function PreferenceDay({ store, station, date, feel }: { store: WeatherSt
   const reports = useReports();
   const visible = useCentreVisible()(date);
   const rows = store?.getHours(station, date).rows ?? [];
-  const e = daytimeFeel(rows, { ...feel, sun: true }) ?? daytimeFeel(rows, { ...feel, sun: false });
+  const e = daytimeFeel(rows, { ...feel, sun: true }, station) ?? daytimeFeel(rows, { ...feel, sun: false }, station);
   const beta = useContext(BetaContext);
   const base = baselineOf(store, station, date, beta.alpha);
   const now = useMemo(() => Date.now(), [reports]); // eslint-disable-line react-hooks/exhaustive-deps

@@ -59,10 +59,19 @@ describe("β②: wind as an amount over time", () => {
     const day = (date: string, w: (n: number) => number) => Array.from({ length: 24 }, (_, i) => hour(i + 1, { date, wind: w(i + 1) }));
     const before = day("2026-11-10", (n) => (n >= 18 ? 6 : 1)); // windy evening the day before
     const today = day("2026-11-11", (n) => (n <= 6 ? 4 : 2));
-    const m = windMemory(today, before, 3); // at 3時
+    const m = windMemory(today, before, 3, "47893"); // at 3時
     expect(m.wind6h).toBe(5); // 22時–3時: 6,6,4,4,4 … mean of 21:00<t≤3:00
+    // Kochi in November: sunset 17:09, sunrise 6:31 → 18–24時 and 1–6時.
     expect(m.windLastNight).toBe(5.1);
-    expect(windMemory(today, null, 12).windLastNight).toBe(4); // only today's 1–6時 known
+    expect(windMemory(today, null, 12, "47893").windLastNight).toBe(4); // only today's 1–6時 known
+  });
+
+  it("takes last night from sunset to sunrise, not 18時–6時", () => {
+    const day = (date: string, w: (n: number) => number) => Array.from({ length: 24 }, (_, i) => hour(i + 1, { date, wind: w(i + 1) }));
+    // June in Kochi: sunset 19:19, sunrise 4:56 → 20–24時 and 1–4時 (18・19時 and 5・6時 are daylight).
+    const before = day("2026-06-20", (n) => (n === 18 || n === 19 ? 10 : 2));
+    const today = day("2026-06-21", (n) => (n === 5 || n === 6 ? 10 : 2));
+    expect(windMemory(today, before, 12, "47893").windLastNight).toBe(2);
   });
 });
 

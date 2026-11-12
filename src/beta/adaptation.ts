@@ -89,7 +89,7 @@ export interface Departures {
   baseline: Baseline;
   /** Day mean air temperature − baseline. */
   air: number | null;
-  /** Daytime (9–17時) 日なた温度 − baseline. */
+  /** Daytime (日中・昼・夕方, by the sun) 日なた温度 − baseline. */
   sun: number | null;
   /** Daytime 日かげ温度 − baseline. */
   shade: number | null;
@@ -103,13 +103,14 @@ export function departures(
   hours: WeatherRow[] | null,
   baseline: Baseline | null,
   feel: FeelSettings,
+  station: string | null,
 ): Departures | null {
   if (!baseline) return null;
   const rows = hours ?? [];
   return {
     baseline,
     air: minus(num(row?.temp), baseline.value),
-    sun: minus(daytimeFeel(rows, { ...feel, sun: true }), baseline.value),
-    shade: minus(daytimeFeel(rows, { ...feel, sun: false }), baseline.value),
+    sun: minus(daytimeFeel(rows, { ...feel, sun: true }, station), baseline.value),
+    shade: minus(daytimeFeel(rows, { ...feel, sun: false }, station), baseline.value),
   };
 }
