@@ -463,21 +463,25 @@ P(答え ≤ k) = σ( (境目_k − (E′ − μ)) ÷ s )      σ(x) = 1 ÷ (1 +
 | 列 | 内容 |
 | --- | --- |
 | `at_jst`, `opened_at_jst`, `notified_at_jst` | 送信した時刻、画面を開いた時刻、通知の時刻（通知から開いたとき） |
+| `station` | 観測所（気象庁の地点番号） |
 | `sensation`, `sensation_label` | 答え（−3〜+3）と言葉 |
-| `exposure`, `wind_felt`, `sky_reported` | いる場所（夜は空）、風、今の天気 |
+| `exposure`, `wind_felt` | いる場所（夜は空）、風 |
 | `comfort_mu`, `comfort_half_range`, `comfort_step`, `comfort_blur` | 送信時のちょうどよい温度 μ、範囲の半分 h、外の1段階 g、ぼやけ s |
 | `comfort_offset`, `comfort_beyond` | その場の温度 − 中心、範囲の外にはみ出した分（中なら0） |
-| `pred_mode`, `pred_expected`, `p_m3` 〜 `p_p3`, `pred_n`, `pred_alpha`, `pred_error` | 混ぜた予測（最も確率の高い段階・期待値・各段階の確率）、学習に使った件数、α、答え − 期待値 |
-| `pred_models` | 各モデルの予測（`id:重み:最も確率の高い段階:中心:範囲の半分` を `;` 区切り） |
+| `pred_mode`, `pred_expected`, `p_m3` 〜 `p_p3`, `pred_n`, `pred_alpha` | 混ぜた予測（最も確率の高い段階・期待値・各段階の確率 −3〜+3 の7列）、学習に使った件数、α |
+| `pred_models`, `pred_error` | 各モデルの予測（`id:重み:最も確率の高い段階:中心:範囲の半分` を `;` 区切り）、答え − 期待値 |
+| `sky_reported`, `sky_forecast`, `sky_forecast_code` | 今の天気（答え）、その時刻の予報の天気とその番号 |
+| `obs_date`, `obs_hour` | 使った観測の日付と時（気象庁の時。0時台の記録は前日の24時） |
+| `temp`, `humidity`, `wind`, `solar_w_m2` | 観測所の値 |
+| `temp_from`, `humidity_from`, `wind_from`, `solar_from` | それぞれの出どころ（実測・10分値・予報など） |
+| `sun_temp`, `shade_temp` | 日なた温度、日かげ温度 |
 | `rad_day_mj`, `rad_day_measured_h` | その日の朝からの日射量の合計、そのうち実測の時間数 |
 | `wind_6h`, `wind_12h`, `wind_last_night` | 直近6時間・12時間・前夜の平均風速 |
-| `sky_forecast`, `sky_forecast_code` | その時刻の予報の天気 |
-| `temp`, `humidity`, `wind`, `solar_w_m2` と `*_from` | 観測所の値と出どころ |
-| `sun_temp`, `shade_temp` | 日なた温度、日かげ温度 |
 | `baseline`, `baseline_alpha`, `update_rate`, `half_life_days` | 最近の基準と α の3つの言い方 |
+| `baseline_forecast_mixed` | 基準に予報の日が混ざったか（今日の値が予報のとき） |
 | `dep_air`, `dep_sun`, `dep_shade` | 基準との差 |
 | `history_60d` | 過去60日の日平均気温（新しい順、`;` 区切り） |
-| `d1_*` 〜 `d7_*` | 1〜7日前の平均・最高・最低・湿度・日照・日射・降水・風速・天気・出どころ |
+| `d1_*` 〜 `d7_*` | 1〜7日前の平均（`mean`）・最高（`max`）・最低（`min`）・湿度（`humidity`）・日照（`sun_h`）・日射（`radiation_mj`）・降水（`rain_mm`）・風速（`wind`）・天気（`weather`）・出どころ（`from`）。各日10列 |
 | `id` | 記録のID |
 | `scale_version`, `model_version` | 答えた尺度の版（1：寒い〜暑い、2：極寒〜猛暑で0が「快適」、3：0が「ちょうどよい」）、予測の版 |
 | `learning_state` | 予測したときの学習の段階（untrained / sparse / provisional / testable / verified） |
@@ -487,9 +491,11 @@ P(答え ≤ k) = σ( (境目_k − (E′ − μ)) ÷ s )      σ(x) = 1 ÷ (1 +
 | `input_status`, `input_lag_min`, `input_flags`, `train_excluded_reason` | 気温の状態、観測から記録までの分、品質の印、学習に使わなかった理由（使ったときは空） |
 | `pred_models_excluded`, `pred_inputs_missing` | 入力が欠けて予測に参加しなかったモデルと、その入力 |
 | `feel_transform`, `retrieved_at` | 日なた温度・日かげ温度の計算方式の版、気象データを取得した時刻 |
-| `thermal_preference`, `drink_preference`, `preference_version` | 任意の2問（#63）：今よりどう感じたいか（warmer / same / cooler）、今飲むとしたら飲み物の温度（warm / either / cold）。空は未回答（「どちらでもよい」とは別）。`preference_version` が空の記録は、2問ができる前の記録 |
-| `sunrise`, `sunset` | その日の日の出・日の入り（HH:MM。記録したときに分かっていれば）。昼と夜を時計ではなく太陽で分けるため（comfort-5 の候補、#86） |
 | `obs_minute` | 使った観測の、正時からの分（10分値を使ったとき。空なら正時の値）。12時15分の答えなら `obs_hour` 12・`obs_minute` 10 |
+| `thermal_preference`, `drink_preference`, `preference_version` | 任意の2問（#63）：今よりどう感じたいか（warmer / same / cooler）、今飲むとしたら飲み物の温度（warm / either / cold）。空は未回答（「どちらでもよい」とは別）。`preference_version` が空の記録は、2問ができる前の記録 |
+| `sunrise`, `sunset` | その日の日の出・日の入り（HH:MM。記録したときに分かっていれば）。昼と夜を時計ではなく太陽で分けるため |
+
+表は CSV の列の順です（`src/beta/reports.ts` の `COLUMNS`。テストで、この表に全部の列があることを確かめています）。
 
 後から足した列は `id` の後ろに並べるので、前からある列の位置は変わりません。
 
@@ -528,11 +534,20 @@ P(答え ≤ k) = σ( (境目_k − (E′ − μ)) ÷ s )      σ(x) = 1 ÷ (1 +
 
 | 表 | 中身 |
 | --- | --- |
+| `schema_version` | 表の作りの版（作り直しの判断） |
 | `users` | ID、ログインID、名前（任意）、役割、パスワードのハッシュ、**研究用の番号**（ログインIDとは無関係の乱数）、同期の番号、ロック、停止 |
 | `sessions` | ログイン中の端末（Cookie のハッシュ、期限） |
-| `reports` | 記録。**本文をそのまま**（JSON）と、分析で絞り込む列（日時・地点・感じ方・いる場所・風・空）。持ち主と番号 |
+| `session_reauth` | 管理者がこの端末でパスワードを入れ直した時刻（研究用の分析を開くのに15分以内の入れ直しが要る） |
+| `reports` | 記録。**本文をそのまま**（JSON）と、分析で絞り込む列（日時・地点・感じ方・いる場所・風・空）。持ち主と番号、サーバーに届いた時刻 |
 | `consents` | 研究への同意の**履歴**（同意・取り消し、版、時刻）。上書きせず積み重ねる |
-| `research_reports`（ビュー） | 最新の答えが「同意」の人の、削除されていない記録だけ。名前・ログインIDは含まず、研究用の番号で並ぶ |
+| `research_reports`・`_v2`・`_v3`（ビュー） | 最新の答えが「同意」の人の、削除されていない記録だけ。名前・ログインIDは含まず、研究用の番号で並ぶ。v2 は取り消す前の記録を外し（同意し直しても戻さない）、v3 はそれに届いた時刻を足したもの（読み出しの途中に届いた記録を取りこぼさない）。今使うのは v3 |
+| `research_withdrawals` | 研究から外れた研究用の番号と時刻・理由（取り消し・削除）。書き出した写しから消すため |
+| `export_log` | 研究用のデータを読み出した記録（誰が・いつ・どこから・何件） |
+| `export_tokens` | 取り出し用のトークン（ハッシュだけ、期限・取り消し） |
+| `server_keys` | 通知（Web Push）の鍵 |
+| `push_subscriptions` | 通知を受け取る端末 |
+| `notify_settings` | 人ごとの通知の時刻と曜日 |
+| `notify_log` | 送った通知（同じ時刻に二度送らないため） |
 
 - 研究への協力は［設定 › アカウント › 研究への協力］で本人が選びます。初めは「協力しない」です。取り消すと、以後の分析（ビュー）から外れ、すでに書き出した研究用の写しからも消します。研究用の番号も新しくなり、同意し直すと、それ以後の記録が別の番号で入ります（取り消す前の記録は戻りません。戻すと古い番号と新しい番号が結びつくため）（同意の文面は2版。より保護的な変更のため、1版で同意した人に再同意は求めません）。
 - アカウントは、本人が［設定 › アカウント › アカウントを削除］からパスワードで消せます（管理者のアカウントは、管理する人がいなくならないよう、ここからは消せません）。サーバーの記録と、この端末の記録（未送信を含む）がすべて消えます。
@@ -617,7 +632,6 @@ Service Worker（`public/sw.js`）は、画面のファイルだけを扱いま�
 | `GET /api/current?station=47893` | 今日の観測（アメダス） |
 | `GET /api/forecast?station=47893` | 16日間の予報（今日＋15日）と信頼度（Open-Meteo）。エッジに30分保存 |
 | `GET /api/sun?station=47893&date=2026-11-10` | 日の出・日の入り（今日＋15日まで） |
-
 | `GET /api/auth/me` | ログイン中の人（いなければ `null`）と、初期設定ができるか |
 | `POST /api/auth/login` | `{ loginId, password }` でログイン（Cookie が付く） |
 | `POST /api/auth/logout` | ログアウト |
@@ -650,12 +664,15 @@ Service Worker（`public/sw.js`）は、画面のファイルだけを扱いま�
 | `src/data/` | データ層：`store.ts`（4つのルール）、`plan.ts`（取る順番）、`queue.ts`（通信の待ち行列）、`authority.ts`（正本管理）、`db.ts`（IndexedDB）、`fetchJson.ts`（API の呼び出しとエラーの文言） |
 | `src/ui/` | 画面の部品。共通の部品は `kit.tsx` |
 | `src/design/` | デザインの値（色・大きさ・動き）と数値の書き方 |
+| `src/flows/` | 画面の判断を切り出した関数（選好の表示・通知の勧め・研究用の比較。テストのため） |
+| `src/research/` | アプリの中の研究用の分析（`analysis.ts`：人ごとに均等な集計、5人未満を出さない決まり、モデルの比較） |
 | `src/beta/` | β版：最近の基準（`adaptation.ts`）、ちょうどよい温度と範囲のモデル（`engine/`：正本の項目ごとのファイル。入口は `comfort.ts`）、感じ方の記録（`reports.ts`）、記録の同期（`sync.ts`・`useSync.ts`）、根拠の画面 |
 | `src/account/` | アカウント：ログイン中の人（`account.ts`）、設定のアカウント欄、ユーザー管理の画面 |
 | `worker/src/` | API（Cloudflare Worker）：気象庁・Open-Meteo からの取得と変換、エッジのキャッシュ、アカウントと記録の保存（`accounts.ts`、D1） |
-| `shared/` | 画面と API で共有：型、日付、確定の判定、訂正台帳、版数、肌感の式、信頼度、似た日、祝日 |
+| `shared/` | 画面と API で共有：型、日付、確定の判定、訂正台帳、版数、肌感の式、信頼度、似た日、祝日、太陽の計算（`sunTimes.ts`）、太陽で分けた一日（`dayParts.ts`）、天気の推定（`dayWeather.ts`）、明るさ（`brightness.ts`）と移り変わり（`lightShift.ts`）、観測地点（`stations.json`） |
 | `public/` | そのまま配るファイル：PWA（manifest・アイコン・Service Worker）、キャッシュの指定（`_headers`） |
-| `research/` | CSV を使う分析（Python） |
+| `research/` | 分析と検証。`comfort-model/`（モデルの数理の正本 `mathematical-contract.md`、合成データでの検証、採用の記録 `experiments/`）、`sun/`（太陽の計算を国立天文台の値と比べる）、`brightness/`（明るさの計算の見直し）、`data/`（研究用データの取り出しと DuckDB での集計：`build.ts`・`check.ts`・`run-models.ts`、作ったデータ `fixture.ts`）、CSV を使う分析（Python） |
+| `e2e/` | ブラウザでの操作テスト（Playwright・Python、13章） |
 | `docs/design-system.md` | 画面の決まり（色・数値・部品・操作・β の表示） |
 | `test/` | 単体テスト（気象庁・Open-Meteo の実データを `fixtures/` に保存） |
 
@@ -675,6 +692,10 @@ Service Worker（`public/sw.js`）は、画面のファイルだけを扱いま�
   - 記録と CSV の中身。
 
 新しく足したテストの多くは、直す前の動きに戻すと失敗することも確かめています。
+
+**モデルの採用のテスト**（`test/data/model-promotion.test.ts`）：`MODEL_VERSION` を変えたら、その版の実験の記録（`research/comfort-model/experiments/`）があり、採用（adopted）と書かれていなければ失敗します。採用は渡辺さんの承認で決め（D10）、承認前の版は main に入りません。モデルの出力そのものは回帰テスト（14章の `comfort-golden`）で固定しています。
+
+**研究用データの CI**（`.github/workflows/research-data.yml`）：`research/data/` と、それが呼ぶモデル（`src/beta/`・`src/research/`・`shared/`）が変わったとき、作ったデータ（`fixture.ts`）だけで、取り出し → DuckDB での組み立て（`build.ts`）→ 検査（`check.ts`、データセットごと）→ モデルの実行（`run-models.ts`）を通します。本物のデータは CI に入りません。
 
 **ブラウザでの操作テスト**（`e2e/e2e.py`、Playwright・Python）：ビルドしたアプリを、作った天気のデータを返すモックの API で動かし、すべての画面と主な操作を確かめます（項目7つ、シートの高さ、日別⇄時間帯、予報の斜線、ドラム、カレンダー、設定、記録、肌感マップ、移り変わりなど）。スマホ幅（390px・360px）で、横にはみ出さないこと、コンソールにエラーが出ないことも見ます。失敗したら終了コード1で、CI では画面のスクリーンショットを残します。
 

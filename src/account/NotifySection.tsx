@@ -2,7 +2,7 @@
 // account), and whether this device receives the notifications.
 
 import { useContext, useEffect, useState } from "react";
-import { bandOf, LEARNING_RULES, TIME_BANDS, type TimeBand } from "../beta/comfort";
+import { nudgeBands } from "../flows/screenFlows";
 import { BetaContext } from "../beta/settings";
 import { BAND_ALARMS, bandAt } from "../../shared/dayParts";
 import { Segmented } from "../ui/kit";
@@ -17,8 +17,6 @@ const todayAt = (t: string) => Date.parse(`${new Date(Date.now() + 9 * 3_600_000
 /** The 時間帯 a time falls in today, by the sun at the station (none outside the bands). */
 const labelOf = (t: string, station: string) => bandAt(todayAt(t), station)?.label ?? null;
 
-/** For each band the learning counts (#62 B), the notification time that falls in it. */
-const NUDGE_TIME: Record<TimeBand, string> = { morning: "07:00", day: "13:00", evening: "16:00", night: "19:00" };
 
 /**
  * Bands with few reports (#62 B): a centre learned in one band mixes in that band's clothes and
@@ -26,23 +24,19 @@ const NUDGE_TIME: Record<TimeBand, string> = { morning: "07:00", day: "13:00", e
  */
 function BandNudge({ times, busy, onAdd, station }: { times: string[]; busy: boolean; onAdd: (t: string) => void; station: string }) {
   const beta = useContext(BetaContext);
-  const bands = beta.learning.bands;
-  if (!bands || beta.learning.state === "untrained") return null;
-  // By today's sun at the station (the learning bands, shared/dayParts.ts).
-  const inBand = (t: string, b: (typeof TIME_BANDS)[number]) => bandOf(todayAt(t), station) === b.id;
-  // Only the bands with few reports and no notification there yet (one there already: nothing to suggest).
-  const few = TIME_BANDS.filter((b) => bands[b.id] < LEARNING_RULES.minPerBand && !times.some((t) => inBand(t, b)));
-  if (!few.length) return null;
-  const full = times.length >= 6;
+  // Which bands, by today's sun at the station (src/flows/screenFlows.ts, tested).
+  const nudge = nudgeBands(beta.learning.bands, beta.learning.state, times, station, new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10));
+  if (!nudge) return null;
+  const { few, full } = nudge;
   return (
     <div className="notify-nudge">
       <small className="set-help">
-        記録の少ない時間帯：{few.map((b) => `${b.label}（${bands[b.id]}件分）`).join("・")}。学習は時間帯の偏りに弱いので、この時間帯にも記録があると、ちょうどよい温度が確かになります。
+        記録の少ない時間帯：{few.map((b) => `${b.label}（${b.reports}件分）`).join("・")}。学習は時間帯の偏りに弱いので、この時間帯にも記録があると、ちょうどよい温度が確かになります。
       </small>
       <div className="actions tight">
         {few.map((b) => (
-          <button key={b.id} disabled={busy || full} onClick={() => onAdd(NUDGE_TIME[b.id])}>
-            {b.label} {NUDGE_TIME[b.id]} に通知を足す
+          <button key={b.id} disabled={busy || full} onClick={() => onAdd(b.time)}>
+            {b.label} {b.time} に通知を足す
           </button>
         ))}
       </div>
