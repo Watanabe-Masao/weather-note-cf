@@ -3,7 +3,7 @@
   "date": "2026-11-12",
   "modelVersion": "comfort-6",
   "scaleVersion": 3,
-  "commit": "feat/stored-heat（PR の先頭のコミット）",
+  "commit": "171aae0",
   "dataset": {
     "id": "synthetic-stored-heat-86",
     "hash": "sha256:stored-heat.ts:1b57ac0fdde26c01",
