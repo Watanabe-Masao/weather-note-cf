@@ -1355,7 +1355,9 @@
   "obs_minute",
   "thermal_preference",
   "drink_preference",
-  "preference_version"
+  "preference_version",
+  "sunrise",
+  "sunset"
  ],
  "fromReports": {
   "morning": {

@@ -3,6 +3,7 @@
 
 import { useContext, useEffect, useState } from "react";
 import { addDays } from "../../shared/dates";
+import { cachedSun, loadSun } from "../data/sun";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { FeelContext } from "../ui/FeelBar";
@@ -45,6 +46,9 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   useBaselineHistory(store, station, [today], "report-baseline");
   useEffect(() => {
     store?.wantHours(station, [addDays(today, -2), yesterday, today], Priority.Visible, "report");
+    // Sunrise and sunset, kept with the report (day and night by the sun).
+    void loadSun(station, today);
+    void loadSun(station, yesterday);
     return () => store?.wantHours(station, [], Priority.Visible, "report");
   }, [store, station, yesterday, today]);
   /**
@@ -59,6 +63,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
     return snapshotOf(held?.rows ?? null, m.hour, feel, store?.getHours(station, m.before).rows ?? null, withRetrieved ? held?.fetchedAt : undefined, {
       latest: store?.getLatest(station) ?? null,
       now,
+      sun: cachedSun(station, m.day) ?? null,
     });
   };
   const [saving, setSaving] = useState(false);

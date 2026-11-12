@@ -94,6 +94,10 @@ export interface Snapshot {
    *  10-minute AMeDAS value when it is newer than the hour (12:15 → 12:10, not 12:00). Absent
    *  when the hour's own value was used (reports before this, too). */
   minute?: number;
+  /** Sunrise and sunset of the station that day ("HH:MM" JST), when known at sending: what is day and
+   *  night for this report, by the sun and not by the clock (comfort-5 candidate, #86). */
+  sunrise?: string;
+  sunset?: string;
   temp: number | null;
   humidity: number | null;
   wind: number | null;
@@ -208,7 +212,7 @@ export function snapshotOf(
   feel: FeelSettings,
   before: WeatherRow[] | null = null,
   retrievedAt?: number,
-  live?: { latest: WeatherRow | null; now: number },
+  live?: { latest: WeatherRow | null; now: number; sun?: { sunrise: string | null; sunset: string | null } | null },
 ): Snapshot | null {
   if (!rows?.length) return null;
   const usable = [...rows].filter((r) => r.n <= hour && num(r.temp) != null).sort((a, b) => b.n - a.n);
@@ -255,12 +259,21 @@ export function snapshotOf(
     ...forecastSkyOf(rows, row),
     ...radDayOf(rows, row.n),
     ...windMemory(rows, before, row.n),
+    ...sunOf(live?.sun),
     transform: FEEL_TRANSFORM,
     ...(retrievedAt ? { retrievedAt: new Date(retrievedAt).toISOString() } : {}),
   };
 }
 
 /** The latest 10-minute observation to use instead of the hour's value, with its minutes past the hour. */
+/** "2026-11-12T06:33" → "06:33"; both or nothing. */
+function sunOf(sun: { sunrise: string | null; sunset: string | null } | null | undefined): Pick<Snapshot, "sunrise" | "sunset"> {
+  const hm = (v: string | null) => /T(\d{2}:\d{2})/.exec(v ?? "")?.[1] ?? null;
+  const rise = hm(sun?.sunrise ?? null);
+  const set = hm(sun?.sunset ?? null);
+  return rise && set ? { sunrise: rise, sunset: set } : {};
+}
+
 function tenMinute(row: WeatherRow, live: { latest: WeatherRow | null; now: number } | undefined): { row: WeatherRow; date: string; hour: number; minute: number } | null {
   const l = live?.latest;
   if (!l || typeof l.observedAt !== "string" || typeof l.date !== "string" || num(l.temp) == null) return null;
@@ -438,6 +451,8 @@ const COLUMNS: readonly string[] = [
   "thermal_preference",
   "drink_preference",
   "preference_version",
+  "sunrise",
+  "sunset",
 ] as const;
 
 const cell = (v: unknown) => {
@@ -537,6 +552,8 @@ export function toCsv(reports: Report[]): string {
       r.thermalPreference ?? null,
       r.drinkPreference ?? null,
       r.preferenceVersion ?? null,
+      r.snapshot?.sunrise ?? null,
+      r.snapshot?.sunset ?? null,
     ]
       .map(cell)
       .join(","),
