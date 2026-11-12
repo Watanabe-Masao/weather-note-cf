@@ -80,14 +80,14 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const sunMain = useMemo(() => hourSeries(hours?.rows ?? [], "sun", settings), [hours, settings]);
   const sunOther = useMemo(() => hourSeries(otherHours?.rows ?? [], "sun", settings), [otherHours, settings]);
   const chance = useMemo(() => hourSeries(hours?.rows ?? [], "probability", settings), [hours, settings]);
-  // The weather of each band (朝・日中・昼・夕方・夜), for both days.
-  const bandWx = useMemo(
-    () => ({
-      main: BANDS.map((b) => hoursWeather(hours?.rows ?? [], b.hours)),
-      other: other ? BANDS.map((b) => hoursWeather(otherHours?.rows ?? [], b.hours)) : null,
-    }),
-    [hours, otherHours, other],
-  );
+  // The weather under each time tick (0, 3, … 24 o'clock): the hours around it (h − 1 … h + 1).
+  const bandWx = useMemo(() => {
+    const around = (h: number) => [h - 1, h, h + 1].filter((n) => n >= 1 && n <= 24);
+    return {
+      main: WX_TICKS.map((h) => hoursWeather(hours?.rows ?? [], around(h), undefined, 1)),
+      other: other ? WX_TICKS.map((h) => hoursWeather(otherHours?.rows ?? [], around(h), undefined, 1)) : null,
+    };
+  }, [hours, otherHours, other]);
   const isToday = date === today;
   const nowHour = jstHour();
   const [hour, setHour] = useState<number | null>(null);
@@ -197,7 +197,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             気温
           </span>
         )}
-        <span>時刻の下の天気：大きい方が対象{other ? "・小さい方が比較" : ""}（薄いのは日照と降水からの推定）</span>
+        <span>時刻の下の天気：その前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}（薄いのは日照と降水からの推定）</span>
       </p>
     </div>
   );
@@ -236,6 +236,9 @@ function HourStatus({ state, error, onRetry }: { state?: string; error?: string;
 const PAD = { left: 34, right: 10, top: 18, bottom: 26 };
 
 type BandWx = { text: string | null; estimated: boolean };
+
+/** The hours of the x axis's labels, under which the weather is shown. */
+const WX_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 24];
 
 /** One hour's weather in the readout card: icon and words; faint when estimated. */
 function HourWeather({ w }: { w: BandWx }) {
@@ -490,9 +493,9 @@ function HourChart({
         ))}
       </svg>
       {bandWx && (
-        <div className="band-wx" aria-label="時間帯ごとの天気（大きい方が対象日、小さい方が比較日。薄いものは日照と降水からの推定）">
-          {BANDS.map((b, i) => (
-            <span key={b.id} className="band-wx-cell" style={{ left: xOf(b.hours[1]) }}>
+        <div className="band-wx" aria-label="時刻ごとの天気（その前後1時間。大きい方が対象日、小さい方が比較日。薄いものは日照と降水からの推定）">
+          {WX_TICKS.map((h, i) => (
+            <span key={h} className="band-wx-cell" style={{ left: xOf(h) }}>
               <BandWeatherIcons main={bandWx.main[i]} other={bandWx.other?.[i] ?? null} />
             </span>
           ))}

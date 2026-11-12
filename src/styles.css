@@ -3193,10 +3193,10 @@ svg.scrub {
 .weather-estimated { display: inline-flex; opacity: 0.6; }
 
 /* The weather of each band above the hourly graph: the day's icon, the partner day's smaller. */
-.band-wx { position: relative; height: 22px; margin-top: 2px; }
+.band-wx { position: relative; height: 34px; margin-top: 0; }
 .ro-wx { display: inline-flex; align-items: center; gap: 4px; }
 .ro-wx small { font-size: 12px; color: var(--ink-secondary); }
-.band-wx-cell { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; align-items: flex-end; gap: 2px; }
+.band-wx-cell { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; flex-direction: column; align-items: center; gap: 0; }
 .band-wx-main, .band-wx-other { display: inline-flex; }
 .band-wx-other { opacity: 0.7; }
 .band-wx-other.weather-estimated { opacity: 0.4; }
