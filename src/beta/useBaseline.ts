@@ -67,10 +67,10 @@ export function driversOfDay(
   return driversFrom(e, past.map((p) => p.mean), recent, hNow, sky, alpha, date, moment.radDay ?? null, night, moment.wind6h ?? null, moment.windLastNight ?? lastNightWind(store, station, date));
 }
 
-/** Last night's mean wind (18時 the day before to 6時) from the hourly rows, if both days are loaded. */
+/** Last night's mean wind (sunset the day before to sunrise) from the hourly rows, if both days are loaded. */
 export function lastNightWind(store: WeatherStore, station: string, date: string): number | null {
   const before = store.getHours(station, historyDays(date)[0]).rows;
   const today = store.getHours(station, date).rows;
   if (!before.length || !today.length) return null;
-  return windMemory(today, before, 6).windLastNight ?? null;
+  return windMemory(today, before, 6, station).windLastNight ?? null;
 }

@@ -34,7 +34,7 @@ export function trendSeries(days: (Band[] | null)[], index: number): TrendPoint[
 function bandsOf(store: WeatherStore | null, station: string, date: string | null, s: FeelSettings): Band[] | null {
   if (!date) return null;
   const hours = store?.getHours(station, date);
-  return hours?.state === "ready" && hours.rows.length ? hourlyBands(hours.rows, s) : null;
+  return hours?.state === "ready" && hours.rows.length ? hourlyBands(hours.rows, s, station) : null;
 }
 
 interface Props {

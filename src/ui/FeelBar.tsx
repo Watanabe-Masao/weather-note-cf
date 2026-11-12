@@ -45,7 +45,7 @@ export function bandsFor(
 ): { bands: Band[]; exact: boolean } | null {
   const hours = store?.getHours(station, date);
   if (hours?.state === "ready" && hours.rows.length) {
-    const bands = hourlyBands(hours.rows, s);
+    const bands = hourlyBands(hours.rows, s, station);
     if (bands.every((b) => b.level != null)) return { bands, exact: true };
   }
   const day = store?.getDay(station, date);

@@ -1,6 +1,7 @@
 // MATH-07: how far the learning has got.
 // Contract: research/comfort-model/mathematical-contract.md
 
+import { partAt, type PartId } from "../../../shared/dayParts";
 import { type Report, SCALE_VERSION } from "../reports";
 import { type Ensemble } from "./ensemble";
 import { type Observation } from "./estimation";
@@ -31,19 +32,23 @@ export const LEARNING_RULES = {
   minPerBand: 3,
 } as const;
 
-/** Bands of the day (JST hours) for how evenly a person's reports cover it (#62 B). */
+/**
+ * Bands of the day for how evenly a person's reports cover it (#62 B), made of the parts of the
+ * day by the sun's altitude (shared/dayParts.ts): 日中 and 昼 together (the same clothes and
+ * activity, the sun high); 夜 is all of the dark, after dusk and before dawn.
+ */
 export const TIME_BANDS = [
-  { id: "morning", label: "朝", from: 5, to: 10 },
-  { id: "day", label: "日中", from: 10, to: 15 },
-  { id: "evening", label: "夕方", from: 15, to: 19 },
-  { id: "night", label: "夜", from: 19, to: 5 },
-] as const;
+  { id: "morning", label: "朝", parts: ["morning"] },
+  { id: "day", label: "日中・昼", parts: ["forenoon", "noon"] },
+  { id: "evening", label: "夕方", parts: ["evening"] },
+  { id: "night", label: "夜", parts: ["night"] },
+] as const satisfies readonly { id: string; label: string; parts: readonly PartId[] }[];
 export type TimeBand = (typeof TIME_BANDS)[number]["id"];
 
-/** The band of a moment (JST). */
-export function bandOf(at: string | number): TimeBand {
-  const h = new Date(new Date(at).getTime() + 9 * 3_600_000).getUTCHours();
-  return TIME_BANDS.find((b) => (b.from < b.to ? h >= b.from && h < b.to : h >= b.from || h < b.to))!.id;
+/** The band of a moment at a station (by its sun that day). */
+export function bandOf(at: string | number, station: string | null | undefined): TimeBand {
+  const part = partAt(new Date(at).getTime(), station);
+  return TIME_BANDS.find((b) => (b.parts as readonly PartId[]).includes(part))!.id;
 }
 
 /**
@@ -54,7 +59,7 @@ export function bandCounts(reports: Report[]): Record<TimeBand, number> {
   const out = { morning: 0, day: 0, evening: 0, night: 0 } as Record<TimeBand, number>;
   const used = reports.filter((r) => !r.deleted && inputQuality(r).trainable && placeTempOf(r) != null);
   const w = burstWeights(used.map((r) => Date.parse(r.at)));
-  used.forEach((r, i) => (out[bandOf(r.at)] += w[i]));
+  used.forEach((r, i) => (out[bandOf(r.at, r.station)] += w[i]));
   for (const k of Object.keys(out) as TimeBand[]) out[k] = Math.round(out[k] * 100) / 100;
   return out;
 }

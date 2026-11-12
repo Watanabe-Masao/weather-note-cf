@@ -84,7 +84,7 @@ describe("β: differences from the baseline, in the sun and in the shade", () =>
   const baseline = { value: 16, forecastMixed: false, coverage: 1 };
 
   it("gives the air, sun and shade differences, the sun warmer than the shade", () => {
-    const d = departures({ ...hours[0], temp: 19 }, hours, baseline, DEFAULT_FEEL)!;
+    const d = departures({ ...hours[0], temp: 19 }, hours, baseline, DEFAULT_FEEL, "47893")!;
     expect(d.air).toBe(3);
     expect(d.sun).not.toBeNull();
     expect(d.shade).not.toBeNull();
@@ -92,8 +92,8 @@ describe("β: differences from the baseline, in the sun and in the shade", () =>
   });
 
   it("gives nothing without a baseline, and no feel differences without hours", () => {
-    expect(departures(hours[0], hours, null, DEFAULT_FEEL)).toBeNull();
-    const d = departures({ ...hours[0], temp: 19 }, [], baseline, DEFAULT_FEEL)!;
+    expect(departures(hours[0], hours, null, DEFAULT_FEEL, "47893")).toBeNull();
+    const d = departures({ ...hours[0], temp: 19 }, [], baseline, DEFAULT_FEEL, "47893")!;
     expect([d.sun, d.shade]).toEqual([null, null]);
   });
 });

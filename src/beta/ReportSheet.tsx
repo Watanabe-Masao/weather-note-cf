@@ -64,6 +64,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       latest: store?.getLatest(station) ?? null,
       now,
       sun: cachedSun(station, m.day) ?? null,
+      station,
     });
   };
   const [saving, setSaving] = useState(false);
@@ -103,7 +104,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
     const now = Date.now();
     const hours = store?.getHours(station, today).rows ?? null;
     const base = baselineOf(store, station, today, beta.alpha);
-    const dep = departures(store?.getDay(station, today).row, hours, base, feel);
+    const dep = departures(store?.getDay(station, today).row, hours, base, feel, station);
     const comfort = predictAt(now) ?? undefined; // recomputed at sending
     const report: Report = {
       id: newId(),
@@ -180,7 +181,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
         <span className="set-label">風</span>
         <Segmented label="風の感じ" value={windFelt ?? ("" as WindFelt)} options={WINDS.map((w) => ({ id: w.id, label: w.label }))} onChange={setWindFelt} />
       </div>
-      <PredictionCard prediction={preview} reported={sensation} learning={beta.learning} />
+      <PredictionCard prediction={preview} reported={sensation} learning={beta.learning} station={station} />
       <div className="set-row">
         <span className="set-label">今の天気</span>
         <Segmented label="今の天気" value={sky ?? ("" as Sky)} options={SKIES.map((k) => ({ id: k.id, label: k.label }))} onChange={setSky} />
@@ -211,7 +212,7 @@ function placeWords(z: number): string {
  * kept with the report; while the centre is not yet known (未学習・情報不足) only the answers'
  * distribution is shown, never a centre temperature that the reports have not yet given.
  */
-function PredictionCard({ prediction, reported, learning }: { prediction: ComfortPrediction | null; reported: Sensation | null; learning: LearningView }) {
+function PredictionCard({ prediction, reported, learning, station }: { prediction: ComfortPrediction | null; reported: Sensation | null; learning: LearningView; station: string }) {
   if (reported == null) return <p className="predict-card waiting">感じ方を選ぶと、データからの予測と比べられます。</p>;
   if (!prediction) return <p className="predict-card waiting">いる場所と風を選ぶと、データからの予測が出ます（その時刻の観測値や最近の基準がないときは出せません）。</p>;
   const { state: st } = prediction;
@@ -261,7 +262,7 @@ function PredictionCard({ prediction, reported, learning }: { prediction: Comfor
       )}
       {learning.bands && learning.state !== "untrained" && (() => {
         // #62 B: a prediction for a band with few reports rests on the other bands.
-        const band = TIME_BANDS.find((b) => b.id === bandOf(Date.now()))!;
+        const band = TIME_BANDS.find((b) => b.id === bandOf(Date.now(), station))!;
         const n = learning.bands[band.id];
         return n < LEARNING_RULES.minPerBand ? (
           <p className="predict-sub">

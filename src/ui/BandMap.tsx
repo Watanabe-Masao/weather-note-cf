@@ -4,6 +4,7 @@
 
 import { type ReactNode, useContext, useState } from "react";
 import { addDays } from "../../shared/dates";
+import { clockOf, dayParts, hoursIn } from "../../shared/dayParts";
 import { type Band, BANDS, type FeelSettings, describe, feelOf, hourlyBands, radiationOf, spread } from "../../shared/feel";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { WeatherRow } from "../../shared/types";
@@ -24,8 +25,11 @@ interface Props {
   onStep?: (days: number) => void;
 }
 
-/** "6–8時": the hours a band covers (JMA hours: the value at the end of each hour). */
-export const bandHours = (hours: readonly number[]) => `${hours[0]}–${hours[hours.length - 1]}時`;
+/** "6:39–8:49": when a band runs that day at the station (by the sun, shared/dayParts.ts). */
+export const bandSpan = (date: string, station: string, band: number) => {
+  const w = dayParts(date, station)[band];
+  return `${clockOf(w.from)}–${clockOf(w.to)}`;
+};
 
 const OFFSETS = [-3, -2, -1, 0, 1, 2, 3];
 /** Whole degrees with a sign, rounded first so a small difference reads "±0", never "−0". */
@@ -43,7 +47,7 @@ function useExactBands(store: WeatherStore | null, station: string, date: string
   const settings = useContext(FeelContext);
   if (!date) return null;
   const hours = store?.getHours(station, date);
-  return hours?.state === "ready" && hours.rows.length ? hourlyBands(hours.rows, settings) : null;
+  return hours?.state === "ready" && hours.rows.length ? hourlyBands(hours.rows, settings, station) : null;
 }
 
 function Summary({ store, station, target, partner }: Props) {
@@ -136,7 +140,7 @@ function columnOf(store: WeatherStore | null, station: string, date: string | nu
   if (!date) return { date, state: "none", bands: null, estimate: false };
   const hours = store?.getHours(station, date);
   const state = hours?.state ?? "empty";
-  const exact = state === "ready" && hours!.rows.length ? hourlyBands(hours!.rows, settings) : null;
+  const exact = state === "ready" && hours!.rows.length ? hourlyBands(hours!.rows, settings, station) : null;
   if (exact && exact.some((b) => b.feel != null)) return { date, state, bands: exact, estimate: false };
   const est = bandsFor(store, station, date, settings);
   if (est && !est.exact) {
@@ -195,7 +199,8 @@ function MapGrid({
       {BANDS.map((band, bi) => [
         <span key={band.id} className="band-map-label">
           {band.label}
-          <small>{bandHours(band.hours)}</small>
+          {/* The middle day's times: the days around it differ by a minute or two. */}
+          <small>{targets[3] ? bandSpan(targets[3], station, bi) : null}</small>
         </span>,
         ...cols.map(({ a, b }, i) => {
           const ca = a.bands?.[bi];
@@ -245,7 +250,7 @@ function DetailTable({
   year?: boolean;
 }) {
   const settings = useContext(FeelContext);
-  const hours = BANDS[band].hours as readonly number[];
+  const hours = hoursIn(dayParts(date, station)[band]);
   const rows = (store?.getHours(station, date).rows ?? []).filter((r) => hours.includes(r.n));
   const fmt = (v: unknown, d = 1) => (typeof v === "number" ? v.toFixed(d) : "—");
   return (
@@ -298,7 +303,7 @@ function Detail({ store, station, selected, onClose }: { store: WeatherStore | n
       <header>
         <b>
           {band.label}
-          <small className="muted"> {bandHours(band.hours)}</small>
+          <small className="muted"> {bandSpan(selected.date, station, selected.band)}</small>
         </b>
         <IconButton size="sm" label="時刻ごとの値を閉じる" onClick={onClose}>
           <CloseIcon />

@@ -19,7 +19,8 @@ export interface ChartSeries {
   /** Data colour (design tokens): one colour, one meaning, everywhere. */
   tone: DataColor;
   /** The day's value; `hours` is that day's hourly rows (empty until loaded). */
-  value: (row: WeatherRow | null | undefined, hours: WeatherRow[] | null, feel: FeelSettings) => number | null;
+  /** `station`: whose sun divides the day (the 肌感 bands, shared/dayParts.ts). */
+  value: (row: WeatherRow | null | undefined, hours: WeatherRow[] | null, feel: FeelSettings, station: string | null) => number | null;
   /** β: the value needs the days before (the 最近の基準); the chart reads it through the store. */
   history?: "baseline";
   /** Shorter name for the narrow table label column. */
@@ -131,7 +132,7 @@ export const CHART_METRICS: ChartMetric[] = [
         minor: true,
       },
       // 肌感 for the day: mean of the 日中・昼・夕方 band values (日なた温度 or 日かげ温度).
-      { key: "feel", label: "肌感", tone: "feel", value: (_r, hours, feel) => daytimeFeel(hours ?? [], feel), graphOnly: true },
+      { key: "feel", label: "肌感", tone: "feel", value: (_r, hours, feel, station) => daytimeFeel(hours ?? [], feel, station), graphOnly: true },
       // β: the running mean of past daily means (src/beta/adaptation.ts), a thin reference line.
       { key: "baseline", label: "最近の基準β", tone: "mean", value: () => null, history: "baseline", graphOnly: true, thin: true },
     ],

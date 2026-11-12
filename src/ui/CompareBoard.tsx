@@ -125,7 +125,7 @@ function Column({
             s.forecastOnly && day?.row?.type !== "forecast" ? (
               ""
             ) : (
-              formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel), s.unit ?? metric.unit)
+              formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel, station), s.unit ?? metric.unit)
             )
           ) : state === "error" ? (
             <span className="cell-failed">—</span>
@@ -138,8 +138,8 @@ function Column({
         diffSeries(metric).map((s) => {
           const unit = s.unit ?? metric.unit;
           const hoursOf = (d: string) => (metric.needsHours ? (store?.getHours(station, d).rows ?? null) : null);
-          const a = against ? s.value(store?.getDay(station, against).row, hoursOf(against), feel) : null;
-          const b = s.value(day?.row, hoursOf(date), feel);
+          const a = against ? s.value(store?.getDay(station, against).row, hoursOf(against), feel, station) : null;
+          const b = s.value(day?.row, hoursOf(date), feel, station);
           return (
             <span key={"diff-" + s.key} className="cell-value cell-diff">
               {signedDiff(a, b, unit) || "—"}

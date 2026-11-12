@@ -326,13 +326,17 @@ describe("#62: reports in a row and time bands", () => {
     expect(burstWeights([0.5 * H, 0, 0.25 * H])).toEqual([0.5, 0.5, 0.5]);
   });
 
-  it("puts moments in JST bands (morning 5–10, day 10–15, evening 15–19, night 19–5)", async () => {
+  it("puts moments in bands by the sun (Kochi, 12 November: dawn 6:07, 8:26, 15:14, dusk 17:32)", async () => {
     const { bandOf } = await import("../../src/beta/comfort");
-    expect(bandOf("2026-11-12T00:15:00Z")).toBe("morning"); // 09:15 JST
-    expect(bandOf("2026-11-12T03:15:00Z")).toBe("day"); // 12:15
-    expect(bandOf("2026-11-12T06:00:00Z")).toBe("evening"); // 15:00
-    expect(bandOf("2026-11-12T10:00:00Z")).toBe("night"); // 19:00
-    expect(bandOf("2026-11-11T19:59:00Z")).toBe("night"); // 04:59
+    expect(bandOf("2026-11-11T22:15:00Z", "47893")).toBe("morning"); // 07:15 JST
+    expect(bandOf("2026-11-12T00:15:00Z", "47893")).toBe("day"); // 09:15 (日中)
+    expect(bandOf("2026-11-12T03:15:00Z", "47893")).toBe("day"); // 12:15 (昼)
+    expect(bandOf("2026-11-12T06:30:00Z", "47893")).toBe("evening"); // 15:30
+    expect(bandOf("2026-11-12T08:45:00Z", "47893")).toBe("night"); // 17:45, after dusk
+    expect(bandOf("2026-11-11T19:59:00Z", "47893")).toBe("night"); // 04:59, before dawn
+    // June: 18:30 is still 夕方, 5:00 already 朝.
+    expect(bandOf("2026-06-21T09:30:00Z", "47893")).toBe("evening");
+    expect(bandOf("2026-06-20T20:00:00Z", "47893")).toBe("morning");
   });
 });
 
@@ -341,9 +345,11 @@ describe("review 2026-11-12: bands and days", () => {
     const { bandCounts, ensembleFromReports, learningOf } = await import("../../src/beta/comfort");
     const { makeReport } = await import("../../research/data/fixture");
     const at = (iso: string) => ({ ...makeReport(iso, 18, 20, 0), at: new Date(Date.parse(iso)).toISOString(), snapshot: { ...makeReport(iso, 18, 20, 0).snapshot!, date: iso.slice(0, 10), hour: 18 } });
-    // 18:00, 18:05, 18:10 JST: one moment (3 × 0.5 = 1.5), not three evening reports.
+    // 18:00, 18:05, 18:10 JST: one moment (3 × 0.5 = 1.5), not three reports — and 夜 in
+    // November (dusk 17:32 in Kochi), where the clock called it 夕方.
     const run = ["2026-11-12T18:00:00+09:00", "2026-11-12T18:05:00+09:00", "2026-11-12T18:10:00+09:00"].map(at);
-    expect(bandCounts(run).evening).toBe(1.5);
+    expect(bandCounts(run).night).toBe(1.5);
+    expect(bandCounts(run).evening).toBe(0);
     // 07:00 and 10:00 JST are one Japanese day (UTC would see 11/11 and 11/12).
     const morning = ["2026-11-12T07:00:00+09:00", "2026-11-12T10:00:00+09:00"].map((iso) => ({ ...at(iso), snapshot: { ...at(iso).snapshot!, hour: Number(iso.slice(11, 13)) } }));
     const l = learningOf(morning, ensembleFromReports(morning));

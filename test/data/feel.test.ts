@@ -76,26 +76,29 @@ group("levels", () => {
 });
 
 group("five bands", () => {
-  it("averages three hours per band and ignores hours missing humidity or wind", () => {
+  it("averages the hours of each band (by the sun) and ignores hours missing humidity or wind", () => {
     const rows = Array.from({ length: 24 }, (_, i) => hour(i + 1, 10 + i));
     rows[6] = { ...rows[6], humidity: null }; // 7:00 cannot be used for the feel
-    const bands = hourlyBands(rows);
+    const bands = hourlyBands(rows, DEFAULT_FEEL, "47893");
     expect(bands.map((b) => b.label)).toEqual(["朝", "日中", "昼", "夕方", "夜"]);
-    expect(bands[0].temp).toBeCloseTo(16, 5); // 6,7,8 → 15,16,17
-    expect(bands[2].temp).toBeCloseTo(22, 5); // 12,13,14 → 21,22,23
+    // Kochi, 1 November: 朝 (dawn 5:59) holds 6–8時, 昼 12–15時 (shared/dayParts.ts).
+    expect(bands[0].hours).toEqual([6, 7, 8]);
+    expect(bands[2].hours).toEqual([12, 13, 14, 15]);
+    expect(bands[0].temp).toBeCloseTo(16, 5); // 6, 7, 8 → 15, 16, 17
+    expect(bands[2].temp).toBeCloseTo(22.5, 5); // 12–15 → 21–24
     expect(bands.every((b) => b.feel != null && b.source === "actual")).toBe(true);
   });
 
   it("leaves a band empty rather than guessing", () => {
     const rows = [hour(13, 20)];
-    const bands = hourlyBands(rows);
+    const bands = hourlyBands(rows, DEFAULT_FEEL, "47893");
     expect(bands[0]).toMatchObject({ feel: null, level: null });
     expect(bands[2].feel).not.toBeNull();
   });
 
   it("marks a band that mixes observed and forecast hours", () => {
     const rows = [hour(12, 20), hour(13, 21), hour(14, 22, 60, 2, "forecast")];
-    expect(hourlyBands(rows)[2].source).toBe("mixed");
+    expect(hourlyBands(rows, DEFAULT_FEEL, "47893")[2].source).toBe("mixed");
   });
 });
 
@@ -173,8 +176,8 @@ group("sunshine", () => {
       ...hour(i + 1, 15),
       radiation: i + 1 >= 9 && i + 1 <= 15 ? 2 : 0,
     }));
-    const sun = hourlyBands(rows);
-    const shade = hourlyBands(rows, { ...DEFAULT_FEEL, sun: false });
+    const sun = hourlyBands(rows, DEFAULT_FEEL, "47893");
+    const shade = hourlyBands(rows, { ...DEFAULT_FEEL, sun: false }, "47893");
     expect(sun[2].feel! - shade[2].feel!).toBeGreaterThan(3); // 昼
     expect(sun[4].feel).toBeCloseTo(shade[4].feel!, 5); // 夜
     expect(sun[2].sunCounted).toBe(true);
@@ -185,14 +188,14 @@ group("daytime feel", () => {
   const row = (n: number, temp: number) =>
     ({ date: "2026-11-10", n, type: "actual", provider: "JMA", temp, humidity: 60, wind: 2, raw: {}, quality: {} }) as WeatherRow;
 
-  it("is the mean of the 日中, 昼 and 夕方 bands (9–17時)", () => {
+  it("is the mean of the 日中, 昼 and 夕方 bands (Kochi, 10 November: 9–17時)", () => {
     const rows = Array.from({ length: 24 }, (_, i) => row(i + 1, i + 1 >= 9 && i + 1 <= 17 ? 20 : 5));
     const shade = { ...DEFAULT_FEEL, sun: false };
-    expect(daytimeFeel(rows, shade)).toBeCloseTo(hourlyBands(rows, shade)[2].feel!, 1);
+    expect(daytimeFeel(rows, shade, "47893")).toBeCloseTo(hourlyBands(rows, shade, "47893")[2].feel!, 1);
   });
 
   it("is empty unless all three bands have a value", () => {
-    expect(daytimeFeel(Array.from({ length: 14 }, (_, i) => row(i + 1, 15)))).toBeNull();
-    expect(daytimeFeel([])).toBeNull();
+    expect(daytimeFeel(Array.from({ length: 14 }, (_, i) => row(i + 1, 15)), DEFAULT_FEEL, "47893")).toBeNull();
+    expect(daytimeFeel([], DEFAULT_FEEL, "47893")).toBeNull();
   });
 });

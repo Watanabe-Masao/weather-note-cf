@@ -327,7 +327,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
         </div>
       </section>
 
-      <AccountSection />
+      <AccountSection station={station} />
 
       {beta.enabled && (
       <section className="set-group" aria-labelledby="set-beta">

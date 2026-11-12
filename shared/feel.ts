@@ -6,6 +6,7 @@
 // 4. The day is split into five bands, each the average of three hours.
 // 5. Each band gets one of five levels; a phrase describes the day.
 
+import { dayParts, hoursIn, PARTS, type PartWindow } from "./dayParts";
 import type { WeatherRow } from "./types";
 
 // ---- settings --------------------------------------------------------------------------------
@@ -165,16 +166,14 @@ export function thresholdsFrom(saved: number[]): Thresholds | null {
 
 // ---- five bands ------------------------------------------------------------------------------
 
-export const BANDS = [
-  { id: "morning", label: "朝", hours: [6, 7, 8] },
-  { id: "forenoon", label: "日中", hours: [9, 10, 11] },
-  { id: "noon", label: "昼", hours: [12, 13, 14] },
-  { id: "evening", label: "夕方", hours: [15, 16, 17] },
-  { id: "night", label: "夜", hours: [18, 19, 20] },
-] as const;
+/** The five 時間区分, by the sun (shared/dayParts.ts): which hours each holds depends on the day and the station. */
+export const BANDS = PARTS;
 
 export interface Band {
   label: string;
+  /** The part's window that day (minutes JST) and its JMA hours. */
+  window?: PartWindow;
+  hours?: number[];
   /** Average apparent temperature of the hours that had all three values; null when none did. */
   feel: number | null;
   /** Average air temperature. */
@@ -188,11 +187,13 @@ export interface Band {
 
 const mean = (vs: number[]) => (vs.length ? vs.reduce((a, b) => a + b, 0) / vs.length : null);
 
-/** Five bands from hourly rows (JMA hour n = the value at n:00). */
-export function hourlyBands(rows: WeatherRow[], s: FeelSettings = DEFAULT_FEEL): Band[] {
+/** Five bands from hourly rows of one day at a station (JMA hour n = the value at n:00). */
+export function hourlyBands(rows: WeatherRow[], s: FeelSettings, station: string | null): Band[] {
   const byHour = new Map(rows.map((r) => [r.n, r]));
-  return BANDS.map((b) => {
-    const hours = b.hours.map((h) => byHour.get(h)).filter((r): r is WeatherRow => !!r);
+  const date = rows[0]?.date ?? "2026-03-20";
+  return dayParts(date, station).map((w) => {
+    const ns = hoursIn(w);
+    const hours = ns.map((h) => byHour.get(h)).filter((r): r is WeatherRow => !!r);
     const feels = hours
       .map((r) => feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", s, radiationOf(r)))
       .filter((v): v is number => v != null);
@@ -200,7 +201,9 @@ export function hourlyBands(rows: WeatherRow[], s: FeelSettings = DEFAULT_FEEL):
     const forecastCount = hours.filter((r) => r.type === "forecast").length;
     const feel = mean(feels);
     return {
-      label: b.label,
+      label: w.label,
+      window: w,
+      hours: ns,
       feel,
       temp: mean(temps),
       level: feel == null ? null : levelOf(feel, s),
@@ -210,16 +213,16 @@ export function hourlyBands(rows: WeatherRow[], s: FeelSettings = DEFAULT_FEEL):
   });
 }
 
-/** The bands that stand for "the day" in one number: 日中, 昼, 夕方 (9–17時). */
+/** The bands that stand for "the day" in one number: 日中, 昼, 夕方 (the last three quarters of the daylight). */
 export const DAYTIME_BANDS = ["forenoon", "noon", "evening"] as const;
 
 /**
  * One feel value for the whole day: the mean of the 日中, 昼 and 夕方 band values.
  * Null unless all three bands have a value (never filled in from part of the day).
  */
-export function daytimeFeel(rows: WeatherRow[], s: FeelSettings = DEFAULT_FEEL): number | null {
+export function daytimeFeel(rows: WeatherRow[], s: FeelSettings, station: string | null): number | null {
   if (!rows.length) return null;
-  const bands = hourlyBands(rows, s);
+  const bands = hourlyBands(rows, s, station);
   const values = DAYTIME_BANDS.map((id) => bands[BANDS.findIndex((b) => b.id === id)].feel);
   if (values.some((v) => v == null)) return null;
   return Math.round(((values as number[]).reduce((a, b) => a + b, 0) / values.length) * 10) / 10;

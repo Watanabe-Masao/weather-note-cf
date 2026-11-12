@@ -2,17 +2,20 @@
 // account), and whether this device receives the notifications.
 
 import { useContext, useEffect, useState } from "react";
-import { LEARNING_RULES, TIME_BANDS, type TimeBand } from "../beta/comfort";
+import { bandOf, LEARNING_RULES, TIME_BANDS, type TimeBand } from "../beta/comfort";
 import { BetaContext } from "../beta/settings";
-import { BANDS } from "../../shared/feel";
+import { BAND_ALARMS, bandAt } from "../../shared/dayParts";
 import { Segmented } from "../ui/kit";
 import { type DeviceState, loadNotify, type NotifySettings, saveNotify, testNotify, turnOffDevice, turnOnDevice, deviceState } from "./push";
 
 const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
-/** The 肌感 map's 時間帯, each with a notification at its middle (worker/src/notify.ts: BAND_TIMES). */
-const BAND_TIMES = BANDS.map((b) => ({ label: b.label, time: `${String(b.hours[1]).padStart(2, "0")}:00`, hours: b.hours as readonly number[] }));
-const bandOf = (t: string) => BAND_TIMES.find((b) => b.hours.includes(Number(t.slice(0, 2))))?.label ?? null;
+/** The 肌感 map's 時間帯, each with a notification near its middle (shared/dayParts.ts: BAND_ALARMS). */
+const BAND_TIMES = BAND_ALARMS;
+/** Today's moment of a time "HH:MM" (JST). */
+const todayAt = (t: string) => Date.parse(`${new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10)}T${t}:00+09:00`);
+/** The 時間帯 a time falls in today, by the sun at the station (none outside the bands). */
+const labelOf = (t: string, station: string) => bandAt(todayAt(t), station)?.label ?? null;
 
 /** For each band the learning counts (#62 B), the notification time that falls in it. */
 const NUDGE_TIME: Record<TimeBand, string> = { morning: "07:00", day: "13:00", evening: "16:00", night: "19:00" };
@@ -21,14 +24,12 @@ const NUDGE_TIME: Record<TimeBand, string> = { morning: "07:00", day: "13:00", e
  * Bands with few reports (#62 B): a centre learned in one band mixes in that band's clothes and
  * activity. Shown with a one-tap notification for each, so the reports spread over the day.
  */
-function BandNudge({ times, busy, onAdd }: { times: string[]; busy: boolean; onAdd: (t: string) => void }) {
+function BandNudge({ times, busy, onAdd, station }: { times: string[]; busy: boolean; onAdd: (t: string) => void; station: string }) {
   const beta = useContext(BetaContext);
   const bands = beta.learning.bands;
   if (!bands || beta.learning.state === "untrained") return null;
-  const inBand = (t: string, b: (typeof TIME_BANDS)[number]) => {
-    const h = Number(t.slice(0, 2));
-    return b.from < b.to ? h >= b.from && h < b.to : h >= b.from || h < b.to;
-  };
+  // By today's sun at the station (the learning bands, shared/dayParts.ts).
+  const inBand = (t: string, b: (typeof TIME_BANDS)[number]) => bandOf(todayAt(t), station) === b.id;
   // Only the bands with few reports and no notification there yet (one there already: nothing to suggest).
   const few = TIME_BANDS.filter((b) => bands[b.id] < LEARNING_RULES.minPerBand && !times.some((t) => inBand(t, b)));
   if (!few.length) return null;
@@ -58,7 +59,7 @@ const DEVICE_TEXT: Record<DeviceState, string> = {
   on: "この端末で受け取ります。",
 };
 
-export function NotifySection() {
+export function NotifySection({ station }: { station: string }) {
   const [settings, setSettings] = useState<NotifySettings | null>(null);
   const [devices, setDevices] = useState(0);
   const [device, setDevice] = useState<DeviceState | null>(null);
@@ -130,12 +131,12 @@ export function NotifySection() {
               );
             })}
           </div>
-          <small className="set-help">肌感マップの時間帯の真ん中に通知します。記録がその時間帯の値と比べられます。ほかの時刻も足せます。</small>
-          <BandNudge times={settings.times} busy={busy} onAdd={(t) => void save({ ...settings, times: [...new Set([...settings.times, t])].sort() })} />
+          <small className="set-help">肌感マップの時間帯のおよその真ん中（春分・秋分のころ）に通知します。時間帯は太陽の高さで決まるので、季節によって通知が時間帯の端に寄ることがあります。ほかの時刻も足せます。</small>
+          <BandNudge station={station} times={settings.times} busy={busy} onAdd={(t) => void save({ ...settings, times: [...new Set([...settings.times, t])].sort() })} />
           <div className="notify-times" role="group" aria-label="通知の時刻">
             {settings.times.filter((t) => !BAND_TIMES.some((b) => b.time === t)).map((t) => (
               <span key={t} className="notify-time">
-                {bandOf(t) ? <em>{bandOf(t)}</em> : null}
+                {labelOf(t, station) ? <em>{labelOf(t, station)}</em> : null}
                 {t}
                 <button aria-label={`${t} の通知をやめる`} disabled={busy} onClick={() => void save({ ...settings, times: settings.times.filter((x) => x !== t) })}>
                   ×
