@@ -1,0 +1,46 @@
+{
+  "id": "2026-11-12-comfort-6",
+  "date": "2026-11-12",
+  "modelVersion": "comfort-6",
+  "scaleVersion": 3,
+  "commit": "171aae0",
+  "dataset": {
+    "id": "synthetic-stored-heat-86",
+    "hash": "sha256:stored-heat.ts:1b57ac0fdde26c01",
+    "kind": "synthetic",
+    "period": null,
+    "n": 0,
+    "excluded": {}
+  },
+  "seed": 6100,
+  "settings": {
+    "prior": "PRIOR m0 18±4, h 3, g 4 (log ±0.5), slope 0.33（comfort-5 と同じ）",
+    "optimiser": "BFGS 200 iterations, Laplace (Cholesky), 200 draws per model（comfort-5 と同じ）",
+    "alpha": "0.8 until 30 reports, then chosen by M2 evidence（comfort-5 と同じ）",
+    "storedHeat": "radNight = ((R − 10)/5)·e^(−t/τ)。R は直前の昼の日射の合計（日の出前は前日の合計）、t は日の入りからの時間。RAD_TAU_H = ∞（薄れさせない）"
+  },
+  "compared": [
+    "comfort-5（その日の朝からの累計。1時以降は新しい日の累計 ≈ 0）",
+    "前の昼の合計・τ = ∞（採用案）",
+    "τ = 2・4・8時間"
+  ],
+  "results": {
+    "rps": null,
+    "logLoss": null,
+    "skill": null,
+    "calibration": null,
+    "notes": "合成データ（stored-heat-results.md、M5、約150件、各40人、本当の薄れ方 2・4・8時間・薄れないの4通り）。外れたときの損（全体の RPS の、その場合の一番良い読み方との差の最大）：τ = ∞ 0.0003、8時間 0.0005、4時間 0.0011、2時間 0.0015、comfort-5 0.0011。夜だけでは τ = ∞ 0.0007、8時間 0.0009、4時間 0.0021。0時〜日の出の RPS は、余熱が一晩残る人で comfort-5 0.0387 → 0.0339。"
+  },
+  "checks": {
+    "mathematical": true,
+    "recovery": true,
+    "performance": "実データがないため未評価（合成データでは、どの薄れ方の人でも comfort-5 以下か同じ）。研究用の分析の比較ボタン（comfort-5 と comfort-6）で、実データで確かめる。τ も実データで比べ直す",
+    "calibration": "実データがないため未評価",
+    "stability": true,
+    "compatibility": true,
+    "contract": true
+  },
+  "decision": "adopted",
+  "reason": "夜の余熱が「その日の朝からの累計」のままだったため、1時から日の出までは新しい日の累計（ほぼ 0）になり、0:59 と 1:00 で余熱がいっぱいから無しに切り替わっていた（#86 の横展開で発見）。直前の昼の合計を使えば段差がなくなる。薄れ方は、決めた τ が外れたときの損が最も小さい τ = ∞ とし、式には残す",
+  "approvedBy": "渡辺正雄（2026-11-12、PR #93 の採用を承認。τ = ∞（薄れさせない）案。D10）"
+}

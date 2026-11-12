@@ -118,7 +118,7 @@ describe("evaluation ready for real data (#53 #54 #68)", () => {
   });
 });
 
-describe("comfort-4 against comfort-5 on the same reports", () => {
+describe("comfort-5 against comfort-6 on the same reports", () => {
   it("predicts the latest reports from earlier ones, both ways", { timeout: 120_000 }, async () => {
     const { compareSettings } = await import("../../src/research/analysis");
     const list = Array.from({ length: 6 }, (_, i) => {
