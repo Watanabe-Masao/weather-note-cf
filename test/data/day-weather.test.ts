@@ -27,3 +27,20 @@ describe("estimated day weather", () => {
     expect(dayWeatherOf(day({ type: "forecast", sun: 10 }) as WeatherRow)).toEqual({ text: null, estimated: false });
   });
 });
+
+describe("band weather", () => {
+  const hr = (n: number, over: Partial<WeatherRow> = {}) => ({ date: "2026-11-11", n, type: "actual", provider: "JMA", raw: {}, quality: {}, ...over }) as WeatherRow;
+  it("uses the hours' weather text, rain first, else the most frequent", async () => {
+    const { hoursWeather } = await import("../../shared/dayWeather");
+    expect(hoursWeather([hr(12, { weather: "晴" }), hr(13, { weather: "雨" }), hr(14, { weather: "晴" })], [12, 13, 14])).toEqual({ text: "雨", estimated: false });
+    expect(hoursWeather([hr(12, { weather: "曇" }), hr(13, { weather: "晴" }), hr(14, { weather: "曇" })], [12, 13, 14])).toEqual({ text: "曇", estimated: false });
+  });
+  it("estimates from sunshine in daylight and rain, never at night, never from a lent forecast", async () => {
+    const { hoursWeather } = await import("../../shared/dayWeather");
+    expect(hoursWeather([12, 13, 14].map((n) => hr(n, { sun: 0.9, rain: 0 })), [12, 13, 14], 33.6)).toEqual({ text: "晴", estimated: true });
+    expect(hoursWeather([12, 13, 14].map((n) => hr(n, { sun: 0, rain: 0.5 })), [12, 13, 14], 33.6)).toEqual({ text: "雨", estimated: true });
+    expect(hoursWeather([18, 19, 20].map((n) => hr(n, { sun: 0, rain: 0 })), [18, 19, 20], 33.6)).toEqual({ text: null, estimated: false });
+    const lent = [12, 13, 14].map((n) => hr(n, { sun: 0.1, rain: 0, weather: "晴", origin: { weather: "forecast" } } as never));
+    expect(hoursWeather(lent, [12, 13, 14], 33.6)).toEqual({ text: "曇", estimated: true });
+  });
+});

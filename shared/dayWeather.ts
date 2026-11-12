@@ -49,3 +49,37 @@ export function dayWeatherOf(row: WeatherRow | null | undefined, latDeg?: number
   const guess = estimateDayWeather(row, latDeg);
   return { text: guess, estimated: guess != null };
 }
+
+/**
+ * The weather of a few hours (a band of the day) from the hourly rows: the weather text the rows
+ * carry (JMA's hourly 天気, or the forecast's), else an estimate from precipitation and sunshine
+ * in daylight. Null when neither is there (e.g. a night band without weather text).
+ */
+export function hoursWeather(rows: WeatherRow[], hours: readonly number[], latDeg = 35, minSun = 2): { text: string | null; estimated: boolean } {
+  const inBand = rows.filter((r) => hours.includes(r.n));
+  if (!inBand.length) return { text: null, estimated: false };
+  // A forecast's weather lent to an observed hour (正本管理) is not what was seen: left out.
+  const lent = (r: WeatherRow) => r.type !== "forecast" && (r.origin as Record<string, string> | undefined)?.weather === "forecast";
+  const texts = inBand.map((r) => (typeof r.weather === "string" && r.weather && !lent(r) ? r.weather : null)).filter((t): t is string => t != null);
+  if (texts.length) {
+    // Rain or snow in any hour of the band shows; otherwise the most frequent text.
+    const wet = texts.find((t) => /雪/.test(t)) ?? texts.find((t) => /雨|雷/.test(t));
+    if (wet) return { text: wet, estimated: false };
+    const count = new Map<string, number>();
+    for (const t of texts) count.set(t, (count.get(t) ?? 0) + 1);
+    return { text: [...count.entries()].sort((a, b) => b[1] - a[1])[0][0], estimated: false };
+  }
+  if (inBand.some((r) => r.type === "forecast")) return { text: null, estimated: false };
+  const rain = inBand.map((r) => num(r.rain)).filter((v): v is number => v != null);
+  const snow = inBand.some((r) => (num(r.snow) ?? 0) > 0);
+  if (snow) return { text: "雪", estimated: true };
+  if (rain.length && rain.reduce((a, b) => a + b, 0) >= 0.5) return { text: "雨", estimated: true };
+  // Sunshine only means something in daylight (JMA hour n covers n−1 to n o'clock).
+  const date = inBand[0].date;
+  const half = dayLengthHours(date, latDeg) / 2;
+  const day = inBand.filter((r) => r.n - 0.5 > 12 - half + 0.5 && r.n - 0.5 < 12 + half - 0.5);
+  const sun = day.map((r) => num(r.sun)).filter((v): v is number => v != null);
+  if (sun.length < minSun) return { text: null, estimated: false };
+  const share = sun.reduce((a, b) => a + b, 0) / sun.length;
+  return { text: share >= SUNNY_SHARE ? "晴" : share >= CLOUDY_SHARE ? "曇時々晴" : "曇", estimated: true };
+}
