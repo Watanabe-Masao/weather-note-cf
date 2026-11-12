@@ -80,9 +80,10 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const sunMain = useMemo(() => hourSeries(hours?.rows ?? [], "sun", settings), [hours, settings]);
   const sunOther = useMemo(() => hourSeries(otherHours?.rows ?? [], "sun", settings), [otherHours, settings]);
   const chance = useMemo(() => hourSeries(hours?.rows ?? [], "probability", settings), [hours, settings]);
-  // The weather under each time tick (0, 3, … 24 o'clock): the hours around it (h − 1 … h + 1).
+  // The weather under each time tick (0, 3, … 24 o'clock): the hour either side of it.
   const bandWx = useMemo(() => {
-    const around = (h: number) => [h - 1, h, h + 1].filter((n) => n >= 1 && n <= 24);
+    // JMA hour n covers n−1 to n o'clock: hours h and h + 1 are the hour either side of h o'clock.
+    const around = (h: number) => [h, h + 1].filter((n) => n >= 1 && n <= 24);
     return {
       main: WX_TICKS.map((h) => hoursWeather(hours?.rows ?? [], around(h), undefined, 1)),
       other: other ? WX_TICKS.map((h) => hoursWeather(otherHours?.rows ?? [], around(h), undefined, 1)) : null,
@@ -244,9 +245,9 @@ const WX_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 24];
 function HourWeather({ w }: { w: BandWx }) {
   if (!w.text) return <>—</>;
   return (
-    <span className={`ro-wx${w.estimated ? " weather-estimated" : ""}`} title={w.estimated ? "日照と降水からの推定" : undefined}>
-      <WeatherIcon text={w.text} size={18} />
-      <small>{w.text}{w.estimated ? "（推定）" : ""}</small>
+    // Icon only: the value columns are narrow (the words are in the title and the label).
+    <span className={`ro-wx${w.estimated ? " weather-estimated" : ""}`} title={w.estimated ? `${w.text}（日照と降水からの推定）` : w.text} aria-label={w.estimated ? `${w.text}（推定）` : w.text}>
+      <WeatherIcon text={w.text} size={20} />
     </span>
   );
 }

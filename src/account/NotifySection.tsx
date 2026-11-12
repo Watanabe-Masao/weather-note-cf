@@ -25,26 +25,27 @@ function BandNudge({ times, busy, onAdd }: { times: string[]; busy: boolean; onA
   const beta = useContext(BetaContext);
   const bands = beta.learning.bands;
   if (!bands || beta.learning.state === "untrained") return null;
-  const few = TIME_BANDS.filter((b) => bands[b.id] < LEARNING_RULES.minPerBand);
-  if (!few.length) return null;
   const inBand = (t: string, b: (typeof TIME_BANDS)[number]) => {
     const h = Number(t.slice(0, 2));
     return b.from < b.to ? h >= b.from && h < b.to : h >= b.from || h < b.to;
   };
+  // Only the bands with few reports and no notification there yet (one there already: nothing to suggest).
+  const few = TIME_BANDS.filter((b) => bands[b.id] < LEARNING_RULES.minPerBand && !times.some((t) => inBand(t, b)));
+  if (!few.length) return null;
+  const full = times.length >= 6;
   return (
     <div className="notify-nudge">
       <small className="set-help">
         記録の少ない時間帯：{few.map((b) => `${b.label}（${bands[b.id]}件）`).join("・")}。学習は時間帯の偏りに弱いので、この時間帯にも記録があると、ちょうどよい温度が確かになります。
       </small>
       <div className="actions tight">
-        {few.map((b) =>
-          times.some((t) => inBand(t, b)) ? null : (
-            <button key={b.id} disabled={busy || times.length >= 6} onClick={() => onAdd(NUDGE_TIME[b.id])}>
-              {b.label} {NUDGE_TIME[b.id]} に通知を足す
-            </button>
-          ),
-        )}
+        {few.map((b) => (
+          <button key={b.id} disabled={busy || full} onClick={() => onAdd(NUDGE_TIME[b.id])}>
+            {b.label} {NUDGE_TIME[b.id]} に通知を足す
+          </button>
+        ))}
       </div>
+      {full ? <small className="set-help">通知は6つまでです。足すときは、ほかの時刻を1つやめてください。</small> : null}
     </div>
   );
 }

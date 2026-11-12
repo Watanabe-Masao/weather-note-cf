@@ -44,3 +44,12 @@ describe("band weather", () => {
     expect(hoursWeather(lent, [12, 13, 14], 33.6)).toEqual({ text: "曇", estimated: true });
   });
 });
+
+describe("review: a band half observed, half forecast", () => {
+  it("speaks from the observed hours, not the forecast's text for the rest", async () => {
+    const { hoursWeather } = await import("../../shared/dayWeather");
+    const obs = { date: "2026-11-12", n: 12, type: "actual", provider: "JMA", sun: 1, rain: 0, raw: {}, quality: {} } as unknown as WeatherRow;
+    const fc = { date: "2026-11-12", n: 13, type: "forecast", provider: "Open-Meteo", weather: "雨", raw: {}, quality: {} } as unknown as WeatherRow;
+    expect(hoursWeather([obs, fc], [12, 13], 33.6, 1)).toEqual({ text: "晴", estimated: true });
+  });
+});

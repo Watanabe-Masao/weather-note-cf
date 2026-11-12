@@ -44,10 +44,24 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   // The past days for the 最近の基準 (opened from the header or a notification, no summary has asked yet).
   useBaselineHistory(store, station, [today], "report-baseline");
   useEffect(() => {
-    store?.wantHours(station, [yesterday, today], Priority.Visible, "report");
+    store?.wantHours(station, [addDays(today, -2), yesterday, today], Priority.Visible, "report");
     return () => store?.wantHours(station, [], Priority.Visible, "report");
   }, [store, station, yesterday, today]);
   const yesterdayHours = store?.getHours(station, yesterday).rows ?? null;
+  /**
+   * The station's moment for a report at `now`. JMA counts 0:00 as 24時 of the day before, so a
+   * report in the 0時台 reads the day before's 24時 (and its 10-minute values), not a forecast of
+   * tonight's 24時 (review 2026-11-12).
+   */
+  const snapAt = (now: number, withRetrieved = false) => {
+    const midnight = jstHourOf(now) === 24;
+    const day = midnight ? yesterday : today;
+    const held = store?.getHours(station, day);
+    return snapshotOf(held?.rows ?? null, jstHourOf(now), feel, midnight ? (store?.getHours(station, addDays(today, -2)).rows ?? null) : yesterdayHours, withRetrieved ? held?.fetchedAt : undefined, {
+      latest: store?.getLatest(station) ?? null,
+      now,
+    });
+  };
   const [saving, setSaving] = useState(false);
   // Wait for the past days (the summary asked for them), so the report carries its full history.
   const loading = baselineStateOf(store, station, today, beta.alpha).state === "loading";
@@ -65,7 +79,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
    */
   const predictAt = (now: number) => {
     if (exposure == null || windFelt == null) return null;
-    const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(now), feel, yesterdayHours, undefined, { latest: store?.getLatest(station) ?? null, now });
+    const snap = snapAt(now);
     const e = !snap ? null : exposure === "sun" ? snap.sunTemp : exposure === "shade" ? snap.shadeTemp : snap.sunTemp == null || snap.shadeTemp == null ? null : (snap.sunTemp + snap.shadeTemp) / 2;
     const sunny = sky == null ? null : sky === "clear" || sky === "sunny";
     const x = driversOfDay(store, station, today, beta.alpha, e, snap?.humidity ?? null, { radDay: snap?.radDay ?? null, hour: snap?.hour ?? null, sky: sunny, wind6h: snap?.wind6h ?? null, windLastNight: snap?.windLastNight ?? null });
@@ -75,7 +89,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   // Whether this report would teach the model (quality.ts): said before sending, so a report made
   // on a forecast or a stale hour is not mistaken for one that counts.
   const quality = (() => {
-    const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(Date.now()), feel, yesterdayHours, undefined, { latest: store?.getLatest(station) ?? null, now: Date.now() });
+    const snap = snapAt(Date.now());
     return inputQuality({ at: new Date().toISOString(), snapshot: snap, history: [0], baseline: null } as unknown as Report);
   })();
 
@@ -102,7 +116,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       ...(thermal ? { thermalPreference: thermal } : {}),
       ...(drink ? { drinkPreference: drink } : {}),
       preferenceVersion: PREFERENCE_VERSION,
-      snapshot: snapshotOf(hours, jstHourOf(now), feel, yesterdayHours, store?.getHours(station, today).fetchedAt, { latest: store?.getLatest(station) ?? null, now }),
+      snapshot: snapAt(now, true),
       baseline: base ? { ...base, alpha: beta.alpha } : null,
       departures: dep ? { air: dep.air, sun: dep.sun, shade: dep.shade } : null,
       history: store ? historyOf(store, station, today).map((p) => (p.forecast ? null : p.mean)) : [],

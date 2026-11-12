@@ -211,18 +211,30 @@ export function snapshotOf(
   live?: { latest: WeatherRow | null; now: number },
 ): Snapshot | null {
   if (!rows?.length) return null;
-  const row = [...rows]
-    .filter((r) => r.n <= hour && num(r.temp) != null)
-    .sort((a, b) => b.n - a.n)[0];
+  const usable = [...rows].filter((r) => r.n <= hour && num(r.temp) != null).sort((a, b) => b.n - a.n);
+  let row = usable[0];
   if (!row) return null;
-  // Each saved hour carries its own source (正本管理); today's observed hours are AMeDAS otherwise.
-  const own = hourOrigin(row, { kind: "variable", source: row.type === "forecast" ? "forecast" : "current" });
-  const fieldFrom = (k: string): Origin => ((row.origin as Record<string, Origin> | undefined)?.[k] ?? own);
-  const solar = radiationOf(row);
+  // The hour whose observation has not arrived yet (AMeDAS comes 10–20 minutes late) holds the
+  // forecast: the observed hour just before it is closer to the moment (and teaches the model).
+  const lastObserved = usable.find((r) => r.type !== "forecast");
+  if (row.type === "forecast" && lastObserved && lastObserved.n >= row.n - 1) row = lastObserved;
   // The moment of the answer, not the top of the hour: the latest 10-minute observation, when it is
   // of the same day, newer than the hour's value and not after the answer. Radiation, the forecast's
   // sky and the day's sums stay with the hour (AMeDAS has no radiation).
   const ten = tenMinute(row, live);
+  // A 10-minute value an hour or more after the row's hour (its hourly row not arrived yet) moves
+  // the moment to its own hour; radiation and the sky come from that hour's row when there is one.
+  if (ten && ten.minute >= 60) {
+    const ahead = Math.floor(ten.minute / 60);
+    const next = rows.find((r) => r.n === row.n + ahead && r.date === row.date);
+    ten.minute %= 60;
+    if (next) row = { ...next, temp: row.temp };
+    else row = { ...row, n: row.n + ahead };
+  }
+  // Each saved hour carries its own source (正本管理); today's observed hours are AMeDAS otherwise.
+  const own = hourOrigin(row, { kind: "variable", source: row.type === "forecast" ? "forecast" : "current" });
+  const fieldFrom = (k: string): Origin => ((row.origin as Record<string, Origin> | undefined)?.[k] ?? own);
+  const solar = radiationOf(row);
   const temp = ten ? num(ten.row.temp) : num(row.temp);
   const humidity = ten ? (num(ten.row.humidity) ?? num(row.humidity)) : num(row.humidity);
   const wind = ten ? (num(ten.row.wind) ?? num(row.wind)) : num(row.wind);
@@ -254,12 +266,13 @@ export function snapshotOf(
 /** The latest 10-minute observation to use instead of the hour's value, with its minutes past the hour. */
 function tenMinute(row: WeatherRow, live: { latest: WeatherRow | null; now: number } | undefined): { row: WeatherRow; minute: number } | null {
   const l = live?.latest;
-  if (!l || l.date !== row.date || typeof l.observedAt !== "string" || num(l.temp) == null) return null;
+  // Compared as moments, so 0:20 of the next day follows 24時 of the day (the report at 0時台).
+  if (!l || typeof l.observedAt !== "string" || num(l.temp) == null) return null;
   const [hh, mm] = l.observedAt.split(":").map(Number);
   if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
   const at = Date.parse(`${l.date}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00+09:00`);
   const hourAt = Date.parse(`${row.date}T00:00:00+09:00`) + row.n * 3_600_000;
-  if (!(at > hourAt) || at > live!.now + 60_000) return null;
+  if (!(at > hourAt) || at > live!.now + 60_000 || at - hourAt >= 3 * 3_600_000) return null;
   return { row: l, minute: Math.round((at - hourAt) / 60_000) };
 }
 
