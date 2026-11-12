@@ -1,0 +1,41 @@
+{
+  "id": "2026-11-12-comfort-3",
+  "date": "2026-11-12",
+  "modelVersion": "comfort-3",
+  "scaleVersion": 3,
+  "commit": "4dcb26c",
+  "dataset": {
+    "id": "synthetic-35",
+    "hash": "sha256:synthetic.ts:cc6e7c5456ed27b7",
+    "kind": "synthetic",
+    "period": null,
+    "n": 0,
+    "excluded": {}
+  },
+  "seed": null,
+  "settings": {
+    "prior": "PRIOR m0 18±4, h 3, g 4 (log ±0.5), slope 0.33 (comfort.ts / engine/model.ts)",
+    "optimiser": "BFGS 200 iterations, Laplace (Cholesky), 200 draws per model",
+    "alpha": "0.8 until 30 reports, then chosen by M2 evidence"
+  },
+  "compared": ["M0", "M1", "M2", "M3", "M4", "M5", "M6", "M7", "M8", "M9"],
+  "results": {
+    "rps": null,
+    "logLoss": null,
+    "skill": null,
+    "calibration": null,
+    "notes": "実データはまだない。合成データ（#35、synthetic-results.md）：μ の95%区間の被覆率 91〜100%、区間4℃以内で誤差は常に2℃以内、推定できない条件をすべて情報不足と判定、基準に対する RPS の改善を確認。"
+  },
+  "checks": {
+    "mathematical": true,
+    "recovery": true,
+    "performance": "実データがないため未評価（合成データでは基準より良い）。実データがたまったら、この記録を更新する",
+    "calibration": "実データがないため未評価",
+    "stability": true,
+    "compatibility": true,
+    "contract": true
+  },
+  "decision": "adopted",
+  "reason": "今使っているモデル。入力の欠損を典型値とみなさない（comfort-3）。予測分布・学習の段階（comfort-2）と合わせ、合成データで検証済み。この手順（#47）ができる前に採用したので、記録を後から作った",
+  "approvedBy": "渡辺正雄（PR #39・#41・#42 のマージの承認による）"
+}
