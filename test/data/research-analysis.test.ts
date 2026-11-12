@@ -90,3 +90,43 @@ describe("the preference questions (#63 P2)", () => {
     ]);
   });
 });
+
+describe("evaluation ready for real data (#53 #54 #68)", () => {
+  it("splits sent predictions by model version and adds the 7-step cumulative calibration", () => {
+    const rows = [0, 1, 2, 3].map((i) => ({ researchId: "a", report: makeReport(`v${i}`, 8 + i * 2, 12 + i * 3, i - 1) }));
+    const cells = analyse(rows).cells;
+    expect(cells.some((c) => c.section.startsWith("予測の版ごとの成績") && c.item.startsWith("comfort-4"))).toBe(true);
+    const cal = cells.filter((c) => c.section.startsWith("7段の較正"));
+    expect(cal.length).toBeGreaterThan(0);
+    expect(cal.reduce((s, c) => s + c.reports, 0)).toBe(4 * 6);
+  });
+
+  it("judges the preference models in time order from earlier answers only", async () => {
+    const { preferenceTimeSeries } = await import("../../src/research/analysis");
+    const list = Array.from({ length: 16 }, (_, i) => {
+      const t = 10 + (i % 8) * 2;
+      const r = makeReport(`p${i}`, 12, t, 0, { preferenceVersion: 1, drinkPreference: t < 15 ? "warm" : t > 21 ? "cold" : "either" });
+      // One a day (12:10 JST), so no two are in a row.
+      const date = `2026-10-${String(1 + i).padStart(2, "0")}`;
+      return { ...r, at: new Date(Date.parse(`${date}T12:10:00+09:00`)).toISOString(), snapshot: { ...r.snapshot!, date } };
+    });
+    const ev = preferenceTimeSeries([["a", list]], "drink");
+    expect(ev.n).toBeGreaterThan(0);
+    expect(ev.n).toBeLessThan(16); // the first answers are never predicted
+    expect(ev.before!).toBeLessThan(ev.ref!);
+  });
+});
+
+describe("comfort-3 against comfort-4 on the same reports", () => {
+  it("predicts the latest reports from earlier ones, both ways", { timeout: 120_000 }, async () => {
+    const { compareSettings } = await import("../../src/research/analysis");
+    const list = Array.from({ length: 6 }, (_, i) => {
+      const r = makeReport(`c${i}`, 12, 12 + i * 3, i - 2);
+      const date = `2026-10-${String(1 + i).padStart(2, "0")}`;
+      return { ...r, at: new Date(Date.parse(`${date}T12:10:00+09:00`)).toISOString(), snapshot: { ...r.snapshot!, date } };
+    });
+    const c = compareSettings(list, 2);
+    expect(c.n).toBe(2);
+    expect(Number.isFinite(c.rps3) && Number.isFinite(c.rps4) && Number.isFinite(c.ref)).toBe(true);
+  });
+});

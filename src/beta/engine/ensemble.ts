@@ -60,14 +60,14 @@ export function weightsAt(ens: Ensemble, x: Drivers): number[] {
  * The ensemble in use. With enough reports, α (慣れの速さ) is chosen first, by the evidence of the
  * 慣れ＋1週間 model (each α on the same reports), then every model is fitted at that α.
  */
-export function ensembleFromReports(reports: Report[]): Ensemble {
+export function ensembleFromReports(reports: Report[], weighted = true): Ensemble {
   let alpha = STANDARD_ALPHA;
-  const n = observationsOf(reports, STANDARD_ALPHA).length;
+  const n = observationsOf(reports, STANDARD_ALPHA, weighted).length;
   if (n >= MIN_FOR_ALPHA) {
     const probe = MODELS.find((m) => m.id === "M2")!;
     let best = -Infinity;
     for (const a of ALPHA_GRID) {
-      const obs = observationsOf(reports, a);
+      const obs = observationsOf(reports, a, weighted);
       if (obs.length !== n) continue;
       const ev = fitModel(probe, obs).logEvidence;
       if (ev > best) {
@@ -76,5 +76,5 @@ export function ensembleFromReports(reports: Report[]): Ensemble {
       }
     }
   }
-  return fitEnsemble(observationsOf(reports, alpha), alpha);
+  return fitEnsemble(observationsOf(reports, alpha, weighted), alpha);
 }
