@@ -1,3 +1,7 @@
+// Mathematical contract: research/comfort-model/mathematical-contract.md (MATH-01〜08). This file
+// implements MATH-03 (drivers, missing inputs), MATH-04 (the model), MATH-05 (fitting, the
+// predictive distribution), MATH-07 (learning states) and MATH-08 (scores).
+//
 // β: the comfort centre and range of this moment — several models, compared and combined.
 //
 // The idea: a person feels "ちょうどよい" (thermal neutral: neither warm nor cold — not the same thing as comfort, which is asked of no one yet) within a range around a centre; past its edges it turns
@@ -29,6 +33,7 @@
 // so the models are also compared on predictions made before the answer was known.
 
 import { runningMean } from "./adaptation";
+import { inputQuality } from "./quality";
 import type { Report } from "./reports";
 
 // ---- drivers -------------------------------------------------------------------------------------
@@ -95,7 +100,12 @@ interface DriverInfo {
   label: string;
   /** What one unit of the centred value is, for people. */
   unit: string;
-  value: (d: Drivers) => number;
+  /**
+   * The centred value, or null when its input is missing (MATH-03): a missing input is never
+   * read as a typical one. A value that does not apply at this moment (the night's warmth by day)
+   * is 0, which is not missing.
+   */
+  value: (d: Drivers) => number | null;
   /** Prior spread of its effect on the centre (℃ per unit), on log width (per unit) and on the place temperature (℃ per unit). */
   muSd: number;
   hSd: number;
@@ -106,33 +116,33 @@ interface DriverInfo {
 export const ADAPT_LO = 10;
 export const ADAPT_HI = 30;
 
-const c = (v: number | null, ref: number, unit: number) => (v == null ? 0 : (v - ref) / unit);
+const c = (v: number | null, ref: number, unit: number) => (v == null ? null : (v - ref) / unit);
 
 export const DRIVERS: Record<DriverKey, DriverInfo> = {
   a: { label: "最近の基準", unit: "1℃", value: (d) => d.a - 15, muSd: 0.15, hSd: 0.03 },
   aLim: { label: "最近の基準（10〜30℃で頭打ち）", unit: "1℃", value: (d) => Math.min(ADAPT_HI, Math.max(ADAPT_LO, d.a)) - 15, muSd: 0.15, hSd: 0.03 },
-  dT1: { label: "前日の気温の変化（前日 − 基準）", unit: "1℃", value: (d) => d.dT1 ?? 0, muSd: 0.3, hSd: 0.05 },
+  dT1: { label: "前日の気温の変化（前日 − 基準）", unit: "1℃", value: (d) => d.dT1, muSd: 0.3, hSd: 0.05 },
   h7: { label: "1週間の湿度", unit: "10%", value: (d) => c(d.h7, 65, 10), muSd: 0.6, hSd: 0.15 },
   h1: { label: "前日の湿度", unit: "10%", value: (d) => c(d.h1, 65, 10), muSd: 0.6, hSd: 0.15 },
   hNow: { label: "今の湿度", unit: "10%", value: (d) => c(d.hNow, 65, 10), muSd: 0.6, hSd: 0.15 },
   v7: { label: "1週間の気温の振れ", unit: "1℃", value: (d) => c(d.v7, 2, 1), muSd: 0.5, hSd: 0.15 },
   sun1: { label: "前日の日照", unit: "3時間", value: (d) => c(d.sun1, 5, 3), muSd: 0.6, hSd: 0.15 },
   sun7: { label: "1週間の日照", unit: "3時間", value: (d) => c(d.sun7, 5, 3), muSd: 0.6, hSd: 0.15 },
-  rain1: { label: "前日の雨", unit: "log(1+mm)", value: (d) => (d.rain1 == null ? 0 : Math.log1p(d.rain1) - 0.5), muSd: 0.6, hSd: 0.15 },
-  rain7: { label: "1週間の雨", unit: "log(1+mm)", value: (d) => (d.rain7 == null ? 0 : Math.log1p(d.rain7) - 0.5), muSd: 0.6, hSd: 0.15 },
-  sky: { label: "晴れている", unit: "晴れ=1", value: (d) => (d.sky == null ? 0.5 : d.sky ? 1 : 0) - 0.5, muSd: 1.0, hSd: 0.2 },
+  rain1: { label: "前日の雨", unit: "log(1+mm)", value: (d) => (d.rain1 == null ? null : Math.log1p(d.rain1) - 0.5), muSd: 0.6, hSd: 0.15 },
+  rain7: { label: "1週間の雨", unit: "log(1+mm)", value: (d) => (d.rain7 == null ? null : Math.log1p(d.rain7) - 0.5), muSd: 0.6, hSd: 0.15 },
+  sky: { label: "晴れている", unit: "晴れ=1", value: (d) => (d.sky == null ? null : (d.sky ? 1 : 0) - 0.5), muSd: 1.0, hSd: 0.2 },
   // 春と秋: the same 15 ℃ after a cold winter and after a hot summer. The 最近の基準 carries most of
   // it; the trend says whether the season is warming or cooling.
-  trend: { label: "季節の向き（2週間の気温の傾き）", unit: "1℃/週", value: (d) => d.trend ?? 0, muSd: 0.5, hSd: 0.1 },
+  trend: { label: "季節の向き（2週間の気温の傾き）", unit: "1℃/週", value: (d) => d.trend, muSd: 0.5, hSd: 0.1 },
   // Check only: the calendar itself (+1 late March … −1 late September). If it explains more than
   // the history does, something besides temperature (clothes, day length) makes spring and autumn differ.
-  spring: { label: "暦の春らしさ", unit: "春=+1, 秋=−1", value: (d) => (d.doy == null ? 0 : Math.cos((2 * Math.PI * (d.doy - 80)) / 365.25)), muSd: 1.5, hSd: 0.2 },
+  spring: { label: "暦の春らしさ", unit: "春=+1, 秋=−1", value: (d) => (d.doy == null ? null : Math.cos((2 * Math.PI * (d.doy - 80)) / 365.25)), muSd: 1.5, hSd: 0.2 },
   // The day's sunshine stored in the ground and walls, given back after dark: it warms the place
   // (E′), not the person's centre. Counts at night only; 10 MJ/m² is an ordinary sunny-ish day.
   radNight: {
     label: "日中の日射の余熱（夜）",
     unit: "5MJ/m²",
-    value: (d) => (d.night && d.radDay != null ? (d.radDay - 10) / 5 : 0),
+    value: (d) => (d.night == null ? null : !d.night ? 0 : d.radDay == null ? null : (d.radDay - 10) / 5),
     muSd: 0.6,
     hSd: 0.15,
     eSd: 1.5,
@@ -142,7 +152,7 @@ export const DRIVERS: Record<DriverKey, DriverInfo> = {
   radNightWind: {
     label: "余熱 × 直近6時間の風",
     unit: "5MJ/m² × 2m/s",
-    value: (d) => (d.night && d.radDay != null && d.wind6h != null ? ((d.radDay - 10) / 5) * ((d.wind6h - 2) / 2) : 0),
+    value: (d) => (d.night == null ? null : !d.night ? 0 : d.radDay == null || d.wind6h == null ? null : ((d.radDay - 10) / 5) * ((d.wind6h - 2) / 2)),
     muSd: 0.3,
     hSd: 0.1,
     eSd: 1.0,
@@ -151,7 +161,7 @@ export const DRIVERS: Record<DriverKey, DriverInfo> = {
   coldNight: {
     label: "前夜の冷え込み（前日の最低 − 基準）",
     unit: "3℃",
-    value: (d) => (d.night === false && d.minPrev != null ? (d.minPrev + 6) / 3 : 0),
+    value: (d) => (d.night == null ? null : d.night ? 0 : d.minPrev == null ? null : (d.minPrev + 6) / 3),
     muSd: 0.6,
     hSd: 0.15,
     eSd: 1.5,
@@ -160,7 +170,7 @@ export const DRIVERS: Record<DriverKey, DriverInfo> = {
   coldNightWind: {
     label: "前夜の冷え込み × 前夜の風",
     unit: "3℃ × 2m/s",
-    value: (d) => (d.night === false && d.minPrev != null && d.windPrev != null ? ((d.minPrev + 6) / 3) * ((d.windPrev - 2) / 2) : 0),
+    value: (d) => (d.night == null ? null : d.night ? 0 : d.minPrev == null || d.windPrev == null ? null : ((d.minPrev + 6) / 3) * ((d.windPrev - 2) / 2)),
     muSd: 0.3,
     hSd: 0.1,
     eSd: 1.0,
@@ -198,6 +208,17 @@ export const MODELS: ModelSpec[] = [
 ];
 
 /** Parameter names of a model, in theta order. */
+/** Drivers of model `m` whose input is missing at `x` (MATH-03). */
+export function missingDrivers(m: ModelSpec, x: Drivers): DriverKey[] {
+  return [...new Set([...m.mu, ...m.h, ...(m.e ?? [])])].filter((k) => DRIVERS[k].value(x) == null);
+}
+
+/** A model can be used at `x` only with every one of its inputs present. */
+export const usable = (m: ModelSpec, x: Drivers) => missingDrivers(m, x).length === 0;
+
+/** A driver's value where the model is usable (callers check `usable` first). */
+const dv = (k: DriverKey, x: Drivers) => DRIVERS[k].value(x) ?? 0;
+
 export function paramNames(m: ModelSpec): string[] {
   return ["m0", ...m.mu.map((k) => `中心:${k}`), "l0", ...m.h.map((k) => `範囲:${k}`), ...(m.e ?? []).map((k) => `場所:${k}`), "q0", "r0", "wS", "wN"];
 }
@@ -230,9 +251,9 @@ export interface State {
 export function stateOf(m: ModelSpec, theta: Theta, x: Drivers): State {
   let i = 0;
   let mu = theta[i++];
-  for (const k of m.mu) mu += theta[i++] * DRIVERS[k].value(x);
+  for (const k of m.mu) mu += theta[i++] * dv(k, x);
   let lh = theta[i++];
-  for (const k of m.h) lh += theta[i++] * DRIVERS[k].value(x);
+  for (const k of m.h) lh += theta[i++] * dv(k, x);
   i += (m.e ?? []).length;
   return { mu, h: Math.exp(lh), g: Math.exp(theta[i]), s: Math.exp(theta[i + 1]) };
 }
@@ -242,7 +263,7 @@ export function placeTemp(m: ModelSpec, theta: Theta, x: Drivers): number {
   const n = theta.length;
   let e = x.e + (x.windFelt === "strong" ? theta[n - 2] : x.windFelt === "none" ? theta[n - 1] : 0);
   const start = 1 + m.mu.length + 1 + m.h.length;
-  (m.e ?? []).forEach((k, j) => (e += theta[start + j] * DRIVERS[k].value(x)));
+  (m.e ?? []).forEach((k, j) => (e += theta[start + j] * dv(k, x)));
   return e;
 }
 
@@ -420,7 +441,9 @@ export interface ModelFit {
   logEvidence: number;
 }
 
-export function fitModel(m: ModelSpec, obs: Observation[]): ModelFit {
+export function fitModel(m: ModelSpec, all: Observation[]): ModelFit {
+  // Only observations with every input of this model (MATH-03: missing is not typical).
+  const obs = all.filter((o) => usable(m, o));
   const prior = priorFor(m);
   const k = prior.mean.length;
   if (!obs.length) return { model: m, theta: prior.mean, cov: null, prior, n: 0, logEvidence: 0 };
@@ -540,10 +563,11 @@ export const reportedSunny = (r: Report) => (r.sky ? r.sky === "clear" || r.sky 
 export function observationsOf(reports: Report[], alpha: number): Observation[] {
   const out: Observation[] = [];
   for (const r of reports) {
-    if (r.deleted || !r.history?.length) continue;
+    // Only reports whose inputs are good enough teach the model (MATH-02, quality.ts).
+    if (r.deleted || !inputQuality(r).trainable) continue;
     const e = placeTempOf(r);
     if (e == null) continue;
-    const d = driversFrom(e, r.history, r.recent, r.snapshot?.humidity ?? null, reportedSunny(r), alpha, r.snapshot?.date ?? r.at.slice(0, 10), r.snapshot?.radDay ?? null, r.snapshot?.hour ?? null, r.snapshot?.wind6h ?? null, r.snapshot?.windLastNight ?? null);
+    const d = driversFrom(e, r.history ?? [], r.recent, r.snapshot?.humidity ?? null, reportedSunny(r), alpha, r.snapshot?.date ?? r.at.slice(0, 10), r.snapshot?.radDay ?? null, r.snapshot?.hour ?? null, r.snapshot?.wind6h ?? null, r.snapshot?.windLastNight ?? null);
     if (d) out.push({ ...d, windFelt: r.windFelt, y: r.sensation });
   }
   return out;
@@ -570,9 +594,34 @@ function weightsOf(fits: ModelFit[]): number[] {
   return raw.map((w) => w / sum);
 }
 
+/**
+ * Every model, fitted on the observations that have all of its inputs. The weights compare the
+ * models on the same observations (evidence on different data cannot be compared): those with every
+ * model's inputs. When there are none in common, only the models usable on all observations
+ * compete (M0 always is).
+ */
 export function fitEnsemble(obs: Observation[], alpha: number): Ensemble {
   const fits = MODELS.map((m) => fitModel(m, obs));
-  return { alpha, fits, weights: weightsOf(fits), n: obs.length };
+  const common = obs.filter((o) => MODELS.every((m) => usable(m, o)));
+  let evidence: number[];
+  if (!obs.length || common.length === obs.length) evidence = fits.map((f) => f.logEvidence);
+  else if (common.length) evidence = fits.map((f) => (f.n === common.length ? f.logEvidence : fitModel(f.model, common).logEvidence));
+  else evidence = fits.map((f) => (f.n === obs.length ? f.logEvidence : -Infinity));
+  return { alpha, fits, weights: weightsOf(fits.map((f, i) => ({ ...f, logEvidence: evidence[i] }))), n: obs.length };
+}
+
+/**
+ * The weights to use at one moment: a model with a missing input there takes no part (its share
+ * goes to the others, in proportion). M0 needs no input, so something always remains.
+ */
+export function weightsAt(ens: Ensemble, x: Drivers): number[] {
+  const w = ens.fits.map((f, i) => (usable(f.model, x) ? ens.weights[i] : 0));
+  const sum = w.reduce((a, b) => a + b, 0);
+  if (sum > 0) return w.map((v) => v / sum);
+  // Every model with weight lacks an input: fall back to those usable, evenly.
+  const ok = ens.fits.map((f) => (usable(f.model, x) ? 1 : 0));
+  const n = ok.reduce((a: number, b) => a + b, 0);
+  return ok.map((v) => v / n);
 }
 
 /**
@@ -610,7 +659,7 @@ export function ensembleFromReports(reports: Report[]): Ensemble {
 //   Var(Y) = E_θ[Var(Y | θ)]  (answers)  +  Var_θ[E(Y | θ)]  (parameters)
 
 /** Version of the prediction (stored with every report, so past predictions stay readable). */
-export const MODEL_VERSION = "comfort-2";
+export const MODEL_VERSION = "comfort-3"; // 3: missing inputs leave models out instead of reading as typical
 /** Parameter draws per model. */
 export const DRAWS = 200;
 
@@ -691,6 +740,9 @@ export interface ComfortPrediction {
   spread?: { answer: number; param: number };
   /** How far the learning had got when this was predicted. */
   learning?: Learning;
+  /** Models left out because an input was missing at this moment, and those inputs. */
+  excluded?: string[];
+  missing?: DriverKey[];
   version?: string;
 }
 
@@ -699,8 +751,8 @@ const r2 = (v: number) => Math.round(v * 100) / 100;
 
 /** The weighted centre and range of a moment (no place temperature needed). */
 export function ensembleState(ens: Ensemble, x: Drivers): State {
-  const sts = ens.fits.map((f) => stateOf(f.model, f.theta, x));
-  const w = ens.weights;
+  const w = weightsAt(ens, x);
+  const sts = ens.fits.map((f, i) => (w[i] > 0 ? stateOf(f.model, f.theta, x) : { mu: 0, h: 0, g: 0, s: 0 }));
   const mix = (k: keyof State) => sts.reduce((s, st, i) => s + w[i] * st[k], 0);
   return { mu: mix("mu"), h: mix("h"), g: mix("g"), s: mix("s") };
 }
@@ -732,9 +784,10 @@ function drawn(fit: ModelFit, x: Drivers, seed: number) {
 /** The 95% interval of the centre μ at a moment, over the models and their parameters. */
 export function muIntervalOf(ens: Ensemble, x: Drivers): [number, number] {
   const pairs: [number, number][] = [];
+  const w = weightsAt(ens, x);
   ens.fits.forEach((f, i) => {
-    if (ens.weights[i] < 1e-3) return;
-    for (const d of drawsOf(f, DRAWS, 7 + i)) pairs.push([stateOf(f.model, d, x).mu, ens.weights[i]]);
+    if (w[i] < 1e-3) return;
+    for (const d of drawsOf(f, DRAWS, 7 + i)) pairs.push([stateOf(f.model, d, x).mu, w[i]]);
   });
   return [quantile(pairs, 0.025), quantile(pairs, 0.975)];
 }
@@ -746,8 +799,13 @@ export function predictComfort(ens: Ensemble, x: Drivers, at: number, learning?:
   let vySum = 0;
   const muPairs: [number, number][] = [];
   const zPairs: [number, number][] = [];
-  const models = ens.fits.map((f, i) => {
-    const w = ens.weights[i];
+  // Models with an input missing at this moment take no part (MATH-03); the rest are re-weighted.
+  const weights = weightsAt(ens, x);
+  const used = ens.fits.map((f, i) => ({ f, i })).filter(({ f }) => usable(f.model, x));
+  const excluded = ens.fits.filter((f) => !usable(f.model, x)).map((f) => f.model.id);
+  const missing = [...new Set(ens.fits.flatMap((f) => missingDrivers(f.model, x)))];
+  const models = used.map(({ f, i }) => {
+    const w = weights[i];
     const ds = drawn(f, x, seed + i);
     const probs = Array.from({ length: 7 }, (_, k) => ds.reduce((s, d) => s + d.p[k], 0) / ds.length);
     for (const d of ds) {
@@ -760,9 +818,10 @@ export function predictComfort(ens: Ensemble, x: Drivers, at: number, learning?:
     const st = stateOf(f.model, f.theta, x);
     return { id: f.model.id, weight: r2(w), probs, mode: probs.indexOf(Math.max(...probs)) - 3, mu: r1(st.mu), h: r1(st.h), e: placeTemp(f.model, f.theta, x) };
   });
-  const probs = Array.from({ length: 7 }, (_, k) => models.reduce((s, m, i) => s + ens.weights[i] * m.probs[k], 0));
+  const wOf = (j: number) => weights[used[j].i];
+  const probs = Array.from({ length: 7 }, (_, k) => models.reduce((s, m, j) => s + wOf(j) * m.probs[k], 0));
   const st = ensembleState(ens, x);
-  const e = models.reduce((s, m, i) => s + ens.weights[i] * m.e, 0);
+  const e = models.reduce((s, m, j) => s + wOf(j) * m.e, 0);
   const sum = (a: number, b: number) => probs.slice(a, b).reduce((s, v) => s + v, 0);
   return {
     probs: probs.map(r2),
@@ -781,6 +840,7 @@ export function predictComfort(ens: Ensemble, x: Drivers, at: number, learning?:
     muInterval: [r1(quantile(muPairs, 0.025)), r1(quantile(muPairs, 0.975))],
     spread: { answer: r2(Math.sqrt(Math.max(0, vySum))), param: r2(Math.sqrt(Math.max(0, ey2Sum - eySum * eySum))) },
     ...(learning ? { learning } : {}),
+    ...(excluded.length ? { excluded, missing } : {}),
     version: MODEL_VERSION,
   };
 }

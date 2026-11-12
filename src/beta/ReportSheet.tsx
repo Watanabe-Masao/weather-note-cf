@@ -11,6 +11,7 @@ import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
 import { SCALE_VERSION, type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
+import { inputQuality } from "./quality";
 import { centreUnknown, type ComfortPrediction, LEARNING_LABELS, type LearningView, predictComfort } from "./comfort";
 import { baselineOf, baselineStateOf, driversOfDay, historyOf, useBaselineHistory } from "./useBaseline";
 import { reports } from "./useReports";
@@ -69,6 +70,12 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
     return x ? predictComfort(beta.ens, { ...x, windFelt }, now, beta.learning.state) : null;
   };
   const preview = predictAt(Date.now());
+  // Whether this report would teach the model (quality.ts): said before sending, so a report made
+  // on a forecast or a stale hour is not mistaken for one that counts.
+  const quality = (() => {
+    const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(Date.now()), feel, yesterdayHours);
+    return inputQuality({ at: new Date().toISOString(), snapshot: snap, history: [0], baseline: null } as unknown as Report);
+  })();
 
   const save = async () => {
     if (!ready || saving) return;
@@ -90,7 +97,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       exposure,
       windFelt,
       sky,
-      snapshot: snapshotOf(hours, jstHourOf(now), feel, yesterdayHours),
+      snapshot: snapshotOf(hours, jstHourOf(now), feel, yesterdayHours, store?.getHours(station, today).fetchedAt),
       baseline: base ? { ...base, alpha: beta.alpha } : null,
       departures: dep ? { air: dep.air, sun: dep.sun, shade: dep.shade } : null,
       history: store ? historyOf(store, station, today).map((p) => (p.forecast ? null : p.mean)) : [],
@@ -142,6 +149,9 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
         <Segmented label="今の天気" value={sky ?? ("" as Sky)} options={SKIES.map((k) => ({ id: k.id, label: k.label }))} onChange={setSky} />
         <small className="set-help">見たままの空。その時刻の予報の天気は自動で添えるので、あとで予報と実際を突き合わせられます。</small>
       </div>
+      {waitingFor == null && !quality.trainable && (
+        <p className="report-quality warn">この記録は保存しますが、学習には使いません（{quality.reason}）。</p>
+      )}
       <button className="report-save" disabled={!ready || saving} onClick={() => void save()}>
         {waitingFor ?? (ready ? "記録する" : "4つとも選ぶと記録できます")}
       </button>

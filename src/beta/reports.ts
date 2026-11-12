@@ -8,7 +8,8 @@
 // syncing (β③).
 
 import { type IDBPDatabase, openDB } from "idb";
-import { feelOf, type FeelSettings, radiationOf } from "../../shared/feel";
+import { inputQuality } from "./quality";
+import { FEEL_TRANSFORM, feelOf, type FeelSettings, radiationOf } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import { hourOrigin, type Origin } from "../data/authority";
 import { type Baseline, type Departures, halfLifeDays, updateRate } from "./adaptation";
@@ -89,6 +90,10 @@ export interface Snapshot {
   wind6h?: number | null;
   wind12h?: number | null;
   windLastNight?: number | null;
+  /** How 日なた温度・日かげ温度 were computed (shared/feel.ts: FEEL_TRANSFORM), and when the hours
+   *  were fetched (ISO). Kept as they were: a later correction of the weather never rewrites them. */
+  transform?: string;
+  retrievedAt?: string;
 }
 
 /**
@@ -167,7 +172,7 @@ const round1 = (v: number | null) => (v == null ? null : Math.round(v * 10) / 10
  * The station's hour closest before `hour` that has a measured or forecast temperature, and its
  * values with their sources. Today's hours mix AMeDAS and forecast; each row says which it is.
  */
-export function snapshotOf(rows: WeatherRow[] | null, hour: number, feel: FeelSettings, before: WeatherRow[] | null = null): Snapshot | null {
+export function snapshotOf(rows: WeatherRow[] | null, hour: number, feel: FeelSettings, before: WeatherRow[] | null = null, retrievedAt?: number): Snapshot | null {
   if (!rows?.length) return null;
   const row = [...rows]
     .filter((r) => r.n <= hour && num(r.temp) != null)
@@ -196,6 +201,8 @@ export function snapshotOf(rows: WeatherRow[] | null, hour: number, feel: FeelSe
     ...forecastSkyOf(rows, row),
     ...radDayOf(rows, row.n),
     ...windMemory(rows, before, row.n),
+    transform: FEEL_TRANSFORM,
+    ...(retrievedAt ? { retrievedAt: new Date(retrievedAt).toISOString() } : {}),
   };
 }
 
@@ -326,6 +333,14 @@ const COLUMNS: readonly string[] = [
   "pred_mu_hi",
   "sd_answer",
   "sd_param",
+  "input_status",
+  "input_lag_min",
+  "input_flags",
+  "train_excluded_reason",
+  "pred_models_excluded",
+  "pred_inputs_missing",
+  "feel_transform",
+  "retrieved_at",
 ] as const;
 
 const cell = (v: unknown) => {
@@ -413,6 +428,14 @@ export function toCsv(reports: Report[]): string {
       r.comfort?.muInterval?.[1],
       r.comfort?.spread?.answer,
       r.comfort?.spread?.param,
+      ...(() => {
+        const q = inputQuality(r);
+        return [q.status, q.lagMin, q.flags.join(";"), q.reason];
+      })(),
+      r.comfort?.excluded?.join(";"),
+      r.comfort?.missing?.join(";"),
+      r.snapshot?.transform,
+      r.snapshot?.retrievedAt ? jstIso(r.snapshot.retrievedAt) : null,
     ]
       .map(cell)
       .join(","),

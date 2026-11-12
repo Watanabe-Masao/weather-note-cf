@@ -11,7 +11,7 @@ import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet } from "../ui/ModalSheet";
 import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } from "./adaptation";
-import { beyondRange, centreUnknown, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
+import { beyondRange, centreUnknown, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
 import { useCentreVisible } from "./useReports";
 import { BetaContext } from "./settings";
 import { baselineStateOf, driversOfDay } from "./useBaseline";
@@ -397,7 +397,8 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
     );
   }
   const st = ensembleState(beta.ens, x);
-  const best = beta.ens.fits[beta.ens.weights.indexOf(Math.max(...beta.ens.weights))];
+  const wx = weightsAt(beta.ens, x); // models with an input missing on this day take no part
+  const best = beta.ens.fits[wx.indexOf(Math.max(...wx))];
   const [muLo, muHi] = interval(best, (t) => stateOf(best.model, t, x).mu);
   const [hLo, hHi] = interval(best, (t) => Math.log(stateOf(best.model, t, x).h)).map(Math.exp);
   const place = (e: number | null) =>
