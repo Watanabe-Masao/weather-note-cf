@@ -4,3 +4,4 @@ parquet/
 *.duckdb
 *.duckdb.wal
 node_modules/
+csv/

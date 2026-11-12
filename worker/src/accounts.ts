@@ -128,7 +128,30 @@ const RESEARCH_SCHEMA = [
     rows INTEGER NOT NULL,
     dataset TEXT
   )`,
+  // A token for taking the research data out (#55): read-only, short-lived, stored as a hash,
+  // shown once. A new one replaces the old; it can be revoked.
+  `CREATE TABLE IF NOT EXISTS export_tokens (
+    token_hash TEXT PRIMARY KEY,
+    admin_id TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    expires_at INTEGER NOT NULL,
+    revoked_at INTEGER
+  )`,
 ];
+
+/** How long an export token lasts. */
+export const EXPORT_TOKEN_MS = 24 * 3600_000;
+/** Rows per page of the research export. */
+export const RESEARCH_PAGE = 1000;
+
+/**
+ * A report as it leaves for research (#55): without the account it belongs to (`owner`), which
+ * would tie the research ID back to the person.
+ */
+export function forResearch(report: Record<string, unknown>): Record<string, unknown> {
+  const { owner: _owner, ...rest } = report;
+  return rest;
+}
 
 const ready = new WeakMap<Db, Promise<void>>();
 const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA, ...RESEARCH_SCHEMA];
@@ -459,6 +482,43 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       return json({ user: await me(db, user), password: made.password }, 200, { "Set-Cookie": sessionCookie(token, SESSION_DAYS * 86_400) });
     }
 
+    // -- the research export (#45, #55): only with an export token, never with a login --
+    if (path === "/api/admin/research" && !post) {
+      const auth = req.headers.get("Authorization") ?? "";
+      const token = auth.startsWith("Bearer ") ? auth.slice(7).trim() : "";
+      const t = token
+        ? await db.prepare("SELECT t.admin_id, t.expires_at, t.revoked_at FROM export_tokens t JOIN users u ON u.id = t.admin_id AND u.role = 'admin' AND u.disabled_at IS NULL WHERE t.token_hash = ?").bind(await sha256(token)).first<{ admin_id: string; expires_at: number; revoked_at: number | null }>()
+        : null;
+      if (!t || t.revoked_at || t.expires_at < now) throw new Refused("取り出し用のトークンが必要です（管理画面で発行。24時間有効）。", 401);
+      const q = new URL(req.url).searchParams;
+      const dataset = q.get("dataset")?.slice(0, 80) ?? null;
+      // Pages by key (time, research ID, report ID), so reports added meanwhile neither repeat
+      // nor go missing.
+      let after: [string, string, string] | null = null;
+      try {
+        const a = q.get("after");
+        if (a) after = JSON.parse(atob(a.replace(/-/g, "+").replace(/_/g, "/")));
+      } catch {
+        throw new Refused("ページの指定が正しくありません。");
+      }
+      const rows = (
+        await (after
+          ? db
+              .prepare("SELECT research_id, report_id, at, body FROM research_reports WHERE (at, research_id, report_id) > (?, ?, ?) ORDER BY at, research_id, report_id LIMIT ?")
+              .bind(after[0], after[1], after[2], RESEARCH_PAGE)
+          : db.prepare("SELECT research_id, report_id, at, body FROM research_reports ORDER BY at, research_id, report_id LIMIT ?").bind(RESEARCH_PAGE)
+        ).all<{ research_id: string; report_id: string; at: string; body: string }>()
+      ).results;
+      // Every export is logged: who, when, which page, how many.
+      await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, ?, ?, ?)").bind(t.admin_id, now, path, after ? 1 : 0, rows.length, dataset).run();
+      const last = rows[rows.length - 1];
+      const next = rows.length === RESEARCH_PAGE ? btoa(JSON.stringify([last.at, last.research_id, last.report_id])).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : null;
+      const withdrawn = after
+        ? undefined
+        : (await db.prepare("SELECT research_id, at, reason FROM research_withdrawals ORDER BY at").all<{ research_id: string; at: number; reason: string }>()).results.map((w) => ({ researchId: w.research_id, at: w.at, reason: w.reason }));
+      return json({ exportedAt: now, rows: rows.map((r) => ({ researchId: r.research_id, report: forResearch(JSON.parse(r.body)) })), next, ...(withdrawn ? { withdrawn } : {}) });
+    }
+
     // -- everything below needs a session --
     const u = await currentUser(db, req, now);
     if (!u) throw new Refused("ログインしてください。", 401);
@@ -467,8 +527,13 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       const b = await body(req);
       if (typeof b.granted !== "boolean") throw new Refused("同意の答えが正しくありません。");
       // Taking consent back is also told to the exported copies (#45).
+      // The person gets a new research ID: the old one stays withdrawn for good, and consenting
+      // again starts under the new one (#55).
       if (!b.granted && (await researchConsent(db, u.id)).granted)
-        await db.prepare("INSERT INTO research_withdrawals (research_id, at, reason) VALUES (?, ?, 'consent-withdrawn')").bind(u.research_id, now).run();
+        await db.batch([
+          db.prepare("INSERT INTO research_withdrawals (research_id, at, reason) VALUES (?, ?, 'consent-withdrawn')").bind(u.research_id, now),
+          db.prepare("UPDATE users SET research_id = ? WHERE id = ?").bind(newId(), u.id),
+        ]);
       await db.prepare("INSERT INTO consents (user_id, kind, version, granted, at) VALUES (?, 'research', ?, ?, ?)").bind(u.id, RESEARCH_CONSENT_VERSION, b.granted ? 1 : 0, now).run();
       return json({ user: await me(db, u) });
     }
@@ -584,17 +649,17 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         await deleteAccount(db, target, now);
         return json({ id: target.id, deleted: true });
       }
-      if (path === "/api/admin/research" && !post) {
-        const q = new URL(req.url).searchParams;
-        const offset = Math.max(0, Number(q.get("offset")) || 0);
-        const dataset = q.get("dataset")?.slice(0, 80) ?? null;
-        const rows = (await db.prepare("SELECT research_id, body FROM research_reports ORDER BY at LIMIT 1000 OFFSET ?").bind(offset).all<{ research_id: string; body: string }>()).results;
-        // Every export is logged: who, when, which page, how many (#45).
-        await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, ?, ?, ?)").bind(u.id, now, path, offset, rows.length, dataset).run();
-        const withdrawn = offset
-          ? undefined
-          : (await db.prepare("SELECT research_id, at, reason FROM research_withdrawals ORDER BY at").all<{ research_id: string; at: number; reason: string }>()).results.map((w) => ({ researchId: w.research_id, at: w.at, reason: w.reason }));
-        return json({ exportedAt: now, rows: rows.map((r) => ({ researchId: r.research_id, report: JSON.parse(r.body) })), next: rows.length === 1000 ? offset + 1000 : null, ...(withdrawn ? { withdrawn } : {}) });
+      if (path === "/api/admin/export-token") {
+        if (post) {
+          const b = await body(req);
+          await db.prepare("UPDATE export_tokens SET revoked_at = ? WHERE revoked_at IS NULL AND expires_at > ?").bind(now, now).run();
+          if (b.revoke === true) return json({ active: null });
+          const token = hex(random(32));
+          await db.prepare("INSERT INTO export_tokens (token_hash, admin_id, created_at, expires_at) VALUES (?, ?, ?, ?)").bind(await sha256(token), u.id, now, now + EXPORT_TOKEN_MS).run();
+          return json({ token, active: { expiresAt: now + EXPORT_TOKEN_MS } });
+        }
+        const a = await db.prepare("SELECT expires_at FROM export_tokens WHERE revoked_at IS NULL AND expires_at > ? ORDER BY expires_at DESC LIMIT 1").bind(now).first<{ expires_at: number }>();
+        return json({ active: a ? { expiresAt: a.expires_at } : null });
       }
       if (path === "/api/admin/exports" && !post) {
         const log = (await db.prepare("SELECT e.at, e.first, e.rows, e.dataset, u.login_id AS admin FROM export_log e LEFT JOIN users u ON u.id = e.admin_id ORDER BY e.id DESC LIMIT 200").all()).results;
