@@ -69,6 +69,10 @@ export interface Snapshot {
   /** The hour used (JMA hour n = the value at n:00) and its date. */
   date: string;
   hour: number;
+  /** Minutes past `hour` of the observation taken for temperature, humidity and wind: the latest
+   *  10-minute AMeDAS value when it is newer than the hour (12:15 → 12:10, not 12:00). Absent
+   *  when the hour's own value was used (reports before this, too). */
+  minute?: number;
   temp: number | null;
   humidity: number | null;
   wind: number | null;
@@ -172,7 +176,14 @@ const round1 = (v: number | null) => (v == null ? null : Math.round(v * 10) / 10
  * The station's hour closest before `hour` that has a measured or forecast temperature, and its
  * values with their sources. Today's hours mix AMeDAS and forecast; each row says which it is.
  */
-export function snapshotOf(rows: WeatherRow[] | null, hour: number, feel: FeelSettings, before: WeatherRow[] | null = null, retrievedAt?: number): Snapshot | null {
+export function snapshotOf(
+  rows: WeatherRow[] | null,
+  hour: number,
+  feel: FeelSettings,
+  before: WeatherRow[] | null = null,
+  retrievedAt?: number,
+  live?: { latest: WeatherRow | null; now: number },
+): Snapshot | null {
   if (!rows?.length) return null;
   const row = [...rows]
     .filter((r) => r.n <= hour && num(r.temp) != null)
@@ -182,28 +193,48 @@ export function snapshotOf(rows: WeatherRow[] | null, hour: number, feel: FeelSe
   const own = hourOrigin(row, { kind: "variable", source: row.type === "forecast" ? "forecast" : "current" });
   const fieldFrom = (k: string): Origin => ((row.origin as Record<string, Origin> | undefined)?.[k] ?? own);
   const solar = radiationOf(row);
-  const forecast = row.type === "forecast";
+  // The moment of the answer, not the top of the hour: the latest 10-minute observation, when it is
+  // of the same day, newer than the hour's value and not after the answer. Radiation, the forecast's
+  // sky and the day's sums stay with the hour (AMeDAS has no radiation).
+  const ten = tenMinute(row, live);
+  const temp = ten ? num(ten.row.temp) : num(row.temp);
+  const humidity = ten ? (num(ten.row.humidity) ?? num(row.humidity)) : num(row.humidity);
+  const wind = ten ? (num(ten.row.wind) ?? num(row.wind)) : num(row.wind);
+  const forecast = !ten && row.type === "forecast";
   return {
     date: row.date,
     hour: row.n,
-    temp: num(row.temp),
-    humidity: num(row.humidity),
-    wind: num(row.wind),
+    ...(ten ? { minute: ten.minute } : {}),
+    temp,
+    humidity,
+    wind,
     solar: solar == null ? null : Math.round(solar),
     from: {
-      temp: fieldFrom("temp"),
-      humidity: fieldFrom("humidity"),
-      wind: fieldFrom("wind"),
+      temp: ten ? "amedas" : fieldFrom("temp"),
+      humidity: ten && num(ten.row.humidity) != null ? "amedas" : fieldFrom("humidity"),
+      wind: ten && num(ten.row.wind) != null ? "amedas" : fieldFrom("wind"),
       ...(solar != null ? { solar: fieldFrom(num(row.solar) != null ? "solar" : "radiation") } : {}),
     },
-    sunTemp: round1(feelOf(row.temp, row.humidity, row.wind, forecast, { ...feel, sun: true }, solar)),
-    shadeTemp: round1(feelOf(row.temp, row.humidity, row.wind, forecast, { ...feel, sun: false }, solar)),
+    sunTemp: round1(feelOf(temp, humidity, wind, forecast, { ...feel, sun: true }, solar)),
+    shadeTemp: round1(feelOf(temp, humidity, wind, forecast, { ...feel, sun: false }, solar)),
     ...forecastSkyOf(rows, row),
     ...radDayOf(rows, row.n),
     ...windMemory(rows, before, row.n),
     transform: FEEL_TRANSFORM,
     ...(retrievedAt ? { retrievedAt: new Date(retrievedAt).toISOString() } : {}),
   };
+}
+
+/** The latest 10-minute observation to use instead of the hour's value, with its minutes past the hour. */
+function tenMinute(row: WeatherRow, live: { latest: WeatherRow | null; now: number } | undefined): { row: WeatherRow; minute: number } | null {
+  const l = live?.latest;
+  if (!l || l.date !== row.date || typeof l.observedAt !== "string" || num(l.temp) == null) return null;
+  const [hh, mm] = l.observedAt.split(":").map(Number);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  const at = Date.parse(`${l.date}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00+09:00`);
+  const hourAt = Date.parse(`${row.date}T00:00:00+09:00`) + row.n * 3_600_000;
+  if (!(at > hourAt) || at > live!.now + 60_000) return null;
+  return { row: l, minute: Math.round((at - hourAt) / 60_000) };
 }
 
 /** The day's radiation so far: W/m² per hour → MJ/m² (× 0.0036), hours 1…n with a value. */
@@ -341,6 +372,7 @@ const COLUMNS: readonly string[] = [
   "pred_inputs_missing",
   "feel_transform",
   "retrieved_at",
+  "obs_minute",
 ] as const;
 
 const cell = (v: unknown) => {
@@ -436,6 +468,7 @@ export function toCsv(reports: Report[]): string {
       r.comfort?.missing?.join(";"),
       r.snapshot?.transform,
       r.snapshot?.retrievedAt ? jstIso(r.snapshot.retrievedAt) : null,
+      r.snapshot?.minute ?? null,
     ]
       .map(cell)
       .join(","),

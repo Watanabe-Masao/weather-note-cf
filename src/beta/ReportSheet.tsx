@@ -63,7 +63,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
    */
   const predictAt = (now: number) => {
     if (exposure == null || windFelt == null) return null;
-    const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(now), feel, yesterdayHours);
+    const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(now), feel, yesterdayHours, undefined, { latest: store?.getLatest(station) ?? null, now });
     const e = !snap ? null : exposure === "sun" ? snap.sunTemp : exposure === "shade" ? snap.shadeTemp : snap.sunTemp == null || snap.shadeTemp == null ? null : (snap.sunTemp + snap.shadeTemp) / 2;
     const sunny = sky == null ? null : sky === "clear" || sky === "sunny";
     const x = driversOfDay(store, station, today, beta.alpha, e, snap?.humidity ?? null, { radDay: snap?.radDay ?? null, hour: snap?.hour ?? null, sky: sunny, wind6h: snap?.wind6h ?? null, windLastNight: snap?.windLastNight ?? null });
@@ -73,7 +73,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   // Whether this report would teach the model (quality.ts): said before sending, so a report made
   // on a forecast or a stale hour is not mistaken for one that counts.
   const quality = (() => {
-    const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(Date.now()), feel, yesterdayHours);
+    const snap = snapshotOf(store?.getHours(station, today).rows ?? null, jstHourOf(Date.now()), feel, yesterdayHours, undefined, { latest: store?.getLatest(station) ?? null, now: Date.now() });
     return inputQuality({ at: new Date().toISOString(), snapshot: snap, history: [0], baseline: null } as unknown as Report);
   })();
 
@@ -97,7 +97,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       exposure,
       windFelt,
       sky,
-      snapshot: snapshotOf(hours, jstHourOf(now), feel, yesterdayHours, store?.getHours(station, today).fetchedAt),
+      snapshot: snapshotOf(hours, jstHourOf(now), feel, yesterdayHours, store?.getHours(station, today).fetchedAt, { latest: store?.getLatest(station) ?? null, now }),
       baseline: base ? { ...base, alpha: beta.alpha } : null,
       departures: dep ? { air: dep.air, sun: dep.sun, shade: dep.shade } : null,
       history: store ? historyOf(store, station, today).map((p) => (p.forecast ? null : p.mean)) : [],

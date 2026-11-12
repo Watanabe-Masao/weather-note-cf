@@ -38,7 +38,7 @@ export function inputQuality(r: Report): InputQuality {
   const s = r.snapshot;
   if (!s || s.temp == null) return { status: "missing", lagMin: null, flags: ["no-snapshot"], trainable: false, reason: "その時刻の気温がない" };
   const status = statusOf(s.from.temp);
-  const lagMin = Math.round((Date.parse(r.at) - observedAt(s.date, s.hour)) / 60_000);
+  const lagMin = Math.round((Date.parse(r.at) - observedAt(s.date, s.hour) - (s.minute ?? 0) * 60_000) / 60_000);
   const flags: string[] = [];
   if (status === "forecast") flags.push("temp-forecast");
   if (lagMin > MAX_LAG_MIN) flags.push("stale");
