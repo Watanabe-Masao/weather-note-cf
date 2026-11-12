@@ -58,7 +58,12 @@ export const TABLES: Record<string, string> = {
 type Cell = string | number | boolean | null;
 export type Rows = Record<string, Cell[][]>;
 
-const iso = (v: string | number | undefined | null) => (v == null ? null : new Date(v).toISOString());
+/** ISO time, or null for a value that is not a time (one bad report must not stop the build). */
+const iso = (v: string | number | undefined | null) => {
+  if (v == null) return null;
+  const t = new Date(v).getTime();
+  return Number.isFinite(t) ? new Date(t).toISOString() : null;
+};
 
 /**
  * Removes withdrawn people from an export (and from any older export, before it is analysed
@@ -95,7 +100,8 @@ export function anonymous(report: Report): Report {
 
 /** The rows of every table for one export. */
 export function tablesOf(ex: Export, hash: string): Rows {
-  const live = ex.rows.filter((r) => !r.report.deleted);
+  // Reports without a readable time or answer are left out (the server now refuses them; older ones may remain).
+  const live = ex.rows.filter((r) => !r.report.deleted && Number.isFinite(Date.parse(r.report.at)) && Number.isInteger(r.report.sensation));
   const reports: Cell[][] = [];
   const weather: Cell[][] = [];
   const predictions: Cell[][] = [];

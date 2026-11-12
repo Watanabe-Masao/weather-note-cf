@@ -109,6 +109,20 @@ const SCHEMA = [
       WHERE c.user_id = r.user_id AND c.kind = 'research'
       ORDER BY c.at DESC, c.rowid DESC LIMIT 1
     ) = 1`,
+  // v2 (review 2026-11-12): a report made before the person's last withdrawal stays out after they
+  // consent again — it went with the old research ID, and showing it under the new one would tie
+  // the two IDs together (the report ID is the same). The first view stays for old deployments.
+  `CREATE VIEW IF NOT EXISTS research_reports_v2 AS
+    SELECT u.research_id, r.id AS report_id, r.at, r.station, r.sensation, r.exposure, r.wind_felt, r.sky, r.body
+    FROM reports r JOIN users u ON u.id = r.user_id
+    WHERE r.deleted = 0 AND (
+      SELECT c.granted FROM consents c
+      WHERE c.user_id = r.user_id AND c.kind = 'research'
+      ORDER BY c.at DESC, c.rowid DESC LIMIT 1
+    ) = 1 AND r.at > coalesce((
+      SELECT strftime('%Y-%m-%dT%H:%M:%fZ', max(c.at) / 1000.0, 'unixepoch') FROM consents c
+      WHERE c.user_id = r.user_id AND c.kind = 'research' AND c.granted = 0
+    ), '')`,
 ];
 
 // The research data that left the server (#45): every export is logged, and every withdrawal
@@ -315,12 +329,13 @@ async function researchPage(db: Db, adminId: string, path: string, afterParam: s
   } catch {
     throw new Refused("ページの指定が正しくありません。");
   }
+  if (after && !(Array.isArray(after) && after.length === 3 && after.every((v) => typeof v === "string"))) throw new Refused("ページの指定が正しくありません。");
   const rows = (
     await (after
       ? db
-          .prepare("SELECT research_id, report_id, at, body FROM research_reports WHERE (at, research_id, report_id) > (?, ?, ?) ORDER BY at, research_id, report_id LIMIT ?")
+          .prepare("SELECT research_id, report_id, at, body FROM research_reports_v2 WHERE (at, research_id, report_id) > (?, ?, ?) ORDER BY at, research_id, report_id LIMIT ?")
           .bind(after[0], after[1], after[2], RESEARCH_PAGE)
-      : db.prepare("SELECT research_id, report_id, at, body FROM research_reports ORDER BY at, research_id, report_id LIMIT ?").bind(RESEARCH_PAGE)
+      : db.prepare("SELECT research_id, report_id, at, body FROM research_reports_v2 ORDER BY at, research_id, report_id LIMIT ?").bind(RESEARCH_PAGE)
     ).all<{ research_id: string; report_id: string; at: string; body: string }>()
   ).results;
   // The in-app analysis reads every page each time it opens: one line per opening (the first page,
@@ -328,7 +343,7 @@ async function researchPage(db: Db, adminId: string, path: string, afterParam: s
   if (path !== "/api/admin/analysis") {
     await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, ?, ?, ?)").bind(adminId, now, path, after ? 1 : 0, rows.length, dataset).run();
   } else if (!after) {
-    const total = (await db.prepare("SELECT COUNT(*) AS n FROM research_reports").first<{ n: number }>())?.n ?? rows.length;
+    const total = (await db.prepare("SELECT COUNT(*) AS n FROM research_reports_v2").first<{ n: number }>())?.n ?? rows.length;
     await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, 0, ?, NULL)").bind(adminId, now, path, total).run();
   }
   const last = rows[rows.length - 1];
@@ -383,6 +398,29 @@ interface ReportIn {
   sky?: unknown;
 }
 
+const oneOf = (v: unknown, list: readonly string[]) => v === undefined || (typeof v === "string" && list.includes(v));
+const intIn = (v: unknown, lo: number, hi: number) => typeof v === "number" && Number.isInteger(v) && v >= lo && v <= hi;
+
+/**
+ * The values the analysis reads, checked before a report is kept (review 2026-11-12): one bad
+ * report used to stop the research build, and an unknown answer was counted as another one.
+ * Deleted reports (tombstones) only need their time.
+ */
+export function validReport(r: Record<string, unknown>): boolean {
+  if (typeof r.at !== "string" || r.at.length > 40 || !Number.isFinite(Date.parse(r.at))) return false;
+  if (r.deleted === true) return true;
+  if (!intIn(r.sensation, -3, 3)) return false;
+  if (!oneOf(r.thermalPreference, ["warmer", "same", "cooler"]) || !oneOf(r.drinkPreference, ["warm", "either", "cold"])) return false;
+  if (r.preferenceVersion !== undefined && !intIn(r.preferenceVersion, 1, 100)) return false;
+  if (r.scaleVersion !== undefined && !intIn(r.scaleVersion, 1, 100)) return false;
+  const snap = r.snapshot as Record<string, unknown> | null | undefined;
+  if (snap && typeof snap === "object" && snap.minute !== undefined && !intIn(snap.minute, 0, 59)) return false;
+  const c = r.comfort as Record<string, unknown> | null | undefined;
+  if (c && typeof c === "object" && !(Array.isArray(c.probs) && c.probs.length === 7 && c.probs.every((p) => typeof p === "number" && Number.isFinite(p) && p >= 0 && p <= 1)))
+    return false;
+  return true;
+}
+
 export function checkReports(raw: unknown): ReportIn[] {
   if (raw == null) return [];
   if (!Array.isArray(raw)) throw new Refused("記録の形が正しくありません。");
@@ -393,6 +431,12 @@ export function checkReports(raw: unknown): ReportIn[] {
     if (!ok) throw new Refused("記録の形が正しくありません。");
     if (JSON.stringify(r).length > MAX_REPORT_BYTES) throw new Refused("大きすぎる記録があります。");
     return r as ReportIn;
+  }).filter((r) => {
+    // A report with values the analysis cannot read is not kept, but does not block the others
+    // (the whole push failing would stop this person's sync for good).
+    if (validReport(r as unknown as Record<string, unknown>)) return true;
+    console.warn("weather-note: report skipped (values)", r.id);
+    return false;
   });
 }
 
@@ -540,12 +584,15 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       // Taking consent back is also told to the exported copies (#45).
       // The person gets a new research ID: the old one stays withdrawn for good, and consenting
       // again starts under the new one (#55).
+      // One transaction: the answer, and with a withdrawal its record and the new ID, together.
+      const answer = db.prepare("INSERT INTO consents (user_id, kind, version, granted, at) VALUES (?, 'research', ?, ?, ?)").bind(u.id, RESEARCH_CONSENT_VERSION, b.granted ? 1 : 0, now);
       if (!b.granted && (await researchConsent(db, u.id)).granted)
         await db.batch([
           db.prepare("INSERT INTO research_withdrawals (research_id, at, reason) VALUES (?, ?, 'consent-withdrawn')").bind(u.research_id, now),
           db.prepare("UPDATE users SET research_id = ? WHERE id = ?").bind(newId(), u.id),
+          answer,
         ]);
-      await db.prepare("INSERT INTO consents (user_id, kind, version, granted, at) VALUES (?, 'research', ?, ?, ?)").bind(u.id, RESEARCH_CONSENT_VERSION, b.granted ? 1 : 0, now).run();
+      else await answer.run();
       return json({ user: await me(db, u) });
     }
     if (path === "/api/me/delete" && post) {

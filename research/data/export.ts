@@ -39,14 +39,26 @@ while (first || after) {
 }
 
 const ex = purge({ datasetId, exportedAt, rows, withdrawn }, withdrawn);
-// Every earlier copy is trimmed to this one: withdrawn people and deleted reports leave them all.
-for (const { ex: old } of readExports()) {
-  if (old.datasetId === "ds-fixture") continue;
+const earlier = readExports().filter(({ ex: old }) => old.datasetId !== "ds-fixture");
+
+// An export far smaller than the last one (a wrong WN_URL, an empty test server…) would wipe the
+// earlier copies when they are trimmed to it: stop and ask (review 2026-11-12).
+const last = earlier.map((e) => e.ex).sort((a, b) => a.exportedAt - b.exportedAt).at(-1);
+if (last && last.rows.length >= 10 && ex.rows.length < last.rows.length / 2 && process.env.WN_FORCE !== "1") {
+  console.error(`今回は ${ex.rows.length}件で、前回（${last.datasetId}）の ${last.rows.length}件より大きく少ないため、過去の写しを削らずに止めました。取り出し先（WN_URL）を確かめてください。本当に減ったときは WN_FORCE=1 を付けて実行します。`);
+  process.exit(1);
+}
+
+// The new copy first, then every earlier copy trimmed to it (withdrawn people and deleted reports
+// leave them all), and made anonymous again (copies from before #55 kept the account ID).
+writeExport(ex);
+for (const { ex: old } of earlier) {
   const trimmed = trimTo(purge(old, withdrawn), ex);
-  if (trimmed !== old) {
-    writeExport(trimmed);
-    console.log(`${old.datasetId}：${old.rows.length - trimmed.rows.length}件を消しました（撤回・削除）`);
+  const clean = { ...trimmed, rows: trimmed.rows.map((r) => ({ ...r, report: anonymous(r.report) })) };
+  const hadOwner = old.rows.some((r) => "owner" in r.report);
+  if (trimmed !== old || hadOwner) {
+    writeExport(clean);
+    console.log(`${old.datasetId}：${old.rows.length - trimmed.rows.length}件を消しました（撤回・削除）${hadOwner ? "。アカウントの ID を取り除きました" : ""}`);
   }
 }
-writeExport(ex);
 console.log(`${datasetId}：${ex.rows.length}件（${new Set(ex.rows.map((r) => r.researchId)).size}人）を raw/ に保存しました。次は npm run build`);

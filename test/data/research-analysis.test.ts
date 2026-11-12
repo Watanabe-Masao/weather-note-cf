@@ -32,8 +32,8 @@ describe("in-app research analysis", () => {
     rows[0].report = { ...rows[0].report, scaleVersion: 2 }; // one person in a cell of their own
     const csv = sharedCsv(analyse(rows), new Date(0))!;
     expect(csv).toContain("RPS");
-    expect(csv).toContain("版3");
-    expect(csv).not.toContain("版2");
+    expect(csv).not.toContain("版2"); // and 版3 with it (it would give 版2 back by subtraction)
+    expect(csv).not.toContain("版3");
     for (const line of csv.split("\r\n").slice(2).filter(Boolean)) expect(Number(line.split(",").at(-2))).toBeGreaterThanOrEqual(MIN_PEOPLE);
   });
 });
@@ -128,5 +128,16 @@ describe("comfort-3 against comfort-4 on the same reports", () => {
     const c = compareSettings(list, 2);
     expect(c.n).toBe(2);
     expect(Number.isFinite(c.rps3) && Number.isFinite(c.rps4) && Number.isFinite(c.ref)).toBe(true);
+  });
+});
+
+describe("review: no small cell back by subtraction", () => {
+  it("hides a second cell when a section hides one, and shares a cross table only whole", () => {
+    const rows = Array.from({ length: 6 }, (_, p) => [8, 12, 15].map((h, i) => ({ researchId: `p${p}`, report: makeReport(`p${p}-${i}`, h, 10 + h, i - 1) }))).flat();
+    rows[0].report = { ...rows[0].report, scaleVersion: 2 }; // 1 person in 版2, 6 in 版3
+    const csv = sharedCsv(analyse(rows), new Date(0))!;
+    // 版3 would give 版2 back (header total − 版3), so both stay.
+    expect(csv).not.toContain("版2");
+    expect(csv).not.toContain("版3");
   });
 });

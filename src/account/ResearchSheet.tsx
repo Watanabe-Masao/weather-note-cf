@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { analyse, byPerson, type Cell, compareSettings, MIN_PEOPLE, type Row, shareable, sharedCsv } from "../research/analysis";
+import { analyse, byPerson, type Cell, compareSettings, MIN_PEOPLE, type Row, sharedCells, sharedCsv } from "../research/analysis";
 import { ModalSheet } from "../ui/ModalSheet";
 import { api } from "./account";
 
@@ -96,6 +96,7 @@ function Body() {
 
   const sections = [...new Set(a.cells.map((c) => c.section))];
   const canShare = a.people >= MIN_PEOPLE;
+  const okCells = sharedCells(a);
   const share = async () => {
     const csv = sharedCsv(a, new Date());
     if (!csv) return;
@@ -139,7 +140,7 @@ function Body() {
               {a.cells
                 .filter((c) => c.section === s)
                 .map((c) => (
-                  <tr key={c.item} className={canShare && !shareable(c) ? "small" : undefined}>
+                  <tr key={c.item} className={canShare && !okCells.has(c) ? "small" : undefined}>
                     <th scope="row">{c.item}</th>
                     <td>{show(c.value)}</td>
                     <td>{c.people}</td>
@@ -169,7 +170,7 @@ function Body() {
         {canShare ? (
           <>
             <p className="set-help">
-              {MIN_PEOPLE}人以上の集計だけを CSV にして、共有シート（メール・ファイル・メモなど）で送れます。薄く表示している行（{MIN_PEOPLE}人未満）は入りません。
+              {MIN_PEOPLE}人以上の集計だけを CSV にして、共有シート（メール・ファイル・メモなど）で送れます。薄く表示している行（{MIN_PEOPLE}人未満と、差し引きでそれが分かってしまう行）は入りません。
             </p>
             <div className="actions tight">
               <button onClick={() => void share()}>集計を共有する</button>
