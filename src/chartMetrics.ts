@@ -138,7 +138,7 @@ export const CHART_METRICS: ChartMetric[] = [
         tableOnly: true,
         minor: true,
       },
-      // 肌感 for the day: mean of the 日中・昼・夕方 band values (日なた温度 or 日かげ温度).
+      // 肌感 for the day: mean of the 日中・昼・夕方 band values (肌感（日なた） or 肌感（日かげ）).
       { key: "feel", label: "肌感", tone: "feel", value: (_r, hours, feel, station) => daytimeFeel(hours ?? [], feel, station), graphOnly: true },
       // β: the running mean of past daily means (src/beta/adaptation.ts), a thin reference line.
       { key: "baseline", label: "最近の基準β", tone: "mean", value: () => null, history: "baseline", graphOnly: true, thin: true },
@@ -173,7 +173,7 @@ export const CHART_METRICS: ChartMetric[] = [
     ],
   },
   {
-    // 日差し: 全天日射量, the sun's warming power (what 日なた温度 uses). 日照 and 明るさ are their own item.
+    // 日差し: 全天日射量, the sun's warming power (what 肌感（日なた） uses). 日照 and 明るさ are their own item.
     id: "radiation",
     label: "日差し",
     unit: "MJ/㎡",

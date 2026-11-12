@@ -62,7 +62,7 @@ export function inputQuality(r: Report): InputQuality {
           : !r.history?.length
             ? "最近の基準の履歴がない"
             : s.sunTemp == null && s.shadeTemp == null
-              ? "日なた温度・日かげ温度が計算できない"
+              ? "肌感（日なた・日かげ）が計算できない"
               : null;
   return { status, lagMin, flags, trainable: reason == null, reason };
 }

@@ -107,7 +107,7 @@ export interface Snapshot {
   /** W/m². */
   solar: number | null;
   from: Partial<Record<"temp" | "humidity" | "wind" | "solar", Origin>>;
-  /** 日なた温度 / 日かげ温度 for that hour (with the 肌感 settings of the moment). */
+  /** 肌感（日なた） / 肌感（日かげ） for that hour (with the 肌感 settings of the moment). */
   sunTemp: number | null;
   shadeTemp: number | null;
   /** The forecast's weather for that hour (Open-Meteo), to compare with what was seen. */
@@ -131,7 +131,7 @@ export interface Snapshot {
    *  the direct sun on a standing person by the hour's sunshine. Kept beside sunTemp (feel-1) to
    *  compare the two on the same answers before any switch. Absent in older reports. */
   sunIndex2?: number | null;
-  /** How 日なた温度・日かげ温度 were computed (shared/feel.ts: FEEL_TRANSFORM), and when the hours
+  /** How 肌感（日なた・日かげ） were computed (shared/feel.ts: FEEL_TRANSFORM), and when the hours
    *  were fetched (ISO). Kept as they were: a later correction of the weather never rewrites them. */
   transform?: string;
   retrievedAt?: string;

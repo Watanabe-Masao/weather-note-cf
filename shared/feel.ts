@@ -84,7 +84,7 @@ export function radiationOf(row: Record<string, unknown>): number | null {
  * `radiation` (W/m²) adds the sunshine term when the settings say "in the sun"; null means none.
  */
 /**
- * Version of how 日なた温度・日かげ温度 are computed from the weather (MATH-03). Stored with each
+ * Version of how 肌感（日なた・日かげ） are computed from the weather (MATH-03). Stored with each
  * report, so that a report can be read with the method it was made with.
  */
 export const FEEL_TRANSFORM = "feel-1";

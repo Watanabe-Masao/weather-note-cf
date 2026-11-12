@@ -104,7 +104,7 @@ function BaselineBasis({ store, station, date, alpha }: { store: WeatherStore | 
   );
 }
 
-/** One daytime band: inputs, and the 日なた／日かげ温度 they give. */
+/** One daytime band: inputs, and the 肌感（日なた／日かげ） they give. */
 function bandBasis(rows: WeatherRow[], hours: readonly number[], feel: FeelSettings) {
   const hs = rows.filter((r) => hours.includes(r.n));
   const forecast = hs.some((r) => r.type === "forecast");
@@ -160,10 +160,10 @@ function DayBasis({ store, station, date, alpha, feel }: { store: WeatherStore |
 
       <section className="basis-sec" aria-labelledby="basis-feel">
         <h4 id="basis-feel">
-          日なた・日かげの差 <b>{signed(minus(sunMean))} ／ {signed(minus(shadeMean))}℃</b>
+          日なた・日かげの差 <b>{signed(minus(sunMean))} ／ {signed(minus(shadeMean))}</b>
         </h4>
         <p className="basis-note">
-          日中・昼・夕方（この日は {span}。太陽の高さで区切ります）の日なた温度・日かげ温度の平均から基準を引きます。3つの時間帯がそろわないときは出しません。
+          日中・昼・夕方（この日は {span}。太陽の高さで区切ります）の肌感（日なた・日かげ）の平均から基準を引きます。3つの時間帯がそろわないときは出しません。
         </p>
         <div className="basis-scroll">
 <table className="basis-table">
@@ -211,10 +211,10 @@ function DayBasis({ store, station, date, alpha, feel }: { store: WeatherStore |
 </div>
         <ul className="basis-list">
           <li>
-            <b>日なた温度</b>：日かげ温度 ＋ 0.7 × {feel.absorb} × 日射(W/m²) ÷ (10m の風 + 10)（オーストラリア気象局の体感温度の日射項。{feel.absorb} は設定の「日差しの強さ」）
+            <b>肌感（日なた）</b>：肌感（日かげ） ＋ 0.7 × {feel.absorb} × 日射(W/m²) ÷ (10m の風 + 10)（オーストラリア気象局の体感温度の日射項。{feel.absorb} は設定の「日差しの強さ」）
           </li>
           <li>
-            <b>日かげ温度</b>：改良 Missenard 式 37 − (37 − T) ÷ (0.68 − 0.0014H + 1/A) − 0.29T(1 − H/100)、A = 1.76 + 1.4v<sup>0.75</sup>（T 気温℃、H 湿度%、v 人の高さの風 m/s）
+            <b>肌感（日かげ）</b>：改良 Missenard 式 37 − (37 − T) ÷ (0.68 − 0.0014H + 1/A) − 0.29T(1 − H/100)、A = 1.76 + 1.4v<sup>0.75</sup>（T 気温℃、H 湿度%、v 人の高さの風 m/s）
           </li>
           <li>
             <b>人の高さの風</b>：v = 観測の風 × ({PERSON_HEIGHT} ÷ 観測の高さ)<sup>{feel.alpha}</sup>（観測の高さ：実測は設定の {feel.stationHeight}m、予報は10m。指数は設定の「周りの様子」）
@@ -231,23 +231,23 @@ function describeParam(name: string): { what: string; show: (v: number) => strin
   const d = key ? DRIVERS[key as DriverKey] : null;
   switch (kind) {
     case "m0":
-      return { what: "中心（どの要因もふつうのとき）", show: (v) => `${v.toFixed(1)}℃`, effect: false };
+      return { what: "中心（どの要因もふつうのとき）", show: (v) => v.toFixed(1), effect: false };
     case "l0":
-      return { what: "範囲の半分の幅（ふつうのとき）", show: (v) => `${Math.exp(v).toFixed(1)}℃`, effect: false };
+      return { what: "範囲の半分の幅（ふつうのとき）", show: (v) => Math.exp(v).toFixed(1), effect: false };
     case "q0":
-      return { what: "範囲の外の1段階の幅", show: (v) => `${Math.exp(v).toFixed(1)}℃`, effect: false };
+      return { what: "範囲の外の1段階の幅", show: (v) => Math.exp(v).toFixed(1), effect: false };
     case "r0":
-      return { what: "境目のぼやけ", show: (v) => `${Math.exp(v).toFixed(2)}℃`, effect: false };
+      return { what: "境目のぼやけ", show: (v) => Math.exp(v).toFixed(2), effect: false };
     case "wS":
-      return { what: "風が強いときのその場の温度のずれ", show: (v) => `${v.toFixed(1)}℃`, effect: true };
+      return { what: "風が強いときのその場の肌感のずれ", show: (v) => v.toFixed(1), effect: true };
     case "wN":
-      return { what: "風がないときのその場の温度のずれ", show: (v) => `${v.toFixed(1)}℃`, effect: true };
+      return { what: "風がないときのその場の肌感のずれ", show: (v) => v.toFixed(1), effect: true };
     case "中心":
-      return { what: `${d!.label}（${d!.unit}ごとの中心の動き）`, show: (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}℃`, effect: true };
+      return { what: `${d!.label}（${d!.unit}ごとの中心の動き）`, show: (v) => `${v >= 0 ? "+" : ""}${v.toFixed(2)}`, effect: true };
     case "範囲":
       return { what: `${d!.label}（${d!.unit}ごとの範囲の幅の倍率）`, show: (v) => `×${Math.exp(v).toFixed(2)}`, effect: true };
     default:
-      return { what: `${d!.label}（${d!.unit}ごとのその場の温度の上がり）`, show: (v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}℃`, effect: true };
+      return { what: `${d!.label}（${d!.unit}ごとのその場の肌感の上がり）`, show: (v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}`, effect: true };
   }
 }
 
@@ -466,11 +466,11 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   if (!visible || centreUnknown(beta.learning.state)) {
     return (
       <section className="basis-sec">
-        <h4>この日のちょうどよい温度と範囲</h4>
+        <h4>この日のちょうどよい肌感と範囲</h4>
         <p className="set-help">
           {!visible
-            ? "今日のちょうどよい温度は、今日の感じ方を記録した後に表示します（先に見ると、答えがその数字に引っ張られるため）。"
-            : `ちょうどよい温度は、記録からまだ特定できません（${beta.learning.missing.join("、")}）。`}
+            ? "今日のちょうどよい肌感は、今日の感じ方を記録した後に表示します（先に見ると、答えがその数字に引っ張られるため）。"
+            : `ちょうどよい肌感は、記録からまだ特定できません（${beta.learning.missing.join("、")}）。`}
         </p>
         {visible ? <BandCoverage /> : null}
       </section>
@@ -479,7 +479,7 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   if (!x) {
     return (
       <section className="basis-sec">
-        <h4>この日のちょうどよい温度と範囲</h4>
+        <h4>この日のちょうどよい肌感と範囲</h4>
         <p className="basis-note">最近の基準が出せないか、日中の時間別データがないため、出せません。</p>
       </section>
     );
@@ -494,20 +494,20 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   return (
     <section className="basis-sec" aria-labelledby="basis-cday">
       <h4 id="basis-cday">
-        この日のちょうどよい温度と範囲 <b>{f1(st.mu)}℃（{f1(st.mu - st.h)}〜{f1(st.mu + st.h)}）</b>
+        この日のちょうどよい肌感と範囲 <b>{f1(st.mu)}（{f1(st.mu - st.h)}〜{f1(st.mu + st.h)}）</b>
       </h4>
       <ul className="basis-list">
         <li>
           入力：最近の基準 {f1(x.a)}℃、前日の変化 {signed(x.dT1 == null ? null : Math.round(x.dT1 * 10) / 10)}℃、季節の向き {signed(x.trend == null ? null : Math.round(x.trend * 10) / 10)}℃/週、1週間の湿度 {x.h7 == null ? "—" : Math.round(x.h7)}%、前日の湿度 {x.h1 == null ? "—" : Math.round(x.h1)}%、1週間の気温の振れ {f1(x.v7)}℃、前日の日照 {f1(x.sun1)}時間、前日の雨 {f1(x.rain1)}mm、前夜の冷え込み（前日の最低 − 基準） {signed(x.minPrev == null ? null : Math.round(x.minPrev * 10) / 10)}℃、前夜の風（18〜6時の平均） {f1(x.windPrev)}m/s、この日の湿度 {hNow == null ? "—" : Math.round(hNow)}%
         </li>
         <li>
-          重みで混ぜた中心 μ = {f1(st.mu)}℃、範囲の半分 h = {f1(st.h)}℃、外の1段階 g = {f1(st.g)}℃
+          重みで混ぜた中心 μ = {f1(st.mu)}、範囲の半分 h = {f1(st.h)}、外の1段階 g = {f1(st.g)}
         </li>
         <li>
-          いちばん重い {best.model.id} での95%区間：中心 {f1(muLo)}〜{f1(muHi)}℃、範囲の半分 {f1(hLo)}〜{f1(hHi)}℃
+          いちばん重い {best.model.id} での95%区間：中心 {f1(muLo)}〜{f1(muHi)}、範囲の半分 {f1(hLo)}〜{f1(hHi)}
         </li>
-        <li>日中の日なた温度 {f1(sun)}℃：中心から {place(sun)}</li>
-        <li>日中の日かげ温度 {f1(shade)}℃：中心から {place(shade)}</li>
+        <li>日中の肌感（日なた） {f1(sun)}：中心から {place(sun)}</li>
+        <li>日中の肌感（日かげ） {f1(shade)}：中心から {place(shade)}</li>
         {beta.learning.bands ? (
           <li>
             記録の時間帯：{TIME_BANDS.map((t) => `${t.label} ${beta.learning.bands![t.id]}件分`).join("・")}（続けて記録したものは、まとめて少なめに数えています）

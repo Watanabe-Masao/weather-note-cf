@@ -38,7 +38,7 @@ const signed = (v: number) => {
   return r === 0 ? "±0" : `${r > 0 ? "+" : "−"}${Math.abs(r)}`;
 };
 
-/** Per-band difference a − b in 日なた/日かげ温度, null where either side is missing. */
+/** Per-band difference a − b in 肌感（日なた/日かげ）, null where either side is missing. */
 function bandDiffs(a: Band[] | null, b: Band[] | null): (number | null)[] {
   return BANDS.map((_, i) => (a?.[i]?.feel != null && b?.[i]?.feel != null ? a[i].feel! - b[i].feel! : null));
 }
@@ -52,7 +52,7 @@ function useExactBands(store: WeatherStore | null, station: string, date: string
 
 function Summary({ store, station, target, partner }: Props) {
   const settings = useContext(FeelContext);
-  const name = settings.sun ? "日なた温度" : "日かげ温度";
+  const name = settings.sun ? "肌感（日なた）" : "肌感（日かげ）";
   const today = useExactBands(store, station, target);
   const before = useExactBands(store, station, addDays(target, -1));
   const compare = useExactBands(store, station, partner(target));
@@ -94,7 +94,7 @@ function Summary({ store, station, target, partner }: Props) {
       </p>
       {feelSpread != null && (
         <p className="band-spread">
-          寒暖差（{name}） <b>{feelSpread.toFixed(0)}℃</b>
+          寒暖差（{name}） <b>{feelSpread.toFixed(0)}</b>
           {tempSpread != null && <small>　寒暖差（気温） {tempSpread.toFixed(1)}℃</small>}
         </p>
       )}
@@ -102,7 +102,7 @@ function Summary({ store, station, target, partner }: Props) {
         <p className="band-most">
           比較日といちばん違うのは
           <b>
-            {BANDS[most].label}（{signed(vs[most]!)}℃）
+            {BANDS[most].label}（{signed(vs[most]!)}）
           </b>
         </p>
       )}
@@ -113,7 +113,7 @@ function Summary({ store, station, target, partner }: Props) {
           ) : (
             <>
               どの時間区分も比較日より
-              <b>{signed(vs[most]!)}℃</b>
+              <b>{signed(vs[most]!)}</b>
             </>
           )}
         </p>
@@ -220,9 +220,9 @@ function MapGrid({
               className={["band-cell", i === 3 ? "center" : "", isSelected ? "selected" : ""].join(" ")}
               disabled={!pickable}
               onClick={() => a.date && onSelect({ date: a.date, partner: b.date, band: bi })}
-              aria-label={`${a.date} ${band.label} 対象 ${ca?.feel != null ? `${levelName(ca.level!, settings.scale)} ${ca.feel.toFixed(0)}℃` : "なし"}、比較 ${
-                cb?.feel != null ? `${levelName(cb.level!, settings.scale)} ${cb.feel.toFixed(0)}℃` : "なし"
-              }${diff != null ? `、差 ${signed(diff)}℃` : ""}`}
+              aria-label={`${a.date} ${band.label} 対象 ${ca?.feel != null ? `${levelName(ca.level!, settings.scale)} ${ca.feel.toFixed(0)}` : "なし"}、比較 ${
+                cb?.feel != null ? `${levelName(cb.level!, settings.scale)} ${cb.feel.toFixed(0)}` : "なし"
+              }${diff != null ? `、差 ${signed(diff)}` : ""}`}
             >
               {half(a, bi, "a")}
               {half(b, bi, "b")}

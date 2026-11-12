@@ -17,7 +17,7 @@ export const UNIT = {
  * Decimals per unit. One exception, on purpose: hourly radiation has two decimals because an hour's
  * value is small (0.5 MJ/㎡); the day's total keeps one.
  */
-const DIGITS: Record<string, number> = { "℃": 1, mm: 1, cm: 1, "%": 0, "m/s": 1, hPa: 0, "MJ/㎡": 1, h: 1, 時間: 0 };
+const DIGITS: Record<string, number> = { "℃": 1, 肌感: 1, mm: 1, cm: 1, "%": 0, "m/s": 1, hPa: 0, "MJ/㎡": 1, h: 1, 時間: 0 };
 
 export const digitsOf = (unit: string, hourly = false) => (hourly && unit === "MJ/㎡" ? 2 : (DIGITS[unit] ?? 1));
 

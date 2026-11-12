@@ -64,7 +64,7 @@ export function PreferenceDay({ store, station, date, feel }: { store: WeatherSt
       {!visible ? (
         <p className="set-help">今日の選好は、今日の感じ方を記録した後に表示します（先に見ると、答えが引っ張られるため）。</p>
       ) : e == null || !base ? (
-        <p className="basis-note">この日の日なた温度か最近の基準が出せないため、出せません。</p>
+        <p className="basis-note">この日の肌感（日なた）か最近の基準が出せないため、出せません。</p>
       ) : (
         <>
           <ul className="basis-list">
@@ -73,7 +73,7 @@ export function PreferenceDay({ store, station, date, feel }: { store: WeatherSt
             ))}
           </ul>
           <p className="basis-note">
-            日中の日なた温度 {e.toFixed(1)}℃・最近の基準 {base.value.toFixed(1)}℃ のときの予測です。指数は「暖かい方を選ぶ確率 − 涼しい・冷たい方を選ぶ確率」（−1〜+1）。天気だけから出したもので、感じ方とは別に学んでいます。
+            日中の肌感（日なた） {e.toFixed(1)}・最近の基準 {base.value.toFixed(1)}℃ のときの予測です。指数は「暖かい方を選ぶ確率 − 涼しい・冷たい方を選ぶ確率」（−1〜+1）。天気だけから出したもので、感じ方とは別に学んでいます。
           </p>
         </>
       )}

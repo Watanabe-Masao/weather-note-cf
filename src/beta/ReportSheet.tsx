@@ -238,7 +238,7 @@ function PredictionCard({ prediction, reported, learning, station }: { predictio
         {learning.state === "untrained"
           ? "あなたの記録がまだないので、初期値による参考です。"
           : learning.state === "sparse"
-            ? "ちょうどよい温度はまだ特定できません。"
+            ? "ちょうどよい肌感はまだ特定できません。"
             : learning.state === "provisional"
               ? "推定の幅がまだ広い、暫定の予測です。"
               : learning.state === "testable"
@@ -266,8 +266,8 @@ function PredictionCard({ prediction, reported, learning, station }: { predictio
         <p className="predict-sub">まだ足りないもの：{learning.missing.join("、")}。</p>
       ) : (
         <p className="predict-sub">
-          ちょうどよい温度 {st.mu.toFixed(1)}℃
-          {prediction.muInterval ? `（95%：${prediction.muInterval[0].toFixed(1)}〜${prediction.muInterval[1].toFixed(1)}℃）` : ""}
+          ちょうどよい肌感 {st.mu.toFixed(1)}
+          {prediction.muInterval ? `（95%：${prediction.muInterval[0].toFixed(1)}〜${prediction.muInterval[1].toFixed(1)}）` : ""}
           。今は{prediction.z != null ? placeWords(prediction.z) : "—"}
           {prediction.zInterval ? `（位置 ${prediction.z?.toFixed(1)}、95%：${prediction.zInterval[0].toFixed(1)}〜${prediction.zInterval[1].toFixed(1)}。±1が範囲の端）` : ""}。
         </p>

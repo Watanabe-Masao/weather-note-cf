@@ -113,12 +113,12 @@ export function learningFrom(obs: Observation[], days: number, checked: { probs:
   if (!ys.some((y) => y < 0) || !ys.some((y) => y > 0)) missing.push("ちょうどよいより寒い側と暑い側の両方の答え");
   const es = obs.map((o) => o.e);
   const span = Math.max(...es) - Math.min(...es);
-  if (span < LEARNING_RULES.minSpan) missing.push(`温度の幅（今 ${r1(span)}℃、${LEARNING_RULES.minSpan}℃以上）`);
+  if (span < LEARNING_RULES.minSpan) missing.push(`肌感の幅（今 ${r1(span)}、${LEARNING_RULES.minSpan}以上）`);
   if (days < LEARNING_RULES.minDays) missing.push(`記録した日（今 ${days}日、${LEARNING_RULES.minDays}日以上）`);
   const muInterval = muIntervalOf(ens, obs[obs.length - 1]);
   if (missing.length) return { state: "sparse", missing, muInterval };
   const width = muInterval[1] - muInterval[0];
-  if (width > LEARNING_RULES.maxMuWidth) return { state: "provisional", missing: [`ちょうどよい温度の幅（今 ${r1(width)}℃、${LEARNING_RULES.maxMuWidth}℃以下）`], muInterval };
+  if (width > LEARNING_RULES.maxMuWidth) return { state: "provisional", missing: [`ちょうどよい肌感の幅（今 ${r1(width)}、${LEARNING_RULES.maxMuWidth}以下）`], muInterval };
   if (bands < LEARNING_RULES.minBands)
     return { state: "provisional", missing: [`記録の時間帯（${LEARNING_RULES.minPerBand}件以上ある時間帯が今 ${bands}つ、${LEARNING_RULES.minBands}つ以上）`], muInterval };
   // Verified: predictions made in advance while testable, better (RPS) than the plain reference.

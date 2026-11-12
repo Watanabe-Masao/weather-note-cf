@@ -139,7 +139,7 @@ function LevelBand({ thresholds, onChange }: { thresholds: SavedFeel["thresholds
               <button onClick={() => onChange(moveThreshold(thresholds, i, t - STEP))} aria-label={`${LEVELS[i]}と${LEVELS[i + 1]}の境目を0.5度下げる`}>
                 −
               </button>
-              <output aria-live="polite">{t.toFixed(1)}℃</output>
+              <output aria-live="polite">{t.toFixed(1)}</output>
               <button onClick={() => onChange(moveThreshold(thresholds, i, t + STEP))} aria-label={`${LEVELS[i]}と${LEVELS[i + 1]}の境目を0.5度上げる`}>
                 ＋
               </button>
@@ -205,7 +205,7 @@ function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: Wea
   return (
     <section className="set-group" aria-labelledby="set-feel">
       <h3 id="set-feel">肌感の基準</h3>
-      <p className="set-lead">日なた温度・日かげ温度が、どの段階に入るかの境目です。帯の境目を指で動かすか、− ＋ で0.5℃ずつ変えられます。表示のための区分で、ちょうどよい温度と範囲（β）の計算には使いません。</p>
+      <p className="set-lead">肌感（日なた・日かげ）が、どの段階に入るかの境目です。帯の境目を指で動かすか、− ＋ で0.5ずつ変えられます。表示のための区分で、ちょうどよい肌感と範囲（β）の計算には使いません。</p>
       <LevelBand thresholds={saved.thresholds} onChange={(thresholds) => update({ thresholds })} />
       <div className="set-row">
         <span className="set-label">周りの様子</span>
@@ -225,7 +225,7 @@ function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: Wea
           options={SUNSHINE_PRESETS.map((p) => ({ id: String(p.absorb), label: p.label }))}
           onChange={(v) => update({ absorb: Number(v) })}
         />
-        <small className="set-help">日なた温度で、日差しをどれだけ足すか。</small>
+        <small className="set-help">肌感（日なた）で、日差しをどれだけ足すか。</small>
       </div>
       <div className="actions tight">
         <button onClick={() => setSunTest(true)}>日なたの計算を比べる（テスト）</button>
@@ -313,8 +313,8 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
             label="肌感の温度"
             value={sun ? "sun" : "shade"}
             options={[
-              { id: "sun", label: "日なた温度" },
-              { id: "shade", label: "日かげ温度" },
+              { id: "sun", label: "肌感（日なた）" },
+              { id: "shade", label: "肌感（日かげ）" },
             ]}
             onChange={(v) => onSun(v === "sun")}
           />
@@ -339,16 +339,16 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
       {beta.enabled && (
       <section className="set-group" aria-labelledby="set-beta">
         <h3 id="set-beta">
-          ちょうどよい温度と範囲 <span className="beta-tag">β</span>
+          ちょうどよい肌感と範囲 <span className="beta-tag">β</span>
         </h3>
         <p className="set-lead">
-          その瞬間の「ちょうどよい温度」と「ちょうどよい範囲」を推定し、今の日なた温度・日かげ温度がそこからどれだけ離れているかを出します。中心も範囲も、最近の気温への慣れや湿度で動きます。感じ方の記録から学び続ける研究中の計算です（肌感とは別）。
+          その瞬間の「ちょうどよい肌感」と「ちょうどよい範囲」を推定し、今の肌感（日なた・日かげ）がそこからどれだけ離れているかを出します。中心も範囲も、最近の気温への慣れや湿度で動きます。感じ方の記録から学び続ける研究中の計算です（肌感とは別）。
         </p>
         <div className="set-row">
           <span className="set-label">
             学習の段階 <span className={`learn-tag ${beta.learning.state}`}>{LEARNING_LABELS[beta.learning.state]}</span>
             <small className="set-help">
-              件数ではなく中身で決めます：寒い側と暑い側の両方の答え、温度の幅、記録した日、ちょうどよい温度の幅（95%区間）、事前の予測の成績。
+              件数ではなく中身で決めます：寒い側と暑い側の両方の答え、温度の幅、記録した日、ちょうどよい肌感の幅（95%区間）、事前の予測の成績。
               {beta.learning.missing.length ? ` まだ足りないもの：${beta.learning.missing.join("、")}。` : ""}
               {(() => {
                 const live = (reportsList ?? []).filter((r) => !r.deleted);
@@ -358,7 +358,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
                 return ` 学習に使った記録 ${live.length - out.length}件、使わなかった記録 ${out.length}件（${why}）。`;
               })()}
               {beta.learning.muInterval && !centreUnknown(beta.learning.state)
-                ? ` ちょうどよい温度（最新の記録の条件）：95% ${beta.learning.muInterval[0].toFixed(1)}〜${beta.learning.muInterval[1].toFixed(1)}℃。`
+                ? ` ちょうどよい肌感（最新の記録の条件）：95% ${beta.learning.muInterval[0].toFixed(1)}〜${beta.learning.muInterval[1].toFixed(1)}。`
                 : ""}
             </small>
           </span>

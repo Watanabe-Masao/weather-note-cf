@@ -119,7 +119,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       {/* The hour's values above the graph, in the card every graph uses. */}
       <GraphReadout
         live={scrubbing}
-        unit={metric.unit === "h" ? "" : metric.unit}
+        unit={metric.unit === "h" || metric.unit === "肌感" ? "" : metric.unit}
         title={
           <>
             {shownHour}時<small> {mainLabel}{other ? ` / ${otherLabel}` : ""}</small>

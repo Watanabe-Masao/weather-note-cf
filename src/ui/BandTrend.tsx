@@ -1,5 +1,5 @@
 // Band trend graph (spec chapter 5): how each part of the day moved over the seven days.
-// One line per chosen 時間区分 (朝・日中・昼・夕方・夜) in 日なた/日かげ温度: a neutral line family told
+// One line per chosen 時間区分 (朝・日中・昼・夕方・夜) in 肌感（日なた/日かげ）: a neutral line family told
 // apart by marker shape (colour is kept for the feel levels behind them); the comparison day dashed.
 // Line style says which day only (target solid, comparison dashed); forecast days are hatched behind.
 // Missing values leave a gap (never interpolated).
@@ -126,7 +126,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
       )}
       <GraphReadout
         live={touch != null}
-        unit="℃"
+        unit=""
         title={
           <>
             {dateLabel(dates[shownDay])}
@@ -179,7 +179,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
           </g>
         ))}
         <text x={PAD.left - 5} y={PAD.top - 12} textAnchor="end" className="chart-unit">
-          ℃
+          肌感
         </text>
         {/* The selected day: a frame, as in the tables (the background is for 予報 only). */}
         <rect x={x(3) - step / 2 + 1} y={PAD.top} width={step - 2} height={H - PAD.top - PAD.bottom} rx={8} className="chart-center" />
