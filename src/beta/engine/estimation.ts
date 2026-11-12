@@ -112,7 +112,7 @@ export function bfgs(f: (x: number[]) => number, x0: number[], iterations = 200)
 }
 
 /** Numerical Hessian's inverse (Laplace covariance) and its log determinant; null if not positive definite. */
-function laplace(f: (x: number[]) => number, x: number[]): { cov: number[][]; logDet: number } | null {
+export function laplace(f: (x: number[]) => number, x: number[]): { cov: number[][]; logDet: number } | null {
   const n = x.length;
   const eps = 1e-3;
   const H = Array.from({ length: n }, () => Array(n).fill(0));
