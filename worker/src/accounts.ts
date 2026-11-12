@@ -303,6 +303,35 @@ async function deleteAccount(db: Db, who: { id: string; research_id: string }, n
   ]);
 }
 
+/**
+ * One page of the research view, logged (who, when, which page, how many). Paged by key (time,
+ * research ID, report ID), so reports added meanwhile neither repeat nor go missing. Reports
+ * leave without the account they belong to; the first page lists the withdrawn research IDs.
+ */
+async function researchPage(db: Db, adminId: string, path: string, afterParam: string | null, dataset: string | null, now: number) {
+  let after: [string, string, string] | null = null;
+  try {
+    if (afterParam) after = JSON.parse(atob(afterParam.replace(/-/g, "+").replace(/_/g, "/")));
+  } catch {
+    throw new Refused("ページの指定が正しくありません。");
+  }
+  const rows = (
+    await (after
+      ? db
+          .prepare("SELECT research_id, report_id, at, body FROM research_reports WHERE (at, research_id, report_id) > (?, ?, ?) ORDER BY at, research_id, report_id LIMIT ?")
+          .bind(after[0], after[1], after[2], RESEARCH_PAGE)
+      : db.prepare("SELECT research_id, report_id, at, body FROM research_reports ORDER BY at, research_id, report_id LIMIT ?").bind(RESEARCH_PAGE)
+    ).all<{ research_id: string; report_id: string; at: string; body: string }>()
+  ).results;
+  await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, ?, ?, ?)").bind(adminId, now, path, after ? 1 : 0, rows.length, dataset).run();
+  const last = rows[rows.length - 1];
+  const next = rows.length === RESEARCH_PAGE ? btoa(JSON.stringify([last.at, last.research_id, last.report_id])).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : null;
+  const withdrawn = after
+    ? undefined
+    : (await db.prepare("SELECT research_id, at, reason FROM research_withdrawals ORDER BY at").all<{ research_id: string; at: number; reason: string }>()).results.map((w) => ({ researchId: w.research_id, at: w.at, reason: w.reason }));
+  return { exportedAt: now, rows: rows.map((r) => ({ researchId: r.research_id, report: forResearch(JSON.parse(r.body)) })), next, ...(withdrawn ? { withdrawn } : {}) };
+}
+
 async function researchConsent(db: Db, userId: string): Promise<{ granted: boolean; version: number | null; at: number | null }> {
   const c = await db
     .prepare("SELECT granted, version, at FROM consents WHERE user_id = ? AND kind = 'research' ORDER BY at DESC, rowid DESC LIMIT 1")
@@ -491,32 +520,7 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         : null;
       if (!t || t.revoked_at || t.expires_at < now) throw new Refused("取り出し用のトークンが必要です（管理画面で発行。24時間有効）。", 401);
       const q = new URL(req.url).searchParams;
-      const dataset = q.get("dataset")?.slice(0, 80) ?? null;
-      // Pages by key (time, research ID, report ID), so reports added meanwhile neither repeat
-      // nor go missing.
-      let after: [string, string, string] | null = null;
-      try {
-        const a = q.get("after");
-        if (a) after = JSON.parse(atob(a.replace(/-/g, "+").replace(/_/g, "/")));
-      } catch {
-        throw new Refused("ページの指定が正しくありません。");
-      }
-      const rows = (
-        await (after
-          ? db
-              .prepare("SELECT research_id, report_id, at, body FROM research_reports WHERE (at, research_id, report_id) > (?, ?, ?) ORDER BY at, research_id, report_id LIMIT ?")
-              .bind(after[0], after[1], after[2], RESEARCH_PAGE)
-          : db.prepare("SELECT research_id, report_id, at, body FROM research_reports ORDER BY at, research_id, report_id LIMIT ?").bind(RESEARCH_PAGE)
-        ).all<{ research_id: string; report_id: string; at: string; body: string }>()
-      ).results;
-      // Every export is logged: who, when, which page, how many.
-      await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, ?, ?, ?)").bind(t.admin_id, now, path, after ? 1 : 0, rows.length, dataset).run();
-      const last = rows[rows.length - 1];
-      const next = rows.length === RESEARCH_PAGE ? btoa(JSON.stringify([last.at, last.research_id, last.report_id])).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : null;
-      const withdrawn = after
-        ? undefined
-        : (await db.prepare("SELECT research_id, at, reason FROM research_withdrawals ORDER BY at").all<{ research_id: string; at: number; reason: string }>()).results.map((w) => ({ researchId: w.research_id, at: w.at, reason: w.reason }));
-      return json({ exportedAt: now, rows: rows.map((r) => ({ researchId: r.research_id, report: forResearch(JSON.parse(r.body)) })), next, ...(withdrawn ? { withdrawn } : {}) });
+      return json(await researchPage(db, t.admin_id, path, q.get("after"), q.get("dataset")?.slice(0, 80) ?? null, now));
     }
 
     // -- everything below needs a session --
@@ -649,6 +653,12 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         await deleteAccount(db, target, now);
         return json({ id: target.id, deleted: true });
       }
+      if (path === "/api/admin/analysis" && !post) {
+        // The in-app analysis (iPhone only): the same view, read with the administrator's login.
+        // The app keeps it in memory only and never stores it, so a withdrawal reaches it the
+        // next time it is opened.
+        return json(await researchPage(db, u.id, path, new URL(req.url).searchParams.get("after"), null, now));
+      }
       if (path === "/api/admin/export-token") {
         if (post) {
           const b = await body(req);
@@ -662,7 +672,7 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         return json({ active: a ? { expiresAt: a.expires_at } : null });
       }
       if (path === "/api/admin/exports" && !post) {
-        const log = (await db.prepare("SELECT e.at, e.first, e.rows, e.dataset, u.login_id AS admin FROM export_log e LEFT JOIN users u ON u.id = e.admin_id ORDER BY e.id DESC LIMIT 200").all()).results;
+        const log = (await db.prepare("SELECT e.at, e.path, e.first, e.rows, e.dataset, u.login_id AS admin FROM export_log e LEFT JOIN users u ON u.id = e.admin_id ORDER BY e.id DESC LIMIT 200").all()).results;
         return json({ log });
       }
     }

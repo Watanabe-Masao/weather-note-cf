@@ -1,12 +1,14 @@
 // The administrator's screen: issue an account (the password is shown once), reissue a password,
-// stop, restart or delete an account, and issue the token that research/data uses to take the
-// research data out (#55: the data itself is never downloaded here, so a withdrawal can reach every
-// copy).
+// stop, restart or delete an account, open the research analysis (in the app, nothing stored), and
+// issue the token a computer needs to take the research data out (research/data, optional). The
+// row-level data is never downloaded here, so a withdrawal reaches every copy (#55).
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ModalSheet } from "../ui/ModalSheet";
 import { OnceSecret } from "./AccountSection";
+import { ResearchSheet } from "./ResearchSheet";
+import { MIN_PEOPLE } from "../research/analysis";
 import { api } from "./account";
 
 interface Row {
@@ -64,20 +66,20 @@ function ExportToken() {
 
 /** Who exported research data, and when (#45). */
 function ExportLog() {
-  const [log, setLog] = useState<{ at: number; first: number; rows: number; dataset: string | null; admin: string | null }[] | null>(null);
+  const [log, setLog] = useState<{ at: number; path: string; first: number; rows: number; dataset: string | null; admin: string | null }[] | null>(null);
   useEffect(() => {
     api<{ log: NonNullable<typeof log> }>("/api/admin/exports")
       .then((r) => setLog(r.log))
       .catch(() => setLog([]));
   }, []);
-  if (!log?.length) return <small className="set-help">書き出しの記録はまだありません。</small>;
+  if (!log?.length) return <small className="set-help">読み出しの記録はまだありません。</small>;
   return (
     <details className="admin-exports">
-      <summary>書き出しの記録（直近 {log.length}回）</summary>
+      <summary>読み出しの記録（直近 {log.length}回）</summary>
       <ul>
         {log.map((e, i) => (
           <li key={i}>
-            {new Date(e.at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}・{e.admin ?? "（削除された人）"}・{e.rows}件
+            {new Date(e.at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}・{e.admin ?? "（削除された人）"}・{e.path === "/api/admin/analysis" ? "アプリで分析" : "パソコンへ取り出し"}・{e.rows}件
             {e.first ? `（${e.first}件目から）` : ""}
             {e.dataset ? `・${e.dataset}` : ""}
           </li>
@@ -96,6 +98,7 @@ function Body() {
   const [confirm, setConfirm] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [typed, setTyped] = useState("");
+  const [analysis, setAnalysis] = useState(false);
 
   const load = useCallback(() => {
     api<{ users: Row[] }>("/api/admin/users")
@@ -228,9 +231,19 @@ function Body() {
       <section className="set-group" aria-labelledby="admin-research">
         <h3 id="admin-research">研究用データ</h3>
         <p className="set-lead">
-          研究への協力に同意している人の記録だけを、研究用の番号（名前・ログインIDとは別）で取り出します。取り出しはこの画面ではなく、管理者の手元のパソコンで research/data の手順を使います（撤回した人を、取り出した写しからも確実に消すため）。行ごとのデータは手元の外に出さず、外に出すのは5人以上の集計だけです。
+          研究への協力に同意している人の記録だけを、研究用の番号（名前・ログインIDとは別）で、このアプリの中で集計します。開くたびにサーバーの最新の記録から計算し、端末には保存しません（撤回した人は次に開いたとき自動で外れます）。一人ひとりの値は出さず、外に共有できるのは{MIN_PEOPLE}人以上の集計だけです。
         </p>
-        <ExportToken />
+        <div className="actions tight">
+          <button className="primary" onClick={() => setAnalysis(true)}>
+            研究用の分析を開く
+          </button>
+        </div>
+        {analysis ? <ResearchSheet onClose={() => setAnalysis(false)} /> : null}
+        <details className="admin-exports">
+          <summary>パソコンで詳しく分析するとき（任意）</summary>
+          <p className="set-help">パソコンの research/data の手順（DuckDB）で取り出すときだけ、取り出し用のトークンを使います。普段は要りません。行ごとのデータはそのパソコンの外に出さないでください。</p>
+          <ExportToken />
+        </details>
         <ExportLog />
       </section>
     </div>
