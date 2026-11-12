@@ -314,3 +314,24 @@ describe("β: effects the reports cannot tell apart (#35)", { timeout: 60_000 },
     expect(confoundedPairs(fitModel(m2, base)).find(([p, q]) => [p, q].includes("中心:a") && [p, q].includes("中心:h7"))).toBeUndefined();
   });
 });
+
+describe("#62: reports in a row and time bands", () => {
+  it("weighs a run of k reports as k / (1 + (k − 1)·0.5), leaving single reports at 1", async () => {
+    const { burstWeights } = await import("../../src/beta/comfort");
+    const H = 3_600_000;
+    // A run of 3 (15 min apart), a gap, a single, a run of 2 exactly under 2 h apart, a report 2 h later (new run).
+    const w = burstWeights([0, 0.25 * H, 0.5 * H, 10 * H, 30 * H, 31.99 * H, 33.99 * H]);
+    expect(w.map((v) => Math.round(v * 1000) / 1000)).toEqual([0.5, 0.5, 0.5, 1, 0.667, 0.667, 1]);
+    // Order does not matter.
+    expect(burstWeights([0.5 * H, 0, 0.25 * H])).toEqual([0.5, 0.5, 0.5]);
+  });
+
+  it("puts moments in JST bands (morning 5–10, day 10–15, evening 15–19, night 19–5)", async () => {
+    const { bandOf } = await import("../../src/beta/comfort");
+    expect(bandOf("2026-11-12T00:15:00Z")).toBe("morning"); // 09:15 JST
+    expect(bandOf("2026-11-12T03:15:00Z")).toBe("day"); // 12:15
+    expect(bandOf("2026-11-12T06:00:00Z")).toBe("evening"); // 15:00
+    expect(bandOf("2026-11-12T10:00:00Z")).toBe("night"); // 19:00
+    expect(bandOf("2026-11-11T19:59:00Z")).toBe("night"); // 04:59
+  });
+});

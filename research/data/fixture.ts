@@ -43,7 +43,7 @@ export function makeReport(id: string, hour: number, temp: number, y: number, ov
       n: 3,
       alpha: 0.8,
       at: Date.parse(`2026-11-12T${String(hour).padStart(2, "0")}:10:00+09:00`),
-      version: "comfort-3",
+      version: "comfort-4",
       learning: "provisional",
     },
     updatedAt: 1,

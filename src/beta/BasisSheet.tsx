@@ -11,7 +11,7 @@ import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet } from "../ui/ModalSheet";
 import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } from "./adaptation";
-import { beyondRange, centreUnknown, confoundedPairs, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
+import { beyondRange, centreUnknown, LEARNING_RULES, TIME_BANDS, confoundedPairs, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
 import { useCentreVisible } from "./useReports";
 import { BetaContext } from "./settings";
 import { baselineStateOf, driversOfDay } from "./useBaseline";
@@ -435,6 +435,19 @@ function ComfortBasis() {
   );
 }
 
+/** How the person's reports cover the day (#62 B): a centre learned in one band only mixes in
+ *  that band's clothes and activity. */
+function BandCoverage() {
+  const beta = useContext(BetaContext);
+  const b = beta.learning.bands;
+  if (!b) return null;
+  return (
+    <p className="basis-note">
+      記録の時間帯：{TIME_BANDS.map((t) => `${t.label} ${b[t.id]}件`).join("・")}（学習に使う記録。{LEARNING_RULES.minPerBand}件以上の時間帯が{LEARNING_RULES.minBands}つ以上で、検証の段階に進みます）
+    </p>
+  );
+}
+
 /** The day's centre and range (weighted over the models), and where 日なた／日かげ sit. */
 function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null; station: string; date: string; feel: FeelSettings }) {
   const beta = useContext(BetaContext);
@@ -454,6 +467,7 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
             ? "今日のちょうどよい温度は、今日の感じ方を記録した後に表示します（先に見ると、答えがその数字に引っ張られるため）。"
             : `ちょうどよい温度は、記録からまだ特定できません（${beta.learning.missing.join("、")}）。`}
         </p>
+        {visible ? <BandCoverage /> : null}
       </section>
     );
   }
@@ -489,6 +503,11 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
         </li>
         <li>日中の日なた温度 {f1(sun)}℃：中心から {place(sun)}</li>
         <li>日中の日かげ温度 {f1(shade)}℃：中心から {place(shade)}</li>
+        {beta.learning.bands ? (
+          <li>
+            記録の時間帯：{TIME_BANDS.map((t) => `${t.label} ${beta.learning.bands![t.id]}件`).join("・")}（続けて記録したものは、まとめて少なめに数えています）
+          </li>
+        ) : null}
       </ul>
     </section>
   );

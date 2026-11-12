@@ -12,7 +12,7 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { type Drivers, fitEnsemble, learningFrom, MODEL_VERSION, type Observation, predictComfort, weightsAt } from "../../src/beta/comfort";
+import { burstWeights, type Drivers, fitEnsemble, learningFrom, MODEL_VERSION, type Observation, predictComfort, weightsAt } from "../../src/beta/comfort";
 import { toCsv } from "../../src/beta/reports";
 
 const FILE = new URL("./comfort-golden.json", import.meta.url);
@@ -107,6 +107,14 @@ function snapshot() {
     }),
   );
   const empty = predictComfort(fitEnsemble([], 0.8), moments.day, 0, "untrained");
+  // #62 A: the same answers, the first 30 made in runs (every 3rd report starts a run of 3).
+  const H = 3_600_000;
+  const times = obs.map((_, i) => (i < 30 ? Math.floor(i / 3) * 24 * H + (i % 3) * 0.25 * H : (10 + i) * 24 * H));
+  const bw = burstWeights(times);
+  const bursts = fitEnsemble(
+    obs.map((o, i) => ({ ...o, w: bw[i] })),
+    0.8,
+  );
   return {
     modelVersion: MODEL_VERSION,
     fits: ens.fits.map((f) => ({ id: f.model.id, n: f.n, theta: f.theta.map((t) => r(t, 5)), logEvidence: r(f.logEvidence, 5) })),
@@ -123,6 +131,11 @@ function snapshot() {
         ens,
       ).state,
       none: learningFrom([], 0, [], ens).state,
+      oneBand: learningFrom(obs, 25, [], ens, 1).state,
+    },
+    bursts: {
+      weights: bw.slice(0, 6).map((w) => r(w, 6)),
+      fits: bursts.fits.map((f) => ({ id: f.model.id, theta: f.theta.map((t) => r(t, 5)), logEvidence: r(f.logEvidence, 5) })),
     },
     csvColumns: toCsv([]).replace(/^﻿/, "").split("\r\n")[0].split(","),
   };
@@ -161,6 +174,14 @@ describe("#43: the comfort model's behaviour, fixed", { timeout: 120_000 }, () =
       expect(a.n, `${g.id}.n`).toBe(g.n);
       close(a.theta, g.theta, 1e-3, `${g.id}.theta`);
       close(a.logEvidence, g.logEvidence, 1e-3, `${g.id}.logEvidence`);
+    });
+  });
+
+  it("weighs reports made in a row the same (#62: weights exact to 1e-6, θ̂ 1e-3, log evidence 1e-3)", () => {
+    close(now.bursts.weights, golden.bursts.weights, 1e-6, "bursts.weights");
+    golden.bursts.fits.forEach((g, i) => {
+      close(now.bursts.fits[i].theta, g.theta, 1e-3, `bursts.${g.id}.theta`);
+      close(now.bursts.fits[i].logEvidence, g.logEvidence, 1e-3, `bursts.${g.id}.logEvidence`);
     });
   });
 

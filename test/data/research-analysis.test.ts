@@ -13,7 +13,7 @@ describe("in-app research analysis", () => {
     const a = analyse(rowsFor(3));
     expect(a.people).toBe(3);
     expect(a.reports).toBe(9);
-    const rps = a.cells.find((c) => c.item.startsWith("RPS"))!;
+    const rps = a.cells.find((c) => c.item === "RPS（小さいほどよい）・件数で平均")!;
     expect(rps.people).toBe(3);
     expect(rps.reports).toBe(9);
     expect(rps.value).toBeGreaterThan(0);
@@ -50,5 +50,19 @@ describe("learning states without refitting", () => {
       ["暫定", 1],
       ["検証可能", 1],
     ]);
+  });
+});
+
+describe("by person and by report (#62 C)", () => {
+  it("one person who reports a lot moves the by-report average but not the by-person one", () => {
+    const rows = [
+      ...Array.from({ length: 20 }, (_, i) => ({ researchId: "heavy", report: makeReport(`h${i}`, 8 + (i % 8), 12 + i, 3) })),
+      { researchId: "light", report: makeReport("l1", 12, 20, 0) },
+    ];
+    const cells = analyse(rows).cells;
+    const byReport = cells.find((c) => c.item === "偏り（答え − 予測の平均）・件数で平均")!.value as number;
+    const byPerson = cells.find((c) => c.item === "偏り（答え − 予測の平均）・人ごとに平均")!.value as number;
+    expect(byReport).toBeGreaterThan(byPerson);
+    expect(byPerson).toBeCloseTo((3 + 0) / 2, 1);
   });
 });

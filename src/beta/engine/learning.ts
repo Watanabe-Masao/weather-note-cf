@@ -8,6 +8,7 @@ import { referenceProbs, rps } from "./evaluation";
 import { observationsOf } from "./observations";
 import { type Learning, muIntervalOf } from "./prediction";
 import { r1 } from "./util";
+import { inputQuality } from "../quality";
 
 //
 // Not a count of reports: a centre can be found only when the answers lie on both sides of ちょうどよい,
@@ -24,7 +25,36 @@ export const LEARNING_RULES = {
   maxMuWidth: 4,
   /** Predictions made while testable, needed before verdict. */
   minChecked: 20,
+  /** Time bands with at least `minPerBand` reports each, needed to be testable (#62 B): a centre
+   *  learned only in the mornings mixes in the morning's clothes and activity. */
+  minBands: 2,
+  minPerBand: 3,
 } as const;
+
+/** Bands of the day (JST hours) for how evenly a person's reports cover it (#62 B). */
+export const TIME_BANDS = [
+  { id: "morning", label: "朝", from: 5, to: 10 },
+  { id: "day", label: "日中", from: 10, to: 15 },
+  { id: "evening", label: "夕方", from: 15, to: 19 },
+  { id: "night", label: "夜", from: 19, to: 5 },
+] as const;
+export type TimeBand = (typeof TIME_BANDS)[number]["id"];
+
+/** The band of a moment (JST). */
+export function bandOf(at: string | number): TimeBand {
+  const h = new Date(new Date(at).getTime() + 9 * 3_600_000).getUTCHours();
+  return TIME_BANDS.find((b) => (b.from < b.to ? h >= b.from && h < b.to : h >= b.from || h < b.to))!.id;
+}
+
+/** Reports that teach the model, counted by band. */
+export function bandCounts(reports: Report[]): Record<TimeBand, number> {
+  const out = { morning: 0, day: 0, evening: 0, night: 0 } as Record<TimeBand, number>;
+  for (const r of reports) if (!r.deleted && inputQuality(r).trainable) out[bandOf(r.at)]++;
+  return out;
+}
+
+/** How many bands have enough reports. */
+export const bandsCovered = (c: Record<TimeBand, number>) => Object.values(c).filter((n) => n >= LEARNING_RULES.minPerBand).length;
 
 export const LEARNING_LABELS: Record<Learning, string> = {
   untrained: "未学習",
@@ -39,6 +69,8 @@ export interface LearningView {
   /** What is still missing, in words (empty when nothing is). */
   missing: string[];
   muInterval: [number, number] | null;
+  /** Reports that teach the model, by band of the day (absent when not known). */
+  bands?: Record<TimeBand, number>;
 }
 
 
@@ -50,11 +82,12 @@ export function learningOf(reports: Report[], ens: Ensemble): LearningView {
     .map((r, i) => ({ r, earlier: same.slice(0, i).map((x) => x.sensation as number) }))
     .filter(({ r }) => r.comfort && (r.comfort.learning === "testable" || r.comfort.learning === "verified"))
     .map(({ r, earlier }) => ({ probs: r.comfort!.probs, y: r.sensation as number, earlier }));
-  return learningFrom(observationsOf(reports, ens.alpha), new Set(live.map((r) => r.at.slice(0, 10))).size, checked, ens);
+  const bands = bandCounts(live);
+  return { ...learningFrom(observationsOf(reports, ens.alpha), new Set(live.map((r) => r.at.slice(0, 10))).size, checked, ens, bandsCovered(bands)), bands };
 }
 
 /** The rule itself, on observations (testable without whole reports). */
-export function learningFrom(obs: Observation[], days: number, checked: { probs: number[]; y: number; earlier: number[] }[], ens: Ensemble): LearningView {
+export function learningFrom(obs: Observation[], days: number, checked: { probs: number[]; y: number; earlier: number[] }[], ens: Ensemble, bands: number = TIME_BANDS.length): LearningView {
   if (!obs.length) return { state: "untrained", missing: ["感じ方の記録がまだありません"], muInterval: null };
   const missing: string[] = [];
   const ys = obs.map((o) => o.y);
@@ -67,6 +100,8 @@ export function learningFrom(obs: Observation[], days: number, checked: { probs:
   if (missing.length) return { state: "sparse", missing, muInterval };
   const width = muInterval[1] - muInterval[0];
   if (width > LEARNING_RULES.maxMuWidth) return { state: "provisional", missing: [`ちょうどよい温度の幅（今 ${r1(width)}℃、${LEARNING_RULES.maxMuWidth}℃以下）`], muInterval };
+  if (bands < LEARNING_RULES.minBands)
+    return { state: "provisional", missing: [`記録の時間帯（${LEARNING_RULES.minPerBand}件以上ある時間帯が今 ${bands}つ、${LEARNING_RULES.minBands}つ以上）`], muInterval };
   // Verified: predictions made in advance while testable, better (RPS) than the plain reference.
   if (checked.length < LEARNING_RULES.minChecked)
     return { state: "testable", missing: [`検証用の予測（今 ${checked.length}件、${LEARNING_RULES.minChecked}件以上）`], muInterval };

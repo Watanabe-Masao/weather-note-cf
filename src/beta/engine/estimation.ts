@@ -6,6 +6,8 @@ import { type ModelSpec, paramNames, placeTemp, type Prior, priorFor, probabilit
 
 export interface Observation extends Drivers {
   y: number; // −3…+3
+  /** Weight in the likelihood (default 1). Reports made in a row share one answer's worth (#62). */
+  w?: number;
 }
 
 const LOG_2PI = Math.log(2 * Math.PI);
@@ -15,7 +17,7 @@ const LOG_2PI = Math.log(2 * Math.PI);
 export function negLogJoint(m: ModelSpec, theta: Theta, obs: Observation[], prior: Prior): number {
   let v = 0;
   for (let i = 0; i < theta.length; i++) v += ((theta[i] - prior.mean[i]) / prior.sd[i]) ** 2 / 2 + Math.log(prior.sd[i]) + LOG_2PI / 2;
-  for (const o of obs) v -= Math.log(probabilities(stateOf(m, theta, o), placeTemp(m, theta, o))[o.y + 3]);
+  for (const o of obs) v -= (o.w ?? 1) * Math.log(probabilities(stateOf(m, theta, o), placeTemp(m, theta, o))[o.y + 3]);
   return v;
 }
 

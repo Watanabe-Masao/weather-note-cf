@@ -18,7 +18,7 @@ import { r1, r2 } from "./util";
 //   Var(Y) = E_θ[Var(Y | θ)]  (answers)  +  Var_θ[E(Y | θ)]  (parameters)
 
 /** Version of the prediction (stored with every report, so past predictions stay readable). */
-export const MODEL_VERSION = "comfort-3"; // 3: missing inputs leave models out instead of reading as typical
+export const MODEL_VERSION = "comfort-4"; // 4: reports in a row weigh less, time bands gate testable (#62); 3: missing inputs leave models out
 /** Parameter draws per model. */
 export const DRAWS = 200;
 

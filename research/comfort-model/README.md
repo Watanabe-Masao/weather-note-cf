@@ -3,6 +3,7 @@
 | ファイル | 中身 |
 | --- | --- |
 | [mathematical-contract.md](mathematical-contract.md) | 数学的正本（MATH-01〜08、決定の記録、変更の記録） |
+| [bursts.ts](bursts.ts) | 続けて記録したものの重みの検証（#62。`npx vite-node research/comfort-model/bursts.ts` → [bursts-results.md](bursts-results.md)） |
 | [synthetic.ts](synthetic.ts) | 合成データによる検証（`npx vite-node research/comfort-model/synthetic.ts`、乱数は固定） |
 | [synthetic-results.md](synthetic-results.md) | その結果の表（スクリプトが書き出す） |
 | [promotion.md](promotion.md) | モデルを本番に採用する手順（#47）と、実験の記録（[experiments/](experiments/)、形は [manifest.ts](manifest.ts)） |
