@@ -2,7 +2,7 @@
 // consent, the sync status, the administrator's screen and logging out.
 
 import { type FormEvent, useState } from "react";
-import { deleteAccountAndLeave, syncNow, logOutAndLeave, useSync } from "../beta/useSync";
+import { DELETION_NOTE_KEY, deleteAccountAndLeave, syncNow, logOutAndLeave, useSync } from "../beta/useSync";
 import { AdminSheet } from "./AdminSheet";
 import { NotifySection } from "./NotifySection";
 import { Segmented } from "../ui/kit";
@@ -205,6 +205,20 @@ function DeleteAccount() {
   );
 }
 
+/** After an account deletion whose local clean-up did not finish: told once (review 2026-11-12). */
+function DeletionNote() {
+  const [note] = useState(() => {
+    try {
+      const n = localStorage.getItem(DELETION_NOTE_KEY);
+      if (n) localStorage.removeItem(DELETION_NOTE_KEY);
+      return n;
+    } catch {
+      return null;
+    }
+  });
+  return note ? <p className="warn">{note}</p> : null;
+}
+
 export function AccountSection() {
   const { me, status } = useAccount();
   const [admin, setAdmin] = useState(false);
@@ -219,6 +233,7 @@ export function AccountSection() {
             感じ方の記録と「ちょうどよい温度と範囲 β」は、発行されたIDとパスワードでログインした人だけが使えます。天気の表示はログインなしで使えます。
             {kept ? ` 送れなかった記録 ${kept}件はこの端末に残しています（次のログインで送ります）。` : ""}
           </p>
+          <DeletionNote />
           {status === "unknown" ? <p className="set-help">確認しています…</p> : <LoginForm />}
         </>
       ) : (
