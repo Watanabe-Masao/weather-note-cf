@@ -248,8 +248,8 @@ export interface ReadoutRow {
   mark?: BandMark;
   /** This row's unit, when it differs from the card's. */
   unit?: string;
-  a: string;
-  b?: string;
+  a: ReactNode;
+  b?: ReactNode;
   diff?: string;
 }
 
@@ -273,7 +273,7 @@ export function GraphReadout({ title, rows, unit, live }: { title: ReactNode; ro
             </span>
             <span className="ro-v" style={r.mark ? undefined : { color: r.color }}>
               {r.a}
-              {r.a !== "—" && (r.unit ?? unit) && <small className="unit">{r.unit ?? unit}</small>}
+              {typeof r.a === "string" && r.a !== "—" && (r.unit ?? unit) && <small className="unit">{r.unit ?? unit}</small>}
             </span>
             <span className="ro-v ro-b" style={r.mark ? undefined : { color: r.color }}>
               {r.b ?? "—"}
