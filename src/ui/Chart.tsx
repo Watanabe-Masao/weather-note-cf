@@ -272,7 +272,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             };
           })}
       />
-      <svg width={w} height={H} role="img" aria-label={`${metric.label}の日別グラフ`}>
+      <svg width={w} height={H} role="img" aria-label={`${metric.title ?? metric.label}の日別グラフ`}>
         {/* centre day */}
         <defs>
           <ForecastHatch id={`fc-${metric.id}`} />

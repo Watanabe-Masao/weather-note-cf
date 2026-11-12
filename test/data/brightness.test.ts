@@ -8,7 +8,7 @@ const row = (n: number, over: Partial<WeatherRow> = {}): WeatherRow => ({ date: 
 
 describe("the scale", () => {
   it("puts one level per power of ten (ten times the light, one step brighter)", () => {
-    expect(BRIGHTNESS_LEVELS.map((l) => l.label)).toEqual(["暗い", "薄明", "薄暗い", "明るい", "とても明るい", "まぶしい"]);
+    expect(BRIGHTNESS_LEVELS.map((l) => l.label)).toEqual(["暗い", "薄明", "薄暗い", "明るい", "とても明るい", "日差しの明るさ"]);
     expect(brightnessIndex(1)).toBeCloseTo(1, 9);
     expect(brightnessIndex(100)).toBeCloseTo(2, 9);
     expect(brightnessIndex(1_000)).toBeCloseTo(3, 9);
@@ -145,9 +145,10 @@ describe("adaptation over days (いつもと比べて)", () => {
     expect(usualShort(2.14)).toBe("×2.1");
     expect(usualShort(1.02)).toBe("≈");
   });
-  it("is a row under the 日差し graph only (no line, no table row)", async () => {
+  it("is a row under the 日照時間と明るさ graph only (no line, no table row)", async () => {
     const { chartMetricById, graphSeries, tableSeries } = await import("../../src/chartMetrics");
-    const m = chartMetricById("radiation");
+    const m = chartMetricById("light");
+    expect(chartMetricById("radiation").under).toBeUndefined();
     expect(m.under!.map((u) => u.key)).toContain("usualLight");
     expect(graphSeries(m).map((s) => s.key)).not.toContain("usualLight");
     expect(tableSeries(m).map((s) => s.key)).not.toContain("usualLight");

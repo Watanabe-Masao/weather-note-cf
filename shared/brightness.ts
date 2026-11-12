@@ -3,7 +3,10 @@
 // The eye answers to ratios, not differences (Weber–Fechner): ten times the light reads as one
 // step brighter. So the felt brightness is a scale of levels cut by powers of ten, and inside a
 // level by the logarithm of the light:
-//   暗い < 1 lx ≤ 薄明 < 100 ≤ 薄暗い < 1,000 ≤ 明るい < 1万 ≤ とても明るい < 5万 ≤ まぶしい
+//   暗い < 1 lx ≤ 薄明 < 100 ≤ 薄暗い < 1,000 ≤ 明るい < 1万 ≤ とても明るい < 5万 ≤ 日差しの明るさ
+// The levels name the amount of light, not a feeling: the top is the light of open sunshine (most
+// sunny noons, winter too), not "まぶしい" — glare depends on where one looks and what the eye is
+// used to, which the step-out impression (STEP_OUT) is for.
 // as a continuous index 0–6 (one unit per level), which is what the graphs draw.
 //
 // The same inputs for every day: a record and a forecast are compared side by side, so the light is
@@ -39,7 +42,7 @@ export const BRIGHTNESS_LEVELS = [
   { id: "dim", label: "薄暗い", from: 100, example: "厚い雲の夕方" },
   { id: "bright", label: "明るい", from: 1_000, example: "曇りの昼" },
   { id: "veryBright", label: "とても明るい", from: 10_000, example: "晴れの朝夕・冬の昼" },
-  { id: "dazzling", label: "まぶしい", from: 50_000, example: "晴れの昼" },
+  { id: "dazzling", label: "日差しの明るさ", from: 50_000, example: "晴れの昼" },
 ] as const;
 /** The top of the scale (index 6): the brightest sun on open ground. */
 const TOP = 130_000;
