@@ -16,3 +16,28 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+
+  # The app in a real browser (e2e/e2e.py): every screen and the main flows, at two phone widths,
+  # against the built app with made-up weather. Screenshots are kept when it fails.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: npm ci
+      - run: pip install playwright==1.49.1
+      - run: python -m playwright install --with-deps chromium
+      - run: npx vite build
+      - run: python3 e2e/e2e.py 390
+      - run: python3 e2e/e2e.py 360
+      - if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-shots
+          path: e2e/shots

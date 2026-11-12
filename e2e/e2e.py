@@ -150,7 +150,7 @@ with sync_playwright() as p:
 
     # B. every item chip
     def bb():
-        for i, label in enumerate(["気温", "降水", "日差し", "明るさ", "湿度", "風速", "気圧"]):
+        for i, label in enumerate(["気温", "降水", "日差し", "日照", "湿度", "風速", "気圧"]):
             pg.click(f".metrics .chip:nth-child({i+1})"); wait(500)
             check(f"B{i+1} {label}: チップがオン", "on" in pg.locator(f".metrics .chip:nth-child({i+1})").get_attribute("class"))
             check(f"B{i+1} {label}: シート見出し", title().startswith(label), title())
@@ -179,7 +179,7 @@ with sync_playwright() as p:
         pg.locator(".chart-hit").nth(7).click(force=True); wait(700)
         check("D1 日をタップで時間帯", title().endswith("の時間帯"), title())
         check("D2 戻るボタン", pg.locator(".back-btn").count() == 1)
-        for i, label in enumerate(["気温", "降水", "日差し", "明るさ", "湿度", "風速", "気圧"]):
+        for i, label in enumerate(["気温", "降水", "日差し", "日照時間と明るさ", "湿度", "風速", "気圧"]):
             pg.click(f".metrics .chip:nth-child({i+1})"); wait(500)
             check(f"D3 時間帯 {label}", title() == f"{label}の時間帯" and pg.locator(".day-chart > svg").count() == 1, title())
         pg.click(".metrics .chip:nth-child(1)"); wait(300)
@@ -388,6 +388,30 @@ with sync_playwright() as p:
         check("P4 肌感マップを横スワイプで1日進む", c() != before and pg.locator(".msheet").count() == 1, f"{before}→{c()}")
         esc()
     step("P", pp)
+
+    # T. 日照 › 移り変わり (時刻で・明るさで, 1週間〜1年)
+    def tt():
+        pg.click(".metrics .chip:nth-child(4)"); wait(600)
+        check("T1 日照の日別に［移り変わり］", pg.locator(".trend-btn").count() == 1, title())
+        pg.click(".trend-btn"); wait(700)
+        check("T2 見出し", title() == "明るさの移り変わり", title())
+        check("T3 時刻で：見出しが分で言う", "分" in txt(".lt-head-main"), txt(".lt-head-main"))
+        check("T4 時刻で：グラフ", pg.locator(".light-trend svg.lt-chart").count() == 1)
+        for span in ["1か月", "1年", "1週間"]:
+            pg.locator(".lt-controls button", has_text=span).click(); wait(500)
+            check(f"T5 時刻で {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())
+        pg.locator(".lt-controls button", has_text="明るさで").click(); wait(600)
+        check("T6 明るさで：読み取りに長さ", "長さ" in txt(".light-trend .readout-card"), txt(".light-trend .readout-card"))
+        for span in ["1か月", "1年", "1週間"]:
+            pg.locator(".lt-controls button", has_text=span).click(); wait(700)
+            check(f"T7 明るさで {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())
+        pg.locator(".lt-controls button", has_text="時刻で").click(); wait(400)
+        pg.click(".back-btn"); wait(600)
+        check("T8 ‹日別で戻る", title() == "日照時間と明るさの日別", title())
+        pg.click(".metrics .chip:nth-child(3)"); wait(500)
+        check("T9 日差しには［移り変わり］がない", pg.locator(".trend-btn").count() == 0)
+        pg.click(".metrics .chip:nth-child(1)"); wait(400)
+    step("T", tt)
 
     check("Z コンソールのエラーなし", not errors, "; ".join(errors[:5]))
     b.close()
