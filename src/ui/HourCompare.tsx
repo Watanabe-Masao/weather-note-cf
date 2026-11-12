@@ -4,7 +4,7 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
-import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, hourLight } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, hourLight, stepOutFeel } from "../../shared/brightness";
 import { stationLatLon } from "../../shared/sunTimes";
 import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
@@ -163,6 +163,14 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                   b: other ? (lightOther[shownHour - 1] == null ? "—" : brightnessLevel(lightOther[shownHour - 1]!).label) : "—",
                   diff: other ? brightnessRatio(lightMain[shownHour - 1], lightOther[shownHour - 1]) : "",
                 },
+                // The first impression on stepping out of a lit room (about 500 lx; shared/brightness.ts).
+                {
+                  key: "stepOut",
+                  label: "外に出たとき",
+                  unit: "",
+                  a: stepOutFeel(lightMain[shownHour - 1]) ?? "—",
+                  b: other ? (stepOutFeel(lightOther[shownHour - 1]) ?? "—") : "—",
+                },
               ]
             : []),
           ...(metricId === "rain" && chance.some((p) => p.v != null)
@@ -316,6 +324,7 @@ function LightStrip({ main, other, shownHour }: { main: (number | null)[]; other
       <span className="light-title">明るさ</span>
       {row("対象", main)}
       {other && row("比較", other)}
+      <p className="light-note">「外に出たとき」は、室内（約500lx）に慣れた目で外に出た直後の感じ方です。目はその後、明るさには数分、暗さには10〜30分で慣れます。</p>
       <p className="light-legend">
         {BRIGHTNESS_LEVELS.map((l, i) => (
           <span key={l.id}>
@@ -499,9 +508,6 @@ function HourChart({
         <rect x={xOf(set)} width={Math.max(0, xOf(dusk) - xOf(set))} y={plotTop} height={plotBottom - plotTop} className="day-twilight" />
         {/* The sun's height through the day, and its highest point. */}
         {sunPath && <path d={sunPath} className="day-sun" />}
-        <text x={xOf(day.edges.noon / 60)} y={sunY(day.edges.noonAltitude) - 4} textAnchor="middle" className="day-sun-label">
-          南中 {Math.round(day.edges.noonAltitude)}°
-        </text>
         {/* The five parts of the day (by the sun's height), named along the top. */}
         {day.parts.map((p) => {
           const from = clip(p.from);
@@ -570,6 +576,10 @@ function HourChart({
           </>
         )}
 
+        {/* The sun's highest point, in front of bars and lines (it was hidden behind 日差し's bars). */}
+        <text x={xOf(day.edges.noon / 60)} y={sunY(day.edges.noonAltitude) - 4} textAnchor="middle" className="day-sun-label">
+          南中 {Math.round(day.edges.noonAltitude)}°
+        </text>
         {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
           <text key={h} x={xOf(h)} y={H - 8} textAnchor="middle" className="chart-x">
             {h}

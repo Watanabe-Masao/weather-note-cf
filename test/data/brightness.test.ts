@@ -75,3 +75,18 @@ describe("light from the sun and the sky", () => {
     expect(dayBrightness([], "47893")).toEqual({ daytime: null, brightHours: null });
   });
 });
+
+describe("stepping out of a lit room (adaptation)", () => {
+  it("judges the outdoors against about 500 lx: sun dazzles, dusk is dim, night is dark", async () => {
+    const { INDOOR_LUX, adaptedResponse, stepOutFeel } = await import("../../shared/brightness");
+    expect(adaptedResponse(INDOOR_LUX)).toBeCloseTo(0.5, 9); // half response at the adapted light
+    expect(adaptedResponse(50_000)).toBeGreaterThan(0.9);
+    expect(stepOutFeel(brightnessIndex(80_000))).toBe("まぶしい");
+    expect(stepOutFeel(brightnessIndex(20_000))).toBe("少しまぶしい");
+    expect(stepOutFeel(brightnessIndex(3_000))).toBe("明るい");
+    expect(stepOutFeel(brightnessIndex(500))).toBe("室内並み");
+    expect(stepOutFeel(brightnessIndex(60))).toBe("薄暗い");
+    expect(stepOutFeel(brightnessIndex(0.03))).toBe("暗い");
+    expect(stepOutFeel(null)).toBeNull();
+  });
+});
