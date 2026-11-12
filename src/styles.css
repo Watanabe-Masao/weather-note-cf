@@ -1122,9 +1122,17 @@ button.label-feel.shade small {
 /* The sun's height through the day: a faint hill along the bottom of the graph. */
 .day-sun { fill: var(--data-sun, #e8b44a); fill-opacity: 0.1; stroke: var(--data-sun, #e8b44a); stroke-opacity: 0.45; stroke-width: 1; }
 .day-sun-label { fill: var(--ink-tertiary); font-size: 9px; }
-/* 明るさ: the six levels as bands, darker to lighter (opacity set per band), named at the left. */
-.light-band { fill: var(--data-light, #ece2c4); }
-.light-band-label { fill: var(--ink-tertiary); font-size: 9px; }
+/* 明るさ under the 日差し graph: 24 cells per day, aligned with the plot (left 34px, right 10px). */
+.light-strip { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.light-title { font-size: 12px; color: var(--ink-secondary); }
+.light-row { display: flex; align-items: center; }
+.light-row-label { width: 34px; font-size: 11px; color: var(--ink-tertiary); }
+.light-cells { flex: 1; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 1px; margin-right: 10px; }
+.light-cells i { height: 18px; border-radius: 2px; }
+.light-cells i.on { outline: 1.5px solid var(--ink-primary); outline-offset: -1px; }
+.light-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 0 34px; font-size: 10px; color: var(--ink-tertiary); }
+.light-legend span { display: inline-flex; align-items: center; gap: 3px; }
+.light-legend i { width: 10px; height: 10px; border-radius: 2px; border: 1px solid var(--line-soft); }
 .day-band-edge { stroke: var(--line-soft); }
 
 .day-band-label {

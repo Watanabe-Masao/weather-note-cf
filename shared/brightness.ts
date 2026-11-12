@@ -12,7 +12,11 @@
 //   - with the sun up and no radiation: a clear-sky model from the sun's altitude (IES: direct
 //     127,500·e^(−0.21/sin h)·sin h plus diffuse 800 + 15,500·√sin h), times a cloud factor;
 //   - in twilight and at night: a clear-sky table by the sun's altitude (published measurements,
-//     from about 700 lx at sunrise to starlight 0.001 lx at −18°), times the cloud factor.
+//     from about 700 lx at sunrise to starlight 0.001 lx at −18°), times the cloud factor — but never
+//     below the night sky over a town (NIGHT_SKY): stars, airglow and the town's light scattered back
+//     by the air, about 0.003 lx under a clear sky, and about ten times that under cloud, which
+//     reflects the street lights down. The bottom of the scale (0.0001 lx) is true darkness, which a
+//     town's night never reaches.
 // The cloud factor comes from the hour's sunshine (日照, 0–1 h) when there is one, else from its
 // weather text (晴 1, 曇 0.35, 雨・雪 0.2), else 0.7. The moon is left out (up to 0.3 lx at full moon).
 // The sun's altitude is taken at the middle of the hour (JMA hour n covers n−1 to n o'clock).
@@ -23,7 +27,7 @@ import { DEFAULT_LAT_LON, solarAltitude, stationLatLon } from "./sunTimes";
 import type { WeatherRow } from "./types";
 
 export const BRIGHTNESS_LEVELS = [
-  { id: "dark", label: "暗い", from: 0.001, example: "月・星明かり" },
+  { id: "dark", label: "暗い", from: 0.0001, example: "町の夜空・月明かり（真っ暗は 0.0001lx）" },
   { id: "twilight", label: "薄明", from: 1, example: "日の出前・日没後" },
   { id: "dim", label: "薄暗い", from: 100, example: "厚い雲の夕方" },
   { id: "bright", label: "明るい", from: 1_000, example: "曇りの昼" },
@@ -33,6 +37,16 @@ export const BRIGHTNESS_LEVELS = [
 /** The top of the scale (index 6): the brightest sun on open ground. */
 const TOP = 130_000;
 const EDGES = [...BRIGHTNESS_LEVELS.map((l) => l.from), TOP];
+
+/**
+ * The night sky over a town (lux): clear about 0.003 (stars, airglow, a little sky glow), overcast
+ * about 0.03 (the town's light reflected by the clouds). In between by the cloud factor (log).
+ */
+export const NIGHT_SKY = { clear: 0.003, overcast: 0.03 } as const;
+export function nightSkyLux(factor: number): number {
+  const t = Math.min(1, Math.max(0, (1 - factor) / (1 - 0.35)));
+  return NIGHT_SKY.clear * (NIGHT_SKY.overcast / NIGHT_SKY.clear) ** t;
+}
 
 /** Lux → the felt index 0–6 (log-linear inside each level). */
 export function brightnessIndex(lux: number): number {
@@ -52,9 +66,10 @@ export function luxOf(index: number): number {
 /** The level of an index (its name). */
 export const brightnessLevel = (index: number) => BRIGHTNESS_LEVELS[Math.min(5, Math.max(0, Math.floor(index)))];
 
-/** "約3万lx", "約450lx", "1lx未満". */
+/** "約3万lx", "約450lx", "約0.03lx". */
 export function luxText(lux: number): string {
-  if (lux < 1) return "1lx未満";
+  if (lux < 0.001) return "0.001lx未満";
+  if (lux < 1) return `約${Number(lux.toPrecision(1))}lx`;
   if (lux >= 10_000) return `約${Math.round(lux / 10_000)}万lx`;
   const d = 10 ** Math.max(0, Math.floor(Math.log10(lux)) - 1);
   return `約${(Math.round(lux / d) * d).toLocaleString("ja-JP")}lx`;
@@ -68,6 +83,12 @@ export function luxShort(lux: number): string {
   const d = 10 ** Math.max(0, Math.floor(Math.log10(lux)) - 1);
   return String(Math.round(lux / d) * d);
 }
+
+/** The axis tag of a felt index: its lux, short enough for the narrow tag ("3万lx", "0.03lx"). */
+export const luxTag = (index: number) => {
+  const lux = luxOf(index);
+  return lux < 1 ? `${Number(lux.toPrecision(1))}lx` : `${luxShort(lux)}lx`;
+};
 
 /** How many times brighter a is than b (indices): "2.5倍", "0.4倍", "同じ"; "" when either is missing. */
 export function brightnessRatio(a: number | null | undefined, b: number | null | undefined): string {
@@ -150,7 +171,8 @@ export function hourLight(row: WeatherRow, station: string | null | undefined): 
     lux = Math.max(radiation * LUMINOUS_EFFICACY, twilightLux(altitude) * cloudFactor(row));
     from = "radiation";
   } else {
-    lux = clearSkyLux(altitude) * cloudFactor(row);
+    const f = cloudFactor(row);
+    lux = Math.max(clearSkyLux(altitude) * f, nightSkyLux(f));
     from = "sky";
   }
   return { lux, index: brightnessIndex(lux), from, altitude };

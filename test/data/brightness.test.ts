@@ -1,7 +1,7 @@
 // The felt brightness (shared/brightness.ts): lux from the sun and the sky, and its six levels.
 
 import { describe, expect, it } from "vitest";
-import { BRIGHTNESS_LEVELS, brightnessIndex, brightnessLevel, brightnessText, clearSkyLux, cloudFactor, dayBrightness, hourLight, luxOf, luxText, twilightLux } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, NIGHT_SKY, brightnessIndex, brightnessLevel, brightnessText, clearSkyLux, cloudFactor, dayBrightness, hourLight, luxOf, luxText, twilightLux } from "../../shared/brightness";
 import type { WeatherRow } from "../../shared/types";
 
 const row = (n: number, over: Partial<WeatherRow> = {}): WeatherRow => ({ date: "2026-06-21", n, type: "actual", provider: "test", raw: {}, quality: {}, ...over }) as WeatherRow;
@@ -15,13 +15,16 @@ describe("the scale", () => {
     expect(brightnessIndex(10_000)).toBeCloseTo(4, 9);
     expect(brightnessIndex(50_000)).toBeCloseTo(5, 9);
     expect(brightnessIndex(10)).toBeCloseTo(1.5, 9); // halfway in log
+    expect(brightnessIndex(0.0001)).toBe(0); // true darkness: the bottom
+    expect(brightnessIndex(0.01)).toBeCloseTo(0.5, 9); // 暗い spans 0.0001–1 lx
     expect(brightnessIndex(1e-9)).toBe(0);
     expect(brightnessIndex(1e9)).toBe(6);
   });
   it("turns back into lux, and reads in words", () => {
     for (const lux of [0.01, 3, 450, 7_000, 30_000, 100_000]) expect(luxOf(brightnessIndex(lux))).toBeCloseTo(lux, 6);
     expect(brightnessLevel(4.3).label).toBe("とても明るい");
-    expect(luxText(0.5)).toBe("1lx未満");
+    expect(luxText(0.03)).toBe("約0.03lx");
+    expect(luxText(0.00005)).toBe("0.001lx未満");
     expect(luxText(453)).toBe("約450lx");
     expect(luxText(31_000)).toBe("約3万lx");
     expect(brightnessText(brightnessIndex(31_000))).toBe("とても明るい（約3万lx）");
@@ -55,6 +58,12 @@ describe("light from the sun and the sky", () => {
     const night = hourLight(row(23, { weather: "晴" }), "47893");
     expect(night.from).toBe("sky");
     expect(brightnessLevel(night.index).label).toBe("暗い");
+    // Not pitch black: the night sky over a town, inside the 暗い band, brighter under cloud.
+    expect(night.lux).toBeCloseTo(NIGHT_SKY.clear, 6);
+    expect(night.index).toBeGreaterThan(0.3);
+    const cloudy = hourLight(row(23, { weather: "曇" }), "47893");
+    expect(cloudy.lux).toBeCloseTo(NIGHT_SKY.overcast, 6);
+    expect(cloudy.index).toBeGreaterThan(night.index);
     // Kochi, 21 June, 19時 (18:30, the sun about 6° up): 薄暗い or brighter even under cloud.
     expect(hourLight(row(19, { weather: "曇" }), "47893").lux).toBeGreaterThan(100);
   });

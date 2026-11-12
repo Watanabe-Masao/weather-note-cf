@@ -10,8 +10,7 @@ import { type ChartMetric, graphSeries } from "../chartMetrics";
 import { DATA } from "../design/tokens";
 import { Chip, ForecastHatch, GraphReadout, GuideLines } from "./kit";
 import type { WeatherStore } from "../data/store";
-import { BRIGHTNESS_UNIT, dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
-import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, luxOf, luxText } from "../../shared/brightness";
+import { dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
 import { FeelContext } from "./FeelBar";
 import { BetaContext } from "../beta/settings";
 import { baselineOf, useBaselineHistory } from "../beta/useBaseline";
@@ -227,13 +226,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   const nice = niceTicks(lo, hi, 5);
   if (metric.max == null) hi = nice.hi;
   lo = metric.zero ? Math.max(0, nice.lo) : nice.lo;
-  // 明るさ: the six levels are the axis (bands with their names), no numbers.
-  const levels = metric.unit === BRIGHTNESS_UNIT;
-  if (levels) {
-    lo = 0;
-    hi = 6;
-  }
-  const ticks = levels ? [] : nice.ticks.filter((t) => t >= lo - 1e-9 && t <= hi + 1e-9);
+  const ticks = nice.ticks.filter((t) => t >= lo - 1e-9 && t <= hi + 1e-9);
   const yOf = (v: number) => PAD.top + ((hi - v) * (H - PAD.top - bottom)) / (hi - lo);
   const shownIndex = scrub ?? BUFFER + 3;
   const shownDay = days[shownIndex];
@@ -253,7 +246,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       {metric.forecastOnly && <p className="chart-note">予報の日だけの値です（過去の日にはありません）</p>}
       <GraphReadout
         live={scrub != null}
-        unit={metric.unit === BRIGHTNESS_UNIT ? "" : metric.unit}
+        unit={metric.unit}
         title={
           <>
             {dateLabel(shownDay)}
@@ -262,21 +255,18 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
         }
         rows={series
           .filter((x) => !x.compare && !x.s.thin)
-          .flatMap(({ s, points }) => {
+          .map(({ s, points }) => {
             const a = points[shownIndex].v;
             const b = pick(s.key, true).points[shownIndex].v;
             const d = digitsOf(s.unit ?? metric.unit);
-            const light = (s.unit ?? metric.unit) === BRIGHTNESS_UNIT;
-            const row = {
+            return {
               key: s.key,
               label: s.key === "feel" ? (feel.sun ? "日なた温度" : "日かげ温度") : s.label,
               color: COLORS[s.tone],
-              a: a == null ? "—" : light ? brightnessLevel(a).label : a.toFixed(d),
-              b: b == null ? "—" : light ? brightnessLevel(b).label : b.toFixed(d),
-              diff: light ? brightnessRatio(a, b) : signedDiff(a, b, d),
+              a: a == null ? "—" : a.toFixed(d),
+              b: b == null ? "—" : b.toFixed(d),
+              diff: signedDiff(a, b, d),
             };
-            // 明るさ: the words, and under them the light in lux.
-            return light ? [row, { key: `${s.key}-lux`, label: "照度", a: a == null ? "—" : luxText(luxOf(a)), b: b == null ? "—" : luxText(luxOf(b)), diff: "" }] : [row];
           })}
       />
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の日別グラフ`}>
@@ -287,16 +277,6 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             <rect x={PAD.left - 4} y={0} width={w - PAD.left - PAD.right + 8} height={H} />
           </clipPath>
         </defs>
-        {levels &&
-          BRIGHTNESS_LEVELS.map((l, i) => (
-            <g key={l.id}>
-              <rect x={PAD.left} width={w - PAD.left - PAD.right} y={yOf(i + 1)} height={yOf(i) - yOf(i + 1)} className="light-band" style={{ opacity: 0.03 + i * 0.03 }} />
-              <line x1={PAD.left} x2={w - PAD.right} y1={yOf(i)} y2={yOf(i)} className="chart-grid" />
-              <text x={PAD.left + 4} y={yOf(i + 0.5) + 3} className="light-band-label">
-                {l.label}
-              </text>
-            </g>
-          ))}
         {ticks.map((t) => (
           <g key={t}>
             <line x1={PAD.left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
@@ -307,7 +287,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
         ))}
         {/* The unit once, above the axis. */}
         <text x={PAD.left - 6} y={PAD.top - 6} className="chart-unit" textAnchor="end">
-          {metric.unit === "h" ? "時間" : levels ? "" : metric.unit}
+          {metric.unit === "h" ? "時間" : metric.unit}
         </text>
 
         <g clipPath={`url(#plot-${metric.id})`}>

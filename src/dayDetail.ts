@@ -6,11 +6,10 @@
 import { type FeelSettings, feelOf, MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
 import type { WeatherRow } from "../shared/types";
 import type { MetricId } from "./metrics";
-import { BRIGHTNESS_UNIT, formatValue, sunshineMinutes } from "./design/format";
-import { brightnessLevel, hourLight } from "../shared/brightness";
+import { formatValue, sunshineMinutes } from "./design/format";
 
 export type DetailView = "measured" | "feel";
-export type DetailMetricId = "temp" | "rain" | "snow" | "probability" | "humidity" | "wind" | "radiation" | "sun" | "brightness" | "pressure" | "feel";
+export type DetailMetricId = "temp" | "rain" | "snow" | "probability" | "humidity" | "wind" | "radiation" | "sun" | "pressure" | "feel";
 
 export interface DetailMetric {
   id: DetailMetricId;
@@ -35,8 +34,6 @@ export const MEASURED: DetailMetric[] = [
   // 日照時間: minutes of direct sunshine in the hour — a record of "was it sunny".
   // 日照 is read out next to 日射量 under 日差し (no shared axis).
   { id: "sun", label: "日照", unit: "h", chart: "bar", floor: 0, ceiling: 1 },
-  // 明るさ: the felt brightness (shared/brightness.ts), an index of six levels drawn as bands.
-  { id: "brightness", label: "明るさ", unit: BRIGHTNESS_UNIT, chart: "line", floor: 0, ceiling: 6 },
   { id: "pressure", label: "気圧", unit: "hPa", chart: "line" },
 ];
 
@@ -52,7 +49,6 @@ export function initialDetailMetric(metric: MetricId): DetailMetricId {
     case "humidity":
     case "wind":
     case "pressure":
-    case "brightness":
       return metric;
     default:
       return "temp";
@@ -69,7 +65,7 @@ export interface HourPoint {
 }
 
 /** Twenty-four points for one day; missing hours are null (the line breaks, never interpolated). */
-export function hourSeries(rows: WeatherRow[], id: DetailMetricId, s: FeelSettings, station: string | null = null): HourPoint[] {
+export function hourSeries(rows: WeatherRow[], id: DetailMetricId, s: FeelSettings): HourPoint[] {
   const byHour = new Map(rows.map((r) => [r.n, r]));
   return Array.from({ length: 24 }, (_, i) => {
     const hour = i + 1;
@@ -78,9 +74,7 @@ export function hourSeries(rows: WeatherRow[], id: DetailMetricId, s: FeelSettin
     const forecast = r.type === "forecast";
     const radiation = radiationOf(r);
     const v =
-      id === "brightness"
-        ? +hourLight(r, station).index.toFixed(2)
-        : id === "feel"
+      id === "feel"
         ? feelOf(r.temp, r.humidity, r.wind, forecast, s, radiation)
         : id === "radiation"
           ? // JMA gives MJ/㎡ per hour, the forecast W/㎡: shown in JMA's unit.
@@ -103,8 +97,6 @@ export function initialHour(points: HourPoint[], isToday: boolean, nowHour: numb
 
 /** Value range for the axis, padded so lines never touch the edges. */
 export function axisRange(values: number[], m: DetailMetric): { lo: number; hi: number } {
-  // The brightness levels are the axis: always all six.
-  if (m.unit === BRIGHTNESS_UNIT) return { lo: 0, hi: 6 };
   let lo = values.length ? Math.min(...values) : 0;
   let hi = values.length ? Math.max(...values) : 1;
   if (m.floor != null) lo = Math.min(lo, m.floor);
@@ -119,7 +111,6 @@ export function axisRange(values: number[], m: DetailMetric): { lo: number; hi: 
 /** Hourly values: sunshine in minutes, radiation with two decimals, the rest by the unit's rule. */
 export function formatDetail(v: number | null, m: DetailMetric): string {
   if (m.unit === "h") return sunshineMinutes(v);
-  if (m.unit === BRIGHTNESS_UNIT) return v == null ? "—" : brightnessLevel(v).label;
   return formatValue(v, m.unit, true);
 }
 

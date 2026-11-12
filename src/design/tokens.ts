@@ -54,8 +54,10 @@ export const DATA = {
   wind: "#a9c6de",
   pressure: "#d8b48d",
   feel: "#c9a6f7", // 日なた温度 / 日かげ温度 as a value
-  light: "#ece2c4", // 明るさ (felt brightness): pale daylight
 } as const;
+
+/** The six 明るさ levels (shared/brightness.ts), dark to light: night navy to pale daylight. */
+export const LIGHT_LEVELS = ["#0b1220", "#26305e", "#4f5b80", "#8d9bb3", "#d6dbe0", "#fff1bf"] as const;
 export type DataColor = keyof typeof DATA;
 
 /** The five 肌感 levels, cold to hot. The ends are kept apart from the 最低/最高 data colours. */
