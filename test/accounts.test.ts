@@ -354,10 +354,10 @@ describe("#45: research data leaving the server", () => {
 
   it("keeps only reports whose values the analysis can read", async () => {
     const a = await admin();
-    const bad = [{ at: "x" }, { sensation: 5 }, { drinkPreference: "hot" }, { snapshot: { minute: 1e20 } }, { comfort: { probs: [1] } }];
+    const bad = [{ at: "x" }, { sensation: 5 }, { drinkPreference: "hot" }, { snapshot: { minute: 1e20 } }, { comfort: { probs: [1] } }, { context: { firstSensation: 7 } }, { context: { shownLevel: 9 } }];
     // Not kept, and not blocking the rest of the push.
     for (const [i, over] of bad.entries()) expect((await call("/api/reports/sync", { body: { push: [rep(`b${i}`, 1, over), rep(`fine${i}`, 1)] }, cookie: a.cookie })).body.taken, JSON.stringify(over)).toBe(1);
-    expect((await call("/api/reports/sync", { body: { push: [rep("ok", 1, { drinkPreference: "either", preferenceVersion: 1 })] }, cookie: a.cookie })).status).toBe(200);
+    expect((await call("/api/reports/sync", { body: { push: [rep("ok", 1, { drinkPreference: "either", preferenceVersion: 1, context: { version: 1, from: "button", shownFeel: 12.3, shownExposure: "sun", shownLevel: 2, firstSensation: -1, picks: 2, predictionSeen: true, sensationAtPrediction: -1, changedAfterPrediction: true } })] }, cookie: a.cookie })).status).toBe(200);
     expect((await call("/api/reports/sync", { body: { push: [{ id: "gone", updatedAt: 2, at: "2026-11-11T03:00:00.000Z", deleted: true }] }, cookie: a.cookie })).status).toBe(200);
   });
 

@@ -173,6 +173,31 @@ export interface RecentDay {
 
 export const RECENT_DAYS = 7;
 
+/**
+ * What the person could see before answering (#116), kept so answers pulled toward a shown value
+ * can be told apart later (anchoring): the 肌感 and the level the app showed for that moment (the
+ * shared constants, with the display settings of the moment), and the report sheet's own prediction
+ * card, which appears once a feeling is chosen. Absent in reports made before it was kept.
+ */
+export interface AnswerContext {
+  version: 1;
+  /** Opened from a notification, or from the app's record button. */
+  from: "notification" | "button";
+  /** The 肌感 of the moment the sheet was opened, as the app showed it (日なた or 日かげ by the
+   *  display setting), and its level by the shown boundaries (0 極寒 … 6 猛暑). */
+  shownFeel: number | null;
+  shownExposure: "sun" | "shade";
+  shownLevel: number | null;
+  /** The first feeling chosen, and how many times one was chosen (2 or more: changed). */
+  firstSensation: Sensation | null;
+  picks: number;
+  /** Whether the prediction card showed a prediction before sending, the feeling chosen when it
+   *  first did, and whether the feeling sent differs from it (changed after seeing the prediction). */
+  predictionSeen: boolean;
+  sensationAtPrediction: Sensation | null;
+  changedAfterPrediction: boolean;
+}
+
 export interface Report {
   id: string;
   /** When it was reported (ISO, UTC). */
@@ -199,6 +224,8 @@ export interface Report {
    *  the centre and range of that moment and the chance of each answer. Its misses are the record. */
   comfort?: ComfortPrediction;
   snapshot: Snapshot | null;
+  /** What could be seen before answering (#116). */
+  context?: AnswerContext;
   baseline: (Baseline & { alpha: number }) | null;
   departures: Pick<Departures, "air" | "sun" | "shade"> | null;
   /** The 60 daily mean temperatures before the day, newest first (null where missing): lets the
@@ -480,6 +507,15 @@ const COLUMNS: readonly string[] = [
   "sun_hour_h",
   "sun_hour_from",
   "sun_index_feel2",
+  "ctx_from",
+  "ctx_shown_feel",
+  "ctx_shown_exposure",
+  "ctx_shown_level",
+  "ctx_first_sensation",
+  "ctx_picks",
+  "ctx_prediction_seen",
+  "ctx_sensation_at_prediction",
+  "ctx_changed_after_prediction",
 ] as const;
 
 const cell = (v: unknown) => {
@@ -584,6 +620,15 @@ export function toCsv(reports: Report[]): string {
       r.snapshot?.sunshine ?? null,
       r.snapshot?.sunshineFrom ?? null,
       r.snapshot?.sunIndex2 ?? null,
+      r.context?.from ?? null,
+      r.context?.shownFeel ?? null,
+      r.context?.shownExposure ?? null,
+      r.context?.shownLevel ?? null,
+      r.context?.firstSensation ?? null,
+      r.context?.picks ?? null,
+      r.context ? (r.context.predictionSeen ? 1 : 0) : null,
+      r.context?.sensationAtPrediction ?? null,
+      r.context ? (r.context.changedAfterPrediction ? 1 : 0) : null,
     ]
       .map(cell)
       .join(","),

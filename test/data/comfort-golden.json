@@ -1319,7 +1319,16 @@
   "sunset",
   "sun_hour_h",
   "sun_hour_from",
-  "sun_index_feel2"
+  "sun_index_feel2",
+  "ctx_from",
+  "ctx_shown_feel",
+  "ctx_shown_exposure",
+  "ctx_shown_level",
+  "ctx_first_sensation",
+  "ctx_picks",
+  "ctx_prediction_seen",
+  "ctx_sensation_at_prediction",
+  "ctx_changed_after_prediction"
  ],
  "fromReports": {
   "morning": {

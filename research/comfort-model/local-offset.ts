@@ -133,8 +133,8 @@ const residuals = (pts: Point[], theta: Theta) =>
 /** The kernel's sizes chosen by the evidence of the recent residuals (log marginal likelihood). */
 function chooseKernel(past: Point[], theta: Theta, useState: boolean): Kernel {
   const near = past.slice(-WINDOW), r = residuals(near, theta);
-  let best: Kernel = { lt: 10, la: useState ? 3 : Infinity, su: 0.25, sr: 2.5 }, bestLl = -Infinity;
-  for (const su of [0.25, 0.5, 1, 1.5, 2.5])
+  let best: Kernel = { lt: 10, la: useState ? 3 : Infinity, su: 0, sr: 2.5 }, bestLl = -Infinity;
+  for (const su of [0, 0.25, 0.5, 1, 1.5, 2.5]) // 0: no offset at all (it must be choosable, review 2026-11-13)
     for (const lt of [5, 15, 45, 150])
       for (const sr of [2, 2.5, 3.5])
         for (const la of useState ? [2, 4, 8] : [Infinity]) {
@@ -211,9 +211,10 @@ out.push(
   "## 見えたこと",
   "",
   "- モデルが知らない、ゆっくりしたずれがある人では、近い答えで補うと RPS が約25%良くなる（答えが予測より優先される形が効く）。",
-  "- ずれのない人・慣れの傾きが違うだけの人では、ほぼ変わらない（証拠で u が小さく選ばれ、悪くしない）。慣れの傾きの違いは、基のモデルの学習が受け持つ。",
+  "- ずれのない人・慣れの傾きが違うだけの人では、ほぼ変わらない（証拠で u が 0 か小さく選ばれ、悪くしない）。慣れの傾きの違いは、基のモデルの学習が受け持つ。u の候補に 0（ずれなし）を入れた（2026-11-13 のレビュー）。100件目以降はほぼ 0 が選ばれるが、ずれのない人での −0.6% はほとんど変わらなかった：残りは記録の少ない初め（30〜100件）に証拠が小さな u を選ぶ分。初めのうちは u を使わない（件数の下限を置く）案を、採用前に比べる。",
   "- 冬だけ寒がりの人では少しだけ良くなる（2〜3%）。",
   "- 「日数だけ」と「日数＋慣れの状態」の差は、この作った答えでは出ない。直近120件だけを使うので、その中では慣れの状態がほとんど変わらないため。慣れの状態の距離が効くのは、離れた季節の答えも使うとき（1年分の記録がたまってから）で、そこで改めて比べる。",
+  "- 選ばれる日数の長さは件数ごとに揺れる（5〜150日）。答えが少ないうちは証拠で決めきれないため。採用前に、長さを固定した場合と比べる（#117 の決まりで）。",
   "- まだ作った答えだけ。同意した記録で、答えを見る前の予測の当たり方で比べてから採用を決める（D10）。",
   "",
   "## 選ばれた大きさ（1回目、100件ごと）",

@@ -498,6 +498,9 @@ P(答え ≤ k) = σ( (境目_k − (E′ − μ)) ÷ s )      σ(x) = 1 ÷ (1 +
 | `sunrise`, `sunset` | その日の日の出・日の入り（HH:MM。記録したときに分かっていれば）。昼と夜を時計ではなく太陽で分けるため |
 | `sun_hour_h`, `sun_hour_from` | その時間の日照（0〜1時間）と出どころ。日なたの候補（feel-2、#96）の材料。これより前の記録は空 |
 | `sun_index_feel2` | 日なたの候補 feel-2（案C、日差しの係数はみんな共通、D18）の値。今の日なた（`sun_temp`、feel-1）と同じ答えで比べるため。予測にはまだ使わない |
+| `ctx_from`, `ctx_shown_feel`, `ctx_shown_exposure`, `ctx_shown_level` | 答える前に見えていたもの（#116）：開いた経路（notification / button）、開いた時刻に画面が出していた肌感（表示の設定の日なた sun／日かげ shade）とその段（0 極寒〜6 猛暑、その時の境目で）。答えが表示に引っぱられていないか（アンカリング）を後で確かめるため。これより前の記録は空 |
+| `ctx_first_sensation`, `ctx_picks` | 最初に選んだ感じ方と、感じ方を選んだ回数（2以上なら選び直した） |
+| `ctx_prediction_seen`, `ctx_sensation_at_prediction`, `ctx_changed_after_prediction` | 送る前に記録の画面の「データからの予測」が出たか（1/0）、出たときに選んでいた感じ方、その後に感じ方を変えたか（1/0） |
 
 表は CSV の列の順です（`src/beta/reports.ts` の `COLUMNS`。テストで、この表に全部の列があることを確かめています）。
 
