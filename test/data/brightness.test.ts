@@ -8,7 +8,7 @@ const row = (n: number, over: Partial<WeatherRow> = {}): WeatherRow => ({ date: 
 
 describe("the scale", () => {
   it("puts one level per power of ten (ten times the light, one step brighter)", () => {
-    expect(BRIGHTNESS_LEVELS.map((l) => l.label)).toEqual(["暗い", "薄明", "薄暗い", "明るい", "とても明るい", "まぶしい"]);
+    expect(BRIGHTNESS_LEVELS.map((l) => l.label)).toEqual(["暗い", "薄明", "薄暗い", "明るい", "とても明るい", "日差しの明るさ"]);
     expect(brightnessIndex(1)).toBeCloseTo(1, 9);
     expect(brightnessIndex(100)).toBeCloseTo(2, 9);
     expect(brightnessIndex(1_000)).toBeCloseTo(3, 9);
