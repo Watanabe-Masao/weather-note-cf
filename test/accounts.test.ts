@@ -365,4 +365,17 @@ describe("#45: research data leaving the server", () => {
     expect(new Set(seen).size).toBe(2300);
     expect(seen).toHaveLength(2300);
   });
+  it("the in-app analysis reads the same view with the administrator's login, logged (iPhone only)", async () => {
+    const a = await admin();
+    const p = await issue(a.cookie, "tanaka");
+    const t = (await login("tanaka", p.password)).cookie!;
+    await call("/api/reports/sync", { body: { push: [rep("t1", 1, { owner: p.id })] }, cookie: t });
+    await call("/api/me/consent", { body: { granted: true }, cookie: t });
+    const r = await call("/api/admin/analysis", { cookie: a.cookie });
+    expect(r.body.rows).toHaveLength(1);
+    expect(r.body.rows[0].report).not.toHaveProperty("owner");
+    expect((await call("/api/admin/analysis", { cookie: t })).status).toBe(403);
+    const log = (await call("/api/admin/exports", { cookie: a.cookie })).body.log;
+    expect(log[0]).toMatchObject({ path: "/api/admin/analysis", rows: 1, admin: "masao" });
+  });
 });
