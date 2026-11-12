@@ -477,6 +477,15 @@ export function validReport(r: Record<string, unknown>): boolean {
   if (r.scaleVersion !== undefined && !intIn(r.scaleVersion, 1, 100)) return false;
   const snap = r.snapshot as Record<string, unknown> | null | undefined;
   if (snap && typeof snap === "object" && snap.minute !== undefined && !intIn(snap.minute, 0, 59)) return false;
+  // What could be seen before answering (#116): its answers on the same scale as the answer.
+  const ctx = r.context as Record<string, unknown> | null | undefined;
+  if (ctx != null) {
+    if (typeof ctx !== "object") return false;
+    const level = (v: unknown) => v === null || v === undefined || intIn(v, -3, 3);
+    if (!level(ctx.firstSensation) || !level(ctx.sensationAtPrediction)) return false;
+    if (ctx.picks !== undefined && !intIn(ctx.picks, 0, 1000)) return false;
+    if (ctx.shownLevel != null && !intIn(ctx.shownLevel, 0, 6)) return false;
+  }
   const c = r.comfort as Record<string, unknown> | null | undefined;
   if (c && typeof c === "object" && !(Array.isArray(c.probs) && c.probs.length === 7 && c.probs.every((p) => typeof p === "number" && Number.isFinite(p) && p >= 0 && p <= 1)))
     return false;

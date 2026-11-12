@@ -2,6 +2,7 @@
 // station's values for the hour, the 最近の基準 and the differences are attached automatically.
 
 import { useContext, useEffect, useState } from "react";
+import { levelOf } from "../../shared/feel";
 import { addDays } from "../../shared/dates";
 import { cachedSun, loadSun } from "../data/sun";
 import { Priority } from "../data/plan";
@@ -41,6 +42,16 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   // Opened now; sent maybe much later (from a notification): both are kept, and the prediction is
   // computed again at sending, from the values of that moment.
   const [openedAt] = useState(() => new Date().toISOString());
+  // What could be seen before answering (#116): the first feeling chosen, how many picks, and the
+  // feeling chosen when the prediction card first showed a prediction.
+  const [firstPick, setFirstPick] = useState<Sensation | null>(null);
+  const [picks, setPicks] = useState(0);
+  const [atPrediction, setAtPrediction] = useState<{ seen: boolean; sensation: Sensation | null }>({ seen: false, sensation: null });
+  const pick = (v: Sensation) => {
+    if (firstPick == null) setFirstPick(v);
+    setPicks((n) => n + 1);
+    setSensation(v);
+  };
   // Wind is taken as an amount over time (the last 6 and 12 hours, last night), so yesterday's hours are needed too.
   const yesterday = addDays(today, -1);
   // The past days for the 最近の基準 (opened from the header or a notification, no summary has asked yet).
@@ -101,6 +112,10 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
     return x ? predictComfort(beta.ens, { ...x, windFelt }, now, beta.learning.state) : null;
   };
   const preview = predictAt(Date.now());
+  const previewShown = preview != null && sensation != null;
+  useEffect(() => {
+    if (previewShown && !atPrediction.seen) setAtPrediction({ seen: true, sensation });
+  }, [previewShown, atPrediction.seen, sensation]);
   // Whether this report would teach the model (quality.ts): said before sending, so a report made
   // on a forecast or a stale hour is not mistaken for one that counts.
   const quality = (() => {
@@ -132,6 +147,25 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       ...(drink ? { drinkPreference: drink } : {}),
       preferenceVersion: PREFERENCE_VERSION,
       snapshot: snapAt(now, true),
+      context: (() => {
+        // The 肌感 the app showed at opening, by the display setting (日なた or 日かげ) and boundaries.
+        const shown = snapAt(Date.parse(openedAt));
+        const v = shown ? (feel.sun ? shown.sunTemp : shown.shadeTemp) : null;
+        const seen = atPrediction.seen || previewShown;
+        const at = atPrediction.seen ? atPrediction.sensation : previewShown ? sensation : null;
+        return {
+          version: 1 as const,
+          from: notifiedAt ? ("notification" as const) : ("button" as const),
+          shownFeel: v,
+          shownExposure: feel.sun ? ("sun" as const) : ("shade" as const),
+          shownLevel: v == null ? null : levelOf(v, feel),
+          firstSensation: firstPick,
+          picks,
+          predictionSeen: seen,
+          sensationAtPrediction: at,
+          changedAfterPrediction: seen && at != null && at !== sensation,
+        };
+      })(),
       baseline: base ? { ...base, alpha: beta.alpha } : null,
       departures: dep ? { air: dep.air, sun: dep.sun, shade: dep.shade } : null,
       history: store ? historyOf(store, station, today).map((p) => (p.forecast ? null : p.mean)) : [],
@@ -161,7 +195,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
               aria-label={s.label}
               aria-checked={sensation === s.value}
               className={sensation === s.value ? "report-pick on" : "report-pick"}
-              onClick={() => setSensation(s.value)}
+              onClick={() => pick(s.value)}
             >
               {/* Two lines where the word is long, so seven fit a phone's width. */}
               {s.label.replace("ちょうどよい", "ちょうど\nよい")}

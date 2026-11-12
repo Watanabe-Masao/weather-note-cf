@@ -174,4 +174,15 @@ describe("β②: CSV", () => {
     expect(lines[1].split(",")).toHaveLength(header.length);
     expect(at(lines[2], "id")).toBe("b");
   });
+
+  it("keeps what could be seen before answering (#116), empty for older reports", () => {
+    const context = { version: 1 as const, from: "notification" as const, shownFeel: 12.3, shownExposure: "sun" as const, shownLevel: 2, firstSensation: 0 as const, picks: 2, predictionSeen: true, sensationAtPrediction: 0 as const, changedAfterPrediction: true };
+    const lines = toCsv([{ ...base, context }, { ...base, id: "old", at: "2026-11-12T00:00:00.000Z" }]).trim().split("\r\n");
+    const header = lines[0].split(",");
+    const at = (line: string, col: string) => line.split(",")[header.indexOf(col)];
+    expect(header.slice(-9)).toEqual(["ctx_from", "ctx_shown_feel", "ctx_shown_exposure", "ctx_shown_level", "ctx_first_sensation", "ctx_picks", "ctx_prediction_seen", "ctx_sensation_at_prediction", "ctx_changed_after_prediction"]);
+    expect([at(lines[1], "ctx_from"), at(lines[1], "ctx_shown_level"), at(lines[1], "ctx_first_sensation"), at(lines[1], "ctx_changed_after_prediction")]).toEqual(["notification", "2", "0", "1"]);
+    expect(at(lines[2], "ctx_from")).toBe("");
+    expect(lines[2].split(",")).toHaveLength(header.length);
+  });
 });
