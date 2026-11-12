@@ -323,7 +323,14 @@ async function researchPage(db: Db, adminId: string, path: string, afterParam: s
       : db.prepare("SELECT research_id, report_id, at, body FROM research_reports ORDER BY at, research_id, report_id LIMIT ?").bind(RESEARCH_PAGE)
     ).all<{ research_id: string; report_id: string; at: string; body: string }>()
   ).results;
-  await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, ?, ?, ?)").bind(adminId, now, path, after ? 1 : 0, rows.length, dataset).run();
+  // The in-app analysis reads every page each time it opens: one line per opening (the first page,
+  // with the whole count), so the log does not fill with pages (#60). Exports log every page.
+  if (path !== "/api/admin/analysis") {
+    await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, ?, ?, ?)").bind(adminId, now, path, after ? 1 : 0, rows.length, dataset).run();
+  } else if (!after) {
+    const total = (await db.prepare("SELECT COUNT(*) AS n FROM research_reports").first<{ n: number }>())?.n ?? rows.length;
+    await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, 0, ?, NULL)").bind(adminId, now, path, total).run();
+  }
   const last = rows[rows.length - 1];
   const next = rows.length === RESEARCH_PAGE ? btoa(JSON.stringify([last.at, last.research_id, last.report_id])).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "") : null;
   const withdrawn = after

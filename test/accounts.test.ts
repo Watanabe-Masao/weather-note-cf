@@ -377,5 +377,8 @@ describe("#45: research data leaving the server", () => {
     expect((await call("/api/admin/analysis", { cookie: t })).status).toBe(403);
     const log = (await call("/api/admin/exports", { cookie: a.cookie })).body.log;
     expect(log[0]).toMatchObject({ path: "/api/admin/analysis", rows: 1, admin: "masao" });
+    // A later page of the same opening adds no line.
+    await call("/api/admin/analysis?after=" + btoa(JSON.stringify(["0", "", ""])).replace(/=+$/, ""), { cookie: a.cookie });
+    expect((await call("/api/admin/exports", { cookie: a.cookie })).body.log).toHaveLength(log.length);
   });
 });
