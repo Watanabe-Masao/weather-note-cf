@@ -112,6 +112,11 @@ describe("β②: CSV with the comfort prediction", () => {
     const cells = line.split(",");
     const at = (k: string) => cells[cols.indexOf(k)];
     expect([at("comfort_mu"), at("comfort_half_range"), at("comfort_beyond"), at("pred_mode"), at("p_p1"), at("pred_error")]).toEqual(["19.4", "2.8", "0.8", "1", "0.5", "0.2"]);
+    // #63 P1: the preference questions — unanswered stays empty, and differs from a report made before them.
+    expect([at("thermal_preference"), at("drink_preference"), at("preference_version")]).toEqual(["", "", ""]);
+    const [, asked] = toCsv([{ ...r, preferenceVersion: 1, drinkPreference: "either" }]).trim().split("\r\n");
+    const c2 = asked.split(",");
+    expect([c2[cols.indexOf("thermal_preference")], c2[cols.indexOf("drink_preference")], c2[cols.indexOf("preference_version")]]).toEqual(["", "either", "1"]);
   });
 });
 

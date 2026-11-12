@@ -1352,6 +1352,9 @@
   "pred_inputs_missing",
   "feel_transform",
   "retrieved_at",
-  "obs_minute"
+  "obs_minute",
+  "thermal_preference",
+  "drink_preference",
+  "preference_version"
  ]
 }
