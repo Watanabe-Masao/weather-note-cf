@@ -34,6 +34,7 @@ import { Settings } from "./ui/Settings";
 import { FeelSheet } from "./ui/FeelSheet";
 import { HourFace } from "./ui/HourFace";
 import { SimilarSheet } from "./ui/SimilarSheet";
+import { LightTrend } from "./ui/LightTrend";
 
 const PREFETCH_IDLE_MS = 1_000;
 const PREFETCH_RADIUS = 14;
@@ -119,8 +120,10 @@ export function App() {
     const t = setTimeout(() => setReportSaved(false), 2500);
     return () => clearTimeout(t);
   }, [reportSaved]);
-  // The sheet shows the chosen item two ways: seven days (日別) or the 24 hours of the day (時間帯).
-  const [face, setFace] = useState<"chart" | "hours">("chart");
+  // The sheet shows the chosen item two ways: seven days (日別) or the 24 hours of the day (時間帯);
+  // 日照 also a third, how the light moves from day to day (移り変わり, LightTrend).
+  const [face, setFace] = useState<"chart" | "hours" | "trend">("chart");
+  const shownFace = face === "trend" && view.metric !== "light" ? "chart" : face;
   // While a drum moves, the switches that change which days are shown wait (rule: 動いている間).
   const [moving, setMoving] = useState(false);
   const [feelMap, setFeelMap] = useState(false);
@@ -372,7 +375,7 @@ export function App() {
       <BetaContext.Provider value={beta}>
         <FeelContext.Provider value={feelSettings}>
           <GraphSheet
-            title={face === "chart" ? "日別" : "時間帯"}
+            title={shownFace === "chart" ? "日別" : shownFace === "trend" ? "移り変わり" : "時間帯"}
             detent={sheetDetent}
             heights={heights}
             onDetent={setDetent}
@@ -380,7 +383,16 @@ export function App() {
             tabs={
               // The item chips stay visible above the sheet, so the sheet only says what it shows.
               <div className="sheet-head">
-                {face === "hours" ? (
+                {shownFace === "trend" ? (
+                  <>
+                    <button className="back-btn" onClick={() => setFace("chart")} aria-label="日別に戻る">
+                      <ChevronIcon />
+                      日別
+                    </button>
+                    <span className="sheet-head-title">明るさの移り変わり</span>
+                    <span className="sheet-head-end">{modeSelect}</span>
+                  </>
+                ) : shownFace === "hours" ? (
                   <>
                     <button
                       className="back-btn"
@@ -396,14 +408,30 @@ export function App() {
                 ) : (
                   <>
                     <span className="sheet-head-title">{`${metric.title ?? metric.label}の日別`}</span>
-                    <span className="sheet-head-hint">日をタップで時間帯</span>
+                    {view.metric === "light" ? (
+                      <button className="chip sm trend-btn" onClick={() => setFace("trend")}>
+                        移り変わり
+                      </button>
+                    ) : (
+                      <span className="sheet-head-hint">日をタップで時間帯</span>
+                    )}
                     <span className="sheet-head-end">{modeSelect}</span>
                   </>
                 )}
               </div>
             }
           >
-            {face === "chart" ? (
+            {shownFace === "trend" ? (
+              <LightTrend
+                store={store}
+                station={view.station}
+                target={view.target}
+                compareDate={compareDate}
+                today={today}
+                height={hourHeight(heights[sheetDetent])}
+                onPickDay={(d) => openDay(d, partner(d), "target")}
+              />
+            ) : shownFace === "chart" ? (
               <Chart
                 store={store}
                 station={view.station}

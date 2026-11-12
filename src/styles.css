@@ -3230,3 +3230,36 @@ svg.scrub {
 
 /* Bands with few reports, and a notification to add for each (#62 B). */
 .notify-nudge { display: grid; gap: 6px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--status-warning) 12%, transparent); }
+
+/* 移り変わり (LightTrend): 日照's third face. Line rules as everywhere: target solid, comparison dashed, 晴れなら pale and wide. */
+.trend-btn { flex-shrink: 0; }
+.light-trend { display: flex; flex-direction: column; gap: var(--space-3); padding: 4px 0 12px; }
+.lt-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.lt-controls .seg { flex: 1 1 140px; }
+.lt-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.lt-head { background: var(--surface-raised); border-radius: var(--radius-md); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.lt-head p { margin: 0; }
+.lt-head-main { font-size: 15px; line-height: 1.45; }
+.lt-head-main b { font-size: 21px; color: var(--accent-base); margin: 0 2px; }
+.lt-parts { display: flex; flex-wrap: wrap; gap: 6px; }
+.lt-parts span { font-size: 12px; padding: 2px 8px; border-radius: 10px; background: var(--surface-inset); color: var(--ink-secondary); }
+.lt-season { font-size: 11px; color: var(--ink-tertiary); line-height: 1.5; }
+.lt-chart { display: block; overflow: visible; }
+.lt-axis { fill: var(--ink-tertiary); font-size: 9px; }
+.lt-panel { fill: var(--ink-secondary); font-size: 10px; }
+.lt-date { fill: var(--ink-primary); font-size: 10.5px; }
+.lt-date.on { fill: var(--accent-base); font-weight: 700; }
+.lt-date.sub { fill: var(--ink-tertiary); font-size: 9.5px; }
+.lt-len { fill: var(--ink-primary); font-size: 10.5px; }
+.lt-len.on { fill: var(--accent-base); font-weight: 700; }
+.lt-len.sub { fill: var(--ink-tertiary); font-size: 9px; }
+.lt-today { fill: var(--accent-wash); stroke: var(--accent-base); stroke-width: 1; pointer-events: none; }
+.lt-clear-line { fill: none; stroke: rgba(245, 200, 101, 0.28); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.lt-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; font-size: 11px; color: var(--ink-tertiary); }
+.lt-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.lt-legend i { display: inline-block; width: 18px; }
+.lt-solid { height: 2px; background: #f5c865; }
+.lt-dashed { height: 0; border-top: 2px dashed #f5c865; }
+.lt-clear { height: 6px; border-radius: 3px; background: rgba(245, 200, 101, 0.28); }
+.lt-hatch { width: 14px !important; height: 10px; background: repeating-linear-gradient(45deg, rgba(255,255,255,0.18) 0 2px, transparent 2px 5px); }
+.lt-note { margin: 0; font-size: 11px; color: var(--ink-tertiary); line-height: 1.55; }
