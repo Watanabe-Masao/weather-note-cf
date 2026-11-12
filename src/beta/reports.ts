@@ -9,7 +9,8 @@
 
 import { type IDBPDatabase, openDB } from "idb";
 import { inputQuality } from "./quality";
-import { FEEL_TRANSFORM, feelOf, type FeelSettings, radiationOf } from "../../shared/feel";
+import { FEEL_TRANSFORM, feelOf, type FeelSettings, radiationOf, wind10Of } from "../../shared/feel";
+import { feel2Warming } from "../../shared/sunLoad";
 import { addDays } from "../../shared/dates";
 import { dayEdges } from "../../shared/dayParts";
 import type { WeatherRow } from "../../shared/types";
@@ -126,6 +127,10 @@ export interface Snapshot {
    *  is computed from, kept so reports can be read with it later. Absent in older reports. */
   sunshine?: number | null;
   sunshineFrom?: Origin;
+  /** The 日なた of the candidate feel-2 (案C, β = 1 for everyone; shared/sunLoad.ts, D18): 日かげ plus
+   *  the direct sun on a standing person by the hour's sunshine. Kept beside sunTemp (feel-1) to
+   *  compare the two on the same answers before any switch. Absent in older reports. */
+  sunIndex2?: number | null;
   /** How 日なた温度・日かげ温度 were computed (shared/feel.ts: FEEL_TRANSFORM), and when the hours
    *  were fetched (ISO). Kept as they were: a later correction of the weather never rewrites them. */
   transform?: string;
@@ -273,6 +278,11 @@ export function snapshotOf(
     ...windMemory(rows, before, row.n, live?.station ?? null),
     ...sunOf(live?.sun),
     sunshine: num(row.sun),
+    sunIndex2: (() => {
+      const shade = feelOf(temp, humidity, wind, forecast, { ...feel, sun: false }, solar);
+      const add = wind == null ? null : feel2Warming(row.date, row.n, live?.station ?? null, num(row.sun), wind10Of(wind, forecast, feel));
+      return shade == null || add == null ? null : round1(shade + add);
+    })(),
     ...(num(row.sun) != null ? { sunshineFrom: fieldFrom("sun") } : {}),
     transform: FEEL_TRANSFORM,
     ...(retrievedAt ? { retrievedAt: new Date(retrievedAt).toISOString() } : {}),
@@ -469,6 +479,7 @@ const COLUMNS: readonly string[] = [
   "sunset",
   "sun_hour_h",
   "sun_hour_from",
+  "sun_index_feel2",
 ] as const;
 
 const cell = (v: unknown) => {
@@ -572,6 +583,7 @@ export function toCsv(reports: Report[]): string {
       r.snapshot?.sunset ?? null,
       r.snapshot?.sunshine ?? null,
       r.snapshot?.sunshineFrom ?? null,
+      r.snapshot?.sunIndex2 ?? null,
     ]
       .map(cell)
       .join(","),

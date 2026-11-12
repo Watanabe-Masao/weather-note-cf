@@ -128,3 +128,16 @@ export function bodySunLoad(date: string, n: number, where: Where, sunHours: num
   }
   return (sum / 12) * Math.min(1, Math.max(0, sunHours / up));
 }
+
+/** The version name of the 日なた candidate (MATH-03, D18): 案C, β = 1 for everyone. */
+export const FEEL2 = "feel-2c";
+
+/**
+ * feel-2 (案C)'s warming in the sun over JMA hour n (肌感 points over 日かげ, β = 1, the same for
+ * everyone): the direct beam on a standing person with f_eff and the sunlit ground's reflection,
+ * by the hour's sunshine share. Null without the hour's sunshine or wind.
+ */
+export function feel2Warming(date: string, n: number, where: Where, sunHours: number | null | undefined, wind10: number | null): number | null {
+  const load = bodySunLoad(date, n, where, sunHours, { effective: true, reflect: true });
+  return load == null || wind10 == null ? null : directWarming(load, wind10);
+}

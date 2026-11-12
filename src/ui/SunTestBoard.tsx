@@ -21,7 +21,7 @@ const VARIANTS = [
   { key: "f1", label: "feel-1（今）", note: "k × 地面の日射", color: "#a9b9cb", dash: "" },
   { key: "a", label: "feel-2 案A", note: "直射だけ（PR #109 のまま）", color: "#f5c865", dash: "5 4" },
   { key: "b", label: "feel-2 案B", note: "A × 体の表面の割合 0.725", color: "#f39a86", dash: "2 3" },
-  { key: "c", label: "feel-2 案C", note: "B ＋ 地面の照り返し", color: "#f39a86", dash: "" },
+  { key: "c", label: "feel-2 案C（候補）", note: "B ＋ 地面の照り返し。β はみんな共通", color: "#f39a86", dash: "" },
 ] as const;
 type Key = (typeof VARIANTS)[number]["key"];
 

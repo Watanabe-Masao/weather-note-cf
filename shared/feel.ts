@@ -104,8 +104,13 @@ export function feelOf(
   const height = forecast ? FORECAST_WIND_HEIGHT : s.stationHeight;
   const base = apparentTemperature(t, h, windAtPerson(v, height, s.alpha));
   if (!s.sun || radiation == null) return base;
-  const wind10 = forecast ? v : v * (FORECAST_WIND_HEIGHT / height) ** s.alpha;
-  return base + sunWarming(radiation, wind10, s.absorb);
+  return base + sunWarming(radiation, wind10Of(v, forecast, s), s.absorb);
+}
+
+/** The wind at 10 m (what the Bureau of Meteorology's radiation term takes) from a row's wind. */
+export function wind10Of(v: number, forecast: boolean, s: Pick<FeelSettings, "stationHeight" | "alpha">): number {
+  const height = forecast ? FORECAST_WIND_HEIGHT : s.stationHeight;
+  return forecast ? v : v * (FORECAST_WIND_HEIGHT / height) ** s.alpha;
 }
 
 // ---- levels ----------------------------------------------------------------------------------
