@@ -122,6 +122,10 @@ export interface Snapshot {
   wind6h?: number | null;
   wind12h?: number | null;
   windLastNight?: number | null;
+  /** The hour's sunshine (日照, hours 0–1) and its source: what the 日なた candidate (feel-2, #96)
+   *  is computed from, kept so reports can be read with it later. Absent in older reports. */
+  sunshine?: number | null;
+  sunshineFrom?: Origin;
   /** How 日なた温度・日かげ温度 were computed (shared/feel.ts: FEEL_TRANSFORM), and when the hours
    *  were fetched (ISO). Kept as they were: a later correction of the weather never rewrites them. */
   transform?: string;
@@ -268,6 +272,8 @@ export function snapshotOf(
     ...radDayOf(rows, row.n),
     ...windMemory(rows, before, row.n, live?.station ?? null),
     ...sunOf(live?.sun),
+    sunshine: num(row.sun),
+    ...(num(row.sun) != null ? { sunshineFrom: fieldFrom("sun") } : {}),
     transform: FEEL_TRANSFORM,
     ...(retrievedAt ? { retrievedAt: new Date(retrievedAt).toISOString() } : {}),
   };
@@ -461,6 +467,8 @@ const COLUMNS: readonly string[] = [
   "preference_version",
   "sunrise",
   "sunset",
+  "sun_hour_h",
+  "sun_hour_from",
 ] as const;
 
 const cell = (v: unknown) => {
@@ -562,6 +570,8 @@ export function toCsv(reports: Report[]): string {
       r.preferenceVersion ?? null,
       r.snapshot?.sunrise ?? null,
       r.snapshot?.sunset ?? null,
+      r.snapshot?.sunshine ?? null,
+      r.snapshot?.sunshineFrom ?? null,
     ]
       .map(cell)
       .join(","),
