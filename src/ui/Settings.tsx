@@ -228,7 +228,7 @@ function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: Wea
         <small className="set-help">肌感（日なた）で、日差しをどれだけ足すか。</small>
       </div>
       <div className="actions tight">
-        <button onClick={() => setSunTest(true)}>日なたの計算を比べる（テスト）</button>
+        <button onClick={() => setSunTest(true)}>肌感の計算を比べる（テスト）</button>
       </div>
       <button className="reset" onClick={reset}>
         肌感の基準を初期値に戻す
