@@ -7,12 +7,14 @@ on:
     paths:
       - "research/data/**"
       - "src/beta/**"
+      - "src/research/**"
       - ".github/workflows/research-data.yml"
   push:
     branches: [main]
     paths:
       - "research/data/**"
       - "src/beta/**"
+      - "src/research/**"
       - ".github/workflows/research-data.yml"
 
 jobs:

@@ -1,0 +1,43 @@
+{
+  "id": "2026-11-12-comfort-4",
+  "date": "2026-11-12",
+  "modelVersion": "comfort-4",
+  "scaleVersion": 3,
+  "commit": "89220ee",
+  "dataset": {
+    "id": "synthetic-bursts-62",
+    "hash": "sha256:bursts.ts:e3549f62a92ca151",
+    "kind": "synthetic",
+    "period": null,
+    "n": 0,
+    "excluded": {}
+  },
+  "seed": 7000,
+  "settings": {
+    "prior": "PRIOR m0 18±4, h 3, g 4 (log ±0.5), slope 0.33 (comfort-3 と同じ)",
+    "optimiser": "BFGS 200 iterations, Laplace (Cholesky), 200 draws per model（comfort-3 と同じ）",
+    "alpha": "0.8 until 30 reports, then chosen by M2 evidence（comfort-3 と同じ）",
+    "bursts": "BURST_GAP_H 2, BURST_RHO 0.5: w = 1/(1+(k-1)·0.5) for a run of k reports",
+    "bands": "testable needs 2+ time bands (朝・日中・夕方・夜) with 3+ trainable reports"
+  },
+  "compared": ["comfort-3（重みなし）", "間隔 0.5/1/2/3/6 時間 × ρ 1", "間隔 2 時間 × ρ 0.25/0.5/0.75/1"],
+  "results": {
+    "rps": null,
+    "logLoss": null,
+    "skill": null,
+    "calibration": null,
+    "notes": "合成データ（bursts-results.md）、続けて記録する人、本人のずれの広がり 0.75/1.5/3℃ × 約30/90件、各100人：μ の95%区間の被覆率は重みなし 69〜91% → ρ 0.5 で 89〜98%。μ の誤差と新しい場面への予測の RPS は、すべての条件で重みなし以下。1件ずつ記録する人では変化なし（被覆率 95%）。ρ と間隔は同じ合成データで選んだので、実データの時系列評価で確かめ直す。"
+  },
+  "checks": {
+    "mathematical": true,
+    "recovery": true,
+    "performance": "実データがないため未評価（合成データでは、すべての条件で予測の RPS が重みなし以下）。実データがたまったら、comfort-3 と同じ期間で比べてこの記録を更新する",
+    "calibration": "実データがないため未評価（合成データでは μ の区間の被覆率が 95% に近づいた）",
+    "stability": true,
+    "compatibility": true,
+    "contract": true
+  },
+  "decision": "adopted",
+  "reason": "続けて記録した答えを独立に数えると、中心の区間が狭く出すぎ（被覆率 69〜91%）、学習の段階が早く上がりすぎる。重み（2時間・ρ 0.5）でこれを直し、予測も悪くならない。時間帯の広がりを検証可能の条件に加え、1つの時間帯だけで学んだ中心を検証に進めない（#62）",
+  "approvedBy": "渡辺正雄（PR のマージの承認による。D10）"
+}

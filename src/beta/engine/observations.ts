@@ -98,15 +98,46 @@ export function placeTempOf(r: Report): number | null {
 
 export const reportedSunny = (r: Report) => (r.sky ? r.sky === "clear" || r.sky === "sunny" : null);
 
+/**
+ * Reports made in a row (#62): a report less than BURST_GAP_H hours after the previous one joins
+ * its run. Answers in a run share the moment — the same weather, clothes, activity — so they are
+ * not independent evidence. A run of k reports counts as k / (1 + (k − 1)·ρ) answers (the
+ * effective size of k answers correlated by ρ): each report weighs 1 / (1 + (k − 1)·ρ). The gap
+ * and ρ were chosen on synthetic people (research/comfort-model/bursts.ts).
+ */
+export const BURST_GAP_H = 2;
+export const BURST_RHO = 0.5;
+
+/** Weights for reports at these times (ms), in the same order. */
+export function burstWeights(times: number[], gapH = BURST_GAP_H, rho = BURST_RHO): number[] {
+  const order = times.map((t, i) => ({ t, i })).sort((a, b) => a.t - b.t);
+  const w = Array(times.length).fill(1);
+  let start = 0;
+  for (let k = 1; k <= order.length; k++) {
+    if (k === order.length || order[k].t - order[k - 1].t >= gapH * 3_600_000) {
+      const size = k - start;
+      for (let j = start; j < k; j++) w[order[j].i] = 1 / (1 + (size - 1) * rho);
+      start = k;
+    }
+  }
+  return w;
+}
+
 export function observationsOf(reports: Report[], alpha: number): Observation[] {
   const out: Observation[] = [];
+  const used: Report[] = [];
   for (const r of reports) {
     // Only reports whose inputs are good enough teach the model (MATH-02, quality.ts).
     if (r.deleted || !inputQuality(r).trainable) continue;
     const e = placeTempOf(r);
     if (e == null) continue;
     const d = driversFrom(e, r.history ?? [], r.recent, r.snapshot?.humidity ?? null, reportedSunny(r), alpha, r.snapshot?.date ?? r.at.slice(0, 10), r.snapshot?.radDay ?? null, r.snapshot?.hour ?? null, r.snapshot?.wind6h ?? null, r.snapshot?.windLastNight ?? null);
-    if (d) out.push({ ...d, windFelt: r.windFelt, y: r.sensation });
+    if (d) {
+      out.push({ ...d, windFelt: r.windFelt, y: r.sensation });
+      used.push(r);
+    }
   }
-  return out;
+  // Runs are found among the reports that teach the model (a report left out does not join them).
+  const w = burstWeights(used.map((r) => Date.parse(r.at)));
+  return out.map((o, i) => (w[i] === 1 ? o : { ...o, w: w[i] }));
 }

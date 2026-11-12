@@ -111,17 +111,27 @@ export function analyse(rows: Row[]): Analysis {
   // How good the predictions made before each answer were (current scale only, MATH-08).
   const records = [...people.entries()].map(([who, list]) => ({ who, rec: trackRecord(list) })).filter((x) => x.rec.n > 0);
   const n = records.reduce((s, x) => s + x.rec.n, 0);
+  // Two averages side by side (#62): by report (people who report a lot weigh more) and by
+  // person (each person counts once, whatever they reported).
   const pooled = (k: "rps" | "refRps" | "logLoss" | "hit" | "bias" | "mae") => (n ? r3(records.reduce((s, x) => s + (x.rec[k] ?? 0) * x.rec.n, 0) / n) : null);
+  const perPerson = (k: "rps" | "refRps" | "logLoss" | "hit" | "bias" | "mae" | "skill") => {
+    const vs = records.map((x) => x.rec[k]).filter((v): v is number => v != null);
+    return vs.length ? r3(vs.reduce((a, b) => a + b, 0) / vs.length) : null;
+  };
   const rps = pooled("rps");
   const ref = pooled("refRps");
   const scored = records.length;
+  const both = (item: string, byReport: number | null, byPerson: number | null): Cell[] => [
+    { section: "予測の成績", item: `${item}・件数で平均`, value: byReport, people: scored, reports: n },
+    { section: "予測の成績", item: `${item}・人ごとに平均`, value: byPerson, people: scored, reports: n },
+  ];
   cells.push(
-    { section: "予測の成績", item: "RPS（小さいほどよい）", value: rps, people: scored, reports: n },
-    { section: "予測の成績", item: "比べる基準の RPS", value: ref, people: scored, reports: n },
-    { section: "予測の成績", item: "スキル（0より上なら基準よりよい）", value: rps != null && ref ? r3(1 - rps / ref) : null, people: scored, reports: n },
-    { section: "予測の成績", item: "対数損失", value: pooled("logLoss"), people: scored, reports: n },
-    { section: "予測の成績", item: "最も確からしい段が当たった割合", value: pooled("hit"), people: scored, reports: n },
-    { section: "予測の成績", item: "偏り（答え − 予測の平均）", value: pooled("bias"), people: scored, reports: n },
+    ...both("RPS（小さいほどよい）", rps, perPerson("rps")),
+    ...both("比べる基準の RPS", ref, perPerson("refRps")),
+    ...both("スキル（0より上なら基準よりよい）", rps != null && ref ? r3(1 - rps / ref) : null, perPerson("skill")),
+    ...both("対数損失", pooled("logLoss"), perPerson("logLoss")),
+    ...both("最も確からしい段が当たった割合", pooled("hit"), perPerson("hit")),
+    ...both("偏り（答え − 予測の平均）", pooled("bias"), perPerson("bias")),
     { section: "予測の成績", item: "基準よりよかった人", value: records.filter((x) => (x.rec.skill ?? 0) > 0).length, people: scored, reports: n },
     { section: "予測の成績", item: "変化の目印が出ている人", value: records.filter((x) => x.rec.drifting).length, people: scored, reports: n },
   );
@@ -134,7 +144,7 @@ export function analyse(rows: Row[]): Analysis {
     const label = `${Math.round(b.lo * 100)}〜${Math.round(b.hi * 100)}%`;
     const predicted = m ? r3(inBin.reduce((s, c) => s + (c.predicted ?? 0) * c.n, 0) / m) : null;
     const observed = m ? r3(inBin.reduce((s, c) => s + (c.observed ?? 0) * c.n, 0) / m) : null;
-    cells.push({ section: "較正（予測した確率 → 実際）", item: label, value: predicted == null ? null : `${predicted} → ${observed}`, people: inBin.length, reports: m });
+    cells.push({ section: "較正（予測した確率 → 実際・件数で平均）", item: label, value: predicted == null ? null : `${predicted} → ${observed}`, people: inBin.length, reports: m });
   }
 
   // Learning states, by people, as of each person's latest report.

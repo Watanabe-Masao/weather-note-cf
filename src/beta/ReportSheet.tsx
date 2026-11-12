@@ -12,7 +12,7 @@ import { departures, historyDays } from "./adaptation";
 import { SCALE_VERSION, type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
 import { inputQuality } from "./quality";
-import { centreUnknown, type ComfortPrediction, LEARNING_LABELS, type LearningView, predictComfort } from "./comfort";
+import { bandOf, centreUnknown, type ComfortPrediction, LEARNING_LABELS, LEARNING_RULES, type LearningView, predictComfort, TIME_BANDS } from "./comfort";
 import { baselineOf, baselineStateOf, driversOfDay, historyOf, useBaselineHistory } from "./useBaseline";
 import { reports } from "./useReports";
 
@@ -222,6 +222,16 @@ function PredictionCard({ prediction, reported, learning }: { prediction: Comfor
           {prediction.zInterval ? `（位置 ${prediction.z?.toFixed(1)}、95%：${prediction.zInterval[0].toFixed(1)}〜${prediction.zInterval[1].toFixed(1)}。±1が範囲の端）` : ""}。
         </p>
       )}
+      {learning.bands && learning.state !== "untrained" && (() => {
+        // #62 B: a prediction for a band with few reports rests on the other bands.
+        const band = TIME_BANDS.find((b) => b.id === bandOf(Date.now()))!;
+        const n = learning.bands[band.id];
+        return n < LEARNING_RULES.minPerBand ? (
+          <p className="predict-sub">
+            {band.label}の記録はまだ少なく（{n}件）、この予測は主にほかの時間帯の記録からです。服装や活動が違う時間帯では外れやすくなります。
+          </p>
+        ) : null;
+      })()}
       {prediction.spread && (
         <p className="predict-sub">
           予測の幅：答えそのもののばらつき ±{prediction.spread.answer.toFixed(1)}段、推定の不確かさ ±{prediction.spread.param.toFixed(1)}段。記録 {prediction.n}件から学習。
