@@ -38,6 +38,8 @@ async function research(adminCookie: string, query = "") {
 async function admin() {
   const r = await call("/api/auth/setup", { body: { code: SETUP_CODE, loginId: "masao", name: "渡辺" } });
   expect(r.status).toBe(200);
+  // Most tests open the research data: the password typed again on this session (#86).
+  expect((await call("/api/admin/reauth", { body: { password: r.body.password }, cookie: r.cookie! })).status).toBe(200);
   return { cookie: r.cookie!, password: r.body.password as string };
 }
 
@@ -399,5 +401,19 @@ describe("#45: research data leaving the server", () => {
     // A later page of the same opening adds no line.
     await call("/api/admin/analysis?after=" + btoa(JSON.stringify(["0", "", ""])).replace(/=+$/, ""), { cookie: a.cookie });
     expect((await call("/api/admin/exports", { cookie: a.cookie })).body.log).toHaveLength(log.length);
+  });
+
+  it("the research data needs the password typed again on this session, for 15 minutes (#86)", async () => {
+    const a = await admin();
+    const fresh = (await login("masao", a.password)).cookie!; // another session, not typed again
+    expect((await call("/api/admin/analysis", { cookie: fresh })).status).toBe(428);
+    expect((await call("/api/admin/export-token", { body: {}, cookie: fresh })).status).toBe(428);
+    expect((await call("/api/admin/export-token", { body: { revoke: true }, cookie: fresh })).status).toBe(200); // revoking needs nothing
+    expect((await call("/api/admin/reauth", { body: { password: "wrong" }, cookie: fresh })).status).toBe(403);
+    expect((await call("/api/admin/reauth", { body: { password: a.password }, cookie: fresh })).status).toBe(200);
+    expect((await call("/api/admin/analysis", { cookie: fresh })).status).toBe(200);
+    // After 15 minutes it asks again.
+    env.DB.raw.prepare("UPDATE session_reauth SET at = at - 16 * 60000").run();
+    expect((await call("/api/admin/analysis", { cookie: fresh })).status).toBe(428);
   });
 });

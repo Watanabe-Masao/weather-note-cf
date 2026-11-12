@@ -8,9 +8,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { analyse, byPerson, type Cell, compareSettings, MIN_PEOPLE, type Row, sharedCells, sharedCsv } from "../research/analysis";
 import { ModalSheet } from "../ui/ModalSheet";
-import { api } from "./account";
+import { api, needsReauth } from "./account";
+import { ReauthForm } from "./ReauthForm";
 
-type Load = { phase: "reading"; got: number } | { phase: "ready"; rows: Row[]; at: number } | { phase: "error"; message: string };
+type Load = { phase: "reading"; got: number } | { phase: "ready"; rows: Row[]; at: number } | { phase: "error"; message: string } | { phase: "reauth" };
 
 const day = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", year: "numeric", month: "numeric", day: "numeric" }) : "—");
 
@@ -21,6 +22,7 @@ function show(v: Cell["value"]) {
 
 function Body() {
   const [load, setLoad] = useState<Load>({ phase: "reading", got: 0 });
+  const [attempt, setAttempt] = useState(0);
   const [note, setNote] = useState<string | null>(null);
 
   // Read every page into memory (never into storage).
@@ -36,11 +38,11 @@ function Body() {
         if (!stop) setLoad({ phase: "reading", got: rows.length });
       } while (after && !stop);
       if (!stop) setLoad({ phase: "ready", rows, at: Date.now() });
-    })().catch((e) => !stop && setLoad({ phase: "error", message: (e as Error).message }));
+    })().catch((e) => !stop && setLoad(needsReauth(e) ? { phase: "reauth" } : { phase: "error", message: (e as Error).message }));
     return () => {
       stop = true;
     };
-  }, []);
+  }, [attempt]);
 
   const base = useMemo(() => (load.phase === "ready" ? analyse(load.rows) : null), [load]);
   // comfort-3 against comfort-4 on the same reports (#54): slow, so only on request, a person at a time.
@@ -89,6 +91,7 @@ function Body() {
     return { ...base, cells: [...base.cells, ...extra] };
   }, [base, cmp]);
 
+  if (load.phase === "reauth") return <ReauthForm onDone={() => (setLoad({ phase: "reading", got: 0 }), setAttempt((n) => n + 1))} />;
   if (load.phase === "reading") return <p className="set-help">記録を読み込んでいます…（{load.got}件）</p>;
   if (load.phase === "error") return <p className="warn">{load.message}</p>;
   if (!a) return null;
