@@ -7,6 +7,7 @@
 //   - an aggregate may be shared (sent out of the iPhone) only when MIN_PEOPLE or more people are
 //     in it — cells with fewer are left out of the shared file.
 
+import type { Pair } from "../beta/engine/diagnostics";
 import { ensembleFromReports, LEARNING_LABELS, type Learning, type ObsSettings, observationsOf, predictComfort, referenceProbs, rps as rpsOf, trackRecord } from "../beta/comfort";
 import { fitPreference, type PrefObs, predictPreference, PREF_RULES, prefRps, preferenceObservations, type PreferenceKind } from "../beta/preferenceModel";
 import { inputQuality, MAX_LAG_MIN } from "../beta/quality";
@@ -327,12 +328,18 @@ export function preferenceTimeSeries(people: [string, Report[]][], kind: Prefere
  * way (observationsOf). Slow (two full fits per report), so the screen runs it a person at a time
  * on request.
  */
-export function compareSettings(list: Report[], lastN = 10, a: ObsSettings = "comfort-5", b: ObsSettings = "comfort-6"): { n: number; rpsA: number; rpsB: number; ref: number } {
+export function compareSettings(
+  list: Report[],
+  lastN = 10,
+  a: ObsSettings = "comfort-5",
+  b: ObsSettings = "comfort-6",
+): { n: number; rpsA: number; rpsB: number; ref: number; pairs: Pair[] } {
   const live = list.filter((r) => !r.deleted && (r.scaleVersion ?? 1) === SCALE_VERSION).sort((x, y) => (x.at < y.at ? -1 : 1));
   let n = 0;
   let sa = 0;
   let sb = 0;
   let sr = 0;
+  const pairs: Pair[] = [];
   for (let i = Math.max(3, live.length - lastN); i < live.length; i++) {
     const prev = live.slice(0, i);
     const r = live[i];
@@ -348,7 +355,9 @@ export function compareSettings(list: Report[], lastN = 10, a: ObsSettings = "co
     sa += out[0];
     sb += out[1];
     sr += rpsOf(referenceProbs(prev.map((x) => x.sensation as number)), r.sensation);
+    // Each answer's pair, by its day in Japan: for the day-block interval (#117, pairedDifference).
+    pairs.push({ day: new Date(Date.parse(r.at) + 9 * 3_600_000).toISOString().slice(0, 10), a: out[0], b: out[1] });
     n++;
   }
-  return { n, rpsA: n ? sa / n : NaN, rpsB: n ? sb / n : NaN, ref: n ? sr / n : NaN };
+  return { n, rpsA: n ? sa / n : NaN, rpsB: n ? sb / n : NaN, ref: n ? sr / n : NaN, pairs };
 }
