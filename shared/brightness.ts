@@ -191,3 +191,35 @@ export function dayBrightness(rows: WeatherRow[], station: string | null | undef
     brightHours: lights.filter((l) => l.lux >= 1_000).length,
   };
 }
+
+// ---- adaptation: stepping out of a room ----------------------------------------------------------
+
+/**
+ * The eye is adapted to the light it has been in, and judges the outdoors against it (Naka–Rushton:
+ * response = I^n / (I^n + σ^n), σ the light it is adapted to). Weather Note is looked at before going
+ * out, so the felt brightness on stepping out is judged against a lit room: σ ≈ 500 lx (office and
+ * living-room lighting). The eye then adapts — to brighter light within seconds to minutes, to the
+ * dark in about 10 minutes (cones) to 30 (rods) — so this is the first impression, not the light
+ * after a while outside (the strip's levels are the light itself).
+ */
+export const INDOOR_LUX = 500;
+
+/** Naka–Rushton response (0–1) of light `lux` to an eye adapted to `adapted` (n = 0.75). */
+export const adaptedResponse = (lux: number, adapted = INDOOR_LUX, n = 0.75) => lux ** n / (lux ** n + adapted ** n);
+
+/** The first impression on stepping out of a lit room, by the ratio to the room's light (powers of ten, as the levels). */
+export const STEP_OUT = [
+  // Six characters at most: the readout's cells are narrow.
+  { minRatio: 100, label: "まぶしい" }, // ≥ 5万lx: sunglasses help
+  { minRatio: 20, label: "少しまぶしい" }, // 1万–5万lx
+  { minRatio: 2, label: "明るい" }, // 1,000–1万lx
+  { minRatio: 0.5, label: "室内並み" }, // 250–1,000lx
+  { minRatio: 0.05, label: "薄暗い" }, // 25–250lx
+  { minRatio: 0, label: "暗い" }, // < 25lx: the eye needs some minutes
+] as const;
+
+export function stepOutFeel(index: number | null | undefined): string | null {
+  if (index == null) return null;
+  const r = luxOf(index) / INDOOR_LUX;
+  return STEP_OUT.find((s) => r >= s.minRatio)!.label;
+}
