@@ -3201,3 +3201,6 @@ svg.scrub {
 .band-wx-other { opacity: 0.7; }
 .band-wx-other.weather-estimated { opacity: 0.4; }
 .band-wx .none { font-size: 11px; color: var(--ink-secondary); }
+
+/* Bands with few reports, and a notification to add for each (#62 B). */
+.notify-nudge { display: grid; gap: 6px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--status-warning) 12%, transparent); }
