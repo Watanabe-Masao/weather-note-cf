@@ -260,7 +260,7 @@ w_k = (1 − α) × α^(k−1)
 
 ### 8.2 ちょうどよい温度と範囲のモデル（複数のモデルを比べる）
 
-`src/beta/comfort.ts`。位置と広さが動く順序モデルを、要因の組み合わせを変えて何通りも作り、並べて比べます。
+`src/beta/engine/`（正本の項目ごとのファイル。入口は `src/beta/comfort.ts`）。位置と広さが動く順序モデルを、要因の組み合わせを変えて何通りも作り、並べて比べます。
 
 **どのモデルにも共通の形**
 
@@ -600,7 +600,7 @@ Service Worker（`public/sw.js`）は、画面のファイルだけを扱いま�
 | `src/data/` | データ層：`store.ts`（4つのルール）、`plan.ts`（取る順番）、`queue.ts`（通信の待ち行列）、`authority.ts`（正本管理）、`db.ts`（IndexedDB）、`fetchJson.ts`（API の呼び出しとエラーの文言） |
 | `src/ui/` | 画面の部品。共通の部品は `kit.tsx` |
 | `src/design/` | デザインの値（色・大きさ・動き）と数値の書き方 |
-| `src/beta/` | β版：最近の基準（`adaptation.ts`）、ちょうどよい温度と範囲のモデル（`comfort.ts`）、感じ方の記録（`reports.ts`）、記録の同期（`sync.ts`・`useSync.ts`）、根拠の画面 |
+| `src/beta/` | β版：最近の基準（`adaptation.ts`）、ちょうどよい温度と範囲のモデル（`engine/`：正本の項目ごとのファイル。入口は `comfort.ts`）、感じ方の記録（`reports.ts`）、記録の同期（`sync.ts`・`useSync.ts`）、根拠の画面 |
 | `src/account/` | アカウント：ログイン中の人（`account.ts`）、設定のアカウント欄、ユーザー管理の画面 |
 | `worker/src/` | API（Cloudflare Worker）：気象庁・Open-Meteo からの取得と変換、エッジのキャッシュ、アカウントと記録の保存（`accounts.ts`、D1） |
 | `shared/` | 画面と API で共有：型、日付、確定の判定、訂正台帳、版数、肌感の式、信頼度、似た日、祝日 |
