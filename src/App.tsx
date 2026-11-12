@@ -390,12 +390,12 @@ export function App() {
                       <ChevronIcon />
                       日別
                     </button>
-                    <span className="sheet-head-title">{`${metric.label}の時間帯`}</span>
+                    <span className="sheet-head-title">{`${metric.title ?? metric.label}の時間帯`}</span>
                     <span className="sheet-head-end">{modeSelect}</span>
                   </>
                 ) : (
                   <>
-                    <span className="sheet-head-title">{`${metric.label}の日別`}</span>
+                    <span className="sheet-head-title">{`${metric.title ?? metric.label}の日別`}</span>
                     <span className="sheet-head-hint">日をタップで時間帯</span>
                     <span className="sheet-head-end">{modeSelect}</span>
                   </>

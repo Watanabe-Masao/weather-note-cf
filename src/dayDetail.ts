@@ -31,8 +31,8 @@ export const MEASURED: DetailMetric[] = [
   { id: "wind", label: "風速", unit: "m/s", chart: "line", floor: 0 },
   // 全天日射量: the sun's warming power (direct plus scattered light); what 日なた温度 uses.
   { id: "radiation", label: "日差し", unit: "MJ/㎡", chart: "bar", floor: 0 },
-  // 日照時間: minutes of direct sunshine in the hour — a record of "was it sunny".
-  // 日照 is read out next to 日射量 under 日差し (no shared axis).
+  // 日照時間: minutes of direct sunshine in the hour — a record of "was it sunny". The item 日照
+  // (日照時間と明るさ) shows it with the hour's 明るさ, which is computed from it.
   { id: "sun", label: "日照", unit: "h", chart: "bar", floor: 0, ceiling: 1 },
   { id: "pressure", label: "気圧", unit: "hPa", chart: "line" },
 ];
@@ -50,6 +50,8 @@ export function initialDetailMetric(metric: MetricId): DetailMetricId {
     case "wind":
     case "pressure":
       return metric;
+    case "light":
+      return "sun";
     default:
       return "temp";
   }

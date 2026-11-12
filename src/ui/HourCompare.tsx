@@ -82,8 +82,6 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings), [otherHours, metricId, settings]);
   const air = useMemo(() => (metricId === "feel" ? hourSeries(hours?.rows ?? [], "temp", settings) : null), [hours, metricId, settings]);
-  const sunMain = useMemo(() => hourSeries(hours?.rows ?? [], "sun", settings), [hours, settings]);
-  const sunOther = useMemo(() => hourSeries(otherHours?.rows ?? [], "sun", settings), [otherHours, settings]);
   const chance = useMemo(() => hourSeries(hours?.rows ?? [], "probability", settings), [hours, settings]);
   // 明るさ for each hour 1–24 (null where the hour is missing), both days, at the station.
   // dayLights: a twilight hour's clouds come from the nearest hour of daylight when it has no weather text.
@@ -144,16 +142,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             a: <HourWeather w={hoursWeather(hours?.rows ?? [], [shownHour], stationLatLon(station)?.lat, 1)} />,
             b: other ? <HourWeather w={hoursWeather(otherHours?.rows ?? [], [shownHour], stationLatLon(station)?.lat, 1)} /> : "—",
           },
-          ...(metricId === "radiation"
+          ...(metricId === "sun"
             ? [
-                {
-                  key: "sun",
-                  label: "日照",
-                  color: DATA.sun,
-                  unit: "",
-                  a: formatDetail(sunMain[shownHour - 1]?.v ?? null, detailMetric("sun")),
-                  b: other ? formatDetail(sunOther[shownHour - 1]?.v ?? null, detailMetric("sun")) : "—",
-                },
                 // 明るさ (shared/brightness.ts): the felt level of the hour, and how many times brighter.
                 {
                   key: "light",
@@ -199,7 +189,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
       </div>
 
-      {metricId === "radiation" && (
+      {metricId === "sun" && (
         <LightStrip main={lightMain} other={other ? lightOther : null} shownHour={shownHour} usual={{ main: usualLightOf(store, station, date), other: other ? usualLightOf(store, station, other) : null }} />
       )}
 

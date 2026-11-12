@@ -145,9 +145,10 @@ describe("adaptation over days (いつもと比べて)", () => {
     expect(usualShort(2.14)).toBe("×2.1");
     expect(usualShort(1.02)).toBe("≈");
   });
-  it("is a row under the 日差し graph only (no line, no table row)", async () => {
+  it("is a row under the 日照時間と明るさ graph only (no line, no table row)", async () => {
     const { chartMetricById, graphSeries, tableSeries } = await import("../../src/chartMetrics");
-    const m = chartMetricById("radiation");
+    const m = chartMetricById("light");
+    expect(chartMetricById("radiation").under).toBeUndefined();
     expect(m.under!.map((u) => u.key)).toContain("usualLight");
     expect(graphSeries(m).map((s) => s.key)).not.toContain("usualLight");
     expect(tableSeries(m).map((s) => s.key)).not.toContain("usualLight");

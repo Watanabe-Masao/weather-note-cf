@@ -10,6 +10,7 @@ export type ChartMetricId =
   | "temp"
   | "rain"
   | "radiation"
+  | "light"
   | "humidity"
   | "wind"
   | "pressure";
@@ -44,7 +45,10 @@ export interface ChartSeries {
 
 export interface ChartMetric {
   id: ChartMetricId;
+  /** The chip's name (about three characters: seven chips share the row). */
   label: string;
+  /** The full name for headings when the chip's is short (日照 → 日照時間と明るさ). */
+  title?: string;
   unit: string;
   chart: "line" | "bar";
   /** The axis starts at zero. */
@@ -169,8 +173,7 @@ export const CHART_METRICS: ChartMetric[] = [
     ],
   },
   {
-    // 日差し: 全天日射量 (the sun's warming power, used by 日なた温度) as the bars,
-    // 日照時間 (how long it was sunny) as numbers under them. Two scales never share one axis.
+    // 日差し: 全天日射量, the sun's warming power (what 日なた温度 uses). 日照 and 明るさ are their own item.
     id: "radiation",
     label: "日差し",
     unit: "MJ/㎡",
@@ -179,14 +182,26 @@ export const CHART_METRICS: ChartMetric[] = [
     needsHours: true,
     series: [
       { key: "radiation", label: "日射量", tone: "sun", value: dailyRadiation },
-      { key: "sun", label: "日照", tone: "sun", value: field("sun"), tableOnly: true, minor: true, unit: "h" },
-      // 明るさ: the hours that were 明るい or brighter (1,000 lx and up; shared/brightness.ts).
-      // 順応 over days: the day's daylight against the 7 days before (the chart reads it through the store).
+    ],
+  },
+  {
+    // 日照時間と明るさ: what the eye gets. 日照 (how long the sun shone) as the bars — the light is
+    // computed from it (shared/brightness.ts: the same inputs for records and forecasts) — with
+    // 明るさ under them: the hours that were 明るい or brighter (1,000 lx and up), and the day's
+    // daylight against the 7 days before (順応 over days; the chart reads it through the store).
+    id: "light",
+    label: "日照",
+    title: "日照時間と明るさ",
+    unit: "h",
+    chart: "bar",
+    zero: true,
+    needsHours: true,
+    series: [
+      { key: "sun", label: "日照", tone: "sun", value: field("sun") },
       { key: "usualLight", label: "いつも比", tone: "sun", value: () => null, history: "usualLight", underOnly: true },
       { key: "brightHours", label: "明るい時間", tableLabel: "明るい", tone: "sun", value: (_r, h, _f, station) => (h?.length ? dayBrightness(h, station).brightHours : null), tableOnly: true, minor: true, unit: "時間" },
     ],
     under: [
-      { key: "sun", label: "日照", format: (v) => `${v.toFixed(1)}h`, compare: true },
       { key: "brightHours", label: "明るい", format: (v) => `${v}h`, compare: true },
       { key: "usualLight", label: "いつも比", format: usualShort, compare: true },
     ],
