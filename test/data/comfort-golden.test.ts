@@ -13,7 +13,9 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { burstWeights, type Drivers, fitEnsemble, learningFrom, MODEL_VERSION, type Observation, predictComfort, weightsAt } from "../../src/beta/comfort";
-import { toCsv } from "../../src/beta/reports";
+import { type Report, toCsv } from "../../src/beta/reports";
+import { ensembleFromReports, learningOf } from "../../src/beta/comfort";
+import { makeReport } from "../../research/data/fixture";
 
 const FILE = new URL("./comfort-golden.json", import.meta.url);
 const UPDATE = process.env.UPDATE_GOLDEN === "1";
@@ -68,6 +70,27 @@ function dataset(): Observation[] {
 }
 
 const r = (v: number, d: number) => Math.round(v * 10 ** d) / 10 ** d;
+
+/**
+ * Whole reports with real times (review 2026-11-12): the path the app takes — reports → observations
+ * (quality, weights of reports in a row) → ensemble → learning state with JST days and time bands.
+ */
+function reportsOf(kind: "morning" | "spread" | "bursts"): Report[] {
+  const u = rng(kind === "morning" ? 11 : kind === "spread" ? 12 : 13);
+  const out: Report[] = [];
+  for (let d = 0; d < 14; d++) {
+    const date = `2026-10-${String(1 + d).padStart(2, "0")}`;
+    const hours = kind === "morning" ? [8] : kind === "spread" ? [8, 13, 17] : [13, 13, 13];
+    hours.forEach((h, j) => {
+      const e = 8 + h * 0.7 + (u() - 0.5) * 10;
+      const y = Math.max(-3, Math.min(3, Math.round((e - 20) / 3 + (u() - 0.5))));
+      const r = makeReport(`${kind}-${d}-${j}`, h, e, y);
+      const at = new Date(Date.parse(`${date}T${String(h).padStart(2, "0")}:${String(10 + j * 5).padStart(2, "0")}:00+09:00`)).toISOString();
+      out.push({ ...r, at, snapshot: { ...r.snapshot!, date, sunTemp: e, shadeTemp: e - 2 } });
+    });
+  }
+  return out;
+}
 
 /** Everything the model says about the fixed input, rounded a little finer than its tolerance. */
 function snapshot() {
@@ -138,6 +161,15 @@ function snapshot() {
       fits: bursts.fits.map((f) => ({ id: f.model.id, theta: f.theta.map((t) => r(t, 5)), logEvidence: r(f.logEvidence, 5) })),
     },
     csvColumns: toCsv([]).replace(/^﻿/, "").split("\r\n")[0].split(","),
+    fromReports: Object.fromEntries(
+      (["morning", "spread", "bursts"] as const).map((k) => {
+        const rs = reportsOf(k);
+        const e = ensembleFromReports(rs);
+        const l = learningOf(rs, e);
+        const m1 = e.fits.find((f) => f.model.id === "M1")!;
+        return [k, { state: l.state, bands: l.bands, n: e.n, alpha: e.alpha, m1: m1.theta.map((t) => r(t, 5)) }];
+      }),
+    ),
   };
 }
 
@@ -160,6 +192,7 @@ function close(actual: unknown, expected: unknown, tol: number, path: string) {
 
 describe("#43: the comfort model's behaviour, fixed", { timeout: 120_000 }, () => {
   const now = snapshot();
+  if (!UPDATE && !existsSync(FILE) && process.env.CI) throw new Error("comfort-golden.json がありません（CI では書き直さない）");
   if (UPDATE || !existsSync(FILE)) writeFileSync(FILE, JSON.stringify(now, null, 1) + "\n");
   const golden = JSON.parse(readFileSync(FILE, "utf8")) as Snap;
 
@@ -218,6 +251,16 @@ describe("#43: the comfort model's behaviour, fixed", { timeout: 120_000 }, () =
     close(now.empty.probs, golden.empty.probs, 1e-6, "empty.probs");
     close(now.empty.spread, golden.empty.spread, 1e-3, "empty.spread");
     close(now.empty.muInterval, golden.empty.muInterval, 1e-3, "empty.muInterval");
+  });
+
+  it("goes from whole reports to learning states the same (JST days, time bands, runs)", () => {
+    for (const k of Object.keys(golden.fromReports) as (keyof Snap["fromReports"])[]) {
+      const a = now.fromReports[k];
+      const g = golden.fromReports[k];
+      expect([a.state, a.n, a.alpha], String(k)).toEqual([g.state, g.n, g.alpha]);
+      close(a.bands, g.bands, 1e-6, `${k}.bands`);
+      close(a.m1, g.m1, 1e-3, `${k}.m1`);
+    }
   });
 
   it("judges the learning states the same", () => {

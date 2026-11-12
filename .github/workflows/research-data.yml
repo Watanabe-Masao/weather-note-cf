@@ -8,6 +8,8 @@ on:
       - "research/data/**"
       - "src/beta/**"
       - "src/research/**"
+      - "shared/**"
+      - "package-lock.json"
       - ".github/workflows/research-data.yml"
   push:
     branches: [main]
@@ -15,6 +17,8 @@ on:
       - "research/data/**"
       - "src/beta/**"
       - "src/research/**"
+      - "shared/**"
+      - "package-lock.json"
       - ".github/workflows/research-data.yml"
 
 jobs:

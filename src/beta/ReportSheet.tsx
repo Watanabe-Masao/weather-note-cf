@@ -261,7 +261,7 @@ function PredictionCard({ prediction, reported, learning }: { prediction: Comfor
         const n = learning.bands[band.id];
         return n < LEARNING_RULES.minPerBand ? (
           <p className="predict-sub">
-            {band.label}の記録はまだ少なく（{n}件）、この予測は主にほかの時間帯の記録からです。服装や活動が違う時間帯では外れやすくなります。
+            {band.label}の記録はまだ少なく（{n}件分）、この予測は主にほかの時間帯の記録からです。服装や活動が違う時間帯では外れやすくなります。
           </p>
         ) : null;
       })()}

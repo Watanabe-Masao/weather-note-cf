@@ -335,3 +335,18 @@ describe("#62: reports in a row and time bands", () => {
     expect(bandOf("2026-11-11T19:59:00Z")).toBe("night"); // 04:59
   });
 });
+
+describe("review 2026-11-12: bands and days", () => {
+  it("counts a run of reports as the moment it is, and days in JST", async () => {
+    const { bandCounts, ensembleFromReports, learningOf } = await import("../../src/beta/comfort");
+    const { makeReport } = await import("../../research/data/fixture");
+    const at = (iso: string) => ({ ...makeReport(iso, 18, 20, 0), at: new Date(Date.parse(iso)).toISOString(), snapshot: { ...makeReport(iso, 18, 20, 0).snapshot!, date: iso.slice(0, 10), hour: 18 } });
+    // 18:00, 18:05, 18:10 JST: one moment (3 × 0.5 = 1.5), not three evening reports.
+    const run = ["2026-11-12T18:00:00+09:00", "2026-11-12T18:05:00+09:00", "2026-11-12T18:10:00+09:00"].map(at);
+    expect(bandCounts(run).evening).toBe(1.5);
+    // 07:00 and 10:00 JST are one Japanese day (UTC would see 11/11 and 11/12).
+    const morning = ["2026-11-12T07:00:00+09:00", "2026-11-12T10:00:00+09:00"].map((iso) => ({ ...at(iso), snapshot: { ...at(iso).snapshot!, hour: Number(iso.slice(11, 13)) } }));
+    const l = learningOf(morning, ensembleFromReports(morning));
+    expect(l.missing.join()).toContain("今 1日");
+  });
+});

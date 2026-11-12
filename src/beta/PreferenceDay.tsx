@@ -28,7 +28,7 @@ const KINDS: { kind: PreferenceKind; title: string; plus: string; minus: string;
 const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(2)}`;
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
-function One({ obs, k, e, a, now }: { obs: PrefObs[]; k: (typeof KINDS)[number]; e: number; a: number; now: number }) {
+function One({ obs, past, k, e, a, now }: { obs: PrefObs[]; past: PrefObs[]; k: (typeof KINDS)[number]; e: number; a: number; now: number }) {
   const fit = useMemo(() => fitPreference(obs, { withFeeling: false, halfLifeDays: PREF_DEFAULT.halfLifeDays, now }), [obs, now]);
   const at = obs.length ? predictPreference(fit, { e, a }) : null;
   const lr = preferenceLearning(obs, fit, at);
@@ -43,7 +43,6 @@ function One({ obs, k, e, a, now }: { obs: PrefObs[]; k: (typeof KINDS)[number];
   const [lo, hi] = at.indexInterval;
   const lean = lo <= 0 && hi >= 0 ? "はっきりした傾きはありません" : at.index > 0 ? `${k.plus}寄り` : `${k.minus}寄り`;
   // Oneself before: the same conditions, from answers older than PAST_DAYS only.
-  const past = obs.filter((o) => o.t < now - PAST_DAYS * DAY);
   const pastFit = past.length ? fitPreference(past, { withFeeling: false, halfLifeDays: PREF_DEFAULT.halfLifeDays, now: now - PAST_DAYS * DAY }) : null;
   const pastAt = pastFit ? predictPreference(pastFit, { e, a }) : null;
   const pastOk = pastFit && pastAt ? preferenceLearning(past, pastFit, pastAt).show : false;
@@ -63,8 +62,14 @@ export function PreferenceDay({ store, station, date, feel }: { store: WeatherSt
   const e = daytimeFeel(rows, { ...feel, sun: true }) ?? daytimeFeel(rows, { ...feel, sun: false });
   const beta = useContext(BetaContext);
   const base = baselineOf(store, station, date, beta.alpha);
-  const obs = useMemo(() => Object.fromEntries(KINDS.map((k) => [k.kind, preferenceObservations((reports ?? []) as Report[], k.kind)])) as Record<PreferenceKind, PrefObs[]>, [reports]);
   const now = useMemo(() => Date.now(), [reports]); // eslint-disable-line react-hooks/exhaustive-deps
+  const obs = useMemo(() => Object.fromEntries(KINDS.map((k) => [k.kind, preferenceObservations((reports ?? []) as Report[], k.kind)])) as Record<PreferenceKind, PrefObs[]>, [reports]);
+  // Oneself before: the reports older than PAST_DAYS read on their own, so their weights are those
+  // they had then (a later report in a row does not change them).
+  const past = useMemo(() => {
+    const older = ((reports ?? []) as Report[]).filter((r) => Date.parse(r.at) < now - PAST_DAYS * DAY);
+    return Object.fromEntries(KINDS.map((k) => [k.kind, preferenceObservations(older, k.kind)])) as Record<PreferenceKind, PrefObs[]>;
+  }, [reports, now]);
   if (!reports) return null;
   return (
     <section className="basis-sec" aria-labelledby="basis-pref">
@@ -79,7 +84,7 @@ export function PreferenceDay({ store, station, date, feel }: { store: WeatherSt
         <>
           <ul className="basis-list">
             {KINDS.map((k) => (
-              <One key={k.kind} obs={obs[k.kind]} k={k} e={e} a={base.value} now={now} />
+              <One key={k.kind} obs={obs[k.kind]} past={past[k.kind]} k={k} e={e} a={base.value} now={now} />
             ))}
           </ul>
           <p className="basis-note">

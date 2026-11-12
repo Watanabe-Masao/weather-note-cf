@@ -444,7 +444,7 @@ function BandCoverage() {
   if (!b) return null;
   return (
     <p className="basis-note">
-      記録の時間帯：{TIME_BANDS.map((t) => `${t.label} ${b[t.id]}件`).join("・")}（学習に使う記録。{LEARNING_RULES.minPerBand}件以上の時間帯が{LEARNING_RULES.minBands}つ以上で、検証の段階に進みます）
+      記録の時間帯：{TIME_BANDS.map((t) => `${t.label} ${b[t.id]}件分`).join("・")}（学習に使う記録。{LEARNING_RULES.minPerBand}件分以上の時間帯が{LEARNING_RULES.minBands}つ以上で、検証の段階に進みます）
     </p>
   );
 }
@@ -506,7 +506,7 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
         <li>日中の日かげ温度 {f1(shade)}℃：中心から {place(shade)}</li>
         {beta.learning.bands ? (
           <li>
-            記録の時間帯：{TIME_BANDS.map((t) => `${t.label} ${beta.learning.bands![t.id]}件`).join("・")}（続けて記録したものは、まとめて少なめに数えています）
+            記録の時間帯：{TIME_BANDS.map((t) => `${t.label} ${beta.learning.bands![t.id]}件分`).join("・")}（続けて記録したものは、まとめて少なめに数えています）
           </li>
         ) : null}
       </ul>
