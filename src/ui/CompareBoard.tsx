@@ -11,6 +11,8 @@ import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
 import type { WeatherStore } from "../data/store";
 import { tableSeries } from "../chartMetrics";
 import { formatValue, type Metric } from "../metrics";
+import { BRIGHTNESS_UNIT, shownUnit } from "../design/format";
+import { brightnessRatio } from "../../shared/brightness";
 import type { ViewState } from "../state";
 import type { CalendarSide } from "./CalendarModal";
 import { DateNav } from "./DateNav";
@@ -142,7 +144,7 @@ function Column({
           const b = s.value(day?.row, hoursOf(date), feel, station);
           return (
             <span key={"diff-" + s.key} className="cell-value cell-diff">
-              {signedDiff(a, b, unit) || "—"}
+              {(unit === BRIGHTNESS_UNIT ? brightnessRatio(b, a) : signedDiff(a, b, unit)) || "—"}
             </span>
           );
         })}
@@ -190,7 +192,7 @@ function Labels({
       {tableSeries(metric, past).map((s) => (
         <span key={s.key} className={`label-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
           {s.tableLabel ?? s.label}
-          <small className="unit">{s.unit ?? metric.unit}</small>
+          <small className="unit">{shownUnit(s.unit ?? metric.unit)}</small>
         </span>
       ))}
       {diffs &&

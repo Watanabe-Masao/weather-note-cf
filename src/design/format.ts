@@ -1,6 +1,7 @@
 // How numbers, units, differences and dates are written — everywhere the same.
 // Rules: docs/design-system.md, "数値と日付".
 
+import { luxOf, luxShort } from "../../shared/brightness";
 /** Units as they are written (always after the number, small). */
 export const UNIT = {
   temp: "℃",
@@ -17,7 +18,7 @@ export const UNIT = {
  * Decimals per unit. One exception, on purpose: hourly radiation has two decimals because an hour's
  * value is small (0.5 MJ/㎡); the day's total keeps one.
  */
-const DIGITS: Record<string, number> = { "℃": 1, mm: 1, cm: 1, "%": 0, "m/s": 1, hPa: 0, "MJ/㎡": 1, h: 1 };
+const DIGITS: Record<string, number> = { "℃": 1, mm: 1, cm: 1, "%": 0, "m/s": 1, hPa: 0, "MJ/㎡": 1, h: 1, 時間: 0 };
 
 export const digitsOf = (unit: string, hourly = false) => (hourly && unit === "MJ/㎡" ? 2 : (DIGITS[unit] ?? 1));
 
@@ -26,8 +27,16 @@ export const num = (v: unknown): number | null => (typeof v === "number" && Numb
 /** "19.7", "62", "1016" — or "—" when there is no value. */
 export function formatValue(v: unknown, unit: string, hourly = false): string {
   const n = num(v);
+  // The felt brightness: in a table cell, its light in lux ("5万"); the words are in the graph.
+  if (n != null && unit === BRIGHTNESS_UNIT) return luxShort(luxOf(n));
   return n == null ? "—" : n.toFixed(digitsOf(unit, hourly));
 }
+
+/** The unit of the felt brightness index (shared/brightness.ts): one 段 per level. */
+export const BRIGHTNESS_UNIT = "段";
+
+/** A unit as printed: the brightness index is shown in lux. */
+export const shownUnit = (unit: string) => (unit === BRIGHTNESS_UNIT ? "lx" : unit);
 
 /** Hourly sunshine reads as minutes ("40分"); a day's sunshine as hours. */
 export const sunshineMinutes = (h: number | null) => (h == null ? "—" : `${Math.round(h * 60)}分`);

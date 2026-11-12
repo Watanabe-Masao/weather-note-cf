@@ -4,11 +4,14 @@
 import { daytimeFeel, type FeelSettings, MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
 import type { WeatherRow } from "../shared/types";
 import type { DataColor } from "./design/tokens";
+import { BRIGHTNESS_UNIT } from "./design/format";
+import { dayBrightness } from "../shared/brightness";
 
 export type ChartMetricId =
   | "temp"
   | "rain"
   | "radiation"
+  | "brightness"
   | "humidity"
   | "wind"
   | "pressure";
@@ -179,6 +182,22 @@ export const CHART_METRICS: ChartMetric[] = [
       { key: "sun", label: "日照", tone: "sun", value: field("sun"), tableOnly: true, minor: true, unit: "h" },
     ],
     under: [{ key: "sun", label: "日照", format: (v) => `${v.toFixed(1)}h`, compare: true }],
+  },
+  {
+    // 明るさ: how bright the day felt (shared/brightness.ts) — the mean level of the hours with the
+    // sun up, on the six-level scale, and the hours that were 明るい or brighter under it.
+    id: "brightness",
+    label: "明るさ",
+    unit: BRIGHTNESS_UNIT,
+    chart: "line",
+    zero: true,
+    max: 6,
+    needsHours: true,
+    series: [
+      { key: "brightness", label: "日中", tone: "light", value: (_r, h, _f, station) => dayBrightness(h ?? [], station).daytime },
+      { key: "brightHours", label: "明るい時間", tone: "light", value: (_r, h, _f, station) => dayBrightness(h ?? [], station).brightHours, tableOnly: true, minor: true, unit: "時間" },
+    ],
+    under: [{ key: "brightHours", label: "明るい", format: (v) => `${v}h`, compare: true }],
   },
   {
     id: "humidity",

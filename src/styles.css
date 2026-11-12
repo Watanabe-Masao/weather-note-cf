@@ -1122,6 +1122,9 @@ button.label-feel.shade small {
 /* The sun's height through the day: a faint hill along the bottom of the graph. */
 .day-sun { fill: var(--data-sun, #e8b44a); fill-opacity: 0.1; stroke: var(--data-sun, #e8b44a); stroke-opacity: 0.45; stroke-width: 1; }
 .day-sun-label { fill: var(--ink-tertiary); font-size: 9px; }
+/* 明るさ: the six levels as bands, darker to lighter (opacity set per band), named at the left. */
+.light-band { fill: var(--data-light, #ece2c4); }
+.light-band-label { fill: var(--ink-tertiary); font-size: 9px; }
 .day-band-edge { stroke: var(--line-soft); }
 
 .day-band-label {
