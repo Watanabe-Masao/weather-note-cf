@@ -2,6 +2,7 @@
 // used (with their sources) and the arithmetic, for the target and the comparison day. Nothing here
 // is computed differently from the summary; it reads the same functions and lays them open.
 
+import { PreferenceDay } from "./PreferenceDay";
 import { useContext, useState } from "react";
 import { BANDS, DAYTIME_BANDS, daytimeFeel, feelOf, type FeelSettings, FORECAST_WIND_HEIGHT, PERSON_HEIGHT, radiationOf, windAtPerson } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
@@ -536,6 +537,7 @@ function Body({ store, station, target, other }: Omit<Props, "onClose">) {
       )}
       <DayBasis store={store} station={station} date={date} alpha={fit.alpha} feel={feel} />
       <ComfortDay store={store} station={station} date={date} feel={feel} />
+      <PreferenceDay store={store} station={station} date={date} feel={feel} />
       <ComfortBasis />
     </div>
   );
