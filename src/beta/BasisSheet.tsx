@@ -461,7 +461,7 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade, hNow, { hour: 12 });
   if (!visible || centreUnknown(beta.learning.state)) {
     return (
-      <section className="basis-day">
+      <section className="basis-sec">
         <h4>この日のちょうどよい温度と範囲</h4>
         <p className="set-help">
           {!visible

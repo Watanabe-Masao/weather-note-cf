@@ -4,7 +4,7 @@
 // itself. Only aggregates are shown — never one person's values — and only aggregates of
 // MIN_PEOPLE or more people can be shared out of the iPhone.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { analyse, byPerson, type Cell, compareSettings, MIN_PEOPLE, type Row, shareable, sharedCsv } from "../research/analysis";
 import { ModalSheet } from "../ui/ModalSheet";
@@ -44,17 +44,30 @@ function Body() {
 
   const base = useMemo(() => (load.phase === "ready" ? analyse(load.rows) : null), [load]);
   // comfort-3 against comfort-4 on the same reports (#54): slow, so only on request, a person at a time.
-  const [cmp, setCmp] = useState<{ done: number; of: number; per: { n: number; rps3: number; rps4: number; ref: number }[] } | null>(null);
+  const [cmp, setCmp] = useState<{ done: number; of: number; per: { n: number; rps3: number; rps4: number; ref: number }[]; error?: string } | null>(null);
+  // Stopped when the sheet closes (the loop checks between people).
+  const alive = useRef(true);
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
   const runCompare = async () => {
     if (load.phase !== "ready") return;
     const people = [...byPerson(load.rows).values()];
     const per: { n: number; rps3: number; rps4: number; ref: number }[] = [];
     setCmp({ done: 0, of: people.length, per });
-    for (const [i, list] of people.entries()) {
-      await new Promise((r) => setTimeout(r, 0));
-      const c = compareSettings(list);
-      if (c.n) per.push(c);
-      setCmp({ done: i + 1, of: people.length, per: [...per] });
+    try {
+      for (const [i, list] of people.entries()) {
+        await new Promise((r) => setTimeout(r, 0));
+        if (!alive.current) return;
+        const c = compareSettings(list);
+        if (c.n) per.push(c);
+        setCmp({ done: i + 1, of: people.length, per: [...per] });
+      }
+    } catch (e) {
+      if (alive.current) setCmp({ done: people.length, of: people.length, per, error: (e as Error).message });
     }
   };
   const a = useMemo(() => {
@@ -149,6 +162,7 @@ function Body() {
             <button onClick={() => void runCompare()}>{cmp ? "もう一度計算する" : "計算する"}</button>
           </div>
         )}
+        {cmp?.error ? <p className="warn">計算に失敗しました（{cmp.error}）。</p> : null}
       </section>
       <section className="set-group">
         <h3>集計を共有</h3>

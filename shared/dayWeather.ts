@@ -56,8 +56,11 @@ export function dayWeatherOf(row: WeatherRow | null | undefined, latDeg?: number
  * in daylight. Null when neither is there (e.g. a night band without weather text).
  */
 export function hoursWeather(rows: WeatherRow[], hours: readonly number[], latDeg = 35, minSun = 2): { text: string | null; estimated: boolean } {
-  const inBand = rows.filter((r) => hours.includes(r.n));
-  if (!inBand.length) return { text: null, estimated: false };
+  const all = rows.filter((r) => hours.includes(r.n));
+  if (!all.length) return { text: null, estimated: false };
+  // Hours already observed speak for the band: a forecast's text for the rest would be shown as if seen.
+  const observed = all.filter((r) => r.type !== "forecast");
+  const inBand = observed.length ? observed : all;
   // A forecast's weather lent to an observed hour (正本管理) is not what was seen: left out.
   const lent = (r: WeatherRow) => r.type !== "forecast" && (r.origin as Record<string, string> | undefined)?.weather === "forecast";
   const texts = inBand.map((r) => (typeof r.weather === "string" && r.weather && !lent(r) ? r.weather : null)).filter((t): t is string => t != null);

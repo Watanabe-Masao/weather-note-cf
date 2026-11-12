@@ -30,3 +30,32 @@ describe("the moment of the answer", () => {
     expect(snapshotOf(rows, 12, feel)!.minute).toBeUndefined();
   });
 });
+
+describe("review 2026-11-12: the hour whose observation has not arrived, and the 0時台", () => {
+  const fc = (n: number, temp: number, date = "2026-11-12") => ({ date, n, type: "forecast", provider: "Open-Meteo", temp, humidity: 60, wind: 2, raw: {}, quality: {} }) as WeatherRow;
+
+  it("12:05 with the 12時 observation not in yet: the last observed hour and its 10-minute value, not the forecast", () => {
+    const rows = [hourRow(10, 17), hourRow(11, 18), fc(12, 25), fc(13, 26)];
+    const s = snapshotOf(rows, 12, feel, null, undefined, { latest: tenMin("11:50", 18.4), now: at("12:05") })!;
+    expect([s.hour, s.minute, s.temp, s.from.temp]).toEqual([11, 50, 18.4, "amedas"]);
+    const q = inputQuality({ at: new Date(at("12:05")).toISOString(), snapshot: s, history: [0], baseline: null } as unknown as Report);
+    expect(q.status).toBe("observed");
+    expect(q.lagMin).toBe(15);
+  });
+
+  it("12:15 with only a 12:10 value ahead of the 11時 row: the moment moves to 12時, minute 10", () => {
+    const rows = [hourRow(11, 18), fc(12, 25)];
+    const s = snapshotOf(rows, 12, feel, null, undefined, { latest: tenMin("12:10", 19.1), now: at("12:15") })!;
+    expect([s.hour, s.minute, s.temp]).toEqual([12, 10, 19.1]);
+  });
+
+  it("0:30: the day before's 24時 with the 0:20 value of the new day, not tonight's forecast", () => {
+    const yesterday = [hourRow(23, 12), hourRow(24, 11.5)].map((r) => ({ ...r, date: "2026-11-11" }));
+    const latest = { ...tenMin("00:20", 11.2), date: "2026-11-12", n: 0 } as WeatherRow;
+    const s = snapshotOf(yesterday, 24, feel, null, undefined, { latest, now: at("00:30") })!;
+    expect([s.date, s.hour, s.minute, s.temp]).toEqual(["2026-11-11", 24, 20, 11.2]);
+    const q = inputQuality({ at: new Date(at("00:30")).toISOString(), snapshot: s, history: [0], baseline: null } as unknown as Report);
+    expect(q.lagMin).toBe(10);
+    expect(q.trainable).toBe(true);
+  });
+});
