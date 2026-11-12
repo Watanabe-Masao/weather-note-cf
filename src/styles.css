@@ -3188,3 +3188,6 @@ svg.scrub {
 .research-table thead th { border-top: 0; font-weight: 600; color: var(--ink-secondary); font-size: 12px; }
 .research-table tbody th { text-align: left; font-weight: 500; }
 .research-table tr.small { opacity: 0.55; }
+
+/* A day's weather estimated from sunshine and precipitation (JMA's summary not out yet). */
+.weather-estimated { display: inline-flex; opacity: 0.6; }

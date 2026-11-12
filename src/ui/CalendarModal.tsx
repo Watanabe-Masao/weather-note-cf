@@ -16,7 +16,7 @@ import { ChevronIcon } from "./icons";
 import { Chip, confidenceOfRow } from "./kit";
 import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { useSwipeDays } from "./useSwipeDays";
-import { WeatherIcon } from "./WeatherIcon";
+import { DayWeatherIcon } from "./WeatherIcon";
 
 export type CalendarSide = "target" | "compare";
 
@@ -239,7 +239,7 @@ function Body(p: Props) {
             >
               <span className="cal-n">{+d.slice(8)}</span>
               <span className="cal-icon" aria-hidden>
-                {row ? <WeatherIcon text={(row.dayWeather as string | null) ?? null} /> : status === "loading" ? <i className="cal-skel" /> : null}
+                {row ? <DayWeatherIcon row={row} /> : status === "loading" ? <i className="cal-skel" /> : null}
               </span>
               <span className="cal-max" aria-hidden>
                 {status === "loading" ? <i className="cal-skel short" /> : status === "failed" || status === "none" ? <span className="cal-none">—</span> : (max ?? "")}

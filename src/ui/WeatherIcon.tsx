@@ -1,7 +1,9 @@
 // Small weather icons drawn from the JMA summary text (晴 / 曇 / 雨 / 雪) or the forecast label.
 
-type Sky = "sun" | "cloud" | "sunCloud" | "rain" | "snow" | "thunder" | "fog" | "none";
+import { dayWeatherOf } from "../../shared/dayWeather";
+import type { WeatherRow } from "../../shared/types";
 
+type Sky = "sun" | "cloud" | "sunCloud" | "rain" | "snow" | "thunder" | "fog" | "none";
 export function skyOf(text: string | null | undefined): Sky {
   if (!text) return "none";
   const first = text.split(/後|時々|一時|、/)[0];
@@ -83,5 +85,19 @@ export function WeatherIcon({ text, size = 26 }: { text: string | null | undefin
       )}
       {sky === "thunder" && <path d="M13 15l-2.5 4h2.5l-1.5 3.5" stroke={SUN} strokeWidth={1.4} fill="none" />}
     </svg>
+  );
+}
+
+/**
+ * A day's weather icon: JMA's 天気概況, or — while it is not out yet — the weather estimated from
+ * the day's precipitation and sunshine, drawn fainter and labelled as an estimate.
+ */
+export function DayWeatherIcon({ row, size = 26 }: { row: WeatherRow | null | undefined; size?: number }) {
+  const { text, estimated } = dayWeatherOf(row);
+  if (!estimated) return <WeatherIcon text={text} size={size} />;
+  return (
+    <span className="weather-estimated" title={`${text}（推定：日照と降水から。気象庁の天気概況はまだ）`} aria-label={`${text}（推定）`}>
+      <WeatherIcon text={text} size={size} />
+    </span>
   );
 }

@@ -16,7 +16,7 @@ import type { CalendarSide } from "./CalendarModal";
 import { DateNav } from "./DateNav";
 import { FeelBar, FeelContext } from "./FeelBar";
 import { Strip, StripSync } from "./Strip";
-import { WeatherIcon } from "./WeatherIcon";
+import { DayWeatherIcon } from "./WeatherIcon";
 
 interface Props {
   /** A drum is moving (finger down or settling): switches that change the days wait for it. */
@@ -113,7 +113,7 @@ function Column({
         <small>{weekdayOf(date)}</small>
       </span>
       <span className="cell-icon">
-        {state === "ready" ? <WeatherIcon text={day?.row?.dayWeather as string | null} /> : state === "empty" ? <span className="skeleton icon" /> : null}
+        {state === "ready" ? <DayWeatherIcon row={day?.row} /> : state === "empty" ? <span className="skeleton icon" /> : null}
       </span>
       <span className={state === "error" ? "cell-kind failed" : "cell-kind"}>
         {state === "outside" ? "範囲外" : state === "error" ? "取得失敗" : kindLabel(store, station, date)}
