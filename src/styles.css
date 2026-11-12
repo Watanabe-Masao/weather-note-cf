@@ -3263,3 +3263,15 @@ svg.scrub {
 .lt-clear { height: 6px; border-radius: 3px; background: rgba(245, 200, 101, 0.28); }
 .lt-hatch { width: 14px !important; height: 10px; background: repeating-linear-gradient(45deg, rgba(255,255,255,0.18) 0 2px, transparent 2px 5px); }
 .lt-note { margin: 0; font-size: 11px; color: var(--ink-tertiary); line-height: 1.55; }
+
+/* テスト板 (#96): 日なたの計算の比較. */
+.sun-test-body { display: flex; flex-direction: column; gap: var(--space-3); padding-bottom: 24px; }
+.sun-test-nav { display: flex; align-items: center; gap: 8px; }
+.sun-test-legend { display: flex; flex-direction: column; gap: 3px; margin: 0; font-size: 11px; color: var(--ink-secondary); }
+.sun-test-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sun-test-table { overflow-x: auto; }
+.sun-test-table table { border-collapse: collapse; font-size: 11px; font-variant-numeric: tabular-nums; width: 100%; letter-spacing: -0.02em; }
+.sun-test-table th, .sun-test-table td { padding: 3px 2px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
+.sun-test-table th:nth-last-child(-n + 4), .sun-test-table td:nth-last-child(-n + 4) { color: var(--ink-primary); padding-left: 4px; }
+.sun-test-table th { color: var(--ink-tertiary); font-weight: 400; }
+.sun-test-table tr.fc td { color: var(--ink-tertiary); }
