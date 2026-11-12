@@ -3,7 +3,7 @@
   "date": "2026-11-12",
   "modelVersion": "comfort-5",
   "scaleVersion": 3,
-  "commit": "research/burst-cap（PR の先頭のコミット）",
+  "commit": "6902494",
   "dataset": {
     "id": "synthetic-daylight-and-burst-cap-86",
     "hash": "sha256:daylight.ts:4f4d44af9f21a795+bursts.ts:4c77faf817799e4e",
