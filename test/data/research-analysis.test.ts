@@ -66,3 +66,27 @@ describe("by person and by report (#62 C)", () => {
     expect(byPerson).toBeCloseTo((3 + 0) / 2, 1);
   });
 });
+
+describe("the preference questions (#63 P2)", () => {
+  it("counts answers apart from skips, and only on reports that asked", () => {
+    const rows = [
+      { researchId: "a", report: makeReport("a1", 8, 12, -2, { preferenceVersion: 1, thermalPreference: "warmer", drinkPreference: "warm" }) },
+      { researchId: "a", report: makeReport("a2", 13, 22, 1, { preferenceVersion: 1, drinkPreference: "cold" }) },
+      { researchId: "b", report: makeReport("b1", 9, 14, 0) }, // made before the questions
+    ];
+    const cells = analyse(rows).cells;
+    const of = (section: string) => cells.filter((c) => c.section === section).map((c) => [c.item, c.reports]);
+    expect(of("どう感じたいか")).toEqual([
+      ["もう少し暖かく", 1],
+      ["（未回答）", 1],
+    ]);
+    expect(of("飲み物の温度")).toEqual([
+      ["冷たい飲み物", 1],
+      ["温かい飲み物", 1],
+    ]);
+    expect(of("感じ方 × 飲み物の温度（答えた記録）")).toEqual([
+      ["寒い側・温かい飲み物", 1],
+      ["暑い側・冷たい飲み物", 1],
+    ]);
+  });
+});

@@ -23,3 +23,7 @@ await show(
   "外に出す前の確認（集計は5人以上のときだけ。#55）",
   "SELECT dataset_id, n_people, CASE WHEN n_people >= 5 THEN '集計なら外に出せる' ELSE '外に出せない（5人未満）' END AS rule FROM datasets ORDER BY exported_at",
 );
+await show(
+  "任意の2問（#63）：答えと未回答（問いが出た記録だけ）",
+  "SELECT coalesce(thermal_preference, '（未回答）') AS thermal, coalesce(drink_preference, '（未回答）') AS drink, count(*) AS n, count(DISTINCT research_id) AS people FROM sensation_reports WHERE preference_version IS NOT NULL GROUP BY ALL ORDER BY ALL",
+);

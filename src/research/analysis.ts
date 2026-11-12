@@ -9,7 +9,7 @@
 
 import { LEARNING_LABELS, type Learning, trackRecord } from "../beta/comfort";
 import { inputQuality, MAX_LAG_MIN } from "../beta/quality";
-import type { Report } from "../beta/reports";
+import { DRINK_PREFERENCES, type Report, THERMAL_PREFERENCES } from "../beta/reports";
 
 /** The smallest number of people an aggregate may describe when it is shared. */
 export const MIN_PEOPLE = 5;
@@ -145,6 +145,25 @@ export function analyse(rows: Row[]): Analysis {
     const predicted = m ? r3(inBin.reduce((s, c) => s + (c.predicted ?? 0) * c.n, 0) / m) : null;
     const observed = m ? r3(inBin.reduce((s, c) => s + (c.observed ?? 0) * c.n, 0) / m) : null;
     cells.push({ section: "較正（予測した確率 → 実際・件数で平均）", item: label, value: predicted == null ? null : `${predicted} → ${observed}`, people: inBin.length, reports: m });
+  }
+
+  // The two optional questions (#63 P2): answers, how often skipped, and by the side of the feeling.
+  const asked = live.filter((r) => r.report.preferenceVersion != null);
+  if (asked.length) {
+    const label = (list: readonly { id: string; label: string }[], id: string | undefined) => (id ? (list.find((x) => x.id === id)?.label ?? id) : "（未回答）");
+    cells.push(...counted("どう感じたいか", asked.map((r) => ({ who: r.researchId, key: label(THERMAL_PREFERENCES, r.report.thermalPreference) }))));
+    cells.push(...counted("飲み物の温度", asked.map((r) => ({ who: r.researchId, key: label(DRINK_PREFERENCES, r.report.drinkPreference) }))));
+    const side = (y: number) => (y < 0 ? "寒い側" : y === 0 ? "ちょうどよい" : "暑い側");
+    cells.push(
+      ...counted(
+        "感じ方 × どう感じたいか（答えた記録）",
+        asked.filter((r) => r.report.thermalPreference).map((r) => ({ who: r.researchId, key: `${side(r.report.sensation)}・${label(THERMAL_PREFERENCES, r.report.thermalPreference)}` })),
+      ),
+      ...counted(
+        "感じ方 × 飲み物の温度（答えた記録）",
+        asked.filter((r) => r.report.drinkPreference).map((r) => ({ who: r.researchId, key: `${side(r.report.sensation)}・${label(DRINK_PREFERENCES, r.report.drinkPreference)}` })),
+      ),
+    );
   }
 
   // Learning states, by people, as of each person's latest report.
