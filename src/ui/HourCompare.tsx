@@ -4,7 +4,7 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
-import { BRIGHTNESS_LEVELS, brightnessRatio, luxOf, luxText } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, brightnessRatio, luxOf, luxTag, luxText } from "../../shared/brightness";
 import { stationLatLon } from "../../shared/sunTimes";
 import { BRIGHTNESS_UNIT } from "../design/format";
 import { hoursWeather } from "../../shared/dayWeather";
@@ -516,7 +516,7 @@ function HourChart({
             top={PAD.top}
             bottom={H - PAD.bottom}
             left={PAD.left}
-            points={main[hour - 1]?.v != null ? [{ y: yOf(main[hour - 1].v!), color, label: formatDetail(main[hour - 1].v, metric) }] : []}
+            points={main[hour - 1]?.v != null ? [{ y: yOf(main[hour - 1].v!), color, label: metric.unit === BRIGHTNESS_UNIT ? luxTag(main[hour - 1].v!) : formatDetail(main[hour - 1].v, metric) }] : []}
           />
         )}
 

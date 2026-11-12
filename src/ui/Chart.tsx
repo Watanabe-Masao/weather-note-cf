@@ -11,7 +11,7 @@ import { DATA } from "../design/tokens";
 import { Chip, ForecastHatch, GraphReadout, GuideLines } from "./kit";
 import type { WeatherStore } from "../data/store";
 import { BRIGHTNESS_UNIT, dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
-import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, luxOf, luxText } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, luxOf, luxTag, luxText } from "../../shared/brightness";
 import { FeelContext } from "./FeelBar";
 import { BetaContext } from "../beta/settings";
 import { baselineOf, useBaselineHistory } from "../beta/useBaseline";
@@ -440,7 +440,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
               .filter((x) => !x.compare && !x.s.thin)
               .flatMap(({ s, points }) => {
                 const v = points[scrub].v;
-                return v == null ? [] : [{ y: yOf(v), color: COLORS[s.tone], label: v.toFixed(digitsOf(s.unit ?? metric.unit)) }];
+                return v == null ? [] : [{ y: yOf(v), color: COLORS[s.tone], label: (s.unit ?? metric.unit) === BRIGHTNESS_UNIT ? luxTag(v) : v.toFixed(digitsOf(s.unit ?? metric.unit)) }];
               })}
           />
         )}
