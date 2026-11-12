@@ -9,6 +9,6 @@ const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : n
 
 export function usualLightOf(store: WeatherStore | null, station: string, date: string | null): number | null {
   if (!store || !date) return null;
-  const lux = (d: string) => daylightLux(num(store.getDay(station, d).row?.radiation), d, station);
+  const lux = (d: string) => daylightLux(num(store.getDay(station, d).row?.sun), d, station);
   return usualRatio(lux(date), Array.from({ length: USUAL_DAYS }, (_, i) => lux(addDays(date, -(i + 1)))));
 }

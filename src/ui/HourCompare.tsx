@@ -4,7 +4,7 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
-import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, hourLight, stepOutFeel, usualText } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, dayLights, stepOutFeel, usualText } from "../../shared/brightness";
 import { usualLightOf } from "../light";
 import { stationLatLon } from "../../shared/sunTimes";
 import { hoursWeather } from "../../shared/dayWeather";
@@ -86,12 +86,11 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const sunOther = useMemo(() => hourSeries(otherHours?.rows ?? [], "sun", settings), [otherHours, settings]);
   const chance = useMemo(() => hourSeries(hours?.rows ?? [], "probability", settings), [hours, settings]);
   // 明るさ for each hour 1–24 (null where the hour is missing), both days, at the station.
+  // dayLights: a twilight hour's clouds come from the nearest hour of daylight when it has no weather text.
   const lightOf = (rows: WeatherRow[] | undefined) => {
-    const byHour = new Map((rows ?? []).map((r) => [r.n, r]));
-    return Array.from({ length: 24 }, (_, i) => {
-      const r = byHour.get(i + 1);
-      return r ? hourLight(r, station).index : null;
-    });
+    const sorted = [...(rows ?? [])].sort((x, y) => x.n - y.n);
+    const byHour = new Map(dayLights(sorted, station).map((l, i) => [sorted[i].n, l.index]));
+    return Array.from({ length: 24 }, (_, i) => byHour.get(i + 1) ?? null);
   };
   const lightMain = useMemo(() => lightOf(hours?.rows), [hours, station]); // eslint-disable-line react-hooks/exhaustive-deps
   const lightOther = useMemo(() => lightOf(otherHours?.rows), [otherHours, station]); // eslint-disable-line react-hooks/exhaustive-deps
