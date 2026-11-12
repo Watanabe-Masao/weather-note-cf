@@ -628,6 +628,12 @@ Service Worker（`public/sw.js`）は、画面のファイルだけを扱いま�
 
 ## 14. 開発と公開
 
+**βモデルの回帰テスト**：`test/data/comfort-golden.test.ts` が、決まった入力に対するモデルの出力を固定しています。出力の値は `comfort-golden.json` に入っています。モデルを意図して変えたときは、次のコマンドで値を書き直します。そのときは、理由を PR と正本の「変更の記録」に書き、`MODEL_VERSION` を上げます。
+
+```
+UPDATE_GOLDEN=1 npx vitest run test/data/comfort-golden.test.ts
+```
+
 Node.js 22 を使います。
 
 ```sh
