@@ -28,6 +28,19 @@ describe("β②: what a report records", () => {
     expect(s.shadeTemp).not.toBeNull();
   });
 
+  it("keeps the hour's sunshine and the candidate 日なた (feel-2, 案C) beside feel-1 (D18)", () => {
+    // 12時 (11–12時) on 11 November at Kochi, all sunny: the candidate adds the direct sun to 日かげ.
+    const sunny = snapshotOf([hour(11), hour(12, { sun: 1, solar: 600 })], 12, DEFAULT_FEEL, null, undefined, { latest: null, now: Date.parse("2026-11-11T12:30:00+09:00"), station: "47893" })!;
+    expect(sunny.sunshine).toBe(1);
+    expect(sunny.sunIndex2!).toBeGreaterThan(sunny.shadeTemp! + 3);
+    // No sunshine (overcast): the candidate's 日なた is 日かげ — feel-1 still adds the radiation.
+    const dull = snapshotOf([hour(11), hour(12, { sun: 0, solar: 200 })], 12, DEFAULT_FEEL, null, undefined, { latest: null, now: Date.parse("2026-11-11T12:30:00+09:00"), station: "47893" })!;
+    expect(dull.sunIndex2).toBe(dull.shadeTemp);
+    expect(dull.sunTemp!).toBeGreaterThan(dull.shadeTemp!);
+    // Without the hour's sunshine: no candidate value (never invented).
+    expect(snapshotOf([hour(12)], 12, DEFAULT_FEEL)!.sunIndex2).toBeNull();
+  });
+
   it("is null without hours (never invents the weather)", () => {
     expect(snapshotOf([], 12, DEFAULT_FEEL)).toBeNull();
     expect(snapshotOf([hour(15)], 12, DEFAULT_FEEL)).toBeNull(); // nothing at or before 12時

@@ -1316,7 +1316,10 @@
   "drink_preference",
   "preference_version",
   "sunrise",
-  "sunset"
+  "sunset",
+  "sun_hour_h",
+  "sun_hour_from",
+  "sun_index_feel2"
  ],
  "fromReports": {
   "morning": {

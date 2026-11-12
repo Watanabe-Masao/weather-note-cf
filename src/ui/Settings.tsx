@@ -3,6 +3,8 @@
 // 日かげ). Saved data (spec chapter 1), refresh and clear sit folded at the end.
 
 import { ModalSheet, useSheetClose } from "./ModalSheet";
+import { SunTestBoard } from "./SunTestBoard";
+import { jstToday } from "../../shared/dates";
 import { AccountSection } from "../account/AccountSection";
 import { centreUnknown, LEARNING_LABELS } from "../beta/comfort";
 import { useContext, useEffect, useRef, useState } from "react";
@@ -197,8 +199,9 @@ function ReportData() {
 }
 
 /** Spec 4.8: the boundaries between the five levels, surroundings and sunshine. */
-function FeelSection({ feel }: { feel: Props["feel"] }) {
+function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: WeatherStore | null; station: string }) {
   const { saved, update, reset } = feel;
+  const [sunTest, setSunTest] = useState(false);
   return (
     <section className="set-group" aria-labelledby="set-feel">
       <h3 id="set-feel">肌感の基準</h3>
@@ -224,9 +227,13 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
         />
         <small className="set-help">日なた温度で、日差しをどれだけ足すか。</small>
       </div>
+      <div className="actions tight">
+        <button onClick={() => setSunTest(true)}>日なたの計算を比べる（テスト）</button>
+      </div>
       <button className="reset" onClick={reset}>
         肌感の基準を初期値に戻す
       </button>
+      {sunTest && <SunTestBoard store={store} station={station} today={jstToday()} onClose={() => setSunTest(false)} />}
     </section>
   );
 }
@@ -296,7 +303,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
         </label>
       </section>
 
-      <FeelSection feel={feel} />
+      <FeelSection feel={feel} store={store} station={station} />
 
       <section className="set-group" aria-labelledby="set-view">
         <h3 id="set-view">表示</h3>
