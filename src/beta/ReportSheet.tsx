@@ -16,6 +16,7 @@ import { inputQuality } from "./quality";
 import { bandOf, centreUnknown, type ComfortPrediction, LEARNING_LABELS, LEARNING_RULES, type LearningView, predictComfort, TIME_BANDS } from "./comfort";
 import { baselineOf, baselineStateOf, driversOfDay, historyOf, useBaselineHistory } from "./useBaseline";
 import { reports } from "./useReports";
+import { nightAt } from "./engine/observations";
 
 interface Props {
   store: WeatherStore | null;
@@ -76,16 +77,25 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   // saved without a prediction, and says so.
   const hoursState = store?.getHours(station, today).state ?? "empty";
   const waitingFor = loading ? "過去の気温を読み込み中…" : !beta.learned ? "これまでの記録から学習中…" : hoursState === "empty" ? "今日の観測を読み込み中…" : null;
-  const ready = sensation != null && exposure != null && windFelt != null && sky != null && waitingFor == null;
+  // At night (sunset to sunrise, as the model reads night) 日なた・日かげ is not asked: without sunshine
+  // both are the same temperature. Decided from `now`, so a sheet left open over sunset follows it.
+  const nightNow = (now: number) => {
+    const snap = snapAt(now);
+    return nightAt(now, station, snap ? { sunrise: snap.sunrise, sunset: snap.sunset, date: snap.date } : null);
+  };
+  const night = nightNow(Date.now());
+  const ready = sensation != null && (night || exposure != null) && windFelt != null && sky != null && waitingFor == null;
 
   /**
    * The comfort model's prediction for a moment: the station's hour then, the place and wind
    * chosen, and the centre and range of that moment (comfort.ts).
    */
   const predictAt = (now: number) => {
-    if (exposure == null || windFelt == null) return null;
+    const dark = nightNow(now);
+    const where = dark ? null : exposure;
+    if ((!dark && where == null) || windFelt == null) return null;
     const snap = snapAt(now);
-    const e = !snap ? null : exposure === "sun" ? snap.sunTemp : exposure === "shade" ? snap.shadeTemp : snap.sunTemp == null || snap.shadeTemp == null ? null : (snap.sunTemp + snap.shadeTemp) / 2;
+    const e = !snap ? null : where === "sun" ? snap.sunTemp : where === "shade" || where == null ? snap.shadeTemp : snap.sunTemp == null || snap.shadeTemp == null ? null : (snap.sunTemp + snap.shadeTemp) / 2;
     const sunny = sky == null ? null : sky === "clear" || sky === "sunny";
     const x = driversOfDay(store, station, today, beta.alpha, e, snap?.humidity ?? null, { radDay: snap?.radDay ?? null, at: now, sun: snap ? { sunrise: snap.sunrise, sunset: snap.sunset, date: snap.date } : null, sky: sunny, wind6h: snap?.wind6h ?? null, windLastNight: snap?.windLastNight ?? null });
     return x ? predictComfort(beta.ens, { ...x, windFelt }, now, beta.learning.state) : null;
@@ -115,7 +125,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       comfort,
       station,
       sensation,
-      exposure,
+      exposure: nightNow(now) ? null : exposure,
       windFelt,
       sky,
       ...(thermal ? { thermalPreference: thermal } : {}),
@@ -173,10 +183,12 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
         <Segmented label="今飲むとしたら、どの温度の飲み物か" value={drink ?? ("" as DrinkPreference)} options={DRINK_PREFERENCES.map((d) => ({ id: d.id, label: d.label }))} onChange={setDrink} onReselect={() => setDrink(null)} />
         <small className="set-help">飲み物の種類や味ではなく、温度だけを考えてください。選んだものをもう一度押すと、答えない状態に戻ります。</small>
       </div>
-      <div className="set-row">
-        <span className="set-label">いる場所</span>
-        <Segmented label="日なたか日かげか" value={exposure ?? ("" as Exposure)} options={EXPOSURES.map((e) => ({ id: e.id, label: e.label }))} onChange={setExposure} />
-      </div>
+      {!night && (
+        <div className="set-row">
+          <span className="set-label">いる場所</span>
+          <Segmented label="日なたか日かげか" value={exposure ?? ("" as Exposure)} options={EXPOSURES.map((e) => ({ id: e.id, label: e.label }))} onChange={setExposure} />
+        </div>
+      )}
       <div className="set-row">
         <span className="set-label">風</span>
         <Segmented label="風の感じ" value={windFelt ?? ("" as WindFelt)} options={WINDS.map((w) => ({ id: w.id, label: w.label }))} onChange={setWindFelt} />
@@ -191,7 +203,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
         <p className="report-quality warn">この記録は保存しますが、学習には使いません（{quality.reason}）。</p>
       )}
       <button className="report-save" disabled={!ready || saving} onClick={() => void save()}>
-        {waitingFor ?? (ready ? "記録する" : "4つとも選ぶと記録できます")}
+        {waitingFor ?? (ready ? "記録する" : `${night ? "3" : "4"}つとも選ぶと記録できます`)}
       </button>
     </div>
   );
