@@ -291,7 +291,8 @@ export interface Observation extends Drivers {
 const LOG_2PI = Math.log(2 * Math.PI);
 
 /** −log(likelihood × prior), with the prior's normalising constants (needed to compare models). */
-function negLogJoint(m: ModelSpec, theta: Theta, obs: Observation[], prior: Prior): number {
+/** −log(prior × likelihood): what fitting minimises (exported for the research checks, #35). */
+export function negLogJoint(m: ModelSpec, theta: Theta, obs: Observation[], prior: Prior): number {
   let v = 0;
   for (let i = 0; i < theta.length; i++) v += ((theta[i] - prior.mean[i]) / prior.sd[i]) ** 2 / 2 + Math.log(prior.sd[i]) + LOG_2PI / 2;
   for (const o of obs) v -= Math.log(probabilities(stateOf(m, theta, o), placeTemp(m, theta, o))[o.y + 3]);
@@ -454,6 +455,23 @@ export function fitModel(m: ModelSpec, all: Observation[]): ModelFit {
   const logDet = lap ? lap.logDet : prior.sd.reduce((s, v) => s + 2 * Math.log(v), 0);
   const logEvidence = -f(theta) + (k / 2) * LOG_2PI + logDet / 2;
   return { model: m, theta, cov: lap?.cov ?? null, prior, n: obs.length, logEvidence };
+}
+
+/**
+ * Pairs of effects the reports cannot tell apart (MATH-07): their estimates move together
+ * (|correlation| ≥ `limit` in the Laplace covariance), as when two inputs always rise and fall
+ * together (wind and temperature, the season and the baseline). Each is then unknown on its own.
+ */
+export function confoundedPairs(fit: ModelFit, limit = 0.9): [string, string, number][] {
+  if (!fit.cov) return [];
+  const names = paramNames(fit.model);
+  const out: [string, string, number][] = [];
+  for (let i = 0; i < names.length; i++)
+    for (let j = i + 1; j < names.length; j++) {
+      const r = fit.cov[i][j] / Math.sqrt(fit.cov[i][i] * fit.cov[j][j]);
+      if (Math.abs(r) >= limit) out.push([names[i], names[j], Math.round(r * 100) / 100]);
+    }
+  return out;
 }
 
 /** 95% interval of a function of theta (delta method on the Laplace covariance). */

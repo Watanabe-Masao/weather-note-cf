@@ -11,7 +11,7 @@ import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet } from "../ui/ModalSheet";
 import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } from "./adaptation";
-import { beyondRange, centreUnknown, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
+import { beyondRange, centreUnknown, confoundedPairs, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
 import { useCentreVisible } from "./useReports";
 import { BetaContext } from "./settings";
 import { baselineStateOf, driversOfDay } from "./useBaseline";
@@ -329,6 +329,18 @@ function ComfortBasis() {
           {fit.model.id} {fit.model.name}の中身 <b>重み {Math.round(ens.weights[ens.fits.indexOf(fit)] * 100)}%</b>
         </h4>
         <p className="basis-note">上の表の行を押すと、そのモデルの中身に切り替わります。初めの値は固定の事前分布（肌感の表示の境目とは無関係）、今の値は記録からの推定です。</p>
+        {(() => {
+          // Effects the reports cannot tell apart (MATH-07): their estimates move together.
+          const pairs = confoundedPairs(fit);
+          if (!pairs.length) return null;
+          const word = (p: string) => describeParam(p).what;
+          return (
+            <p className="basis-note warn">
+              分けられない組（記録では一緒に動くため、片方ずつの効き方は分かりません）：
+              {pairs.map(([a, b, r]) => `${word(a)} と ${word(b)}（相関 ${r}）`).join("、")}。合わせた効き方は分かっています。
+            </p>
+          );
+        })()}
         <div className="basis-scroll">
           <table className="basis-table">
             <thead>

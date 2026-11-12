@@ -15,6 +15,7 @@ import {
   ADAPT_LO,
   DRIVERS,
   missingDrivers,
+  confoundedPairs,
   probabilities,
   stateOf,
   centreUnknown,
@@ -299,5 +300,17 @@ describe("β: missing inputs (MATH-03)", { timeout: 60_000 }, () => {
     expect(n("M0")).toBe(120);
     expect(n("M4")).toBe(80); // 季節の向き is missing in a third
     expect(ens.weights.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 6);
+  });
+});
+
+describe("β: effects the reports cannot tell apart (#35)", { timeout: 60_000 }, () => {
+  it("flags two inputs that always move together, and not independent ones", () => {
+    const m2 = MODELS.find((m) => m.id === "M2")!;
+    const truth = [18, 0.33, 0, Math.log(3), 0, 0, Math.log(4), Math.log(0.7), 0, 0];
+    const base = simulate(150, "M2", truth, 41);
+    const linked = base.map((o) => ({ ...o, h7: 65 + 2.5 * (o.a - 17) + ((o.e * 7) % 1) * 0.6 }));
+    const pair = confoundedPairs(fitModel(m2, linked)).find(([p, q]) => [p, q].includes("中心:a") && [p, q].includes("中心:h7"));
+    expect(pair).toBeDefined();
+    expect(confoundedPairs(fitModel(m2, base)).find(([p, q]) => [p, q].includes("中心:a") && [p, q].includes("中心:h7"))).toBeUndefined();
   });
 });
