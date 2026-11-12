@@ -7,9 +7,10 @@
 //   - an aggregate may be shared (sent out of the iPhone) only when MIN_PEOPLE or more people are
 //     in it — cells with fewer are left out of the shared file.
 
-import { LEARNING_LABELS, type Learning, trackRecord } from "../beta/comfort";
+import { ensembleFromReports, LEARNING_LABELS, type Learning, observationsOf, predictComfort, referenceProbs, rps as rpsOf, trackRecord } from "../beta/comfort";
+import { fitPreference, type PrefObs, predictPreference, PREF_RULES, prefRps, preferenceObservations, type PreferenceKind } from "../beta/preferenceModel";
 import { inputQuality, MAX_LAG_MIN } from "../beta/quality";
-import { DRINK_PREFERENCES, type Report, THERMAL_PREFERENCES } from "../beta/reports";
+import { DRINK_PREFERENCES, type Report, SCALE_VERSION, THERMAL_PREFERENCES } from "../beta/reports";
 
 /** The smallest number of people an aggregate may describe when it is shared. */
 export const MIN_PEOPLE = 5;
@@ -170,6 +171,57 @@ export function analyse(rows: Row[]): Analysis {
   const learning = latestLearning(people);
   cells.push(...counted("学習の段階（最後の記録の時点・人数）", [...learning.entries()].map(([who, s]) => ({ who, key: LEARNING_LABELS[s] }))).map((c) => ({ ...c, value: c.people, reports: c.people })));
 
+
+  // Predictions by model version (as made at sending; different periods, so only a first look, #54).
+  const byVersion = new Map<string, { who: string; rps: number; ref: number }[]>();
+  for (const [who, list] of people) {
+    const same = list.filter((r) => (r.scaleVersion ?? 1) === SCALE_VERSION && r.comfort).sort((a, b) => (a.at < b.at ? -1 : 1));
+    same.forEach((r, i) => {
+      const v = r.comfort!.version ?? "comfort-1";
+      const earlier = same.slice(0, i).map((x) => x.sensation as number);
+      byVersion.set(v, [...(byVersion.get(v) ?? []), { who, rps: rpsOf(r.comfort!.probs, r.sensation), ref: rpsOf(referenceProbs(earlier), r.sensation) }]);
+    });
+  }
+  for (const [v, list] of [...byVersion.entries()].sort()) {
+    const m = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    const r = m(list.map((x) => x.rps));
+    const ref = m(list.map((x) => x.ref));
+    cells.push({ section: "予測の版ごとの成績（送信時の予測。期間が違うので参考）", item: `${v}・RPS / 基準 / スキル`, value: `${r3(r)} / ${r3(ref)} / ${r3(1 - r / ref)}`, people: new Set(list.map((x) => x.who)).size, reports: list.length });
+  }
+
+  // 7-step calibration as six cumulative probabilities P(Y ≤ k) (#53: the end steps have few
+  // answers, the cumulative form uses them all and matches the RPS).
+  const cum: { who: string; p: number; hit: number }[] = [];
+  for (const [who, list] of people)
+    for (const r of list)
+      if (r.comfort && (r.scaleVersion ?? 1) === SCALE_VERSION) {
+        let c = 0;
+        for (let k = 0; k < 6; k++) {
+          c += r.comfort.probs[k];
+          cum.push({ who, p: c, hit: r.sensation <= k - 3 ? 1 : 0 });
+        }
+      }
+  for (const [lo, hi] of [[0, 0.1], [0.1, 0.3], [0.3, 0.5], [0.5, 0.7], [0.7, 0.9], [0.9, 1.0001]] as const) {
+    const inBin = cum.filter((x) => x.p >= lo && x.p < hi);
+    if (!inBin.length) continue;
+    const m = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    cells.push({ section: "7段の較正（P(答え ≤ k) の予測 → 実際・件数で平均）", item: `${Math.round(lo * 100)}〜${Math.round(Math.min(hi, 1) * 100)}%`, value: `${r3(m(inBin.map((x) => x.p)))} → ${r3(m(inBin.map((x) => x.hit)))}`, people: new Set(inBin.map((x) => x.who)).size, reports: inBin.length });
+  }
+
+  // The preference models, judged in time order (#68): each answer predicted from the earlier ones
+  // only, once there are enough (PREF_RULES.minFitEff). Before (weather only) and with the feeling
+  // are reported apart.
+  for (const kind of ["thermal", "drink"] as PreferenceKind[]) {
+    const ev = preferenceTimeSeries([...people.entries()], kind);
+    if (!ev.n) continue;
+    const name = kind === "thermal" ? "どう感じたいか" : "飲み物の温度";
+    cells.push(
+      { section: `選好モデルの時系列評価：${name}（RPS、小さいほどよい）`, item: "基準（それまでの答えの割合）", value: r3(ev.ref), people: ev.people, reports: ev.n },
+      { section: `選好モデルの時系列評価：${name}（RPS、小さいほどよい）`, item: "回答前の予測（天気だけ）", value: r3(ev.before), people: ev.people, reports: ev.n },
+      { section: `選好モデルの時系列評価：${name}（RPS、小さいほどよい）`, item: "温冷感も使う予測（答えた後。回答前の成績ではない）", value: r3(ev.withFeeling), people: ev.people, reports: ev.n },
+    );
+  }
+
   return { people: nPeople, reports: all, from: ats[0] ?? null, to: ats[ats.length - 1] ?? null, cells };
 }
 
@@ -189,4 +241,61 @@ export function sharedCsv(a: Analysis, madeAt: Date): string | null {
   const head = `# Weather Note 研究用の集計（${MIN_PEOPLE}人以上の集計だけ）・${madeAt.toISOString()}・${a.people}人・${a.reports}件`;
   const lines = a.cells.filter(shareable).map((c) => [c.section, c.item, c.value, c.people, c.reports].map(esc).join(","));
   return "﻿" + [head, "section,item,value,people,reports", ...lines].join("\r\n") + "\r\n";
+}
+
+/** Each answer of one question predicted from the same person's earlier answers only (no leak). */
+export function preferenceTimeSeries(people: [string, Report[]][], kind: PreferenceKind) {
+  let n = 0;
+  let ref = 0;
+  let before = 0;
+  let withFeeling = 0;
+  const who = new Set<string>();
+  for (const [id, list] of people) {
+    const obs = preferenceObservations([...list].sort((a, b) => (a.at < b.at ? -1 : 1)), kind);
+    for (let i = 1; i < obs.length; i++) {
+      const prev: PrefObs[] = obs.slice(0, i);
+      if (prev.reduce((s, o) => s + o.w, 0) < PREF_RULES.minFitEff || new Set(prev.map((o) => o.k)).size < 2) continue;
+      const o = obs[i];
+      const freq = [-1, 0, 1].map((k) => (prev.filter((x) => x.k === k).length + 1) / (prev.length + 3)) as [number, number, number];
+      const fb = fitPreference(prev, { withFeeling: false, halfLifeDays: null, now: o.t });
+      const fy = fitPreference(prev, { withFeeling: true, halfLifeDays: null, now: o.t });
+      ref += prefRps(freq, o.k);
+      before += prefRps(predictPreference(fb, o, 60).probs, o.k);
+      withFeeling += prefRps(predictPreference(fy, o, 60).probs, o.k);
+      n++;
+      who.add(id);
+    }
+  }
+  return { n, people: who.size, ref: n ? ref / n : null, before: n ? before / n : null, withFeeling: n ? withFeeling / n : null };
+}
+
+/**
+ * comfort-3 against comfort-4 on the same reports (#54): each of a person's latest `lastN`
+ * reports predicted from their earlier reports only, fitted both ways (comfort-3: every report
+ * the same weight; comfort-4: reports in a row weigh less). Slow (two full fits per report), so
+ * the screen runs it a person at a time on request.
+ */
+export function compareSettings(list: Report[], lastN = 10): { n: number; rps3: number; rps4: number; ref: number } {
+  const live = list.filter((r) => !r.deleted && (r.scaleVersion ?? 1) === SCALE_VERSION).sort((a, b) => (a.at < b.at ? -1 : 1));
+  let n = 0;
+  let s3 = 0;
+  let s4 = 0;
+  let sr = 0;
+  for (let i = Math.max(3, live.length - lastN); i < live.length; i++) {
+    const prev = live.slice(0, i);
+    const r = live[i];
+    const out: number[] = [];
+    for (const weighted of [false, true]) {
+      const ens = ensembleFromReports(prev, weighted);
+      const x = observationsOf([r], ens.alpha, false)[0];
+      if (!x) break;
+      out.push(rpsOf(predictComfort(ens, x, Date.parse(r.at)).probs, r.sensation));
+    }
+    if (out.length < 2) continue;
+    s3 += out[0];
+    s4 += out[1];
+    sr += rpsOf(referenceProbs(prev.map((x) => x.sensation as number)), r.sensation);
+    n++;
+  }
+  return { n, rps3: n ? s3 / n : NaN, rps4: n ? s4 / n : NaN, ref: n ? sr / n : NaN };
 }

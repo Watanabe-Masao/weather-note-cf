@@ -6,7 +6,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { analyse, type Cell, MIN_PEOPLE, type Row, shareable, sharedCsv } from "../research/analysis";
+import { analyse, byPerson, type Cell, compareSettings, MIN_PEOPLE, type Row, shareable, sharedCsv } from "../research/analysis";
 import { ModalSheet } from "../ui/ModalSheet";
 import { api } from "./account";
 
@@ -42,7 +42,39 @@ function Body() {
     };
   }, []);
 
-  const a = useMemo(() => (load.phase === "ready" ? analyse(load.rows) : null), [load]);
+  const base = useMemo(() => (load.phase === "ready" ? analyse(load.rows) : null), [load]);
+  // comfort-3 against comfort-4 on the same reports (#54): slow, so only on request, a person at a time.
+  const [cmp, setCmp] = useState<{ done: number; of: number; per: { n: number; rps3: number; rps4: number; ref: number }[] } | null>(null);
+  const runCompare = async () => {
+    if (load.phase !== "ready") return;
+    const people = [...byPerson(load.rows).values()];
+    const per: { n: number; rps3: number; rps4: number; ref: number }[] = [];
+    setCmp({ done: 0, of: people.length, per });
+    for (const [i, list] of people.entries()) {
+      await new Promise((r) => setTimeout(r, 0));
+      const c = compareSettings(list);
+      if (c.n) per.push(c);
+      setCmp({ done: i + 1, of: people.length, per: [...per] });
+    }
+  };
+  const a = useMemo(() => {
+    if (!base || !cmp || cmp.done < cmp.of || !cmp.per.length) return base;
+    const n = cmp.per.reduce((s, c) => s + c.n, 0);
+    const pooled = (k: "rps3" | "rps4" | "ref") => Math.round((cmp.per.reduce((s, c) => s + c[k] * c.n, 0) / n) * 1000) / 1000;
+    const perPerson = (k: "rps3" | "rps4" | "ref") => Math.round((cmp.per.reduce((s, c) => s + c[k], 0) / cmp.per.length) * 1000) / 1000;
+    const section = "comfort-3 と comfort-4（同じ記録を、それより前の記録だけで予測。RPS）";
+    const extra: Cell[] = (
+      [
+        ["comfort-3（重みなし）", "rps3"],
+        ["comfort-4（続けて記録したものを少なめに）", "rps4"],
+        ["基準（それまでの答えの割合）", "ref"],
+      ] as const
+    ).flatMap(([item, k]) => [
+      { section, item: `${item}・件数で平均`, value: pooled(k), people: cmp.per.length, reports: n },
+      { section, item: `${item}・人ごとに平均`, value: perPerson(k), people: cmp.per.length, reports: n },
+    ]);
+    return { ...base, cells: [...base.cells, ...extra] };
+  }, [base, cmp]);
 
   if (load.phase === "reading") return <p className="set-help">記録を読み込んでいます…（{load.got}件）</p>;
   if (load.phase === "error") return <p className="warn">{load.message}</p>;
@@ -105,6 +137,19 @@ function Body() {
           </table>
         </section>
       ))}
+      <section className="set-group">
+        <h3>comfort-3 と comfort-4 を同じ記録で比べる</h3>
+        <p className="set-help">一人ずつ、最近の10件を、それより前の記録だけで2通りに学び直して予測します（実データでの採用の確認、#54）。1人あたり十数秒かかります。</p>
+        {cmp && cmp.done < cmp.of ? (
+          <p className="set-help">
+            計算しています…（{cmp.done}/{cmp.of}人）
+          </p>
+        ) : (
+          <div className="actions tight">
+            <button onClick={() => void runCompare()}>{cmp ? "もう一度計算する" : "計算する"}</button>
+          </div>
+        )}
+      </section>
       <section className="set-group">
         <h3>集計を共有</h3>
         {canShare ? (

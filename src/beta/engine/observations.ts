@@ -123,7 +123,7 @@ export function burstWeights(times: number[], gapH = BURST_GAP_H, rho = BURST_RH
   return w;
 }
 
-export function observationsOf(reports: Report[], alpha: number): Observation[] {
+export function observationsOf(reports: Report[], alpha: number, weighted = true): Observation[] {
   const out: Observation[] = [];
   const used: Report[] = [];
   for (const r of reports) {
@@ -138,6 +138,7 @@ export function observationsOf(reports: Report[], alpha: number): Observation[] 
     }
   }
   // Runs are found among the reports that teach the model (a report left out does not join them).
+  if (!weighted) return out; // comfort-3: every report the same (kept for comparisons, #54)
   const w = burstWeights(used.map((r) => Date.parse(r.at)));
   return out.map((o, i) => (w[i] === 1 ? o : { ...o, w: w[i] }));
 }
