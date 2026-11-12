@@ -8,7 +8,8 @@
     "build": "vite-node build.ts",
     "run-models": "vite-node run-models.ts",
     "check": "vite-node check.ts",
-    "fixture": "vite-node make-fixture.ts"
+    "fixture": "vite-node make-fixture.ts",
+    "csv": "vite-node csv.ts"
   },
   "dependencies": {
     "@duckdb/node-api": "^1.4.1-r.4"

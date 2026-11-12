@@ -1,7 +1,7 @@
 // #45: the research export → analysis tables. Pure rules, so they are checked here without DuckDB.
 import { describe, expect, it } from "vitest";
 import { makeExport } from "../../research/data/fixture";
-import { TABLES, purge, tablesOf } from "../../research/data/transform";
+import { anonymous, TABLES, purge, tablesOf, trimTo } from "../../research/data/transform";
 
 const columns = (sql: string) =>
   sql
@@ -27,7 +27,7 @@ describe("research data", () => {
     const cols = columns(TABLES.sensation_reports);
     const a3 = rows.sensation_reports.find((r) => r[1] === "a3")!;
     expect(a3[cols.indexOf("trainable")]).toBe(false);
-    expect(rows.datasets[0]).toEqual(["ds-fixture", expect.any(String), 1, "h", 5, 2, 0]);
+    expect(rows.datasets[0]).toEqual(["ds-fixture", expect.any(String), 1, "h", 5, 2, 0, 0]);
   });
 
   it("a withdrawal removes the person from every export and is counted", () => {
@@ -43,5 +43,22 @@ describe("research data", () => {
     const ex = makeExport();
     ex.rows[0].report = { ...ex.rows[0].report, deleted: true };
     expect(tablesOf(ex, "h").sensation_reports).toHaveLength(4);
+  });
+
+  it("older copies are trimmed to the newest export: deleted reports and gone people leave (#55)", () => {
+    const old = makeExport();
+    const latest = makeExport();
+    latest.rows = latest.rows.filter((r) => r.report.id !== "a2" && r.researchId !== "bbbb");
+    const t = trimTo(old, latest);
+    expect(t.rows.map((r) => r.report.id)).toEqual(["a1", "a3"]);
+    expect(t.purged).toEqual(["bbbb"]);
+    expect(t.trimmed).toBe(1);
+    expect(trimTo(t, latest)).toBe(t);
+    expect(tablesOf(t, "h").datasets[0].slice(6)).toEqual([1, 1]);
+  });
+
+  it("nothing ties a report to the account", () => {
+    const r = { ...makeExport().rows[0].report, owner: "u-123" };
+    expect(anonymous(r)).not.toHaveProperty("owner");
   });
 });

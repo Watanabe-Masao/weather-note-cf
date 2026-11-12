@@ -1,0 +1,40 @@
+name: research-data
+
+# The DuckDB part of research/data (#45, #55), on made-up data only: runs when research/data, the
+# model it calls, or this file changes. Real data never reaches CI.
+on:
+  pull_request:
+    paths:
+      - "research/data/**"
+      - "src/beta/**"
+      - ".github/workflows/research-data.yml"
+  push:
+    branches: [main]
+    paths:
+      - "research/data/**"
+      - "src/beta/**"
+      - ".github/workflows/research-data.yml"
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: research/data
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            research/data/package-lock.json
+      - run: npm ci
+        working-directory: .
+      - run: npm ci
+      - run: npm run fixture
+      - run: npm run build
+      - run: npm run run-models
+      - run: npm run check
+      - run: npm run csv

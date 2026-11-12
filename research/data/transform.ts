@@ -16,13 +16,15 @@ export interface Export {
   withdrawn: { researchId: string; at: number; reason: string }[];
   /** Research IDs already removed from this file (purged after a later withdrawal). */
   purged?: string[];
+  /** Reports removed from this file because a later export no longer had them (deleted). */
+  trimmed?: number;
 }
 
 /** The table definitions (DuckDB SQL). Types, keys and what may be missing are fixed here. */
 export const TABLES: Record<string, string> = {
   datasets: `CREATE TABLE datasets (
     dataset_id VARCHAR PRIMARY KEY, exported_at TIMESTAMPTZ NOT NULL, schema_version INTEGER NOT NULL,
-    hash VARCHAR NOT NULL, n_reports INTEGER NOT NULL, n_people INTEGER NOT NULL, n_purged INTEGER NOT NULL)`,
+    hash VARCHAR NOT NULL, n_reports INTEGER NOT NULL, n_people INTEGER NOT NULL, n_purged INTEGER NOT NULL, n_trimmed INTEGER NOT NULL)`,
   sensation_reports: `CREATE TABLE sensation_reports (
     dataset_id VARCHAR NOT NULL, report_id VARCHAR NOT NULL, research_id VARCHAR NOT NULL,
     reported_at TIMESTAMPTZ NOT NULL, sensation TINYINT NOT NULL, scale_version TINYINT NOT NULL,
@@ -67,6 +69,27 @@ export function purge(ex: Export, withdrawn: { researchId: string }[]): Export {
   if (kept.length === ex.rows.length) return ex;
   const removed = [...new Set(ex.rows.filter((r) => gone.has(r.researchId)).map((r) => r.researchId))];
   return { ...ex, rows: kept, purged: [...new Set([...(ex.purged ?? []), ...removed])] };
+}
+
+/**
+ * Trims an older export to the newest one (#55): the newest export is what the server holds now,
+ * so a report or a person missing from it (deleted, withdrawn, account gone) leaves the older
+ * copy too. Only the newest complete export may be used as `latest`.
+ */
+export function trimTo(old: Export, latest: Export): Export {
+  const now = new Set(latest.rows.map((r) => `${r.researchId}/${r.report.id}`));
+  const kept = old.rows.filter((r) => now.has(`${r.researchId}/${r.report.id}`));
+  if (kept.length === old.rows.length) return old;
+  const people = new Set(kept.map((r) => r.researchId));
+  const gone = [...new Set(old.rows.map((r) => r.researchId))].filter((id) => !people.has(id));
+  const removedReports = old.rows.filter((r) => people.has(r.researchId)).length - kept.length;
+  return { ...old, rows: kept, purged: [...new Set([...(old.purged ?? []), ...gone])], trimmed: (old.trimmed ?? 0) + removedReports };
+}
+
+/** A report without anything that ties it to the account (#55; the server already leaves it out). */
+export function anonymous(report: Report): Report {
+  const { owner: _owner, ...rest } = report;
+  return rest as Report;
 }
 
 /** The rows of every table for one export. */
@@ -124,7 +147,7 @@ export function tablesOf(ex: Export, hash: string): Rows {
       ]);
   }
   return {
-    datasets: [[ex.datasetId, iso(ex.exportedAt), SCHEMA_VERSION, hash, live.length, new Set(live.map((r) => r.researchId)).size, ex.purged?.length ?? 0]],
+    datasets: [[ex.datasetId, iso(ex.exportedAt), SCHEMA_VERSION, hash, live.length, new Set(live.map((r) => r.researchId)).size, ex.purged?.length ?? 0, ex.trimmed ?? 0]],
     sensation_reports: reports,
     weather_snapshots: weather,
     prediction_snapshots: predictions,

@@ -1,10 +1,10 @@
 // The administrator's screen: issue an account (the password is shown once), reissue a password,
-// stop or restart an account, and export the research data (consenting people only, under research
-// IDs) as CSV.
+// stop, restart or delete an account, and issue the token that research/data uses to take the
+// research data out (#55: the data itself is never downloaded here, so a withdrawal can reach every
+// copy).
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import { type Report, toCsv } from "../beta/reports";
 import { ModalSheet } from "../ui/ModalSheet";
 import { OnceSecret } from "./AccountSection";
 import { api } from "./account";
@@ -23,12 +23,43 @@ interface Row {
 
 const day = (ms: number | null) => (ms ? new Date(ms).toLocaleDateString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric" }) : "—");
 
-/** The research rows as the usual report CSV, with the research ID as the first column. */
-export function researchCsv(rows: { researchId: string; report: Report }[]): string {
-  const linesOf = (list: Report[]) => toCsv(list).replace(/^\uFEFF/, "").split("\r\n");
-  const head = linesOf([])[0];
-  const live = rows.filter((r) => !r.report.deleted).sort((a, b) => (a.report.at < b.report.at ? -1 : a.report.at > b.report.at ? 1 : 0));
-  return "\uFEFF" + [`research_id,${head}`, ...live.map((r) => `${r.researchId},${linesOf([r.report])[1]}`)].join("\r\n") + "\r\n";
+/** The export token for research/data (#55): read-only, 24 hours, shown once, revocable. */
+function ExportToken() {
+  const [active, setActive] = useState<{ expiresAt: number } | null | undefined>(undefined);
+  const [token, setToken] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    api<{ active: { expiresAt: number } | null }>("/api/admin/export-token")
+      .then((r) => setActive(r.active))
+      .catch(() => setActive(null));
+  }, []);
+  const ask = (revoke: boolean) => {
+    setBusy(true);
+    setError(null);
+    api<{ token?: string; active: { expiresAt: number } | null }>("/api/admin/export-token", revoke ? { revoke: true } : {})
+      .then((r) => (setActive(r.active), setToken(r.token ?? null)))
+      .catch((e) => setError((e as Error).message))
+      .finally(() => setBusy(false));
+  };
+  const until = (ms: number) => new Date(ms).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return (
+    <>
+      <small className="set-help">{active ? `有効なトークンがあります（${until(active.expiresAt)} まで）。作り直すと、今のトークンは使えなくなります。` : active === null ? "有効なトークンはありません。" : ""}</small>
+      <div className="actions tight">
+        <button onClick={() => ask(false)} disabled={busy}>
+          {active ? "作り直す" : "取り出し用のトークンを作る"}
+        </button>
+        {active ? (
+          <button className="danger" onClick={() => ask(true)} disabled={busy}>
+            無効にする
+          </button>
+        ) : null}
+      </div>
+      {token ? <OnceSecret label="取り出し用のトークン（この画面でしか見られません）" value={token} note="research/data で WN_TOKEN に入れて npm run export を実行します。24時間で使えなくなります。使い終わったら「無効にする」を押してください。" /> : null}
+      {error ? <p className="warn">{error}</p> : null}
+    </>
+  );
 }
 
 /** Who exported research data, and when (#45). */
@@ -96,23 +127,6 @@ function Body() {
       setName("");
     });
   };
-
-  const download = () =>
-    void run(async () => {
-      const all: { researchId: string; report: Report }[] = [];
-      let offset: number | null = 0;
-      while (offset != null) {
-        const page: { rows: typeof all; next: number | null } = await api(`/api/admin/research?offset=${offset}`);
-        all.push(...page.rows);
-        offset = page.next;
-      }
-      const url = URL.createObjectURL(new Blob([researchCsv(all)], { type: "text/csv;charset=utf-8" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `weather-note-research-${new Date().toISOString().slice(0, 10)}.csv`;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    });
 
   return (
     <div className="admin">
@@ -213,12 +227,10 @@ function Body() {
 
       <section className="set-group" aria-labelledby="admin-research">
         <h3 id="admin-research">研究用データ</h3>
-        <p className="set-lead">研究への協力に同意している人の記録だけを、研究用の番号（名前・ログインIDとは別）で書き出します。列は感じ方の記録のCSVと同じで、先頭に research_id が付きます。</p>
-        <div className="actions tight">
-          <button onClick={download} disabled={busy}>
-            研究用CSVを書き出す
-          </button>
-        </div>
+        <p className="set-lead">
+          研究への協力に同意している人の記録だけを、研究用の番号（名前・ログインIDとは別）で取り出します。取り出しはこの画面ではなく、管理者の手元のパソコンで research/data の手順を使います（撤回した人を、取り出した写しからも確実に消すため）。行ごとのデータは手元の外に出さず、外に出すのは5人以上の集計だけです。
+        </p>
+        <ExportToken />
         <ExportLog />
       </section>
     </div>
