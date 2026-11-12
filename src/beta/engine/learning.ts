@@ -1,7 +1,7 @@
 // MATH-07: how far the learning has got.
 // Contract: research/comfort-model/mathematical-contract.md
 
-import type { Report } from "../reports";
+import { type Report, SCALE_VERSION } from "../reports";
 import { type Ensemble } from "./ensemble";
 import { type Observation } from "./estimation";
 import { referenceProbs, rps } from "./evaluation";
@@ -44,8 +44,10 @@ export interface LearningView {
 
 export function learningOf(reports: Report[], ens: Ensemble): LearningView {
   const live = reports.filter((r) => !r.deleted).sort((a, b) => (a.at < b.at ? -1 : 1));
-  const checked = live
-    .map((r, i) => ({ r, earlier: live.slice(0, i).map((x) => x.sensation as number) }))
+  // Judged the same way as the track record (evaluation.ts): on the current scale version only.
+  const same = live.filter((r) => (r.scaleVersion ?? 1) === SCALE_VERSION);
+  const checked = same
+    .map((r, i) => ({ r, earlier: same.slice(0, i).map((x) => x.sensation as number) }))
     .filter(({ r }) => r.comfort && (r.comfort.learning === "testable" || r.comfort.learning === "verified"))
     .map(({ r, earlier }) => ({ probs: r.comfort!.probs, y: r.sensation as number, earlier }));
   return learningFrom(observationsOf(reports, ens.alpha), new Set(live.map((r) => r.at.slice(0, 10))).size, checked, ens);

@@ -305,7 +305,7 @@ function ComfortBasis() {
                       </small>
                     </td>
                     <td className="num">{Math.round(ens.weights[i] * 100)}%</td>
-                    <td className="num">{rec && rec.n ? `損失 ${rec.logLoss?.toFixed(2)}・当たり ${Math.round((rec.hit ?? 0) * 100)}%` : "—"}</td>
+                    <td className="num">{rec && rec.n ? `RPS ${rec.rps?.toFixed(3)}・損失 ${rec.logLoss?.toFixed(2)}` : "—"}</td>
                   </tr>
                 );
               })}
@@ -317,11 +317,68 @@ function ComfortBasis() {
           {ens.n < beta.minForAlpha ? ` α は記録が${beta.minForAlpha}件たまってから選びます（今は標準の0.8）。` : ` α（${ens.alpha.toFixed(2)}・半減期 ${halfLifeDays(ens.alpha)}日）は記録の当てはまりで選んでいます。`}
         </p>
         <p className="basis-note">
-          混ぜた予測の成績：
+          混ぜた予測の成績（送信した時点の予測だけ。後から学習し直した値ではありません）：
           {r.n === 0
             ? "まだ記録がありません。"
-            : `${r.n}件、対数損失 ${r.logLoss?.toFixed(2)}（当てずっぽうは 1.95）、当たり ${Math.round((r.hit ?? 0) * 100)}%、偏り ${r.bias! > 0 ? "+" : ""}${r.bias?.toFixed(1)}、平均のずれ ${r.mae?.toFixed(1)}段階（直近10件 ${r.recentMae?.toFixed(1)}）。`}
+            : `${r.n}件、RPS ${r.rps?.toFixed(3)}（基準＝それまでの答えの割合 ${r.refRps?.toFixed(3)}、改善 ${r.skill != null ? Math.round(r.skill * 100) : "—"}%）、対数損失 ${r.logLoss?.toFixed(2)}（当てずっぽうは 1.95）、当たり ${Math.round((r.hit ?? 0) * 100)}%、偏り ${r.bias! > 0 ? "+" : ""}${r.bias?.toFixed(1)}、平均のずれ ${r.mae?.toFixed(1)}段階（直近10件 ${r.recentMae?.toFixed(1)}）。`}
+          {r.drifting ? ` 直近10件の平均のずれが ${r.recentBias?.toFixed(1)}段で、感じ方が変わった可能性があります。` : ""}
         </p>
+        {r.n > 0 && (
+          <>
+            <h5>較正（寒い側・ちょうどよい・暑い側）</h5>
+            <p className="basis-note">予測した確率ごとに、実際にそうなった割合。2つが近いほど、確率が正直です（70%と言ったことが約70%起きる）。</p>
+            <div className="basis-scroll">
+              <table className="basis-table">
+                <thead>
+                  <tr>
+                    <th>予測の確率</th>
+                    <th>数</th>
+                    <th>予測の平均</th>
+                    <th>実際の割合</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.calibration.map((b) => (
+                    <tr key={b.lo}>
+                      <td>
+                        {Math.round(b.lo * 100)}〜{Math.round(b.hi * 100)}%
+                      </td>
+                      <td className="num">{b.n}</td>
+                      <td className="num">{b.predicted == null ? "—" : `${Math.round(b.predicted * 100)}%`}</td>
+                      <td className="num">{b.observed == null ? "—" : `${Math.round(b.observed * 100)}%`}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <h5>時系列（10件ごと）</h5>
+            <p className="basis-note">学習が進むにつれて RPS が下がり、基準との差が開いていけば、学習が予測を良くしています。</p>
+            <div className="basis-scroll">
+              <table className="basis-table">
+                <thead>
+                  <tr>
+                    <th>期間</th>
+                    <th>件数</th>
+                    <th>RPS</th>
+                    <th>基準</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {r.series.map((x) => (
+                    <tr key={x.from}>
+                      <td>
+                        {x.from.slice(5, 10).replace("-", "/")}〜{x.to.slice(5, 10).replace("-", "/")}
+                      </td>
+                      <td className="num">{x.n}</td>
+                      <td className="num">{x.rps.toFixed(3)}</td>
+                      <td className="num">{x.refRps.toFixed(3)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
       </section>
 
       <section className="basis-sec" aria-labelledby="basis-params">

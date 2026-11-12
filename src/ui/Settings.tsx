@@ -393,18 +393,27 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
         <div className="set-row">
           <span className="set-label">
             予測のずれ
-            <small className="set-help">記録のたびに、送信した時点で出した予測（7段階の確率）と答えを比べます。当たり＝最も確率の高い段階が答えだった割合。偏りの＋は予測より暖かく感じたこと。</small>
+            <small className="set-help">
+              記録のたびに、送信した時点で出した予測（7段階の確率）と答えを比べます。主な指標は RPS（0が最良。段の近い外れは小さく数える）で、あなたのそれまでの答えの割合（基準）と比べます。改善が＋なら基準より当たっています。偏りの＋は予測より暖かく感じたこと。較正と時系列は「計算の根拠」にあります。
+            </small>
           </span>
           <p className="beta-alpha" role="status">
             {beta.record.n === 0 ? (
               <span>まだ記録がありません。</span>
             ) : (
               <span>
-                {beta.record.n}件　当たり {Math.round((beta.record.hit ?? 0) * 100)}%・対数損失 {beta.record.logLoss?.toFixed(2)}（当てずっぽう 1.95）・偏り {beta.record.bias! > 0 ? "+" : ""}
+                {beta.record.n}件　RPS {beta.record.rps?.toFixed(3)}（基準 {beta.record.refRps?.toFixed(3)}、改善 {beta.record.skill != null ? `${Math.round(beta.record.skill * 100)}%` : "—"}）・対数損失 {beta.record.logLoss?.toFixed(2)}（当てずっぽう 1.95）・当たり {Math.round((beta.record.hit ?? 0) * 100)}%・偏り {beta.record.bias! > 0 ? "+" : ""}
                 {beta.record.bias?.toFixed(1)}・平均のずれ {beta.record.mae?.toFixed(1)}段階（直近10件 {beta.record.recentMae?.toFixed(1)}）
+                {beta.record.otherScale ? `。前の言葉の尺度で答えた ${beta.record.otherScale}件は含めていません` : ""}
               </span>
             )}
           </p>
+          {beta.record.drifting && (
+            <p className="warn" role="status">
+              最近{beta.record.recentBias! < 0 ? "寒い" : "暑い"}側に答えることが続いています（直近10件の平均 {beta.record.recentBias! > 0 ? "+" : ""}
+              {beta.record.recentBias?.toFixed(1)}段）。感じ方が変わったか、季節の変わり目かもしれません。記録が増えると、モデルが追いつきます。
+            </p>
+          )}
         </div>
         <ReportData />
       </section>
