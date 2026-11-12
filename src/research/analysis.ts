@@ -27,6 +27,8 @@ export interface Cell {
   value: number | string | null;
   people: number;
   reports: number;
+  /** Who is in the cell (research IDs; kept in memory for the sharing rule, never shared). */
+  who?: Set<string>;
 }
 
 export interface Analysis {
@@ -66,7 +68,7 @@ function counted(section: string, rows: { who: string; key: string }[]): Cell[] 
     c.people.add(who);
     m.set(key, c);
   }
-  return [...m.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([key, c]) => ({ section, item: key, value: c.reports, people: c.people.size, reports: c.reports }));
+  return [...m.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([key, c]) => ({ section, item: key, value: c.reports, people: c.people.size, reports: c.reports, who: c.people }));
 }
 
 /**
@@ -230,26 +232,38 @@ export function analyse(rows: Row[]): Analysis {
 /** Whether a cell may leave the iPhone. */
 export const shareable = (c: Cell) => c.people >= MIN_PEOPLE;
 
+/** Cells whose value is itself a number of people (a subset of the cell's people). */
+const PEOPLE_VALUES = new Set(["基準よりよかった人", "変化の目印が出ている人"]);
+
 /**
- * The cells that may leave the iPhone (review 2026-11-12). A cell under MIN_PEOPLE stays, and so
- * does what would give it back by subtraction: when a section hides exactly one cell, the next
- * smallest is hidden too (the totals minus the rest would show it), and a cross table goes out
- * only whole (its margins are shared elsewhere). Sharing again later can still show a newcomer by
- * difference: share rarely, and only what is needed.
+ * The cells that may leave the iPhone (reviews 2026-11-12). The rule, for N people in all:
+ *   1. A cell needs MIN_PEOPLE or more people, and so does what it leaves out: N − its people is
+ *      0 or MIN_PEOPLE or more (a cell of N − 1 people tells about the one left out — the
+ *      counterexample: a "lag" cell of 6 of 7 people gave away the one whose inputs were forecasts).
+ *      A value that counts people obeys the same.
+ *   2. In a section, what is hidden must be MIN_PEOPLE or more people together (the totals minus
+ *      the shown cells give it back): more cells are hidden, smallest first, until it is; a section
+ *      whose cells do not know their people goes out whole or not at all.
+ *   3. A cross table goes out only whole (its margins are shared elsewhere).
+ * Sharing again later can still show a newcomer by difference: share rarely.
  */
 export function sharedCells(a: Analysis): Set<Cell> {
+  const N = a.people;
+  const big = (k: number) => k === 0 || k >= MIN_PEOPLE;
+  const cellOk = (c: Cell) => c.people >= MIN_PEOPLE && big(N - c.people) && (!PEOPLE_VALUES.has(c.item) || (typeof c.value === "number" && big(c.value) && big(c.people - c.value)));
   const out = new Set<Cell>();
   for (const section of new Set(a.cells.map((c) => c.section))) {
     const cells = a.cells.filter((c) => c.section === section);
-    const hidden = cells.filter((c) => !shareable(c));
-    if (section.includes("×")) {
+    let shown = cells.filter(cellOk);
+    const hidden = cells.filter((c) => !cellOk(c));
+    if (section.includes("×") || (hidden.length && !cells.every((c) => c.who))) {
       if (!hidden.length) cells.forEach((c) => out.add(c));
       continue;
     }
-    const shown = cells.filter(shareable);
-    if (hidden.length === 1 && shown.length) {
-      const smallest = [...shown].sort((x, y) => x.people - y.people || x.reports - y.reports)[0];
-      shown.splice(shown.indexOf(smallest), 1);
+    const people = (list: Cell[]) => new Set(list.flatMap((c) => [...(c.who ?? [])])).size;
+    if (hidden.length) {
+      shown = [...shown].sort((x, y) => x.people - y.people || x.reports - y.reports);
+      while (shown.length && people(hidden) < MIN_PEOPLE) hidden.push(shown.shift()!);
     }
     shown.forEach((c) => out.add(c));
   }

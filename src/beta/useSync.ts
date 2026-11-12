@@ -47,7 +47,9 @@ export async function syncNow(): Promise<void> {
   }
   set({ running: true });
   const start = view.state;
-  const next = await syncOnce(start, { all: reports.all, merge: reports.merge, post: (b) => api("/api/reports/sync", b) });
+  // While an account is being deleted — or once its person has logged out — a sync already on its
+  // way writes nothing back, however long it takes (review 2026-11-12).
+  const next = await syncOnce(start, { all: reports.all, merge: (list) => (leaving || view.state?.userId !== start.userId ? Promise.resolve() : reports.merge(list)), post: (b) => api("/api/reports/sync", b) });
   // Logged out or switched while this ran: keep what the person did.
   if (view.state?.userId === start.userId) {
     saveSync(next);
@@ -84,25 +86,39 @@ export async function logOutAndLeave(): Promise<{ kept: number }> {
  * Deletes the person's own account (#55): everything on the server, and their reports on this
  * device, including ones not sent yet. The password confirms it; a wrong one changes nothing.
  */
-export async function deleteAccountAndLeave(password: string): Promise<void> {
+/** Said once after an account deletion whose local clean-up did not finish (shown when logged out). */
+export const DELETION_NOTE_KEY = "wn-deletion-note";
+
+export async function deleteAccountAndLeave(password: string): Promise<{ local: boolean }> {
   const s = view.state;
   await api("/api/me/delete", { password });
   // The account is gone on the server: from here every step runs, whatever fails, and the person
-  // is logged out at the end (a retry could not log in again; review 2026-11-12).
+  // is logged out at the end (a retry could not log in again). A sync on its way writes nothing
+  // back from now on (see syncNow), so its length does not matter.
   leaving = true;
+  let local = true;
   try {
-    // A sync already running could write the reports back after they are dropped: let it end first.
     for (let i = 0; i < 50 && view.running; i++) await new Promise((r) => setTimeout(r, 100));
     if (s) {
       const mine = (await reports.all()).filter((r) => r.owner === s.userId);
       await reports.drop(mine.map((r) => r.id));
+      // Checked, not assumed: anything still there is told to the person.
+      local = !(await reports.all()).some((r) => r.owner === s.userId);
     }
   } catch (e) {
+    local = false;
     console.warn("weather-note: local reports not removed", e);
   }
-  await turnOffDevice().catch(() => {}); // the server side is already gone; this ends the browser's subscription
+  if (!local)
+    try {
+      localStorage.setItem(DELETION_NOTE_KEY, "アカウントはサーバーから削除しましたが、この端末の記録の一部を消せませんでした。端末の記録を消すには、ブラウザのサイトのデータを消してください。");
+    } catch {
+      /* storage unavailable */
+    }
+  await turnOffDevice().catch(() => {});
   await logOut().catch(() => {});
   leaving = false;
+  return { local };
 }
 
 export function useSync(): View {

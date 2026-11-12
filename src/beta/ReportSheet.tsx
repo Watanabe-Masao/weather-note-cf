@@ -9,7 +9,7 @@ import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
-import { DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, jstHourOf, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
+import { reportMoment, DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
 import { inputQuality } from "./quality";
 import { bandOf, centreUnknown, type ComfortPrediction, LEARNING_LABELS, LEARNING_RULES, type LearningView, predictComfort, TIME_BANDS } from "./comfort";
@@ -47,17 +47,16 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
     store?.wantHours(station, [addDays(today, -2), yesterday, today], Priority.Visible, "report");
     return () => store?.wantHours(station, [], Priority.Visible, "report");
   }, [store, station, yesterday, today]);
-  const yesterdayHours = store?.getHours(station, yesterday).rows ?? null;
   /**
    * The station's moment for a report at `now`. JMA counts 0:00 as 24時 of the day before, so a
    * report in the 0時台 reads the day before's 24時 (and its 10-minute values), not a forecast of
    * tonight's 24時 (review 2026-11-12).
    */
+  // From `now` itself, so a sheet left open over midnight reads the right day (review 2026-11-12).
   const snapAt = (now: number, withRetrieved = false) => {
-    const midnight = jstHourOf(now) === 24;
-    const day = midnight ? yesterday : today;
-    const held = store?.getHours(station, day);
-    return snapshotOf(held?.rows ?? null, jstHourOf(now), feel, midnight ? (store?.getHours(station, addDays(today, -2)).rows ?? null) : yesterdayHours, withRetrieved ? held?.fetchedAt : undefined, {
+    const m = reportMoment(now);
+    const held = store?.getHours(station, m.day);
+    return snapshotOf(held?.rows ?? null, m.hour, feel, store?.getHours(station, m.before).rows ?? null, withRetrieved ? held?.fetchedAt : undefined, {
       latest: store?.getLatest(station) ?? null,
       now,
     });

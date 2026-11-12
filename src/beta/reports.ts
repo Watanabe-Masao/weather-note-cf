@@ -219,17 +219,14 @@ export function snapshotOf(
   const lastObserved = usable.find((r) => r.type !== "forecast");
   if (row.type === "forecast" && lastObserved && lastObserved.n >= row.n - 1) row = lastObserved;
   // The moment of the answer, not the top of the hour: the latest 10-minute observation, when it is
-  // of the same day, newer than the hour's value and not after the answer. Radiation, the forecast's
-  // sky and the day's sums stay with the hour (AMeDAS has no radiation).
+  // newer than the hourly value (or the hourly value is a forecast and the observation is recent),
+  // and not after the answer. The snapshot then sits at the observation's own clock in JMA's terms
+  // (0:50 is 24時 of the day before, minute 50; 12:10 is 12時, minute 10). Radiation, the forecast's
+  // sky and the day's sums come from that hour's row when there is one (AMeDAS has no radiation).
   const ten = tenMinute(row, live);
-  // A 10-minute value an hour or more after the row's hour (its hourly row not arrived yet) moves
-  // the moment to its own hour; radiation and the sky come from that hour's row when there is one.
-  if (ten && ten.minute >= 60) {
-    const ahead = Math.floor(ten.minute / 60);
-    const next = rows.find((r) => r.n === row.n + ahead && r.date === row.date);
-    ten.minute %= 60;
-    if (next) row = { ...next, temp: row.temp };
-    else row = { ...row, n: row.n + ahead };
+  if (ten && (ten.date !== row.date || ten.hour !== row.n)) {
+    const same = rows.find((r) => r.date === ten.date && r.n === ten.hour);
+    row = same ? { ...same, temp: row.temp } : { ...row, date: ten.date, n: ten.hour };
   }
   // Each saved hour carries its own source (正本管理); today's observed hours are AMeDAS otherwise.
   const own = hourOrigin(row, { kind: "variable", source: row.type === "forecast" ? "forecast" : "current" });
@@ -264,16 +261,28 @@ export function snapshotOf(
 }
 
 /** The latest 10-minute observation to use instead of the hour's value, with its minutes past the hour. */
-function tenMinute(row: WeatherRow, live: { latest: WeatherRow | null; now: number } | undefined): { row: WeatherRow; minute: number } | null {
+function tenMinute(row: WeatherRow, live: { latest: WeatherRow | null; now: number } | undefined): { row: WeatherRow; date: string; hour: number; minute: number } | null {
   const l = live?.latest;
-  // Compared as moments, so 0:20 of the next day follows 24時 of the day (the report at 0時台).
-  if (!l || typeof l.observedAt !== "string" || num(l.temp) == null) return null;
-  const [hh, mm] = l.observedAt.split(":").map(Number);
-  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
-  const at = Date.parse(`${l.date}T${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}:00+09:00`);
+  if (!l || typeof l.observedAt !== "string" || typeof l.date !== "string" || num(l.temp) == null) return null;
+  const m = /^(\d{2}):(\d{2})$/.exec(l.observedAt);
+  if (!m || Number(m[1]) > 23 || Number(m[2]) > 59) return null;
+  // Compared as moments, so 0:20 of the next day follows 24時 of the day before.
+  const at = Date.parse(`${l.date}T${m[1]}:${m[2]}:00+09:00`);
   const hourAt = Date.parse(`${row.date}T00:00:00+09:00`) + row.n * 3_600_000;
-  if (!(at > hourAt) || at > live!.now + 60_000 || at - hourAt >= 3 * 3_600_000) return null;
-  return { row: l, minute: Math.round((at - hourAt) / 60_000) };
+  const now = live!.now;
+  if (!Number.isFinite(at) || at > now + 60_000) return null;
+  // Newer than the hourly value; or, when that value is a forecast, observed within the last hour.
+  const newer = at > hourAt && at - hourAt < 3 * 3_600_000;
+  const recent = row.type === "forecast" && now - at <= 3_600_000;
+  if (!newer && !recent) return null;
+  // The observation's own clock in JMA's terms: hour 0 belongs to the day before as 24時.
+  const hh = Number(m[1]);
+  const mm = Number(m[2]);
+  if (hh === 0) {
+    const d = new Date(Date.parse(`${l.date}T12:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    return { row: l, date: d, hour: 24, minute: mm };
+  }
+  return { row: l, date: l.date, hour: hh, minute: mm };
 }
 
 /** The day's radiation so far: W/m² per hour → MJ/m² (× 0.0036), hours 1…n with a value. */
@@ -324,6 +333,20 @@ export function recentDay(date: string, row: WeatherRow | null | undefined, kind
 export function jstHourOf(ms: number): number {
   const h = new Date(ms + 9 * 3_600_000).getUTCHours();
   return h === 0 ? 24 : h;
+}
+
+/**
+ * The station's day and hour for a report made at `now`, from `now` itself (not from the day the
+ * sheet was opened on): JMA counts 0:00–0:59 as 24時 of the day before. `before` is the day
+ * whose hours come before (for the wind memory).
+ */
+export function reportMoment(now: number): { day: string; hour: number; before: string } {
+  const jst = new Date(now + 9 * 3_600_000);
+  const today = jst.toISOString().slice(0, 10);
+  const shift = (d: string, n: number) => new Date(Date.parse(`${d}T12:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+  const hour = jstHourOf(now);
+  const day = hour === 24 ? shift(today, -1) : today;
+  return { day, hour, before: shift(day, -1) };
 }
 
 // ---- CSV ---------------------------------------------------------------------------------------
