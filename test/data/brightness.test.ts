@@ -90,3 +90,36 @@ describe("stepping out of a lit room (adaptation)", () => {
     expect(stepOutFeel(null)).toBeNull();
   });
 });
+
+describe("adaptation over days (いつもと比べて)", () => {
+  it("turns a day's radiation into its mean daylight, sunrise to sunset", async () => {
+    const { daylightLux, LUMINOUS_EFFICACY } = await import("../../shared/brightness");
+    const { dayEdges } = await import("../../shared/dayParts");
+    const e = dayEdges("2026-11-12", "47893");
+    expect(daylightLux(10, "2026-11-12", "47893")!).toBeCloseTo(((10e6 / ((e.set - e.rise) * 60)) * LUMINOUS_EFFICACY), 3);
+    expect(daylightLux(null, "2026-11-12", "47893")).toBeNull();
+    expect(daylightLux(0, "2026-11-12", "47893")).toBeNull();
+  });
+  it("compares the day with the geometric mean of the days before, and says it in words", async () => {
+    const { usualRatio, usualText, usualShort } = await import("../../shared/brightness");
+    // A sunny day (20,000) after a dull week (5,000 each): four times the usual.
+    expect(usualRatio(20_000, [5_000, 5_000, 5_000, 5_000, 5_000, null, null])).toBeCloseTo(4, 9);
+    // Ratios, not differences: 1,000 and 100,000 before average to 10,000.
+    expect(usualRatio(10_000, [1_000, 100_000, 1_000, 100_000])).toBeCloseTo(1, 9);
+    expect(usualRatio(10_000, [5_000, 5_000, 5_000])).toBeNull(); // fewer than four days
+    expect(usualRatio(null, [5_000, 5_000, 5_000, 5_000])).toBeNull();
+    expect(usualText(4)).toBe("いつもの4.0倍");
+    expect(usualText(0.4)).toBe("いつもの0.4倍");
+    expect(usualText(1.05)).toBe("いつも通り");
+    expect(usualText(null)).toBe("—");
+    expect(usualShort(2.14)).toBe("×2.1");
+    expect(usualShort(1.02)).toBe("≈");
+  });
+  it("is a row under the 日差し graph only (no line, no table row)", async () => {
+    const { chartMetricById, graphSeries, tableSeries } = await import("../../src/chartMetrics");
+    const m = chartMetricById("radiation");
+    expect(m.under!.map((u) => u.key)).toContain("usualLight");
+    expect(graphSeries(m).map((s) => s.key)).not.toContain("usualLight");
+    expect(tableSeries(m).map((s) => s.key)).not.toContain("usualLight");
+  });
+});

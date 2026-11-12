@@ -3,6 +3,7 @@
 // outlined) and lighter. Forecast days are a hatched background with 予報 at the top.
 // Missing values break the line (never interpolated).
 
+import { usualLightOf } from "../light";
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
@@ -83,7 +84,6 @@ const BUFFER = 4;
 const LONG_PRESS = 280;
 
 export function Chart({ store, station, target, partner, metric, height = 190, onPickDay, onShiftDays, onToggleSun }: Props) {
-  const H = height;
   const feel = useContext(FeelContext);
   const beta = useContext(BetaContext);
   const { shown, toggle, reset } = useHidden(metric);
@@ -172,6 +172,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
 
   const read = (date: string | null, s: ChartMetric["series"][number]): { v: number | null; forecast: boolean } => {
     if (!date) return { v: null, forecast: false };
+    if (s.history === "usualLight") return { v: usualLightOf(store, station, date), forecast: store?.getDay(station, date).row?.type === "forecast" };
     if (s.history === "baseline") {
       const b = baselineOf(store, station, date, beta.alpha);
       return { v: b?.value ?? null, forecast: !!b?.forecastMixed };
@@ -213,6 +214,8 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
     if (row.compare) under.push({ label: "", cells: other.map(text), muted: true });
   }
   const bottom = PAD.bottom + (under.length ? under.length * UNDER_ROW + 4 : 0);
+  // The rows of numbers add to the height, so the plot keeps its size however many there are.
+  const H = height + (bottom - PAD.bottom);
 
   const values = series.flatMap((x) => x.points.map((p) => p.v)).filter((v): v is number => v != null);
   let lo = values.length ? Math.min(...values) : 0;

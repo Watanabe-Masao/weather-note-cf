@@ -4,7 +4,8 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
-import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, hourLight, stepOutFeel } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, hourLight, stepOutFeel, usualText } from "../../shared/brightness";
+import { usualLightOf } from "../light";
 import { stationLatLon } from "../../shared/sunTimes";
 import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
@@ -199,7 +200,9 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
       </div>
 
-      {metricId === "radiation" && <LightStrip main={lightMain} other={other ? lightOther : null} shownHour={shownHour} />}
+      {metricId === "radiation" && (
+        <LightStrip main={lightMain} other={other ? lightOther : null} shownHour={shownHour} usual={{ main: usualLightOf(store, station, date), other: other ? usualLightOf(store, station, other) : null }} />
+      )}
 
       {metricId === "feel" && (
         <p className="level-legend">
@@ -308,7 +311,7 @@ function BandWeatherIcons({ main, other }: { main: BandWx; other: BandWx | null 
  * 明るさ under the 日差し graph: one cell per hour, darker to lighter by the felt level (B of the
  * mocks, 2026-11-12). The cells sit under the graph's hours (same side margins as the plot).
  */
-function LightStrip({ main, other, shownHour }: { main: (number | null)[]; other: (number | null)[] | null; shownHour: number }) {
+function LightStrip({ main, other, shownHour, usual }: { main: (number | null)[]; other: (number | null)[] | null; shownHour: number; usual: { main: number | null; other: number | null } }) {
   const row = (label: string, values: (number | null)[]) => (
     <div className="light-row">
       <span className="light-row-label">{label}</span>
@@ -321,7 +324,14 @@ function LightStrip({ main, other, shownHour }: { main: (number | null)[]; other
   );
   return (
     <div className="light-strip">
-      <span className="light-title">明るさ</span>
+      <span className="light-title">
+        明るさ
+        {usual.main != null || usual.other != null ? (
+          <small>
+            {" "}この日の昼は {usualText(usual.main)}{other ? `・比較の日は ${usualText(usual.other)}` : ""}（前の7日と比べて）
+          </small>
+        ) : null}
+      </span>
       {row("対象", main)}
       {other && row("比較", other)}
       <p className="light-note">「外に出たとき」は、室内（約500lx）に慣れた目で外に出た直後の感じ方です。目はその後、明るさには数分、暗さには10〜30分で慣れます。</p>
