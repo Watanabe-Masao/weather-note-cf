@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { makeReport } from "../../research/data/fixture";
 import { analyse, MIN_PEOPLE, sharedCsv } from "../../src/research/analysis";
+import { MODEL_VERSION } from "../../src/beta/comfort";
 
 const rowsFor = (people: number) =>
   Array.from({ length: people }, (_, p) =>
@@ -95,7 +96,7 @@ describe("evaluation ready for real data (#53 #54 #68)", () => {
   it("splits sent predictions by model version and adds the 7-step cumulative calibration", () => {
     const rows = [0, 1, 2, 3].map((i) => ({ researchId: "a", report: makeReport(`v${i}`, 8 + i * 2, 12 + i * 3, i - 1) }));
     const cells = analyse(rows).cells;
-    expect(cells.some((c) => c.section.startsWith("予測の版ごとの成績") && c.item.startsWith("comfort-4"))).toBe(true);
+    expect(cells.some((c) => c.section.startsWith("予測の版ごとの成績") && c.item.startsWith(MODEL_VERSION))).toBe(true);
     const cal = cells.filter((c) => c.section.startsWith("7段の較正"));
     expect(cal.length).toBeGreaterThan(0);
     expect(cal.reduce((s, c) => s + c.reports, 0)).toBe(4 * 6);
@@ -117,7 +118,7 @@ describe("evaluation ready for real data (#53 #54 #68)", () => {
   });
 });
 
-describe("comfort-3 against comfort-4 on the same reports", () => {
+describe("comfort-4 against comfort-5 on the same reports", () => {
   it("predicts the latest reports from earlier ones, both ways", { timeout: 120_000 }, async () => {
     const { compareSettings } = await import("../../src/research/analysis");
     const list = Array.from({ length: 6 }, (_, i) => {
@@ -127,7 +128,7 @@ describe("comfort-3 against comfort-4 on the same reports", () => {
     });
     const c = compareSettings(list, 2);
     expect(c.n).toBe(2);
-    expect(Number.isFinite(c.rps3) && Number.isFinite(c.rps4) && Number.isFinite(c.ref)).toBe(true);
+    expect(Number.isFinite(c.rpsA) && Number.isFinite(c.rpsB) && Number.isFinite(c.ref)).toBe(true);
   });
 });
 

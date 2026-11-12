@@ -1,6 +1,7 @@
 // Observations for fitting, from saved reports (MATH-02 decides which may teach).
 // Contract: research/comfort-model/mathematical-contract.md
 
+import { DEFAULT_LAT_LON, solarTimes, stationLatLon } from "../../../shared/sunTimes";
 import { runningMean } from "../adaptation";
 import { inputQuality } from "../quality";
 import type { Report } from "../reports";
@@ -53,9 +54,10 @@ export function driversFrom(
   alpha: number,
   date: string | null = null,
   radDay: number | null = null,
-  hour: number | null = null,
+  night: boolean | null = null,
   wind6h: number | null = null,
   windLastNight: number | null = null,
+  skyAtNight = false,
 ): Drivers | null {
   const base = runningMean(history.map((m) => ({ mean: m, forecast: false })), alpha);
   if (!base) return null;
@@ -78,15 +80,61 @@ export function driversFrom(
     trend: trendOf(history),
     doy: date ? dayOfYear(date) : null,
     radDay,
-    night: hour == null ? null : isNight(hour),
+    night,
     wind6h,
     minPrev: y?.min == null ? null : y.min - base.value,
     windPrev: windLastNight ?? y?.wind ?? null,
+    ...(skyAtNight ? { skyAtNight: true } : {}),
   };
 }
 
-/** Night for the stored-sun driver: 18時 to 5時 (JMA hours, 24 = midnight). */
+/** comfort-3/4: night by the clock, 18時 to 5時 (JMA hours, 24 = midnight), whatever the season. */
 export const isNight = (hour: number) => hour >= 18 || hour <= 5;
+
+const hm = (v: string | null | undefined) => {
+  const m = v?.match(/^(\d{2}):(\d{2})$/);
+  return m ? +m[1] * 60 + +m[2] : null;
+};
+const jst = (at: number) => new Date(at + 9 * 3_600_000).toISOString();
+
+/**
+ * comfort-5 (#86): night is from sunset to sunrise of the moment itself — 17時 is night in December
+ * and day in June. The day's sunrise and sunset come from the report when it stored them (the
+ * station's, from the sun API) and are otherwise calculated for the station (shared/sunTimes.ts).
+ * `sun` belongs to `sunDate`; it is used only when that is the moment's own JST date.
+ */
+export function nightAt(at: number, station: string | null | undefined, sun?: { sunrise?: string | null; sunset?: string | null; date?: string | null } | null): boolean {
+  const iso = jst(at);
+  const date = iso.slice(0, 10);
+  const min = +iso.slice(11, 13) * 60 + +iso.slice(14, 16);
+  let rise = sun && (sun.date == null || sun.date === date) ? hm(sun.sunrise) : null;
+  let set = sun && (sun.date == null || sun.date === date) ? hm(sun.sunset) : null;
+  if (rise == null || set == null) {
+    const c = stationLatLon(station) ?? DEFAULT_LAT_LON;
+    const t = solarTimes(date, c.lat, c.lon);
+    rise = t.rise;
+    set = t.set;
+  }
+  return min < rise || min >= set;
+}
+
+/**
+ * How observations are made from reports, by model version (kept so versions can be compared on
+ * the same reports, #54):
+ *   - comfort-3: every report the same; night by the clock; the sky counts at night too.
+ *   - comfort-4: reports in a row weigh less (runs end at a 2-hour gap).
+ *   - comfort-5: runs also end 3 hours after their first report; night from sunset to sunrise;
+ *     the sky counts in daylight only (a clear night is not a sunny moment).
+ */
+export type ObsSettings = "comfort-3" | "comfort-4" | "comfort-5";
+export const CURRENT_SETTINGS: ObsSettings = "comfort-5";
+
+/** The night of a report under these settings (null when its moment is unknown). */
+export function reportNight(r: Report, settings: ObsSettings = CURRENT_SETTINGS): boolean | null {
+  if (settings !== "comfort-5") return r.snapshot?.hour == null ? null : isNight(r.snapshot.hour);
+  const at = Date.parse(r.at);
+  return Number.isFinite(at) ? nightAt(at, r.station, { sunrise: r.snapshot?.sunrise, sunset: r.snapshot?.sunset, date: r.snapshot?.date ?? null }) : null;
+}
 
 export function placeTempOf(r: Report): number | null {
   const s = r.snapshot;
@@ -107,14 +155,18 @@ export const reportedSunny = (r: Report) => (r.sky ? r.sky === "clear" || r.sky 
  */
 export const BURST_GAP_H = 2;
 export const BURST_RHO = 0.5;
+/** comfort-5 (#86): a run also ends this many hours after its first report, so a person who reports
+ *  every 1.5–2 hours all day is not one run (burst-cap-results.md). */
+export const BURST_MAX_SPAN_H = 3;
 
-/** Weights for reports at these times (ms), in the same order. */
-export function burstWeights(times: number[], gapH = BURST_GAP_H, rho = BURST_RHO): number[] {
+/** Weights for reports at these times (ms), in the same order. `maxSpanH`: a run also ends once it
+ *  has lasted this long from its first report (Infinity in comfort-4). */
+export function burstWeights(times: number[], gapH = BURST_GAP_H, rho = BURST_RHO, maxSpanH = BURST_MAX_SPAN_H): number[] {
   const order = times.map((t, i) => ({ t, i })).sort((a, b) => a.t - b.t);
   const w = Array(times.length).fill(1);
   let start = 0;
   for (let k = 1; k <= order.length; k++) {
-    if (k === order.length || order[k].t - order[k - 1].t >= gapH * 3_600_000) {
+    if (k === order.length || order[k].t - order[k - 1].t >= gapH * 3_600_000 || order[k].t - order[start].t >= maxSpanH * 3_600_000) {
       const size = k - start;
       for (let j = start; j < k; j++) w[order[j].i] = 1 / (1 + (size - 1) * rho);
       start = k;
@@ -123,7 +175,7 @@ export function burstWeights(times: number[], gapH = BURST_GAP_H, rho = BURST_RH
   return w;
 }
 
-export function observationsOf(reports: Report[], alpha: number, weighted = true): Observation[] {
+export function observationsOf(reports: Report[], alpha: number, settings: ObsSettings = CURRENT_SETTINGS): Observation[] {
   const out: Observation[] = [];
   const used: Report[] = [];
   for (const r of reports) {
@@ -131,14 +183,14 @@ export function observationsOf(reports: Report[], alpha: number, weighted = true
     if (r.deleted || !inputQuality(r).trainable) continue;
     const e = placeTempOf(r);
     if (e == null) continue;
-    const d = driversFrom(e, r.history ?? [], r.recent, r.snapshot?.humidity ?? null, reportedSunny(r), alpha, r.snapshot?.date ?? r.at.slice(0, 10), r.snapshot?.radDay ?? null, r.snapshot?.hour ?? null, r.snapshot?.wind6h ?? null, r.snapshot?.windLastNight ?? null);
+    const d = driversFrom(e, r.history ?? [], r.recent, r.snapshot?.humidity ?? null, reportedSunny(r), alpha, r.snapshot?.date ?? r.at.slice(0, 10), r.snapshot?.radDay ?? null, reportNight(r, settings), r.snapshot?.wind6h ?? null, r.snapshot?.windLastNight ?? null, settings !== "comfort-5");
     if (d) {
       out.push({ ...d, windFelt: r.windFelt, y: r.sensation });
       used.push(r);
     }
   }
   // Runs are found among the reports that teach the model (a report left out does not join them).
-  if (!weighted) return out; // comfort-3: every report the same (kept for comparisons, #54)
-  const w = burstWeights(used.map((r) => Date.parse(r.at)));
+  if (settings === "comfort-3") return out; // every report the same (kept for comparisons, #54)
+  const w = burstWeights(used.map((r) => Date.parse(r.at)), BURST_GAP_H, BURST_RHO, settings === "comfort-4" ? Infinity : BURST_MAX_SPAN_H);
   return out.map((o, i) => (w[i] === 1 ? o : { ...o, w: w[i] }));
 }

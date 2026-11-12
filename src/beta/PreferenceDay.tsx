@@ -5,7 +5,7 @@
 // missing are shown, never an index. Once met: the index P(+1) − P(−1) with its 95% interval and
 // the three probabilities; when the interval holds 0 it says so in words ("no clear lean") rather
 // than showing a number as if it meant something. Like the centre, today's is shown only after the
-// day's first report (anchoring). Nothing here changes the feeling model (comfort-4).
+// day's first report (anchoring). Nothing here changes the feeling model (MODEL_VERSION).
 
 import { useContext, useMemo } from "react";
 import type { WeatherStore } from "../data/store";

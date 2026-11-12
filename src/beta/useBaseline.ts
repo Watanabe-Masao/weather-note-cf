@@ -4,7 +4,7 @@ import { useEffect, useMemo } from "react";
 import type { WeatherStore } from "../data/store";
 import { type Baseline, type BaselineState, baselineState, historyDays, pastDay } from "./adaptation";
 import { weatherGroup } from "../../shared/similar";
-import { type Drivers, driversFrom } from "./comfort";
+import { type Drivers, driversFrom, nightAt } from "./comfort";
 import { windMemory } from "./reports";
 
 export function baselineOf(store: WeatherStore | null, station: string, date: string | null, alpha: number): Baseline | null {
@@ -46,7 +46,7 @@ export function driversOfDay(
   alpha: number,
   e: number | null,
   hNow: number | null,
-  moment: { radDay?: number | null; hour?: number | null; sky?: boolean | null; wind6h?: number | null; windLastNight?: number | null } = {},
+  moment: { radDay?: number | null; at?: number | null; sun?: { sunrise?: string | null; sunset?: string | null; date?: string | null } | null; sky?: boolean | null; wind6h?: number | null; windLastNight?: number | null } = {},
 ): Drivers | null {
   if (!store || !date || e == null) return null;
   const past = historyOf(store, station, date);
@@ -62,7 +62,9 @@ export function driversOfDay(
     const g = weatherGroup(store.getDay(station, date).row?.dayWeather);
     return g == null ? null : g === "sun";
   })();
-  return driversFrom(e, past.map((p) => p.mean), recent, hNow, sky, alpha, date, moment.radDay ?? null, moment.hour ?? null, moment.wind6h ?? null, moment.windLastNight ?? lastNightWind(store, station, date));
+  // Night from sunset to sunrise of the moment (comfort-5); a moment not given is unknown.
+  const night = moment.at == null || !Number.isFinite(moment.at) ? null : nightAt(moment.at, station, moment.sun);
+  return driversFrom(e, past.map((p) => p.mean), recent, hNow, sky, alpha, date, moment.radDay ?? null, night, moment.wind6h ?? null, moment.windLastNight ?? lastNightWind(store, station, date));
 }
 
 /** Last night's mean wind (18時 the day before to 6時) from the hourly rows, if both days are loaded. */

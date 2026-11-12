@@ -392,7 +392,7 @@ function comfortOfDay(
   const sun = daytimeFeel(rows, { ...feel, sun: true });
   const shade = daytimeFeel(rows, { ...feel, sun: false });
   // The day's values are daytime (9–17時): the night drivers are off, last night's cold is on.
-  const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade ?? 0, num(row?.humidity), { hour: 12 });
+  const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade ?? 0, num(row?.humidity), { at: date ? Date.parse(`${date}T12:00:00+09:00`) : null });
   if (!x) return null;
   return { base: base.baseline.value, forecastMixed: base.baseline.forecastMixed, st: ensembleState(beta.ens, x), sun, shade };
 }

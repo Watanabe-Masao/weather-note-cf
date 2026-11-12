@@ -1,6 +1,6 @@
 // MATH-09 (#63 P3): the preference models — which way a person wants to feel, and which drink
 // temperature they would choose — each its own per-person multinomial logistic model over three
-// answers (−1, 0, +1; D13). Separate from the feeling model (comfort-4), which it never changes.
+// answers (−1, 0, +1; D13). Separate from the feeling model (MODEL_VERSION), which it never changes; it shares only the weights of reports in a row (MATH-05).
 // Contract: research/comfort-model/mathematical-contract.md (MATH-09)
 //
 // Two predictions, judged apart:

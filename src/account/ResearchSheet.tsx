@@ -45,8 +45,8 @@ function Body() {
   }, [attempt]);
 
   const base = useMemo(() => (load.phase === "ready" ? analyse(load.rows) : null), [load]);
-  // comfort-3 against comfort-4 on the same reports (#54): slow, so only on request, a person at a time.
-  const [cmp, setCmp] = useState<{ done: number; of: number; per: { n: number; rps3: number; rps4: number; ref: number }[]; error?: string } | null>(null);
+  // comfort-4 against comfort-5 on the same reports (#54): slow, so only on request, a person at a time.
+  const [cmp, setCmp] = useState<{ done: number; of: number; per: { n: number; rpsA: number; rpsB: number; ref: number }[]; error?: string } | null>(null);
   // Stopped when the sheet closes (the loop checks between people).
   const alive = useRef(true);
   useEffect(
@@ -58,7 +58,7 @@ function Body() {
   const runCompare = async () => {
     if (load.phase !== "ready") return;
     const people = [...byPerson(load.rows).values()];
-    const per: { n: number; rps3: number; rps4: number; ref: number }[] = [];
+    const per: { n: number; rpsA: number; rpsB: number; ref: number }[] = [];
     setCmp({ done: 0, of: people.length, per });
     try {
       for (const [i, list] of people.entries()) {
@@ -75,13 +75,13 @@ function Body() {
   const a = useMemo(() => {
     if (!base || !cmp || cmp.done < cmp.of || !cmp.per.length) return base;
     const n = cmp.per.reduce((s, c) => s + c.n, 0);
-    const pooled = (k: "rps3" | "rps4" | "ref") => Math.round((cmp.per.reduce((s, c) => s + c[k] * c.n, 0) / n) * 1000) / 1000;
-    const perPerson = (k: "rps3" | "rps4" | "ref") => Math.round((cmp.per.reduce((s, c) => s + c[k], 0) / cmp.per.length) * 1000) / 1000;
-    const section = "comfort-3 と comfort-4（同じ記録を、それより前の記録だけで予測。RPS）";
+    const pooled = (k: "rpsA" | "rpsB" | "ref") => Math.round((cmp.per.reduce((s, c) => s + c[k] * c.n, 0) / n) * 1000) / 1000;
+    const perPerson = (k: "rpsA" | "rpsB" | "ref") => Math.round((cmp.per.reduce((s, c) => s + c[k], 0) / cmp.per.length) * 1000) / 1000;
+    const section = "comfort-4 と comfort-5（同じ記録を、それより前の記録だけで予測。RPS）";
     const extra: Cell[] = (
       [
-        ["comfort-3（重みなし）", "rps3"],
-        ["comfort-4（続けて記録したものを少なめに）", "rps4"],
+        ["comfort-4（夜は時計で18〜5時）", "rpsA"],
+        ["comfort-5（夜は日の入り〜日の出、晴れは日中だけ）", "rpsB"],
         ["基準（それまでの答えの割合）", "ref"],
       ] as const
     ).flatMap(([item, k]) => [
@@ -155,7 +155,7 @@ function Body() {
         </section>
       ))}
       <section className="set-group">
-        <h3>comfort-3 と comfort-4 を同じ記録で比べる</h3>
+        <h3>comfort-4 と comfort-5 を同じ記録で比べる</h3>
         <p className="set-help">一人ずつ、最近の10件を、それより前の記録だけで2通りに学び直して予測します（実データでの採用の確認、#54）。1人あたり十数秒かかります。</p>
         {cmp && cmp.done < cmp.of ? (
           <p className="set-help">

@@ -86,7 +86,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
     const snap = snapAt(now);
     const e = !snap ? null : exposure === "sun" ? snap.sunTemp : exposure === "shade" ? snap.shadeTemp : snap.sunTemp == null || snap.shadeTemp == null ? null : (snap.sunTemp + snap.shadeTemp) / 2;
     const sunny = sky == null ? null : sky === "clear" || sky === "sunny";
-    const x = driversOfDay(store, station, today, beta.alpha, e, snap?.humidity ?? null, { radDay: snap?.radDay ?? null, hour: snap?.hour ?? null, sky: sunny, wind6h: snap?.wind6h ?? null, windLastNight: snap?.windLastNight ?? null });
+    const x = driversOfDay(store, station, today, beta.alpha, e, snap?.humidity ?? null, { radDay: snap?.radDay ?? null, at: now, sun: snap ? { sunrise: snap.sunrise, sunset: snap.sunset, date: snap.date } : null, sky: sunny, wind6h: snap?.wind6h ?? null, windLastNight: snap?.windLastNight ?? null });
     return x ? predictComfort(beta.ens, { ...x, windFelt }, now, beta.learning.state) : null;
   };
   const preview = predictAt(Date.now());

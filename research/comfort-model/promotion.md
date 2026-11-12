@@ -14,7 +14,7 @@
 | `compared` | 比べたモデル |
 | `results` | RPS・対数損失・スキル・較正（同じデータ・同じ期間で、今のモデルと比べる） |
 | `checks` | 下の7項目それぞれ：`true`（合格）／`false`（不合格）／当てはまらない理由の文 |
-| `decision`・`reason`・`approvedBy` | 採用か見送りか、その理由、承認した人 |
+| `decision`・`reason`・`approvedBy` | 採用（adopted）・見送り（rejected）・承認待ち（pending）、その理由、承認した人。pending の版を `MODEL_VERSION` にした PR は、採用の記録がないためテストが通らず、承認まではマージできない |
 
 ## 2. 7項目を確かめる
 1. **mathematical**：確率の合計が1、境目が順に並ぶ、パラメータの制約を満たす（単体テスト）
