@@ -231,6 +231,32 @@ export function analyse(rows: Row[]): Analysis {
 export const shareable = (c: Cell) => c.people >= MIN_PEOPLE;
 
 /**
+ * The cells that may leave the iPhone (review 2026-11-12). A cell under MIN_PEOPLE stays, and so
+ * does what would give it back by subtraction: when a section hides exactly one cell, the next
+ * smallest is hidden too (the totals minus the rest would show it), and a cross table goes out
+ * only whole (its margins are shared elsewhere). Sharing again later can still show a newcomer by
+ * difference: share rarely, and only what is needed.
+ */
+export function sharedCells(a: Analysis): Set<Cell> {
+  const out = new Set<Cell>();
+  for (const section of new Set(a.cells.map((c) => c.section))) {
+    const cells = a.cells.filter((c) => c.section === section);
+    const hidden = cells.filter((c) => !shareable(c));
+    if (section.includes("×")) {
+      if (!hidden.length) cells.forEach((c) => out.add(c));
+      continue;
+    }
+    const shown = cells.filter(shareable);
+    if (hidden.length === 1 && shown.length) {
+      const smallest = [...shown].sort((x, y) => x.people - y.people || x.reports - y.reports)[0];
+      shown.splice(shown.indexOf(smallest), 1);
+    }
+    shown.forEach((c) => out.add(c));
+  }
+  return out;
+}
+
+/**
  * The aggregates that may be shared, as CSV (BOM, CRLF): only cells of MIN_PEOPLE or more people,
  * and nothing at all while the whole group is smaller.
  */
@@ -241,7 +267,8 @@ export function sharedCsv(a: Analysis, madeAt: Date): string | null {
     return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const head = `# Weather Note 研究用の集計（${MIN_PEOPLE}人以上の集計だけ）・${madeAt.toISOString()}・${a.people}人・${a.reports}件`;
-  const lines = a.cells.filter(shareable).map((c) => [c.section, c.item, c.value, c.people, c.reports].map(esc).join(","));
+  const ok = sharedCells(a);
+  const lines = a.cells.filter((c) => ok.has(c)).map((c) => [c.section, c.item, c.value, c.people, c.reports].map(esc).join(","));
   return "﻿" + [head, "section,item,value,people,reports", ...lines].join("\r\n") + "\r\n";
 }
 

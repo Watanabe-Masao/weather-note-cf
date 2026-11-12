@@ -341,9 +341,28 @@ describe("#45: research data leaving the server", () => {
     const before = (await research(a.cookie)).body.rows[0].researchId;
     await call("/api/me/consent", { body: { granted: false }, cookie: t });
     await call("/api/me/consent", { body: { granted: true }, cookie: t });
+    // A report made after consenting again comes under the new ID; the one from before the
+    // withdrawal stays out (it would tie the old ID to the new one; review 2026-11-12).
+    await call("/api/reports/sync", { body: { push: [rep("t2", 1, { at: new Date(Date.now() + 60_000).toISOString() })] }, cookie: t });
     const now = await research(a.cookie);
+    expect(now.body.rows.map((r: { report: { id: string } }) => r.report.id)).toEqual(["t2"]);
     expect(now.body.rows[0].researchId).not.toBe(before);
     expect(now.body.withdrawn).toEqual([expect.objectContaining({ researchId: before })]);
+  });
+
+  it("keeps only reports whose values the analysis can read", async () => {
+    const a = await admin();
+    const bad = [{ at: "x" }, { sensation: 5 }, { drinkPreference: "hot" }, { snapshot: { minute: 1e20 } }, { comfort: { probs: [1] } }];
+    // Not kept, and not blocking the rest of the push.
+    for (const [i, over] of bad.entries()) expect((await call("/api/reports/sync", { body: { push: [rep(`b${i}`, 1, over), rep(`fine${i}`, 1)] }, cookie: a.cookie })).body.taken, JSON.stringify(over)).toBe(1);
+    expect((await call("/api/reports/sync", { body: { push: [rep("ok", 1, { drinkPreference: "either", preferenceVersion: 1 })] }, cookie: a.cookie })).status).toBe(200);
+    expect((await call("/api/reports/sync", { body: { push: [{ id: "gone", updatedAt: 2, at: "2026-11-11T03:00:00.000Z", deleted: true }] }, cookie: a.cookie })).status).toBe(200);
+  });
+
+  it("refuses a page cursor of the wrong shape", async () => {
+    const a = await admin();
+    const token = (await call("/api/admin/export-token", { body: {}, cookie: a.cookie })).body.token;
+    expect((await call("/api/admin/research?after=e30", { token })).status).toBe(400);
   });
 
   it("pages by key: every report once, in order", async () => {

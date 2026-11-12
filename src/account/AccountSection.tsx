@@ -189,7 +189,7 @@ function DeleteAccount() {
   return (
     <form className="admin-delete" onSubmit={go}>
       <small className="set-help">
-        アカウントと、あなたの感じ方の記録・通知の設定・同意の履歴を、サーバーとこの端末からすべて消します。まだ送れていない記録も消えます。元に戻せません。研究に協力していた場合は、書き出した研究用の写しからも消します。確認のため、パスワードを入れてください。
+        アカウントと、あなたの感じ方の記録・通知の設定・同意の履歴を、サーバーとこの端末からすべて消します（まだ送れていない記録も消えます。ログインする前にこの端末だけで作った記録は残ります）。元に戻せません。研究に協力していた場合は、書き出した研究用の写しからも消します。確認のため、パスワードを入れてください。
       </small>
       <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" aria-label="パスワード" required />
       {error ? <p className="warn">{error}</p> : null}

@@ -1,6 +1,6 @@
 // Shared by the research data scripts: where files live, and how a file's hash is made.
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import type { Export } from "./transform";
 
 export const HERE = new URL("./", import.meta.url);
@@ -23,5 +23,8 @@ export function readExports(): { file: string; ex: Export; text: string }[] {
 
 export function writeExport(ex: Export) {
   mkdirSync(RAW, { recursive: true });
-  writeFileSync(new URL(`${ex.datasetId}.json`, RAW), JSON.stringify(ex));
+  // Written aside and moved in, so a run that stops halfway never leaves a broken file.
+  const tmp = new URL(`${ex.datasetId}.json.tmp`, RAW);
+  writeFileSync(tmp, JSON.stringify(ex));
+  renameSync(tmp, new URL(`${ex.datasetId}.json`, RAW));
 }

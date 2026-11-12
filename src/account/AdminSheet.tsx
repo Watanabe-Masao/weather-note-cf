@@ -80,7 +80,7 @@ function ExportLog() {
         {log.map((e, i) => (
           <li key={i}>
             {new Date(e.at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}・{e.admin ?? "（削除された人）"}・{e.path === "/api/admin/analysis" ? "アプリで分析" : "パソコンへ取り出し"}・{e.rows}件
-            {e.first ? `（${e.first}件目から）` : ""}
+            {e.first ? "（続きのページ）" : ""}
             {e.dataset ? `・${e.dataset}` : ""}
           </li>
         ))}

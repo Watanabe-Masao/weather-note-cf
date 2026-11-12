@@ -36,8 +36,11 @@ function follow() {
 let again = false;
 
 /** Runs a sync now (or once more right after the one already running). */
+/** Set while an account is being deleted: no sync may write the person's reports back. */
+let leaving = false;
+
 export async function syncNow(): Promise<void> {
-  if (!view.state) return;
+  if (!view.state || leaving) return;
   if (view.running) {
     again = true;
     return;
@@ -84,12 +87,22 @@ export async function logOutAndLeave(): Promise<{ kept: number }> {
 export async function deleteAccountAndLeave(password: string): Promise<void> {
   const s = view.state;
   await api("/api/me/delete", { password });
-  if (s) {
-    const mine = (await reports.all()).filter((r) => r.owner === s.userId);
-    await reports.drop(mine.map((r) => r.id));
+  // The account is gone on the server: from here every step runs, whatever fails, and the person
+  // is logged out at the end (a retry could not log in again; review 2026-11-12).
+  leaving = true;
+  try {
+    // A sync already running could write the reports back after they are dropped: let it end first.
+    for (let i = 0; i < 50 && view.running; i++) await new Promise((r) => setTimeout(r, 100));
+    if (s) {
+      const mine = (await reports.all()).filter((r) => r.owner === s.userId);
+      await reports.drop(mine.map((r) => r.id));
+    }
+  } catch (e) {
+    console.warn("weather-note: local reports not removed", e);
   }
-  await turnOffDevice(); // the server side is already gone; this ends the browser's subscription
-  await logOut();
+  await turnOffDevice().catch(() => {}); // the server side is already gone; this ends the browser's subscription
+  await logOut().catch(() => {});
+  leaving = false;
 }
 
 export function useSync(): View {
