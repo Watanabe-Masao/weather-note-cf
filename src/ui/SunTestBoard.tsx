@@ -1,12 +1,13 @@
-// テスト板 (#96): the 日なた of feel-1 (in use) and of the feel-2 variants, side by side on real
-// hours of a chosen day at the station — for judging the candidate by eye before any data decides.
-// Nothing here changes the app's 肌感（日なた） or the model.
+// テスト板 (#96): 肌感 of feel-1 (in use) and of feel-3 (UTCI for 日かげ and 日なた, the candidate
+// after the independent review), side by side on real hours of a chosen day at the station: the
+// physical base only (D18) — how a value is felt is the β model's. For judging the candidate by
+// eye before any data decides. Nothing here changes the app's 肌感 or the model.
 
 import { useContext, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { addDays } from "../../shared/dates";
 import { feelOf, FORECAST_WIND_HEIGHT, radiationOf } from "../../shared/feel";
-import { solarAltitude, stationLatLon, DEFAULT_LAT_LON } from "../../shared/sunTimes";
-import { bodySunLoad, directWarming } from "../../shared/sunLoad";
+import { feel3, hourRadiation, utciWind } from "../../shared/mrt";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
@@ -16,26 +17,23 @@ import { ModalSheet } from "./ModalSheet";
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const f1 = (v: number | null) => (v == null ? "—" : v.toFixed(1));
 
-/** The variants compared (the warming in the sun, ℃, over 日かげ). */
-const VARIANTS = [
-  { key: "f1", label: "feel-1（今）", note: "k × 地面の日射", color: "#a9b9cb", dash: "" },
-  { key: "a", label: "feel-2 案A", note: "直射だけ（PR #109 のまま）", color: "#f5c865", dash: "5 4" },
-  { key: "b", label: "feel-2 案B", note: "A × 体の表面の割合 0.725", color: "#f39a86", dash: "2 3" },
-  { key: "c", label: "feel-2 案C（候補）", note: "B ＋ 地面の照り返し。β はみんな共通", color: "#f39a86", dash: "" },
+const LINES = [
+  { key: "s1", label: "今の日かげ（feel-1）", color: "#a9b9cb", dash: "4 3" },
+  { key: "u1", label: "今の日なた（feel-1）", color: "#a9b9cb", dash: "" },
+  { key: "s3", label: "候補の日かげ（UTCI）", color: "#f39a86", dash: "4 3" },
+  { key: "u3", label: "候補の日なた（UTCI）", color: "#f39a86", dash: "" },
 ] as const;
-type Key = (typeof VARIANTS)[number]["key"];
+type Key = (typeof LINES)[number]["key"];
 
 interface Hour {
   n: number;
-  alt: number;
   temp: number | null;
   wind: number | null;
   sun: number | null;
-  rad: number | null;
-  shade: number | null;
-  add: Record<Key, number | null>;
+  v: Record<Key, number | null>;
   forecast: boolean;
 }
+
 
 export function SunTestBoard({ store, station, today, onClose }: { store: WeatherStore | null; station: string; today: string; onClose: () => void }) {
   const feel = useContext(FeelContext);
@@ -46,58 +44,47 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
   }, [store, station, date]);
   const rows = store?.getHours(station, date).rows ?? [];
   const state = store?.getHours(station, date).state ?? "empty";
-  const c = stationLatLon(station) ?? DEFAULT_LAT_LON;
 
   const hours: Hour[] = useMemo(() => {
     const byN = new Map(rows.map((r) => [r.n, r]));
     return Array.from({ length: 24 }, (_, i) => i + 1)
       .map((n) => {
         const r = byN.get(n) as WeatherRow | undefined;
-        const alt = solarAltitude(date, n * 60 - 30, c.lat, c.lon);
         if (!r) return null;
         const forecast = r.type === "forecast";
-        const temp = num(r.temp), hum = num(r.humidity), wind = num(r.wind), sun = num(r.sun);
+        const temp = num(r.temp), hum = num(r.humidity), wind = num(r.wind), sun = num(r.sun), rain = num(r.rain);
         const rad = radiationOf(r);
-        const shade = feelOf(temp, hum, wind, forecast, { ...feel, sun: false }, rad);
-        const sunny = feelOf(temp, hum, wind, forecast, { ...feel, sun: true }, rad);
-        // The wind at 10 m, as feel-1 takes it.
+        const s1 = feelOf(temp, hum, wind, forecast, { ...feel, sun: false }, rad);
+        const u1 = feelOf(temp, hum, wind, forecast, { ...feel, sun: true }, rad);
         const height = forecast ? FORECAST_WIND_HEIGHT : feel.stationHeight;
-        const wind10 = wind == null ? null : forecast ? wind : wind * (FORECAST_WIND_HEIGHT / height) ** feel.alpha;
-        const v = (o: { effective?: boolean; reflect?: boolean }) => {
-          const load = bodySunLoad(date, n, station, sun, o);
-          return load == null || wind10 == null ? null : directWarming(load, wind10);
-        };
-        return {
-          n,
-          alt,
-          temp,
-          wind,
-          sun,
-          rad,
-          shade,
-          forecast,
-          add: { f1: shade != null && sunny != null ? sunny - shade : null, a: v({}), b: v({ effective: true }), c: v({ effective: true, reflect: true }) },
-        };
+        const sky = hourRadiation(date, n, station, sun, rain != null && rain >= 0.5);
+        const f3 = feel3(temp, hum, wind == null ? null : utciWind(wind, height, feel.alpha), sky);
+        return { n, temp, wind, sun, forecast, v: { s1, u1, s3: f3.shade, u3: f3.sun } };
       })
       .filter((h): h is Hour => !!h);
-  }, [rows, date, station, feel, c.lat, c.lon]);
-  const day = hours.filter((h) => h.alt > -6);
+  }, [rows, date, station, feel]);
 
-  // A small graph: the warming of each variant through the day.
-  const W = 340, H = 150, X0 = 30, top = 8;
+  // The graph: 肌感 through the day, the candidate's ちょうどよい band behind.
+  const W = 340, H = 170, X0 = 30, top = 8;
   const xs = (n: number) => X0 + ((n - 1) / 23) * (W - X0 - 6);
-  const max = Math.max(8, ...day.flatMap((h) => Object.values(h.add).filter((v): v is number => v != null)));
-  const ys = (v: number) => top + H - (v / max) * H;
+  const all = hours.flatMap((h) => Object.values(h.v).filter((v): v is number => v != null));
+  const lo = Math.floor(Math.min(...all) / 5) * 5;
+  const hi = Math.ceil(Math.max(...all) / 5) * 5;
+  const ys = (v: number) => top + H - ((v - lo) / Math.max(5, hi - lo)) * H;
   const path = (k: Key) => {
-    const p = hours.filter((h) => h.add[k] != null).map((h) => `${xs(h.n).toFixed(1)},${ys(h.add[k]!).toFixed(1)}`);
+    const p = hours.filter((h) => h.v[k] != null).map((h) => `${xs(h.n).toFixed(1)},${ys(h.v[k]!).toFixed(1)}`);
     return p.length ? `M${p.join("L")}` : "";
   };
+  const ticks = [];
+  for (let v = lo; v <= hi; v += 5) ticks.push(v);
 
-  return (
-    <ModalSheet title="日なたの計算を比べる（テスト）" onClose={onClose} className="sun-test">
+  // Opened from inside the settings sheet: drawn at the page's top level (as AdminSheet), or the
+  // settings sheet would clip and move it.
+  return createPortal(
+    <ModalSheet title="肌感の計算を比べる（テスト）" onClose={onClose} className="sun-test">
       <div className="sun-test-body">
         <p className="set-lead">
-          この日の時間ごとの実際の値で、肌感（日なた）の「日差しの上乗せ」（日なた − 日かげ、℃）を、今の計算と候補で比べます。アプリの表示とモデルは変えません（#96）。
+          この日の時間ごとの実際の値で、肌感（日かげ・日なた）を今の計算（feel-1）と候補（feel-3：日かげも日なたも UTCI）で比べます。比べるのは土台の値だけです。どの値をどう感じるか（暑い・涼しい、慣れ、人による違い）は、この上のβモデルが受け持ちます。アプリの表示とモデルは変えません（#96）。
         </p>
         <div className="sun-test-nav">
           <button className="chip sm" onClick={() => setDate(addDays(date, -1))} aria-label="前の日">
@@ -117,8 +104,8 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
         {state === "error" ? <p className="warn">この日の時間ごとのデータを読めませんでした。</p> : null}
         {hours.length > 0 && (
           <>
-            <svg width="100%" viewBox={`0 0 ${W} ${top + H + 18}`} role="img" aria-label="日差しの上乗せの比較">
-              {[0, 2, 4, 6, 8, 10, 12].filter((v) => v <= max).map((v) => (
+            <svg width="100%" viewBox={`0 0 ${W} ${top + H + 18}`} role="img" aria-label="肌感の比較">
+              {ticks.map((v) => (
                 <g key={v}>
                   <line x1={X0} x2={W - 6} y1={ys(v)} y2={ys(v)} stroke="var(--line-soft)" />
                   <text x={X0 - 4} y={ys(v) + 3.5} textAnchor="end" className="lt-axis">
@@ -131,17 +118,17 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
                   {h}時
                 </text>
               ))}
-              {VARIANTS.map((v) => (
-                <path key={v.key} d={path(v.key)} fill="none" stroke={v.color} strokeWidth={v.key === "c" || v.key === "f1" ? 2.2 : 1.6} strokeDasharray={v.dash} />
+              {LINES.map((l) => (
+                <path key={l.key} d={path(l.key)} fill="none" stroke={l.color} strokeWidth={2} strokeDasharray={l.dash} />
               ))}
             </svg>
             <p className="sun-test-legend">
-              {VARIANTS.map((v) => (
-                <span key={v.key}>
+              {LINES.map((l) => (
+                <span key={l.key}>
                   <svg width="22" height="8" aria-hidden>
-                    <line x1="1" x2="21" y1="4" y2="4" stroke={v.color} strokeWidth="2.2" strokeDasharray={v.dash} />
+                    <line x1="1" x2="21" y1="4" y2="4" stroke={l.color} strokeWidth="2.2" strokeDasharray={l.dash} />
                   </svg>
-                  {v.label}：{v.note}
+                  {l.label}
                 </span>
               ))}
             </p>
@@ -150,46 +137,41 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
                 <thead>
                   <tr>
                     <th>時</th>
-                    <th>太陽</th>
                     <th>日照</th>
-                    <th>日射</th>
                     <th>気温</th>
                     <th>風</th>
-                    <th>日かげ</th>
-                    <th>今</th>
-                    <th>A</th>
-                    <th>B</th>
-                    <th>C</th>
+                    <th>今<br />かげ/なた</th>
+                    <th>候補<br />かげ/なた</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {day.map((h) => (
+                  {hours.map((h) => (
                     <tr key={h.n} className={h.forecast ? "fc" : undefined}>
                       <td>{h.n}</td>
-                      <td>{`${Math.round(h.alt)}°`}</td>
                       <td>{h.sun == null ? "—" : h.sun.toFixed(1)}</td>
-                      <td>{h.rad == null ? "—" : Math.round(h.rad)}</td>
                       <td>{f1(h.temp)}</td>
                       <td>{f1(h.wind)}</td>
-                      <td>{f1(h.shade)}</td>
-                      <td>+{f1(h.add.f1)}</td>
-                      <td>+{f1(h.add.a)}</td>
-                      <td>+{f1(h.add.b)}</td>
-                      <td>+{f1(h.add.c)}</td>
+                      <td>
+                        {f1(h.v.s1)}/{f1(h.v.u1)}
+                      </td>
+                      <td>
+                        {f1(h.v.s3)}/{f1(h.v.u3)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
             <p className="set-help">
-              時は気象庁の時（13時＝12〜13時）。太陽は時間の真ん中の高さ、日照は時間（0〜1）、日射は W/㎡（空欄は日射計のない時間）。日かげは肌感（日かげ）（℃）、右の4列は日なたの上乗せ（℃）。今の計算は設定の「日差しの強さ」k を使います。薄い行は予報。
+              時は気象庁の時（13時＝12〜13時）。日照は時間（0〜1）。薄い行は予報。候補の日差しは日照と太陽の位置だけから（日射計は使いません。記録と予報で同じ材料）。
             </p>
             <p className="set-help">
-              どの案にも入っていないもの：日に焼けた地面や壁から出る熱（夏の昼の日なたで大きい。アスファルトか芝生かで大きく変わる）。
+              候補（UTCI）は気温・湿度・風・日差しから体の熱の出入りを計算した指数で、湿った暑さは今より高く、冬の日なたの日差しは今より大きく出ます。まだ入っていないもの：晴れた夜の放射冷却、日に焼けた地面や壁の熱。候補を使うときは、βモデルをこの値で学び直します（承認のあと）。
             </p>
           </>
         )}
       </div>
-    </ModalSheet>
+    </ModalSheet>,
+    document.body,
   );
 }
