@@ -77,6 +77,21 @@ export async function logOutAndLeave(): Promise<{ kept: number }> {
   return { kept };
 }
 
+/**
+ * Deletes the person's own account (#55): everything on the server, and their reports on this
+ * device, including ones not sent yet. The password confirms it; a wrong one changes nothing.
+ */
+export async function deleteAccountAndLeave(password: string): Promise<void> {
+  const s = view.state;
+  await api("/api/me/delete", { password });
+  if (s) {
+    const mine = (await reports.all()).filter((r) => r.owner === s.userId);
+    await reports.drop(mine.map((r) => r.id));
+  }
+  await turnOffDevice(); // the server side is already gone; this ends the browser's subscription
+  await logOut();
+}
+
 export function useSync(): View {
   return useSyncExternalStore(
     (fn) => (subs.add(fn), () => void subs.delete(fn)),
