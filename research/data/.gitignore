@@ -1,0 +1,6 @@
+# Research data never goes into the repository (#45): it comes from people, under consent.
+raw/
+parquet/
+*.duckdb
+*.duckdb.wal
+node_modules/

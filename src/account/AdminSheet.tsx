@@ -31,6 +31,31 @@ export function researchCsv(rows: { researchId: string; report: Report }[]): str
   return "\uFEFF" + [`research_id,${head}`, ...live.map((r) => `${r.researchId},${linesOf([r.report])[1]}`)].join("\r\n") + "\r\n";
 }
 
+/** Who exported research data, and when (#45). */
+function ExportLog() {
+  const [log, setLog] = useState<{ at: number; first: number; rows: number; dataset: string | null; admin: string | null }[] | null>(null);
+  useEffect(() => {
+    api<{ log: NonNullable<typeof log> }>("/api/admin/exports")
+      .then((r) => setLog(r.log))
+      .catch(() => setLog([]));
+  }, []);
+  if (!log?.length) return <small className="set-help">書き出しの記録はまだありません。</small>;
+  return (
+    <details className="admin-exports">
+      <summary>書き出しの記録（直近 {log.length}回）</summary>
+      <ul>
+        {log.map((e, i) => (
+          <li key={i}>
+            {new Date(e.at).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo" })}・{e.admin ?? "（削除された人）"}・{e.rows}件
+            {e.first ? `（${e.first}件目から）` : ""}
+            {e.dataset ? `・${e.dataset}` : ""}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function Body() {
   const [users, setUsers] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +64,7 @@ function Body() {
   const [secret, setSecret] = useState<{ who: string; password: string } | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [typed, setTyped] = useState("");
 
   const load = useCallback(() => {
     api<{ users: Row[] }>("/api/admin/users")
@@ -155,7 +181,30 @@ function Body() {
                       <button onClick={() => setConfirm(`stop:${u.id}`)}>{u.disabled_at ? "再開" : "停止"}</button>
                     )
                   ) : null}
+                  {u.role !== "admin" && confirm !== `delete:${u.id}` && (
+                    <button className="danger" onClick={() => (setConfirm(`delete:${u.id}`), setTyped(""))}>
+                      削除
+                    </button>
+                  )}
                 </div>
+                {confirm === `delete:${u.id}` && (
+                  <div className="admin-delete">
+                    <small className="set-help">
+                      {u.login_id} のアカウントと、その人の記録・通知の設定・同意の履歴をすべて消します。元に戻せません。研究用に書き出したデータからも外すよう、次の書き出しで知らせます。確認のため、ログインIDを入れてください。
+                    </small>
+                    <input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={u.login_id} autoCapitalize="none" aria-label="削除するログインID" />
+                    <div className="actions tight">
+                      <button onClick={() => setConfirm(null)}>やめる</button>
+                      <button
+                        className="danger"
+                        disabled={busy || typed.trim().toLowerCase() !== u.login_id.toLowerCase()}
+                        onClick={() => void run(() => api("/api/admin/users/delete", { id: u.id, confirm: typed }).then(() => {}))}
+                      >
+                        削除する
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
@@ -170,6 +219,7 @@ function Body() {
             研究用CSVを書き出す
           </button>
         </div>
+        <ExportLog />
       </section>
     </div>
   );

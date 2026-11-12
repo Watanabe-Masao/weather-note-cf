@@ -48,7 +48,7 @@ import {
 // ---- schema ----------------------------------------------------------------------------------
 
 export const SCHEMA_VERSION = 1;
-export const RESEARCH_CONSENT_VERSION = 1;
+export const RESEARCH_CONSENT_VERSION = 2; // 2: taking consent back also removes you from copies already exported (#45)
 
 const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS schema_version (v INTEGER NOT NULL)",
@@ -111,8 +111,27 @@ const SCHEMA = [
     ) = 1`,
 ];
 
+// The research data that left the server (#45): every export is logged, and every withdrawal
+// (consent taken back, account deleted) is kept by research ID, so exported copies can drop it.
+const RESEARCH_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS research_withdrawals (
+    research_id TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    reason TEXT NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS export_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    admin_id TEXT NOT NULL,
+    at INTEGER NOT NULL,
+    path TEXT NOT NULL,
+    first INTEGER NOT NULL,
+    rows INTEGER NOT NULL,
+    dataset TEXT
+  )`,
+];
+
 const ready = new WeakMap<Db, Promise<void>>();
-const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA];
+const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA, ...RESEARCH_SCHEMA];
 
 /** Creates the tables once per database (idempotent: safe on every cold start). */
 export function ensureSchema(db: Db): Promise<void> {
@@ -435,6 +454,9 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
     if (path === "/api/me/consent" && post) {
       const b = await body(req);
       if (typeof b.granted !== "boolean") throw new Refused("同意の答えが正しくありません。");
+      // Taking consent back is also told to the exported copies (#45).
+      if (!b.granted && (await researchConsent(db, u.id)).granted)
+        await db.prepare("INSERT INTO research_withdrawals (research_id, at, reason) VALUES (?, ?, 'consent-withdrawn')").bind(u.research_id, now).run();
       await db.prepare("INSERT INTO consents (user_id, kind, version, granted, at) VALUES (?, 'research', ?, ?, ?)").bind(u.id, RESEARCH_CONSENT_VERSION, b.granted ? 1 : 0, now).run();
       return json({ user: await me(db, u) });
     }
@@ -528,10 +550,36 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         ]);
         return json({ id: target.id, disabled });
       }
+      if (path === "/api/admin/users/delete" && post) {
+        // Deleting an account removes everything of the person; the research ID is kept only in
+        // the withdrawals, so exported copies drop it too (#45). The login ID must be typed back.
+        const b = await body(req);
+        const target = typeof b.id === "string" ? await db.prepare("SELECT id, login_id, research_id FROM users WHERE id = ?").bind(b.id).first<{ id: string; login_id: string; research_id: string }>() : null;
+        if (!target) throw new Refused("そのユーザーは見つかりません。", 404);
+        if (target.id === u.id) throw new Refused("自分自身は削除できません。");
+        if (typeof b.confirm !== "string" || b.confirm.trim().toLowerCase() !== target.login_id.toLowerCase()) throw new Refused("確認のため、ログインIDを正しく入れてください。");
+        await db.batch([
+          db.prepare("INSERT INTO research_withdrawals (research_id, at, reason) VALUES (?, ?, 'account-deleted')").bind(target.research_id, now),
+          ...["reports", "sessions", "consents", "push_subscriptions", "notify_settings", "notify_log"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(target.id)),
+          db.prepare("DELETE FROM users WHERE id = ?").bind(target.id),
+        ]);
+        return json({ id: target.id, deleted: true });
+      }
       if (path === "/api/admin/research" && !post) {
-        const offset = Math.max(0, Number(new URL(req.url).searchParams.get("offset")) || 0);
+        const q = new URL(req.url).searchParams;
+        const offset = Math.max(0, Number(q.get("offset")) || 0);
+        const dataset = q.get("dataset")?.slice(0, 80) ?? null;
         const rows = (await db.prepare("SELECT research_id, body FROM research_reports ORDER BY at LIMIT 1000 OFFSET ?").bind(offset).all<{ research_id: string; body: string }>()).results;
-        return json({ rows: rows.map((r) => ({ researchId: r.research_id, report: JSON.parse(r.body) })), next: rows.length === 1000 ? offset + 1000 : null });
+        // Every export is logged: who, when, which page, how many (#45).
+        await db.prepare("INSERT INTO export_log (admin_id, at, path, first, rows, dataset) VALUES (?, ?, ?, ?, ?, ?)").bind(u.id, now, path, offset, rows.length, dataset).run();
+        const withdrawn = offset
+          ? undefined
+          : (await db.prepare("SELECT research_id, at, reason FROM research_withdrawals ORDER BY at").all<{ research_id: string; at: number; reason: string }>()).results.map((w) => ({ researchId: w.research_id, at: w.at, reason: w.reason }));
+        return json({ exportedAt: now, rows: rows.map((r) => ({ researchId: r.research_id, report: JSON.parse(r.body) })), next: rows.length === 1000 ? offset + 1000 : null, ...(withdrawn ? { withdrawn } : {}) });
+      }
+      if (path === "/api/admin/exports" && !post) {
+        const log = (await db.prepare("SELECT e.at, e.first, e.rows, e.dataset, u.login_id AS admin FROM export_log e LEFT JOIN users u ON u.id = e.admin_id ORDER BY e.id DESC LIMIT 200").all()).results;
+        return json({ log });
       }
     }
     throw new Refused("見つかりません。", 404);

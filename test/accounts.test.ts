@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { COOKIE, LOCK_MS, MAX_FAILED, newPassword, PULL_PAGE } from "../worker/src/accounts";
+import { COOKIE, LOCK_MS, MAX_FAILED, newPassword, PULL_PAGE, RESEARCH_CONSENT_VERSION } from "../worker/src/accounts";
 import worker from "../worker/src/index";
 import { d1 } from "./d1";
 
@@ -227,8 +227,8 @@ describe("the ground for analysis", () => {
     // Every answer is kept, with its version.
     const history = env.DB.raw.prepare("SELECT granted, version FROM consents ORDER BY at, rowid").all();
     expect(history).toEqual([
-      { granted: 1, version: 1 },
-      { granted: 0, version: 1 },
+      { granted: 1, version: RESEARCH_CONSENT_VERSION },
+      { granted: 0, version: RESEARCH_CONSENT_VERSION },
     ]);
     expect((await call("/api/admin/research", { cookie: t })).status).toBe(403);
   });
@@ -238,5 +238,50 @@ describe("without the database", () => {
   it("says the server is not ready", async () => {
     const res = await worker.fetch(new Request(ORIGIN + "/api/auth/me"), {}, ctx);
     expect(res.status).toBe(503);
+  });
+});
+
+describe("#45: research data leaving the server", () => {
+  it("logs every export, and tells exported copies whose consent was taken back", async () => {
+    const a = await admin();
+    const p = await issue(a.cookie, "tanaka");
+    const t = (await login("tanaka", p.password)).cookie!;
+    await call("/api/reports/sync", { body: { push: [rep("t1", 1)] }, cookie: t });
+    await call("/api/me/consent", { body: { granted: true }, cookie: t });
+    const first = await call("/api/admin/research?dataset=ds-1", { cookie: a.cookie });
+    expect(first.body.rows).toHaveLength(1);
+    expect(first.body.withdrawn).toEqual([]);
+    const rid = first.body.rows[0].researchId;
+    await call("/api/me/consent", { body: { granted: false }, cookie: t });
+    await call("/api/me/consent", { body: { granted: false }, cookie: t }); // a second "no" is not a second withdrawal
+    const again = await call("/api/admin/research", { cookie: a.cookie });
+    expect(again.body.rows).toEqual([]);
+    expect(again.body.withdrawn).toEqual([expect.objectContaining({ researchId: rid, reason: "consent-withdrawn" })]);
+    const log = (await call("/api/admin/exports", { cookie: a.cookie })).body.log as { rows: number; dataset: string | null; admin: string }[];
+    expect(log).toHaveLength(2);
+    expect(log[1]).toMatchObject({ rows: 1, dataset: "ds-1", admin: "masao" });
+    expect((await call("/api/admin/exports", { cookie: t })).status).toBe(403);
+  });
+
+  it("deletes an account and everything of it, keeping only the withdrawal of its research ID", async () => {
+    const a = await admin();
+    const p = await issue(a.cookie, "tanaka");
+    const t = (await login("tanaka", p.password)).cookie!;
+    await call("/api/reports/sync", { body: { push: [rep("t1", 1)] }, cookie: t });
+    await call("/api/me/consent", { body: { granted: true }, cookie: t });
+    const rid = (await call("/api/admin/research", { cookie: a.cookie })).body.rows[0].researchId;
+    expect((await call("/api/admin/users/delete", { body: { id: p.id, confirm: "wrong" }, cookie: a.cookie })).status).toBe(400);
+    expect((await call("/api/admin/users/delete", { body: { id: p.id, confirm: "tanaka" }, cookie: t })).status).toBe(403);
+    expect((await call("/api/admin/users/delete", { body: { id: p.id, confirm: "TANAKA" }, cookie: a.cookie })).body).toEqual({ id: p.id, deleted: true });
+    for (const table of ["users", "reports", "sessions", "consents"]) {
+      const n = env.DB.raw.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${table === "users" ? "id" : "user_id"} = ?`).get(p.id) as { n: number };
+      expect(n.n, table).toBe(0);
+    }
+    expect((await call("/api/auth/me", { cookie: t })).body.user).toBeNull();
+    const after = await call("/api/admin/research", { cookie: a.cookie });
+    expect(after.body.rows).toEqual([]);
+    expect(after.body.withdrawn).toEqual([expect.objectContaining({ researchId: rid, reason: "account-deleted" })]);
+    const self = (await call("/api/auth/me", { cookie: a.cookie })).body.user.id;
+    expect((await call("/api/admin/users/delete", { body: { id: self, confirm: "masao" }, cookie: a.cookie })).status).toBe(400);
   });
 });
