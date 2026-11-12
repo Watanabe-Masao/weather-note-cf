@@ -1,7 +1,7 @@
 // The felt brightness (shared/brightness.ts): lux from the sun and the sky, and its six levels.
 
 import { describe, expect, it } from "vitest";
-import { BRIGHTNESS_LEVELS, NIGHT_SKY, brightnessIndex, brightnessLevel, brightnessText, clearSkyLux, cloudFactor, dayBrightness, hourLight, luxOf, luxText, twilightLux } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, CLOUD, NIGHT_SKY, brightnessIndex, brightnessLevel, brightnessText, clearSkyLux, cloudFactor, dayBrightness, dayLights, hourLight, luxOf, luxText, nightSkyLux, sunUpFraction, twilightLux, usnoSunLux } from "../../shared/brightness";
 import type { WeatherRow } from "../../shared/types";
 
 const row = (n: number, over: Partial<WeatherRow> = {}): WeatherRow => ({ date: "2026-06-21", n, type: "actual", provider: "test", raw: {}, quality: {}, ...over }) as WeatherRow;
@@ -32,43 +32,70 @@ describe("the scale", () => {
 });
 
 describe("light from the sun and the sky", () => {
-  it("follows published clear-sky values: ~700 lx at sunrise, ~3 lx at −6°, starlight at −18°, ~100,000 lx high sun", () => {
-    expect(twilightLux(0)).toBe(700);
-    expect(twilightLux(-6)).toBeCloseTo(3.4, 6);
-    expect(twilightLux(-30)).toBe(0.001);
-    expect(clearSkyLux(80)).toBeGreaterThan(90_000);
-    expect(clearSkyLux(80)).toBeLessThan(140_000);
-    expect(clearSkyLux(30)).toBeGreaterThan(40_000);
-    expect(clearSkyLux(30)).toBeLessThan(80_000);
-    // Never darker just above the horizon than at it.
-    expect(clearSkyLux(0.5)).toBeGreaterThanOrEqual(700);
+  it("follows the USNO clear sky (Janiczek & DeYoung 1987): ~750 lx at the horizon, ~3 lx at −6°, starlight at −18°, ~100,000 lx high sun", () => {
+    expect(usnoSunLux(0)).toBeGreaterThan(700);
+    expect(usnoSunLux(0)).toBeLessThan(850);
+    expect(clearSkyLux(60)).toBeGreaterThan(95_000);
+    expect(clearSkyLux(60)).toBeLessThan(110_000);
+    expect(clearSkyLux(10)).toBeGreaterThan(10_000);
+    expect(clearSkyLux(10)).toBeLessThan(12_500);
+    expect(clearSkyLux(-6)).toBeCloseTo(twilightLux(-6), 9);
+    expect(clearSkyLux(-18)).toBe(0.001);
+    expect(clearSkyLux(-30)).toBe(0.001);
   });
-  it("dims with clouds: by the hour's sunshine, else its weather", () => {
-    expect(cloudFactor(row(12, { sun: 1 }))).toBe(1);
-    expect(cloudFactor(row(12, { sun: 0 }))).toBe(0.3);
-    expect(cloudFactor(row(12, { weather: "曇" }))).toBe(0.35);
-    expect(cloudFactor(row(12, { weather: "雨" }))).toBe(0.2);
-    expect(cloudFactor(row(12))).toBe(0.7);
+  it("runs smoothly and keeps rising from starlight to the high sun (no step at the horizon or the handover)", () => {
+    let prev = clearSkyLux(-20);
+    for (let d = -19.9; d <= 90; d += 0.1) {
+      const v = clearSkyLux(d);
+      expect(v).toBeGreaterThanOrEqual(prev * 0.999);
+      // At most about one level (×10) per degree near the horizon, far less higher up: never a jump.
+      expect(v / prev).toBeLessThan(1.3);
+      prev = v;
+    }
   });
-  it("uses the hour's radiation when the sun is up, the sky model otherwise", () => {
-    const noon = hourLight(row(13, { radiation: 3.2 }), "47893"); // 3.2 MJ/㎡ in the hour ≈ 890 W/㎡
-    expect(noon.from).toBe("radiation");
-    expect(noon.lux).toBeCloseTo(3.2 * (1e6 / 3600) * 110, 0);
-    expect(brightnessLevel(noon.index).label).toBe("まぶしい");
-    const night = hourLight(row(23, { weather: "晴" }), "47893");
-    expect(night.from).toBe("sky");
+  it("agrees with the twilight measurements to within a quarter where both exist (−1° to −6°)", () => {
+    for (const d of [-1, -2, -3, -4, -5, -6]) expect(Math.abs(Math.log(clearSkyLux(d) / twilightLux(d)))).toBeLessThan(Math.log(1.25));
+  });
+  it("dims with clouds by the report's sky conditions: from the sunshine in daylight, from rain alone with the sun down", () => {
+    expect(cloudFactor(row(12, { sun: 1 }))).toBe(CLOUD.clear);
+    expect(cloudFactor(row(12, { sun: 0 }))).toBeCloseTo(CLOUD.cloudy, 9);
+    expect(cloudFactor(row(12, { sun: 0.5 }))).toBeCloseTo(Math.sqrt(CLOUD.cloudy), 9); // halfway in steps
+    expect(cloudFactor(row(12, { sun: 0, rain: 2 }))).toBeCloseTo(CLOUD.rain, 9);
+    // An hour with the sun up for 30 minutes and 0.5 h of sunshine was all sunny.
+    expect(cloudFactor(row(19, { sun: 0.5 }), 0.5)).toBe(CLOUD.clear);
+    // With the sun down the sunshine is always 0 and says nothing: no factor (a neighbour decides), unless it rains.
+    expect(cloudFactor(row(21, { sun: 0 }), 0)).toBeNull();
+    expect(cloudFactor(row(21, { sun: 0, rain: 1 }), 0)).toBeCloseTo(CLOUD.rain, 9);
+  });
+  it("uses only what records and forecasts both have: weather text, radiation and drizzle under 0.5 mm change nothing", () => {
+    const base = row(13, { sun: 0.4, rain: 0 });
+    const plain = hourLight(base, "47893").lux;
+    expect(hourLight({ ...base, weather: "雨", radiation: 3.2, solar: 900 } as WeatherRow, "47893").lux).toBe(plain);
+    expect(hourLight({ ...base, rain: 0.1 } as WeatherRow, "47893").lux).toBe(plain);
+    expect(hourLight({ ...base, rain: 0.5 } as WeatherRow, "47893").lux).toBeLessThan(plain);
+  });
+  it("takes a twilight hour's clouds from the nearest hour of daylight", () => {
+    // Kochi, 21 June: sunset about 19:30. Hour 20 (19–20時, mostly after sunset) and 21 have no sunshine to tell.
+    const day = (share: number) => Array.from({ length: 24 }, (_, i) => row(i + 1, { sun: share * sunUpFraction("2026-06-21", i + 1, "47893"), rain: 0 }));
+    const sunny = dayLights(day(1), "47893"), dull = dayLights(day(0), "47893");
+    expect(sunny[20].factor).toBe(CLOUD.clear); // 21時: from 19時, two hours before
+    expect(dull[20].factor).toBeCloseTo(CLOUD.cloudy, 9);
+    // Far from daylight: unknown.
+    expect(sunny[0].factor).toBeCloseTo(CLOUD.unknown, 9);
+  });
+  it("keeps the night sky over a town as the floor: 暗い, brighter under cloud", () => {
+    const night = hourLight(row(23), "47893", CLOUD.clear);
     expect(brightnessLevel(night.index).label).toBe("暗い");
-    // Not pitch black: the night sky over a town, inside the 暗い band, brighter under cloud.
     expect(night.lux).toBeCloseTo(NIGHT_SKY.clear, 6);
     expect(night.index).toBeGreaterThan(0.3);
-    const cloudy = hourLight(row(23, { weather: "曇" }), "47893");
+    const cloudy = hourLight(row(23), "47893", CLOUD.cloudy);
     expect(cloudy.lux).toBeCloseTo(NIGHT_SKY.overcast, 6);
-    expect(cloudy.index).toBeGreaterThan(night.index);
+    expect(nightSkyLux(CLOUD.rain)).toBeCloseTo(NIGHT_SKY.overcast, 9);
     // Kochi, 21 June, 19時 (18:30, the sun about 6° up): 薄暗い or brighter even under cloud.
-    expect(hourLight(row(19, { weather: "曇" }), "47893").lux).toBeGreaterThan(100);
+    expect(hourLight(row(19), "47893", CLOUD.cloudy).lux).toBeGreaterThan(100);
   });
   it("gives the day's mean level with the sun up and its bright hours", () => {
-    const rows = Array.from({ length: 24 }, (_, i) => row(i + 1, { sun: 1, radiation: i + 1 >= 6 && i + 1 <= 19 ? 2 : 0 }));
+    const rows = Array.from({ length: 24 }, (_, i) => row(i + 1, { sun: 1 }));
     const d = dayBrightness(rows, "47893");
     expect(d.daytime!).toBeGreaterThan(4);
     expect(d.brightHours).toBeGreaterThanOrEqual(13);
@@ -92,13 +119,16 @@ describe("stepping out of a lit room (adaptation)", () => {
 });
 
 describe("adaptation over days (いつもと比べて)", () => {
-  it("turns a day's radiation into its mean daylight, sunrise to sunset", async () => {
-    const { daylightLux, LUMINOUS_EFFICACY } = await import("../../shared/brightness");
+  it("turns a day's sunshine into its mean daylight, sunrise to sunset (the clear sky's mean, dimmed by the missing sunshine)", async () => {
+    const { daylightLux, clearDaylightLux } = await import("../../shared/brightness");
     const { dayEdges } = await import("../../shared/dayParts");
     const e = dayEdges("2026-11-12", "47893");
-    expect(daylightLux(10, "2026-11-12", "47893")!).toBeCloseTo(((10e6 / ((e.set - e.rise) * 60)) * LUMINOUS_EFFICACY), 3);
+    const full = (e.set - e.rise) / 60;
+    expect(daylightLux(full, "2026-11-12", "47893")!).toBeCloseTo(clearDaylightLux("2026-11-12", "47893"), 6);
+    expect(daylightLux(0, "2026-11-12", "47893")!).toBeCloseTo(clearDaylightLux("2026-11-12", "47893") * CLOUD.cloudy, 6);
+    expect(clearDaylightLux("2026-11-12", "47893")).toBeGreaterThan(20_000);
+    expect(clearDaylightLux("2026-06-21", "47893")).toBeGreaterThan(clearDaylightLux("2026-12-22", "47893"));
     expect(daylightLux(null, "2026-11-12", "47893")).toBeNull();
-    expect(daylightLux(0, "2026-11-12", "47893")).toBeNull();
   });
   it("compares the day with the geometric mean of the days before, and says it in words", async () => {
     const { usualRatio, usualText, usualShort } = await import("../../shared/brightness");
