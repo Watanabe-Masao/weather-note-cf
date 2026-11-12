@@ -37,7 +37,7 @@ export const TABLES: Record<string, string> = {
     status VARCHAR NOT NULL, quality_flags VARCHAR NOT NULL,
     temp DOUBLE, humidity DOUBLE, wind DOUBLE, solar DOUBLE, sun_temp DOUBLE, shade_temp DOUBLE,
     temp_from VARCHAR, humidity_from VARCHAR, wind_from VARCHAR, solar_from VARCHAR,
-    baseline DOUBLE, transform VARCHAR, retrieved_at TIMESTAMPTZ,
+    baseline DOUBLE, transform VARCHAR, retrieved_at TIMESTAMPTZ, sunrise VARCHAR, sunset VARCHAR,
     PRIMARY KEY (dataset_id, report_id))`,
   prediction_snapshots: `CREATE TABLE prediction_snapshots (
     dataset_id VARCHAR NOT NULL, report_id VARCHAR NOT NULL, model_version VARCHAR NOT NULL, learning_state VARCHAR,
@@ -129,6 +129,8 @@ export function tablesOf(ex: Export, hash: string): Rows {
       r.baseline?.value ?? null,
       s?.transform ?? null,
       iso(s?.retrievedAt),
+      s?.sunrise ?? null,
+      s?.sunset ?? null,
     ]);
     const c = r.comfort;
     if (c)

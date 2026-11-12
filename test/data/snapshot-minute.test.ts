@@ -59,3 +59,13 @@ describe("review 2026-11-12: the hour whose observation has not arrived, and the
     expect(q.trainable).toBe(true);
   });
 });
+
+describe("sunrise and sunset kept with the report", () => {
+  it("stores both as HH:MM, or neither", () => {
+    const rows = [hourRow(12, 19)];
+    const s = snapshotOf(rows, 12, feel, null, undefined, { latest: null, now: at("12:15"), sun: { sunrise: "2026-11-12T06:33", sunset: "2026-11-12T17:05" } })!;
+    expect([s.sunrise, s.sunset]).toEqual(["06:33", "17:05"]);
+    const none = snapshotOf(rows, 12, feel, null, undefined, { latest: null, now: at("12:15"), sun: { sunrise: null, sunset: "2026-11-12T17:05" } })!;
+    expect("sunrise" in none).toBe(false);
+  });
+});
