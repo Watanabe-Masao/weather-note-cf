@@ -54,6 +54,7 @@ export const DATA = {
   wind: "#a9c6de",
   pressure: "#d8b48d",
   feel: "#c9a6f7", // 日なた温度 / 日かげ温度 as a value
+  light: "#ece2c4", // 明るさ (felt brightness): pale daylight
 } as const;
 export type DataColor = keyof typeof DATA;
 
