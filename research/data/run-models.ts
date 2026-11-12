@@ -13,7 +13,9 @@ import type { Report } from "../../src/beta/reports";
 import { DB_FILE, readExports } from "./common";
 
 const exports = readExports();
-const wanted = process.argv[2] ?? exports[exports.length - 1]?.ex.datasetId;
+// Default: the newest real export (by its time, never the made-up fixture).
+const newest = exports.filter((e) => e.ex.datasetId !== "ds-fixture").sort((a, b) => a.ex.exportedAt - b.ex.exportedAt).at(-1) ?? exports.at(-1);
+const wanted = process.argv[2] ?? newest?.ex.datasetId;
 const found = exports.find((e) => e.ex.datasetId === wanted);
 if (!found) {
   console.error(`データセット ${wanted ?? "（なし）"} が raw/ にありません。`);

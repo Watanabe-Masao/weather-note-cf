@@ -145,17 +145,18 @@ export function preferenceLearning(obs: PrefObs[], fit: PrefFit, at: PrefPredict
 
 /** The answers of one question in a person's reports, ready for the model (trainable reports only). */
 export function preferenceObservations(reports: Report[], kind: PreferenceKind): PrefObs[] {
-  const used = reports.filter((r) => !r.deleted && inputQuality(r).trainable && (kind === "thermal" ? r.thermalPreference : r.drinkPreference));
+  const answered = reports.filter((r) => !r.deleted && inputQuality(r).trainable && (kind === "thermal" ? r.thermalPreference : r.drinkPreference));
+  // Only reports the model can read join runs (as observationsOf does for the feeling model).
+  const used = answered.filter((r) => placeTempOf(r) != null && r.baseline?.value != null);
   const w = burstWeights(used.map((r) => Date.parse(r.at)));
-  const out: PrefObs[] = [];
-  used.forEach((r, i) => {
-    const e = placeTempOf(r);
-    const a = r.baseline?.value;
-    if (e == null || a == null) return;
-    const k = kind === "thermal" ? PREFERENCE_SCORE.thermal[r.thermalPreference!] : PREFERENCE_SCORE.drink[r.drinkPreference!];
-    out.push({ e, a, y: r.sensation, k, t: Date.parse(r.at), w: w[i] });
-  });
-  return out;
+  return used.map((r, i) => ({
+    e: placeTempOf(r)!,
+    a: r.baseline!.value,
+    y: r.sensation,
+    k: kind === "thermal" ? PREFERENCE_SCORE.thermal[r.thermalPreference!] : PREFERENCE_SCORE.drink[r.drinkPreference!],
+    t: Date.parse(r.at),
+    w: w[i],
+  }));
 }
 
 /** 3-category RPS (0 best). */

@@ -36,7 +36,7 @@ function BandNudge({ times, busy, onAdd }: { times: string[]; busy: boolean; onA
   return (
     <div className="notify-nudge">
       <small className="set-help">
-        記録の少ない時間帯：{few.map((b) => `${b.label}（${bands[b.id]}件）`).join("・")}。学習は時間帯の偏りに弱いので、この時間帯にも記録があると、ちょうどよい温度が確かになります。
+        記録の少ない時間帯：{few.map((b) => `${b.label}（${bands[b.id]}件分）`).join("・")}。学習は時間帯の偏りに弱いので、この時間帯にも記録があると、ちょうどよい温度が確かになります。
       </small>
       <div className="actions tight">
         {few.map((b) => (

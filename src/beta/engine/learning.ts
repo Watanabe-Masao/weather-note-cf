@@ -5,7 +5,7 @@ import { type Report, SCALE_VERSION } from "../reports";
 import { type Ensemble } from "./ensemble";
 import { type Observation } from "./estimation";
 import { referenceProbs, rps } from "./evaluation";
-import { observationsOf } from "./observations";
+import { burstWeights, observationsOf, placeTempOf } from "./observations";
 import { type Learning, muIntervalOf } from "./prediction";
 import { r1 } from "./util";
 import { inputQuality } from "../quality";
@@ -46,12 +46,21 @@ export function bandOf(at: string | number): TimeBand {
   return TIME_BANDS.find((b) => (b.from < b.to ? h >= b.from && h < b.to : h >= b.from || h < b.to))!.id;
 }
 
-/** Reports that teach the model, counted by band. */
+/**
+ * Reports that teach the model, counted by band — with the weights of reports in a row (#62 A), so
+ * three reports in ten minutes count as the one moment they are (review 2026-11-12).
+ */
 export function bandCounts(reports: Report[]): Record<TimeBand, number> {
   const out = { morning: 0, day: 0, evening: 0, night: 0 } as Record<TimeBand, number>;
-  for (const r of reports) if (!r.deleted && inputQuality(r).trainable) out[bandOf(r.at)]++;
+  const used = reports.filter((r) => !r.deleted && inputQuality(r).trainable && placeTempOf(r) != null);
+  const w = burstWeights(used.map((r) => Date.parse(r.at)));
+  used.forEach((r, i) => (out[bandOf(r.at)] += w[i]));
+  for (const k of Object.keys(out) as TimeBand[]) out[k] = Math.round(out[k] * 100) / 100;
   return out;
 }
+
+/** The JST date of a moment (days are counted in Japan's days, not UTC's). */
+const jstDay = (at: string) => new Date(Date.parse(at) + 9 * 3_600_000).toISOString().slice(0, 10);
 
 /** How many bands have enough reports. */
 export const bandsCovered = (c: Record<TimeBand, number>) => Object.values(c).filter((n) => n >= LEARNING_RULES.minPerBand).length;
@@ -76,14 +85,19 @@ export interface LearningView {
 
 export function learningOf(reports: Report[], ens: Ensemble): LearningView {
   const live = reports.filter((r) => !r.deleted).sort((a, b) => (a.at < b.at ? -1 : 1));
-  // Judged the same way as the track record (evaluation.ts): on the current scale version only.
-  const same = live.filter((r) => (r.scaleVersion ?? 1) === SCALE_VERSION);
+  // Judged the same way as the track record (evaluation.ts): on the current scale version only,
+  // the reference from the earlier reports that had a prediction.
+  const same = live.filter((r) => (r.scaleVersion ?? 1) === SCALE_VERSION && r.comfort);
   const checked = same
     .map((r, i) => ({ r, earlier: same.slice(0, i).map((x) => x.sensation as number) }))
-    .filter(({ r }) => r.comfort && (r.comfort.learning === "testable" || r.comfort.learning === "verified"))
+    .filter(({ r }) => r.comfort!.learning === "testable" || r.comfort!.learning === "verified")
     .map(({ r, earlier }) => ({ probs: r.comfort!.probs, y: r.sensation as number, earlier }));
+  // Days with a report that teaches the model, in JST (review 2026-11-12: UTC days counted one
+  // Japanese morning as two days).
+  const days = new Set(live.filter((r) => inputQuality(r).trainable && placeTempOf(r) != null).map((r) => jstDay(r.at))).size;
   const bands = bandCounts(live);
-  return { ...learningFrom(observationsOf(reports, ens.alpha), new Set(live.map((r) => r.at.slice(0, 10))).size, checked, ens, bandsCovered(bands)), bands };
+  // In time order, so "the latest" observation is the latest report.
+  return { ...learningFrom(observationsOf(live, ens.alpha), days, checked, ens, bandsCovered(bands)), bands };
 }
 
 /** The rule itself, on observations (testable without whole reports). */

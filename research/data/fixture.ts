@@ -1,5 +1,6 @@
 // A small, made-up export (two people, a few reports each), for the tests and for trying the
 // scripts without real data:  npm run fixture  → raw/ds-fixture.json
+import { MODEL_VERSION } from "../../src/beta/comfort";
 import type { Report } from "../../src/beta/reports";
 import type { Export } from "./transform";
 
@@ -43,7 +44,7 @@ export function makeReport(id: string, hour: number, temp: number, y: number, ov
       n: 3,
       alpha: 0.8,
       at: Date.parse(`2026-11-12T${String(hour).padStart(2, "0")}:10:00+09:00`),
-      version: "comfort-4",
+      version: MODEL_VERSION,
       learning: "provisional",
     },
     updatedAt: 1,

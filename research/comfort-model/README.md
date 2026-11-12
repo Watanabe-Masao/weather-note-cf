@@ -2,7 +2,7 @@
 
 | ファイル | 中身 |
 | --- | --- |
-| [mathematical-contract.md](mathematical-contract.md) | 数学的正本（MATH-01〜08、決定の記録、変更の記録） |
+| [mathematical-contract.md](mathematical-contract.md) | 数学的正本（MATH-01〜09、決定の記録、変更の記録） |
 | [preference-synth.ts](preference-synth.ts) | 温熱選好・飲料選好のモデルの検証（#63 P5 → [preference-synth-results.md](preference-synth-results.md)） |
 | [bursts.ts](bursts.ts) | 続けて記録したものの重みの検証（#62。`npx vite-node research/comfort-model/bursts.ts` → [bursts-results.md](bursts-results.md)） |
 | [synthetic.ts](synthetic.ts) | 合成データによる検証（`npx vite-node research/comfort-model/synthetic.ts`、乱数は固定） |

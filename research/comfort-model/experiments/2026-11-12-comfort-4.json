@@ -3,7 +3,7 @@
   "date": "2026-11-12",
   "modelVersion": "comfort-4",
   "scaleVersion": 3,
-  "commit": "89220ee",
+  "commit": "d78d294",
   "dataset": {
     "id": "synthetic-bursts-62",
     "hash": "sha256:bursts.ts:e3549f62a92ca151",
@@ -20,13 +20,17 @@
     "bursts": "BURST_GAP_H 2, BURST_RHO 0.5: w = 1/(1+(k-1)·0.5) for a run of k reports",
     "bands": "testable needs 2+ time bands (朝・日中・夕方・夜) with 3+ trainable reports"
   },
-  "compared": ["comfort-3（重みなし）", "間隔 0.5/1/2/3/6 時間 × ρ 1", "間隔 2 時間 × ρ 0.25/0.5/0.75/1"],
+  "compared": [
+    "comfort-3（重みなし）",
+    "間隔 0.5/1/2/3/6 時間 × ρ 1",
+    "間隔 2 時間 × ρ 0.25/0.5/0.75/1"
+  ],
   "results": {
     "rps": null,
     "logLoss": null,
     "skill": null,
     "calibration": null,
-    "notes": "合成データ（bursts-results.md）、続けて記録する人、本人のずれの広がり 0.75/1.5/3℃ × 約30/90件、各100人：μ の95%区間の被覆率は重みなし 69〜91% → ρ 0.5 で 89〜98%。μ の誤差と新しい場面への予測の RPS は、すべての条件で重みなし以下。1件ずつ記録する人では変化なし（被覆率 95%）。ρ と間隔は同じ合成データで選んだので、実データの時系列評価で確かめ直す。"
+    "notes": "合成データ（bursts-results.md）、続けて記録する人、本人のずれの広がり 0.75/1.5/3℃ × 約30/90件、各100人：μ の95%区間の被覆率は重みなし 69〜91% → ρ 0.5 で 89〜98%。μ の誤差と新しい場面への予測の RPS は、すべての条件で重みなし以下。1件ずつ記録する人では変化なし（被覆率 95%）。ρ と間隔は同じ合成データで選んだので、実データの時系列評価で確かめ直す。 時間帯の条件（3件分以上の時間帯が2つ以上）は、合成データの根拠がまだない暫定の値（#54 で実データから見直す）。"
   },
   "checks": {
     "mathematical": true,

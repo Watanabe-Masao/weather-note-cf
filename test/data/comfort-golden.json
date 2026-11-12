@@ -1356,5 +1356,67 @@
   "thermal_preference",
   "drink_preference",
   "preference_version"
- ]
+ ],
+ "fromReports": {
+  "morning": {
+   "state": "sparse",
+   "bands": {
+    "morning": 14,
+    "day": 0,
+    "evening": 0,
+    "night": 0
+   },
+   "n": 14,
+   "alpha": 0.8,
+   "m1": [
+    21.93605,
+    0.33609,
+    0.94101,
+    1.31924,
+    -0.6479,
+    0,
+    0
+   ]
+  },
+  "spread": {
+   "state": "testable",
+   "bands": {
+    "morning": 14,
+    "day": 14,
+    "evening": 14,
+    "night": 0
+   },
+   "n": 42,
+   "alpha": 0.6,
+   "m1": [
+    20.18549,
+    0.33154,
+    0.7236,
+    0.92824,
+    -0.39763,
+    0,
+    0
+   ]
+  },
+  "bursts": {
+   "state": "provisional",
+   "bands": {
+    "morning": 0,
+    "day": 21,
+    "evening": 0,
+    "night": 0
+   },
+   "n": 42,
+   "alpha": 0.6,
+   "m1": [
+    19.67731,
+    0.33118,
+    0.54507,
+    1.00155,
+    -0.56146,
+    0,
+    0
+   ]
+  }
+ }
 }

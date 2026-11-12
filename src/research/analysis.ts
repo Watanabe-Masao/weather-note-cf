@@ -195,9 +195,11 @@ export function analyse(rows: Row[]): Analysis {
   for (const [who, list] of people)
     for (const r of list)
       if (r.comfort && (r.scaleVersion ?? 1) === SCALE_VERSION) {
+        // Saved probabilities are rounded: normalised, so the cumulative ones end at 1.
+        const total = r.comfort.probs.reduce((a, b) => a + b, 0) || 1;
         let c = 0;
         for (let k = 0; k < 6; k++) {
-          c += r.comfort.probs[k];
+          c = Math.min(1, c + r.comfort.probs[k] / total);
           cum.push({ who, p: c, hit: r.sensation <= k - 3 ? 1 : 0 });
         }
       }
@@ -251,11 +253,16 @@ export function preferenceTimeSeries(people: [string, Report[]][], kind: Prefere
   let withFeeling = 0;
   const who = new Set<string>();
   for (const [id, list] of people) {
-    const obs = preferenceObservations([...list].sort((a, b) => (a.at < b.at ? -1 : 1)), kind);
-    for (let i = 1; i < obs.length; i++) {
-      const prev: PrefObs[] = obs.slice(0, i);
-      if (prev.reduce((s, o) => s + o.w, 0) < PREF_RULES.minFitEff || new Set(prev.map((o) => o.k)).size < 2) continue;
-      const o = obs[i];
+    const sorted = [...list].sort((a, b) => (a.at < b.at ? -1 : 1));
+    const all = preferenceObservations(sorted, kind);
+    for (const o of all) {
+      // The earlier answers as they were then: weights from the reports before this one only
+      // (a later report in a row would change them; review 2026-11-12).
+      const prev: PrefObs[] = preferenceObservations(
+        sorted.filter((r) => Date.parse(r.at) < o.t),
+        kind,
+      );
+      if (prev.reduce((s, x) => s + x.w, 0) < PREF_RULES.minFitEff || new Set(prev.map((x) => x.k)).size < 2) continue;
       const freq = [-1, 0, 1].map((k) => (prev.filter((x) => x.k === k).length + 1) / (prev.length + 3)) as [number, number, number];
       const fb = fitPreference(prev, { withFeeling: false, halfLifeDays: null, now: o.t });
       const fy = fitPreference(prev, { withFeeling: true, halfLifeDays: null, now: o.t });
