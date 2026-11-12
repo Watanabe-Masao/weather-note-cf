@@ -23,7 +23,7 @@ interface Props {
   summary?: boolean;
   /** Swipe the summary sideways: move the selected day. */
   onStep?: (days: number) => void;
-  /** Tapping the selected 日なた/日かげ温度 button again switches between sun and shade (the shared setting). */
+  /** Tapping the selected 肌感（日なた/日かげ） button again switches between sun and shade (the shared setting). */
   onToggleSun?: () => void;
   /** Tap a date in the summary to pick it from the calendar. */
   pick?: (side: CalendarSide) => void;
@@ -32,7 +32,7 @@ interface Props {
 export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true, onStep, onToggleSun, pick }: Props) {
   const settings = useContext(FeelContext);
   const base = initialDetailMetric(metric);
-  // Temperature can also be read as 肌感 (日なた/日かげ温度) hour by hour.
+  // Temperature can also be read as 肌感 (肌感（日なた/日かげ）) hour by hour.
   const [feel, setFeel] = useState(false);
   useEffect(() => setFeel(false), [metric]);
   const id = base === "temp" && feel ? "feel" : base;
@@ -48,10 +48,10 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
             value={feel ? "feel" : "air"}
             options={[
               { id: "air", label: "気温" },
-              { id: "feel", label: settings.sun ? "日なた温度" : "日かげ温度" },
+              { id: "feel", label: settings.sun ? "肌感（日なた）" : "肌感（日かげ）" },
             ]}
             onChange={(v) => setFeel(v === "feel")}
-            // The selected 日なた/日かげ温度 tapped again switches sun and shade (the shared setting).
+            // The selected 肌感（日なた/日かげ） tapped again switches sun and shade (the shared setting).
             onReselect={(v) => v === "feel" && onToggleSun?.()}
           />
         )}

@@ -1,4 +1,4 @@
-// The sun on a standing person (#96): a candidate for 日なた温度 (feel-2), not used by the app yet.
+// The sun on a standing person (#96): a candidate for 肌感（日なた） (feel-2), not used by the app yet.
 //
 // 日なた and 日かげ differ by the direct sunshine on the body, nothing else: the sky's scattered
 // light reaches both alike. So the candidate adds only the direct beam, and it is zero when the sun

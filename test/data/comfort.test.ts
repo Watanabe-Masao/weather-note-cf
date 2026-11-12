@@ -237,7 +237,7 @@ describe("β: what a prediction means (position, answers' spread, the model's un
     expect(sparse.state).toBe("sparse");
     expect(sparse.missing.join()).toContain("両方");
     const narrow = obs.map((o, i) => ({ ...o, e: 18 + (i % 3) }));
-    expect(learningFrom(narrow, 10, [], ens).missing.join()).toContain("温度の幅");
+    expect(learningFrom(narrow, 10, [], ens).missing.join()).toContain("肌感の幅");
     expect(learningFrom(obs, 1, [], ens).missing.join()).toContain("記録した日");
     expect(centreUnknown("sparse")).toBe(true);
     expect(centreUnknown("provisional")).toBe(false);

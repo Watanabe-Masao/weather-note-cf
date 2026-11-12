@@ -264,8 +264,10 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             const d = digitsOf(s.unit ?? metric.unit);
             return {
               key: s.key,
-              label: s.key === "feel" ? (feel.sun ? "日なた温度" : "日かげ温度") : s.label,
+              label: s.key === "feel" ? (feel.sun ? "肌感（日なた）" : "肌感（日かげ）") : s.label,
               color: COLORS[s.tone],
+              // 肌感 is an index, not a temperature (D18): no ℃ on its row.
+              ...(s.key === "feel" ? { unit: "" } : {}),
               a: a == null ? "—" : a.toFixed(d),
               b: b == null ? "—" : b.toFixed(d),
               diff: signedDiff(a, b, d),
@@ -497,7 +499,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
               on={shown(s.key)}
               tone={COLORS[s.tone]}
               onClick={() => {
-                // 肌感: 日なた温度 → 日かげ温度 → オフ → 日なた温度 …
+                // 肌感: 肌感（日なた） → 肌感（日かげ） → オフ → 肌感（日なた） …
                 if (s.key !== "feel" || !onToggleSun) return toggle(s.key);
                 if (!shown("feel")) {
                   if (!feel.sun) onToggleSun();
@@ -505,10 +507,10 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
                 } else if (feel.sun) onToggleSun();
                 else toggle("feel");
               }}
-              label={s.key === "feel" && onToggleSun ? `肌感の線：${!shown("feel") ? "オフ" : feel.sun ? "日なた温度" : "日かげ温度"}（タップで切り替え）` : undefined}
+              label={s.key === "feel" && onToggleSun ? `肌感の線：${!shown("feel") ? "オフ" : feel.sun ? "肌感（日なた）" : "肌感（日かげ）"}（タップで切り替え）` : undefined}
             >
               <i className="dot" style={{ background: COLORS[s.tone] }} />
-              {s.key === "feel" ? (feel.sun ? "日なた温度" : "日かげ温度") : s.label}
+              {s.key === "feel" ? (feel.sun ? "肌感（日なた）" : "肌感（日かげ）") : s.label}
             </Chip>
           ))}
           {metric.spread && (

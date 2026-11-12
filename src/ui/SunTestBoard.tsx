@@ -1,6 +1,6 @@
 // テスト板 (#96): the 日なた of feel-1 (in use) and of the feel-2 variants, side by side on real
 // hours of a chosen day at the station — for judging the candidate by eye before any data decides.
-// Nothing here changes the app's 日なた温度 or the model.
+// Nothing here changes the app's 肌感（日なた） or the model.
 
 import { useContext, useEffect, useMemo, useState } from "react";
 import { addDays } from "../../shared/dates";
@@ -97,7 +97,7 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
     <ModalSheet title="日なたの計算を比べる（テスト）" onClose={onClose} className="sun-test">
       <div className="sun-test-body">
         <p className="set-lead">
-          この日の時間ごとの実際の値で、日なた温度の「日差しの上乗せ」（日なた − 日かげ、℃）を、今の計算と候補で比べます。アプリの表示とモデルは変えません（#96）。
+          この日の時間ごとの実際の値で、肌感（日なた）の「日差しの上乗せ」（日なた − 日かげ、℃）を、今の計算と候補で比べます。アプリの表示とモデルは変えません（#96）。
         </p>
         <div className="sun-test-nav">
           <button className="chip sm" onClick={() => setDate(addDays(date, -1))} aria-label="前の日">
@@ -182,7 +182,7 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
               </table>
             </div>
             <p className="set-help">
-              時は気象庁の時（13時＝12〜13時）。太陽は時間の真ん中の高さ、日照は時間（0〜1）、日射は W/㎡（空欄は日射計のない時間）。日かげは日かげ温度（℃）、右の4列は日なたの上乗せ（℃）。今の計算は設定の「日差しの強さ」k を使います。薄い行は予報。
+              時は気象庁の時（13時＝12〜13時）。太陽は時間の真ん中の高さ、日照は時間（0〜1）、日射は W/㎡（空欄は日射計のない時間）。日かげは肌感（日かげ）（℃）、右の4列は日なたの上乗せ（℃）。今の計算は設定の「日差しの強さ」k を使います。薄い行は予報。
             </p>
             <p className="set-help">
               どの案にも入っていないもの：日に焼けた地面や壁から出る熱（夏の昼の日なたで大きい。アスファルトか芝生かで大きく変わる）。

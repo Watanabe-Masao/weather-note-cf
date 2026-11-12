@@ -14,7 +14,7 @@
 // //   centre      μ = m0 + Σ b_j · x_j            (its centre drivers)
 // //   half-range  h = exp(l0 + Σ c_j · x_j)       (its range drivers)
 // //   outer step  g = exp(q0),  blur s = exp(r0)
-// //   place       E′ = E + wS·[風 強い] + wN·[風 なし]   (E = 日なた／日かげ温度, the station's wind,
+// //   place       E′ = E + wS·[風 強い] + wN·[風 なし]   (E = 肌感（日なた／日かげ）, the station's wind,
 // //                                                     humidity and sun already in it)
 // //   answer      P(Y ≤ k) = σ((c_k − (E′ − μ)) / s),  c = μ-relative edges ±h, ±(h+g), ±(h+2g)
 // //

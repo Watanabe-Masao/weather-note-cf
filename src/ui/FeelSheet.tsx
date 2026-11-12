@@ -26,7 +26,7 @@ export function FeelSheet({ store, station, target, partner, onStep, onClose }: 
   }, [store, station, target, partner]);
 
   return (
-    <ModalSheet title={`肌感マップ（${settings.sun ? "日なた温度" : "日かげ温度"}）`} onClose={onClose} className="feel-sheet">
+    <ModalSheet title={`肌感マップ（${settings.sun ? "肌感（日なた）" : "肌感（日かげ）"}）`} onClose={onClose} className="feel-sheet">
       <BandMap store={store} station={station} target={target} partner={partner} onStep={onStep} />
     </ModalSheet>
   );

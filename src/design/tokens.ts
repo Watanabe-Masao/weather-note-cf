@@ -46,14 +46,14 @@ export const DATA = {
   hot: "#f39a86", // highest values: 最高気温, 気圧最高, 最大瞬間
   cold: "#74b6f5", // lowest values: 最低気温, 気圧最低
   temp: "#f39a86", // temperature over the hours (the same family as 最高)
-  mean: "#8ea3b9", // means and references (平均, the air temperature behind 日なた温度)
+  mean: "#8ea3b9", // means and references (平均, the air temperature behind 肌感（日なた）)
   rain: "#45c8d8", // rain amounts and chances
   snow: "#cdd9ff",
   sun: "#f5c865", // 日射量, 日照
   humidity: "#8fd8c4",
   wind: "#a9c6de",
   pressure: "#d8b48d",
-  feel: "#c9a6f7", // 日なた温度 / 日かげ温度 as a value
+  feel: "#c9a6f7", // 肌感（日なた） / 肌感（日かげ） as a value
 } as const;
 
 /** The six 明るさ levels (shared/brightness.ts), dark to light: night navy to pale daylight. */

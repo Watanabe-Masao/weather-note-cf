@@ -1,7 +1,7 @@
 // Day detail: the 24 hourly values of one day next to its partner day.
 //
 // Two views: 実測 (the published values: temperature, rain, humidity, wind, sunshine) and
-// 肌感 (this app's 日なた温度 / 日かげ温度, with the five feel levels behind it).
+// 肌感 (this app's 肌感（日なた） / 肌感（日かげ）, with the five feel levels behind it).
 
 import { type FeelSettings, feelOf, MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
 import type { WeatherRow } from "../shared/types";
@@ -29,7 +29,7 @@ export const MEASURED: DetailMetric[] = [
   { id: "probability", label: "降水確率", unit: "%", chart: "bar", floor: 0, ceiling: 100 },
   { id: "humidity", label: "湿度", unit: "%", chart: "line" },
   { id: "wind", label: "風速", unit: "m/s", chart: "line", floor: 0 },
-  // 全天日射量: the sun's warming power (direct plus scattered light); what 日なた温度 uses.
+  // 全天日射量: the sun's warming power (direct plus scattered light); what 肌感（日なた） uses.
   { id: "radiation", label: "日差し", unit: "MJ/㎡", chart: "bar", floor: 0 },
   // 日照時間: minutes of direct sunshine in the hour — a record of "was it sunny". The item 日照
   // (日照時間と明るさ) shows it with the hour's 明るさ, which is computed from it.
@@ -37,7 +37,8 @@ export const MEASURED: DetailMetric[] = [
   { id: "pressure", label: "気圧", unit: "hPa", chart: "line" },
 ];
 
-export const FEEL_METRIC: DetailMetric = { id: "feel", label: "肌感", unit: "℃", chart: "line" };
+// 肌感 is an index on a ℃-wide scale, not a temperature (D18): its axis says 肌感, its values have no ℃.
+export const FEEL_METRIC: DetailMetric = { id: "feel", label: "肌感", unit: "肌感", chart: "line" };
 
 export const detailMetric = (id: DetailMetricId) => (id === "feel" ? FEEL_METRIC : MEASURED.find((m) => m.id === id)!);
 
@@ -103,7 +104,7 @@ export function axisRange(values: number[], m: DetailMetric): { lo: number; hi: 
   let hi = values.length ? Math.max(...values) : 1;
   if (m.floor != null) lo = Math.min(lo, m.floor);
   if (m.ceiling != null) hi = Math.max(hi, m.ceiling);
-  const pad = Math.max((hi - lo) * 0.12, m.unit === "℃" ? 1 : m.unit === "h" ? 0 : m.unit === "MJ/㎡" ? 0.1 : 0.5);
+  const pad = Math.max((hi - lo) * 0.12, m.unit === "℃" || m.unit === "肌感" ? 1 : m.unit === "h" ? 0 : m.unit === "MJ/㎡" ? 0.1 : 0.5);
   if (m.floor == null || lo < m.floor) lo -= pad;
   if (m.ceiling == null) hi += pad;
   if (hi <= lo) hi = lo + 1;

@@ -399,7 +399,7 @@ function comfortOfDay(
 
 /**
  * β rows: each day's 最近の基準, the comfort centre and range of that day (they move with it), and
- * where the day's 日なた／日かげ温度 sit: ℃ from the centre, and "範囲内" or how far past the edge.
+ * where the day's 肌感（日なた／日かげ） sit: ℃ from the centre, and "範囲内" or how far past the edge.
  * "読み込み中" while past days are on their way, "履歴不足" when they came but are too few.
  */
 function BetaRows({
@@ -431,7 +431,6 @@ function BetaRows({
     return (
       <>
         {signed(Math.round((e - d.st.mu) * 10) / 10)}
-        <small className="unit">℃</small>
         <small className={out === 0 ? "beta-in" : "beta-out"}>{out === 0 ? "範囲内" : `外 ${signed(Math.round(out * 10) / 10)}`}</small>
       </>
     );
@@ -451,12 +450,11 @@ function BetaRows({
     },
     {
       key: "mu",
-      label: "ちょうどよい温度",
+      label: "ちょうどよい肌感",
       value: (d) => d.st.mu,
       show: (d) => (
         <>
           {d.st.mu.toFixed(1)}
-          <small className="unit">℃</small>
         </>
       ),
     },
@@ -487,15 +485,15 @@ function BetaRows({
       <span className="cs-none beta-short">{loading ? "読み込み中" : "履歴不足"}</span>
     );
   return (
-    <div className="cs-beta" role="group" aria-label="ちょうどよい温度と範囲（β版。研究中の推定）">
+    <div className="cs-beta" role="group" aria-label="ちょうどよい肌感と範囲（β版。研究中の推定）">
       <p className="cs-beta-head">
-        ちょうどよい温度と範囲 <span className="beta-tag">β</span>
+        ちょうどよい肌感と範囲 <span className="beta-tag">β</span>
         {learning && <span className={`learn-tag ${learning.state}`}>{LEARNING_LABELS[learning.state]}</span>}
         <small>
-          {unknown ? `ちょうどよい温度は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
+          {unknown ? `ちょうどよい肌感は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
         </small>
         {onBasis && (
-          <button className="beta-basis" onClick={onBasis} aria-label="ちょうどよい温度と範囲の計算の根拠を見る">
+          <button className="beta-basis" onClick={onBasis} aria-label="ちょうどよい肌感と範囲の計算の根拠を見る">
             根拠
           </button>
         )}

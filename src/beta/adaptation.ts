@@ -6,7 +6,7 @@
 // chosen with the comfort model from the person's reports (comfort.ts), standard 0.8 until then.
 //
 // What this module gives are differences in ℃ from the baseline: the day's mean air temperature,
-// and its daytime 日なた温度 / 日かげ温度 (which already carry wind, humidity and sunshine). They are
+// and its daytime 肌感（日なた） / 肌感（日かげ） (which already carry wind, humidity and sunshine). They are
 // NOT a felt temperature and not a prediction of how it will feel: no coefficient has been fitted
 // yet. The screen labels them β and says so.
 
@@ -89,9 +89,9 @@ export interface Departures {
   baseline: Baseline;
   /** Day mean air temperature − baseline. */
   air: number | null;
-  /** Daytime (日中・昼・夕方, by the sun) 日なた温度 − baseline. */
+  /** Daytime (日中・昼・夕方, by the sun) 肌感（日なた） − baseline. */
   sun: number | null;
-  /** Daytime 日かげ温度 − baseline. */
+  /** Daytime 肌感（日かげ） − baseline. */
   shade: number | null;
 }
 
