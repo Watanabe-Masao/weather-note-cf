@@ -23,6 +23,7 @@
 
 import { radiationOf } from "./feel";
 import { weatherGroup } from "./similar";
+import { dayEdges, type Where } from "./dayParts";
 import { DEFAULT_LAT_LON, solarAltitude, stationLatLon } from "./sunTimes";
 import type { WeatherRow } from "./types";
 
@@ -223,3 +224,40 @@ export function stepOutFeel(index: number | null | undefined): string | null {
   const r = luxOf(index) / INDOOR_LUX;
   return STEP_OUT.find((s) => r >= s.minRatio)!.label;
 }
+
+// ---- adaptation over days: いつもと比べて ---------------------------------------------------------
+//
+// A sunny day after a dull week reads brighter than the same light in a sunny week: the eye and the
+// mind take recent days as the reference, as the comfort model's 最近の基準 does for temperature.
+// The day's mean daylight (sunrise to sunset, from its global radiation) against the geometric mean
+// of the USUAL_DAYS before — ratios, as the eye compares them. Beside the levels, never inside them
+// or in the comfort model.
+
+/** The mean daylight of a day (lux, sunrise to sunset) from its global radiation (MJ/m², daily). */
+export function daylightLux(radiationMj: number | null | undefined, date: string, station: Where): number | null {
+  if (radiationMj == null || !Number.isFinite(radiationMj) || radiationMj <= 0) return null;
+  const e = dayEdges(date, station);
+  const seconds = (e.set - e.rise) * 60;
+  return seconds > 0 ? ((radiationMj * 1e6) / seconds) * LUMINOUS_EFFICACY : null;
+}
+
+/** Days before that make "usual", and how many of them must have a value. */
+export const USUAL_DAYS = 7;
+export const USUAL_MIN = 4;
+
+/** Today ÷ the geometric mean of the days before; null without today or with fewer than USUAL_MIN days. */
+export function usualRatio(today: number | null, before: (number | null)[]): number | null {
+  const vs = before.filter((v): v is number => v != null && v > 0);
+  if (today == null || today <= 0 || vs.length < USUAL_MIN) return null;
+  return Math.exp(Math.log(today) - vs.reduce((s, v) => s + Math.log(v), 0) / vs.length);
+}
+
+/** "いつも通り" (within about ±12%), "いつもの2.1倍", "いつもの0.4倍". */
+export function usualText(ratio: number | null | undefined): string {
+  if (ratio == null) return "—";
+  if (Math.abs(Math.log10(ratio)) < 0.05) return "いつも通り";
+  return `いつもの${ratio >= 10 ? Math.round(ratio) : ratio.toFixed(1)}倍`;
+}
+
+/** Short, for a table cell under the graph: "×2.1", "×0.4", "≈". */
+export const usualShort = (ratio: number) => (Math.abs(Math.log10(ratio)) < 0.05 ? "≈" : `×${ratio >= 10 ? Math.round(ratio) : ratio.toFixed(1)}`);

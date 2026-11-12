@@ -4,7 +4,7 @@
 import { daytimeFeel, type FeelSettings, MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
 import type { WeatherRow } from "../shared/types";
 import type { DataColor } from "./design/tokens";
-import { dayBrightness } from "../shared/brightness";
+import { dayBrightness, usualShort } from "../shared/brightness";
 
 export type ChartMetricId =
   | "temp"
@@ -23,7 +23,9 @@ export interface ChartSeries {
   /** `station`: whose sun divides the day (the 肌感 bands, shared/dayParts.ts). */
   value: (row: WeatherRow | null | undefined, hours: WeatherRow[] | null, feel: FeelSettings, station: string | null) => number | null;
   /** β: the value needs the days before (the 最近の基準); the chart reads it through the store. */
-  history?: "baseline";
+  history?: "baseline" | "usualLight";
+  /** Only a row of numbers under the graph (neither a line nor a table row). */
+  underOnly?: boolean;
   /** Shorter name for the narrow table label column. */
   tableLabel?: string;
   /** Drawn in the graph only, not given a row in the table. */
@@ -75,10 +77,10 @@ export interface UnderRow {
 }
 
 /** Rows the table shows for an item. `past`: the comparison side, whose days have no forecast-only values. */
-export const tableSeries = (m: ChartMetric, past = false) => m.series.filter((s) => !s.graphOnly && !(past && s.forecastOnly));
+export const tableSeries = (m: ChartMetric, past = false) => m.series.filter((s) => !s.graphOnly && !s.underOnly && !(past && s.forecastOnly));
 
 /** Lines the graph draws for an item. */
-export const graphSeries = (m: ChartMetric) => m.series.filter((s) => !s.tableOnly);
+export const graphSeries = (m: ChartMetric) => m.series.filter((s) => !s.tableOnly && !s.underOnly);
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const field =
@@ -179,11 +181,14 @@ export const CHART_METRICS: ChartMetric[] = [
       { key: "radiation", label: "日射量", tone: "sun", value: dailyRadiation },
       { key: "sun", label: "日照", tone: "sun", value: field("sun"), tableOnly: true, minor: true, unit: "h" },
       // 明るさ: the hours that were 明るい or brighter (1,000 lx and up; shared/brightness.ts).
+      // 順応 over days: the day's daylight against the 7 days before (the chart reads it through the store).
+      { key: "usualLight", label: "いつも比", tone: "sun", value: () => null, history: "usualLight", underOnly: true },
       { key: "brightHours", label: "明るい時間", tableLabel: "明るい", tone: "sun", value: (_r, h, _f, station) => (h?.length ? dayBrightness(h, station).brightHours : null), tableOnly: true, minor: true, unit: "時間" },
     ],
     under: [
       { key: "sun", label: "日照", format: (v) => `${v.toFixed(1)}h`, compare: true },
       { key: "brightHours", label: "明るい", format: (v) => `${v}h`, compare: true },
+      { key: "usualLight", label: "いつも比", format: usualShort, compare: true },
     ],
   },
   {
