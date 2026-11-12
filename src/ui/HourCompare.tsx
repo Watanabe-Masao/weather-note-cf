@@ -6,7 +6,6 @@ import { jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
 import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, dayLights, stepOutFeel, usualText } from "../../shared/brightness";
 import { usualLightOf } from "../light";
-import { stationLatLon } from "../../shared/sunTimes";
 import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
@@ -97,8 +96,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
     // JMA hour n covers n−1 to n o'clock: hours h and h + 1 are the hour either side of h o'clock.
     const around = (h: number) => [h, h + 1].filter((n) => n >= 1 && n <= 24);
     return {
-      main: WX_TICKS.map((h) => hoursWeather(hours?.rows ?? [], around(h), undefined, 1)),
-      other: other ? WX_TICKS.map((h) => hoursWeather(otherHours?.rows ?? [], around(h), undefined, 1)) : null,
+      main: WX_TICKS.map((h) => hoursWeather(hours?.rows ?? [], around(h), station, 1)),
+      other: other ? WX_TICKS.map((h) => hoursWeather(otherHours?.rows ?? [], around(h), station, 1)) : null,
     };
   }, [hours, otherHours, other]);
   const isToday = date === today;
@@ -139,8 +138,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           {
             key: "wx",
             label: "天気",
-            a: <HourWeather w={hoursWeather(hours?.rows ?? [], [shownHour], stationLatLon(station)?.lat, 1)} />,
-            b: other ? <HourWeather w={hoursWeather(otherHours?.rows ?? [], [shownHour], stationLatLon(station)?.lat, 1)} /> : "—",
+            a: <HourWeather w={hoursWeather(hours?.rows ?? [], [shownHour], station, 1)} />,
+            b: other ? <HourWeather w={hoursWeather(otherHours?.rows ?? [], [shownHour], station, 1)} /> : "—",
           },
           ...(metricId === "sun"
             ? [
