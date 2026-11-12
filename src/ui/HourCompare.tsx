@@ -4,9 +4,8 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
-import { BRIGHTNESS_LEVELS, brightnessRatio, luxOf, luxTag, luxText } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, hourLight } from "../../shared/brightness";
 import { stationLatLon } from "../../shared/sunTimes";
-import { BRIGHTNESS_UNIT } from "../design/format";
 import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
@@ -23,7 +22,7 @@ import {
   initialHour,
   signedDiff,
 } from "../dayDetail";
-import { type DataColor, DATA } from "../design/tokens";
+import { type DataColor, DATA, LIGHT_LEVELS } from "../design/tokens";
 import { dateLabel, needsYear, niceTicks, tickLabel } from "../design/format";
 import { FeelContext, legendOf, levelRanges } from "./FeelBar";
 
@@ -38,7 +37,6 @@ export const HOUR_TONE: Record<DetailMetricId, DataColor> = {
   wind: "wind",
   radiation: "sun",
   sun: "sun",
-  brightness: "light",
   pressure: "pressure",
 };
 
@@ -80,12 +78,22 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // The parts of the day and the sun's height, by the sun at this station (shared/dayParts.ts).
   const day = useMemo(() => ({ parts: dayParts(date, station), edges: dayEdges(date, station), curve: altitudeCurve(date, station, 10) }), [date, station]);
 
-  const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings, station), [hours, metricId, settings, station]);
-  const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings, station), [otherHours, metricId, settings, station]);
+  const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings), [hours, metricId, settings]);
+  const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings), [otherHours, metricId, settings]);
   const air = useMemo(() => (metricId === "feel" ? hourSeries(hours?.rows ?? [], "temp", settings) : null), [hours, metricId, settings]);
   const sunMain = useMemo(() => hourSeries(hours?.rows ?? [], "sun", settings), [hours, settings]);
   const sunOther = useMemo(() => hourSeries(otherHours?.rows ?? [], "sun", settings), [otherHours, settings]);
   const chance = useMemo(() => hourSeries(hours?.rows ?? [], "probability", settings), [hours, settings]);
+  // 明るさ for each hour 1–24 (null where the hour is missing), both days, at the station.
+  const lightOf = (rows: WeatherRow[] | undefined) => {
+    const byHour = new Map((rows ?? []).map((r) => [r.n, r]));
+    return Array.from({ length: 24 }, (_, i) => {
+      const r = byHour.get(i + 1);
+      return r ? hourLight(r, station).index : null;
+    });
+  };
+  const lightMain = useMemo(() => lightOf(hours?.rows), [hours, station]); // eslint-disable-line react-hooks/exhaustive-deps
+  const lightOther = useMemo(() => lightOf(otherHours?.rows), [otherHours, station]); // eslint-disable-line react-hooks/exhaustive-deps
   // The weather under each time tick (0, 3, … 24 o'clock): the hour either side of it.
   const bandWx = useMemo(() => {
     // JMA hour n covers n−1 to n o'clock: hours h and h + 1 are the hour either side of h o'clock.
@@ -114,7 +122,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       {/* The hour's values above the graph, in the card every graph uses. */}
       <GraphReadout
         live={scrubbing}
-        unit={metric.unit === "h" || metric.unit === BRIGHTNESS_UNIT ? "" : metric.unit}
+        unit={metric.unit === "h" ? "" : metric.unit}
         title={
           <>
             {shownHour}時<small> {mainLabel}{other ? ` / ${otherLabel}` : ""}</small>
@@ -127,12 +135,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             color,
             a: formatDetail(at(main), metric),
             b: other ? formatDetail(at(second), metric) : "—",
-            diff: !other || metric.unit === "h" ? "" : metric.unit === BRIGHTNESS_UNIT ? brightnessRatio(at(main), at(second)) : signedDiff(at(main), at(second), metric.unit),
+            diff: other && metric.unit !== "h" ? signedDiff(at(main), at(second), metric.unit) : "",
           },
-          // 明るさ: the light in lux under the words.
-          ...(metricId === "brightness"
-            ? [{ key: "lux", label: "照度", a: at(main) == null ? "—" : luxText(luxOf(at(main)!)), b: other && at(second) != null ? luxText(luxOf(at(second)!)) : "—" }]
-            : []),
           // The weather of the shown hour (#: 時間帯の天気), both days. Faint = estimated.
           {
             key: "wx",
@@ -149,6 +153,15 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                   unit: "",
                   a: formatDetail(sunMain[shownHour - 1]?.v ?? null, detailMetric("sun")),
                   b: other ? formatDetail(sunOther[shownHour - 1]?.v ?? null, detailMetric("sun")) : "—",
+                },
+                // 明るさ (shared/brightness.ts): the felt level of the hour, and how many times brighter.
+                {
+                  key: "light",
+                  label: "明るさ",
+                  unit: "",
+                  a: lightMain[shownHour - 1] == null ? "—" : brightnessLevel(lightMain[shownHour - 1]!).label,
+                  b: other ? (lightOther[shownHour - 1] == null ? "—" : brightnessLevel(lightOther[shownHour - 1]!).label) : "—",
+                  diff: other ? brightnessRatio(lightMain[shownHour - 1], lightOther[shownHour - 1]) : "",
                 },
               ]
             : []),
@@ -177,6 +190,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       />
       <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
       </div>
+
+      {metricId === "radiation" && <LightStrip main={lightMain} other={other ? lightOther : null} shownHour={shownHour} />}
 
       {metricId === "feel" && (
         <p className="level-legend">
@@ -281,6 +296,38 @@ function BandWeatherIcons({ main, other }: { main: BandWx; other: BandWx | null 
   );
 }
 
+/**
+ * 明るさ under the 日差し graph: one cell per hour, darker to lighter by the felt level (B of the
+ * mocks, 2026-11-12). The cells sit under the graph's hours (same side margins as the plot).
+ */
+function LightStrip({ main, other, shownHour }: { main: (number | null)[]; other: (number | null)[] | null; shownHour: number }) {
+  const row = (label: string, values: (number | null)[]) => (
+    <div className="light-row">
+      <span className="light-row-label">{label}</span>
+      <div className="light-cells" role="img" aria-label={`${label}の明るさ（1時間ごと）`}>
+        {values.map((v, i) => (
+          <i key={i} className={i + 1 === shownHour ? "on" : undefined} style={{ background: v == null ? "transparent" : LIGHT_LEVELS[Math.min(5, Math.floor(v))] }} />
+        ))}
+      </div>
+    </div>
+  );
+  return (
+    <div className="light-strip">
+      <span className="light-title">明るさ</span>
+      {row("対象", main)}
+      {other && row("比較", other)}
+      <p className="light-legend">
+        {BRIGHTNESS_LEVELS.map((l, i) => (
+          <span key={l.id}>
+            <i style={{ background: LIGHT_LEVELS[i] }} />
+            {l.label}
+          </span>
+        ))}
+      </p>
+    </div>
+  );
+}
+
 function HourChart({
   metricId,
   main,
@@ -335,12 +382,7 @@ function HourChart({
   const values = [main, second ?? [], air ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null);
   // Round ticks (10 / 15 / 20): the padded data range widened to whole steps.
   const range = axisRange(values, metric);
-  // 明るさ: the six levels are the axis (bands with their names), no numbers.
-  const levels = metric.unit === BRIGHTNESS_UNIT;
-  const nice = niceTicks(range.lo, range.hi, 5);
-  const lo = levels ? 0 : nice.lo;
-  const hi = levels ? 6 : nice.hi;
-  const ticks = levels ? [] : nice.ticks;
+  const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
   const yOf = (v: number) => PAD.top + ((hi - Math.min(hi, Math.max(lo, v))) * (H - PAD.top - PAD.bottom)) / (hi - lo);
   // Sunrise and sunset from the sun API when known (the stored ones), else calculated.
   const rise = hourOfDay(sun?.sunrise ?? null) ?? day.edges.rise / 60;
@@ -424,17 +466,6 @@ function HourChart({
       }}
     >
       <svg width={w} height={H} role="img" aria-label={`${metric.label}の時間ごとのグラフ`}>
-        {/* Brightness levels behind the line, darker to lighter, each named. */}
-        {levels &&
-          BRIGHTNESS_LEVELS.map((l, i) => (
-            <g key={l.id}>
-              <rect x={PAD.left} width={plotW} y={yOf(i + 1)} height={yOf(i) - yOf(i + 1)} className="light-band" style={{ opacity: 0.03 + i * 0.03 }} />
-              <line x1={PAD.left} x2={w - PAD.right} y1={yOf(i)} y2={yOf(i)} className="chart-grid" />
-              <text x={PAD.left + 4} y={yOf(i + 0.5) + 3} className="light-band-label">
-                {l.label}
-              </text>
-            </g>
-          ))}
         {/* Feel levels behind the lines. */}
         {metricId === "feel" &&
           ranges.map(({ from, to, color }, i) => {
@@ -497,7 +528,7 @@ function HourChart({
         ))}
         {/* The unit once, above the axis. */}
         <text x={PAD.left - 6} y={PAD.top - 6} className="chart-unit" textAnchor="end">
-          {metric.unit === "h" ? "時間" : levels ? "" : metric.unit}
+          {metric.unit === "h" ? "時間" : metric.unit}
         </text>
 
         {nowHour != null && (
@@ -516,7 +547,7 @@ function HourChart({
             top={PAD.top}
             bottom={H - PAD.bottom}
             left={PAD.left}
-            points={main[hour - 1]?.v != null ? [{ y: yOf(main[hour - 1].v!), color, label: metric.unit === BRIGHTNESS_UNIT ? luxTag(main[hour - 1].v!) : formatDetail(main[hour - 1].v, metric) }] : []}
+            points={main[hour - 1]?.v != null ? [{ y: yOf(main[hour - 1].v!), color, label: formatDetail(main[hour - 1].v, metric) }] : []}
           />
         )}
 

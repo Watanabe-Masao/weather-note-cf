@@ -19,7 +19,7 @@ describe("items", () => {
     const rain = chartMetricById("rain");
     expect(tableSeries(rain).map((s) => s.key)).toEqual(["rain", "snow", "probability"]);
     expect(tableSeries(rain, true).map((s) => s.key)).toEqual(["rain", "snow"]);
-    expect(tableSeries(chartMetricById("radiation")).map((s) => s.key)).toEqual(["radiation", "sun"]);
+    expect(tableSeries(chartMetricById("radiation")).map((s) => s.key)).toEqual(["radiation", "sun", "brightHours"]); // 明るさ joined 日差し
     expect(tableSeries(chartMetricById("wind")).map((s) => s.key)).toEqual(["wind", "gust"]);
     expect(tableSeries(chartMetricById("temp")).map((s) => s.key)).toEqual(["max", "min", "temp", "range"]);
   });
