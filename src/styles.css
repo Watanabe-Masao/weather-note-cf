@@ -1037,6 +1037,65 @@ button.label-feel.shade small {
   border-top: 2px solid var(--ink-secondary);
 }
 
+/* A line's name you can tap: sets the line aside (grey) or brings it back. A 32 px target. */
+.line-legend .legend-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  margin: -6px -6px;
+  padding: 0 6px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: none;
+  color: var(--ink-secondary);
+  font-size: var(--size-xs);
+  transition: color var(--motion-quick) var(--ease-standard);
+}
+
+.line-legend .legend-line:active {
+  background: var(--surface-raised);
+}
+
+.line-legend .legend-line.off {
+  color: var(--ink-disabled);
+}
+
+/* The averages' span: 1週 → 2週 → 1か月 on each tap. */
+.line-legend .avg-window {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), var(--surface-raised);
+  color: var(--ink-secondary);
+  font-size: var(--size-xs);
+}
+
+.line-legend .avg-window b {
+  color: var(--ink-primary);
+}
+
+.line-legend .avg-window .steps {
+  display: inline-flex;
+  gap: 3px;
+}
+
+.line-legend .avg-window .steps i {
+  width: 5px;
+  height: 5px;
+  border: none;
+  border-radius: 50%;
+  background: var(--line-strong);
+}
+
+.line-legend .avg-window .steps i.on {
+  background: var(--ink-primary);
+}
+
 .line-legend .ls-solid { border-top-style: solid; }
 .line-legend .ls-dashed { border-top-style: dashed; opacity: 0.75; }
 .line-legend .ls-dotted { border-top-style: dotted; }
