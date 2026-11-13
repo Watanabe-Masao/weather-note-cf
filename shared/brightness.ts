@@ -16,9 +16,10 @@
 // day would differ from a record by its data rather than its weather.
 //
 // The light of an hour: the clear sky by the sun's altitude, times a cloud factor — but never below
-// the night sky over a town (NIGHT_SKY): stars, airglow and the town's light scattered back by the air,
-//     about 0.003 lx under a clear sky, and about ten times that under cloud, which reflects the
-//     street lights down. The bottom of the scale (0.0001 lx) is true darkness, which a town's night
+// the night sky over a town (nightSkyLux): stars, airglow and the town's light scattered back by the
+//     air — π × the sky's luminance measured for the surroundings (SKY_GLOW, Kyba et al. 2011), about
+//     0.003 lx under a clear sky in a residential area, several times that under cloud, which
+//     reflects the street lights down. The bottom of the scale (0.0001 lx) is true darkness, which a town's night
 //     never reaches. The moon is left out (up to 0.3 lx at full moon).
 // The clear sky (clearSkyLux) is the U.S. Naval Observatory model (Janiczek & DeYoung 1987) from the
 // sun high up down to −5°, which runs smoothly through the horizon (about 750 lx at 0°), and below
@@ -56,14 +57,49 @@ const EDGES = [...BRIGHTNESS_LEVELS.map((l) => l.from), TOP];
 export const CLOUD = { clear: 1, cloudy: 1 / 3, rain: 1 / 10, unknown: 1 / Math.sqrt(3) } as const;
 
 /**
- * The night sky over a town (lux): clear about 0.003 (stars, airglow, a little sky glow), overcast
- * about 0.03 (the town's light reflected by the clouds). In between by the cloud factor (log), at
- * overcast from average clouds down.
+ * The night sky's light on the ground (lux), from the sky's own luminance: a sky of the same
+ * luminance L (cd/m²) all over lights the ground with E ≈ π·L (a uniform sky; an approximation). The
+ * luminance is the town's glow measured by Kyba et al. (2011) for the surroundings (SKY_GLOW), so the
+ * ground's night and the sky's colour come from the same numbers: 住宅地 clear about 0.003 lx,
+ * overcast about 0.02; 開けた場所 0.001–0.004; 市街地 0.008–0.08. The moon is left out.
+ * In between by the cloud factor (log), overcast from average clouds down.
  */
-export const NIGHT_SKY = { clear: 0.003, overcast: 0.03 } as const;
-export function nightSkyLux(factor: number): number {
+export function nightSkyLux(factor: number, alpha?: number | null): number {
   const t = Math.min(1, Math.max(0, Math.log(factor) / Math.log(CLOUD.cloudy)));
-  return NIGHT_SKY.clear * (NIGHT_SKY.overcast / NIGHT_SKY.clear) ** t;
+  return Math.PI * skyGlow(alpha, t);
+}
+
+/**
+ * The town's light in the night sky (zenith luminance, cd/m²), clear and overcast, by the surroundings
+ * of the settings (肌感の基準 › 周りの様子, the same choice that slows the wind). Clouds reflect the
+ * town's light back down, so an overcast sky over a town is brighter than a clear one.
+ * Kyba et al. (2011, Berlin, PLoS ONE 6:e17307): rural (~32 km out) clear 0.43, overcast 1.4 mcd/m²
+ * (×2.8); urban (~10 km from the centre) clear 2.4, overcast 26 mcd/m² (×10). 開けた場所 = rural,
+ * 市街地 = urban; 住宅地 in between (geometric), 建物が密集 twice 市街地 — both provisional.
+ * Where there is no artificial light at all, clouds make the night darker instead (pristine sites, the
+ * same paper): 開けた場所 here means open ground near a town (as in Kochi), not such a place.
+ */
+export const SKY_GLOW = [
+  { alpha: 0.14, label: "開けた場所", clear: 0.00043, overcast: 0.0014 },
+  { alpha: 0.2, label: "住宅地", clear: 0.001, overcast: 0.006 },
+  { alpha: 0.3, label: "市街地", clear: 0.0024, overcast: 0.026 },
+  { alpha: 0.4, label: "建物が密集", clear: 0.005, overcast: 0.05 },
+] as const;
+
+/** Without a setting (the light's own callers): 住宅地. */
+export const DEFAULT_GLOW_ALPHA = 0.2;
+
+/** The SKY_GLOW place nearest a surroundings exponent — the one place this choice is made. */
+export function glowPlace(alpha: number | null | undefined): (typeof SKY_GLOW)[number] {
+  const a = alpha != null && Number.isFinite(alpha) ? alpha : DEFAULT_GLOW_ALPHA;
+  return SKY_GLOW.reduce((x, y) => (Math.abs(y.alpha - a) < Math.abs(x.alpha - a) ? y : x));
+}
+
+/** The town's glow in the sky (cd/m²) for a surroundings exponent (the nearest of SKY_GLOW) at cloudiness c (0–1, by ratio). */
+export function skyGlow(alpha: number | null | undefined, c: number): number {
+  const g = glowPlace(alpha);
+  const t = Math.min(1, Math.max(0, c));
+  return g.clear * (g.overcast / g.clear) ** t;
 }
 
 /** Lux → the felt index 0–6 (log-linear inside each level). */
@@ -265,11 +301,11 @@ export interface HourLight {
  * The light of one hourly row (JMA hour n) at a station. `factor`: the cloud factor when the caller
  * knows it better than the row alone (dayLights fills twilight hours from their neighbours).
  */
-export function hourLight(row: WeatherRow, station: string | null | undefined, factor?: number): HourLight {
+export function hourLight(row: WeatherRow, station: string | null | undefined, factor?: number, alpha?: number | null): HourLight {
   const c = stationLatLon(station) ?? DEFAULT_LAT_LON;
   const altitude = solarAltitude(row.date, row.n * 60 - 30, c.lat, c.lon);
   const f = factor ?? cloudFactor(row, sunshineFraction(row.date, row.n, station ?? "")) ?? CLOUD.unknown;
-  const lux = Math.max(clearSkyLux(altitude) * f, nightSkyLux(f));
+  const lux = Math.max(clearSkyLux(altitude) * f, nightSkyLux(f, alpha));
   return { lux, index: brightnessIndex(lux), factor: f, altitude };
 }
 
@@ -281,7 +317,7 @@ const NEIGHBOUR_HOURS = 2;
  * row cannot tell (the sun down and no weather text), from the nearest row within NEIGHBOUR_HOURS
  * that can — the last hour of daylight tells the evening twilight, the first the morning's.
  */
-export function dayLights(rows: WeatherRow[], station: string | null | undefined): HourLight[] {
+export function dayLights(rows: WeatherRow[], station: string | null | undefined, alpha?: number | null): HourLight[] {
   const where = station ?? "";
   const own = rows.map((r) => cloudFactor(r, sunshineFraction(r.date, r.n, where)));
   return rows.map((r, i) => {
@@ -290,7 +326,7 @@ export function dayLights(rows: WeatherRow[], station: string | null | undefined
       const near = [rows[i - k], rows[i + k]].map((x, j) => (x && Math.abs(x.n - r.n) === k && x.date === r.date ? own[i + (j ? k : -k)] : null));
       f = near.find((v) => v != null) ?? null;
     }
-    return hourLight(r, station, f ?? CLOUD.unknown);
+    return hourLight(r, station, f ?? CLOUD.unknown, alpha);
   });
 }
 

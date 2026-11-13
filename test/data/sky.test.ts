@@ -83,7 +83,7 @@ describe("空の色（模式）", () => {
     expect(grey(skyAt(38, CLOUD.cloudy, 0, false).zenith)).toBeLessThan(6);
   });
 
-  it("夜空の見かけの明るさは周りの様子で変わる：市街地の曇りの夜は開けた場所の晴れの夜より明るい（色は寒色寄りの灰色、晴れの夜は紺）（地上の明るさの段は変えない）", () => {
+  it("夜空の見かけの明るさは周りの様子で変わる：市街地の曇りの夜は開けた場所の晴れの夜より明るい（色は寒色寄りの灰色、晴れの夜は紺）。地上の夜の明るさも同じ値から（照度 ≈ π×輝度）", () => {
     const open = skyAt(-30, CLOUD.clear, 0, true, 0.14);
     const city = skyAt(-30, CLOUD.cloudy, 0, true, 0.3);
     expect(city.skyLuminance / open.skyLuminance).toBeGreaterThan(20); // Kyba 2011: 26 vs 0.43 mcd/m²
@@ -92,9 +92,28 @@ describe("空の色（模式）", () => {
     expect(b).toBeGreaterThanOrEqual(r); // Japan's white LED glow: cool grey, no warm cast
     const [r2, , b2] = rgb(open.zenith);
     expect(b2).toBeGreaterThan(r2 + 10); // a clear night: navy
-    expect(skyAt(-30, CLOUD.clear, 0, true, 0.4).index).toBe(open.index);
+    // The ground's night comes from the same glow (a uniform sky): brighter in a town, still 暗い.
+    const dense = skyAt(-30, CLOUD.clear, 0, true, 0.4);
+    expect(dense.index).toBeGreaterThan(open.index);
+    expect(dense.index).toBeLessThan(1);
+    expect(dense.lux).toBeCloseTo(Math.PI * dense.skyLuminance, 6);
     expect(skyGlow(0.3, 0)).toBeCloseTo(0.0024, 6);
     expect(skyGlow(0.3, 1)).toBeCloseTo(0.026, 6);
+  });
+
+  it("晴れ間のにわか雨（日照1時間・雨0.5mm）：明るさは快晴と同じで、空の色も青空のまま（曇りの度合いは日照のなかった割合）", () => {
+    const sunny = skyAt(50, CLOUD.clear, 0, false, 0.2);
+    const shower = skyAt(50, 1, 0.5, false, 0.2); // the cloud factor of a full hour of sunshine under rain
+    expect(shower.lux).toBeCloseTo(sunny.lux, 0);
+    expect(shower.word).toBe("晴れ間のにわか雨");
+    const [r, , b] = rgb(shower.zenith);
+    expect(b).toBeGreaterThan(r + 40); // blue, not the grey of a rainy sky
+    expect(light(shower.zenith)).toBeCloseTo(light(sunny.zenith), -1);
+    // No sunshine at all: still the rain cloud's grey.
+    const grey = skyAt(50, rainFactor(0.5), 0.5, false, 0.2);
+    expect(grey.word).toBe("小雨の空");
+    const [r2, , b2] = rgb(grey.zenith);
+    expect(b2 - r2).toBeLessThan(40);
   });
 
   it("輝度の書き方", () => {

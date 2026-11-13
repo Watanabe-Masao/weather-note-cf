@@ -1,7 +1,7 @@
 // The felt brightness (shared/brightness.ts): lux from the sun and the sky, and its six levels.
 
 import { describe, expect, it } from "vitest";
-import { BRIGHTNESS_LEVELS, CLOUD, NIGHT_SKY, brightnessIndex, brightnessLevel, brightnessText, clearSkyLux, rainFactor, cloudFactor, dayBrightness, dayLights, hourLight, luxOf, luxText, nightSkyLux, sunshineDayHours, sunshineFraction, sunUpFraction, twilightLux, usnoSunLux } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, CLOUD, SKY_GLOW, brightnessIndex, brightnessLevel, brightnessText, clearSkyLux, rainFactor, cloudFactor, dayBrightness, dayLights, hourLight, luxOf, luxText, nightSkyLux, sunshineDayHours, sunshineFraction, sunUpFraction, twilightLux, usnoSunLux } from "../../shared/brightness";
 import type { WeatherRow } from "../../shared/types";
 import { dayLengthHours } from "../../shared/dayWeather";
 
@@ -89,11 +89,19 @@ describe("light from the sun and the sky", () => {
   it("keeps the night sky over a town as the floor: 暗い, brighter under cloud", () => {
     const night = hourLight(row(23), "47893", CLOUD.clear);
     expect(brightnessLevel(night.index).label).toBe("暗い");
-    expect(night.lux).toBeCloseTo(NIGHT_SKY.clear, 6);
+    // Without a setting: 住宅地, π × the sky's glow (a uniform sky): about 0.003 lx clear, 0.02 overcast.
+    const home = SKY_GLOW.find((g) => g.label === "住宅地")!;
+    expect(night.lux).toBeCloseTo(Math.PI * home.clear, 6);
+    expect(night.lux).toBeGreaterThan(0.0025);
+    expect(night.lux).toBeLessThan(0.0035);
     expect(night.index).toBeGreaterThan(0.3);
     const cloudy = hourLight(row(23), "47893", CLOUD.cloudy);
-    expect(cloudy.lux).toBeCloseTo(NIGHT_SKY.overcast, 6);
-    expect(nightSkyLux(CLOUD.rain)).toBeCloseTo(NIGHT_SKY.overcast, 9);
+    expect(cloudy.lux).toBeCloseTo(Math.PI * home.overcast, 6);
+    expect(nightSkyLux(CLOUD.rain)).toBeCloseTo(Math.PI * home.overcast, 9);
+    // The surroundings move the ground's night with the sky's: 市街地 overcast ≈ 0.08 lx, 開けた場所 ≈ 0.004.
+    expect(nightSkyLux(CLOUD.cloudy, 0.3)).toBeCloseTo(Math.PI * 0.026, 6);
+    expect(nightSkyLux(CLOUD.cloudy, 0.14)).toBeCloseTo(Math.PI * 0.0014, 6);
+    expect(hourLight(row(23), "47893", CLOUD.cloudy, 0.3).lux).toBeGreaterThan(cloudy.lux);
     // Kochi, 21 June, 19時 (18:30, the sun about 6° up): 薄暗い or brighter even under cloud.
     expect(hourLight(row(19), "47893", CLOUD.cloudy).lux).toBeGreaterThan(100);
   });

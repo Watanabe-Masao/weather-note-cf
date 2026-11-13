@@ -9,12 +9,14 @@
 //
 // A schematic colour, not a measurement or a photograph:
 //   1. The clear sky's tint by the sun's altitude. With the sun up, Preetham, Shirley & Smits (1999):
-//      the zenith's chromaticity and the horizon's (80° from the zenith, the mean chromaticity over
-//      azimuths so the bright sun's side does not take over), turbidity fixed at 2. With the sun down,
+//      the zenith's chromaticity and the horizon's (80° from the zenith, across from the sun — 90° in
+//      azimuth, the pale blue one sees; the mean over azimuths turns yellow-green with a low sun),
+//      turbidity fixed at 2. Below 8° the horizon turns to the low sun's colours (GOLDEN). With the sun down,
 //      a table of twilight tints (TWILIGHT_TINT) — hand-made and provisional, no source yet.
-//   2. The clouds turn it white: cloudiness c from the light's own cloud factor (1 under rain), and
-//      tint = (1 − c)·clear + c·white (D65), in linear RGB. Sunshine is not cloud cover, so this is a
-//      rough mix.
+//   2. The clouds turn it white: cloudiness c from the light's own cloud factor — under rain, the share
+//      of the hour without sunshine, so a sunny shower stays blue — and tint = (1 − c)·clear + c·white
+//      (D65), in linear RGB; rain then greys it by its amount times c. Sunshine is not cloud cover, so
+//      this is a rough mix.
 //   3. The colour is the sky as an adapted eye sees it (a clear day's blue, a twilight's deep blue, a
 //      night's navy), never greyed to show the dark: its lightness follows how bright the sky looks
 //      (apparent luminance, cd/m²) only within a narrow range (skyLightness), with its chroma kept.
@@ -29,7 +31,9 @@
 // and sunset, and the middle of the hour alone would miss the evening sky. The clouds stay the
 // hour's (the data are hourly).
 
-import { brightnessIndex, CLOUD, clearSkyLux, dayLights, luxText, nightSkyLux, RAIN_MM } from "./brightness";
+import { brightnessIndex, CLOUD, clearSkyLux, dayLights, glowPlace, luxText, nightSkyLux, RAIN_MM, rainFactor, SKY_GLOW, skyGlow } from "./brightness";
+// The town's glow lives with the light (the ground's night comes from it); the sky re-exports it.
+export { SKY_GLOW, skyGlow } from "./brightness";
 import { DEFAULT_LAT_LON, solarAltitude, stationLatLon } from "./sunTimes";
 import type { WeatherRow } from "./types";
 
@@ -42,7 +46,7 @@ export const TURBIDITY = 2;
 export const SKY_STEPS = 6;
 
 /** The words of the sky, from the sun's altitude, the cloudiness and rain. */
-export const SKY_WORDS = ["夜空", "薄明の青", "日の出前後の空", "夕方の空", "淡い青空", "青空", "雲の多い青空", "白い曇り空", "灰色の空", "暗い曇り空", "小雨の空", "雨空", "強い雨の空", "雨の夜"] as const;
+export const SKY_WORDS = ["夜空", "薄明の青", "日の出前後の空", "夕方の空", "淡い青空", "青空", "雲の多い青空", "晴れ間のにわか雨", "白い曇り空", "灰色の空", "暗い曇り空", "小雨の空", "雨空", "強い雨の空", "雨の夜"] as const;
 export type SkyWord = (typeof SKY_WORDS)[number];
 
 export interface SkyColour {
@@ -180,21 +184,9 @@ export function clearTint(alt: number): { z: Lin; h: Lin } {
   const hit = tintCache.get(key);
   if (hit) return hit;
   const above = (a: number) => {
-    let sx = 0;
-    let sy = 0;
-    let k = 0;
-    for (let p = 0; p < 360; p += 30) {
-      const [x, y] = skyXY(a, 80 * R, p * R);
-      sx += x;
-      sy += y;
-      k++;
-    }
-    // By day the horizon is taken across from the sun (90° away: the pale blue one sees), not the
-    // mean over azimuths, which the low sun's side tints yellow-green (Preetham's known bias). The
-    // low sun's glow is drawn by GOLDEN below.
-    void sx;
-    void sy;
-    void k;
+    // The horizon is taken across from the sun (90° away: the pale blue one sees), not the mean over
+    // azimuths, which the low sun's side tints yellow-green (Preetham's known bias). The low sun's
+    // glow is drawn by GOLDEN below.
     const side = skyXY(a, 80 * R, 90 * R);
     return { z: unit(xyToLin(skyXY(a, 0, 0))), h: unit(xyToLin(side)) };
   };
@@ -272,9 +264,15 @@ export function placeTint(v: Lin, L: number, vivid = 1, minChroma = 0): string {
 /** Cloudiness 0–1 from the light's cloud factor (CLOUD): clear 1 → 0, average clouds 1/3 → 1. */
 export const cloudiness = (factor: number) => Math.min(1, Math.max(0, Math.log(factor) / Math.log(CLOUD.cloudy)));
 
+/** Under rain: the share of the hour without sunshine, read back from the cloud factor (rainFactor of the rain, raised to it). */
+export const rainCloudiness = (factor: number, mm: number) => Math.min(1, Math.max(0, Math.log(factor) / Math.log(rainFactor(mm))));
+
 /** The words: what the sky would be called (schematic). */
 export function skyWord(alt: number, c: number, rainMm: number, index: number, evening: boolean): SkyWord {
-  if (rainMm >= RAIN_MM) return alt <= -6 ? "雨の夜" : rainMm < 1 ? "小雨の空" : rainMm >= 10 ? "強い雨の空" : "雨空";
+  if (rainMm >= RAIN_MM) {
+    if (alt > 0 && c < 0.5) return "晴れ間のにわか雨";
+    return alt <= -6 ? "雨の夜" : rainMm < 1 ? "小雨の空" : rainMm >= 10 ? "強い雨の空" : "雨空";
+  }
   if (alt < -12) return "夜空";
   if (alt < -2) return c < 0.7 ? "薄明の青" : "暗い曇り空";
   if (alt < 6 && c < 0.6) return evening ? "夕方の空" : "日の出前後の空";
@@ -284,31 +282,6 @@ export function skyWord(alt: number, c: number, rainMm: number, index: number, e
 }
 
 const WHITE: Lin = [1, 1, 1];
-
-/**
- * The town's light in the night sky (zenith luminance, cd/m²), clear and overcast, by the surroundings
- * of the settings (肌感の基準 › 周りの様子, the same choice that slows the wind). Clouds reflect the
- * town's light back down, so an overcast sky over a town is brighter than a clear one.
- * Kyba et al. (2011, Berlin, PLoS ONE 6:e17307): rural (~32 km out) clear 0.43, overcast 1.4 mcd/m²
- * (×2.8); urban (~10 km from the centre) clear 2.4, overcast 26 mcd/m² (×10). 開けた場所 = rural,
- * 市街地 = urban; 住宅地 in between (geometric), 建物が密集 twice 市街地 — both provisional.
- * Where there is no artificial light at all, clouds make the night darker instead (pristine sites, the
- * same paper): 開けた場所 here means open ground near a town (as in Kochi), not such a place.
- */
-export const SKY_GLOW = [
-  { alpha: 0.14, label: "開けた場所", clear: 0.00043, overcast: 0.0014 },
-  { alpha: 0.2, label: "住宅地", clear: 0.001, overcast: 0.006 },
-  { alpha: 0.3, label: "市街地", clear: 0.0024, overcast: 0.026 },
-  { alpha: 0.4, label: "建物が密集", clear: 0.005, overcast: 0.05 },
-] as const;
-
-/** The town's glow in the sky (cd/m²) for a surroundings exponent (the nearest of SKY_GLOW) at cloudiness c (0–1, by ratio). */
-export function skyGlow(alpha: number | null | undefined, c: number): number {
-  const a = alpha != null && Number.isFinite(alpha) ? alpha : SKY_GLOW[0].alpha;
-  const g = SKY_GLOW.reduce((x, y) => (Math.abs(y.alpha - a) < Math.abs(x.alpha - a) ? y : x));
-  const t = Math.min(1, Math.max(0, c));
-  return g.clear * (g.overcast / g.clear) ** t;
-}
 
 /**
  * The tint of the town's glow: what a lit night sky turns to. Japan's street lights are now mostly
@@ -351,9 +324,11 @@ function compute(alt: number, factor: number, rainMm: number, evening: boolean, 
   const mm = Number.isFinite(rainMm) ? Math.max(0, rainMm) : 0;
   const rain = mm >= RAIN_MM;
   // The light on open ground (the levels, unchanged by the town: shared/brightness.ts).
-  const lux = Math.max(clearSkyLux(alt) * factor, nightSkyLux(factor));
+  const lux = Math.max(clearSkyLux(alt) * factor, nightSkyLux(factor, alpha));
   const index = brightnessIndex(lux);
-  const c = rain ? 1 : cloudiness(factor);
+  // Under rain the cloud factor is rainFactor^(share of the hour without sunshine) (brightness.ts):
+  // the same share makes the sky white and grey, so a sunny shower stays a mostly blue sky.
+  const c = rain ? rainCloudiness(factor, mm) : cloudiness(factor);
   const show = (z: Lin, h: Lin) => ({ zenith: placeTint(z, TRACE_L), horizon: placeTint(h, TRACE_L) });
 
   // 1. The clear sky's tint by the sun's altitude.
@@ -373,14 +348,14 @@ function compute(alt: number, factor: number, rainMm: number, evening: boolean, 
   });
 
   // 2. Clouds turn it white; rain to a cool grey, the heavier the more.
-  const rainShare = rain ? Math.min(1, 0.4 + 0.6 * (Math.log(mm / RAIN_MM) / Math.log(40))) : 0;
+  const rainShare = rain ? c * Math.min(1, 0.4 + 0.6 * (Math.log(mm / RAIN_MM) / Math.log(40))) : 0;
   const zc = mix(mix(tint.z, WHITE, c), RAIN_TINT, rainShare);
   const hc = mix(mix(tint.h, WHITE, c), RAIN_TINT, rainShare);
   trace?.push({
     key: "cloud",
     label: "雲・雨",
     ...show(zc, hc),
-    note: rain ? `雨 ${mm.toFixed(1)}mm：曇りの度合い 1、雨雲の灰色 ${(rainShare * 100).toFixed(0)}%` : `曇りの度合い ${c.toFixed(2)}（雲の係数 ${factor.toFixed(2)}）`,
+    note: rain ? `雨 ${mm.toFixed(1)}mm：曇りの度合い ${c.toFixed(2)}（日照のなかった割合）、雨雲の灰色 ${(rainShare * 100).toFixed(0)}%` : `曇りの度合い ${c.toFixed(2)}（雲の係数 ${factor.toFixed(2)}）`,
     source: rain ? "雲の係数：Janiczek & DeYoung 1987 の暗い層雲から降水量で連続に（仮）" : "雲の係数：日照の割合（Janiczek & DeYoung 1987 の空の区分）",
     provisional: rain,
   });
@@ -388,11 +363,14 @@ function compute(alt: number, factor: number, rainMm: number, evening: boolean, 
   // 3. The town's glow (night): lightens the navy toward a cool grey.
   const glowL = skyGlow(alpha, c);
   const natural = (clearSkyLux(alt) * factor) / Math.PI;
-  const sky = natural + glowL;
+  // Kyba's measurements are the whole night sky (stars and airglow included), and the ground's
+  // night is π × the same (brightness.ts): the larger of the two, not their sum, so neither counts
+  // the starlight twice and lux ≈ π × sky luminance at night.
+  const sky = Math.max(natural, glowL);
   const lit = Math.max(0, glowL - SKY_GLOW[0].clear) / sky;
   const z = mix(zc, GLOW_TINT, 0.35 * lit);
   const h = mix(hc, GLOW_TINT, Math.min(1, 0.45 * lit));
-  const place = SKY_GLOW.reduce((x, y) => (Math.abs(y.alpha - (alpha ?? SKY_GLOW[0].alpha)) < Math.abs(x.alpha - (alpha ?? SKY_GLOW[0].alpha)) ? y : x));
+  const place = glowPlace(alpha);
   trace?.push({
     key: "town",
     label: "街の明かり",
@@ -415,7 +393,7 @@ function compute(alt: number, factor: number, rainMm: number, evening: boolean, 
     zenith: placeTint(z, Lz),
     horizon: placeTint(h, Lh),
     note: `空の輝度 ${luminanceText(sky)} → 明度 ${base.toFixed(2)}（天頂 ${Lz.toFixed(2)}・地平 ${Lh.toFixed(2)}）。地上は ${luxText(lux)}`,
-    source: "空の輝度＝地上の照度÷π＋街の明かり。明度は対数で 0.33〜0.74（仮）",
+    source: "空の輝度＝地上の照度÷π と街の明かり（Kyba 2011）の大きい方。明度は対数で 0.33〜0.74（仮）",
     provisional: true,
   });
 
@@ -461,7 +439,7 @@ export function skyTrace(alt: number, factor: number, rainMm: number, evening: b
  */
 export function daySky(rows: WeatherRow[], station: string | null | undefined, alpha?: number | null): { n: number; steps: SkyColour[] }[] {
   const c = stationLatLon(station) ?? DEFAULT_LAT_LON;
-  const lights = dayLights(rows, station);
+  const lights = dayLights(rows, station, alpha);
   return rows.map((r, i) => {
     const mm = typeof r.rain === "number" && Number.isFinite(r.rain) ? r.rain : 0;
     const steps = Array.from({ length: SKY_STEPS }, (_, k) => {
