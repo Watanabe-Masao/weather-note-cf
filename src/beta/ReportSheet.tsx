@@ -13,6 +13,7 @@ import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
 import { reportMoment, DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
+import { noteAnswered } from "./AfterAnswer";
 import { inputQuality } from "./quality";
 import { bandOf, centreUnknown, type ComfortPrediction, LEARNING_LABELS, LEARNING_RULES, type LearningView, predictComfort, TIME_BANDS } from "./comfort";
 import { baselineOf, baselineStateOf, driversOfDay, historyOf, useBaselineHistory } from "./useBaseline";
@@ -177,6 +178,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
         }),
       updatedAt: now,
     };
+    noteAnswered(report, beta.ens);
     await reports.add(report);
     onSaved?.();
     close();
