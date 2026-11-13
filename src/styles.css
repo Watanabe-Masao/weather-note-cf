@@ -1616,6 +1616,25 @@ svg.scrub {
   gap: 4px;
 }
 
+/* In one line the middle stacks (name over difference), so the two sides keep their room. */
+.compare-summary.collapsed .cs-line-mid {
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  min-width: 64px;
+  padding: 0 4px;
+  line-height: 1.25;
+}
+
+.compare-summary.collapsed .cs-line-mid .cs-label {
+  white-space: nowrap;
+}
+
+/* Pinned, the line has no minimise button: its right side needs no room for one. */
+.compare-summary.collapsed.pinned {
+  padding-right: 10px;
+}
+
 .cs-pin > .compare-summary.pinned {
   position: absolute;
   left: 0;

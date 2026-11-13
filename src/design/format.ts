@@ -70,7 +70,9 @@ export function niceTicks(lo: number, hi: number, count = 3): { lo: number; hi: 
   if (!(hi > lo)) hi = lo + 1;
   const raw = (hi - lo) / Math.max(1, count - 1);
   const mag = 10 ** Math.floor(Math.log10(raw));
-  const step = [1, 2, 2.5, 5, 10].map((m) => m * mag).find((x) => x >= raw) ?? 10 * mag;
+  // 2.5 only where it stays a round label (0.25, 25, 250): at units it would read 1022.5.
+  const steps = [1, 2, 2.5, 5, 10].map((m) => m * mag).filter((x) => mag !== 1 || Number.isInteger(x));
+  const step = steps.find((x) => x >= raw) ?? 10 * mag;
   const a = Math.floor(lo / step) * step;
   const b = Math.ceil(hi / step) * step;
   const ticks: number[] = [];
@@ -80,3 +82,17 @@ export function niceTicks(lo: number, hi: number, count = 3): { lo: number; hi: 
 
 /** Axis tick labels: whole numbers without decimals ("15", not "15.0"); halves keep one. */
 export const tickLabel = (t: number) => (Number.isInteger(t) ? String(t) : t.toFixed(Math.abs(t) < 1 ? 2 : 1).replace(/0+$/, "").replace(/\.$/, ""));
+
+/** Width (px) of a chart's y-axis column for these tick labels at the 10 px numeric font, with its gap. */
+export const axisWidth = (labels: string[]) => Math.max(28, 10 + Math.max(0, ...labels.map((l) => l.length)) * 6.2);
+
+/** The line's name: a shared start said once (気圧最高 / 気圧最低 → 気圧 最高/最低). */
+export function lineLabel(labels: string[]): string {
+  if (labels.length < 2) return labels[0] ?? "";
+  let n = 0;
+  while (n < labels[0].length && labels.every((l) => l[n] === labels[0][n])) n++;
+  // Keep each remainder a word of two letters at least (気圧最 高/低 reads badly: 気圧 最高/最低).
+  while (n > 0 && labels.some((l) => l.length - n < 2)) n--;
+  if (n === 0 || labels.some((l) => l.length === n)) return labels.join("/");
+  return `${labels[0].slice(0, n)} ${labels.map((l) => l.slice(n)).join("/")}`;
+}

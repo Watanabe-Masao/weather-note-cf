@@ -291,7 +291,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           </g>
         ))}
         {/* The unit once, above the axis. */}
-        <text x={PAD.left - 6} y={PAD.top - 6} className="chart-unit" textAnchor="end">
+        <text x={2} y={PAD.top - 6} className="chart-unit">
           {metric.unit === "h" ? "時間" : metric.unit}
         </text>
 

@@ -15,7 +15,7 @@ import type { WeatherRow } from "../../shared/types";
 import { dailyRadiation, hourlyExtreme } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { clock, hourOfDay } from "../data/sun";
-import { digitsOf, num, signedDiff, UNIT } from "../design/format";
+import { digitsOf, lineLabel, num, signedDiff, UNIT } from "../design/format";
 import type { DataColor } from "../design/tokens";
 import { Badge, confidenceOfRow, DayLabel, SwipeHint } from "./kit";
 import type { MetricId } from "../metrics";
@@ -275,7 +275,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
         <small>{lineRows[0].unit}</small>
       </span>
       <span className="cs-mid cs-line-mid">
-        <span className="cs-label">{lineRows.map((r) => r.label).join("/")}</span>
+        <span className="cs-label">{lineLabel(lineRows.map((r) => r.label))}</span>
         <span className="cs-diff">{lineRows.map((r) => signedDiff(r.a, r.b, r.digits) || "—").join(" / ")}</span>
       </span>
       <span className="cs-line cs-b">
@@ -548,3 +548,4 @@ function BetaRows({
     </div>
   );
 }
+

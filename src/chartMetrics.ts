@@ -191,7 +191,7 @@ export const CHART_METRICS: ChartMetric[] = [
     // daylight against the 7 days before (順応 over days; the chart reads it through the store).
     id: "light",
     label: "日照",
-    title: "日照時間と明るさ",
+    title: "日照と明るさ",
     unit: "h",
     chart: "bar",
     zero: true,

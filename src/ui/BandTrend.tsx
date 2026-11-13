@@ -180,7 +180,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
             </text>
           </g>
         ))}
-        <text x={PAD.left - 5} y={PAD.top - 12} textAnchor="end" className="chart-unit">
+        <text x={2} y={PAD.top - 12} className="chart-unit">
           肌感
         </text>
         {/* The selected day: a frame, as in the tables (the background is for 予報 only). */}
