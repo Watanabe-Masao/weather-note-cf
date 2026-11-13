@@ -16,13 +16,16 @@
 //   - Sunshine share: the hour's sunshine against the minutes the clear beam would pass JMA's
 //     sunshine threshold (120 W/m² direct), the same rule as Open-Meteo's sunshine_duration — a
 //     low sun gives no 日照 even under a clear sky.
-//   - Beam: the clear beam for that share. Global: the clear global, dimmed with cloud (a share of
-//     it with no sunshine at all: 0.3, 0.15 in rain). Diffuse: global − beam on level ground.
+//   - Beam: the clear beam for that share. Global: the clear global times the light's own cloud
+//     factor (shared/brightness.ts sunshineFactor: 1/3 with no sunshine, rain darker by its amount,
+//     share^0.7 between) — one curve for the light and the radiation, checked against Kochi's
+//     measured radiation (research/radiation). Diffuse: global − beam on level ground.
 // Only the physical base (D18): no levels, no ちょうどよい. Where a value is felt as 暑い or 涼しい,
 // how that moves as one gets used to the season, and each person's differences are the β model's.
 // Left out: longwave exchange with the ground and the sky (sun-baked ground, a clear night's
 // radiative cooling), a separate step.
 
+import { RAIN_MM, sunshineFactor } from "./brightness";
 import { dayEdges, type Where } from "./dayParts";
 import { DEFAULT_LAT_LON, solarAltitude, stationLatLon } from "./sunTimes";
 import { projectedArea, airMass } from "./sunLoad";
@@ -37,7 +40,6 @@ export const SKY_VIEW = { sun: 1, shade: 0.4 } as const;
 /** JMA's sunshine: direct normal irradiance at or above this (W/m²). */
 export const SUNSHINE_THRESHOLD = 120;
 /** Global radiation with no sunshine at all, as a share of the clear sky's: overcast, rain. */
-export const OVERCAST_SHARE = { cloud: 0.3, rain: 0.15 } as const;
 
 const dayOfYear = (date: string) => Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${date.slice(0, 4)}-01-01T00:00:00Z`)) / 86_400_000) + 1;
 
@@ -82,7 +84,7 @@ export interface HourRadiation {
 }
 
 /** The radiation over JMA hour n (n−1 to n o'clock) from its sunshine (hours) and rain. Null without sunshine. */
-export function hourRadiation(date: string, n: number, where: Where, sunHours: number | null | undefined, rain = false): HourRadiation | null {
+export function hourRadiation(date: string, n: number, where: Where, sunHours: number | null | undefined, rain: boolean | number = false): HourRadiation | null {
   if (sunHours == null || !Number.isFinite(sunHours)) return null;
   const c = latLonOf(where);
   const steps: { alt: number; dni: number; ghi: number }[] = [];
@@ -94,13 +96,15 @@ export function hourRadiation(date: string, n: number, where: Where, sunHours: n
     if (sky.dni >= SUNSHINE_THRESHOLD) possible += 5 / 60;
   }
   const share = possible > 0 ? Math.min(1, Math.max(0, sunHours / possible)) : 0;
-  const dim = rain ? OVERCAST_SHARE.rain : OVERCAST_SHARE.cloud;
+  // Rain: true (some) or its amount (mm).
+  const mm = typeof rain === "number" ? rain : rain ? RAIN_MM : 0;
+  const through = sunshineFactor(share, mm >= RAIN_MM, mm);
   let sun = 0, shade = 0, ghiSum = 0, difSum = 0;
   for (const s of steps) {
     if (s.alt <= 0) continue;
     // The beam only where it passes the sunshine threshold (a low sun gives none to count).
     const beam = s.dni >= SUNSHINE_THRESHOLD ? share * s.dni : 0;
-    const ghi = s.ghi * (dim + (1 - dim) * share);
+    const ghi = s.ghi * through;
     const level = beam * Math.sin(s.alt * RAD);
     const diffuse = Math.max(0, ghi - level);
     const g = Math.max(ghi, level + diffuse);
@@ -140,4 +144,16 @@ export function feel3(
   const shade = utci(t, t + (rad?.dmrtShade ?? 0), wind10, rh);
   const sun = rad ? utci(t, t + rad.dmrtSun, wind10, rh) : null;
   return { sun, shade };
+}
+
+/**
+ * Global radiation of an hourly row (W/m², the hour's mean) from its sunshine and rain at the station
+ * (#103): what 日なた uses, the same for records and forecasts at every station — measured radiation is
+ * left out on purpose (only some stations have it, so a forecast day would differ by its data).
+ * Null without sunshine.
+ */
+export function sunshineRadiation(row: { date: string; n: number; sun?: unknown; rain?: unknown }, where: Where): number | null {
+  const sun = typeof row.sun === "number" && Number.isFinite(row.sun) ? row.sun : null;
+  const mm = typeof row.rain === "number" && Number.isFinite(row.rain) ? row.rain : 0;
+  return hourRadiation(row.date, row.n, where, sun, mm)?.ghi ?? null;
 }

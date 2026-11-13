@@ -4,6 +4,7 @@
 // 肌感 (this app's 肌感（日なた） / 肌感（日かげ）, with the five feel levels behind it).
 
 import { type FeelSettings, feelOf, MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
+import { sunshineRadiation } from "../shared/mrt";
 import type { WeatherRow } from "../shared/types";
 import type { MetricId } from "./metrics";
 import { formatValue, sunshineMinutes } from "./design/format";
@@ -68,7 +69,8 @@ export interface HourPoint {
 }
 
 /** Twenty-four points for one day; missing hours are null (the line breaks, never interpolated). */
-export function hourSeries(rows: WeatherRow[], id: DetailMetricId, s: FeelSettings): HourPoint[] {
+/** `station`: where the sun is, for 日なた's radiation from sunshine (#103). */
+export function hourSeries(rows: WeatherRow[], id: DetailMetricId, s: FeelSettings, station: string | null = null): HourPoint[] {
   const byHour = new Map(rows.map((r) => [r.n, r]));
   return Array.from({ length: 24 }, (_, i) => {
     const hour = i + 1;
@@ -78,7 +80,7 @@ export function hourSeries(rows: WeatherRow[], id: DetailMetricId, s: FeelSettin
     const radiation = radiationOf(r);
     const v =
       id === "feel"
-        ? feelOf(r.temp, r.humidity, r.wind, forecast, s, radiation)
+        ? feelOf(r.temp, r.humidity, r.wind, forecast, s, sunshineRadiation(r, station))
         : id === "radiation"
           ? // JMA gives MJ/㎡ per hour, the forecast W/㎡: shown in JMA's unit.
             radiation == null

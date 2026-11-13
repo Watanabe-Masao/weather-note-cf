@@ -171,15 +171,18 @@ group("sunshine", () => {
     expect(noData).toBeCloseTo(shade, 5);
   });
 
-  it("raises midday but not night, widening the day's spread", () => {
+  it("raises midday but not night, widening the day's spread (by the sunshine, not the measured radiation: feel-1s)", () => {
     const rows = Array.from({ length: 24 }, (_, i) => ({
       ...hour(i + 1, 15),
-      radiation: i + 1 >= 9 && i + 1 <= 15 ? 2 : 0,
+      sun: i + 1 >= 9 && i + 1 <= 15 ? 1 : 0,
     }));
+    // A measured radiation alone (no sunshine) adds nothing: records and forecasts take the same inputs (#103).
+    const radiationOnly = Array.from({ length: 24 }, (_, i) => ({ ...hour(i + 1, 15), radiation: i + 1 >= 9 && i + 1 <= 15 ? 2 : 0 }));
+    expect(hourlyBands(radiationOnly, DEFAULT_FEEL, "47893")[2].feel).toBeCloseTo(hourlyBands(radiationOnly, { ...DEFAULT_FEEL, sun: false }, "47893")[2].feel!, 1);
     const sun = hourlyBands(rows, DEFAULT_FEEL, "47893");
     const shade = hourlyBands(rows, { ...DEFAULT_FEEL, sun: false }, "47893");
     expect(sun[2].feel! - shade[2].feel!).toBeGreaterThan(3); // 昼
-    expect(sun[4].feel).toBeCloseTo(shade[4].feel!, 5); // 夜
+    expect(sun[4].feel).toBeCloseTo(shade[4].feel!, 1); // 夜 (its first hour may hold the last minutes of a low sun)
     expect(sun[2].sunCounted).toBe(true);
   });
 });

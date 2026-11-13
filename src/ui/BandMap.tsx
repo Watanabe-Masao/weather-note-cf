@@ -5,6 +5,7 @@
 import { type ReactNode, useContext, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { clockOf, dayParts, hoursIn } from "../../shared/dayParts";
+import { sunshineRadiation } from "../../shared/mrt";
 import { type Band, BANDS, type FeelSettings, describe, feelOf, hourlyBands, radiationOf, spread } from "../../shared/feel";
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { WeatherRow } from "../../shared/types";
@@ -276,7 +277,7 @@ function DetailTable({
           <tbody>
             {rows.map((r: WeatherRow) => {
               const solar = radiationOf(r);
-              const feel = feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", settings, solar);
+              const feel = feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", settings, sunshineRadiation(r, station));
               return (
                 <tr key={r.n}>
                   <td>{r.n}時</td>

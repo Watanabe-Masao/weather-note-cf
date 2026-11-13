@@ -96,8 +96,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // The parts of the day and the sun's height, by the sun at this station (shared/dayParts.ts).
   const day = useMemo(() => ({ parts: dayParts(date, station), edges: dayEdges(date, station), curve: altitudeCurve(date, station, 10) }), [date, station]);
 
-  const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings), [hours, metricId, settings]);
-  const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings), [otherHours, metricId, settings]);
+  const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings, station), [hours, metricId, settings]);
+  const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings, station), [otherHours, metricId, settings]);
   const air = useMemo(() => (metricId === "feel" ? hourSeries(hours?.rows ?? [], "temp", settings) : null), [hours, metricId, settings]);
   // 手前の平均 (src/hourAverage.ts): each day's own weeks before it, hour by hour. Tapping the legend
   // steps the span (1週 → 2週 → 1か月) and sets a line aside (grey); both are the person's to choose.
@@ -124,7 +124,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   }, [store, station, avgWanted]);
   useEffect(() => () => store?.wantHours(station, [], Priority.Behind, "hour-average"), [store, station]);
   // daysBefore gives the nearest first, so a span's days are the first `w` of the month's.
-  const seriesOf = (days: string[]) => days.map((d) => store?.getHours(station, d)).map((h) => (h?.state === "ready" ? hourSeries(h.rows, metricId, settings) : null));
+  const seriesOf = (days: string[]) => days.map((d) => store?.getHours(station, d)).map((h) => (h?.state === "ready" ? hourSeries(h.rows, metricId, settings, station) : null));
   const daySeriesMain = seriesOf(avgDaysMain);
   const daySeriesOther = seriesOf(avgDaysOther);
   const averageOf = (series: (HourPoint[] | null)[], days: string[], anchor: string, w: number) => {

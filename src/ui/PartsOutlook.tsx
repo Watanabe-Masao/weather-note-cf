@@ -45,7 +45,7 @@ export function PartsOutlook({ store, station, date, today }: { store: WeatherSt
   const hours = store?.getHours(station, date);
   const comfort = useDayComfortState(store, station, date >= today ? date : null, hours?.rows, "outlook");
   if (date < today || hours?.state !== "ready") return null;
-  const series = hourSeries(hours.rows, "feel", feel);
+  const series = hourSeries(hours.rows, "feel", feel, station);
   const parts = dayParts(date, station).filter((p) => (OUTLOOK_PARTS as readonly string[]).includes(p.id));
   const items = parts.map((part) => {
     const vs = hoursIn(part)
