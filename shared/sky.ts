@@ -155,6 +155,25 @@ const GOLD_TINT: Lin = unit(fromHex("#ecdcc4"));
 const PREETHAM_FROM = 4;
 const tintCache = new Map<number, { z: Lin; h: Lin }>();
 
+/**
+ * From tint a to tint b by turning the hue (OKLCh) in the given direction (−1: decreasing hue, e.g.
+ * gold → pink → blue), with the chroma moving straight between them (never below the smaller): no
+ * grey on the way.
+ */
+function hueTurn(a: Lin, b: Lin, t: number, dir: 1 | -1): Lin {
+  const A = toOklab(a);
+  const B = toOklab(b);
+  const ha = Math.atan2(A[2], A[1]);
+  let hb = Math.atan2(B[2], B[1]);
+  if (dir < 0) while (hb > ha) hb -= 2 * Math.PI;
+  else while (hb < ha) hb += 2 * Math.PI;
+  const u = Math.min(1, Math.max(0, t));
+  const h = ha + (hb - ha) * u;
+  const C = Math.hypot(A[1], A[2]) * (1 - u) + Math.hypot(B[1], B[2]) * u;
+  const L = A[0] * (1 - u) + B[0] * u;
+  return unit(fromOklab(L, C * Math.cos(h), C * Math.sin(h)).map((x) => Math.max(0, x)) as Lin);
+}
+
 /** The clear sky's tint (luminance 1) at the sun's altitude, zenith and horizon. Cached by 0.1°. */
 export function clearTint(alt: number): { z: Lin; h: Lin } {
   const key = Math.round(alt * 10);
@@ -195,7 +214,9 @@ export function clearTint(alt: number): { z: Lin; h: Lin } {
     const orange = twilightTint(0).h;
     out = {
       z: out.z,
-      h: alt <= GOLDEN[1] ? mix(orange, GOLD_TINT, (alt - GOLDEN[0]) / (GOLDEN[1] - GOLDEN[0])) : mix(GOLD_TINT, day, (alt - GOLDEN[1]) / (GOLDEN[2] - GOLDEN[1])),
+      // Gold to the day's pale blue by turning the hue through pink, not by mixing (gold and blue are
+      // opposite: a mix passes through grey).
+      h: alt <= GOLDEN[1] ? mix(orange, GOLD_TINT, (alt - GOLDEN[0]) / (GOLDEN[1] - GOLDEN[0])) : hueTurn(GOLD_TINT, day, (alt - GOLDEN[1]) / (GOLDEN[2] - GOLDEN[1]), -1),
     };
   }
   if (tintCache.size > 4000) tintCache.clear();
@@ -233,10 +254,13 @@ function hexOf(c: Lin): string {
 }
 
 /** A tint placed at OKLab lightness L: its chroma scaled with the lightness (× vivid), less in the dark, pulled into the screen's gamut. */
-export function placeTint(v: Lin, L: number, vivid = 1): string {
+export function placeTint(v: Lin, L: number, vivid = 1, minChroma = 0): string {
   const [Lv, a, b] = toOklab(v);
   // Chroma kept in proportion to the lightness: the colour stays itself, never greyed to show the dark.
   let s = (L / Lv) * vivid;
+  // A floor on the chroma (a clear sky's blue): raised to it when the tint would be paler.
+  const chroma = Math.hypot(a, b);
+  if (minChroma > 0 && chroma > 1e-6 && chroma * s < minChroma) s = minChroma / chroma;
   let c = fromOklab(L, a * s, b * s);
   for (let k = 0; k < 60 && !inGamut(c); k++) {
     s *= 0.94;
@@ -396,14 +420,21 @@ function compute(alt: number, factor: number, rainMm: number, evening: boolean, 
   });
 
   // 5. How vivid: a clear sky is clean; strong light looks stronger (Hunt); twilight and night calm.
-  const vivid = (1 + 0.6 * sun) * (1 + 0.35 * (1 - c) * day) * (alt < -4 ? 0.8 : 1);
-  const out = { zenith: placeTint(z, Lz, vivid), horizon: placeTint(h, Lh, vivid) };
+  // Low sun: the Hunt boost is kept at half its noon value for a clear sky (morning and evening are
+  // not duller than they are).
+  const boost = Math.max(sun, 0.5 * (1 - c) * day);
+  const vivid = (1 + 0.6 * boost) * (1 + 0.35 * (1 - c) * day) * (alt < -4 ? 0.8 : 1);
+  // A clear zenith stays a clean blue from noon through civil twilight: ozone takes the yellow-orange
+  // out of a low sun's light, so the zenith deepens rather than whitens — which Preetham's model
+  // (no ozone) misses. Floor 0.13 (OKLab chroma) down to −6°, easing to 0.07 by −12° (a calm navy).
+  const zFloor = (1 - c) * (alt >= -6 ? 0.13 : alt >= -12 ? 0.13 - (0.06 * (-6 - alt)) / 6 : 0.07);
+  const out = { zenith: placeTint(z, Lz, vivid, zFloor), horizon: placeTint(h, Lh, vivid, (1 - c) * 0.05) };
   trace?.push({
     key: "vivid",
     label: "鮮やかさ",
     ...out,
-    note: `彩度 ×${vivid.toFixed(2)}`,
-    source: "強い光ほど色が強く見える（ハント効果、Hunt 1952）。倍率は仮",
+    note: `彩度 ×${vivid.toFixed(2)}、晴れの天頂の彩度の下限 ${zFloor.toFixed(2)}`,
+    source: "強い光ほど色が強く見える（ハント効果、Hunt 1952）。晴れの天頂はオゾンの吸収で低い太陽でも青い（Preetham のモデルにない分を下限で補う）。倍率・下限は仮",
     provisional: true,
   });
   return { ...out, word: skyWord(alt, c, mm, index, evening), altitude: Math.round(alt * 10) / 10, lux, index, skyLuminance: sky };

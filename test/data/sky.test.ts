@@ -123,6 +123,15 @@ describe("空の色（模式）", () => {
     expect(skyTrace(38, CLOUD.clear, 0, false, 0.3).steps[0].source).toContain("Preetham");
   });
 
+  it("晴れの朝夕は濁らない：天頂は昼から市民薄明まで澄んだ青、地平は金→桃→淡い青と色相を回して灰色を通らない", () => {
+    for (const a of [10, 6, 4, 1, -2, -5]) {
+      const z = skyAt(a, CLOUD.clear, 0, true, 0.2).zenith;
+      const [r, , b] = rgb(z);
+      expect(b - r).toBeGreaterThan(70);
+    }
+    for (const a of [4, 5, 6, 7, 8]) expect(grey(skyAt(a, CLOUD.clear, 0, true, 0.2).horizon)).toBeGreaterThan(15);
+  });
+
   it("時刻の書き方：18時台の2つ目 → 17:10", () => {
     expect(stepTime(18, 1)).toBe("17:10");
     expect(stepTime(1, 0)).toBe("0:00");
