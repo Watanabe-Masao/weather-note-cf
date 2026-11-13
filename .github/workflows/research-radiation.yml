@@ -1,0 +1,24 @@
+# Fetches Kochi's hourly records for research/radiation (#132 H-02, #103) and commits them to this
+# branch. Runs only on the research branch; public weather data only.
+name: research-radiation
+on:
+  push:
+    branches: [research/radiation-data]
+    paths: [research/radiation/fetch.mjs, .github/workflows/research-radiation.yml]
+permissions:
+  contents: write
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node research/radiation/fetch.mjs
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/radiation/kochi-*.json
+          git commit -m "research: 高知の時間別データ（日照・日射・降水・気温）を取得" || exit 0
+          git push
