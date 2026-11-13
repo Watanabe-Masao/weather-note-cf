@@ -15,7 +15,12 @@ import { ModalSheet } from "../ui/ModalSheet";
 import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } from "./adaptation";
 import { beyondRange, centreUnknown, LEARNING_RULES, TIME_BANDS, confoundedPairs, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
 import { useCentreVisible, useReports } from "./useReports";
-import { CHECKED, checksOf, MIN_FOR_SLOPE } from "./engine/checks";
+import { CHECKED, checksOf, MIN_FOR_GROUP, MIN_FOR_SLOPE, weakSpots } from "./engine/checks";
+import { momentUnder } from "./AfterAnswer";
+import { ensembleFromReports, probabilities as probsOf } from "./comfort";
+import { observationsOf } from "./engine/observations";
+import { levelOf as levelOfFeel, type Level } from "../../shared/feel";
+import { levelName as stepName } from "../ui/FeelBar";
 import { COMMON_MIN_COVERAGE, compareStored, type LearnState } from "./engine/compareAll";
 
 const LEARN_SHORT: Record<LearnState, string> = { learned: "学習済み", few: "少ない", priorOnly: "事前のまま", unknown: "記録なし" };
@@ -534,7 +539,7 @@ function CheckBasis() {
   const all = useMemo(() => compareStored(list ?? [], undefined, COMMON_MIN_COVERAGE), [list]);
   if (!c.n) return null;
   const d = c.base?.diff ?? null;
-  const verdict = !d ? "比べられる記録がまだありません" : d.lo > 0 ? "β の方が良いと言える" : d.hi < 0 ? "従来版の方が良い（学習が予測を悪くしている）" : "まだ差は分からない";
+  const verdict = !d ? "比べられる記録がまだありません" : d.lo > 0 ? "β の方が良いと言える" : d.hi < 0 ? "出発点の方が良い（学習が予測を悪くしている）" : "まだ差は分からない";
   const maxPit = Math.max(1, ...c.pit);
   return (
     <section className="basis-sec" aria-labelledby="basis-check">
@@ -543,9 +548,9 @@ function CheckBasis() {
       </h4>
       <p className="basis-note">どれも、送信した時点の予測と答えの比較です（後から学び直した値ではありません）。</p>
 
-      <h5>従来版のまま と β</h5>
+      <h5>出発点のまま と β</h5>
       <p className="basis-note">
-        従来版のまま＝みんな共通の定数（中心 18 ＋ 0.33 ×（最近の基準 − 15）、範囲の半分 3、外の1段 4）で、何も学ばずに出した予測。β の出発点です。
+        出発点のまま＝β の事前分布の値（中心 18 ＋ 0.33 ×（最近の基準 − 15）、範囲の半分 3、外の1段 4）で、何も学ばずに出した予測。ちょうどよいの範囲は従来版の段（設定の境目）と同じですが、外側の段の幅が違います（#111 でそろえる予定）。
       </p>
       {c.base && (
         <div className="basis-scroll">
@@ -553,12 +558,12 @@ function CheckBasis() {
             <tbody>
               <tr>
                 <td>RPS（小さいほど良い）</td>
-                <td className="num">従来版 {c.base.rpsBase.toFixed(3)}</td>
+                <td className="num">出発点 {c.base.rpsBase.toFixed(3)}</td>
                 <td className="num">β {c.base.rpsBeta.toFixed(3)}</td>
               </tr>
               {d && (
                 <tr>
-                  <td className="wrap">差（従来版 − β）と95%区間</td>
+                  <td className="wrap">差（出発点 − β）と95%区間</td>
                   <td className="num" colSpan={2}>
                     {d.mean.toFixed(4)}（{d.lo.toFixed(4)}〜{d.hi.toFixed(4)}）
                   </td>
@@ -655,6 +660,10 @@ function CheckBasis() {
         </table>
       </div>
 
+      <WeakSpots />
+      <WeekChange />
+      <TryIt />
+
       {c.context && (
         <>
           <h5>答える前に見えていたもの</h5>
@@ -664,6 +673,181 @@ function CheckBasis() {
         </>
       )}
     </section>
+  );
+}
+
+/** 苦手な条件 (#118): the mean miss per time of day, place, felt wind and sky. Exploratory. */
+function WeakSpots() {
+  const list = useReports();
+  const spots = useMemo(() => weakSpots(list ?? []), [list]);
+  return (
+    <>
+      <h5>苦手な条件（探索）</h5>
+      <p className="basis-note">
+        条件ごとの外れの平均（＋＝予測より暖かく感じた、−＝寒く感じた）。「向き」はその偏りが 0 から離れている組だけに出します。たくさんの組を見ているので、印の付いた組は「調べる候補」で、決まったことではありません。{MIN_FOR_GROUP}件未満の組は出しません。
+      </p>
+      {spots.length ? (
+        <div className="basis-scroll">
+          <table className="basis-table">
+            <thead>
+              <tr>
+                <th>条件</th>
+                <th>件数</th>
+                <th>外れの平均（95%）</th>
+                <th>向き</th>
+              </tr>
+            </thead>
+            <tbody>
+              {spots.map((s) => (
+                <tr key={`${s.axis}-${s.group}`} className={s.leaning ? "warn" : undefined}>
+                  <td className="wrap">
+                    {s.group}
+                    <small>
+                      <br />
+                      {s.axis}
+                    </small>
+                  </td>
+                  <td className="num">{s.n}</td>
+                  <td className="num">
+                    {s.mean > 0 ? "+" : ""}
+                    {s.mean.toFixed(2)}
+                    <small>
+                      <br />
+                      {s.lo.toFixed(2)}〜{s.hi.toFixed(2)}
+                    </small>
+                  </td>
+                  <td>{!s.leaning ? "—" : s.mean < 0 ? "寒い側" : "暖かい側"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="basis-note">まだ組ごとの件数が足りません。</p>
+      )}
+    </>
+  );
+}
+
+const WEEK_MS = 7 * 86_400_000;
+
+/** この1週間で変わったこと (#118): the models without this week's answers against now, at the latest answer. */
+function WeekChange() {
+  const list = useReports();
+  const beta = useContext(BetaContext);
+  const live = useMemo(() => (list ?? []).filter((r) => !r.deleted).sort((a, b) => (a.at < b.at ? -1 : 1)), [list]);
+  const cut = Date.now() - WEEK_MS;
+  const week = live.filter((r) => Date.parse(r.at) >= cut);
+  const before = useMemo(() => (live.length && week.length < live.length ? ensembleFromReports(live.filter((r) => Date.parse(r.at) < cut)) : null), [live]); // eslint-disable-line react-hooks/exhaustive-deps
+  const latest = live.at(-1);
+  if (!week.length || !before || !latest) return null;
+  const a = momentUnder(before, latest), b = momentUnder(beta.ens, latest);
+  const sign = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(1)}`;
+  return (
+    <>
+      <h5>この1週間で変わったこと</h5>
+      <p className="basis-note">
+        この1週間の答え {week.length}件 を入れる前と後で、いちばん新しい答えの時刻を比べます。
+      </p>
+      {a && b ? (
+        <div className="basis-scroll">
+          <table className="basis-table">
+            <tbody>
+              <tr>
+                <td>ちょうどよいの中心</td>
+                <td className="num">
+                  {a.mu.toFixed(1)} → <b>{b.mu.toFixed(1)}</b>（{sign(b.mu - a.mu)}）
+                </td>
+              </tr>
+              <tr>
+                <td>範囲の半分</td>
+                <td className="num">
+                  {a.h.toFixed(1)} → <b>{b.h.toFixed(1)}</b>
+                </td>
+              </tr>
+              <tr>
+                <td>学習に使えた記録</td>
+                <td className="num">
+                  {before.n} → {beta.ens.n} 件
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="basis-note">いちばん新しい答えは入力が足りず、比べられません。</p>
+      )}
+    </>
+  );
+}
+
+/** 試す (#118): the latest answer's moment, with the wind and the place changed: what 肌感 and the levels would have been. */
+function TryIt() {
+  const list = useReports();
+  const beta = useContext(BetaContext);
+  const feel = useContext(FeelContext);
+  const latest = useMemo(() => (list ?? []).filter((r) => !r.deleted && r.snapshot).sort((a, b) => (a.at < b.at ? -1 : 1)).at(-1), [list]);
+  const [wind, setWind] = useState<number | null>(null);
+  const [place, setPlace] = useState<"sun" | "shade" | null>(null);
+  const s = latest?.snapshot;
+  if (!latest || !s || s.temp == null || s.humidity == null) return null;
+  const w = wind ?? s.wind ?? 0;
+  const p = place ?? (latest.exposure === "shade" ? "shade" : "sun");
+  const e = feelOf(s.temp, s.humidity, w, false, { ...feel, sun: p === "sun" }, s.solar ?? null);
+  const x = observationsOf([latest], beta.ens.alpha)[0];
+  const scale = feel.scale ?? 7;
+  let mine: string | null = null;
+  if (x && e != null) {
+    const pr = probsOf(ensembleState(beta.ens, { ...x, e }), e);
+    const k = pr.indexOf(Math.max(...pr));
+    mine = `${stepName(k as Level, scale)}（${Math.round(pr[k] * 100)}%）`;
+  }
+  return (
+    <>
+      <h5>試す：風と場所を変えたら</h5>
+      <p className="basis-note">
+        いちばん新しい答えの時刻（{new Date(latest.at).toLocaleString("ja-JP", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}、気温 {s.temp.toFixed(1)}℃・湿度 {Math.round(s.humidity)}%）で、風と場所だけを変えて計算します。答えは変えません。
+      </p>
+      <div className="try-it">
+        <Segmented
+          label="場所"
+          value={p}
+          onChange={setPlace}
+          options={[
+            { id: "sun", label: "日なた" },
+            { id: "shade", label: "日かげ" },
+          ]}
+        />
+        <label className="try-wind">
+          <span>
+            風（観測所） <b>{w.toFixed(1)}</b> m/s
+          </span>
+          <input type="range" min={0} max={8} step={0.5} value={w} onChange={(ev) => setWind(Number(ev.target.value))} />
+        </label>
+        <div className="basis-scroll">
+          <table className="basis-table">
+            <tbody>
+              <tr>
+                <td>肌感</td>
+                <td className="num">{e == null ? "—" : e.toFixed(1)}</td>
+              </tr>
+              <tr>
+                <td>従来版の段</td>
+                <td className="num">{e == null ? "—" : stepName(levelOfFeel(e, feel), scale)}</td>
+              </tr>
+              <tr>
+                <td>あなたの段（β）</td>
+                <td className="num">{mine ?? "—"}</td>
+              </tr>
+              <tr>
+                <td>実際の答え</td>
+                <td className="num">{stepName(((latest.sensation as number) + 3) as Level, scale)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
   );
 }
 

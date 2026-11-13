@@ -9,7 +9,7 @@
 // shown as such and never adopted (MATH-08).
 //
 // Two sources of predictions:
-//   - stored: the models in the app (M0…M9), the mixed prediction and the shared constants (従来版),
+//   - stored: the models in the app (M0…M9), the mixed prediction and β's starting point (the prior),
 //     from what was predicted at sending (each report keeps every model's own prediction): nothing
 //     is refitted.
 //   - rolling origin: candidates not in the app (#113, #114, the UTCI base…), refitted on the
@@ -148,12 +148,12 @@ export function compareOn(
 /** In the app's view, a candidate predicting fewer than this share of the answers is left out of the common set. */
 export const COMMON_MIN_COVERAGE = 0.8;
 
-/** The stored candidates: 従来版 (shared constants), the mixed prediction, and each model in the app. */
+/** The stored candidates: β's starting point (the prior), the mixed prediction, and each model in the app. */
 export function compareStored(reports: Report[], ids?: string[], minCoverage = 0): Comparison {
   const all = [
     {
       id: "shared",
-      label: "従来版のまま",
+      label: "出発点のまま（事前）",
       at: (r: Report): Prediction | null => {
         const e = placeTempOf(r), a = r.baseline?.value;
         return e != null && a != null ? { probs: sharedPrediction(e, a), learned: Infinity } : null;

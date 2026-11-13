@@ -1,7 +1,7 @@
-// なぜ (#118): why the person's centre for a moment is where it is, against the shared constants
-// (従来版), as the few largest terms — for one line beside a prediction. The centre μ is the mixed
-// models' Σ w·(m0 + Σ β_k·driver_k); the shared constants' is 18 + 0.33·(最近の基準 − 15).
-//   - "あなたのちょうどよい": the models' constant and 慣れ terms against the shared constants'
+// なぜ (#118): why the person's centre for a moment is where it is, against β's starting point
+// (the prior: 従来版's centre 18 with 慣れ 0.33 × (最近の基準 − 15)), as the few largest terms —
+// for one line beside a prediction. The centre μ is the mixed models' Σ w·(m0 + Σ β_k·driver_k).
+//   - "あなたのちょうどよい": the models' constant and 慣れ terms against the starting point's
 //     (where the person's own level sits, learned from the answers)
 //   - each other driver: its weighted effect on μ (前日の気温の変化, 季節の向き, …)
 // Terms that change with each other (慣れ and 季節の向き) are not separated more finely than this;
@@ -51,7 +51,7 @@ export function whyLine(terms: WhyTerm[]): string {
   return big
     .map((t) =>
       t.key === "personal"
-        ? `記録から、あなたのちょうどよいは従来版より ${fmt(t.effect)}（${t.effect > 0 ? "寒く感じやすい" : "暑く感じやすい"}）`
+        ? `記録から、あなたのちょうどよいは出発点（従来版の中心＋慣れ）より ${fmt(t.effect)}（${t.effect > 0 ? "寒く感じやすい" : "暑く感じやすい"}）`
         : `${t.label}で ちょうどよいが ${fmt(t.effect)}（${t.effect > 0 ? "寒く感じる側" : "暑く感じる側"}）`,
     )
     .join("。");
