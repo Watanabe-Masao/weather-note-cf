@@ -6,6 +6,7 @@ import { jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
 import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, dayLights, stepOutFeel, usualText } from "../../shared/brightness";
 import { usualLightOf } from "../light";
+import { daySky, SKY_STEPS, type SkyColour, stepTime } from "../../shared/sky";
 import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
@@ -106,6 +107,14 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   };
   const lightMain = useMemo(() => lightOf(hours?.rows), [hours, station]); // eslint-disable-line react-hooks/exhaustive-deps
   const lightOther = useMemo(() => lightOf(otherHours?.rows), [otherHours, station]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 空の色（模式, shared/sky.ts）: six 10-minute colours per hour, only for the 日照 item.
+  const skyOf = (rows: WeatherRow[] | undefined) => {
+    const sorted = [...(rows ?? [])].sort((x, y) => x.n - y.n);
+    const byHour = new Map(daySky(sorted, station).map((h) => [h.n, h.steps]));
+    return Array.from({ length: 24 }, (_, i) => byHour.get(i + 1) ?? null);
+  };
+  const skyMain = useMemo(() => (metricId === "sun" ? skyOf(hours?.rows) : []), [hours, station, metricId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const skyOther = useMemo(() => (metricId === "sun" && other ? skyOf(otherHours?.rows) : null), [otherHours, station, metricId, other]); // eslint-disable-line react-hooks/exhaustive-deps
   // The weather under each time tick (0, 3, … 24 o'clock): the hour either side of it.
   const bandWx = useMemo(() => {
     // JMA hour n covers n−1 to n o'clock: hours h and h + 1 are the hour either side of h o'clock.
@@ -134,8 +143,14 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const nowHour = jstHour();
   const [hour, setHour] = useState<number | null>(null);
   const [scrubbing, setScrubbing] = useState(false);
+  // The 10-minute step within the hour (空の色): set from the strip, cleared when the graph picks an hour.
+  const [step, setStep] = useState<number | null>(null);
   const shownHour = hour ?? initialHour(main, isToday, nowHour);
-  useEffect(() => setHour(null), [date]);
+  useEffect(() => {
+    setHour(null);
+    setStep(null);
+  }, [date]);
+  const skyStep = (list: (SkyColour[] | null)[] | null) => list?.[shownHour - 1]?.[step ?? 3] ?? null;
 
   const at = (points: HourPoint[]) => points[shownHour - 1]?.v ?? null;
   // Same month and day a year apart would read "11/10" twice: the comparison day keeps its year.
@@ -190,6 +205,14 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                   a: stepOutFeel(lightMain[shownHour - 1]) ?? "—",
                   b: other ? (stepOutFeel(lightOther[shownHour - 1]) ?? "—") : "—",
                 },
+                // 空の色（模式）at the step (the middle of the hour until a step is picked on the strip).
+                {
+                  key: "sky",
+                  label: `空（${stepTime(shownHour, step ?? 3)}）`,
+                  unit: "",
+                  a: <SkyWord s={skyStep(skyMain)} />,
+                  b: other ? <SkyWord s={skyStep(skyOther)} /> : "—",
+                },
               ]
             : []),
           ...(metricId === "feel" && personal
@@ -223,7 +246,10 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         day={day}
         nowHour={isToday ? nowHour : null}
         hour={shownHour}
-        onHour={setHour}
+        onHour={(h) => {
+          setHour(h);
+          setStep(null);
+        }}
         onScrub={setScrubbing}
         height={height}
         color={color}
@@ -233,7 +259,18 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       </div>
 
       {metricId === "sun" && (
-        <LightStrip main={lightMain} other={other ? lightOther : null} shownHour={shownHour} usual={{ main: usualLightOf(store, station, date), other: other ? usualLightOf(store, station, other) : null }} />
+        <LightStrip
+          main={lightMain}
+          other={other ? lightOther : null}
+          skyMain={skyMain}
+          skyOther={other ? skyOther : null}
+          shownHour={shownHour}
+          step={step}
+          onPick={(h, k) => {
+            setHour(h);
+            setStep(k);
+          }}
+          usual={{ main: usualLightOf(store, station, date), other: other ? usualLightOf(store, station, other) : null }} />
       )}
 
       {metricId === "feel" && comfort.st && (
@@ -363,43 +400,236 @@ function BandWeatherIcons({ main, other }: { main: BandWx; other: BandWx | null 
   );
 }
 
+/** How the 明るさ strip is coloured: the felt levels or the sky (schematic, shared/sky.ts). Kept per viewer. */
+type StripMode = "levels" | "sky";
+const STRIP_KEY = "wn.lightStrip";
+const readStrip = (): StripMode => {
+  try {
+    return localStorage.getItem(STRIP_KEY) === "sky" ? "sky" : "levels";
+  } catch {
+    return "levels";
+  }
+};
+
+/** One hour of sky as a cell: the 10-minute colours left to right, the zenith above the horizon. */
+const skyFill = (steps: SkyColour[]) => ({
+  top: `linear-gradient(90deg, ${steps.map((s) => s.zenith).join(", ")})`,
+  bottom: `linear-gradient(90deg, ${steps.map((s) => s.horizon).join(", ")})`,
+});
+
+/** Width of the 拡大 card (px). */
+const ZOOM_W = 264;
+
 /**
  * 明るさ under the 日差し graph: one cell per hour, darker to lighter by the felt level (B of the
- * mocks, 2026-11-12). The cells sit under the graph's hours (same side margins as the plot).
+ * mocks, 2026-11-12), or the sky's colour (空の色, schematic) in six 10-minute steps per hour. The
+ * cells sit under the graph's hours (same side margins as the plot). In the sky view the strip can
+ * be traced with a finger: a card above it enlarges the hour, 10 minutes at a time (the mock of
+ * 2026-11-13). Nothing here is text to select: no loupe or copy menu on a long press.
  */
-function LightStrip({ main, other, shownHour, usual }: { main: (number | null)[]; other: (number | null)[] | null; shownHour: number; usual: { main: number | null; other: number | null } }) {
-  const row = (label: string, values: (number | null)[]) => (
+function LightStrip({
+  main,
+  other,
+  skyMain,
+  skyOther,
+  shownHour,
+  step,
+  onPick,
+  usual,
+}: {
+  main: (number | null)[];
+  other: (number | null)[] | null;
+  skyMain: (SkyColour[] | null)[];
+  skyOther: (SkyColour[] | null)[] | null;
+  shownHour: number;
+  step: number | null;
+  onPick: (hour: number, step: number) => void;
+  usual: { main: number | null; other: number | null };
+}) {
+  const [mode, setMode] = useState<StripMode>(readStrip);
+  const pickMode = (m: StripMode) => {
+    setMode(m);
+    try {
+      localStorage.setItem(STRIP_KEY, m);
+    } catch {
+      /* not kept: fine */
+    }
+  };
+  const sky = mode === "sky";
+  // The enlarged hour: while tracing ("trace"), or left open by a tap ("tap", closed with ×).
+  const [zoom, setZoom] = useState<null | "trace" | "tap">(null);
+  const [at, setAt] = useState(0); // the finger's place across the cells, 0–1
+  const area = useRef<HTMLDivElement>(null);
+  const press = useRef<{ x: number; moved: boolean } | null>(null);
+  const pick = (clientX: number) => {
+    const box = area.current?.getBoundingClientRect();
+    if (!box || box.width <= 0) return;
+    const f = Math.min(0.9999, Math.max(0, (clientX - box.left) / box.width));
+    const t = Math.floor(f * 24 * SKY_STEPS);
+    setAt(f);
+    onPick(Math.floor(t / SKY_STEPS) + 1, t % SKY_STEPS);
+  };
+  const end = () => {
+    const p = press.current;
+    press.current = null;
+    setZoom(p && !p.moved ? "tap" : null);
+  };
+  const shownStep = step ?? 3;
+  const hourSky = skyMain[shownHour - 1];
+  const width = area.current?.getBoundingClientRect().width ?? 0;
+  const left = Math.max(0, Math.min(width - ZOOM_W, at * width - ZOOM_W / 2));
+
+  const row = (label: string, values: (number | null)[], skies: (SkyColour[] | null)[] | null) => (
     <div className="light-row">
       <span className="light-row-label">{label}</span>
-      <div className="light-cells" role="img" aria-label={`${label}の明るさ（1時間ごと）`}>
-        {values.map((v, i) => (
-          <i key={i} className={i + 1 === shownHour ? "on" : undefined} style={{ background: v == null ? "transparent" : LIGHT_LEVELS[Math.min(5, Math.floor(v))] }} />
-        ))}
+      <div className={`light-cells${sky ? " sky" : ""}`} role="img" aria-label={`${label}の${sky ? "空の色（模式）" : "明るさ"}（1時間ごと）`}>
+        {values.map((v, i) => {
+          const s = skies?.[i];
+          if (sky) {
+            const fill = s ? skyFill(s) : null;
+            return (
+              <i key={i} className={i + 1 === shownHour ? "on" : undefined}>
+                {fill && (
+                  <>
+                    <b style={{ background: fill.top }} />
+                    <b style={{ background: fill.bottom }} />
+                  </>
+                )}
+              </i>
+            );
+          }
+          return <i key={i} className={i + 1 === shownHour ? "on" : undefined} style={{ background: v == null ? "transparent" : LIGHT_LEVELS[Math.min(5, Math.floor(v))] }} />;
+        })}
       </div>
     </div>
   );
   return (
     <div className="light-strip">
-      <span className="light-title">
-        明るさ
-        {usual.main != null || usual.other != null ? (
-          <small>
-            {" "}この日の昼は {usualText(usual.main)}{other ? `・比較の日は ${usualText(usual.other)}` : ""}（前の7日と比べて）
-          </small>
-        ) : null}
-      </span>
-      {row("対象", main)}
-      {other && row("比較", other)}
-      <p className="light-note">「外に出たとき」は、室内（約500lx）に慣れた目で外に出た直後の感じ方です。目はその後、明るさには数分、暗さには10〜30分で慣れます。</p>
-      <p className="light-legend">
-        {BRIGHTNESS_LEVELS.map((l, i) => (
-          <span key={l.id}>
-            <i style={{ background: LIGHT_LEVELS[i] }} />
-            {l.label}
-          </span>
-        ))}
-      </p>
+      <div className="light-head">
+        <span className="light-title">
+          {sky ? "空の色（模式）" : "明るさ"}
+          {!sky && (usual.main != null || usual.other != null) ? (
+            <small>
+              {" "}この日の昼は {usualText(usual.main)}{other ? `・比較の日は ${usualText(usual.other)}` : ""}（前の7日と比べて）
+            </small>
+          ) : null}
+        </span>
+        <Segmented
+          label="帯の色"
+          value={mode}
+          onChange={(m) => {
+            pickMode(m);
+            setZoom(null);
+          }}
+          options={[
+            { id: "levels", label: "明るさの段" },
+            { id: "sky", label: "空の色" },
+          ]}
+        />
+      </div>
+      <div className="light-rows">
+        <div
+          ref={area}
+          className={`light-trace${sky ? " on" : ""}`}
+          onPointerDown={
+            sky
+              ? (e) => {
+                  try {
+                    e.currentTarget.setPointerCapture(e.pointerId);
+                  } catch {
+                    /* capture is a nicety */
+                  }
+                  press.current = { x: e.clientX, moved: false };
+                  setZoom("trace");
+                  pick(e.clientX);
+                }
+              : undefined
+          }
+          onPointerMove={
+            sky
+              ? (e) => {
+                  const p = press.current;
+                  if (!p) return;
+                  if (Math.abs(e.clientX - p.x) > 4) p.moved = true;
+                  pick(e.clientX);
+                }
+              : undefined
+          }
+          onPointerUp={sky ? end : undefined}
+          onPointerCancel={
+            sky
+              ? () => {
+                  press.current = null;
+                  setZoom(null);
+                }
+              : undefined
+          }
+          onContextMenu={(e) => e.preventDefault()}
+        />
+        {row("対象", main, skyMain)}
+        {other && row("比較", other, skyOther)}
+        {sky && zoom && hourSky && (
+          <div className="sky-zoom" role="group" aria-label={`${stepTime(shownHour, 0)}〜${shownHour}:00の空（拡大）`} style={{ left: left + 34 }}>
+            <div className="sky-zoom-head">
+              <b>
+                {stepTime(shownHour, 0)}〜{shownHour}:00
+              </b>
+              <small>雲は1時間の値</small>
+            </div>
+            <div className="sky-zoom-steps">
+              {hourSky.map((s, k) => (
+                <span key={k} className={k === shownStep ? "on" : undefined}>
+                  <i style={{ background: `linear-gradient(180deg, ${s.zenith}, ${s.horizon})` }} />
+                  <small>{stepTime(shownHour, k)}</small>
+                </span>
+              ))}
+            </div>
+            <div className="sky-zoom-now">
+              <b>
+                {stepTime(shownHour, shownStep)}　{hourSky[shownStep].word}
+              </b>
+              <small>
+                太陽 {hourSky[shownStep].altitude > 0 ? "+" : ""}
+                {Math.round(hourSky[shownStep].altitude)}°
+              </small>
+            </div>
+            {zoom === "tap" && (
+              <button className="sky-zoom-close" onClick={() => setZoom(null)} aria-label="拡大を閉じる">
+                ×
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+      {sky ? (
+        <p className="light-note">
+          空の色は、太陽の高さ（10分ごと）と、その時間の日照・降水から描いた模式の色です。写真や実測ではありません。マスの上が見上げた空、下が地平。帯を指でなぞると、その1時間を10分ごとに拡大します。
+        </p>
+      ) : (
+        <>
+          <p className="light-note">「外に出たとき」は、室内（約500lx）に慣れた目で外に出た直後の感じ方です。目はその後、明るさには数分、暗さには10〜30分で慣れます。</p>
+          <p className="light-legend">
+            {BRIGHTNESS_LEVELS.map((l, i) => (
+              <span key={l.id}>
+                <i style={{ background: LIGHT_LEVELS[i] }} />
+                {l.label}
+              </span>
+            ))}
+          </p>
+        </>
+      )}
     </div>
+  );
+}
+
+/** The sky's word with a small swatch (zenith over horizon). */
+function SkyWord({ s }: { s: SkyColour | null }) {
+  if (!s) return <>—</>;
+  return (
+    <span className="sky-word">
+      <i style={{ background: `linear-gradient(180deg, ${s.zenith}, ${s.horizon})` }} aria-hidden="true" />
+      {s.word}
+    </span>
   );
 }
 
