@@ -15,9 +15,11 @@
 //   2. The clouds turn it white: cloudiness c from the light's own cloud factor (1 under rain), and
 //      tint = (1 − c)·clear + c·white (D65), in linear RGB. Sunshine is not cloud cover, so this is a
 //      rough mix.
-//   3. How light the colour is comes from the felt brightness (brightnessIndex), so one strip shows
-//      both the sky and the light: OKLab lightness 0.27 + 0.09 × index (暗い 0.27, still visible on
-//      the page; 日差しの明るさ 0.81, colour still shows). Strong light makes colour look stronger
+//   3. How light the colour is comes from how bright the sky looks (its apparent luminance, cd/m², on
+//      a log scale: skyLightness): the sun's and the twilight's light spread over the sky, plus the
+//      town's glow at night by the surroundings (SKY_GLOW: Kyba et al. 2011), which also warms the
+//      tint. The light on the ground (the levels) is not changed by the town; the strip's thin line
+//      shows it. Strong light makes colour look stronger
 //      (Hunt): from 明るい up the chroma grows to ×1.6, and the clear zenith is set a little darker
 //      so a screen can show its deep blue. The clear zenith a little darker than the
 //      horizon by day, the horizon a little lighter around sunrise and sunset; dark colours less
@@ -50,6 +52,8 @@ export interface SkyColour {
   /** The light on open ground at that moment (lux) and its felt index 0–6 (shared/brightness.ts). */
   lux: number;
   index: number;
+  /** How bright the sky itself looks (cd/m²): its own light plus the town's glow (SKY_GLOW). */
+  skyLuminance: number;
 }
 
 const R = Math.PI / 180;
@@ -231,17 +235,59 @@ export function skyWord(alt: number, c: number, rain: boolean, index: number, ev
 
 const WHITE: Lin = [1, 1, 1];
 
-/** The sky at the sun's altitude under a cloud factor (and rain). `evening`: after noon (for the word). */
-export function skyAt(alt: number, factor: number, rain: boolean, evening: boolean): SkyColour {
+/**
+ * The town's light in the night sky (zenith luminance, cd/m²), clear and overcast, by the surroundings
+ * of the settings (肌感の基準 › 周りの様子, the same choice that slows the wind). Clouds reflect the
+ * town's light back down, so an overcast sky over a town is brighter than a clear one.
+ * Kyba et al. (2011, Berlin, PLoS ONE 6:e17307): rural (~32 km out) clear 0.43, overcast 1.4 mcd/m²
+ * (×2.8); urban (~10 km from the centre) clear 2.4, overcast 26 mcd/m² (×10). 開けた場所 = rural,
+ * 市街地 = urban; 住宅地 in between (geometric), 建物が密集 twice 市街地 — both provisional.
+ */
+export const SKY_GLOW = [
+  { alpha: 0.14, label: "開けた場所", clear: 0.00043, overcast: 0.0014 },
+  { alpha: 0.2, label: "住宅地", clear: 0.001, overcast: 0.006 },
+  { alpha: 0.3, label: "市街地", clear: 0.0024, overcast: 0.026 },
+  { alpha: 0.4, label: "建物が密集", clear: 0.005, overcast: 0.05 },
+] as const;
+
+/** The town's glow in the sky (cd/m²) for a surroundings exponent (the nearest of SKY_GLOW) at cloudiness c (0–1, by ratio). */
+export function skyGlow(alpha: number | null | undefined, c: number): number {
+  const a = alpha != null && Number.isFinite(alpha) ? alpha : SKY_GLOW[0].alpha;
+  const g = SKY_GLOW.reduce((x, y) => (Math.abs(y.alpha - a) < Math.abs(x.alpha - a) ? y : x));
+  const t = Math.min(1, Math.max(0, c));
+  return g.clear * (g.overcast / g.clear) ** t;
+}
+
+/** The tint of the town's glow (street lights, warm): what a lit night sky turns to. */
+const GLOW_TINT: Lin = unit(fromHex("#b39a85"));
+
+/**
+ * How light the sky looks, from its apparent luminance (cd/m²), on a log scale: 0.0001 cd/m² (a dark
+ * night) → 0.24, each tenfold +0.07, up to 0.84 (a bright daytime sky). The eye answers to ratios.
+ */
+export const skyLightness = (cdm2: number) => Math.min(0.84, Math.max(0.24, 0.24 + 0.07 * Math.log10(Math.max(1e-4, cdm2) / 1e-4)));
+
+/**
+ * The sky at the sun's altitude under a cloud factor (and rain). `evening`: after noon (for the word).
+ * `alpha`: the surroundings (周りの様子), for the town's glow in the night sky.
+ */
+export function skyAt(alt: number, factor: number, rain: boolean, evening: boolean, alpha?: number | null): SkyColour {
+  // The light on open ground (the levels, unchanged by the town: shared/brightness.ts).
   const lux = Math.max(clearSkyLux(alt) * factor, nightSkyLux(factor));
   const index = brightnessIndex(lux);
   const c = rain ? 1 : cloudiness(factor);
+  // How bright the sky itself looks (cd/m²): the sun's and the twilight's light spread over the sky
+  // (a uniform sky of luminance L lights the ground with πL), plus the town's glow.
+  const glowL = skyGlow(alpha, c);
+  const natural = (clearSkyLux(alt) * factor) / Math.PI;
+  const sky = natural + glowL;
+  // The share of the town's own light in what is seen (above an open place's clear night, which is
+  // close to the natural sky): it turns the sky warm-grey.
+  const lit = Math.max(0, glowL - SKY_GLOW[0].clear) / sky;
   const tint = clearTint(alt);
-  const z = mix(tint.z, WHITE, c);
-  const h = mix(tint.h, WHITE, c);
-  // Lightness follows the felt brightness all the way, so the strip reads as the six levels too:
-  // index 0 (暗い) → 0.27 (still visible on the page), 6 (日差しの明るさ) → 0.81.
-  const base = 0.27 + 0.09 * Math.min(6, Math.max(0, index));
+  const z = mix(mix(tint.z, WHITE, c), GLOW_TINT, lit);
+  const h = mix(mix(tint.h, WHITE, c), GLOW_TINT, Math.min(1, lit * 1.2));
+  const base = skyLightness(sky);
   const day = Math.max(0, Math.min(1, (alt + 4) / 10));
   const glow = (1 - c) * Math.max(0, 1 - Math.abs(alt + 1) / 6);
   // Strong light makes colour look stronger (the Hunt effect): from 明るい (index 3) up, the tint's
@@ -250,9 +296,17 @@ export function skyAt(alt: number, factor: number, rain: boolean, evening: boole
   // and the level line keep the brightness.
   const sun = Math.max(0, Math.min(1, (index - 3) / 3));
   const vivid = 1 + 0.6 * sun;
-  const Lz = Math.max(0.25, base - (0.07 + 0.08 * sun) * (1 - c) * day + 0.02 * c);
-  const Lh = Math.min(0.86, base + 0.06 * (1 - c) * day - 0.03 * c + 0.16 * glow);
-  return { zenith: placeTint(z, Lz, vivid), horizon: placeTint(h, Lh, vivid), word: skyWord(alt, c, rain, index, evening), altitude: Math.round(alt * 10) / 10, lux, index };
+  const Lz = Math.max(0.22, base - (0.07 + 0.08 * sun) * (1 - c) * day + 0.02 * c);
+  const Lh = Math.min(0.88, base + 0.06 * (1 - c) * day - 0.03 * c + 0.16 * glow + 0.03 * lit);
+  return {
+    zenith: placeTint(z, Lz, vivid),
+    horizon: placeTint(h, Lh, vivid),
+    word: skyWord(alt, c, rain, index, evening),
+    altitude: Math.round(alt * 10) / 10,
+    lux,
+    index,
+    skyLuminance: sky,
+  };
 }
 
 /**
@@ -260,17 +314,27 @@ export function skyAt(alt: number, factor: number, rain: boolean, evening: boole
  * minutes, each at its middle (n−1:05, n−1:15, …). The clouds are the hour's, as the light has them
  * (dayLights: a night or twilight hour from the nearest hour of daylight).
  */
-export function daySky(rows: WeatherRow[], station: string | null | undefined): { n: number; steps: SkyColour[] }[] {
+export function daySky(rows: WeatherRow[], station: string | null | undefined, alpha?: number | null): { n: number; steps: SkyColour[] }[] {
   const c = stationLatLon(station) ?? DEFAULT_LAT_LON;
   const lights = dayLights(rows, station);
   return rows.map((r, i) => {
     const rain = (typeof r.rain === "number" ? r.rain : 0) >= RAIN_MM;
     const steps = Array.from({ length: SKY_STEPS }, (_, k) => {
       const min = (r.n - 1) * 60 + k * 10 + 5;
-      return skyAt(solarAltitude(r.date, min, c.lat, c.lon), lights[i].factor, rain, min > 720);
+      return skyAt(solarAltitude(r.date, min, c.lat, c.lon), lights[i].factor, rain, min > 720, alpha);
     });
     return { n: r.n, steps };
   });
+}
+
+/** "約2.4 mcd/m²", "約1,000 cd/m²": a sky's luminance. */
+export function luminanceText(cdm2: number): string {
+  if (cdm2 < 1) {
+    const m = cdm2 * 1000;
+    return `約${m < 10 ? m.toFixed(1) : Math.round(m).toLocaleString("ja-JP")} mcd/m²`;
+  }
+  const d = 10 ** Math.max(0, Math.floor(Math.log10(cdm2)) - 1);
+  return `約${(Math.round(cdm2 / d) * d).toLocaleString("ja-JP")} cd/m²`;
 }
 
 /** "17:10" for hour n and step k (the step's start). */

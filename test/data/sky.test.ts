@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { CLOUD, sunUpFraction } from "../../shared/brightness";
-import { cloudiness, daySky, SKY_STEPS, skyAt, stepTime } from "../../shared/sky";
+import { cloudiness, daySky, luminanceText, SKY_STEPS, skyAt, skyGlow, stepTime } from "../../shared/sky";
 import type { WeatherRow } from "../../shared/types";
 
 const KOCHI = "47893";
@@ -77,6 +77,23 @@ describe("空の色（模式）", () => {
     expect(grey(noon.zenith)).toBeGreaterThan(grey(morning.zenith) + 30);
     // 曇りは強い光でも灰色のまま。
     expect(grey(skyAt(38, CLOUD.cloudy, false, false).zenith)).toBeLessThan(6);
+  });
+
+  it("夜空の見かけの明るさは周りの様子で変わる：市街地の曇りの夜は開けた場所の晴れの夜より明るく暖色（地上の明るさの段は変えない）", () => {
+    const open = skyAt(-30, CLOUD.clear, false, true, 0.14);
+    const city = skyAt(-30, CLOUD.cloudy, false, true, 0.3);
+    expect(city.skyLuminance / open.skyLuminance).toBeGreaterThan(20); // Kyba 2011: 26 vs 0.43 mcd/m²
+    expect(light(city.zenith)).toBeGreaterThan(light(open.zenith) + 40);
+    const [r, , b] = rgb(city.zenith);
+    expect(r).toBeGreaterThan(b); // the town's light is warm
+    expect(skyAt(-30, CLOUD.clear, false, true, 0.4).index).toBe(open.index);
+    expect(skyGlow(0.3, 0)).toBeCloseTo(0.0024, 6);
+    expect(skyGlow(0.3, 1)).toBeCloseTo(0.026, 6);
+  });
+
+  it("輝度の書き方", () => {
+    expect(luminanceText(0.0024)).toBe("約2.4 mcd/m²");
+    expect(luminanceText(21000)).toBe("約21,000 cd/m²");
   });
 
   it("時刻の書き方：18時台の2つ目 → 17:10", () => {

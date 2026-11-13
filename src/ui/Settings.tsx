@@ -210,12 +210,12 @@ function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: Wea
       <div className="set-row">
         <span className="set-label">周りの様子</span>
         <Segmented
-          label="周りの様子（風の弱まり方）"
+          label="周りの様子（風の弱まり方・夜空の明るさ）"
           value={String(saved.alpha)}
           options={SURROUNDINGS.map((s) => ({ id: String(s.alpha), label: s.label }))}
           onChange={(v) => update({ alpha: Number(v) })}
         />
-        <small className="set-help">建物が多いほど風が弱まり、暖かく感じる計算になります。</small>
+        <small className="set-help">建物が多いほど風が弱まり、暖かく感じる計算になります。夜の空の見かけの明るさ（街の明かりで明るくなる空）にも使います。</small>
       </div>
       <div className="set-row">
         <span className="set-label">日差しの強さ</span>
