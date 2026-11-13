@@ -43,9 +43,13 @@ const PREFETCH_IDLE_MS = 1_000;
 const PREFETCH_RADIUS = 14;
 const SIMILAR = "__similar";
 
-/** The 24-hour graph fills the sheet too: its height minus the tabs, the day line, readout and legend. */
+/**
+ * The 24-hour graph's height in the sheet: its height minus the tabs, the day line, readout and
+ * legend, at most 300 — taller made the readout and the strips under it (明るさと空) scroll out of
+ * reach (渡辺さん, 2026-11-13: "縦軸サイズが若干大きすぎる").
+ */
 const hourHeight = (sheet: number) =>
-  Math.round(Math.min(420, Math.max(170, sheet - 250)));
+  Math.round(Math.min(300, Math.max(170, sheet - 330)));
 
 /** The graph fills the sheet: its height minus the tabs, notes and legend. */
 function chartHeight(

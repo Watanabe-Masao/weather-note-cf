@@ -251,6 +251,8 @@ export interface ReadoutRow {
   a: ReactNode;
   b?: ReactNode;
   diff?: string;
+  /** Words, not numbers (明るさ, 空): smaller, and may take two lines rather than run into the next column. */
+  text?: boolean;
 }
 
 /**
@@ -271,11 +273,11 @@ export function GraphReadout({ title, rows, unit, live }: { title: ReactNode; ro
               {r.mark && <MarkIcon shape={r.mark} color={r.color ?? "currentColor"} />}
               {r.label}
             </span>
-            <span className="ro-v" style={r.mark ? undefined : { color: r.color }}>
+            <span className={r.text ? "ro-v ro-text" : "ro-v"} style={r.mark ? undefined : { color: r.color }}>
               {r.a}
               {typeof r.a === "string" && r.a !== "—" && (r.unit ?? unit) && <small className="unit">{r.unit ?? unit}</small>}
             </span>
-            <span className="ro-v ro-b" style={r.mark ? undefined : { color: r.color }}>
+            <span className={r.text ? "ro-v ro-b ro-text" : "ro-v ro-b"} style={r.mark ? undefined : { color: r.color }}>
               {r.b ?? "—"}
             </span>
             <span className="ro-v ro-diff">{r.diff || "—"}</span>

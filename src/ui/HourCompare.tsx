@@ -191,6 +191,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                 // 明るさ (shared/brightness.ts): the felt level of the hour, and how many times brighter.
                 {
                   key: "light",
+                  text: true,
                   label: "明るさ",
                   unit: "",
                   a: lightMain[shownHour - 1] == null ? "—" : brightnessLevel(lightMain[shownHour - 1]!).label,
@@ -200,6 +201,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                 // The first impression on stepping out of a lit room (about 500 lx; shared/brightness.ts).
                 {
                   key: "stepOut",
+                  text: true,
                   label: "外に出たとき",
                   unit: "",
                   a: stepOutFeel(lightMain[shownHour - 1]) ?? "—",
@@ -208,6 +210,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                 // 空の色（模式）at the step (the middle of the hour until a step is picked on the strip).
                 {
                   key: "sky",
+                  text: true,
                   label: `空（${stepTime(shownHour, step ?? 3)}）`,
                   unit: "",
                   a: <SkyWord s={skyStep(skyMain)} />,
@@ -220,6 +223,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                 // The level of the shown hour: everyone's, and the person's (β).
                 {
                   key: "level",
+                  text: true,
                   label: "あなたの段",
                   unit: "",
                   // The person's levels are of the shown day (対象) only.

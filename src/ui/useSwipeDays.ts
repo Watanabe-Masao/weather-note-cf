@@ -11,7 +11,10 @@ const DISTANCE = 56;
 const FLICK = 0.45;
 
 export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
-  const ref = useRef<HTMLDivElement>(null);
+  // A callback ref (the element held in state): the listeners follow the element when it changes —
+  // the summary's line when it is folded (畳む), or docked under the sheet's head only once pinned.
+  // With a plain ref read once at mount, those later elements never got the listeners.
+  const [el, ref] = useState<HTMLDivElement | null>(null);
   const [dx, setDx] = useState(0);
   /** How far the pull has gone toward a day change: −1 … 1 is "release to move" at ±1 (sign = direction). */
   const [pull, setPull] = useState(0);
@@ -20,7 +23,6 @@ export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
   step.current = onStep;
 
   useEffect(() => {
-    const el = ref.current;
     if (!el) return;
     const tracker = new VelocityTracker();
     let start: { x: number; y: number } | null = null;
@@ -85,7 +87,7 @@ export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
       window.removeEventListener("pointermove", pm);
       window.removeEventListener("pointerup", pu);
     };
-  }, []);
+  }, [el]);
 
   // Following: no transition. Released: spring back. A new day: starts offset on the side it came from, then glides in.
   const style: CSSProperties = entering

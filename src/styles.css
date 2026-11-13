@@ -1207,8 +1207,7 @@ button.label-feel.shade small {
   color: var(--ink-primary);
   font-size: 15px;
 }
-.sky-word { display: inline-flex; align-items: center; gap: 5px; }
-.sky-word i { width: 12px; height: 16px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
+.sky-word i { display: inline-block; width: 9px; height: 12px; margin-right: 3px; vertical-align: -1px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
 .day-band-edge { stroke: var(--line-soft); }
 
 .day-band-label {
@@ -1304,6 +1303,21 @@ button.label-feel.shade small {
 
 .ro-v.ro-b {
   opacity: 0.72;
+}
+
+/* Words (明るさ・空・段): smaller and up to two lines inside their column, never into the next one.
+   Always two lines tall, so the card keeps its height from hour to hour. */
+.ro-v.ro-text {
+  font-size: var(--size-xs);
+  line-height: 1.25;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  min-height: 2.5em;
+  align-self: center;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .ro-v.ro-diff {
@@ -3072,6 +3086,21 @@ svg.scrub {
   color: var(--ink-secondary);
 }
 .cs-beta-head small { font-size: 11px; color: var(--ink-tertiary); }
+/* The β rows fold (the summary stays short): the head is the switch; the buttons stay. */
+.cs-beta-fold {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.cs-beta-chev { font-size: 11px; color: var(--accent-base); }
+.cs-beta.folded .cs-beta-head { align-items: center; }
 .cs-row.beta .cs-val { font-size: 0.92em; }
 .beta-fc { display: block; font-size: 9.5px; color: var(--status-forecast); line-height: 1.1; }
 .beta-short { font-size: 11px; }
