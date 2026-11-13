@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CLOUD, rainFactor, sunUpFraction } from "../../shared/brightness";
+import { brightnessLevel, CLOUD, rainFactor, sunUpFraction } from "../../shared/brightness";
 import { cloudiness, daySky, luminanceText, SKY_STEPS, skyAt, skyGlow, skyTrace, stepTime } from "../../shared/sky";
 import type { WeatherRow } from "../../shared/types";
 
@@ -163,5 +163,61 @@ describe("カラーチャート（資料 research/sky/colour-chart.html）", () 
     const { colourChartHtml } = await import("../../research/sky/colour-chart");
     const committed = readFileSync(new URL("../../research/sky/colour-chart.html", import.meta.url), "utf8");
     expect(committed === colourChartHtml(), "research/data/node_modules/.bin/vite-node research/sky/write-colour-chart.ts で作り直す").toBe(true);
+  });
+});
+
+// 採用の基準（2026-11-14）: the sky is a schematic for showing, not a measurement. What it must do is
+// tell one story with the light, change smoothly, keep its order, and make the usual scenes plain.
+describe("採用の基準：見る人に矛盾なく伝わる", () => {
+  const WEATHER: [string, number, number][] = [
+    ["快晴", CLOUD.clear, 0],
+    ["曇り", CLOUD.cloudy, 0],
+    ["雨", rainFactor(3), 3],
+    ["晴れ間のにわか雨", 1, 0.5],
+  ];
+  const GREY_WORDS = ["小雨の空", "雨空", "強い雨の空", "灰色の空", "暗い曇り空", "白い曇り空"];
+  const ALTS = Array.from({ length: 561 }, (_, i) => 10 - i * 0.05); // +10° … −18°, 0.05° steps
+
+  it("矛盾しない：日差しの明るさの段で、灰色の空のことばや色を出さない", () => {
+    for (const alt of [20, 40, 60])
+      for (const [, f, mm] of WEATHER) {
+        const s = skyAt(alt, f, mm, false, 0.2);
+        if (s.index < 5) continue; // 日差しの明るさ（50,000 lx〜）だけ
+        expect(GREY_WORDS).not.toContain(s.word);
+        const [r, , b] = rgb(s.zenith);
+        expect(b).toBeGreaterThan(r + 20);
+      }
+  });
+
+  it("途切れない：太陽が +10°〜−18° を 0.05° ずつ動いても色が飛ばない", () => {
+    for (const [, f, mm] of WEATHER) {
+      let prev: number[] | null = null;
+      for (const alt of ALTS) {
+        const c = rgb(skyAt(alt, f, mm, true, 0.2).zenith);
+        if (prev) expect(Math.max(...c.map((v, i) => Math.abs(v - prev![i])))).toBeLessThanOrEqual(6);
+        prev = c;
+      }
+    }
+  });
+
+  it("順序が逆転しない：同じ天気なら、地上が明るいほど空の色も暗くならない", () => {
+    for (const [, f, mm] of WEATHER) {
+      const seq = ALTS.map((alt) => skyAt(alt, f, mm, true, 0.2)).sort((a, b) => a.lux - b.lux);
+      // Allowed: a drop no eye can tell (RGB sum within 6 of 765; the largest now is 4, at the low sun's hue turn).
+      for (const part of ["zenith", "horizon"] as const)
+        for (let i = 1; i < seq.length; i++) expect(light(seq[i][part])).toBeGreaterThanOrEqual(light(seq[i - 1][part]) - 6);
+    }
+  });
+
+  it("典型の場面が分かる：快晴の昼・曇りの昼・夕方・薄明・街の夜", () => {
+    expect(skyAt(50, CLOUD.clear, 0, false, 0.2).word).toBe("青空");
+    expect(skyAt(50, CLOUD.cloudy, 0, false, 0.2).word).toBe("白い曇り空");
+    expect(skyAt(2, CLOUD.clear, 0, true, 0.2).word).toBe("夕方の空");
+    expect(skyAt(-8, CLOUD.clear, 0, true, 0.2).word).toBe("薄明の青");
+    const night = skyAt(-30, CLOUD.cloudy, 0, true, 0.3);
+    expect(night.word).toBe("夜空");
+    expect(brightnessLevel(night.index).label).toBe("暗い");
+    // A town's cloudy night looks lighter (grey) than an open clear night (navy).
+    expect(light(night.zenith)).toBeGreaterThan(light(skyAt(-30, CLOUD.clear, 0, true, 0.14).zenith));
   });
 });
