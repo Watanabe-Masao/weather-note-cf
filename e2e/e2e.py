@@ -179,7 +179,7 @@ with sync_playwright() as p:
         pg.locator(".chart-hit").nth(7).click(force=True); wait(700)
         check("D1 日をタップで時間帯", title().endswith("の時間帯"), title())
         check("D2 戻るボタン", pg.locator(".back-btn").count() == 1)
-        for i, label in enumerate(["気温", "降水", "日差し", "日照時間と明るさ", "湿度", "風速", "気圧"]):
+        for i, label in enumerate(["気温", "降水", "日差し", "日照と明るさ", "湿度", "風速", "気圧"]):
             pg.click(f".metrics .chip:nth-child({i+1})"); wait(500)
             check(f"D3 時間帯 {label}", title() == f"{label}の時間帯" and pg.locator(".day-chart > svg").count() == 1, title())
         pg.click(".metrics .chip:nth-child(1)"); wait(300)
@@ -275,6 +275,29 @@ with sync_playwright() as p:
         pg.click(".today-chip"); wait(500)
         check("H3 今日へ戻る", txt(".side .date-button") == before)
     step("H", h)
+
+    # G2. a tap that lowers the sheet must not also tap the page behind (iOS sends the click afterwards)
+    def ghost():
+        n0 = pg.locator(".msheet").count()
+        pg.evaluate("""() => { const h = document.querySelector('.sheet-handle');
+          h.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, clientY: 300, pointerId: 9}));
+          h.dispatchEvent(new PointerEvent('pointerup', {bubbles: true, clientY: 300, pointerId: 9}));
+          window.__ghost = 0; const t = document.querySelector('.chart-hit, .date-button');
+          t.addEventListener('click', () => window.__ghost++, {once: true});
+          t.click(); }""")
+        wait(200)
+        check("G2a 下げたタップのクリックは背面に届かない", pg.evaluate("window.__ghost") == 0 and pg.locator(".msheet").count() == n0)
+        wait(800)
+        pg.evaluate("""() => { window.__ghost = 0; const t = document.querySelector('.chart-hit, .date-button');
+          t.addEventListener('click', () => window.__ghost++, {once: true}); }""")
+        pg.locator(".side .arrow").nth(1).click(); wait(400)
+        pg.locator(".today-chip").click(); wait(400)
+        check("G2b 少し後のタップは普通に届く", pg.locator(".today-chip").count() == 0)
+        pg.evaluate("""() => { const h = document.querySelector('.sheet-handle');
+          h.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, clientY: 300, pointerId: 9}));
+          h.dispatchEvent(new PointerEvent('pointerup', {bubbles: true, clientY: 300, pointerId: 9})); }""")
+        wait(800)
+    step("G2", ghost)
 
     # I. close rules on the calendar: Esc, backdrop, ×, drag; pick closes
     def i_():
@@ -483,7 +506,7 @@ with sync_playwright() as p:
             check(f"T7 明るさで {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())
         pg.locator(".lt-controls button", has_text="時刻で").click(); wait(400)
         pg.click(".back-btn"); wait(600)
-        check("T8 ‹日別で戻る", title() == "日照時間と明るさの日別", title())
+        check("T8 ‹日別で戻る", title() == "日照と明るさの日別", title())
         pg.click(".metrics .chip:nth-child(3)"); wait(500)
         check("T9 日差しには［移り変わり］がない", pg.locator(".trend-btn").count() == 0)
         pg.click(".metrics .chip:nth-child(1)"); wait(400)

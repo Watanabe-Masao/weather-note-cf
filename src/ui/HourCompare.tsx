@@ -35,7 +35,7 @@ import {
   signedDiff,
 } from "../dayDetail";
 import { barLook, type DataColor, DATA, LIGHT_LEVELS, type LineLook, lineLook } from "../design/tokens";
-import { dateLabel, needsYear, niceTicks, tickLabel } from "../design/format";
+import { axisWidth, dateLabel, needsYear, niceTicks, tickLabel } from "../design/format";
 import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
 import { levelOf, type Thresholds } from "../../shared/feel";
 import { Segmented } from "./kit";
@@ -155,7 +155,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const at = (points: HourPoint[]) => points[shownHour - 1]?.v ?? null;
   // Same month and day a year apart would read "11/10" twice: the comparison day keeps its year.
   const mainLabel = dateLabel(date, { weekday: false });
-  const otherLabel = other ? dateLabel(other, { year: needsYear(other, date), weekday: false }) : "";
+  // Another year as 'YY (as in the summary line), so the title fits beside the column heads.
+  const otherLabel = other ? (needsYear(other, date) ? `’${other.slice(2, 4)}/` : "") + dateLabel(other, { weekday: false }) : "";
   const tone = HOUR_TONE[metricId];
   const color = DATA[tone];
 
@@ -327,7 +328,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         </span>
         {metricId === "feel" && (
           <span>
-            <i className="ls-solid" style={{ borderColor: DATA.mean }} />
+            <i className="ls-solid" style={{ borderColor: lineLook("target", "", { kind: "reference" }).stroke }} />
             気温
           </span>
         )}
@@ -367,7 +368,7 @@ function HourStatus({ state, error, onRetry }: { state?: string; error?: string;
   );
 }
 
-const PAD = { left: 34, right: 10, top: 18, bottom: 26 };
+const PAD = { right: 10, top: 18, bottom: 26 };
 
 type BandWx = { text: string | null; estimated: boolean };
 
@@ -642,14 +643,16 @@ function HourChart({
   }, []);
 
   const metric = detailMetric(metricId);
-  const plotW = w - PAD.left - PAD.right;
-  const step = plotW / 24;
-  // Hour n is the value at n o'clock: x runs from 0 to 24 o'clock.
-  const xOf = (h: number) => PAD.left + (h / 24) * plotW;
   const values = [main, second ?? [], air ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null);
   // Round ticks (10 / 15 / 20): the padded data range widened to whole steps.
   const range = axisRange(values, metric);
   const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
+  // The axis column is as wide as its longest label (1020 hPa needs more than 25 ℃), so nothing is cut.
+  const left = axisWidth(ticks.map(tickLabel));
+  const plotW = w - left - PAD.right;
+  const step = plotW / 24;
+  // Hour n is the value at n o'clock: x runs from 0 to 24 o'clock.
+  const xOf = (h: number) => left + (h / 24) * plotW;
   const yOf = (v: number) => PAD.top + ((hi - Math.min(hi, Math.max(lo, v))) * (H - PAD.top - PAD.bottom)) / (hi - lo);
   // Sunrise and sunset from the sun API when known (the stored ones), else calculated.
   const rise = hourOfDay(sun?.sunrise ?? null) ?? day.edges.rise / 60;
@@ -666,7 +669,7 @@ function HourChart({
 
   const pickAt = (clientX: number) => {
     const box = ref.current!.getBoundingClientRect();
-    const x = ((clientX - box.left - PAD.left) / plotW) * 24;
+    const x = ((clientX - box.left - left) / plotW) * 24;
     // A bar covers the hour before its time (19–20 o'clock is the 20時 bar).
     const h = metric.chart === "bar" ? Math.ceil(x) : Math.round(x);
     onHour(Math.min(24, Math.max(1, h)));
@@ -738,11 +741,11 @@ function HourChart({
             if (to <= lo || from >= hi) return null;
             const top = yOf(Math.min(hi, to));
             const bottom = yOf(Math.max(lo, from));
-            return <rect key={i} x={PAD.left} width={plotW} y={top} height={Math.max(0, bottom - top)} fill={color} opacity={0.14} />;
+            return <rect key={i} x={left} width={plotW} y={top} height={Math.max(0, bottom - top)} fill={color} opacity={0.14} />;
           })}
         {metricId === "feel" &&
           guides?.map((v, i) =>
-            v > lo && v < hi ? <line key={`g${i}`} x1={PAD.left} x2={PAD.left + plotW} y1={yOf(v)} y2={yOf(v)} className="chart-guide-shared" /> : null,
+            v > lo && v < hi ? <line key={`g${i}`} x1={left} x2={left + plotW} y1={yOf(v)} y2={yOf(v)} className="chart-guide-shared" /> : null,
           )}
         <defs>
           <ForecastHatch id="fc-hours" />
@@ -787,14 +790,14 @@ function HourChart({
 
         {ticks.map((t) => (
           <g key={t}>
-            <line x1={PAD.left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
-            <text x={PAD.left - 6} y={yOf(t) + 4} className="chart-tick" textAnchor="end">
+            <line x1={left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
+            <text x={left - 6} y={yOf(t) + 4} className="chart-tick" textAnchor="end">
               {tickLabel(t)}
             </text>
           </g>
         ))}
         {/* The unit once, above the axis. */}
-        <text x={PAD.left - 6} y={PAD.top - 6} className="chart-unit" textAnchor="end">
+        <text x={2} y={PAD.top - 6} className="chart-unit">
           {metric.unit === "h" ? "時間" : metric.unit}
         </text>
 
@@ -813,7 +816,7 @@ function HourChart({
             x={xOf(hour)}
             top={PAD.top}
             bottom={H - PAD.bottom}
-            left={PAD.left}
+            left={left}
             points={main[hour - 1]?.v != null ? [{ y: yOf(main[hour - 1].v!), color, label: formatDetail(main[hour - 1].v, metric) }] : []}
           />
         )}
