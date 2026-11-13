@@ -3097,6 +3097,8 @@ svg.scrub {
 .try-it { display: grid; gap: 8px; }
 .try-wind { display: grid; gap: 4px; font-size: 13px; }
 .try-wind input { width: 100%; }
+.basis-cusum { width: 100%; max-width: 320px; height: 84px; }
+.basis-cusum path { fill: none; stroke: var(--accent-base); stroke-width: 2; }
 .basis-pit { width: 100%; max-width: 320px; height: 64px; }
 .basis-pit rect { fill: var(--accent-base); opacity: 0.75; }
 .basis-pit-even { stroke: var(--ink-secondary); stroke-dasharray: 3 3; }

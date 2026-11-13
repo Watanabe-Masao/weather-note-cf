@@ -18,6 +18,9 @@ export const CHECKED = [
 ] as const;
 type Key = (typeof CHECKED)[number]["key"];
 
+/** Answers per period in the time series. */
+export const PERIOD = 10;
+
 /** Fewer answers than this, and a slope is not judged. */
 export const MIN_FOR_SLOPE = 20;
 
@@ -41,6 +44,10 @@ export interface Checks {
   /** Mean surrogate residual (+: felt warmer than predicted). */
   residualMean: number | null;
   slopes: SlopeCheck[];
+  /** β against the starting point per 10 answers, with the day-block interval (a few answers: wide). */
+  periods: { from: string; to: string; diff: PairedDifference }[];
+  /** Running sum of the surrogate residuals in time order (a sustained slope: a lasting lean, drift). */
+  cusum: number[];
   /** What could be seen before answering (#116), over the reports that kept it. */
   context: { n: number; changedAfterPrediction: number; sameAsShown: number; sameAsPrediction: number } | null;
 }
@@ -86,7 +93,17 @@ export function checksOf(reports: Report[]): Checks {
   const slopes0 = CHECKED.map((v) => ({ ...v, slope: live.length >= MIN_FOR_SLOPE ? residualSlope(vars[v.key], res) : null }));
   const flags = falseDiscovery(slopes0.map((v) => v.slope?.p ?? 1), 0.1);
   const diff = pairedDifference(pairs, 2000, 1);
+  const periods: Checks["periods"] = [];
+  for (let k = 0; k + PERIOD <= pairs.length; k += PERIOD) {
+    const chunk = pairs.slice(k, k + PERIOD);
+    const d = pairedDifference(chunk, 1000, k + 1);
+    if (d) periods.push({ from: chunk[0].day, to: chunk[chunk.length - 1].day, diff: d });
+  }
+  let run = 0;
+  const cusum = res.map((v) => (run += v));
   return {
+    periods,
+    cusum,
     n: live.length,
     base: pairs.length ? { n: pairs.length, rpsBase: pairs.reduce((t, p) => t + p.a, 0) / pairs.length, rpsBeta: pairs.reduce((t, p) => t + p.b, 0) / pairs.length, diff } : null,
     pit: pitHistogram(pits, 10),

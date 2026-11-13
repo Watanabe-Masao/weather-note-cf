@@ -98,3 +98,12 @@ describe("weak spots (#118)", () => {
     expect(weakSpots(rs.slice(0, MIN_FOR_GROUP - 1)).length).toBe(0);
   });
 });
+
+describe("periods and the running sum (#118)", () => {
+  it("cuts the answers into periods of 10 and sums the misses in time order", () => {
+    const c = checksOf(people(35, 0));
+    expect(c.periods).toHaveLength(3);
+    expect(c.cusum).toHaveLength(35);
+    expect(c.periods.every((p) => p.diff.n === 10)).toBe(true);
+  });
+});
