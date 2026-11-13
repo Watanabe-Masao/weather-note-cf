@@ -116,9 +116,11 @@ with sync_playwright() as p:
       class D extends RD{constructor(...a){super(...(a.length?a:[RD.now()+off]))} static now(){return RD.now()+off}}
       globalThis.Date=D;}""")
     FAIL = set()  # parts of a URL that answer 500 (a step makes a request fail on purpose)
+    FAILED_ON_PURPOSE = []
     def handle(route):
         from urllib.parse import urlparse, parse_qs
         if any(f in route.request.url for f in FAIL):
+            FAILED_ON_PURPOSE.append(route.request.url)
             return route.fulfill(status=500, content_type="application/json", body=json.dumps({"error": "テスト用の失敗"}))
         u = urlparse(route.request.url)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
@@ -537,6 +539,8 @@ with sync_playwright() as p:
         pg.click(".metrics .chip:nth-child(1)"); wait(400)
     step("T", tt)
 
+    # The 500s step FS asks for on purpose are not errors of the app.
+    errors = [e for e in errors if not (FAILED_ON_PURPOSE and "status of 500" in e)]
     check("Z コンソールのエラーなし", not errors, "; ".join(errors[:5]))
     b.close()
 srv.shutdown()
