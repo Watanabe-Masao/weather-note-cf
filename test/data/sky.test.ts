@@ -220,4 +220,16 @@ describe("採用の基準：見る人に矛盾なく伝わる", () => {
     // A town's cloudy night looks lighter (grey) than an open clear night (navy).
     expect(light(night.zenith)).toBeGreaterThan(light(skyAt(-30, CLOUD.clear, 0, true, 0.14).zenith));
   });
+
+  it("段の例えと合う：晴れの昼は日差し、曇りの昼と晴れの朝夕はとても明るい、曇りの朝夕と冬の雨の昼は明るい", () => {
+    const level = (alt: number, factor: number, mm: number) => brightnessLevel(skyAt(alt, factor, mm, false, 0.2).index).label;
+    // 高知の南中高度：夏至ごろ約80°、冬至ごろ約33°
+    for (const noon of [33, 80]) {
+      expect(level(noon, CLOUD.cloudy, 0)).toBe("とても明るい");
+    }
+    expect(level(80, CLOUD.clear, 0)).toBe("日差しの明るさ");
+    expect(level(10, CLOUD.clear, 0)).toBe("とても明るい");
+    expect(level(10, CLOUD.cloudy, 0)).toBe("明るい");
+    expect(level(33, CLOUD.rain, 2)).toBe("明るい");
+  });
 });

@@ -41,8 +41,8 @@ export const BRIGHTNESS_LEVELS = [
   { id: "dark", label: "暗い", from: 0.0001, example: "町の夜空・月明かり（真っ暗は 0.0001lx）" },
   { id: "twilight", label: "薄明", from: 1, example: "日の出前・日没後" },
   { id: "dim", label: "薄暗い", from: 100, example: "厚い雲の夕方" },
-  { id: "bright", label: "明るい", from: 1_000, example: "曇りの昼" },
-  { id: "veryBright", label: "とても明るい", from: 10_000, example: "晴れの朝夕・冬の昼" },
+  { id: "bright", label: "明るい", from: 1_000, example: "曇りの朝夕・冬の雨の昼" },
+  { id: "veryBright", label: "とても明るい", from: 10_000, example: "曇りの昼・晴れの朝夕" },
   { id: "dazzling", label: "日差しの明るさ", from: 50_000, example: "晴れの昼" },
 ] as const;
 /** The top of the scale (index 6): the brightest sun on open ground. */
