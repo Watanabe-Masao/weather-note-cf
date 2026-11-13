@@ -51,6 +51,25 @@ export interface HourView {
   fetchedAt?: number;
 }
 
+interface Failed {
+  message: string;
+  /** When it failed (ms). */
+  at: number;
+  /** The request that failed (daily:…, hourly:…, recent:…, forecast:…, current:…). */
+  task: string;
+}
+
+export interface Failure extends Failed {
+  station: string;
+  date: string;
+  /** Hourly values (else the day's values). */
+  hourly: boolean;
+  /** When it will be tried again on its own (ms), or null. */
+  retryAt: number | null;
+  /** Who wanted it: "view" (the days on screen), "view-ahead", or an owner (sheet, conditions, hour-average, …). */
+  wantedBy: string[];
+}
+
 export interface StorageReport {
   days: number;
   hours: number;
@@ -96,7 +115,7 @@ export class WeatherStore {
   private hours = new Map<string, HourRecord>();
   private looked = new Set<string>(); // day/hour keys already looked up in storage
   private fresh = new Set<string>(); // task keys completed in this session
-  private errors = new Map<string, string>(); // "d:" / "h:" + key -> message
+  private errors = new Map<string, Failed>(); // "d:" / "h:" + key -> what failed, when, by which request
   private blocked = new Map<string, { until: number; attempt: number }>(); // task key -> retry state
   private timers = new Set<unknown>();
   private listeners = new Set<() => void>();
@@ -189,6 +208,10 @@ export class WeatherStore {
     this.today = today;
     this.newSession();
     this.fresh.clear();
+    // Failures from before the day changed were asked with the old date (a 速報 for a day the
+    // server no longer serves): the new day plans again from scratch, so they go with it.
+    this.errors.clear();
+    this.blocked.clear();
     this.latest.clear();
     await this.prunePastForecasts();
     this.emit();
@@ -290,7 +313,7 @@ export class WeatherStore {
     const k = dayKey(station, date);
     const rec = this.days.get(k);
     if (rec) return { date, state: "ready", row: rec.row, kind: rec.kind };
-    const error = this.errors.get("d:" + k);
+    const error = this.errors.get("d:" + k)?.message;
     return { date, state: error ? "error" : "empty", row: null, kind: null, error };
   }
 
@@ -299,12 +322,36 @@ export class WeatherStore {
     const k = dayKey(station, date);
     const rec = this.hours.get(k);
     if (rec) return { date, state: "ready", rows: rec.rows, kind: rec.kind, fetchedAt: rec.fetchedAt };
-    const error = this.errors.get("h:" + k);
+    const error = this.errors.get("h:" + k)?.message;
     return { date, state: error ? "error" : "empty", rows: [], kind: null, error };
   }
 
   getLatest(station: string): WeatherRow | null {
     return this.latest.get(station) ?? null;
+  }
+
+  /**
+   * What failed, for the sheet behind the status bar: the day, daily or hourly values, the request
+   * and its message, when, when it will be tried again, and which parts of the screen wanted it.
+   */
+  failures(): Failure[] {
+    const out: Failure[] = [];
+    const visible = this.view ? viewPlan(this.view.centers, this.view.direction, this.today) : new Map<string, number>();
+    for (const [key, f] of this.errors) {
+      const hourly = key.startsWith("h:");
+      const k = key.slice(2);
+      const station = k.slice(0, k.indexOf("/"));
+      const date = k.slice(k.indexOf("/") + 1);
+      const wantedBy: string[] = [];
+      if (hourly) {
+        for (const [owner, req] of this.hourRequests) if (req.has(k)) wantedBy.push(owner);
+      } else {
+        if (this.view?.station === station && visible.has(date)) wantedBy.push(visible.get(date) === Priority.Visible ? "view" : "view-ahead");
+        for (const [owner, req] of this.extra) if (req.has(k)) wantedBy.push(owner);
+      }
+      out.push({ station, date, hourly, message: f.message, at: f.at, task: f.task, retryAt: this.blocked.get(f.task)?.until ?? null, wantedBy });
+    }
+    return out.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : Number(a.hourly) - Number(b.hourly)));
   }
 
   /** Days whose daily or hourly values failed to load (for the status bar). */
@@ -509,7 +556,8 @@ export class WeatherStore {
     } catch (e) {
       if (ctx.gen !== this.gen || ctx.session !== this.session) return; // an old session's failure
       const message = (e as Error)?.message || "取得できませんでした";
-      for (const k of task.days) this.errors.set((task.key.startsWith("hourly:") ? "h:" : "d:") + k, message);
+      const failed: Failed = { message, at: this.now(), task: task.key };
+      for (const k of task.days) this.errors.set((task.key.startsWith("hourly:") ? "h:" : "d:") + k, failed);
       const attempt = (this.blocked.get(task.key)?.attempt ?? 0) + 1;
       const delay = RETRY_DELAYS[Math.min(attempt, RETRY_DELAYS.length) - 1];
       this.blocked.set(task.key, { until: this.now() + delay, attempt });
@@ -629,7 +677,7 @@ export class WeatherStore {
           const k = dayKey(station, day.date);
           const current = ctx.gen === this.gen && ctx.session === this.session;
           if (day.error) {
-            if (current) this.errors.set("h:" + k, day.error);
+            if (current) this.errors.set("h:" + k, { message: day.error, at: this.now(), task: `hourly:${station}:${from}:${to}` });
             failed = day.error;
             continue;
           }

@@ -190,6 +190,29 @@ describe("acceptance criteria (spec 2.7)", () => {
     expect(store.getDay(KOCHI, "2025-06-15").state).toBe("ready");
   });
 
+  it("says what failed: the day, the request, when, when again, and who wanted it", async () => {
+    let now = NOW;
+    const { store, api } = makeStore(await openStorage(), fakeApi(), () => now);
+    api.failing.add("month=2025-06");
+    store.setView(KOCHI, ["2025-06-15"]);
+    store.prefetch(KOCHI, ["2025-06-20"], "conditions");
+    await store.idle();
+    const list = store.failures();
+    const day = list.find((f) => f.date === "2025-06-15")!;
+    expect(day).toMatchObject({ station: KOCHI, hourly: false, at: NOW, task: expect.stringMatching(/^daily:.*2025-06/) });
+    expect(day.message).toBeTruthy();
+    expect(day.wantedBy).toContain("view");
+    expect(day.retryAt).toBe(NOW + 5_000);
+    expect(list.find((f) => f.date === "2025-06-20")!.wantedBy).toContain("conditions");
+    expect(store.failedDays()).toBe(list.length);
+
+    // A new day plans again from scratch: failures asked with the old date go with it.
+    now += 86_400_000;
+    api.today = addDays(TODAY, 1);
+    await store.checkDate();
+    expect(store.failures().filter((f) => f.at === NOW)).toEqual([]);
+  });
+
   it("does not write or redraw when a refresh returns the same values", async () => {
     const { store } = makeStore(await openStorage());
     store.setView(KOCHI, [TODAY]);
