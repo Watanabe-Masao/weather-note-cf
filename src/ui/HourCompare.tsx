@@ -2,7 +2,7 @@
 // Shared by the day detail and the sheet's 時間帯 tab, so both look and behave the same.
 
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { jstHour } from "../../shared/dates";
+import { addDays, jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
 import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, dayLights, luxText, stepOutFeel, usualText } from "../../shared/brightness";
 import { usualLightOf } from "../light";
@@ -113,21 +113,32 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   };
   const [dim, setDim] = useState<Record<LineId, boolean>>({ main: false, other: false, avgMain: false, avgOther: false });
   const toggleDim = (k: LineId) => setDim((d) => ({ ...d, [k]: !d[k] }));
-  const avgDaysMain = useMemo(() => daysBefore(date, avgWindow, today), [date, avgWindow, today]);
-  const avgDaysOther = useMemo(() => (other ? daysBefore(other, avgWindow, today) : []), [other, avgWindow, today]);
+  // Every span's days are asked for (the month holds the week and the two weeks), so the graph's
+  // axis can be set from all three spans and does not move when the span is switched.
+  const LONGEST = AVERAGE_WINDOWS.at(-1)!;
+  const avgDaysMain = useMemo(() => daysBefore(date, LONGEST, today), [date, LONGEST, today]);
+  const avgDaysOther = useMemo(() => (other ? daysBefore(other, LONGEST, today) : []), [other, LONGEST, today]);
   const avgWanted = [...avgDaysMain, ...avgDaysOther].join(",");
   useEffect(() => {
     store?.wantHours(station, avgWanted ? avgWanted.split(",") : [], Priority.Behind, "hour-average");
   }, [store, station, avgWanted]);
   useEffect(() => () => store?.wantHours(station, [], Priority.Behind, "hour-average"), [store, station]);
-  const averageOf = (days: string[]) => {
-    if (!days.length) return null;
-    const ready = days.map((d) => store?.getHours(station, d)).filter((h) => h?.state === "ready");
-    const m = meanByHour(ready.map((h) => hourSeries(h!.rows, metricId, settings)), days.length);
+  // daysBefore gives the nearest first, so a span's days are the first `w` of the month's.
+  const seriesOf = (days: string[]) => days.map((d) => store?.getHours(station, d)).map((h) => (h?.state === "ready" ? hourSeries(h.rows, metricId, settings) : null));
+  const daySeriesMain = seriesOf(avgDaysMain);
+  const daySeriesOther = seriesOf(avgDaysOther);
+  const averageOf = (series: (HourPoint[] | null)[], days: string[], anchor: string, w: number) => {
+    const span = days.filter((d) => d >= addDays(anchor, -w)); // a prefix: nearest first
+    if (!span.length) return null;
+    const m = meanByHour(series.slice(0, span.length).filter((x): x is HourPoint[] => !!x), span.length);
     return m.some((p) => p.v != null) ? m : null;
   };
-  const avgMain = averageOf(avgDaysMain);
-  const avgOther = other ? averageOf(avgDaysOther) : null;
+  const avgMain = averageOf(daySeriesMain, avgDaysMain, date, avgWindow);
+  const avgOther = other ? averageOf(daySeriesOther, avgDaysOther, other, avgWindow) : null;
+  // The axis: the days' own values and every span's averages, whichever span is shown.
+  const axisExtra = AVERAGE_WINDOWS.flatMap((w) => [averageOf(daySeriesMain, avgDaysMain, date, w), other ? averageOf(daySeriesOther, avgDaysOther, other, w) : null])
+    .flatMap((a) => a?.map((p) => p.v) ?? [])
+    .filter((v): v is number => v != null);
   const chance = useMemo(() => hourSeries(hours?.rows ?? [], "probability", settings), [hours, settings]);
   // 明るさ for each hour 1–24 (null where the hour is missing), both days, at the station.
   // dayLights: a twilight hour's clouds come from the nearest hour of daylight when it has no weather text.
@@ -299,6 +310,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         air={air}
         avgMain={avgMain}
         avgOther={avgOther}
+        axisExtra={axisExtra}
         dim={dim}
         ranges={levelRanges(bands === "you" && personal ? personal : dayFeel.thresholds, settings.scale)}
         guides={bands === "you" ? dayFeel.thresholds : undefined}
@@ -529,7 +541,11 @@ function LightStrip({
   const hourSky = skyMain[shownHour - 1];
   const width = area.current?.getBoundingClientRect().width ?? 0;
   const left = Math.max(0, Math.min(width - ZOOM_W, at * width - ZOOM_W / 2));
-  const now = hourSky?.[shownStep];
+  const otherSky = hasOther ? skyOther?.[shownHour - 1] : null;
+  // The target's hour, and the comparison day's same hour under it, so the two read side by side.
+  const zoomDays = hourSky?.[shownStep]
+    ? [{ label: "対象", steps: hourSky }, ...(otherSky?.[shownStep] ? [{ label: "比較", steps: otherSky }] : [])]
+    : [];
 
   const row = (label: string, skies: (SkyColour[] | null)[]) => (
     <div className="light-row">
@@ -592,7 +608,7 @@ function LightStrip({
         />
         {row("対象", skyMain)}
         {hasOther && skyOther && row("比較", skyOther)}
-        {zoom && hourSky && now && (
+        {zoom && zoomDays.length > 0 && (
           <div className="sky-zoom" role="group" aria-label={`${stepTime(shownHour, 0)}〜${shownHour}:00の明るさと空（拡大）`} style={{ left: left + 34 }}>
             <div className="sky-zoom-head">
               <b>
@@ -600,27 +616,35 @@ function LightStrip({
               </b>
               <small>雲は1時間の値</small>
             </div>
-            <div className="sky-zoom-steps">
-              {hourSky.map((s, k) => (
-                <span key={k} className={k === shownStep ? "on" : undefined}>
-                  <i style={{ background: `linear-gradient(180deg, ${s.zenith}, ${s.horizon})` }} />
-                  <u style={{ background: LIGHT_LEVELS[Math.min(5, Math.floor(s.index))] }} />
-                  <small>{stepTime(shownHour, k)}</small>
-                </span>
-              ))}
-            </div>
-            <div className="sky-zoom-now">
-              <b>
-                {stepTime(shownHour, shownStep)}　{now.word}
-              </b>
-              <small>
-                太陽 {now.altitude > 0 ? "+" : ""}
-                {Math.round(now.altitude)}°
-              </small>
-            </div>
-            <div className="sky-zoom-light">
-              地上 {brightnessLevel(now.index).label}（{luxText(now.lux)}）・空 {luminanceText(now.skyLuminance)}
-            </div>
+            {zoomDays.map(({ label, steps }, d) => {
+              const cur = steps[shownStep];
+              return (
+                <div key={label} className="sky-zoom-day">
+                  <div className="sky-zoom-steps" role="img" aria-label={`${label}の10分ごとの空`}>
+                    {steps.map((s, k) => (
+                      <span key={k} className={k === shownStep ? "on" : undefined}>
+                        <i style={{ background: `linear-gradient(180deg, ${s.zenith}, ${s.horizon})` }} />
+                        <u style={{ background: LIGHT_LEVELS[Math.min(5, Math.floor(s.index))] }} />
+                        {d === zoomDays.length - 1 && <small>{stepTime(shownHour, k)}</small>}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="sky-zoom-now">
+                    <b>
+                      {zoomDays.length > 1 && <em>{label}</em>}
+                      {stepTime(shownHour, shownStep)}　{cur.word}
+                    </b>
+                    <small>
+                      太陽 {cur.altitude > 0 ? "+" : ""}
+                      {Math.round(cur.altitude)}°
+                    </small>
+                  </div>
+                  <div className="sky-zoom-light">
+                    地上 {brightnessLevel(cur.index).label}（{luxText(cur.lux)}）・空 {luminanceText(cur.skyLuminance)}
+                  </div>
+                </div>
+              );
+            })}
             {zoom === "tap" && (
               <button className="sky-zoom-close" onClick={() => setZoom(null)} aria-label="拡大を閉じる">
                 ×
@@ -693,6 +717,7 @@ function HourChart({
   air,
   avgMain,
   avgOther,
+  axisExtra,
   dim,
   ranges,
   sun,
@@ -715,6 +740,8 @@ function HourChart({
   air: HourPoint[] | null;
   /** Each day's own weeks before it (手前の平均), hour by hour. */
   avgMain?: HourPoint[] | null;
+  /** Values the axis must hold besides the lines shown (every span's averages, so switching the span keeps the axis). */
+  axisExtra?: number[];
   avgOther?: HourPoint[] | null;
   /** Lines the person has set aside: drawn grey, under the others. */
   dim?: Record<LineId, boolean>;
@@ -744,7 +771,7 @@ function HourChart({
   }, []);
 
   const metric = detailMetric(metricId);
-  const values = [main, second ?? [], air ?? [], avgMain ?? [], avgOther ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null);
+  const values = [main, second ?? [], air ?? [], avgMain ?? [], avgOther ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null).concat(axisExtra ?? []);
   // Round ticks (10 / 15 / 20): the padded data range widened to whole steps.
   const range = axisRange(values, metric);
   const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
