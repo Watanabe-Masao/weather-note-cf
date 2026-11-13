@@ -187,6 +187,32 @@ with sync_playwright() as p:
         check("D4 ‹日別で戻る", title() == "気温の日別", title())
     step("D", d)
 
+    # U. 日照の時間帯 › 空の色（模式）: なぞると1時間を拡大、テキスト選択・拡大鏡は出ない
+    def uu():
+        pg.locator(".chart-hit").nth(7).click(force=True); wait(700)
+        pg.click(".metrics .chip:nth-child(4)"); wait(600)
+        pg.locator(".light-strip .seg button", has_text="空の色").click(); wait(400)
+        check("U1 空の色：1時間に6色のマス", pg.locator(".light-cells.sky i b").count() >= 48 and no_overflow(), str(pg.locator(".light-cells.sky i b").count()))
+        check("U2 読み取りに空の行", "空（" in txt(".readout-card"), txt(".readout-card"))
+        pg.locator(".light-strip").scroll_into_view_if_needed(); wait(300)
+        b = pg.locator(".light-trace.on").bounding_box()
+        y = b["y"] + b["height"] / 2
+        pg.mouse.move(b["x"] + b["width"] * 0.5, y); pg.mouse.down(); pg.mouse.move(b["x"] + b["width"] * 0.55, y, steps=4)
+        check("U3 なぞると拡大カード", pg.locator(".sky-zoom").count() == 1 and pg.locator(".sky-zoom-steps span").count() == 6)
+        sel = pg.evaluate("String(getSelection())")
+        check("U4 テキストが選択されない", sel == "", repr(sel))
+        check("U5 帯は選択・長押しメニューなし", pg.evaluate("getComputedStyle(document.querySelector('.light-trace.on')).userSelect") == "none")
+        pg.mouse.up(); wait(300)
+        check("U6 離すとカードは消える", pg.locator(".sky-zoom").count() == 0)
+        pg.mouse.click(b["x"] + b["width"] * 0.3, y); wait(300)
+        check("U7 軽く押すとカードが残り×で閉じる", pg.locator(".sky-zoom-close").count() == 1)
+        pg.click(".sky-zoom-close"); wait(200)
+        check("U8 ×で閉じる", pg.locator(".sky-zoom").count() == 0)
+        pg.locator(".light-strip .seg button", has_text="明るさの段").click(); wait(300)
+        pg.click(".metrics .chip:nth-child(1)"); wait(400)
+        pg.click(".back-btn"); wait(500)
+    step("U", uu)
+
     # E. forecast hatch in hours (tomorrow)
     def e():
         pg.locator(".chart-hit").nth(8).click(force=True); wait(800)

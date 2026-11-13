@@ -1141,6 +1141,71 @@ button.label-feel.shade small {
 .light-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 0 34px; font-size: 10px; color: var(--ink-tertiary); }
 .light-legend span { display: inline-flex; align-items: center; gap: 3px; }
 .light-legend i { width: 10px; height: 10px; border-radius: 2px; border: 1px solid var(--line-soft); }
+/* 空の色（模式）: each hour as its six 10-minute colours, the zenith above the horizon. */
+.light-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.light-rows { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.light-cells.sky i { height: 24px; display: flex; flex-direction: column; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.light-cells.sky i b { display: block; }
+.light-cells.sky i b:first-child { flex: 3; }
+.light-cells.sky i b:last-child { flex: 2; }
+/* The strip is traced with a finger: never the iOS loupe, selection or the copy menu (#: 拡大鏡でないように). */
+.light-trace { display: none; }
+.light-trace.on {
+  display: block;
+  position: absolute;
+  inset: 0 10px 0 34px;
+  z-index: 1;
+  cursor: ew-resize;
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.sky-zoom {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  z-index: 3;
+  width: 264px;
+  box-sizing: border-box;
+  padding: 10px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 14px;
+  background: var(--surface-overlay);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  transform-origin: 50% 100%;
+  animation: sky-zoom-in 140ms ease-out;
+}
+@keyframes sky-zoom-in { from { opacity: 0; transform: translateY(8px) scale(0.92); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .sky-zoom { animation: none; } }
+.sky-zoom-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; }
+.sky-zoom-head small, .sky-zoom-now small { font-size: 10px; color: var(--ink-secondary); }
+.sky-zoom-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; align-items: end; }
+.sky-zoom-steps span { display: flex; flex-direction: column; gap: 3px; }
+.sky-zoom-steps i { height: 56px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.sky-zoom-steps span.on i { height: 70px; outline: 2px solid var(--ink-primary); outline-offset: 1px; }
+.sky-zoom-steps small { font-size: 10px; text-align: center; color: var(--ink-secondary); }
+.sky-zoom-steps span.on small { color: var(--ink-primary); font-weight: 700; }
+.sky-zoom-now { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; }
+.sky-zoom-close {
+  position: absolute;
+  top: -12px;
+  right: -12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface-raised);
+  color: var(--ink-primary);
+  font-size: 15px;
+}
+.sky-word { display: inline-flex; align-items: center; gap: 5px; }
+.sky-word i { width: 12px; height: 16px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
 .day-band-edge { stroke: var(--line-soft); }
 
 .day-band-label {
