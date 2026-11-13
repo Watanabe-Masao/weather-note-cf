@@ -299,6 +299,23 @@ with sync_playwright() as p:
         wait(800)
     step("G2", ghost)
 
+    # AV. 手前の平均 on the hour chart: rows in the readout, a legend that sets lines aside, the span
+    def av():
+        pg.locator(".chart-hit").nth(7).click(force=True); wait(2500)
+        check("AV1 読み取りに手前の平均と平均との差", pg.locator(".readout-card .ro-label", has_text="手前1週の平均").count() == 1 and pg.locator(".readout-card .ro-label", has_text="平均との差").count() == 1)
+        n = pg.locator(".legend-line").count()
+        check("AV2 凡例の線は4つ（対象・比較・それぞれの手前）", n == 4, str(n))
+        pg.locator(".legend-line").nth(1).click(); wait(300)
+        check("AV3 タップで薄く（押されていない状態に）", pg.locator(".legend-line").nth(1).get_attribute("aria-pressed") == "false")
+        pg.locator(".legend-line").nth(1).click(); wait(300)
+        check("AV4 もう一度で戻る", pg.locator(".legend-line").nth(1).get_attribute("aria-pressed") == "true")
+        pg.locator(".avg-window").click(); wait(1500)
+        check("AV5 平均の期間が 2週 に", pg.locator(".readout-card .ro-label", has_text="手前2週の平均").count() == 1)
+        pg.locator(".avg-window").click(); wait(300); pg.locator(".avg-window").click(); wait(300)
+        check("AV6 1か月 を経て 1週 に戻る", pg.locator(".readout-card .ro-label", has_text="手前1週の平均").count() == 1)
+        pg.locator(".back-btn").first.click(); wait(600)
+    step("AV", av)
+
     # I. close rules on the calendar: Esc, backdrop, ×, drag; pick closes
     def i_():
         for how in ["Esc", "背景", "×", "つまみ"]:
