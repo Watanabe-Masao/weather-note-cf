@@ -121,7 +121,9 @@ export function wind10Of(v: number, forecast: boolean, s: Pick<FeelSettings, "st
 
 export type Thresholds = [number, number, number, number, number, number];
 
-export const LEVELS = ["極寒", "寒い", "涼しい", "ちょうどよい", "暖かい", "暑い", "猛暑"] as const;
+export const LEVELS = ["寒い", "肌寒い", "涼しい", "暑くも寒くもない", "暖かい", "少し暑い", "暑い"] as const;
+/** The comfortable levels (ちょうどよい範囲): 涼しい〜暖かい. 肌寒い and 少し暑い are not (2026-11-13). */
+export const COMFORT_LEVELS: readonly Level[] = [2, 3, 4];
 export type Level = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export function levelOf(apparent: number, s: FeelSettings = DEFAULT_FEEL): Level {
@@ -138,14 +140,15 @@ export const SCALE_STEPS: Record<Scale, { label: string; of: Level[] }[]> = {
   5: [
     { label: "寒い", of: [0, 1] },
     { label: "涼しい", of: [2] },
-    { label: "ちょうどよい", of: [3] },
+    { label: "暑くも寒くもない", of: [3] },
     { label: "暖かい", of: [4] },
     { label: "暑い", of: [5, 6] },
   ],
+  // Three: the uncomfortable sides and the comfortable middle (涼しい〜暖かい).
   3: [
-    { label: "寒い側", of: [0, 1, 2] },
-    { label: "ちょうどよい", of: [3] },
-    { label: "暑い側", of: [4, 5, 6] },
+    { label: "寒い側", of: [0, 1] },
+    { label: "ちょうどよい", of: [2, 3, 4] },
+    { label: "暑い側", of: [5, 6] },
   ],
 };
 
@@ -156,7 +159,7 @@ export function stepOf(level: Level, scale: Scale): number {
 
 /** The boundaries between a scale's steps (a subset of the six). */
 export function scaleThresholds(t: Thresholds, scale: Scale): number[] {
-  return scale === 7 ? [...t] : scale === 5 ? [t[1], t[2], t[3], t[4]] : [t[2], t[3]];
+  return scale === 7 ? [...t] : scale === 5 ? [t[1], t[2], t[3], t[4]] : [t[1], t[4]];
 }
 
 /** Old settings had four boundaries (5 steps): they become the inner four; the outer two are spaced alike. */
