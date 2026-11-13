@@ -5,8 +5,10 @@
 import { type Report, SCALE_VERSION } from "../reports";
 import { falseDiscovery, type PairedDifference, pairedDifference, pitHistogram, randomizedPit, residualSlope, seeded, type Slope, surrogateResidual } from "./diagnostics";
 import { rps } from "./evaluation";
-import { PRIOR, probabilities } from "./model";
-import { placeTempOf } from "./observations";
+import { PRIOR, type Prior, priorFor, probabilities, stateOf } from "./model";
+import { type Ensemble } from "./ensemble";
+import { fitModel } from "./estimation";
+import { observationsOf, placeTempOf } from "./observations";
 
 /** The variables checked against the residuals, fixed in advance (MATH-08: not a fishing list). */
 export const CHECKED = [
@@ -144,6 +146,8 @@ export function weakSpots(reports: Report[]): Spot[] {
     { axis: "いる場所", of: (r) => (r.exposure ? PLACE[r.exposure] ?? null : "夜（場所なし）") },
     { axis: "感じた風", of: (r) => WIND[r.windFelt] ?? null },
     { axis: "空", of: (r) => (r.sky ? SKY[r.sky] ?? null : null) },
+    // Where the moment's temperature came from: a forecast or an observation (#117, input error).
+    { axis: "気温の出どころ", of: (r) => (r.snapshot?.from?.temp ? (r.snapshot.from.temp === "forecast" ? "予報" : "観測") : null) },
   ];
   const res = live.map((r) => surrogateResidual(r.comfort!.probs, r.sensation as number, rnd()));
   const out: Spot[] = [];
@@ -162,4 +166,78 @@ export function weakSpots(reports: Report[]): Spot[] {
     }
   }
   return out;
+}
+
+// ---- stacking, prior sensitivity, answering habits (#117) --------------------------------------
+
+/**
+ * Stacking weights: the mix of the models' stored predictions that would have scored best (log
+ * score) on the common answers, by EM on the simplex. Unlike the evidence weights, it does not
+ * assume one of the models is the true one, so it piles less on a single model.
+ */
+export function stackingWeights(probsByModel: number[][][], answers: number[], iterations = 200): number[] {
+  const m = probsByModel.length, n = answers.length;
+  if (!m || !n) return [];
+  let w = Array(m).fill(1 / m);
+  const p = probsByModel.map((ps) => ps.map((pr, i) => Math.max(1e-6, pr[answers[i] + 3] ?? 0)));
+  for (let it = 0; it < iterations; it++) {
+    const next = Array(m).fill(0);
+    for (let i = 0; i < n; i++) {
+      const tot = w.reduce((t, wk, k) => t + wk * p[k][i], 0);
+      for (let k = 0; k < m; k++) next[k] += (w[k] * p[k][i]) / tot;
+    }
+    w = next.map((v) => v / n);
+  }
+  return w;
+}
+
+/** When and how the person answers, against what would be even (#117: answering habits). */
+export function answerHabits(reports: Report[]): { n: number; bands: { label: string; n: number; share: number; even: number }[]; extreme: number } | null {
+  const live = reports.filter((r) => !r.deleted && Number.isInteger(r.sensation) && r.snapshot?.hour != null);
+  if (!live.length) return null;
+  // Waking hours 6–23, split as the time bands above; "even" is each band's share of those hours.
+  const BANDS = [
+    { label: "朝（5〜9時）", from: 5, to: 10 },
+    { label: "日中（10〜15時）", from: 10, to: 16 },
+    { label: "夕方（16〜18時）", from: 16, to: 19 },
+    { label: "夜（19〜4時）", from: 19, to: 29 },
+  ];
+  const hourOf = (h: number) => (h < 5 ? h + 24 : h);
+  const span = BANDS.reduce((t, b) => t + (b.to - b.from), 0);
+  return {
+    n: live.length,
+    bands: BANDS.map((b) => {
+      const k = live.filter((r) => hourOf(r.snapshot!.hour) >= b.from && hourOf(r.snapshot!.hour) < b.to).length;
+      return { label: b.label, n: k, share: k / live.length, even: (b.to - b.from) / span };
+    }),
+    extreme: live.filter((r) => Math.abs(r.sensation as number) >= 2).length / live.length,
+  };
+}
+
+/**
+ * Prior sensitivity (#117): the most weighted model refitted with its prior moved (the centre ±2,
+ * every spread ×2 and ÷2), at the latest answer's moment. If the centre barely moves, the records
+ * decide it; if it follows the prior, the prior (= the starting point, #111) still decides it.
+ */
+export function priorSensitivity(reports: Report[], ens: Ensemble): { model: string; rows: { label: string; mu: number; h: number }[] } | null {
+  const obs = observationsOf(reports.filter((r) => !r.deleted).sort((a, b) => (a.at < b.at ? -1 : 1)), ens.alpha);
+  if (!obs.length || !ens.fits.length) return null;
+  const top = ens.fits[ens.weights.indexOf(Math.max(...ens.weights))].model;
+  const x = obs[obs.length - 1];
+  const base = priorFor(top);
+  const variants: { label: string; prior: Prior }[] = [
+    { label: "今の出発点", prior: base },
+    { label: "中心 −2", prior: { mean: base.mean.map((v, i) => (i === 0 ? v - 2 : v)), sd: base.sd } },
+    { label: "中心 +2", prior: { mean: base.mean.map((v, i) => (i === 0 ? v + 2 : v)), sd: base.sd } },
+    { label: "幅 ×2（ゆるく）", prior: { mean: base.mean, sd: base.sd.map((v) => v * 2) } },
+    { label: "幅 ÷2（きつく）", prior: { mean: base.mean, sd: base.sd.map((v) => v / 2) } },
+  ];
+  return {
+    model: `${top.id} ${top.name}`,
+    rows: variants.map((v) => {
+      const f = fitModel(top, obs, v.prior);
+      const st = stateOf(top, f.theta, x);
+      return { label: v.label, mu: st.mu, h: st.h };
+    }),
+  };
 }

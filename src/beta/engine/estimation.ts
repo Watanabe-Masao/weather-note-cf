@@ -164,10 +164,11 @@ export interface ModelFit {
   logEvidence: number;
 }
 
-export function fitModel(m: ModelSpec, all: Observation[]): ModelFit {
+export function fitModel(m: ModelSpec, all: Observation[], priorOverride?: Prior): ModelFit {
   // Only observations with every input of this model (MATH-03: missing is not typical).
   const obs = all.filter((o) => usable(m, o));
-  const prior = priorFor(m);
+  // The prior can be swapped only to check how much it matters (#117, prior sensitivity).
+  const prior = priorOverride ?? priorFor(m);
   const k = prior.mean.length;
   if (!obs.length) return { model: m, theta: prior.mean, cov: null, prior, n: 0, logEvidence: 0 };
   const f = (t: Theta) => negLogJoint(m, t, obs, prior);

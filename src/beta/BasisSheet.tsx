@@ -15,7 +15,7 @@ import { ModalSheet } from "../ui/ModalSheet";
 import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } from "./adaptation";
 import { beyondRange, centreUnknown, LEARNING_RULES, TIME_BANDS, confoundedPairs, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
 import { useCentreVisible, useReports } from "./useReports";
-import { CHECKED, checksOf, MIN_FOR_GROUP, MIN_FOR_SLOPE, PERIOD, weakSpots } from "./engine/checks";
+import { answerHabits, CHECKED, checksOf, MIN_FOR_GROUP, MIN_FOR_SLOPE, PERIOD, priorSensitivity, stackingWeights, weakSpots } from "./engine/checks";
 import { momentUnder } from "./AfterAnswer";
 import { ensembleFromReports, probabilities as probsOf } from "./comfort";
 import { observationsOf } from "./engine/observations";
@@ -728,7 +728,10 @@ function CheckBasis() {
         </table>
       </div>
 
+      <Stacking />
       <WeakSpots />
+      <Habits />
+      <PriorEffect />
       <WeekChange />
       <TryIt />
 
@@ -741,6 +744,130 @@ function CheckBasis() {
         </>
       )}
     </section>
+  );
+}
+
+/** 混ぜ方 (#117): the evidence weights in use against stacking weights on the common answers. */
+function Stacking() {
+  const list = useReports();
+  const beta = useContext(BetaContext);
+  const res = useMemo(() => {
+    const c = compareStored(list ?? [], undefined, COMMON_MIN_COVERAGE);
+    const ids = c.candidates.filter((k) => k.inCommon && /^M\d$/.test(k.id)).map((k) => k.id);
+    if (ids.length < 2 || c.commonN < 10) return null;
+    const byId = new Map((list ?? []).map((r) => [r.id, r]));
+    const rows = c.rows.map((row) => byId.get(row.id)!).filter(Boolean);
+    const probs = ids.map((id) => rows.map((r) => r.comfort!.models!.find((m) => m.id === id)!.probs));
+    return { ids, w: stackingWeights(probs, rows.map((r) => r.sensation as number)), n: rows.length };
+  }, [list]);
+  if (!res) return null;
+  return (
+    <>
+      <h5>混ぜ方の比べ（{res.n}件）</h5>
+      <p className="basis-note">
+        画面の予測は「証拠の重み」でモデルを混ぜています。証拠の重みは、どれか1つのモデルが正しい前提で決まるため、1つに偏りやすい性質があります。共通の答えで実際に一番よく当たった混ぜ方（stacking、対数の得点で決める）を並べます。大きく違うなら、混ぜ方を見直す候補です（採用は MATH-08 の決まりで）。
+      </p>
+      <div className="basis-scroll">
+        <table className="basis-table">
+          <thead>
+            <tr>
+              <th>モデル</th>
+              <th>証拠の重み（今）</th>
+              <th>stacking</th>
+            </tr>
+          </thead>
+          <tbody>
+            {res.ids.map((id, i) => {
+              const k = beta.ens.fits.findIndex((f) => f.model.id === id);
+              return (
+                <tr key={id}>
+                  <td>{id}</td>
+                  <td className="num">{k < 0 ? "—" : `${Math.round(beta.ens.weights[k] * 100)}%`}</td>
+                  <td className="num">{Math.round(res.w[i] * 100)}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/** 答え方のくせ (#117): when answers come, and how often strong ones. */
+function Habits() {
+  const list = useReports();
+  const h = useMemo(() => answerHabits(list ?? []), [list]);
+  if (!h) return null;
+  return (
+    <>
+      <h5>答え方のくせ（{h.n}件）</h5>
+      <p className="basis-note">
+        答えが特定の時間帯や、強い答え（寒い・暑い以上）に偏ると、学習もそちらに寄ります。「時間の割合」は1日のうちその時間帯が占める長さで、寝ている時間も含むので、夜が少ないのは自然です。強い答えの割合 {Math.round(h.extreme * 100)}%。
+      </p>
+      <div className="basis-scroll">
+        <table className="basis-table">
+          <thead>
+            <tr>
+              <th>時間帯</th>
+              <th>答え</th>
+              <th>時間の割合</th>
+            </tr>
+          </thead>
+          <tbody>
+            {h.bands.map((b) => (
+              <tr key={b.label}>
+                <td>{b.label}</td>
+                <td className="num">
+                  {b.n}件（{Math.round(b.share * 100)}%）
+                </td>
+                <td className="num">{Math.round(b.even * 100)}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/** 出発点の影響 (#117): the top model refitted with the starting point moved. */
+function PriorEffect() {
+  const list = useReports();
+  const beta = useContext(BetaContext);
+  const p = useMemo(() => priorSensitivity(list ?? [], beta.ens), [list, beta.ens]);
+  if (!p) return null;
+  const base = p.rows[0];
+  return (
+    <>
+      <h5>出発点の影響（{p.model}）</h5>
+      <p className="basis-note">
+        いちばん重いモデルを、出発点（事前分布）を動かして学び直し、いちばん新しい答えの時刻の中心を比べます。出発点を動かしても中心がほとんど動かなければ、記録が決めています。出発点につれて動くなら、まだ出発点が決めています（#111 で出発点をそろえるときの影響の目安）。
+      </p>
+      <div className="basis-scroll">
+        <table className="basis-table">
+          <thead>
+            <tr>
+              <th>出発点</th>
+              <th>中心</th>
+              <th>範囲の半分</th>
+            </tr>
+          </thead>
+          <tbody>
+            {p.rows.map((r) => (
+              <tr key={r.label}>
+                <td>{r.label}</td>
+                <td className="num">
+                  {r.mu.toFixed(1)}
+                  {r !== base && <small>（{r.mu - base.mu >= 0 ? "+" : "−"}{Math.abs(r.mu - base.mu).toFixed(1)}）</small>}
+                </td>
+                <td className="num">{r.h.toFixed(1)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 

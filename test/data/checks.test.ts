@@ -107,3 +107,29 @@ describe("periods and the running sum (#118)", () => {
     expect(c.periods.every((p) => p.diff.n === 10)).toBe(true);
   });
 });
+
+describe("stacking, answering habits, prior sensitivity (#117)", () => {
+  it("stacks toward the model that predicted the answers", async () => {
+    const { stackingWeights } = await import("../../src/beta/engine/checks");
+    const good = [0, 0, 0.1, 0.8, 0.1, 0, 0], flat = Array(7).fill(1 / 7);
+    const w = stackingWeights([Array(30).fill(good), Array(30).fill(flat)], Array(30).fill(0));
+    expect(w[0]).toBeGreaterThan(0.95);
+    expect(w[0] + w[1]).toBeCloseTo(1, 9);
+    expect(stackingWeights([], [])).toEqual([]);
+  });
+
+  it("counts answers by time band against even, and the share of strong answers", async () => {
+    const { answerHabits } = await import("../../src/beta/engine/checks");
+    const h = answerHabits(people(40, 0))!;
+    expect(h.n).toBe(40);
+    expect(h.bands.reduce((t, b) => t + b.n, 0)).toBe(40);
+    expect(h.bands.reduce((t, b) => t + b.even, 0)).toBeCloseTo(1, 9);
+    expect(h.extreme).toBeGreaterThanOrEqual(0);
+  });
+
+  it("needs answers that can teach a model", async () => {
+    const { priorSensitivity } = await import("../../src/beta/engine/checks");
+    const { ensembleFromReports } = await import("../../src/beta/comfort");
+    expect(priorSensitivity([], ensembleFromReports([]))).toBeNull();
+  });
+});
