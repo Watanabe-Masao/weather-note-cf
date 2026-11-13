@@ -17,7 +17,9 @@
 //      rough mix.
 //   3. How light the colour is comes from the felt brightness (brightnessIndex), so one strip shows
 //      both the sky and the light: OKLab lightness 0.27 + 0.09 × index (暗い 0.27, still visible on
-//      the page; 日差しの明るさ 0.81, colour still shows). The clear zenith a little darker than the
+//      the page; 日差しの明るさ 0.81, colour still shows). Strong light makes colour look stronger
+//      (Hunt): from 明るい up the chroma grows to ×1.6, and the clear zenith is set a little darker
+//      so a screen can show its deep blue. The clear zenith a little darker than the
 //      horizon by day, the horizon a little lighter around sunrise and sunset; dark colours less
 //      saturated (colour fades in the dark).
 // One hour is drawn as six 10-minute colours: the sun moves more than 10° in an hour around sunrise
@@ -200,11 +202,11 @@ function hexOf(c: Lin): string {
   );
 }
 
-/** A tint placed at OKLab lightness L: its chroma scaled with the lightness, less in the dark, pulled into the screen's gamut. */
-export function placeTint(v: Lin, L: number): string {
+/** A tint placed at OKLab lightness L: its chroma scaled with the lightness (× vivid), less in the dark, pulled into the screen's gamut. */
+export function placeTint(v: Lin, L: number, vivid = 1): string {
   const [Lv, a, b] = toOklab(v);
   const dark = Math.min(1, Math.max(0.3, (L - 0.1) / 0.4));
-  let s = (L / Lv) * dark;
+  let s = (L / Lv) * dark * vivid;
   let c = fromOklab(L, a * s, b * s);
   for (let k = 0; k < 60 && !inGamut(c); k++) {
     s *= 0.94;
@@ -242,9 +244,15 @@ export function skyAt(alt: number, factor: number, rain: boolean, evening: boole
   const base = 0.27 + 0.09 * Math.min(6, Math.max(0, index));
   const day = Math.max(0, Math.min(1, (alt + 4) / 10));
   const glow = (1 - c) * Math.max(0, 1 - Math.abs(alt + 1) / 6);
-  const Lz = Math.max(0.25, base - 0.07 * (1 - c) * day + 0.02 * c);
+  // Strong light makes colour look stronger (the Hunt effect): from 明るい (index 3) up, the tint's
+  // chroma grows to ×1.6 at 日差しの明るさ. A screen cannot show a strong blue that light, so the clear
+  // zenith is set a little darker the brighter the sun (the deep blue of a sunny day); the horizon
+  // and the level line keep the brightness.
+  const sun = Math.max(0, Math.min(1, (index - 3) / 3));
+  const vivid = 1 + 0.6 * sun;
+  const Lz = Math.max(0.25, base - (0.07 + 0.08 * sun) * (1 - c) * day + 0.02 * c);
   const Lh = Math.min(0.86, base + 0.06 * (1 - c) * day - 0.03 * c + 0.16 * glow);
-  return { zenith: placeTint(z, Lz), horizon: placeTint(h, Lh), word: skyWord(alt, c, rain, index, evening), altitude: Math.round(alt * 10) / 10, lux, index };
+  return { zenith: placeTint(z, Lz, vivid), horizon: placeTint(h, Lh, vivid), word: skyWord(alt, c, rain, index, evening), altitude: Math.round(alt * 10) / 10, lux, index };
 }
 
 /**
