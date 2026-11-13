@@ -1,7 +1,7 @@
 // Component kit: the small parts every screen is built from. Each has one look and one behaviour,
 // so the same thing never looks different on two screens (rules: docs/design-system.md).
 
-import { type CSSProperties, Fragment, type ReactNode } from "react";
+import { type CSSProperties, Fragment, type ReactNode, useState } from "react";
 import { dayTone } from "../../shared/holidays";
 import type { Confidence } from "../../shared/confidence";
 import { type BandMark, type DataColor } from "../design/tokens";
@@ -317,3 +317,22 @@ const ChevronGlyph = ({ dir }: { dir: "left" | "right" }) => (
     <path d={dir === "left" ? "M10 3L5 8l5 5" : "M6 3l5 5-5 5"} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+
+/**
+ * A note that stays short: one line always shown (what you must know, or nothing), and the rest
+ * behind ⓘ for whoever wants how it is worked out. The explanation is never in the way of the graph.
+ */
+export function InfoNote({ children, more, className }: { children?: ReactNode; more: ReactNode; className?: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className={`info-note${className ? ` ${className}` : ""}`}>
+      <p>
+        {children}
+        <button className="info-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "説明を閉じる" : "説明を開く"}>
+          ⓘ
+        </button>
+      </p>
+      {open && <p className="info-more">{more}</p>}
+    </div>
+  );
+}

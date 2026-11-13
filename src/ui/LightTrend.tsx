@@ -20,7 +20,7 @@ import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { DATA, LIGHT_LEVELS, lineLook } from "../design/tokens";
 import { monthDay } from "../design/format";
-import { Chip, ForecastHatch, GraphReadout, Segmented } from "./kit";
+import { Chip, ForecastHatch, GraphReadout, Segmented, InfoNote } from "./kit";
 
 type View = "time" | "level";
 type Span = "week" | "month" | "year";
@@ -159,10 +159,17 @@ export function LightTrend({ store, station, target, compareDate, today, height,
         <span><i className="lt-clear" />晴れなら</span>
         <span><i className="lt-hatch" />予報</span>
       </p>
-      <p className="lt-note">
-        {span === "week" ? "雲は1時間ごとの日照と降水から。" : "雲は日ごとの日照から（期間が長いので時間ごとは読みません）。"}
-        差は「季節（太陽の位置。2日とも晴れとしたときの差）」と「天気（残り）」に分けています。
-      </p>
+      <InfoNote
+        className="lt-note"
+        more={
+          <>
+            {span === "week" ? "雲は1時間ごとの日照と降水から。" : "雲は日ごとの日照から（期間が長いので時間ごとは読みません）。"}
+            「季節」は太陽の位置の差（2日とも晴れとしたとき）、「天気」は残りの差です。
+          </>
+        }
+      >
+        差は季節と天気に分けています。
+      </InfoNote>
     </div>
   );
 }

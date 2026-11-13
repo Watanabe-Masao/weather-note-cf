@@ -522,10 +522,10 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
         </div>
       )}
       {/* One note per item; the row order is always 上＝対象日・下＝比較日. */}
-      {spreadOn && <p className="chart-note">寒暖差は最高−最低（上が対象日、下が比較日）。肌感は日中・昼・夕方の平均。</p>}
-      {metric.under?.some((r) => r.key === "probability") && <p className="chart-note">降水確率は予報の日だけ。雪は降った日だけ表示（上が対象日、下が比較日）。</p>}
-      {metric.under?.some((r) => r.key === "gust") && <p className="chart-note">線は平均風速、数字は最大瞬間風速（上が対象日、下が比較日）。</p>}
-      {metric.under?.some((r) => r.key === "sun") && <p className="chart-note">棒は日射量（暖める力）、数字は日照時間（上が対象日、下が比較日）。</p>}
+      {spreadOn && <p className="chart-note">寒暖差は最高−最低。肌感は日中・昼・夕方の平均。</p>}
+      {metric.under?.some((r) => r.key === "probability") && <p className="chart-note">降水確率は予報の日だけ。雪は降った日だけ。</p>}
+      {metric.under?.some((r) => r.key === "gust") && <p className="chart-note">線は平均風速、数字は最大瞬間風速。</p>}
+      {metric.under?.some((r) => r.key === "sun") && <p className="chart-note">棒は日射量、数字は日照時間。</p>}
       {!spreadOn && shown("feel") && lines.some((s) => s.key === "feel") && <p className="chart-note">肌感は日中・昼・夕方の平均</p>}
     </div>
   );
