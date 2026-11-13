@@ -541,7 +541,11 @@ function LightStrip({
   const hourSky = skyMain[shownHour - 1];
   const width = area.current?.getBoundingClientRect().width ?? 0;
   const left = Math.max(0, Math.min(width - ZOOM_W, at * width - ZOOM_W / 2));
-  const now = hourSky?.[shownStep];
+  const otherSky = hasOther ? skyOther?.[shownHour - 1] : null;
+  // The target's hour, and the comparison day's same hour under it, so the two read side by side.
+  const zoomDays = hourSky?.[shownStep]
+    ? [{ label: "対象", steps: hourSky }, ...(otherSky?.[shownStep] ? [{ label: "比較", steps: otherSky }] : [])]
+    : [];
 
   const row = (label: string, skies: (SkyColour[] | null)[]) => (
     <div className="light-row">
@@ -604,7 +608,7 @@ function LightStrip({
         />
         {row("対象", skyMain)}
         {hasOther && skyOther && row("比較", skyOther)}
-        {zoom && hourSky && now && (
+        {zoom && zoomDays.length > 0 && (
           <div className="sky-zoom" role="group" aria-label={`${stepTime(shownHour, 0)}〜${shownHour}:00の明るさと空（拡大）`} style={{ left: left + 34 }}>
             <div className="sky-zoom-head">
               <b>
@@ -612,27 +616,35 @@ function LightStrip({
               </b>
               <small>雲は1時間の値</small>
             </div>
-            <div className="sky-zoom-steps">
-              {hourSky.map((s, k) => (
-                <span key={k} className={k === shownStep ? "on" : undefined}>
-                  <i style={{ background: `linear-gradient(180deg, ${s.zenith}, ${s.horizon})` }} />
-                  <u style={{ background: LIGHT_LEVELS[Math.min(5, Math.floor(s.index))] }} />
-                  <small>{stepTime(shownHour, k)}</small>
-                </span>
-              ))}
-            </div>
-            <div className="sky-zoom-now">
-              <b>
-                {stepTime(shownHour, shownStep)}　{now.word}
-              </b>
-              <small>
-                太陽 {now.altitude > 0 ? "+" : ""}
-                {Math.round(now.altitude)}°
-              </small>
-            </div>
-            <div className="sky-zoom-light">
-              地上 {brightnessLevel(now.index).label}（{luxText(now.lux)}）・空 {luminanceText(now.skyLuminance)}
-            </div>
+            {zoomDays.map(({ label, steps }, d) => {
+              const cur = steps[shownStep];
+              return (
+                <div key={label} className="sky-zoom-day">
+                  <div className="sky-zoom-steps" role="img" aria-label={`${label}の10分ごとの空`}>
+                    {steps.map((s, k) => (
+                      <span key={k} className={k === shownStep ? "on" : undefined}>
+                        <i style={{ background: `linear-gradient(180deg, ${s.zenith}, ${s.horizon})` }} />
+                        <u style={{ background: LIGHT_LEVELS[Math.min(5, Math.floor(s.index))] }} />
+                        {d === zoomDays.length - 1 && <small>{stepTime(shownHour, k)}</small>}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="sky-zoom-now">
+                    <b>
+                      {zoomDays.length > 1 && <em>{label}</em>}
+                      {stepTime(shownHour, shownStep)}　{cur.word}
+                    </b>
+                    <small>
+                      太陽 {cur.altitude > 0 ? "+" : ""}
+                      {Math.round(cur.altitude)}°
+                    </small>
+                  </div>
+                  <div className="sky-zoom-light">
+                    地上 {brightnessLevel(cur.index).label}（{luxText(cur.lux)}）・空 {luminanceText(cur.skyLuminance)}
+                  </div>
+                </div>
+              );
+            })}
             {zoom === "tap" && (
               <button className="sky-zoom-close" onClick={() => setZoom(null)} aria-label="拡大を閉じる">
                 ×

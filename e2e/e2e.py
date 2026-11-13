@@ -202,7 +202,8 @@ with sync_playwright() as p:
         b = pg.locator(".light-trace.on").bounding_box()
         y = b["y"] + b["height"] / 2
         pg.mouse.move(b["x"] + b["width"] * 0.5, y); pg.mouse.down(); pg.mouse.move(b["x"] + b["width"] * 0.55, y, steps=4)
-        check("U3 なぞると拡大カード（空と明るさ）", pg.locator(".sky-zoom").count() == 1 and pg.locator(".sky-zoom-steps span").count() == 6 and "lx" in txt(".sky-zoom-light"), txt(".sky-zoom-light"))
+        check("U3 なぞると拡大カード（空と明るさ）", pg.locator(".sky-zoom").count() == 1 and pg.locator(".sky-zoom-steps span").count() == 6 * pg.locator(".light-row").count() and "lx" in txt(".sky-zoom-light"), txt(".sky-zoom-light"))
+        check("U3b 比較日があれば拡大カードにも比較の空と読み取り", pg.locator(".light-row").count() < 2 or (pg.locator(".sky-zoom-day").count() == 2 and "比較" in pg.locator(".sky-zoom-day .sky-zoom-now").nth(1).inner_text()), str(pg.locator(".sky-zoom-day").count()))
         sel = pg.evaluate("String(getSelection())")
         check("U4 テキストが選択されない", sel == "", repr(sel))
         check("U5 帯は選択・長押しメニューなし", pg.evaluate("getComputedStyle(document.querySelector('.light-trace.on')).userSelect") == "none")
