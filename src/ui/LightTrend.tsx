@@ -20,7 +20,7 @@ import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { DATA, LIGHT_LEVELS, lineLook } from "../design/tokens";
 import { monthDay } from "../design/format";
-import { Chip, ForecastHatch, GraphReadout, Segmented, InfoNote } from "./kit";
+import { Chip, ForecastHatch, GraphReadout, Segmented, InfoNote, LineSample } from "./kit";
 
 type View = "time" | "level";
 type Span = "week" | "month" | "year";
@@ -154,8 +154,8 @@ export function LightTrend({ store, station, target, compareDate, today, height,
         <LevelView {...{ station, target, compareDate, lux, days, partnerOf, cloudsOf, isForecast, onPickDay, T, C, span }} />
       )}
       <p className="lt-legend">
-        <span><i className="lt-solid" />対象日</span>
-        <span><i className="lt-dashed" />比較日</span>
+        <span><LineSample day="target" color={DATA.sun} />対象日</span>
+        <span><LineSample day="compare" color={DATA.sun} />比較日</span>
         <span><i className="lt-clear" />晴れなら</span>
         <span><i className="lt-hatch" />予報</span>
       </p>

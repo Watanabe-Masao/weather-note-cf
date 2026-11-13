@@ -9,7 +9,7 @@ import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import { type ChartMetric, graphSeries } from "../chartMetrics";
 import { barLook, DATA, lineLook } from "../design/tokens";
-import { Chip, ForecastHatch, GraphReadout, GuideLines } from "./kit";
+import { Chip, ForecastHatch, GraphReadout, GuideLines, BarSample, LineSample } from "./kit";
 import type { WeatherStore } from "../data/store";
 import { dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
 import { FeelContext } from "./FeelBar";
@@ -449,11 +449,11 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       {metric.chart === "bar" ? (
         <p className="line-legend">
           <span>
-            <i className="ls-fill" />
+            <BarSample day="target" />
             対象日
           </span>
           <span>
-            <i className="ls-outline" />
+            <BarSample day="compare" />
             比較日
           </span>
           <span>
@@ -470,11 +470,11 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       ) : (
         <p className="line-legend">
           <span>
-            <i className="ls-solid" />
+            <LineSample day="target" />
             対象日
           </span>
           <span>
-            <i className="ls-dashed" />
+            <LineSample day="compare" />
             比較日
           </span>
           <span>

@@ -10,7 +10,7 @@ import { daySky, luminanceText, SKY_STEPS, type SkyColour, stepTime } from "../.
 import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
-import { ForecastHatch, GraphReadout, GuideLines, InfoNote } from "./kit";
+import { ForecastHatch, GraphReadout, GuideLines, InfoNote, LineSample } from "./kit";
 
 /** Which boundaries colour the 肌感 graph: everyone's (the app's settings) or the person's (β, #118). */
 type Bands = "shared" | "you";
@@ -702,9 +702,7 @@ const devOf = (v: number | null, avg: number | null) => (v == null || avg == nul
 function LegendLine({ look, label, on, onToggle }: { look: LineLook; label: string; on: boolean; onToggle: () => void }) {
   return (
     <button className={on ? "legend-line" : "legend-line off"} onClick={onToggle} aria-pressed={on} aria-label={`${label}（${on ? "表示中・押すと薄く" : "薄く表示中・押すと戻す"}）`}>
-      <svg width="22" height="6" aria-hidden>
-        <line x1="1" x2="21" y1="3" y2="3" stroke={look.stroke} strokeWidth={look.strokeWidth} strokeDasharray={look.strokeDasharray} opacity={look.opacity} />
-      </svg>
+      <LineSample look={look} />
       {label}
     </button>
   );
