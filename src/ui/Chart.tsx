@@ -8,7 +8,7 @@ import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import { type ChartMetric, graphSeries } from "../chartMetrics";
-import { DATA } from "../design/tokens";
+import { barLook, DATA, lineLook } from "../design/tokens";
 import { Chip, ForecastHatch, GraphReadout, GuideLines } from "./kit";
 import type { WeatherStore } from "../data/store";
 import { dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
@@ -324,9 +324,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
                     y={yOf(p.v)}
                     width={step * 0.3}
                     height={Math.max(0, yOf(0) - yOf(p.v))}
-                    fill={compare ? "none" : COLORS[s.tone]}
-                    stroke={COLORS[s.tone]}
-                    opacity={compare ? 0.7 : 1}
+                    {...barLook(compare ? "compare" : "target", COLORS[s.tone])}
                   />
                 ),
               ),
@@ -335,6 +333,8 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
               points.slice(1).map((p, i) => {
                 const a = points[i];
                 if (a.v == null || p.v == null) return null;
+                // The rule (tokens.ts): which day by form, a second series (平均) thinner.
+                const look = lineLook(compare ? "compare" : "target", COLORS[s.tone], { weight: s.thin ? "minor" : "main" });
                 return (
                   <line
                     key={`${s.key}-${compare}-${i}`}
@@ -342,11 +342,11 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
                     y1={yOf(a.v)}
                     x2={p.x}
                     y2={yOf(p.v)}
-                    stroke={COLORS[s.tone]}
-                    strokeWidth={s.thin ? (compare ? 1 : 1.4) : compare ? 1.5 : 2.2}
-                    strokeDasharray={compare ? "6 4" : undefined}
-                    strokeLinecap="round"
-                    opacity={compare ? 0.65 : 1}
+                    stroke={look.stroke}
+                    strokeWidth={look.strokeWidth}
+                    strokeDasharray={look.strokeDasharray}
+                    strokeLinecap={compare ? "butt" : "round"}
+                    opacity={look.opacity}
                   />
                 );
               }),

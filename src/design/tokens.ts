@@ -56,6 +56,64 @@ export const DATA = {
   feel: "#c9a6f7", // 肌感（日なた） / 肌感（日かげ） as a value
 } as const;
 
+// ---- lines in graphs ---------------------------------------------------------------------------
+//
+// One rule for every graph (日別, 時間帯, 移り変わり, 時間区分):
+//  - Which day is told by the line's form: the target day solid, the comparison day dashed. Never by colour.
+//  - What the line is, by colour: the day's own value in its data colour; a reference drawn with it
+//    (the weeks before the day, the air behind 肌感) in REFERENCE, thinner than the values.
+//  - A line the person has set aside (tapped in the legend) turns DIMMED grey and thinner, and keeps
+//    its form, so it still reads as that day.
+//  - Bars: the target filled, the comparison outlined (the same "solid / not solid" as the lines).
+
+export type LineDay = "target" | "compare";
+export type LineKind = "value" | "reference";
+/** main: the item's own series · minor: a second series drawn beside it (平均 among 最高/最低). */
+export type LineWeight = "main" | "minor";
+
+export const LINE = {
+  dash: { target: undefined, compare: "6 4" },
+  width: { main: { target: 2.4, compare: 1.6 }, minor: { target: 1.4, compare: 1 } },
+  opacity: { target: 1, compare: 0.75 },
+  /** References are this much of a value line's width. */
+  referenceScale: 0.7,
+  // From the ink palette, not new colours: references in the primary ink, set-aside lines in the disabled one.
+  reference: ink.primary,
+  dimmed: ink.disabled,
+  dimmedScale: 0.7,
+  dimmedOpacity: 0.8,
+} as const;
+
+export interface LineLook {
+  stroke: string;
+  strokeWidth: number;
+  strokeDasharray: string | undefined;
+  opacity: number;
+}
+
+/** How a graph line looks, by the rule above. `color` is the item's data colour (unused for references). */
+export function lineLook(
+  day: LineDay,
+  color: string,
+  { kind = "value", weight = "main", dimmed = false }: { kind?: LineKind; weight?: LineWeight; dimmed?: boolean } = {},
+): LineLook {
+  let width: number = LINE.width[weight][day];
+  if (kind === "reference") width *= LINE.referenceScale;
+  if (dimmed) width = Math.max(1, width * LINE.dimmedScale);
+  return {
+    stroke: dimmed ? LINE.dimmed : kind === "reference" ? LINE.reference : color,
+    strokeWidth: Math.round(width * 10) / 10,
+    strokeDasharray: LINE.dash[day],
+    opacity: dimmed ? LINE.dimmedOpacity : LINE.opacity[day],
+  };
+}
+
+/** Bars by the same rule: the target filled, the comparison outlined. */
+export function barLook(day: LineDay, color: string, dimmed = false): { fill: string; stroke: string; opacity: number } {
+  const c = dimmed ? LINE.dimmed : color;
+  return day === "target" ? { fill: c, stroke: "none", opacity: dimmed ? LINE.dimmedOpacity : 1 } : { fill: "none", stroke: c, opacity: dimmed ? LINE.dimmedOpacity : 0.8 };
+}
+
 /** The six 明るさ levels (shared/brightness.ts), dark to light: night navy to pale daylight. */
 export const LIGHT_LEVELS = ["#0b1220", "#26305e", "#4f5b80", "#8d9bb3", "#d6dbe0", "#fff1bf"] as const;
 export type DataColor = keyof typeof DATA;

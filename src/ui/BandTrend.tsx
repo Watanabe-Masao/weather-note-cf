@@ -10,7 +10,7 @@ import { type Band, BANDS, type FeelSettings, hourlyBands } from "../../shared/f
 import { dayTone } from "../../shared/holidays";
 import type { WeatherStore } from "../data/store";
 import { feelOn } from "../feelSeason";
-import { BAND_LINES, BAND_MARKS } from "../design/tokens";
+import { BAND_LINES, BAND_MARKS, lineLook } from "../design/tokens";
 import { niceTicks, signedDiff, tickLabel, monthDay, dateLabel } from "../design/format";
 import { Chip, ForecastHatch, GraphReadout, GuideLines, Mark, MarkIcon } from "./kit";
 import { FeelContext, levelRanges } from "./FeelBar";
@@ -196,11 +196,8 @@ export function BandTrend({ store, station, target, partner }: Props) {
                 y1={y(a.value)}
                 x2={x(i + 1)}
                 y2={y(p.value)}
-                stroke={BAND_COLORS[band]}
-                strokeWidth={compare ? 1.4 : 2.2}
-                strokeDasharray={compare ? "6 4" : undefined}
-                strokeLinecap="round"
-                opacity={compare ? 0.6 : 1}
+                {...lineLook(compare ? "compare" : "target", BAND_COLORS[band])}
+                strokeLinecap={compare ? "butt" : "round"}
               />
             );
           }),

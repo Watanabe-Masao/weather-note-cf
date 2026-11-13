@@ -18,7 +18,7 @@ import type { WeatherRow } from "../../shared/types";
 import { diffDays } from "../compare";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
-import { DATA, LIGHT_LEVELS } from "../design/tokens";
+import { DATA, LIGHT_LEVELS, lineLook } from "../design/tokens";
 import { monthDay } from "../design/format";
 import { Chip, ForecastHatch, GraphReadout, Segmented } from "./kit";
 
@@ -274,8 +274,8 @@ function TimeView({ station, target, compareDate, at, days, partnerOf, cloudsOf,
         {firstForecast >= 0 && <rect x={X0 + (firstForecast / n) * plotW} y={top} width={plotW - (firstForecast / n) * plotW} height={H} fill="url(#lt-hatch)" />}
         {ti >= 0 && <rect x={X0 + (ti / n) * plotW + 1} y={top} width={plotW / n - 2} height={H} className="lt-today" rx={4} />}
         <path d={clearP} className="lt-clear-line" />
-        {compareP && <path d={compareP} fill="none" stroke={DATA.sun} strokeWidth={1.6} strokeDasharray="5 4" opacity={0.85} />}
-        <path d={targetP} fill="none" stroke={DATA.sun} strokeWidth={2} />
+        {compareP && <path d={compareP} fill="none" {...lineLook("compare", DATA.sun)} />}
+        <path d={targetP} fill="none" {...lineLook("target", DATA.sun)} />
         {days.map((d, i) => {
           const v = luxOf(d, cloudsOf(d));
           const p = partnerOf(d);
@@ -408,8 +408,8 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
               )}
               {rows.map((r, i) => (isForecast(r.d) ? <rect key={`h${i}`} x={pn.x} y={yOf(i)} width={pn.w} height={rowH} fill="url(#lt-hatch2)" /> : null))}
               <path d={line((r) => r.clear?.[pn.k] ?? null)} className="lt-clear-line" />
-              {compareDate && <path d={line((r) => r.c?.[pn.k] ?? null)} fill="none" stroke={DATA.sun} strokeWidth={1.6} strokeDasharray="5 4" />}
-              <path d={line((r) => (r.ct != null ? (r.t?.[pn.k] ?? null) : null))} fill="none" stroke={DATA.sun} strokeWidth={2} />
+              {compareDate && <path d={line((r) => r.c?.[pn.k] ?? null)} fill="none" {...lineLook("compare", DATA.sun)} />}
+              <path d={line((r) => (r.ct != null ? (r.t?.[pn.k] ?? null) : null))} fill="none" {...lineLook("target", DATA.sun)} />
               {span === "week" &&
                 rows.map((r, i) => (
                   <g key={`m${i}`}>
