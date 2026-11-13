@@ -16,6 +16,9 @@ import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } fro
 import { beyondRange, centreUnknown, LEARNING_RULES, TIME_BANDS, confoundedPairs, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
 import { useCentreVisible, useReports } from "./useReports";
 import { CHECKED, checksOf, MIN_FOR_SLOPE } from "./engine/checks";
+import { COMMON_MIN_COVERAGE, compareStored, type LearnState } from "./engine/compareAll";
+
+const LEARN_SHORT: Record<LearnState, string> = { learned: "学習済み", few: "少ない", priorOnly: "事前のまま", unknown: "記録なし" };
 import { BetaContext } from "./settings";
 import { baselineStateOf, driversOfDay } from "./useBaseline";
 
@@ -528,6 +531,7 @@ const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "�
 function CheckBasis() {
   const list = useReports();
   const c = useMemo(() => checksOf(list ?? []), [list]);
+  const all = useMemo(() => compareStored(list ?? [], undefined, COMMON_MIN_COVERAGE), [list]);
   if (!c.n) return null;
   const d = c.base?.diff ?? null;
   const verdict = !d ? "比べられる記録がまだありません" : d.lo > 0 ? "β の方が良いと言える" : d.hi < 0 ? "従来版の方が良い（学習が予測を悪くしている）" : "まだ差は分からない";
@@ -567,6 +571,39 @@ function CheckBasis() {
       <p className="basis-note">
         {verdict}。{d ? `${d.n}件・${d.days}日。区間は日ごとにまとめて引き直しています（同じ日の答えは似るため、件数ほどの確かさはありません）。` : ""}
       </p>
+
+      <h5>候補を同じ答えで比べる</h5>
+      <p className="basis-note">
+        すべての候補が予測を出していた答え（{all.commonN}件・{all.commonDays}日、全{all.eligible}件のうち）だけで比べます。候補ごとに比べる答えが違うと公平でないためです。「対象」はその候補が予測を出せた答えの割合、「学習」はその答えの時点で学習できていたか（事前のまま＝学習 0 件で比べる意味がない、少ない＝10件未満、記録なし＝件数を残す前の記録）。対数損失は、答えにほとんど確率を置かなかった外れを重く数えます（RPS とあわせて見る）。対象が {Math.round(COMMON_MIN_COVERAGE * 100)}% に満たない候補は共通の答えを減らしすぎるので外し、（ ）にその候補だけの答えでの RPS を参考に出します（他と比べられません）。
+      </p>
+      {all.commonN > 0 && (
+        <div className="basis-scroll">
+          <table className="basis-table">
+            <thead>
+              <tr>
+                <th>候補</th>
+                <th>対象</th>
+                <th>RPS</th>
+                <th>対数損失</th>
+                <th>学習</th>
+              </tr>
+            </thead>
+            <tbody>
+              {all.candidates.map((k) => (
+                <tr key={k.id} className={k.state === "priorOnly" ? "warn" : undefined}>
+                  <td className="wrap">{k.label}</td>
+                  <td className="num">{Math.round(k.coverage * 100)}%</td>
+                  <td className="num">{k.rps == null ? (k.rpsOwn == null ? "—" : <small>({k.rpsOwn.toFixed(3)})</small>) : k.rps.toFixed(3)}</td>
+                  <td className="num">{k.logLoss == null ? "—" : k.logLoss.toFixed(2)}</td>
+                  <td className="wrap">
+                    <small>{!k.inCommon ? "比べない" : k.id === "shared" ? "学ばない" : LEARN_SHORT[k.state]}</small>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <h5>確率の正直さ（PIT）</h5>
       <svg className="basis-pit" viewBox="0 0 200 60" role="img" aria-label={`PIT の度数 ${c.pit.join("・")}`}>

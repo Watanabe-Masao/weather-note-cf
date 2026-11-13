@@ -69,6 +69,8 @@ export interface ModelPrediction {
   mode: number;
   mu: number;
   h: number;
+  /** Records the model learned from at that moment (0: still its prior). Absent in older reports. */
+  n?: number;
 }
 
 export type Learning = "untrained" | "sparse" | "provisional" | "testable" | "verified";
@@ -173,7 +175,7 @@ export function predictComfort(ens: Ensemble, x: Drivers, at: number, learning?:
       zPairs.push([d.z, w]);
     }
     const st = stateOf(f.model, f.theta, x);
-    return { id: f.model.id, weight: r2(w), probs, mode: probs.indexOf(Math.max(...probs)) - 3, mu: r1(st.mu), h: r1(st.h), e: placeTemp(f.model, f.theta, x) };
+    return { id: f.model.id, weight: r2(w), probs, mode: probs.indexOf(Math.max(...probs)) - 3, mu: r1(st.mu), h: r1(st.h), n: f.n, e: placeTemp(f.model, f.theta, x) };
   });
   const wOf = (j: number) => weights[used[j].i];
   const probs = Array.from({ length: 7 }, (_, k) => models.reduce((s, m, j) => s + wOf(j) * m.probs[k], 0));
