@@ -3,7 +3,7 @@
 // is computed differently from the summary; it reads the same functions and lays them open.
 
 import { PreferenceDay } from "./PreferenceDay";
-import { useContext, useState } from "react";
+import { useContext, useMemo, useState } from "react";
 import { clockOf, dayParts, hoursIn } from "../../shared/dayParts";
 import { DAYTIME_BANDS, daytimeFeel, feelOf, type FeelSettings, FORECAST_WIND_HEIGHT, PERSON_HEIGHT, radiationOf, windAtPerson } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
@@ -14,7 +14,8 @@ import { Segmented } from "../ui/kit";
 import { ModalSheet } from "../ui/ModalSheet";
 import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } from "./adaptation";
 import { beyondRange, centreUnknown, LEARNING_RULES, TIME_BANDS, confoundedPairs, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
-import { useCentreVisible } from "./useReports";
+import { useCentreVisible, useReports } from "./useReports";
+import { CHECKED, checksOf, MIN_FOR_SLOPE } from "./engine/checks";
 import { BetaContext } from "./settings";
 import { baselineStateOf, driversOfDay } from "./useBaseline";
 
@@ -294,6 +295,7 @@ function ComfortBasis() {
               <tr>
                 <th>モデル</th>
                 <th>重み</th>
+                <th>学習</th>
                 <th>成績</th>
               </tr>
             </thead>
@@ -310,6 +312,8 @@ function ComfortBasis() {
                       </small>
                     </td>
                     <td className="num">{Math.round(ens.weights[i] * 100)}%</td>
+                    {/* Records the model could learn from: a model missing an input in every record stays at its prior (#117). */}
+                    <td className={`num${f.n === 0 && ens.n > 0 ? " warn" : ""}`}>{f.n === 0 && ens.n > 0 ? "0件（事前のまま）" : `${f.n}件`}</td>
                     <td className="num">{rec && rec.n ? `RPS ${rec.rps?.toFixed(3)}・損失 ${rec.logLoss?.toFixed(2)}` : "—"}</td>
                   </tr>
                 );
@@ -518,6 +522,114 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   );
 }
 
+const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "—");
+
+/** 検証 (#117, #118): where the predictions miss, from the predictions as they were made at sending. */
+function CheckBasis() {
+  const list = useReports();
+  const c = useMemo(() => checksOf(list ?? []), [list]);
+  if (!c.n) return null;
+  const d = c.base?.diff ?? null;
+  const verdict = !d ? "比べられる記録がまだありません" : d.lo > 0 ? "β の方が良いと言える" : d.hi < 0 ? "従来版の方が良い（学習が予測を悪くしている）" : "まだ差は分からない";
+  const maxPit = Math.max(1, ...c.pit);
+  return (
+    <section className="basis-sec" aria-labelledby="basis-check">
+      <h4 id="basis-check">
+        検証 <b>{c.n}件</b>
+      </h4>
+      <p className="basis-note">どれも、送信した時点の予測と答えの比較です（後から学び直した値ではありません）。</p>
+
+      <h5>従来版のまま と β</h5>
+      <p className="basis-note">
+        従来版のまま＝みんな共通の定数（中心 18 ＋ 0.33 ×（最近の基準 − 15）、範囲の半分 3、外の1段 4）で、何も学ばずに出した予測。β の出発点です。
+      </p>
+      {c.base && (
+        <div className="basis-scroll">
+          <table className="basis-table">
+            <tbody>
+              <tr>
+                <td>RPS（小さいほど良い）</td>
+                <td className="num">従来版 {c.base.rpsBase.toFixed(3)}</td>
+                <td className="num">β {c.base.rpsBeta.toFixed(3)}</td>
+              </tr>
+              {d && (
+                <tr>
+                  <td className="wrap">差（従来版 − β）と95%区間</td>
+                  <td className="num" colSpan={2}>
+                    {d.mean.toFixed(4)}（{d.lo.toFixed(4)}〜{d.hi.toFixed(4)}）
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+      <p className="basis-note">
+        {verdict}。{d ? `${d.n}件・${d.days}日。区間は日ごとにまとめて引き直しています（同じ日の答えは似るため、件数ほどの確かさはありません）。` : ""}
+      </p>
+
+      <h5>確率の正直さ（PIT）</h5>
+      <svg className="basis-pit" viewBox="0 0 200 60" role="img" aria-label={`PIT の度数 ${c.pit.join("・")}`}>
+        {c.pit.map((k, i) => (
+          <rect key={i} x={i * 20 + 2} y={56 - (k / maxPit) * 52} width={16} height={(k / maxPit) * 52} rx={2} />
+        ))}
+        <line x1={0} x2={200} y1={56 - (c.n / 10 / maxPit) * 52} y2={56 - (c.n / 10 / maxPit) * 52} className="basis-pit-even" />
+      </svg>
+      <p className="basis-note">
+        答えを、予測の確率の中のどこに当たったか（0〜1）で並べたもの。確率が正直なら平ら（点線の高さ）。左に多い＝予測より寒く感じがち、右に多い＝暖かく感じがち、真ん中に多い＝予測の幅が広すぎ、両端に多い＝狭すぎ。外れの平均 {c.residualMean == null ? "—" : `${c.residualMean > 0 ? "+" : ""}${c.residualMean.toFixed(2)}`}（0 が偏りなし）。
+      </p>
+
+      <h5>外れと変数の傾き</h5>
+      <p className="basis-note">
+        外れ（＋＝予測より暖かく感じた）が、変数につれて動くか。確かめる変数は前もって決めた{CHECKED.length}つだけで、偶然の傾きを拾わないよう偽発見率 10% で調整しています。土台の変数に傾きがあれば肌感の式（換算・係数）、β の変数なら感じ方の式を疑います。{c.n < MIN_FOR_SLOPE ? `記録が${MIN_FOR_SLOPE}件たまるまでは判定しません。` : ""}
+      </p>
+      <div className="basis-scroll">
+        <table className="basis-table">
+          <thead>
+            <tr>
+              <th>変数</th>
+              <th>傾き（95%区間）</th>
+              <th>判定</th>
+            </tr>
+          </thead>
+          <tbody>
+            {c.slopes.map((v) => (
+              <tr key={v.key} className={v.flagged ? "warn" : undefined}>
+                <td className="wrap">
+                  {v.label}
+                  <small>
+                    <br />
+                    {v.layer}・1{v.unit}あたり
+                  </small>
+                </td>
+                <td className="num">
+                  {v.slope ? `${v.slope.slope > 0 ? "+" : ""}${v.slope.slope.toFixed(2)}` : "—"}
+                  {v.slope && (
+                    <small>
+                      <br />
+                      {(v.slope.slope - 1.96 * v.slope.se).toFixed(2)}〜{(v.slope.slope + 1.96 * v.slope.se).toFixed(2)}
+                    </small>
+                  )}
+                </td>
+                <td>{!v.slope ? "件数不足" : v.flagged ? "傾きあり" : "平ら"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {c.context && (
+        <>
+          <h5>答える前に見えていたもの</h5>
+          <p className="basis-note">
+            残していた{c.context.n}件のうち、記録の画面の予測を見た後に感じ方を変えた答え {c.context.changedAfterPrediction}件。答えが、開いた時に画面が出していた段と同じだった割合 {pct(c.context.sameAsShown, c.context.n)}、β の予測の段と同じだった割合 {pct(c.context.sameAsPrediction, c.context.n)}。画面の段との一致が β の予測より目立って高いなら、表示に引っぱられている可能性があります（#116）。
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
 function Body({ store, station, target, other }: Omit<Props, "onClose">) {
   const feel = useContext(FeelContext);
   const fit = useContext(BetaContext);
@@ -543,6 +655,7 @@ function Body({ store, station, target, other }: Omit<Props, "onClose">) {
       <ComfortDay store={store} station={station} date={date} feel={feel} />
       <PreferenceDay store={store} station={station} date={date} feel={feel} />
       <ComfortBasis />
+      <CheckBasis />
     </div>
   );
 }

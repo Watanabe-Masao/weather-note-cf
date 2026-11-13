@@ -6,7 +6,11 @@
 //   the finger, the dimming lightens with it, and a release past a quarter of its height or with
 //   a downward flick closes it; otherwise it springs back. Pulling up meets a rubber band.
 // - The page behind does not scroll while it is open.
+// - Drawn at the page's top level (a portal to <body>): a sheet opened from inside another sheet
+//   (settings → 計算の根拠, → the test board) would otherwise be placed and clipped by the outer
+//   sheet's transform and scroll (it opened far above the screen).
 
+import { createPortal } from "react-dom";
 import { CloseIcon } from "./icons";
 import {
   createContext,
@@ -194,7 +198,7 @@ export function ModalSheet({ title, label, headerEnd, onClose, className, size =
   const ms = reduced ? 0 : pull != null && drag.current ? 0 : phase === "closing" ? CLOSE_MS : settleMs;
   const ease = phase === "closing" ? "cubic-bezier(0.4, 0, 1, 1)" : SHEET_EASE;
 
-  return (
+  return createPortal(
     <CloseContext.Provider value={close}>
       <div
         className="msheet-backdrop"
@@ -230,6 +234,7 @@ export function ModalSheet({ title, label, headerEnd, onClose, className, size =
         </header>
         <div className="msheet-body">{children}</div>
       </section>
-    </CloseContext.Provider>
+    </CloseContext.Provider>,
+    document.body,
   );
 }

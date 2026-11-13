@@ -4,7 +4,6 @@
 // eye before any data decides. Nothing here changes the app's 肌感 or the model.
 
 import { useContext, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { addDays } from "../../shared/dates";
 import { feelOf, FORECAST_WIND_HEIGHT, radiationOf } from "../../shared/feel";
 import { feel3, hourRadiation, utciWind } from "../../shared/mrt";
@@ -78,9 +77,7 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
   const ticks = [];
   for (let v = lo; v <= hi; v += 5) ticks.push(v);
 
-  // Opened from inside the settings sheet: drawn at the page's top level (as AdminSheet), or the
-  // settings sheet would clip and move it.
-  return createPortal(
+  return (
     <ModalSheet title="肌感の計算を比べる（テスト）" onClose={onClose} className="sun-test">
       <div className="sun-test-body">
         <p className="set-lead">
@@ -171,7 +168,6 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
           </>
         )}
       </div>
-    </ModalSheet>,
-    document.body,
+    </ModalSheet>
   );
 }
