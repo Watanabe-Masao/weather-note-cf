@@ -15,9 +15,9 @@
 //   2. The clouds turn it white: cloudiness c from the light's own cloud factor (1 under rain), and
 //      tint = (1 − c)·clear + c·white (D65), in linear RGB. Sunshine is not cloud cover, so this is a
 //      rough mix.
-//   3. How light the colour is comes from the felt brightness (brightnessIndex), so the strip's two
-//      views agree: OKLab lightness 0.16 + 0.11 × index, kept within 0.27–0.8 (colour still shows by
-//      day; a night cell does not sink into the page). The clear zenith a little darker than the
+//   3. How light the colour is comes from the felt brightness (brightnessIndex), so one strip shows
+//      both the sky and the light: OKLab lightness 0.27 + 0.09 × index (暗い 0.27, still visible on
+//      the page; 日差しの明るさ 0.81, colour still shows). The clear zenith a little darker than the
 //      horizon by day, the horizon a little lighter around sunrise and sunset; dark colours less
 //      saturated (colour fades in the dark).
 // One hour is drawn as six 10-minute colours: the sun moves more than 10° in an hour around sunrise
@@ -45,6 +45,9 @@ export interface SkyColour {
   word: SkyWord;
   /** The sun's altitude (degrees). */
   altitude: number;
+  /** The light on open ground at that moment (lux) and its felt index 0–6 (shared/brightness.ts). */
+  lux: number;
+  index: number;
 }
 
 const R = Math.PI / 180;
@@ -234,12 +237,14 @@ export function skyAt(alt: number, factor: number, rain: boolean, evening: boole
   const tint = clearTint(alt);
   const z = mix(tint.z, WHITE, c);
   const h = mix(tint.h, WHITE, c);
-  const base = Math.max(0.27, Math.min(0.8, 0.16 + 0.11 * index));
+  // Lightness follows the felt brightness all the way, so the strip reads as the six levels too:
+  // index 0 (暗い) → 0.27 (still visible on the page), 6 (日差しの明るさ) → 0.81.
+  const base = 0.27 + 0.09 * Math.min(6, Math.max(0, index));
   const day = Math.max(0, Math.min(1, (alt + 4) / 10));
   const glow = (1 - c) * Math.max(0, 1 - Math.abs(alt + 1) / 6);
   const Lz = Math.max(0.25, base - 0.07 * (1 - c) * day + 0.02 * c);
   const Lh = Math.min(0.86, base + 0.06 * (1 - c) * day - 0.03 * c + 0.16 * glow);
-  return { zenith: placeTint(z, Lz), horizon: placeTint(h, Lh), word: skyWord(alt, c, rain, index, evening), altitude: Math.round(alt * 10) / 10 };
+  return { zenith: placeTint(z, Lz), horizon: placeTint(h, Lh), word: skyWord(alt, c, rain, index, evening), altitude: Math.round(alt * 10) / 10, lux, index };
 }
 
 /**

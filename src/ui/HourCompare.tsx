@@ -4,7 +4,7 @@
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
-import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, dayLights, stepOutFeel, usualText } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, dayLights, luxText, stepOutFeel, usualText } from "../../shared/brightness";
 import { usualLightOf } from "../light";
 import { daySky, SKY_STEPS, type SkyColour, stepTime } from "../../shared/sky";
 import { hoursWeather } from "../../shared/dayWeather";
@@ -260,8 +260,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
 
       {metricId === "sun" && (
         <LightStrip
-          main={lightMain}
-          other={other ? lightOther : null}
+          hasOther={!!other}
           skyMain={skyMain}
           skyOther={other ? skyOther : null}
           shownHour={shownHour}
@@ -400,36 +399,32 @@ function BandWeatherIcons({ main, other }: { main: BandWx; other: BandWx | null 
   );
 }
 
-/** How the 明るさ strip is coloured: the felt levels or the sky (schematic, shared/sky.ts). Kept per viewer. */
-type StripMode = "levels" | "sky";
-const STRIP_KEY = "wn.lightStrip";
-const readStrip = (): StripMode => {
-  try {
-    return localStorage.getItem(STRIP_KEY) === "sky" ? "sky" : "levels";
-  } catch {
-    return "levels";
-  }
-};
-
 /** One hour of sky as a cell: the 10-minute colours left to right, the zenith above the horizon. */
 const skyFill = (steps: SkyColour[]) => ({
   top: `linear-gradient(90deg, ${steps.map((s) => s.zenith).join(", ")})`,
   bottom: `linear-gradient(90deg, ${steps.map((s) => s.horizon).join(", ")})`,
 });
+/** The level line under an hour: each 10 minutes in its felt level's colour (hard steps). */
+const levelFill = (steps: SkyColour[]) =>
+  `linear-gradient(90deg, ${steps
+    .map((s, k) => {
+      const c = LIGHT_LEVELS[Math.min(5, Math.floor(s.index))];
+      return `${c} ${((k / steps.length) * 100).toFixed(2)}% ${(((k + 1) / steps.length) * 100).toFixed(2)}%`;
+    })
+    .join(", ")})`;
 
 /** Width of the 拡大 card (px). */
 const ZOOM_W = 264;
 
 /**
- * 明るさ under the 日差し graph: one cell per hour, darker to lighter by the felt level (B of the
- * mocks, 2026-11-12), or the sky's colour (空の色, schematic) in six 10-minute steps per hour. The
- * cells sit under the graph's hours (same side margins as the plot). In the sky view the strip can
- * be traced with a finger: a card above it enlarges the hour, 10 minutes at a time (the mock of
- * 2026-11-13). Nothing here is text to select: no loupe or copy menu on a long press.
+ * 明るさと空 under the 日差し graph (one strip, 2026-11-13): each hour as the sky's colour (schematic,
+ * shared/sky.ts) in six 10-minute steps — how light it is follows the felt brightness — over a thin
+ * line in the six levels' colours, so the levels stay readable. The cells sit under the graph's hours
+ * (same side margins as the plot). The strip can be traced with a finger: a card above it enlarges
+ * the hour, 10 minutes at a time. Nothing here is text to select: no loupe or copy menu.
  */
 function LightStrip({
-  main,
-  other,
+  hasOther,
   skyMain,
   skyOther,
   shownHour,
@@ -437,8 +432,7 @@ function LightStrip({
   onPick,
   usual,
 }: {
-  main: (number | null)[];
-  other: (number | null)[] | null;
+  hasOther: boolean;
   skyMain: (SkyColour[] | null)[];
   skyOther: (SkyColour[] | null)[] | null;
   shownHour: number;
@@ -446,16 +440,6 @@ function LightStrip({
   onPick: (hour: number, step: number) => void;
   usual: { main: number | null; other: number | null };
 }) {
-  const [mode, setMode] = useState<StripMode>(readStrip);
-  const pickMode = (m: StripMode) => {
-    setMode(m);
-    try {
-      localStorage.setItem(STRIP_KEY, m);
-    } catch {
-      /* not kept: fine */
-    }
-  };
-  const sky = mode === "sky";
   // The enlarged hour: while tracing ("trace"), or left open by a tap ("tap", closed with ×).
   const [zoom, setZoom] = useState<null | "trace" | "tap">(null);
   const [at, setAt] = useState(0); // the finger's place across the cells, 0–1
@@ -478,98 +462,71 @@ function LightStrip({
   const hourSky = skyMain[shownHour - 1];
   const width = area.current?.getBoundingClientRect().width ?? 0;
   const left = Math.max(0, Math.min(width - ZOOM_W, at * width - ZOOM_W / 2));
+  const now = hourSky?.[shownStep];
 
-  const row = (label: string, values: (number | null)[], skies: (SkyColour[] | null)[] | null) => (
+  const row = (label: string, skies: (SkyColour[] | null)[]) => (
     <div className="light-row">
       <span className="light-row-label">{label}</span>
-      <div className={`light-cells${sky ? " sky" : ""}`} role="img" aria-label={`${label}の${sky ? "空の色（模式）" : "明るさ"}（1時間ごと）`}>
-        {values.map((v, i) => {
-          const s = skies?.[i];
-          if (sky) {
-            const fill = s ? skyFill(s) : null;
-            return (
-              <i key={i} className={i + 1 === shownHour ? "on" : undefined}>
-                {fill && (
-                  <>
-                    <b style={{ background: fill.top }} />
-                    <b style={{ background: fill.bottom }} />
-                  </>
-                )}
-              </i>
-            );
-          }
-          return <i key={i} className={i + 1 === shownHour ? "on" : undefined} style={{ background: v == null ? "transparent" : LIGHT_LEVELS[Math.min(5, Math.floor(v))] }} />;
+      <div className="light-cells sky" role="img" aria-label={`${label}の明るさと空の色（1時間ごと）`}>
+        {Array.from({ length: 24 }, (_, i) => {
+          const s = skies[i];
+          const fill = s ? skyFill(s) : null;
+          return (
+            <i key={i} className={`${i + 1 === shownHour ? "on" : ""}${s ? "" : " none"}`}>
+              {fill && s && (
+                <>
+                  <b style={{ background: fill.top }} />
+                  <b style={{ background: fill.bottom }} />
+                  <u style={{ background: levelFill(s) }} />
+                </>
+              )}
+            </i>
+          );
         })}
       </div>
     </div>
   );
   return (
     <div className="light-strip">
-      <div className="light-head">
-        <span className="light-title">
-          {sky ? "空の色（模式）" : "明るさ"}
-          {!sky && (usual.main != null || usual.other != null) ? (
-            <small>
-              {" "}この日の昼は {usualText(usual.main)}{other ? `・比較の日は ${usualText(usual.other)}` : ""}（前の7日と比べて）
-            </small>
-          ) : null}
-        </span>
-        <Segmented
-          label="帯の色"
-          value={mode}
-          onChange={(m) => {
-            pickMode(m);
-            setZoom(null);
-          }}
-          options={[
-            { id: "levels", label: "明るさの段" },
-            { id: "sky", label: "空の色" },
-          ]}
-        />
-      </div>
+      <span className="light-title">
+        明るさと空
+        {usual.main != null || usual.other != null ? (
+          <small>
+            {" "}この日の昼は {usualText(usual.main)}{hasOther ? `・比較の日は ${usualText(usual.other)}` : ""}（前の7日と比べて）
+          </small>
+        ) : null}
+      </span>
       <div className="light-rows">
         <div
           ref={area}
-          className={`light-trace${sky ? " on" : ""}`}
-          onPointerDown={
-            sky
-              ? (e) => {
-                  try {
-                    e.currentTarget.setPointerCapture(e.pointerId);
-                  } catch {
-                    /* capture is a nicety */
-                  }
-                  press.current = { x: e.clientX, moved: false };
-                  setZoom("trace");
-                  pick(e.clientX);
-                }
-              : undefined
-          }
-          onPointerMove={
-            sky
-              ? (e) => {
-                  const p = press.current;
-                  if (!p) return;
-                  if (Math.abs(e.clientX - p.x) > 4) p.moved = true;
-                  pick(e.clientX);
-                }
-              : undefined
-          }
-          onPointerUp={sky ? end : undefined}
-          onPointerCancel={
-            sky
-              ? () => {
-                  press.current = null;
-                  setZoom(null);
-                }
-              : undefined
-          }
+          className="light-trace on"
+          onPointerDown={(e) => {
+            try {
+              e.currentTarget.setPointerCapture(e.pointerId);
+            } catch {
+              /* capture is a nicety */
+            }
+            press.current = { x: e.clientX, moved: false };
+            setZoom("trace");
+            pick(e.clientX);
+          }}
+          onPointerMove={(e) => {
+            const p = press.current;
+            if (!p) return;
+            if (Math.abs(e.clientX - p.x) > 4) p.moved = true;
+            pick(e.clientX);
+          }}
+          onPointerUp={end}
+          onPointerCancel={() => {
+            press.current = null;
+            setZoom(null);
+          }}
           onContextMenu={(e) => e.preventDefault()}
         />
-        {row("対象", main, skyMain)}
-        {other && row("比較", other, skyOther)}
-        {sky && zoom && hourSky && (
-          <div className="sky-zoom" role="group" aria-label={`${stepTime(shownHour, 0)}〜${shownHour}:00の空（拡大）`} style={{ left: left + 34 }}>
+        {row("対象", skyMain)}
+        {hasOther && skyOther && row("比較", skyOther)}
+        {zoom && hourSky && now && (
+          <div className="sky-zoom" role="group" aria-label={`${stepTime(shownHour, 0)}〜${shownHour}:00の明るさと空（拡大）`} style={{ left: left + 34 }}>
             <div className="sky-zoom-head">
               <b>
                 {stepTime(shownHour, 0)}〜{shownHour}:00
@@ -580,18 +537,22 @@ function LightStrip({
               {hourSky.map((s, k) => (
                 <span key={k} className={k === shownStep ? "on" : undefined}>
                   <i style={{ background: `linear-gradient(180deg, ${s.zenith}, ${s.horizon})` }} />
+                  <u style={{ background: LIGHT_LEVELS[Math.min(5, Math.floor(s.index))] }} />
                   <small>{stepTime(shownHour, k)}</small>
                 </span>
               ))}
             </div>
             <div className="sky-zoom-now">
               <b>
-                {stepTime(shownHour, shownStep)}　{hourSky[shownStep].word}
+                {stepTime(shownHour, shownStep)}　{now.word}
               </b>
               <small>
-                太陽 {hourSky[shownStep].altitude > 0 ? "+" : ""}
-                {Math.round(hourSky[shownStep].altitude)}°
+                太陽 {now.altitude > 0 ? "+" : ""}
+                {Math.round(now.altitude)}°
               </small>
+            </div>
+            <div className="sky-zoom-light">
+              {brightnessLevel(now.index).label}（{luxText(now.lux)}）
             </div>
             {zoom === "tap" && (
               <button className="sky-zoom-close" onClick={() => setZoom(null)} aria-label="拡大を閉じる">
@@ -601,23 +562,17 @@ function LightStrip({
           </div>
         )}
       </div>
-      {sky ? (
-        <p className="light-note">
-          空の色は、太陽の高さ（10分ごと）と、その時間の日照・降水から描いた模式の色です。写真や実測ではありません。マスの上が見上げた空、下が地平。帯を指でなぞると、その1時間を10分ごとに拡大します。
-        </p>
-      ) : (
-        <>
-          <p className="light-note">「外に出たとき」は、室内（約500lx）に慣れた目で外に出た直後の感じ方です。目はその後、明るさには数分、暗さには10〜30分で慣れます。</p>
-          <p className="light-legend">
-            {BRIGHTNESS_LEVELS.map((l, i) => (
-              <span key={l.id}>
-                <i style={{ background: LIGHT_LEVELS[i] }} />
-                {l.label}
-              </span>
-            ))}
-          </p>
-        </>
-      )}
+      <p className="light-legend">
+        {BRIGHTNESS_LEVELS.map((l, i) => (
+          <span key={l.id}>
+            <i style={{ background: LIGHT_LEVELS[i] }} />
+            {l.label}
+          </span>
+        ))}
+      </p>
+      <p className="light-note">
+        マスの色は空の色（模式）：太陽の高さ（10分ごと）と、その時間の日照・降水から描いたもので、写真や実測ではありません。上が見上げた空、下が地平で、色の明るさは明るさの段に合わせています。下の細い線が明るさの段。帯を指でなぞると、その1時間を10分ごとに拡大します。「外に出たとき」は、室内（約500lx）に慣れた目で外に出た直後の感じ方です。
+      </p>
     </div>
   );
 }
