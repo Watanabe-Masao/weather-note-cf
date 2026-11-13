@@ -3089,6 +3089,7 @@ svg.scrub {
 .outlook-word { display: flex; align-items: center; gap: 6px; font-weight: 700; }
 .outlook-word i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .outlook-word small { font-weight: 400; color: var(--ink-secondary); }
+.outlook-basis { justify-self: start; }
 .outlook-why { margin: 0; font-size: 12px; line-height: 1.6; }
 .outlook-why b { margin-right: 4px; color: var(--ink-secondary); }
 .outlook-sure, .outlook-none { font-size: 12px; color: var(--ink-secondary); }

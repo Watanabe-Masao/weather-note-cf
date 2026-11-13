@@ -4,7 +4,9 @@
 // how sure it is. Otherwise, and for today before the day's first report, the app's levels.
 // Words only: what to wear differs from person to person (渡辺さん, 2026-11-13).
 
-import { useContext } from "react";
+import { useContext, useState } from "react";
+import { BasisSheet } from "../beta/BasisSheet";
+import { muIntervalOf } from "../beta/comfort";
 import { dayParts, hoursIn } from "../../shared/dayParts";
 import { levelOf, type Level, stepOf } from "../../shared/feel";
 import type { WeatherStore } from "../data/store";
@@ -37,6 +39,7 @@ export function outlookWords(probs: number[], scale: 7 | 5 | 3): { first: number
 
 export function PartsOutlook({ store, station, date, today }: { store: WeatherStore | null; station: string; date: string; today: string }) {
   const feel = useContext(FeelContext);
+  const [basis, setBasis] = useState(false);
   const scale = feel.scale ?? 7;
   const hours = store?.getHours(station, date);
   const comfort = useDayComfortState(store, station, date >= today ? date : null, hours?.rows, "outlook");
@@ -113,7 +116,21 @@ export function PartsOutlook({ store, station, date, today }: { store: WeatherSt
         ) : null;
       })()}
       {comfort.hidden && <p className="basis-note">あなた（β）の見込みは、今日の最初の記録の後に出ます。</p>}
-      {mine && <p className="basis-note">予報の肌感に、記録から学んだあなたの段を当てた見込みです（β・検証中）。確かさは ●●● ほど確か。予報そのもののぶれは入っていません。</p>}
+      {mine && comfort.ens && comfort.x && (() => {
+        // Two kinds of uncertainty, kept apart (#118): the person's own value (narrows with answers) and the forecast's (not in).
+        const [lo, hi] = muIntervalOf(comfort.ens, comfort.x);
+        return (
+          <p className="basis-note">
+            予報の肌感に、記録から学んだあなたの段を当てた見込みです（β・検証中）。確かさは ●●● ほど確か。ぶれは2つあります：あなたのちょうどよいの中心の幅 ±{((hi - lo) / 2).toFixed(1)}（答えが増えると狭まります）と、予報そのもののぶれ（ここには入っていません）。
+          </p>
+        );
+      })()}
+      {mine && (
+        <button className="chip sm outlook-basis" onClick={() => setBasis(true)}>
+          計算の根拠を見る
+        </button>
+      )}
+      {basis && <BasisSheet store={store} station={station} target={date} other={null} onClose={() => setBasis(false)} />}
     </section>
   );
 }
