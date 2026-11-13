@@ -55,7 +55,10 @@ export interface Prior {
 }
 
 /** Fixed starting values (see the header): never taken from the 肌感 display settings. */
-export const PRIOR = { m0: 18, m0Sd: 4, h: 3, g: 4, logSd: 0.5, slope: 0.33 } as const;
+// The starting point = 従来版 (MATH-04, #111, approved 2026-11-13): centre 18 at a 最近の基準 of 15 (the
+// settings' default 15–21 for 暑くも寒くもない), moving 0.7 per ℃ (shared/season.ts), half-range 3, outer
+// step 4.5 (従来版's steps are 5 on the cold side and 4 on the warm side; the model's is one for both).
+export const PRIOR = { m0: 18, m0Sd: 4, h: 3, g: 4.5, logSd: 0.5, slope: 0.7 } as const;
 
 export function priorFor(m: ModelSpec): Prior {
   const es = m.e ?? [];
@@ -99,6 +102,12 @@ export function probabilities(st: State, e: number): number[] {
   const cdf = [0, ...edges.map((ck) => sigma((ck - (e - st.mu)) / st.s)), 1];
   return Array.from({ length: 7 }, (_, k) => Math.max(1e-9, cdf[k + 1] - cdf[k]));
 }
+
+/** The comfortable range (ちょうどよい範囲 = 涼しい〜暖かい, SCALE_VERSION 4): centre ± (h + g). */
+export const comfortRange = (st: State): [number, number] => [st.mu - st.h - st.g, st.mu + st.h + st.g];
+
+/** Where E sits against the comfortable range: inside (0), or how far past its edge (℃, signed). */
+export const beyondComfort = (st: State, e: number): number => beyondRange({ ...st, h: st.h + st.g }, e);
 
 /** Where E sits: inside the range (0), or how far past its edge (℃, signed). */
 export function beyondRange(st: State, e: number): number {

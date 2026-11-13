@@ -1,6 +1,7 @@
 // Observations for fitting, from saved reports (MATH-02 decides which may teach).
 // Contract: research/comfort-model/mathematical-contract.md
 
+import { SCALE_VERSION } from "../reports";
 import { DEFAULT_LAT_LON, solarTimes, stationLatLon } from "../../../shared/sunTimes";
 import { addDays } from "../../../shared/dates";
 import { runningMean } from "../adaptation";
@@ -221,7 +222,8 @@ export function observationsOf(reports: Report[], alpha: number, settings: ObsSe
   const used: Report[] = [];
   for (const r of reports) {
     // Only reports whose inputs are good enough teach the model (MATH-02, quality.ts).
-    if (r.deleted || !inputQuality(r).trainable) continue;
+    // Only answers on the current words teach the model (SCALE_VERSION 4, 2026-11-13): older words meant other things.
+    if (r.deleted || (r.scaleVersion ?? 1) !== SCALE_VERSION || !inputQuality(r).trainable) continue;
     const e = placeTempOf(r);
     if (e == null) continue;
     const d = driversFrom(e, r.history ?? [], r.recent, r.snapshot?.humidity ?? null, reportedSunny(r), alpha, r.snapshot?.date ?? r.at.slice(0, 10), r.snapshot?.radDay ?? null, reportNight(r, settings), r.snapshot?.wind6h ?? null, r.snapshot?.windLastNight ?? null, !sunBased(settings));

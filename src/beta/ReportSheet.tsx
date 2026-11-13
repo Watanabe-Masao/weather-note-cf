@@ -14,6 +14,7 @@ import { departures, historyDays } from "./adaptation";
 import { reportMoment, DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
 import { noteAnswered } from "./AfterAnswer";
+import { feelOn } from "../feelSeason";
 import { inputQuality } from "./quality";
 import { bandOf, centreUnknown, type ComfortPrediction, LEARNING_LABELS, LEARNING_RULES, type LearningView, predictComfort, TIME_BANDS } from "./comfort";
 import { baselineOf, baselineStateOf, driversOfDay, historyOf, useBaselineHistory } from "./useBaseline";
@@ -159,7 +160,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
           from: notifiedAt ? ("notification" as const) : ("button" as const),
           shownFeel: v,
           shownExposure: feel.sun ? ("sun" as const) : ("shade" as const),
-          shownLevel: v == null ? null : levelOf(v, feel),
+          shownLevel: v == null ? null : levelOf(v, feelOn(store, station, today, feel)),
           firstSensation: firstPick,
           picks,
           predictionSeen: seen,
@@ -200,7 +201,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
               onClick={() => pick(s.value)}
             >
               {/* Two lines where the word is long, so seven fit a phone's width. */}
-              {s.label.replace("ちょうどよい", "ちょうど\nよい")}
+              {s.label.replace("暑くも寒くもない", "暑くも\n寒くも\nない")}
             </button>
           ))}
         </div>
@@ -245,13 +246,13 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   );
 }
 
-/** Where in the range the moment sits, in words (z = (E′ − μ)/h; the range is |z| ≤ 1). */
-function placeWords(z: number): string {
-  if (z < -1) return "ちょうどよい範囲より寒い側";
-  if (z > 1) return "ちょうどよい範囲より暑い側";
-  if (z < -0.4) return "ちょうどよい範囲の寒い側寄り";
-  if (z > 0.4) return "ちょうどよい範囲の暑い側寄り";
-  return "ちょうどよい範囲の中ほど";
+/** Where the moment sits, in words, from E′ − μ against h and h + g (ちょうどよい範囲 = 涼しい〜暖かい). */
+function placeWords(offset: number, h: number, g: number): string {
+  if (offset < -h - g) return "ちょうどよい範囲より寒い側";
+  if (offset > h + g) return "ちょうどよい範囲より暑い側";
+  if (offset < -h) return "ちょうどよい範囲の涼しい側";
+  if (offset > h) return "ちょうどよい範囲の暖かい側";
+  return "暑くも寒くもないあたり";
 }
 
 /**
@@ -274,7 +275,7 @@ function PredictionCard({ prediction, reported, learning, station }: { predictio
         {learning.state === "untrained"
           ? "あなたの記録がまだないので、初期値による参考です。"
           : learning.state === "sparse"
-            ? "ちょうどよい肌感はまだ特定できません。"
+            ? "暑くも寒くもない肌感はまだ特定できません。"
             : learning.state === "provisional"
               ? "推定の幅がまだ広い、暫定の予測です。"
               : learning.state === "testable"
@@ -295,17 +296,17 @@ function PredictionCard({ prediction, reported, learning, station }: { predictio
       </div>
       {prediction.sides && (
         <p className="predict-sides">
-          寒い側 <b>{pct(prediction.sides.cold)}</b>・ちょうどよい <b>{pct(prediction.sides.neutral)}</b>・暑い側 <b>{pct(prediction.sides.warm)}</b>
+          寒い側 <b>{pct(prediction.sides.cold)}</b>・暑くも寒くもない <b>{pct(prediction.sides.neutral)}</b>・暑い側 <b>{pct(prediction.sides.warm)}</b>
         </p>
       )}
       {unknown ? (
         <p className="predict-sub">まだ足りないもの：{learning.missing.join("、")}。</p>
       ) : (
         <p className="predict-sub">
-          ちょうどよい肌感 {st.mu.toFixed(1)}
+          暑くも寒くもない肌感 {st.mu.toFixed(1)}
           {prediction.muInterval ? `（95%：${prediction.muInterval[0].toFixed(1)}〜${prediction.muInterval[1].toFixed(1)}）` : ""}
-          。今は{prediction.z != null ? placeWords(prediction.z) : "—"}
-          {prediction.zInterval ? `（位置 ${prediction.z?.toFixed(1)}、95%：${prediction.zInterval[0].toFixed(1)}〜${prediction.zInterval[1].toFixed(1)}。±1が範囲の端）` : ""}。
+          。今は{placeWords(prediction.offset, st.h, st.g)}
+          {prediction.zInterval ? `（位置 ${prediction.z?.toFixed(1)}、95%：${prediction.zInterval[0].toFixed(1)}〜${prediction.zInterval[1].toFixed(1)}。±1が暑くも寒くもないの端）` : ""}。
         </p>
       )}
       {learning.bands && learning.state !== "untrained" && (() => {

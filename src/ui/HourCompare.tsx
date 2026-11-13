@@ -39,6 +39,7 @@ import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
 import { levelOf, type Thresholds } from "../../shared/feel";
 import { Segmented } from "./kit";
 import { personalThresholds, useDayComfortState } from "../beta/useDayComfort";
+import { feelOn } from "../feelSeason";
 
 /** The colour of an hourly item: the same for both days (they differ by solid / dashed). */
 export const HOUR_TONE: Record<DetailMetricId, DataColor> = {
@@ -125,6 +126,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       /* not kept: fine */
     }
   };
+  // 従来版's boundaries of the day: the settings' moved by the season (#111).
+  const dayFeel = feelOn(store, station, date, settings);
   const personal: Thresholds | null = metricId === "feel" && comfort.st && !comfort.hidden ? personalThresholds(comfort.st) : null;
   const bands: Bands = personal && bandsPick === "you" ? "you" : "shared";
   const isToday = date === today;
@@ -197,7 +200,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                   label: "あなたの段",
                   unit: "",
                   // The person's levels are of the shown day (対象) only.
-                  a: at(main) == null ? "—" : `${levelName(levelOf(at(main)!, { ...settings, thresholds: personal }), settings.scale)}（従来版 ${levelName(levelOf(at(main)!, settings), settings.scale)}）`,
+                  a: at(main) == null ? "—" : `${levelName(levelOf(at(main)!, { ...settings, thresholds: personal }), settings.scale)}（従来版 ${levelName(levelOf(at(main)!, dayFeel), settings.scale)}）`,
                   b: "—",
                 },
               ]
@@ -214,8 +217,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         main={main}
         second={other ? second : null}
         air={air}
-        ranges={levelRanges(bands === "you" && personal ? personal : settings.thresholds, settings.scale)}
-        guides={bands === "you" ? settings.thresholds : undefined}
+        ranges={levelRanges(bands === "you" && personal ? personal : dayFeel.thresholds, settings.scale)}
+        guides={bands === "you" ? dayFeel.thresholds : undefined}
         sun={sun}
         day={day}
         nowHour={isToday ? nowHour : null}
@@ -250,7 +253,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
               />
               {bands === "you" && personal && (
                 <p className="basis-note">
-                  色はあなたの記録から学んだ段（ちょうどよい {personal[2].toFixed(1)}〜{personal[3].toFixed(1)}）。点線は従来版の境目（ちょうどよい {settings.thresholds[2]}〜{settings.thresholds[3]}）。β は検証中の計算です。
+                  色はあなたの記録から学んだ段（ちょうどよい＝涼しい〜暖かい {personal[1].toFixed(1)}〜{personal[4].toFixed(1)}）。点線は従来版の境目（同じく {dayFeel.thresholds[1]}〜{dayFeel.thresholds[4]}、季節で動く）。β は検証中の計算です。
                 </p>
               )}
             </>

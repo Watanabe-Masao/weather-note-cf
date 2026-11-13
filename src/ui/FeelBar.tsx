@@ -17,6 +17,7 @@ import {
   type Thresholds,
 } from "../../shared/feel";
 import type { WeatherStore } from "../data/store";
+import { feelOn } from "../feelSeason";
 import { FEEL_LEVELS, FEEL_SCALE_COLORS } from "../design/tokens";
 
 /** Feel settings for everything below (sun or shade, thresholds, wind). */
@@ -54,7 +55,8 @@ export function bandsFor(
 }
 
 export function FeelBar({ store, station, date }: { store: WeatherStore | null; station: string; date: string }) {
-  const settings = useContext(FeelContext);
+  // The day's boundaries move with the season (#111).
+  const settings = feelOn(store, station, date, useContext(FeelContext));
   const found = bandsFor(store, station, date, settings);
   if (!found) {
     const state = store?.getDay(station, date).state;

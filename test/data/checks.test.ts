@@ -75,8 +75,8 @@ describe("朝・夕方の見込みの言葉 (#118)", () => {
     const w = outlookWords([0, 0.3, 0.6, 0.1, 0, 0, 0], 7);
     expect([w.first, w.second, w.p]).toEqual([2, 1, 0.6]);
     expect(outlookWords([0, 0.1, 0.8, 0.1, 0, 0, 0], 7).second).toBeNull();
-    // On 3 steps, 寒い and 涼しい gather into 寒い側.
-    expect(outlookWords([0, 0.3, 0.6, 0.1, 0, 0, 0], 3).first).toBe(0);
+    // On 3 steps, 涼しい joins the comfortable middle (涼しい〜暖かい): ちょうどよい.
+    expect(outlookWords([0, 0.3, 0.6, 0.1, 0, 0, 0], 3).first).toBe(1);
     expect([sureness(0.75), sureness(0.55), sureness(0.3)]).toEqual([3, 2, 1]);
   });
 });

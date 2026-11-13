@@ -9,6 +9,7 @@ import { addDays } from "../../shared/dates";
 import { type Band, BANDS, type FeelSettings, hourlyBands } from "../../shared/feel";
 import { dayTone } from "../../shared/holidays";
 import type { WeatherStore } from "../data/store";
+import { feelOn } from "../feelSeason";
 import { BAND_LINES, BAND_MARKS } from "../design/tokens";
 import { niceTicks, signedDiff, tickLabel, monthDay, dateLabel } from "../design/format";
 import { Chip, ForecastHatch, GraphReadout, GuideLines, Mark, MarkIcon } from "./kit";
@@ -34,7 +35,7 @@ export function trendSeries(days: (Band[] | null)[], index: number): TrendPoint[
 function bandsOf(store: WeatherStore | null, station: string, date: string | null, s: FeelSettings): Band[] | null {
   if (!date) return null;
   const hours = store?.getHours(station, date);
-  return hours?.state === "ready" && hours.rows.length ? hourlyBands(hours.rows, s, station) : null;
+  return hours?.state === "ready" && hours.rows.length ? hourlyBands(hours.rows, feelOn(store, station, date, s), station) : null;
 }
 
 interface Props {
@@ -84,7 +85,8 @@ export function BandTrend({ store, station, target, partner }: Props) {
   const y = (v: number) => PAD.top + ((hi - v) * (H - PAD.top - PAD.bottom)) / (hi - lo);
 
   // Level colour bands behind the lines, so a line's height reads as 寒い…暑い at a glance.
-  const levelBands = levelRanges(settings.thresholds, settings.scale).map(({ from, to, color }, i) => {
+  // The target day's boundaries (they move little over the span shown; #111).
+  const levelBands = levelRanges(feelOn(store, station, target, settings).thresholds, settings.scale).map(({ from, to, color }, i) => {
     const top = Math.min(hi, to);
     const bottom = Math.max(lo, from);
     return top > bottom ? { i, color, y1: y(top), y2: y(bottom) } : null;

@@ -35,7 +35,7 @@ describe("なぜ (#118)", () => {
     expect(t[1].key).toBe("dT1");
     expect(t[1].effect).toBeCloseTo(0.5 * 0.8, 9);
     const line = whyLine(t);
-    expect(line).toContain("出発点（従来版の中心＋慣れ）より +2.4（寒く感じやすい）");
-    expect(line).toContain("前日の気温の変化で ちょうどよいが +0.4（寒く感じる側）");
+    expect(line).toContain("あなたの中心（暑くも寒くもない）は出発点（従来版）より +2.4（寒く感じやすい）");
+    expect(line).toContain("前日の気温の変化で 中心が +0.4（寒く感じる側）");
   });
 });

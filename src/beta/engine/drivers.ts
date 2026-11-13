@@ -88,7 +88,7 @@ interface DriverInfo {
 }
 
 /** Where adaptation stops, for the limited model (EN 16798-1's range for the running mean). */
-export const ADAPT_LO = 10;
+export const ADAPT_LO = 5; // as shared/season.ts (#111): 10 was the indoor model's range
 export const ADAPT_HI = 30;
 
 const c = (v: number | null, ref: number, unit: number) => (v == null ? null : (v - ref) / unit);
@@ -115,7 +115,7 @@ export function storedHeat(d: Drivers): number | null {
 
 export const DRIVERS: Record<DriverKey, DriverInfo> = {
   a: { label: "最近の基準", unit: "1℃", value: (d) => d.a - 15, muSd: 0.15, hSd: 0.03 },
-  aLim: { label: "最近の基準（10〜30℃で頭打ち）", unit: "1℃", value: (d) => Math.min(ADAPT_HI, Math.max(ADAPT_LO, d.a)) - 15, muSd: 0.15, hSd: 0.03 },
+  aLim: { label: "最近の基準（5〜30℃で頭打ち）", unit: "1℃", value: (d) => Math.min(ADAPT_HI, Math.max(ADAPT_LO, d.a)) - 15, muSd: 0.15, hSd: 0.03 },
   dT1: { label: "前日の気温の変化（前日 − 基準）", unit: "1℃", value: (d) => d.dT1, muSd: 0.3, hSd: 0.05 },
   h7: { label: "1週間の湿度", unit: "10%", value: (d) => c(d.h7, 65, 10), muSd: 0.6, hSd: 0.15 },
   h1: { label: "前日の湿度", unit: "10%", value: (d) => c(d.h1, 65, 10), muSd: 0.6, hSd: 0.15 },

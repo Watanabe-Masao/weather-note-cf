@@ -1,0 +1,45 @@
+{
+  "id": "2026-11-13-comfort-7",
+  "date": "2026-11-13",
+  "modelVersion": "comfort-7",
+  "scaleVersion": 4,
+  "commit": "feat/answer-words",
+  "dataset": {
+    "id": "none-new-scale",
+    "hash": "sha256:none",
+    "kind": "synthetic",
+    "period": null,
+    "n": 0,
+    "excluded": {}
+  },
+  "seed": 0,
+  "settings": {
+    "prior": "PRIOR m0 18±4（最近の基準 15℃ のとき）, h 3, g 4.5 (log ±0.5), slope 0.7（従来版の季節の動き shared/season.ts と同じ。#111）",
+    "optimiser": "BFGS 200 iterations, Laplace (Cholesky), 200 draws per model（comfort-6 と同じ）",
+    "alpha": "0.8 until 30 reports, then chosen by M2 evidence（comfort-6 と同じ）",
+    "adapt": "aLim の頭打ち 5〜30℃（以前 10〜30）",
+    "scale": "SCALE_VERSION 4 の答えだけで学ぶ（寒い・肌寒い・涼しい・暑くも寒くもない・暖かい・少し暑い・暑い）"
+  },
+  "compared": [
+    "comfort-6（出発点 slope 0.33, g 4、全版の答えで学習）"
+  ],
+  "results": {
+    "rps": null,
+    "logLoss": null,
+    "skill": null,
+    "calibration": null,
+    "notes": "言葉の変更（SCALE_VERSION 4）で答えの意味が変わるため、比べられる実データはまだない。新しい言葉の答えがたまったら、共通の答えで comfort-7 の各モデルを MATH-08 の決まり（compareAll.ts）で確かめる"
+  },
+  "checks": {
+    "mathematical": true,
+    "recovery": true,
+    "performance": "新しい言葉の実データがないため未評価。出発点は従来版と同じなので、学習ゼロでも従来版と同じ予測から始まる",
+    "calibration": "実データがないため未評価",
+    "stability": true,
+    "compatibility": true,
+    "contract": true
+  },
+  "decision": "adopted",
+  "reason": "感じ方の言葉を、快適の意味を含む7語に変えた（涼しい・暖かいは快適、肌寒い・少し暑いは不快）。言葉の意味が変わるので学習は新しい言葉の答えだけで行う。従来版の境目が季節で動くようにしたので（平均気温 1℃ につき 0.7）、β の出発点も同じ値にそろえた（MATH-04：出発点＝従来版）",
+  "approvedBy": "渡辺正雄（2026-11-13、言葉の変更・従来版の境目を季節で動かす（傾き 0.7）・β の出発点を今回そろえることを承認。D10）"
+}

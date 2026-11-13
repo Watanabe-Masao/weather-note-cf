@@ -57,7 +57,7 @@ export interface Checks {
 const jstDay = (iso: string) => new Date(Date.parse(iso) + 9 * 3_600_000).toISOString().slice(0, 10);
 const modeOf = (p: number[]) => p.indexOf(Math.max(...p)) - 3;
 
-/** The shared constants' prediction (the prior: centre 18 + 0.33 × (最近の基準 − 15), h 3, g 4, s 1). */
+/** The shared constants' prediction (the prior: PRIOR, s 1). */
 export function sharedPrediction(e: number, a: number): number[] {
   return probabilities({ mu: PRIOR.m0 + PRIOR.slope * (a - 15), h: PRIOR.h, g: PRIOR.g, s: 1 }, e);
 }

@@ -18,7 +18,7 @@ import { r1, r2 } from "./util";
 //   Var(Y) = E_θ[Var(Y | θ)]  (answers)  +  Var_θ[E(Y | θ)]  (parameters)
 
 /** Version of the prediction (stored with every report, so past predictions stay readable). */
-export const MODEL_VERSION = "comfort-6"; // 6: the stored sun at night is the latest daytime's, across midnight (#86); 5: night from sunset to sunrise, the sky in daylight only, runs end after 3 hours (#86); 4: reports in a row weigh less, time bands gate testable (#62); 3: missing inputs leave models out
+export const MODEL_VERSION = "comfort-7"; // 7: answers on the new words only (SCALE_VERSION 4), the starting point = 従来版 (slope 0.7, outer step 4.5, 慣れ 5–30 ℃; #111); 6: 6: the stored sun at night is the latest daytime's, across midnight (#86); 5: night from sunset to sunrise, the sky in daylight only, runs end after 3 hours (#86); 4: reports in a row weigh less, time bands gate testable (#62); 3: missing inputs leave models out
 /** Parameter draws per model. */
 export const DRAWS = 200;
 

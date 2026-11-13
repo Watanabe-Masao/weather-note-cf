@@ -27,19 +27,22 @@ import type { ComfortPrediction } from "./comfort";
  * in other words, so analysis can tell them apart; reports without it are 1):
  *   1: 寒い・涼しい・やや涼しい・どちらでもない／適温・やや暖かい・暖かい・暑い
  *   2: 極寒・寒い・涼しい・快適・暖かい・暑い・猛暑
- *   3: 極寒・寒い・涼しい・ちょうどよい・暖かい・暑い・猛暑 — 0 is thermal neutral (neither warm nor
- *      cold), not comfort: "暖かいけれど快適" is possible, and comfort would be a question of its own.
+ *   3: 極寒・寒い・涼しい・ちょうどよい・暖かい・暑い・猛暑
+ *   4: 寒い・肌寒い・涼しい・暑くも寒くもない・暖かい・少し暑い・暑い (渡辺さん, 2026-11-13) — the
+ *      words carry comfort: 涼しい and 暖かい are within the comfortable range (ちょうどよい範囲 =
+ *      涼しい〜暖かい), 肌寒い and 少し暑い are not; 0 is thermal neutral. Only answers on this scale
+ *      teach the model (older ones are kept, not learned from).
  */
-export const SCALE_VERSION = 3;
+export const SCALE_VERSION = 4;
 
 export const SENSATIONS = [
-  { value: -3, label: "極寒" },
-  { value: -2, label: "寒い" },
+  { value: -3, label: "寒い" },
+  { value: -2, label: "肌寒い" },
   { value: -1, label: "涼しい" },
-  { value: 0, label: "ちょうどよい" },
+  { value: 0, label: "暑くも寒くもない" },
   { value: 1, label: "暖かい" },
-  { value: 2, label: "暑い" },
-  { value: 3, label: "猛暑" },
+  { value: 2, label: "少し暑い" },
+  { value: 3, label: "暑い" },
 ] as const;
 export const EXPOSURES = [
   { id: "sun", label: "日なた" },
@@ -184,7 +187,7 @@ export interface AnswerContext {
   /** Opened from a notification, or from the app's record button. */
   from: "notification" | "button";
   /** The 肌感 of the moment the sheet was opened, as the app showed it (日なた or 日かげ by the
-   *  display setting), and its level by the shown boundaries (0 極寒 … 6 猛暑). */
+   *  display setting), and its level by the shown boundaries (0 寒い … 6 暑い). */
   shownFeel: number | null;
   shownExposure: "sun" | "shade";
   shownLevel: number | null;
