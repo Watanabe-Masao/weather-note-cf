@@ -7,6 +7,7 @@
 // 5. Each band gets one of five levels; a phrase describes the day.
 
 import { dayParts, hoursIn, PARTS, type PartWindow } from "./dayParts";
+import { sunshineRadiation } from "./mrt";
 import type { WeatherRow } from "./types";
 
 // ---- settings --------------------------------------------------------------------------------
@@ -86,8 +87,11 @@ export function radiationOf(row: Record<string, unknown>): number | null {
 /**
  * Version of how 肌感（日なた・日かげ） are computed from the weather (MATH-03). Stored with each
  * report, so that a report can be read with the method it was made with.
+ * feel-1s (#103): 日なた's radiation is estimated from the hour's sunshine and rain (shared/mrt.ts
+ * sunshineRadiation) at every station and for records and forecasts alike; feel-1 used the measured
+ * radiation where a station had it, and the forecast's elsewhere only on forecast days.
  */
-export const FEEL_TRANSFORM = "feel-1";
+export const FEEL_TRANSFORM = "feel-1s";
 
 export function feelOf(
   temp: unknown,
@@ -189,7 +193,7 @@ export interface Band {
   level: Level | null;
   /** All hours are forecast / some are forecast (today in progress). */
   source: "actual" | "forecast" | "mixed";
-  /** False when no hour of the band had radiation (station without it, or night). */
+  /** False when no hour of the band had sunshine to go by (night, or sunshine not given). */
   sunCounted: boolean;
 }
 
@@ -203,7 +207,7 @@ export function hourlyBands(rows: WeatherRow[], s: FeelSettings, station: string
     const ns = hoursIn(w);
     const hours = ns.map((h) => byHour.get(h)).filter((r): r is WeatherRow => !!r);
     const feels = hours
-      .map((r) => feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", s, radiationOf(r)))
+      .map((r) => feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", s, sunshineRadiation(r, station)))
       .filter((v): v is number => v != null);
     const temps = hours.map((r) => num(r.temp)).filter((v): v is number => v != null);
     const forecastCount = hours.filter((r) => r.type === "forecast").length;
@@ -216,7 +220,7 @@ export function hourlyBands(rows: WeatherRow[], s: FeelSettings, station: string
       temp: mean(temps),
       level: feel == null ? null : levelOf(feel, s),
       source: forecastCount === 0 ? "actual" : forecastCount === hours.length ? "forecast" : "mixed",
-      sunCounted: hours.some((r) => radiationOf(r) != null),
+      sunCounted: hours.some((r) => sunshineRadiation(r, station) != null),
     };
   });
 }

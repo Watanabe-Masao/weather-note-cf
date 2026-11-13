@@ -50,11 +50,20 @@ const TOP = 130_000;
 const EDGES = [...BRIGHTNESS_LEVELS.map((l) => l.from), TOP];
 
 /**
- * How much of the clear sky's light gets through (Janiczek & DeYoung's sky conditions): clear (cloud
- * under 30%) 1, average clouds 1/3, dark stratus (rain, snow) 1/10. Unknown: halfway in steps (log)
- * between clear and average clouds.
+ * How much of the clear sky's light gets through (after Janiczek & DeYoung's sky conditions, checked
+ * against Kochi's measured radiation of 2025, research/radiation): clear 1; an hour without sunshine
+ * 1/3 (measured 0.30, the same in every season); dark stratus under rain 1/7 (measured 0.14 for
+ * 0.5–2 mm, where the 1/10 of the literature was too dark). Unknown: half the sunshine (SHARE_POWER).
  */
-export const CLOUD = { clear: 1, cloudy: 1 / 3, rain: 1 / 10, unknown: 1 / Math.sqrt(3) } as const;
+const CLOUDY = 1 / 3;
+/** Between no sunshine and full, light and radiation go as share^0.7 (Kochi 2025: half the sunshine lets 0.72 through). One curve for both. */
+export const SHARE_POWER = 0.7;
+const clamp01 = (x: number) => Math.min(1, Math.max(0, Number.isFinite(x) ? x : 0));
+/** What gets through with `share` of the possible sunshine, `dim` getting through with none. */
+export const throughShare = (share: number, dim: number) => dim + (1 - dim) * clamp01(share) ** SHARE_POWER;
+/** The share of the hour without sunshine, read back from a factor (the inverse of throughShare). */
+export const sunlessShare = (factor: number, dim: number) => 1 - clamp01((factor - dim) / (1 - dim)) ** (1 / SHARE_POWER);
+export const CLOUD = { clear: 1, cloudy: CLOUDY, rain: 1 / 7, unknown: throughShare(0.5, CLOUDY) } as const;
 
 /**
  * The night sky's light on the ground (lux), from the sky's own luminance: a sky of the same
@@ -65,8 +74,7 @@ export const CLOUD = { clear: 1, cloudy: 1 / 3, rain: 1 / 10, unknown: 1 / Math.
  * In between by the cloud factor (log), overcast from average clouds down.
  */
 export function nightSkyLux(factor: number, alpha?: number | null): number {
-  const t = Math.min(1, Math.max(0, Math.log(factor) / Math.log(CLOUD.cloudy)));
-  return Math.PI * skyGlow(alpha, t);
+  return Math.PI * skyGlow(alpha, sunlessShare(factor, CLOUD.cloudy));
 }
 
 /**
@@ -272,8 +280,8 @@ export function rainFactor(mm: number): number {
   return Math.max(1 / 40, CLOUD.rain * (r / RAIN_MM) ** -0.25);
 }
 
-/** All of the sunshine an hour could have had → clear; none → average clouds (rain: rainFactor of `mm`); in between by steps (log). */
-export const sunshineFactor = (share: number, rain = false, mm = RAIN_MM) => (rain ? rainFactor(mm) : CLOUD.cloudy) ** (1 - Math.min(1, Math.max(0, share)));
+/** All of the sunshine an hour could have had → clear; none → average clouds (rain: rainFactor of `mm`); in between by throughShare. */
+export const sunshineFactor = (share: number, rain = false, mm = RAIN_MM) => throughShare(share, rain ? rainFactor(mm) : CLOUD.cloudy);
 
 /**
  * How much of the clear sky's light gets through in an hour, or null when the row cannot tell.

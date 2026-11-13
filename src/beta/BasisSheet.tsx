@@ -5,6 +5,7 @@
 import { PreferenceDay } from "./PreferenceDay";
 import { useContext, useMemo, useState } from "react";
 import { clockOf, dayParts, hoursIn } from "../../shared/dayParts";
+import { sunshineRadiation } from "../../shared/mrt";
 import { DAYTIME_BANDS, daytimeFeel, feelOf, type FeelSettings, FORECAST_WIND_HEIGHT, PERSON_HEIGHT, radiationOf, windAtPerson } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
@@ -116,7 +117,7 @@ function BaselineBasis({ store, station, date, alpha }: { store: WeatherStore | 
 }
 
 /** One daytime band: inputs, and the 肌感（日なた／日かげ） they give. */
-function bandBasis(rows: WeatherRow[], hours: readonly number[], feel: FeelSettings) {
+function bandBasis(rows: WeatherRow[], hours: readonly number[], feel: FeelSettings, station: string) {
   const hs = rows.filter((r) => hours.includes(r.n));
   const forecast = hs.some((r) => r.type === "forecast");
   const values = (k: string) => hs.map((r) => num(r[k]));
@@ -129,8 +130,8 @@ function bandBasis(rows: WeatherRow[], hours: readonly number[], feel: FeelSetti
     windPerson: wind == null ? null : windAtPerson(wind, height, feel.alpha),
     height,
     solar: mean(hs.map((r) => radiationOf(r))),
-    shade: mean(hs.map((r) => feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", { ...feel, sun: false }, radiationOf(r)))),
-    sun: mean(hs.map((r) => feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", { ...feel, sun: true }, radiationOf(r)))),
+    shade: mean(hs.map((r) => feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", { ...feel, sun: false }, sunshineRadiation(r, station)))),
+    sun: mean(hs.map((r) => feelOf(r.temp, r.humidity, r.wind, r.type === "forecast", { ...feel, sun: true }, sunshineRadiation(r, station)))),
     forecast,
   };
 }
@@ -145,7 +146,7 @@ function DayBasis({ store, station, date, alpha, feel }: { store: WeatherStore |
   const parts = dayParts(date, station);
   const bands = DAYTIME_BANDS.map((id) => {
     const w = parts.find((x) => x.id === id)!;
-    return { label: w.label, window: w, ...bandBasis(rows, hoursIn(w), feel) };
+    return { label: w.label, window: w, ...bandBasis(rows, hoursIn(w), feel, station) };
   });
   const span = `${clockOf(bands[0].window.from)}〜${clockOf(bands.at(-1)!.window.to)}`;
   // The totals come from the very functions the summary uses, so the two always agree.
@@ -990,7 +991,8 @@ function TryIt({ store, station }: { store: WeatherStore | null; station: string
   if (!latest || !s || s.temp == null || s.humidity == null) return null;
   const w = wind ?? s.wind ?? 0;
   const p = place ?? (latest.exposure === "shade" ? "shade" : "sun");
-  const e = feelOf(s.temp, s.humidity, w, false, { ...feel, sun: p === "sun" }, s.solar ?? null);
+  // The radiation 日なた used when the answer was sent (feel-1s); older reports only have the measured one.
+  const e = feelOf(s.temp, s.humidity, w, false, { ...feel, sun: p === "sun" }, s.sunRad !== undefined ? s.sunRad : (s.solar ?? null));
   const x = observationsOf([latest], beta.ens.alpha)[0];
   const scale = feel.scale ?? 7;
   let mine: string | null = null;

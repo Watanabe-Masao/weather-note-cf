@@ -79,6 +79,7 @@ describe("β: differences from the baseline, in the sun and in the shade", () =>
     humidity: 60,
     wind: 2,
     solar: n >= 9 && n <= 17 ? 500 : 0,
+    sun: n >= 9 && n <= 17 ? 1 : 0, // 日なた goes by the sunshine (feel-1s, #103)
   });
   const hours = Array.from({ length: 24 }, (_, i) => hour(i + 1));
   const baseline = { value: 16, forecastMixed: false, coverage: 1 };

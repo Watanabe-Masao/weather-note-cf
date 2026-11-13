@@ -11,6 +11,7 @@ import { type IDBPDatabase, openDB } from "idb";
 import { inputQuality } from "./quality";
 import { FEEL_TRANSFORM, feelOf, type FeelSettings, radiationOf, wind10Of } from "../../shared/feel";
 import { feel2Warming } from "../../shared/sunLoad";
+import { sunshineRadiation } from "../../shared/mrt";
 import { addDays } from "../../shared/dates";
 import { dayEdges } from "../../shared/dayParts";
 import type { WeatherRow } from "../../shared/types";
@@ -107,8 +108,10 @@ export interface Snapshot {
   temp: number | null;
   humidity: number | null;
   wind: number | null;
-  /** W/m². */
+  /** W/m²: the row's radiation as given (measured or forecast), kept as data. 日なた does not use it (feel-1s). */
   solar: number | null;
+  /** W/m²: the radiation 日なた used — estimated from the hour's sunshine and rain (feel-1s, #103). Absent in older reports. */
+  sunRad?: number | null;
   from: Partial<Record<"temp" | "humidity" | "wind" | "solar", Origin>>;
   /** 肌感（日なた） / 肌感（日かげ） for that hour (with the 肌感 settings of the moment). */
   sunTemp: number | null;
@@ -283,6 +286,8 @@ export function snapshotOf(
   const own = hourOrigin(row, { kind: "variable", source: row.type === "forecast" ? "forecast" : "current" });
   const fieldFrom = (k: string): Origin => ((row.origin as Record<string, Origin> | undefined)?.[k] ?? own);
   const solar = radiationOf(row);
+  // 日なた from the sunshine-based radiation, the same for records and forecasts (#103).
+  const sunRad = sunshineRadiation(row, live?.station ?? null);
   const temp = ten ? num(ten.row.temp) : num(row.temp);
   const humidity = ten ? (num(ten.row.humidity) ?? num(row.humidity)) : num(row.humidity);
   const wind = ten ? (num(ten.row.wind) ?? num(row.wind)) : num(row.wind);
@@ -295,21 +300,22 @@ export function snapshotOf(
     humidity,
     wind,
     solar: solar == null ? null : Math.round(solar),
+    sunRad: sunRad == null ? null : Math.round(sunRad),
     from: {
       temp: ten ? "amedas" : fieldFrom("temp"),
       humidity: ten && num(ten.row.humidity) != null ? "amedas" : fieldFrom("humidity"),
       wind: ten && num(ten.row.wind) != null ? "amedas" : fieldFrom("wind"),
       ...(solar != null ? { solar: fieldFrom(num(row.solar) != null ? "solar" : "radiation") } : {}),
     },
-    sunTemp: round1(feelOf(temp, humidity, wind, forecast, { ...feel, sun: true }, solar)),
-    shadeTemp: round1(feelOf(temp, humidity, wind, forecast, { ...feel, sun: false }, solar)),
+    sunTemp: round1(feelOf(temp, humidity, wind, forecast, { ...feel, sun: true }, sunRad)),
+    shadeTemp: round1(feelOf(temp, humidity, wind, forecast, { ...feel, sun: false }, sunRad)),
     ...forecastSkyOf(rows, row),
     ...radDayOf(rows, row.n),
     ...windMemory(rows, before, row.n, live?.station ?? null),
     ...sunOf(live?.sun),
     sunshine: num(row.sun),
     sunIndex2: (() => {
-      const shade = feelOf(temp, humidity, wind, forecast, { ...feel, sun: false }, solar);
+      const shade = feelOf(temp, humidity, wind, forecast, { ...feel, sun: false }, sunRad);
       const add = wind == null ? null : feel2Warming(row.date, row.n, live?.station ?? null, num(row.sun), wind10Of(wind, forecast, feel));
       return shade == null || add == null ? null : round1(shade + add);
     })(),

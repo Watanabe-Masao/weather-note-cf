@@ -96,8 +96,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // The parts of the day and the sun's height, by the sun at this station (shared/dayParts.ts).
   const day = useMemo(() => ({ parts: dayParts(date, station), edges: dayEdges(date, station), curve: altitudeCurve(date, station, 10) }), [date, station]);
 
-  const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings), [hours, metricId, settings]);
-  const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings), [otherHours, metricId, settings]);
+  const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings, station), [hours, metricId, settings]);
+  const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings, station), [otherHours, metricId, settings]);
   const air = useMemo(() => (metricId === "feel" ? hourSeries(hours?.rows ?? [], "temp", settings) : null), [hours, metricId, settings]);
   // 手前の平均 (src/hourAverage.ts): each day's own weeks before it, hour by hour. Tapping the legend
   // steps the span (1週 → 2週 → 1か月) and sets a line aside (grey); both are the person's to choose.
@@ -123,7 +123,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const averageOf = (days: string[]) => {
     if (!days.length) return null;
     const ready = days.map((d) => store?.getHours(station, d)).filter((h) => h?.state === "ready");
-    const m = meanByHour(ready.map((h) => hourSeries(h!.rows, metricId, settings)), days.length);
+    const m = meanByHour(ready.map((h) => hourSeries(h!.rows, metricId, settings, station)), days.length);
     return m.some((p) => p.v != null) ? m : null;
   };
   const avgMain = averageOf(avgDaysMain);

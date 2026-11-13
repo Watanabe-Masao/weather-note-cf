@@ -5,8 +5,8 @@
 
 import { useContext, useEffect, useMemo, useState } from "react";
 import { addDays } from "../../shared/dates";
-import { feelOf, FORECAST_WIND_HEIGHT, radiationOf } from "../../shared/feel";
-import { feel3, hourRadiation, utciWind } from "../../shared/mrt";
+import { feelOf, FORECAST_WIND_HEIGHT } from "../../shared/feel";
+import { feel3, hourRadiation, sunshineRadiation, utciWind } from "../../shared/mrt";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
@@ -17,8 +17,8 @@ const num = (v: unknown): number | null => (typeof v === "number" && Number.isFi
 const f1 = (v: number | null) => (v == null ? "—" : v.toFixed(1));
 
 const LINES = [
-  { key: "s1", label: "今の日かげ（feel-1）", color: "#a9b9cb", dash: "4 3" },
-  { key: "u1", label: "今の日なた（feel-1）", color: "#a9b9cb", dash: "" },
+  { key: "s1", label: "今の日かげ（feel-1s）", color: "#a9b9cb", dash: "4 3" },
+  { key: "u1", label: "今の日なた（feel-1s）", color: "#a9b9cb", dash: "" },
   { key: "s3", label: "候補の日かげ（UTCI）", color: "#f39a86", dash: "4 3" },
   { key: "u3", label: "候補の日なた（UTCI）", color: "#f39a86", dash: "" },
 ] as const;
@@ -52,7 +52,7 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
         if (!r) return null;
         const forecast = r.type === "forecast";
         const temp = num(r.temp), hum = num(r.humidity), wind = num(r.wind), sun = num(r.sun), rain = num(r.rain);
-        const rad = radiationOf(r);
+        const rad = sunshineRadiation(r, station);
         const s1 = feelOf(temp, hum, wind, forecast, { ...feel, sun: false }, rad);
         const u1 = feelOf(temp, hum, wind, forecast, { ...feel, sun: true }, rad);
         const height = forecast ? FORECAST_WIND_HEIGHT : feel.stationHeight;
@@ -81,7 +81,7 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
     <ModalSheet title="肌感の計算を比べる（テスト）" onClose={onClose} className="sun-test">
       <div className="sun-test-body">
         <p className="set-lead">
-          この日の時間ごとの実際の値で、肌感（日かげ・日なた）を今の計算（feel-1）と候補（feel-3：日かげも日なたも UTCI）で比べます。比べるのは土台の値だけです。どの値をどう感じるか（暑い・涼しい、慣れ、人による違い）は、この上のβモデルが受け持ちます。アプリの表示とモデルは変えません（#96）。
+          この日の時間ごとの実際の値で、肌感（日かげ・日なた）を今の計算（feel-1s：日射は日照から）と候補（feel-3：日かげも日なたも UTCI）で比べます。比べるのは土台の値だけです。どの値をどう感じるか（暑い・涼しい、慣れ、人による違い）は、この上のβモデルが受け持ちます。アプリの表示とモデルは変えません（#96）。
         </p>
         <div className="sun-test-nav">
           <button className="chip sm" onClick={() => setDate(addDays(date, -1))} aria-label="前の日">

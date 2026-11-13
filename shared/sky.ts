@@ -31,7 +31,7 @@
 // and sunset, and the middle of the hour alone would miss the evening sky. The clouds stay the
 // hour's (the data are hourly).
 
-import { brightnessIndex, CLOUD, clearSkyLux, dayLights, glowPlace, luxText, nightSkyLux, RAIN_MM, rainFactor, SKY_GLOW, skyGlow } from "./brightness";
+import { brightnessIndex, CLOUD, clearSkyLux, dayLights, glowPlace, luxText, nightSkyLux, RAIN_MM, rainFactor, SKY_GLOW, skyGlow, sunlessShare } from "./brightness";
 // The town's glow lives with the light (the ground's night comes from it); the sky re-exports it.
 export { SKY_GLOW, skyGlow } from "./brightness";
 import { DEFAULT_LAT_LON, solarAltitude, stationLatLon } from "./sunTimes";
@@ -262,10 +262,10 @@ export function placeTint(v: Lin, L: number, vivid = 1, minChroma = 0): string {
 }
 
 /** Cloudiness 0–1 from the light's cloud factor (CLOUD): clear 1 → 0, average clouds 1/3 → 1. */
-export const cloudiness = (factor: number) => Math.min(1, Math.max(0, Math.log(factor) / Math.log(CLOUD.cloudy)));
+export const cloudiness = (factor: number) => sunlessShare(factor, CLOUD.cloudy);
 
 /** Under rain: the share of the hour without sunshine, read back from the cloud factor (rainFactor of the rain, raised to it). */
-export const rainCloudiness = (factor: number, mm: number) => Math.min(1, Math.max(0, Math.log(factor) / Math.log(rainFactor(mm))));
+export const rainCloudiness = (factor: number, mm: number) => sunlessShare(factor, rainFactor(mm));
 
 /** The words: what the sky would be called (schematic). */
 export function skyWord(alt: number, c: number, rainMm: number, index: number, evening: boolean): SkyWord {

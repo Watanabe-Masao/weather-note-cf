@@ -60,7 +60,10 @@ describe("light from the sun and the sky", () => {
   it("dims with clouds by the report's sky conditions: from the sunshine in daylight, from rain alone with the sun down", () => {
     expect(cloudFactor(row(12, { sun: 1 }))).toBe(CLOUD.clear);
     expect(cloudFactor(row(12, { sun: 0 }))).toBeCloseTo(CLOUD.cloudy, 9);
-    expect(cloudFactor(row(12, { sun: 0.5 }))).toBeCloseTo(Math.sqrt(CLOUD.cloudy), 9); // halfway in steps
+    // Half the sunshine: share^0.7 between (Kochi 2025 measured 0.72 of the clear sky).
+    expect(cloudFactor(row(12, { sun: 0.5 }))).toBeCloseTo(CLOUD.unknown, 9);
+    expect(CLOUD.unknown).toBeGreaterThan(0.7);
+    expect(CLOUD.unknown).toBeLessThan(0.76);
     expect(cloudFactor(row(12, { sun: 0, rain: 0.5 }))).toBeCloseTo(CLOUD.rain, 9); // the least rain a record shows
     expect(cloudFactor(row(12, { sun: 0, rain: 2 }))).toBeCloseTo(rainFactor(2), 9); // heavier rain, thicker cloud (darker)
     expect(rainFactor(2)).toBeLessThan(CLOUD.rain);
