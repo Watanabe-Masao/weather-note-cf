@@ -36,6 +36,7 @@ jobs:
       - run: npx vite build
       - run: python3 e2e/e2e.py 390
       - run: python3 e2e/e2e.py 360
+      - run: python3 e2e/swupdate.py
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
