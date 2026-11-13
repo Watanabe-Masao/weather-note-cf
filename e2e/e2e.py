@@ -250,7 +250,7 @@ with sync_playwright() as p:
     # G. compare presets and link
     def g():
         sel = pg.locator(".side-compare select.mode")
-        opts = [o for o in sel.locator("option").evaluate_all("os => os.map(o => o.value)") if o != "__similar"]
+        opts = [o for o in sel.locator("option").evaluate_all("os => os.map(o => o.value)") if o != "__conditions"]
         seen = set()
         for o in opts:
             sel.select_option(o); wait(500)
@@ -331,15 +331,36 @@ with sync_playwright() as p:
         check("K10 ×で閉じる", pg.locator(".msheet").count() == 0)
     step("K", k)
 
-    # L. similar days
+    # L. 条件から選ぶ
     def l():
         before = txt(".side-compare .date-button")
-        pg.locator(".side-compare select.mode").select_option("__similar"); wait(1200)
-        check("L1 似た日が開く", pg.locator(".msheet.similar-sheet").count() == 1)
-        n = pg.locator(".similar-list li button").count()
-        check("L2 候補の一覧", n >= 3, str(n))
-        pg.locator(".similar-list li button").nth(1).click(); wait(900)
-        check("L3 選ぶと閉じて比較日が変わる", pg.locator(".msheet").count() == 0 and txt(".side-compare .date-button") != before, txt(".side-compare .date-button"))
+        pg.locator(".side-compare select.mode").select_option("__conditions"); wait(1500)
+        check("L1 条件から選ぶが開く", pg.locator(".msheet.cond-sheet").count() == 1)
+        check("L2 条件は4行", pg.locator(".cond-line").count() == 4)
+        check("L3 最初は最高が開いて範囲（つまみ2つ）", pg.locator(".cond-line.open[data-cond=max] .cond-slider input").count() == 2)
+        pg.locator(".cond-line[data-cond=max] .seg button", has_text="以上").click(); wait(300)
+        check("L4 以上はつまみ1つ", pg.locator(".cond-line[data-cond=max] .cond-slider input").count() == 1, txt(".cond-line[data-cond=max] .cond-value"))
+        check("L5 値は「以上」と読める", "以上" in txt(".cond-line[data-cond=max] .cond-value"))
+        pg.locator(".cond-line[data-cond=max] .seg button", has_text="問わない").click(); wait(200)
+        pg.locator(".cond-line[data-cond=min] .cond-head").click(); wait(200)
+        pg.locator(".cond-line[data-cond=min] .seg button", has_text="問わない").click(); wait(200)
+        check("L6 開くのは1行だけ", pg.locator(".cond-line.open").count() == 1)
+        pg.locator(".cond-line[data-cond=rain] .cond-head").click(); wait(200)
+        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="降らない").click(); wait(200)
+        pg.locator(".cond-line[data-cond=rain] .seg.multi button").nth(1).click(); wait(200)
+        check("L7 雨は時間帯で", "降らない" in txt(".cond-line[data-cond=rain] .cond-value") and "昼" not in txt(".cond-line[data-cond=rain] .cond-value"), txt(".cond-line[data-cond=rain] .cond-value"))
+        for _ in range(30):
+            if pg.locator(".cond-col.day").count() and pg.locator(".cond-count .loading").count() == 0: break
+            wait(500)
+        n = pg.locator(".cond-col.day").count()
+        check("L8 合う日の表", n >= 1, txt(".cond-count"))
+        pg.locator(".cond-col.day").nth(0).click(); wait(700)
+        after = txt(".side-compare .date-button")
+        check("L9 選ぶと比較日が変わり、シートは開いたまま", after != before and pg.locator(".msheet").count() == 1, after)
+        check("L10 取り消せる", pg.locator(".cond-toast button").count() == 1)
+        pg.locator(".cond-toast button").click(); wait(700)
+        check("L11 取り消すと元の比較日", txt(".side-compare .date-button") == before, txt(".side-compare .date-button"))
+        pg.click(".msheet .icon-btn.close"); wait(600)
         pg.locator(".side-compare select.mode").select_option(index=0); wait(500)
     step("L", l)
 

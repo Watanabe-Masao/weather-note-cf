@@ -36,12 +36,12 @@ import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
 import { FeelSheet } from "./ui/FeelSheet";
 import { HourFace } from "./ui/HourFace";
-import { SimilarSheet } from "./ui/SimilarSheet";
+import { ConditionSheet } from "./ui/ConditionSheet";
 import { LightTrend } from "./ui/LightTrend";
 
 const PREFETCH_IDLE_MS = 1_000;
 const PREFETCH_RADIUS = 14;
-const SIMILAR = "__similar";
+const BY_CONDITIONS = "__conditions";
 
 /**
  * The 24-hour graph's height in the sheet: its height minus the tabs, the day line, readout and
@@ -134,7 +134,7 @@ export function App() {
   // While a drum moves, the switches that change which days are shown wait (rule: 動いている間).
   const [moving, setMoving] = useState(false);
   const [feelMap, setFeelMap] = useState(false);
-  const [similar, setSimilar] = useState(false);
+  const [conditions, setConditions] = useState(false);
 
   // How the comparison day is chosen: in the comparison header, and in the sheet head (which covers it when raised).
   const modeSelect = (
@@ -143,8 +143,8 @@ export function App() {
       value={view.mode}
       disabled={moving}
       onChange={(e) => {
-        // 似た日 is a way of choosing the day, not a rule: it opens the list and the menu stays as it was.
-        if (e.target.value === SIMILAR) setSimilar(true);
+        // 条件から選ぶ is a way of choosing the day, not a rule: it opens the sheet and the menu stays as it was.
+        if (e.target.value === BY_CONDITIONS) setConditions(true);
         else setMode(e.target.value as CompareMode);
       }}
       aria-label="比較のしかた"
@@ -154,7 +154,7 @@ export function App() {
           {m.label}
         </option>
       ))}
-      <option value={SIMILAR}>似た日から選ぶ…</option>
+      <option value={BY_CONDITIONS}>条件から選ぶ…</option>
     </select>
   );
 
@@ -503,14 +503,14 @@ export function App() {
         />
       )}
 
-      {similar && (
-        <SimilarSheet
+      {conditions && (
+        <ConditionSheet
           store={store}
           station={view.station}
           target={view.target}
           compareDate={compareDate}
           onPick={pickCompare}
-          onClose={() => setSimilar(false)}
+          onClose={() => setConditions(false)}
         />
       )}
 

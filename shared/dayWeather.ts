@@ -83,3 +83,13 @@ export function hoursWeather(rows: WeatherRow[], hours: readonly number[], stati
   const share = sun.reduce((a, b) => a + b, 0) / sun.length;
   return { text: share >= SUNNY_SHARE ? "晴" : share >= CLOUDY_SHARE ? "曇時々晴" : "曇", estimated: true };
 }
+
+/** 晴れ系 / 曇り系 / 雨系 from the JMA daytime summary or the forecast label (the first part decides). */
+export function weatherGroup(text: unknown): "sun" | "cloud" | "rain" | null {
+  if (typeof text !== "string" || !text) return null;
+  const first = text.split(/後|時々|一時|、/)[0];
+  if (/雨|雪|雷/.test(first)) return "rain";
+  if (/晴/.test(first)) return "sun";
+  if (/曇|霧/.test(first)) return "cloud";
+  return /雨|雪/.test(text) ? "rain" : null;
+}

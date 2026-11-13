@@ -5,7 +5,7 @@
  *
  * Sections: base · type & tones · kit (chip, segmented, icon button, badge, num, day label) ·
  * layout & header · tables · centre band · graph sheet · daily graph · 時間帯 · summary ·
- * overlay sheets · feel map & trend · similar days · calendar · settings · states & motion.
+ * overlay sheets · feel map & trend · 条件から選ぶ · calendar · settings · states & motion.
  */
 
 /* ---- base ---------------------------------------------------------------------------------- */
@@ -92,7 +92,6 @@ p {
 .cs-line,
 .date-button,
 .cell-date,
-.similar-list .v,
 .band-cell b {
   font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
@@ -2027,161 +2026,339 @@ svg.scrub {
   margin-top: 2px;
 }
 
-/* ---- similar days ----------------------------------------------------------------------------- */
+/* ---- 条件から選ぶ ------------------------------------------------------------------------------- */
 
-.similar-face {
+.cond-face {
   display: flex;
   flex-direction: column;
-  gap: var(--space-5);
-  padding: 0 2px var(--space-6);
+  gap: var(--space-7);
+  padding: 0 2px var(--space-7);
 }
 
-.similar-origin {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: var(--space-5) var(--space-6);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
-}
-
-.similar-title {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  font-size: var(--size-md);
-  font-weight: var(--weight-bold);
-}
-
-.similar-values {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: 4px 6px;
+.cond-origin {
   font-size: var(--size-sm);
   color: var(--ink-tertiary);
 }
 
-.similar-values .num {
-  font-size: var(--size-base);
-  margin-right: 6px;
+/* The conditions: one card, a line each; the open line holds its controls. */
+.cond-list {
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  overflow: hidden;
 }
 
-.similar-note {
+.cond-line + .cond-line {
+  border-top: 1px solid color-mix(in srgb, var(--line-strong) 70%, transparent);
+}
+
+.cond-line.open {
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.cond-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  width: 100%;
+  min-height: 50px;
+  padding: 0 var(--space-7);
+  border: none;
+  background: none;
+  color: inherit;
+  text-align: left;
+}
+
+.cond-bar {
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: currentColor;
+  flex: none;
+}
+
+.cond-label {
+  width: 30px;
+  font-size: var(--size-base);
+  color: var(--ink-secondary);
+}
+
+.cond-value {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  font-size: var(--size-md);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cond-value.off {
+  color: var(--ink-disabled);
+}
+
+.cond-caret {
+  color: var(--ink-disabled);
+  font-size: 16px;
+  transition: transform var(--motion-base) var(--ease-standard);
+}
+
+.cond-line.open .cond-caret {
+  transform: rotate(90deg);
+}
+
+.cond-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: 0 var(--space-7) var(--space-7);
+}
+
+.cond-body .seg {
+  display: grid;
+}
+
+.cond-body .seg button {
+  padding: 4px 6px;
+  min-height: 30px;
+}
+
+/* Several parts of the day can be on at once: pressed reads as selected. */
+.seg.multi button[aria-pressed="true"] {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent), var(--surface-overlay);
+  color: var(--ink-primary);
+  font-weight: var(--weight-bold);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.seg.multi small {
+  margin-left: 3px;
+  font-size: var(--size-xs);
+  font-weight: var(--weight-regular);
+  opacity: 0.6;
+}
+
+/* Thin track, plain thumbs; the two native ranges share one track and only the thumbs take the finger. */
+.cond-slider {
+  position: relative;
+  height: 32px;
+  margin: 2px 10px 0;
+}
+
+.cond-slider .track,
+.cond-slider .fill {
+  position: absolute;
+  top: 15px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.cond-slider .track {
+  left: 0;
+  right: 0;
+  background: var(--line-strong);
+}
+
+.cond-slider .fill {
+  background: currentColor;
+}
+
+.cond-slider .tick {
+  position: absolute;
+  top: 11px;
+  width: 1px;
+  height: 10px;
+  background: var(--ink-tertiary);
+}
+
+.cond-slider input {
+  position: absolute;
+  left: -10px;
+  right: -10px;
+  top: 6px;
+  width: calc(100% + 20px);
+  height: 20px;
+  margin: 0;
+  background: none;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.cond-slider input::-webkit-slider-runnable-track {
+  height: 20px;
+  background: none;
+}
+
+.cond-slider input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ink-primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+}
+
+.cond-slider input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ink-primary);
+}
+
+.cond-slider input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+.cond-scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: var(--size-xs);
+  color: var(--ink-disabled);
+}
+
+.cond-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cond-count {
+  padding: 0 4px;
+  font-size: var(--size-base);
+  color: var(--ink-secondary);
+}
+
+.cond-count b {
+  font-size: var(--size-lg);
+  font-weight: var(--weight-bold);
+  color: var(--ink-primary);
+}
+
+.cond-count .loading {
+  margin-left: 8px;
+  font-size: var(--size-xs);
+  color: var(--accent-base);
+}
+
+/* Days as columns; the labels and the target stay put while the days scroll. */
+.cond-table {
+  display: flex;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+}
+
+.cond-table::-webkit-scrollbar {
+  display: none;
+}
+
+.cond-fixed {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  display: flex;
+  flex: none;
+  background: var(--surface-raised);
+  box-shadow: 1px 0 0 var(--line-strong), 8px 0 10px -8px rgba(0, 0, 0, 0.7);
+}
+
+.cond-col {
+  flex: none;
+  width: 54px;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+.cond-col.labels {
+  width: 40px;
+}
+
+.cond-col > span {
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--size-base);
+  border-top: 1px solid color-mix(in srgb, var(--line-strong) 55%, transparent);
+}
+
+.cond-col.labels > span {
+  justify-content: flex-start;
+  padding-left: 12px;
+  font-size: var(--size-sm);
+  color: var(--ink-tertiary);
+}
+
+.cond-col > span.head {
+  height: 42px;
+  flex-direction: column;
+  gap: 1px;
+  border-top: none;
+  border-bottom: 1px solid var(--line-strong);
+}
+
+.cond-col > span.head + span {
+  border-top: none;
+}
+
+.cond-col .head small {
   font-size: var(--size-xs);
   color: var(--ink-tertiary);
 }
 
-.similar-note .loading {
-  margin-left: 6px;
-  color: var(--accent-base);
+.cond-col.origin .num {
+  font-weight: var(--weight-bold);
 }
 
-.similar-current {
-  font-size: var(--size-sm);
-  color: var(--ink-secondary);
+.cond-col.day.current {
+  background: var(--accent-wash);
 }
 
-.similar-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.cond-col.day.current .head {
+  border-bottom-color: var(--accent-base);
 }
 
-/* Fixed columns so every number lines up: # · 日付 · 天気 · 最高 · 最低 · 降水 · 近さ. */
-.similar-list button,
-.similar-head {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 14px minmax(0, 1fr) 20px 44px 44px 30px 44px;
-  align-items: center;
-  column-gap: 5px;
-}
-
-.similar-head {
-  padding: 0 8px;
-  font-size: 9.5px;
+.cond-note {
+  padding: 0 4px;
+  font-size: var(--size-xs);
   color: var(--ink-tertiary);
-  text-align: right;
 }
 
-.similar-head span:nth-child(2) {
-  text-align: left;
-}
-
-.similar-list button {
-  background: var(--surface-raised);
-  border: 1px solid transparent;
+.cond-toast {
+  position: sticky;
+  bottom: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-height: 44px;
+  padding: 0 6px 0 14px;
   border-radius: var(--radius-md);
-  padding: 7px 8px;
-  text-align: left;
-  font-size: var(--size-base);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
-  transition: transform var(--motion-quick) var(--ease-standard);
-}
-
-.similar-list button:active {
-  transform: scale(0.99);
-}
-
-.similar-list button.current {
-  border-color: var(--accent-base);
-  background: color-mix(in srgb, var(--accent-base) 8%, var(--surface-raised));
-}
-
-.similar-list .rank {
-  color: var(--ink-tertiary);
-  font-size: var(--size-sm);
-  text-align: center;
-}
-
-.similar-list .when {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  font-size: 12.5px;
-}
-
-.similar-list .v {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  line-height: 1.1;
+  background: var(--surface-overlay);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--line-soft) inset;
   font-size: var(--size-base);
 }
 
-.similar-list .v small {
-  font-size: 9.5px;
-  color: var(--ink-tertiary);
+.cond-toast > span {
+  flex: 1;
 }
 
-.similar-list .close {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-}
-
-.similar-list .close b {
-  font-size: var(--size-md);
-  font-family: var(--font-numeric);
-}
-
-.similar-list .close i {
-  display: block;
-  height: 4px;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--accent-strong), var(--accent-base));
-  align-self: stretch;
-  max-width: 100%;
+.cond-toast button {
+  border: none;
+  background: none;
+  padding: 10px;
+  color: var(--accent-base);
+  font-weight: var(--weight-bold);
 }
 
 /* ---- calendar --------------------------------------------------------------------------------- */
@@ -2736,7 +2913,7 @@ svg.scrub {
   .grabber,
   .center-band,
   .icon-btn,
-  .similar-list button {
+  .cond-caret {
     transition: none;
   }
 }

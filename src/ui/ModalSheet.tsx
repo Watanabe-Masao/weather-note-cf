@@ -1,4 +1,4 @@
-// A sheet over the page (day detail, feel map, similar days, calendar, settings).
+// A sheet over the page (day detail, feel map, 条件から選ぶ, calendar, settings).
 //
 // - Opens by sliding up with the sheet curve while the page behind dims.
 // - Closes the same way in reverse before it is removed (also for ×, Esc, backdrop and picks).
