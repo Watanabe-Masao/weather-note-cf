@@ -34,7 +34,7 @@ import {
   initialHour,
   signedDiff,
 } from "../dayDetail";
-import { type DataColor, DATA, LIGHT_LEVELS } from "../design/tokens";
+import { barLook, type DataColor, DATA, LIGHT_LEVELS, type LineLook, lineLook } from "../design/tokens";
 import { dateLabel, needsYear, niceTicks, tickLabel } from "../design/format";
 import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
 import { levelOf, type Thresholds } from "../../shared/feel";
@@ -673,22 +673,23 @@ function HourChart({
   };
   const scrub = useRef(false);
 
-  const line = (points: HourPoint[], color: string, dashed: boolean, width: number, opacity = 1) =>
+  // Lines and bars follow the design engine's rule (tokens.ts: lineLook / barLook).
+  const line = (points: HourPoint[], look: LineLook) =>
     points.slice(1).map((p, i) => {
       const a = points[i];
       if (a.v == null || p.v == null) return null;
       return (
         <line
-          key={`${color}-${i}`}
+          key={`${look.stroke}-${look.strokeDasharray ?? "solid"}-${i}`}
           x1={xOf(a.hour)}
           y1={yOf(a.v)}
           x2={xOf(p.hour)}
           y2={yOf(p.v)}
-          stroke={color}
-          strokeWidth={width}
-          strokeDasharray={dashed ? "6 4" : undefined}
-          strokeLinecap="round"
-          opacity={opacity}
+          stroke={look.stroke}
+          strokeWidth={look.strokeWidth}
+          strokeDasharray={look.strokeDasharray}
+          strokeLinecap={look.strokeDasharray ? "butt" : "round"}
+          opacity={look.opacity}
         />
       );
     });
@@ -702,9 +703,7 @@ function HourChart({
           y={yOf(p.v)}
           width={step * 0.42}
           height={Math.max(0, yOf(0) - yOf(p.v))}
-          fill={other ? "none" : color}
-          stroke={color}
-          opacity={other ? 0.8 : 1}
+          {...barLook(other ? "compare" : "target", color)}
         />
       ),
     );
@@ -826,9 +825,9 @@ function HourChart({
           </>
         ) : (
           <>
-            {air && line(air, DATA.mean, false, 1.4, 0.8)}
-            {second && line(second, color, true, 1.6, 0.7)}
-            {line(main, color, false, 2.4)}
+            {air && line(air, lineLook("target", color, { kind: "reference" }))}
+            {second && line(second, lineLook("compare", color))}
+            {line(main, lineLook("target", color))}
             {[main, ...(second ? [second] : [])].map((s, k) => {
               const p = s[hour - 1];
               return p?.v == null ? null : (
