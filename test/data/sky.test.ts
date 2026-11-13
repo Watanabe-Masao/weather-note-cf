@@ -71,6 +71,14 @@ describe("空の色（模式）", () => {
     expect(grey(dusk.zenith)).toBeLessThan(grey(day.zenith));
   });
 
+  it("強い光ほど色が鮮やか（ハント効果）：晴れた昼の天頂は朝の天頂より彩度が高い", () => {
+    const noon = skyAt(38, CLOUD.clear, false, false);
+    const morning = skyAt(8, CLOUD.clear, false, false);
+    expect(grey(noon.zenith)).toBeGreaterThan(grey(morning.zenith) + 30);
+    // 曇りは強い光でも灰色のまま。
+    expect(grey(skyAt(38, CLOUD.cloudy, false, false).zenith)).toBeLessThan(6);
+  });
+
   it("時刻の書き方：18時台の2つ目 → 17:10", () => {
     expect(stepTime(18, 1)).toBe("17:10");
     expect(stepTime(1, 0)).toBe("0:00");
