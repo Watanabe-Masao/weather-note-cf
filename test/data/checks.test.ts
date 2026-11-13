@@ -60,3 +60,10 @@ describe("checks on the person's own reports (#117, #118)", () => {
     expect(checksOf([]).base).toBeNull();
   });
 });
+
+describe("the person's levels on the hour graph (#118)", () => {
+  it("are the β state's boundaries: centre ± half-range, then outer steps", async () => {
+    const { personalThresholds } = await import("../../src/beta/useDayComfort");
+    expect(personalThresholds({ mu: 21, h: 2.5, g: 4, s: 1 } as never)).toEqual([10.5, 14.5, 18.5, 23.5, 27.5, 31.5]);
+  });
+});
