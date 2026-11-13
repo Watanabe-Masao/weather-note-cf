@@ -10,16 +10,17 @@
 // A schematic colour, not a measurement or a photograph:
 //   1. The clear sky's tint by the sun's altitude. With the sun up, Preetham, Shirley & Smits (1999):
 //      the zenith's chromaticity and the horizon's (80° from the zenith, the mean chromaticity over
-//      azimuths so the bright sun's side does not take over), turbidity fixed at 3. With the sun down,
+//      azimuths so the bright sun's side does not take over), turbidity fixed at 2. With the sun down,
 //      a table of twilight tints (TWILIGHT_TINT) — hand-made and provisional, no source yet.
 //   2. The clouds turn it white: cloudiness c from the light's own cloud factor (1 under rain), and
 //      tint = (1 − c)·clear + c·white (D65), in linear RGB. Sunshine is not cloud cover, so this is a
 //      rough mix.
-//   3. How light the colour is comes from how bright the sky looks (its apparent luminance, cd/m², on
-//      a log scale: skyLightness): the sun's and the twilight's light spread over the sky, plus the
-//      town's glow at night by the surroundings (SKY_GLOW: Kyba et al. 2011), which also warms the
-//      tint. The light on the ground (the levels) is not changed by the town; the strip's thin line
-//      shows it. Strong light makes colour look stronger
+//   3. The colour is the sky as an adapted eye sees it (a clear day's blue, a twilight's deep blue, a
+//      night's navy), never greyed to show the dark: its lightness follows how bright the sky looks
+//      (apparent luminance, cd/m²) only within a narrow range (skyLightness), with its chroma kept.
+//      The sky's luminance is the sun's and the twilight's light spread over the sky, plus the town's
+//      glow at night by the surroundings (SKY_GLOW: Kyba et al. 2011), which lightens the navy a
+//      little toward a cool grey. How bright it is shows in the strip's thin level line and the card. Strong light makes colour look stronger
 //      (Hunt): from 明るい up the chroma grows to ×1.6, and the clear zenith is set a little darker
 //      so a screen can show its deep blue. The clear zenith a little darker than the
 //      horizon by day, the horizon a little lighter around sunrise and sunset; dark colours less
@@ -32,8 +33,11 @@ import { brightnessIndex, CLOUD, clearSkyLux, dayLights, nightSkyLux, RAIN_MM } 
 import { DEFAULT_LAT_LON, solarAltitude, stationLatLon } from "./sunTimes";
 import type { WeatherRow } from "./types";
 
-/** Turbidity of the clear sky (Preetham): 2 very clear, 3 clear, higher hazy. Fixed: no station has it. */
-export const TURBIDITY = 3;
+/**
+ * Turbidity of the clear sky (Preetham): 2 very clear, 3 clear, higher hazy. Fixed: no station has it.
+ * 2: a clear day in Japan is a clean, deep blue rather than a hazy one (渡辺さん, 2026-11-13).
+ */
+export const TURBIDITY = 2;
 /** Steps of an hour (10 minutes each). */
 export const SKY_STEPS = 6;
 
@@ -115,16 +119,16 @@ const fromHex = (h: string): Lin =>
 
 /**
  * Tints of the sky with the sun down (degrees, zenith, horizon): bluest in civil and nautical twilight,
- * reddish at night (the town's light). Hand-made and provisional: no source yet (to be checked
- * against measurements).
+ * navy at night (a Kochi photo, 2026-11-13 20:30: navy, no warm cast). Hand-made and provisional: no
+ * source yet (to be checked against measurements).
  */
 export const TWILIGHT_TINT: [number, string, string][] = [
   [0, "#7f9fd0", "#f2a05a"],
   [-3, "#5a6fb8", "#e08a80"],
   [-6, "#3550a8", "#8a78b0"],
   [-9, "#22357e", "#4a5088"],
-  [-12, "#151f4c", "#2e3050"],
-  [-18, "#10141f", "#2a2426"],
+  [-12, "#151f4c", "#1f2a52"],
+  [-18, "#0c1430", "#14203f"],
 ];
 
 function twilightTint(alt: number): { z: Lin; h: Lin } {
@@ -142,6 +146,8 @@ function twilightTint(alt: number): { z: Lin; h: Lin } {
   return { z: unit(fromHex(last[1])), h: unit(fromHex(last[2])) };
 }
 
+/** Below this sun altitude (degrees) the horizon shows the sunrise/sunset glow (the mean over azimuths). */
+const HORIZON_GLOW_ALT = 4;
 /** Where Preetham takes over from the twilight table (degrees); blended between 0 and this. */
 const PREETHAM_FROM = 4;
 const tintCache = new Map<number, { z: Lin; h: Lin }>();
@@ -161,7 +167,13 @@ export function clearTint(alt: number): { z: Lin; h: Lin } {
       sy += y;
       k++;
     }
-    return { z: unit(xyToLin(skyXY(a, 0, 0))), h: unit(xyToLin([sx / k, sy / k])) };
+    // By day the horizon is taken across from the sun (90° away: the pale blue one sees), not the
+    // mean over azimuths, which the low sun's side tints yellow-green (Preetham's known bias); near
+    // sunrise and sunset (below HORIZON_GLOW_ALT) the mean, so the glow on the sun's side shows.
+    const side = skyXY(a, 80 * R, 90 * R);
+    const t = Math.min(1, Math.max(0, (a - HORIZON_GLOW_ALT) / 6));
+    const h: [number, number] = [sx / k + (side[0] - sx / k) * t, sy / k + (side[1] - sy / k) * t];
+    return { z: unit(xyToLin(skyXY(a, 0, 0))), h: unit(xyToLin(h)) };
   };
   let out: { z: Lin; h: Lin };
   if (alt >= PREETHAM_FROM) out = above(alt);
@@ -209,8 +221,8 @@ function hexOf(c: Lin): string {
 /** A tint placed at OKLab lightness L: its chroma scaled with the lightness (× vivid), less in the dark, pulled into the screen's gamut. */
 export function placeTint(v: Lin, L: number, vivid = 1): string {
   const [Lv, a, b] = toOklab(v);
-  const dark = Math.min(1, Math.max(0.3, (L - 0.1) / 0.4));
-  let s = (L / Lv) * dark * vivid;
+  // Chroma kept in proportion to the lightness: the colour stays itself, never greyed to show the dark.
+  let s = (L / Lv) * vivid;
   let c = fromOklab(L, a * s, b * s);
   for (let k = 0; k < 60 && !inGamut(c); k++) {
     s *= 0.94;
@@ -258,14 +270,23 @@ export function skyGlow(alpha: number | null | undefined, c: number): number {
   return g.clear * (g.overcast / g.clear) ** t;
 }
 
-/** The tint of the town's glow (street lights, warm): what a lit night sky turns to. */
-const GLOW_TINT: Lin = unit(fromHex("#b39a85"));
+/**
+ * The tint of the town's glow: what a lit night sky turns to. Japan's street lights are now mostly
+ * white LEDs (not the orange sodium lamps of the European measurements), and the air scatters their
+ * blue the most, so the glow is a cool, slightly bluish grey; clouds over a town look neutral grey.
+ * Checked against a photo of Kochi (薊野, 2026-11-13 20:30, a residential street, partly cloudy):
+ * navy sky, grey clouds, no warm cast.
+ */
+const GLOW_TINT: Lin = unit(fromHex("#9aa3b8"));
 
 /**
- * How light the sky looks, from its apparent luminance (cd/m²), on a log scale: 0.0001 cd/m² (a dark
- * night) → 0.24, each tenfold +0.07, up to 0.84 (a bright daytime sky). The eye answers to ratios.
+ * How light the sky's colour is drawn, from its apparent luminance (cd/m²), on a log scale and narrow:
+ * 0.0001 cd/m² (a dark night) → 0.33, each tenfold +0.05, up to 0.74 (a bright daytime sky). The eye
+ * adapts, so a night sky is seen as navy, not as a dark grey (渡辺さん, 2026-11-13: "グレースケールを
+ * 重ねて明るさを表現するとおかしくなる"): the colour shows the sky; how bright it is, the level line
+ * and the card's numbers.
  */
-export const skyLightness = (cdm2: number) => Math.min(0.84, Math.max(0.24, 0.24 + 0.07 * Math.log10(Math.max(1e-4, cdm2) / 1e-4)));
+export const skyLightness = (cdm2: number) => Math.min(0.74, Math.max(0.33, 0.33 + 0.05 * Math.log10(Math.max(1e-4, cdm2) / 1e-4)));
 
 /**
  * The sky at the sun's altitude under a cloud factor (and rain). `evening`: after noon (for the word).
@@ -285,8 +306,8 @@ export function skyAt(alt: number, factor: number, rain: boolean, evening: boole
   // close to the natural sky): it turns the sky warm-grey.
   const lit = Math.max(0, glowL - SKY_GLOW[0].clear) / sky;
   const tint = clearTint(alt);
-  const z = mix(mix(tint.z, WHITE, c), GLOW_TINT, lit);
-  const h = mix(mix(tint.h, WHITE, c), GLOW_TINT, Math.min(1, lit * 1.2));
+  const z = mix(mix(tint.z, WHITE, c), GLOW_TINT, 0.35 * lit);
+  const h = mix(mix(tint.h, WHITE, c), GLOW_TINT, Math.min(1, 0.45 * lit));
   const base = skyLightness(sky);
   const day = Math.max(0, Math.min(1, (alt + 4) / 10));
   const glow = (1 - c) * Math.max(0, 1 - Math.abs(alt + 1) / 6);
@@ -295,9 +316,10 @@ export function skyAt(alt: number, factor: number, rain: boolean, evening: boole
   // zenith is set a little darker the brighter the sun (the deep blue of a sunny day); the horizon
   // and the level line keep the brightness.
   const sun = Math.max(0, Math.min(1, (index - 3) / 3));
-  const vivid = 1 + 0.6 * sun;
-  const Lz = Math.max(0.22, base - (0.07 + 0.08 * sun) * (1 - c) * day + 0.02 * c);
-  const Lh = Math.min(0.88, base + 0.06 * (1 - c) * day - 0.03 * c + 0.16 * glow + 0.03 * lit);
+  // A clear sky is a clean colour, day and night (a clear day's blue, a clear night's navy): not muddy.
+  const vivid = (1 + 0.6 * sun) * (1 + 0.35 * (1 - c) * day) * (alt < -4 ? 0.8 : 1); // twilight and night: a calm navy
+  const Lz = Math.max(0.3, base - (0.05 + 0.08 * sun) * (1 - c) * day + 0.02 * c);
+  const Lh = Math.min(0.86, base + 0.06 * (1 - c) * day - 0.03 * c + 0.14 * glow + 0.03 * lit);
   return {
     zenith: placeTint(z, Lz, vivid),
     horizon: placeTint(h, Lh, vivid),

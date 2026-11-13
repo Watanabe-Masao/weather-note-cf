@@ -65,10 +65,14 @@ describe("空の色（模式）", () => {
     expect(night.word).toBe("夜空");
   });
 
-  it("暗いほど鮮やかさを落とす（薄明の青は昼の青より彩度が低い）", () => {
+  it("薄明は昼の青より落ち着いた色、晴れた夜は灰色ではなく紺（明るさで灰色に寄せない）", () => {
     const day = skyAt(38, CLOUD.clear, false, false);
     const dusk = skyAt(-8, CLOUD.clear, false, true);
     expect(grey(dusk.zenith)).toBeLessThan(grey(day.zenith));
+    const night = skyAt(-30, CLOUD.clear, false, true, 0.2);
+    expect(grey(night.zenith)).toBeGreaterThan(40);
+    const [r, , b] = rgb(night.zenith);
+    expect(b).toBeGreaterThan(r + 40);
   });
 
   it("強い光ほど色が鮮やか（ハント効果）：晴れた昼の天頂は朝の天頂より彩度が高い", () => {
@@ -79,13 +83,15 @@ describe("空の色（模式）", () => {
     expect(grey(skyAt(38, CLOUD.cloudy, false, false).zenith)).toBeLessThan(6);
   });
 
-  it("夜空の見かけの明るさは周りの様子で変わる：市街地の曇りの夜は開けた場所の晴れの夜より明るく暖色（地上の明るさの段は変えない）", () => {
+  it("夜空の見かけの明るさは周りの様子で変わる：市街地の曇りの夜は開けた場所の晴れの夜より明るい（色は寒色寄りの灰色、晴れの夜は紺）（地上の明るさの段は変えない）", () => {
     const open = skyAt(-30, CLOUD.clear, false, true, 0.14);
     const city = skyAt(-30, CLOUD.cloudy, false, true, 0.3);
     expect(city.skyLuminance / open.skyLuminance).toBeGreaterThan(20); // Kyba 2011: 26 vs 0.43 mcd/m²
     expect(light(city.zenith)).toBeGreaterThan(light(open.zenith) + 40);
     const [r, , b] = rgb(city.zenith);
-    expect(r).toBeGreaterThan(b); // the town's light is warm
+    expect(b).toBeGreaterThanOrEqual(r); // Japan's white LED glow: cool grey, no warm cast
+    const [r2, , b2] = rgb(open.zenith);
+    expect(b2).toBeGreaterThan(r2 + 10); // a clear night: navy
     expect(skyAt(-30, CLOUD.clear, false, true, 0.4).index).toBe(open.index);
     expect(skyGlow(0.3, 0)).toBeCloseTo(0.0024, 6);
     expect(skyGlow(0.3, 1)).toBeCloseTo(0.026, 6);
