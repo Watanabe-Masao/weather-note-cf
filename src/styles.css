@@ -3094,6 +3094,9 @@ svg.scrub {
 .outlook-sure, .outlook-none { font-size: 12px; color: var(--ink-secondary); }
 .hour-bands { display: grid; gap: 6px; margin-top: 6px; }
 .chart-guide-shared { stroke: var(--ink-primary); stroke-opacity: 0.55; stroke-width: 1.4; stroke-dasharray: 1.5 3.5; stroke-linecap: round; }
+.try-it { display: grid; gap: 8px; }
+.try-wind { display: grid; gap: 4px; font-size: 13px; }
+.try-wind input { width: 100%; }
 .basis-pit { width: 100%; max-width: 320px; height: 64px; }
 .basis-pit rect { fill: var(--accent-base); opacity: 0.75; }
 .basis-pit-even { stroke: var(--ink-secondary); stroke-dasharray: 3 3; }

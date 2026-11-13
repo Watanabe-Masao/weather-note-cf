@@ -80,3 +80,21 @@ describe("朝・夕方の見込みの言葉 (#118)", () => {
     expect([sureness(0.75), sureness(0.55), sureness(0.3)]).toEqual([3, 2, 1]);
   });
 });
+
+describe("weak spots (#118)", () => {
+  it("finds a group predicted too warm, and calls nothing out on few answers", async () => {
+    const { weakSpots, MIN_FOR_GROUP } = await import("../../src/beta/engine/checks");
+    const rs = people(200, 0).map((r, i) => {
+      const morning = i % 2 === 0;
+      const hour = morning ? 7 : 13;
+      // In the morning the person feels 4 colder than the prediction says: answers shifted down.
+      const y = morning ? Math.max(-3, (r.sensation as number) - 2) : r.sensation;
+      return { ...r, sensation: y, snapshot: { ...r.snapshot!, hour } } as typeof r;
+    });
+    const spots = weakSpots(rs);
+    const m = spots.find((s) => s.axis === "時間帯" && s.group === "朝")!;
+    expect(m.leaning).toBe(true);
+    expect(m.mean).toBeLessThan(0);
+    expect(weakSpots(rs.slice(0, MIN_FOR_GROUP - 1)).length).toBe(0);
+  });
+});

@@ -34,7 +34,7 @@ export interface SlopeCheck {
 export interface Checks {
   /** Reports judged (same answer words, with the prediction made at sending). */
   n: number;
-  /** The shared constants (従来版: the prior, nothing learned) against β, on the same answers. */
+  /** β's starting point (the prior, nothing learned; its ちょうどよい is 従来版's, its outer steps not yet: #111) against β, on the same answers. */
   base: { n: number; rpsBase: number; rpsBeta: number; diff: PairedDifference | null } | null;
   /** PIT of β's predictions in 10 bins (flat if the probabilities are right). */
   pit: number[];
@@ -94,4 +94,55 @@ export function checksOf(reports: Report[]): Checks {
     slopes: slopes0.map((v, i) => ({ ...v, flagged: flags[i] && v.slope != null })),
     context: ctxN ? { n: ctxN, changedAfterPrediction: changed, sameAsShown: sameShown, sameAsPrediction: samePred } : null,
   };
+}
+
+// ---- weak spots: where the predictions keep missing in one direction (#118) ------------------
+
+/** Fewer answers than this in a group, and it is not judged. */
+export const MIN_FOR_GROUP = 5;
+
+export interface Spot {
+  axis: string;
+  group: string;
+  n: number;
+  /** Mean surrogate residual (+: felt warmer than predicted) and its 95% interval. */
+  mean: number;
+  lo: number;
+  hi: number;
+  /** The interval leaves 0 out. Exploratory: many groups are looked at, so a single flag is a lead, not a finding. */
+  leaning: boolean;
+}
+
+const partOfHour = (h: number) => (h >= 5 && h < 10 ? "朝" : h >= 10 && h < 16 ? "日中" : h >= 16 && h < 19 ? "夕方" : "夜");
+const PLACE: Record<string, string> = { sun: "日なた", shade: "日かげ", mixed: "半々" };
+const WIND: Record<string, string> = { none: "なし", weak: "弱い", strong: "強い" };
+const SKY: Record<string, string> = { clear: "快晴", sunny: "晴れ", thin: "薄曇り", cloudy: "曇り", rain: "雨", snow: "雪" };
+
+/** Mean residual per group of time of day, place, felt wind and sky (from the predictions made at sending). */
+export function weakSpots(reports: Report[]): Spot[] {
+  const live = reports.filter((r) => !r.deleted && r.comfort && (r.scaleVersion ?? 1) === SCALE_VERSION && Number.isInteger(r.sensation));
+  const rnd = seeded(11);
+  const axes: { axis: string; of: (r: Report) => string | null }[] = [
+    { axis: "時間帯", of: (r) => (r.snapshot?.hour != null ? partOfHour(r.snapshot.hour) : null) },
+    { axis: "いる場所", of: (r) => (r.exposure ? PLACE[r.exposure] ?? null : "夜（場所なし）") },
+    { axis: "感じた風", of: (r) => WIND[r.windFelt] ?? null },
+    { axis: "空", of: (r) => (r.sky ? SKY[r.sky] ?? null : null) },
+  ];
+  const res = live.map((r) => surrogateResidual(r.comfort!.probs, r.sensation as number, rnd()));
+  const out: Spot[] = [];
+  for (const a of axes) {
+    const groups = new Map<string, number[]>();
+    live.forEach((r, i) => {
+      const g = a.of(r);
+      if (g) groups.set(g, [...(groups.get(g) ?? []), res[i]]);
+    });
+    for (const [group, v] of groups) {
+      if (v.length < MIN_FOR_GROUP) continue;
+      const mean = v.reduce((t, x) => t + x, 0) / v.length;
+      const sd = Math.sqrt(v.reduce((t, x) => t + (x - mean) ** 2, 0) / (v.length - 1));
+      const half = (1.96 * sd) / Math.sqrt(v.length);
+      out.push({ axis: a.axis, group, n: v.length, mean, lo: mean - half, hi: mean + half, leaning: mean - half > 0 || mean + half < 0 });
+    }
+  }
+  return out;
 }
