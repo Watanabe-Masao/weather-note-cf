@@ -144,7 +144,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // dayLights: a twilight hour's clouds come from the nearest hour of daylight when it has no weather text.
   const lightOf = (rows: WeatherRow[] | undefined) => {
     const sorted = [...(rows ?? [])].sort((x, y) => x.n - y.n);
-    const byHour = new Map(dayLights(sorted, station).map((l, i) => [sorted[i].n, l.index]));
+    const byHour = new Map(dayLights(sorted, station, settings.alpha).map((l, i) => [sorted[i].n, l.index]));
     return Array.from({ length: 24 }, (_, i) => byHour.get(i + 1) ?? null);
   };
   const lightMain = useMemo(() => lightOf(hours?.rows), [hours, station]); // eslint-disable-line react-hooks/exhaustive-deps
