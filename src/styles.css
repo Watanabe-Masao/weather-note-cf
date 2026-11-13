@@ -3085,6 +3085,8 @@ svg.scrub {
 .outlook-word { display: flex; align-items: center; gap: 6px; font-weight: 700; }
 .outlook-word i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
 .outlook-word small { font-weight: 400; color: var(--ink-secondary); }
+.outlook-why { margin: 0; font-size: 12px; line-height: 1.6; }
+.outlook-why b { margin-right: 4px; color: var(--ink-secondary); }
 .outlook-sure, .outlook-none { font-size: 12px; color: var(--ink-secondary); }
 .hour-bands { display: grid; gap: 6px; margin-top: 6px; }
 .chart-guide-shared { stroke: var(--ink-primary); stroke-opacity: 0.55; stroke-width: 1.4; stroke-dasharray: 1.5 3.5; stroke-linecap: round; }
