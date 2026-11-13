@@ -4,6 +4,7 @@
 
 import { useEffect, useState } from "react";
 import type { WeatherStore } from "../data/store";
+import { FailureSheet } from "./FailureSheet";
 
 /** How long the selected day may load before the bar says it is slow. */
 const SLOW_MS = 4000;
@@ -34,6 +35,18 @@ export function StatusBar({ store, station, days }: { store: WeatherStore | null
   }, [loading, days.join()]);
 
   const failed = store?.failedDays() ?? 0;
+  // The message opens what failed: which day, which values, why, when, and for what.
+  const [details, setDetails] = useState(false);
+  // The sheet stays open while what failed comes in (it then says nothing is missing).
+  const sheet = details && <FailureSheet store={store} onClose={() => setDetails(false)} />;
+  return (
+    <>
+      {bar()}
+      {sheet}
+    </>
+  );
+
+  function bar() {
   if (!online)
     return (
       <div className="status-bar offline" role="status">
@@ -43,13 +56,17 @@ export function StatusBar({ store, station, days }: { store: WeatherStore | null
     );
   if (failed)
     return (
-      <div className="status-bar error" role="alert">
-        <i aria-hidden />
-        <span>{failed}日分のデータを取得できませんでした。</span>
-        <button className="state-retry" onClick={() => store?.retryAll()}>
-          再試行
-        </button>
-      </div>
+      <>
+        <div className="status-bar error" role="alert">
+          <i aria-hidden />
+          <button className="status-detail" onClick={() => setDetails(true)} aria-haspopup="dialog">
+            {failed}日分のデータを取得できませんでした。<u>詳しく</u>
+          </button>
+          <button className="state-retry" onClick={() => store?.retryAll()}>
+            再試行
+          </button>
+        </div>
+      </>
     );
   if (slow)
     return (
@@ -59,4 +76,5 @@ export function StatusBar({ store, station, days }: { store: WeatherStore | null
       </div>
     );
   return null;
+}
 }

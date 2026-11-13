@@ -115,8 +115,11 @@ with sync_playwright() as p:
     ctx.add_init_script("""{const T=Date.parse('2026-11-10T03:00:00Z');const RD=Date;const off=T-RD.now();
       class D extends RD{constructor(...a){super(...(a.length?a:[RD.now()+off]))} static now(){return RD.now()+off}}
       globalThis.Date=D;}""")
+    FAIL = set()  # parts of a URL that answer 500 (a step makes a request fail on purpose)
     def handle(route):
         from urllib.parse import urlparse, parse_qs
+        if any(f in route.request.url for f in FAIL):
+            return route.fulfill(status=500, content_type="application/json", body=json.dumps({"error": "テスト用の失敗"}))
         u = urlparse(route.request.url)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         route.fulfill(status=200, content_type="application/json", body=json.dumps(api(u.path, q)))
@@ -298,6 +301,28 @@ with sync_playwright() as p:
           h.dispatchEvent(new PointerEvent('pointerup', {bubbles: true, clientY: 300, pointerId: 9})); }""")
         wait(800)
     step("G2", ghost)
+
+    # FS. 取得できなかったもの: the status bar's message opens what failed, when and for what
+    def fs():
+        FAIL.add("/api/hourly")
+        # A week back: the table asks for those days' hours (and their comparison days'), which now fail.
+        for _ in range(9):
+            pg.locator(".side .arrow").nth(0).click(); wait(250)
+        for _ in range(20):
+            if pg.locator(".status-bar.error").count(): break
+            wait(500)
+        check("FS1 失敗がステータスに出る", pg.locator(".status-bar.error").count() == 1)
+        pg.locator(".status-detail").click(); wait(700)
+        items = pg.locator(".failure-item").count()
+        body = txt(".failure-sheet") if pg.locator(".failure-sheet").count() else ""
+        check("FS2 押すと何が取れなかったかのシート", items >= 1, str(items))
+        check("FS3 理由・取り先・使う所・時刻が出る", all(w in body for w in ["テスト用の失敗", "時間別の表", "使う所", "失敗"]), body[:120])
+        FAIL.clear()
+        pg.locator(".failure-all").click(); wait(3000)
+        check("FS4 すべて再試行で消える", pg.locator(".failure-item").count() == 0 and pg.locator(".status-bar.error").count() == 0, str(pg.locator(".failure-item").count()))
+        pg.click(".msheet .icon-btn.close"); wait(600)
+        pg.click(".today-chip"); wait(600)
+    step("FS", fs)
 
     # I. close rules on the calendar: Esc, backdrop, ×, drag; pick closes
     def i_():
