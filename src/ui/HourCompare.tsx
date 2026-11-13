@@ -10,7 +10,7 @@ import { daySky, luminanceText, SKY_STEPS, type SkyColour, stepTime } from "../.
 import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
-import { ForecastHatch, GraphReadout, GuideLines } from "./kit";
+import { ForecastHatch, GraphReadout, GuideLines, InfoNote } from "./kit";
 
 /** Which boundaries colour the 肌感 graph: everyone's (the app's settings) or the person's (β, #118). */
 type Bands = "shared" | "you";
@@ -394,8 +394,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             気温
           </span>
         )}
-        <span>時刻の下の天気：その前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}（薄いのは日照と降水からの推定）</span>
       </p>
+      <InfoNote more={<>時刻の下の天気は、その時刻の前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}。薄いのは日照と降水からの推定です。凡例の線の名前を押すと、その線を薄くできます。</>} />
     </div>
   );
 }
@@ -559,7 +559,7 @@ function LightStrip({
         明るさと空
         {usual.main != null || usual.other != null ? (
           <small>
-            {" "}この日の昼は {usualText(usual.main)}{hasOther ? `・比較の日は ${usualText(usual.other)}` : ""}（前の7日と比べて）
+            {" "}昼は {usualText(usual.main)}{hasOther ? `・比較は ${usualText(usual.other)}` : ""}
           </small>
         ) : null}
       </span>
@@ -637,9 +637,16 @@ function LightStrip({
           </span>
         ))}
       </p>
-      <p className="light-note">
-        マスの色は空の色（模式）：太陽の高さ（10分ごと）と、その時間の日照・降水から描いたもので、写真や実測ではありません。上が見上げた空、下が地平。色の明るさは空の見かけの明るさで、夜は周りの様子（設定）に応じた街の明かりで空が明るく見えます。下の細い線は地上の明るさの段です。帯を指でなぞると、その1時間を10分ごとに拡大します。「外に出たとき」は、室内（約500lx）に慣れた目で外に出た直後の感じ方です。
-      </p>
+      <InfoNote
+        className="light-note"
+        more={
+          <>
+            太陽の高さ（10分ごと）と、その時間の日照・降水から描いたもので、写真や実測ではありません。色の明るさは空の見かけの明るさで、夜は周りの様子（設定）に応じた街の明かりで明るく見えます。下の細い線は地上の明るさの段。「いつも」は手前7日の同じ時間。「外に出たとき」は、室内（約500lx）に慣れた目で外に出た直後の感じ方です。
+          </>
+        }
+      >
+        空の色は模式です。なぞると10分ごとに拡大。
+      </InfoNote>
     </div>
   );
 }
