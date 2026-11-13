@@ -75,10 +75,10 @@ export function AfterAnswer() {
       {taught && a && b ? (
         <ul>
           <li>
-            ちょうどよいの中心 {a.mu.toFixed(1)} → <b>{b.mu.toFixed(1)}</b>（{sign(b.mu - a.mu)}）
+            中心（暑くも寒くもない） {a.mu.toFixed(1)} → <b>{b.mu.toFixed(1)}</b>（{sign(b.mu - a.mu)}）
           </li>
           <li>
-            範囲の半分 {a.h.toFixed(1)} → <b>{b.h.toFixed(1)}</b>
+            暑くも寒くもないの半分 {a.h.toFixed(1)} → <b>{b.h.toFixed(1)}</b>
           </li>
           <li>
             この時刻の予測 {name(a.mode)} → <b>{name(b.mode)}</b>（答え {name(p.report.sensation as number)}）

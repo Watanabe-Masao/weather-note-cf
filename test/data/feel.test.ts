@@ -61,9 +61,9 @@ group("levels", () => {
 
   it("groups the seven steps into five and three for short displays", () => {
     expect([0, 1, 2, 3, 4, 5, 6].map((l) => stepOf(l as Level, 5))).toEqual([0, 0, 1, 2, 3, 4, 4]);
-    expect([0, 1, 2, 3, 4, 5, 6].map((l) => stepOf(l as Level, 3))).toEqual([0, 0, 0, 1, 2, 2, 2]);
+    expect([0, 1, 2, 3, 4, 5, 6].map((l) => stepOf(l as Level, 3))).toEqual([0, 0, 1, 1, 1, 2, 2]);
     expect([0, 1, 2, 3, 4, 5, 6].map((l) => stepOf(l as Level, 7))).toEqual([0, 1, 2, 3, 4, 5, 6]);
-    expect(SCALE_STEPS[5].map((s) => s.label)).toEqual(["寒い", "涼しい", "ちょうどよい", "暖かい", "暑い"]);
+    expect(SCALE_STEPS[5].map((s) => s.label)).toEqual(["寒い", "涼しい", "暑くも寒くもない", "暖かい", "暑い"]);
     expect(SCALE_STEPS[3].map((s) => s.label)).toEqual(["寒い側", "ちょうどよい", "暑い側"]);
   });
 
@@ -71,7 +71,7 @@ group("levels", () => {
     const t = [5, 10, 15, 21, 25, 29] as const;
     expect(scaleThresholds([...t] as Thresholds, 7)).toEqual([5, 10, 15, 21, 25, 29]);
     expect(scaleThresholds([...t] as Thresholds, 5)).toEqual([10, 15, 21, 25]);
-    expect(scaleThresholds([...t] as Thresholds, 3)).toEqual([15, 21]);
+    expect(scaleThresholds([...t] as Thresholds, 3)).toEqual([10, 25]); // ちょうどよい = 涼しい〜暖かい
   });
 });
 

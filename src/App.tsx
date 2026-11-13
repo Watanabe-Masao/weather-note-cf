@@ -1,6 +1,8 @@
 // Weather Note: compare a target day with a comparison day, around a 7-day centre-fixed strip.
 
 import { AfterAnswer } from "./beta/AfterAnswer";
+import { useSeasonDays } from "./feelSeason";
+import type { WeatherStore } from "./data/store";
 import { CalendarModal, type CalendarSide } from "./ui/CalendarModal";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, FIRST_DAY } from "../shared/dates";
@@ -310,6 +312,7 @@ export function App() {
         ))}
       </div>
 
+      <SeasonDays store={store} station={view.station} dates={[view.target, compareDate]} />
       <StatusBar
         store={store}
         station={view.station}
@@ -543,4 +546,10 @@ export function App() {
       )}
     </div>
   );
+}
+
+/** Asks the store, quietly, for the 30 days the 従来版 boundaries of the shown days move by (#111). */
+function SeasonDays({ store, station, dates }: { store: WeatherStore | null; station: string; dates: (string | null)[] }) {
+  useSeasonDays(store, station, dates, "season");
+  return null;
 }

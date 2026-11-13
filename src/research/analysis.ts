@@ -161,7 +161,7 @@ export function analyse(rows: Row[]): Analysis {
     const label = (list: readonly { id: string; label: string }[], id: string | undefined) => (id ? (list.find((x) => x.id === id)?.label ?? id) : "（未回答）");
     cells.push(...counted("どう感じたいか", asked.map((r) => ({ who: r.researchId, key: label(THERMAL_PREFERENCES, r.report.thermalPreference) }))));
     cells.push(...counted("飲み物の温度", asked.map((r) => ({ who: r.researchId, key: label(DRINK_PREFERENCES, r.report.drinkPreference) }))));
-    const side = (y: number) => (y < 0 ? "寒い側" : y === 0 ? "ちょうどよい" : "暑い側");
+    const side = (y: number) => (y < 0 ? "寒い側" : y === 0 ? "暑くも寒くもない" : "暑い側");
     cells.push(
       ...counted(
         "感じ方 × どう感じたいか（答えた記録）",

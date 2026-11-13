@@ -25,7 +25,7 @@ import { DayWeatherIcon } from "./WeatherIcon";
 import { BetaContext } from "../beta/settings";
 import { baselineStateOf, driversOfDay, useBaselineHistory } from "../beta/useBaseline";
 import type { BaselineState } from "../beta/adaptation";
-import { beyondRange, centreUnknown, ensembleState, LEARNING_LABELS, type LearningView, type State } from "../beta/comfort";
+import { beyondComfort, comfortRange, centreUnknown, ensembleState, LEARNING_LABELS, type LearningView, type State } from "../beta/comfort";
 import type { BetaSettings } from "../beta/settings";
 import { daytimeFeel, type FeelSettings } from "../../shared/feel";
 import { ReportSheet } from "../beta/ReportSheet";
@@ -427,7 +427,7 @@ function BetaRows({
   const signed = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(1)}`;
   const where = (d: DayComfort, e: number | null) => {
     if (e == null) return <span className="cs-none">—</span>;
-    const out = beyondRange(d.st, e);
+    const out = beyondComfort(d.st, e);
     return (
       <>
         {signed(Math.round((e - d.st.mu) * 10) / 10)}
@@ -450,7 +450,7 @@ function BetaRows({
     },
     {
       key: "mu",
-      label: "ちょうどよい肌感",
+      label: "暑くも寒くもない肌感",
       value: (d) => d.st.mu,
       show: (d) => (
         <>
@@ -461,10 +461,10 @@ function BetaRows({
     {
       key: "range",
       label: "ちょうどよい範囲",
-      value: (d) => d.st.h * 2,
+      value: (d) => (d.st.h + d.st.g) * 2,
       show: (d) => (
         <span className="beta-range">
-          {(d.st.mu - d.st.h).toFixed(1)}〜{(d.st.mu + d.st.h).toFixed(1)}
+          {comfortRange(d.st)[0].toFixed(1)}〜{comfortRange(d.st)[1].toFixed(1)}
         </span>
       ),
     },
@@ -485,15 +485,15 @@ function BetaRows({
       <span className="cs-none beta-short">{loading ? "読み込み中" : "履歴不足"}</span>
     );
   return (
-    <div className="cs-beta" role="group" aria-label="ちょうどよい肌感と範囲（β版。研究中の推定）">
+    <div className="cs-beta" role="group" aria-label="肌感の中心とちょうどよい範囲（β版。研究中の推定）">
       <p className="cs-beta-head">
-        ちょうどよい肌感と範囲 <span className="beta-tag">β</span>
+        肌感の中心とちょうどよい範囲 <span className="beta-tag">β</span>
         {learning && <span className={`learn-tag ${learning.state}`}>{LEARNING_LABELS[learning.state]}</span>}
         <small>
-          {unknown ? `ちょうどよい肌感は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
+          {unknown ? `暑くも寒くもない肌感は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
         </small>
         {onBasis && (
-          <button className="beta-basis" onClick={onBasis} aria-label="ちょうどよい肌感と範囲の計算の根拠を見る">
+          <button className="beta-basis" onClick={onBasis} aria-label="肌感の中心とちょうどよい範囲の計算の根拠を見る">
             根拠
           </button>
         )}

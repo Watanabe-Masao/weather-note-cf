@@ -1,7 +1,7 @@
 // A small, made-up export (two people, a few reports each), for the tests and for trying the
 // scripts without real data:  npm run fixture  → raw/ds-fixture.json
 import { MODEL_VERSION } from "../../src/beta/comfort";
-import type { Report } from "../../src/beta/reports";
+import { type Report, SCALE_VERSION } from "../../src/beta/reports";
 import type { Export } from "./transform";
 
 const snapshot = (hour: number, temp: number, from: "amedas" | "forecast" = "amedas") => ({
@@ -28,7 +28,7 @@ export function makeReport(id: string, hour: number, temp: number, y: number, ov
     exposure: "sun",
     windFelt: "weak",
     sky: "sunny",
-    scaleVersion: 3,
+    scaleVersion: SCALE_VERSION,
     snapshot: snapshot(hour, temp),
     baseline: { value: 15, forecastMixed: false, coverage: 1, alpha: 0.8 },
     history: Array.from({ length: 60 }, (_, i) => 15 + Math.sin(i / 9) * 3),

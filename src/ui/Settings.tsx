@@ -205,7 +205,7 @@ function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: Wea
   return (
     <section className="set-group" aria-labelledby="set-feel">
       <h3 id="set-feel">肌感の基準</h3>
-      <p className="set-lead">肌感（日なた・日かげ）が、どの段階に入るかの境目です。帯の境目を指で動かすか、− ＋ で0.5ずつ変えられます。表示のための区分で、ちょうどよい肌感と範囲（β）の計算には使いません。</p>
+      <p className="set-lead">肌感（日なた・日かげ）が、どの段階に入るかの境目です。帯の境目を指で動かすか、− ＋ で0.5ずつ変えられます。ここで決めるのは、過去30日の平均気温が 15℃ のときの境目です。実際の境目は季節で動きます（平均気温 1℃ につき 0.7。夏は上へ、冬は下へ）。涼しい〜暖かいが「ちょうどよい範囲」です。β の出発点もこれにそろえています。</p>
       <LevelBand thresholds={saved.thresholds} onChange={(thresholds) => update({ thresholds })} />
       <div className="set-row">
         <span className="set-label">周りの様子</span>
@@ -329,7 +329,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
             onChange={(v) => feel.update({ scale: Number(v) as Scale })}
           />
           <small className="set-help">
-            計算はいつも7段（感じ方の記録と同じ並び）で、表示だけをまとめます。5段：寒い（極寒・寒い）／涼しい／ちょうどよい／暖かい／暑い（暑い・猛暑）。3段：寒い側／ちょうどよい／暑い側。
+            計算はいつも7段（感じ方の記録と同じ並び）で、表示だけをまとめます。5段：寒い（寒い・肌寒い）／涼しい／暑くも寒くもない／暖かい／暑い（少し暑い・暑い）。3段：寒い側（寒い・肌寒い）／ちょうどよい（涼しい〜暖かい）／暑い側（少し暑い・暑い）。
           </small>
         </div>
       </section>
@@ -339,16 +339,16 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
       {beta.enabled && (
       <section className="set-group" aria-labelledby="set-beta">
         <h3 id="set-beta">
-          ちょうどよい肌感と範囲 <span className="beta-tag">β</span>
+          肌感の中心とちょうどよい範囲 <span className="beta-tag">β</span>
         </h3>
         <p className="set-lead">
-          その瞬間の「ちょうどよい肌感」と「ちょうどよい範囲」を推定し、今の肌感（日なた・日かげ）がそこからどれだけ離れているかを出します。中心も範囲も、最近の気温への慣れや湿度で動きます。感じ方の記録から学び続ける研究中の計算です（肌感とは別）。
+          その瞬間の「暑くも寒くもない肌感」と「ちょうどよい範囲」を推定し、今の肌感（日なた・日かげ）がそこからどれだけ離れているかを出します。中心も範囲も、最近の気温への慣れや湿度で動きます。感じ方の記録から学び続ける研究中の計算です（肌感とは別）。
         </p>
         <div className="set-row">
           <span className="set-label">
             学習の段階 <span className={`learn-tag ${beta.learning.state}`}>{LEARNING_LABELS[beta.learning.state]}</span>
             <small className="set-help">
-              件数ではなく中身で決めます：寒い側と暑い側の両方の答え、温度の幅、記録した日、ちょうどよい肌感の幅（95%区間）、事前の予測の成績。
+              件数ではなく中身で決めます：寒い側と暑い側の両方の答え、温度の幅、記録した日、暑くも寒くもない肌感の幅（95%区間）、事前の予測の成績。
               {beta.learning.missing.length ? ` まだ足りないもの：${beta.learning.missing.join("、")}。` : ""}
               {(() => {
                 const live = (reportsList ?? []).filter((r) => !r.deleted);
@@ -358,7 +358,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
                 return ` 学習に使った記録 ${live.length - out.length}件、使わなかった記録 ${out.length}件（${why}）。`;
               })()}
               {beta.learning.muInterval && !centreUnknown(beta.learning.state)
-                ? ` ちょうどよい肌感（最新の記録の条件）：95% ${beta.learning.muInterval[0].toFixed(1)}〜${beta.learning.muInterval[1].toFixed(1)}。`
+                ? ` 暑くも寒くもない肌感（最新の記録の条件）：95% ${beta.learning.muInterval[0].toFixed(1)}〜${beta.learning.muInterval[1].toFixed(1)}。`
                 : ""}
             </small>
           </span>

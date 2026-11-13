@@ -3027,6 +3027,7 @@ svg.scrub {
   padding: 4px 1px;
   font-size: 11px;
   white-space: pre-line;
+  line-height: 1.25;
   word-break: keep-all;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);

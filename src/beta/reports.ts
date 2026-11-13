@@ -187,7 +187,7 @@ export interface AnswerContext {
   /** Opened from a notification, or from the app's record button. */
   from: "notification" | "button";
   /** The 肌感 of the moment the sheet was opened, as the app showed it (日なた or 日かげ by the
-   *  display setting), and its level by the shown boundaries (0 極寒 … 6 猛暑). */
+   *  display setting), and its level by the shown boundaries (0 寒い … 6 暑い). */
   shownFeel: number | null;
   shownExposure: "sun" | "shade";
   shownLevel: number | null;

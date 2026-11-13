@@ -15,6 +15,7 @@ import { probabilities } from "../beta/comfort";
 import { useDayComfortState } from "../beta/useDayComfort";
 import { whyLine, whyTerms } from "../beta/engine/why";
 import { dateLabel } from "../design/format";
+import { feelOn } from "../feelSeason";
 import { FeelContext, levelColor, levelName } from "./FeelBar";
 
 const OUTLOOK_PARTS = ["morning", "evening"] as const;
@@ -94,7 +95,7 @@ export function PartsOutlook({ store, station, date, today }: { store: WeatherSt
               </div>
             );
           }
-          const lv = levelOf(e, feel);
+          const lv = levelOf(e, feelOn(store, station, date, feel)); // the day's boundaries (#111)
           return (
             <div key={part.id} className="outlook-row">
               <span className="outlook-part">{part.label}</span>

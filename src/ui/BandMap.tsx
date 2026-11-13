@@ -9,6 +9,7 @@ import { type Band, BANDS, type FeelSettings, describe, feelOf, hourlyBands, rad
 import { dayTone, weekdayOf } from "../../shared/holidays";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
+import { feelOn } from "../feelSeason";
 import { BandTrend } from "./BandTrend";
 import { useSwipeDays } from "./useSwipeDays";
 import { CloseIcon } from "./icons";
@@ -44,7 +45,7 @@ function bandDiffs(a: Band[] | null, b: Band[] | null): (number | null)[] {
 }
 
 function useExactBands(store: WeatherStore | null, station: string, date: string | null): Band[] | null {
-  const settings = useContext(FeelContext);
+  const settings = feelOn(store, station, date, useContext(FeelContext));
   if (!date) return null;
   const hours = store?.getHours(station, date);
   return hours?.state === "ready" && hours.rows.length ? hourlyBands(hours.rows, settings, station) : null;
@@ -56,7 +57,7 @@ function Summary({ store, station, target, partner }: Props) {
   const today = useExactBands(store, station, target);
   const before = useExactBands(store, station, addDays(target, -1));
   const compare = useExactBands(store, station, partner(target));
-  const fallback = today ? null : bandsFor(store, station, target, settings);
+  const fallback = today ? null : bandsFor(store, station, target, feelOn(store, station, target, settings));
   const shown = today ?? fallback?.bands ?? null;
   const phrase = shown ? describe(shown) : null;
   const feelSpread = shown ? spread(shown) : null;
@@ -136,8 +137,9 @@ type Column = { date: string | null; state: string; bands: Band[] | null; estima
  * Each day: the exact five bands from the hours; until then (or for forecast days without enough
  * hours) the same estimate the table shows, spread over the bands (朝・夜 from the low, the day from the high).
  */
-function columnOf(store: WeatherStore | null, station: string, date: string | null, settings: FeelSettings): Column {
+function columnOf(store: WeatherStore | null, station: string, date: string | null, base: FeelSettings): Column {
   if (!date) return { date, state: "none", bands: null, estimate: false };
+  const settings = feelOn(store, station, date, base); // the day's boundaries (#111)
   const hours = store?.getHours(station, date);
   const state = hours?.state ?? "empty";
   const exact = state === "ready" && hours!.rows.length ? hourlyBands(hours!.rows, settings, station) : null;

@@ -1,5 +1,5 @@
 // なぜ (#118): why the person's centre for a moment is where it is, against β's starting point
-// (the prior: 従来版's centre 18 with 慣れ 0.33 × (最近の基準 − 15)), as the few largest terms —
+// (the prior, set to 従来版's: PRIOR), as the few largest terms —
 // for one line beside a prediction. The centre μ is the mixed models' Σ w·(m0 + Σ β_k·driver_k).
 //   - "あなたのちょうどよい": the models' constant and 慣れ terms against the starting point's
 //     (where the person's own level sits, learned from the answers)
@@ -36,7 +36,7 @@ export function whyTerms(ens: Ensemble, x: Drivers): WhyTerm[] {
     }
   });
   const shared = PRIOR.m0 + PRIOR.slope * (x.a - 15);
-  const terms: WhyTerm[] = [{ key: "personal", label: "あなたのちょうどよい", effect: level - shared }];
+  const terms: WhyTerm[] = [{ key: "personal", label: "あなたの中心", effect: level - shared }];
   for (const [k, effect] of effects) terms.push({ key: k, label: DRIVERS[k].label.replace(/（.*）$/, ""), effect });
   return terms.sort((a, b) => Math.abs(b.effect) - Math.abs(a.effect));
 }
@@ -51,8 +51,8 @@ export function whyLine(terms: WhyTerm[]): string {
   return big
     .map((t) =>
       t.key === "personal"
-        ? `記録から、あなたのちょうどよいは出発点（従来版の中心＋慣れ）より ${fmt(t.effect)}（${t.effect > 0 ? "寒く感じやすい" : "暑く感じやすい"}）`
-        : `${t.label}で ちょうどよいが ${fmt(t.effect)}（${t.effect > 0 ? "寒く感じる側" : "暑く感じる側"}）`,
+        ? `記録から、あなたの中心（暑くも寒くもない）は出発点（従来版）より ${fmt(t.effect)}（${t.effect > 0 ? "寒く感じやすい" : "暑く感じやすい"}）`
+        : `${t.label}で 中心が ${fmt(t.effect)}（${t.effect > 0 ? "寒く感じる側" : "暑く感じる側"}）`,
     )
     .join("。");
 }

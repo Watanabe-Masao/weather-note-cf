@@ -13,12 +13,14 @@ import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet } from "../ui/ModalSheet";
 import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } from "./adaptation";
-import { beyondRange, centreUnknown, LEARNING_RULES, TIME_BANDS, confoundedPairs, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
+import { beyondComfort, comfortRange, centreUnknown, LEARNING_RULES, TIME_BANDS, confoundedPairs, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
 import { useCentreVisible, useReports } from "./useReports";
 import { answerHabits, CHECKED, checksOf, MIN_FOR_GROUP, MIN_FOR_SLOPE, PERIOD, priorSensitivity, stackingWeights, weakSpots } from "./engine/checks";
 import { momentUnder } from "./AfterAnswer";
 import { ensembleFromReports, probabilities as probsOf } from "./comfort";
 import { observationsOf } from "./engine/observations";
+import { PRIOR } from "./engine/model";
+import { feelOn } from "../feelSeason";
 import { levelOf as levelOfFeel, type Level } from "../../shared/feel";
 import { levelName as stepName } from "../ui/FeelBar";
 import { COMMON_MIN_COVERAGE, compareStored, type LearnState } from "./engine/compareAll";
@@ -342,7 +344,7 @@ function ComfortBasis() {
         </p>
         {r.n > 0 && (
           <>
-            <h5>較正（寒い側・ちょうどよい・暑い側）</h5>
+            <h5>較正（寒い側・暑くも寒くもない・暑い側）</h5>
             <p className="basis-note">予測した確率ごとに、実際にそうなった割合。2つが近いほど、確率が正直です（70%と言ったことが約70%起きる）。</p>
             <div className="basis-scroll">
               <table className="basis-table">
@@ -492,11 +494,11 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   if (!visible || centreUnknown(beta.learning.state)) {
     return (
       <section className="basis-sec">
-        <h4>この日のちょうどよい肌感と範囲</h4>
+        <h4>この日の肌感の中心とちょうどよい範囲</h4>
         <p className="set-help">
           {!visible
-            ? "今日のちょうどよい肌感は、今日の感じ方を記録した後に表示します（先に見ると、答えがその数字に引っ張られるため）。"
-            : `ちょうどよい肌感は、記録からまだ特定できません（${beta.learning.missing.join("、")}）。`}
+            ? "今日の暑くも寒くもない肌感は、今日の感じ方を記録した後に表示します（先に見ると、答えがその数字に引っ張られるため）。"
+            : `暑くも寒くもない肌感は、記録からまだ特定できません（${beta.learning.missing.join("、")}）。`}
         </p>
         {visible ? <BandCoverage /> : null}
       </section>
@@ -505,7 +507,7 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   if (!x) {
     return (
       <section className="basis-sec">
-        <h4>この日のちょうどよい肌感と範囲</h4>
+        <h4>この日の肌感の中心とちょうどよい範囲</h4>
         <p className="basis-note">最近の基準が出せないか、日中の時間別データがないため、出せません。</p>
       </section>
     );
@@ -516,21 +518,21 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
   const [muLo, muHi] = interval(best, (t) => stateOf(best.model, t, x).mu);
   const [hLo, hHi] = interval(best, (t) => Math.log(stateOf(best.model, t, x).h)).map(Math.exp);
   const place = (e: number | null) =>
-    e == null ? "—" : `${signed(Math.round((e - st.mu) * 10) / 10)}（${beyondRange(st, e) === 0 ? "範囲の中" : `範囲の外 ${signed(Math.round(beyondRange(st, e) * 10) / 10)}`}）`;
+    e == null ? "—" : `${signed(Math.round((e - st.mu) * 10) / 10)}（${beyondComfort(st, e) === 0 ? "ちょうどよい範囲の中" : `ちょうどよい範囲の外 ${signed(Math.round(beyondComfort(st, e) * 10) / 10)}`}）`;
   return (
     <section className="basis-sec" aria-labelledby="basis-cday">
       <h4 id="basis-cday">
-        この日のちょうどよい肌感と範囲 <b>{f1(st.mu)}（{f1(st.mu - st.h)}〜{f1(st.mu + st.h)}）</b>
+        この日の肌感の中心とちょうどよい範囲 <b>{f1(st.mu)}（{f1(comfortRange(st)[0])}〜{f1(comfortRange(st)[1])}）</b>
       </h4>
       <ul className="basis-list">
         <li>
           入力：最近の基準 {f1(x.a)}℃、前日の変化 {signed(x.dT1 == null ? null : Math.round(x.dT1 * 10) / 10)}℃、季節の向き {signed(x.trend == null ? null : Math.round(x.trend * 10) / 10)}℃/週、1週間の湿度 {x.h7 == null ? "—" : Math.round(x.h7)}%、前日の湿度 {x.h1 == null ? "—" : Math.round(x.h1)}%、1週間の気温の振れ {f1(x.v7)}℃、前日の日照 {f1(x.sun1)}時間、前日の雨 {f1(x.rain1)}mm、前夜の冷え込み（前日の最低 − 基準） {signed(x.minPrev == null ? null : Math.round(x.minPrev * 10) / 10)}℃、前夜の風（18〜6時の平均） {f1(x.windPrev)}m/s、この日の湿度 {hNow == null ? "—" : Math.round(hNow)}%
         </li>
         <li>
-          重みで混ぜた中心 μ = {f1(st.mu)}、範囲の半分 h = {f1(st.h)}、外の1段階 g = {f1(st.g)}
+          重みで混ぜた中心 μ（暑くも寒くもない） = {f1(st.mu)}、暑くも寒くもないの半分 h = {f1(st.h)}、外の1段階 g = {f1(st.g)}（ちょうどよい範囲 ＝ μ ±（h ＋ g）＝ 涼しい〜暖かい）
         </li>
         <li>
-          いちばん重い {best.model.id} での95%区間：中心 {f1(muLo)}〜{f1(muHi)}、範囲の半分 {f1(hLo)}〜{f1(hHi)}
+          いちばん重い {best.model.id} での95%区間：中心 {f1(muLo)}〜{f1(muHi)}、暑くも寒くもないの半分 {f1(hLo)}〜{f1(hHi)}
         </li>
         <li>日中の肌感（日なた） {f1(sun)}：中心から {place(sun)}</li>
         <li>日中の肌感（日かげ） {f1(shade)}：中心から {place(shade)}</li>
@@ -547,7 +549,7 @@ function ComfortDay({ store, station, date, feel }: { store: WeatherStore | null
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "—");
 
 /** 検証 (#117, #118): where the predictions miss, from the predictions as they were made at sending. */
-function CheckBasis() {
+function CheckBasis({ store, station }: { store: WeatherStore | null; station: string }) {
   const list = useReports();
   const c = useMemo(() => checksOf(list ?? []), [list]);
   const all = useMemo(() => compareStored(list ?? [], undefined, COMMON_MIN_COVERAGE), [list]);
@@ -564,7 +566,7 @@ function CheckBasis() {
 
       <h5>出発点のまま と β</h5>
       <p className="basis-note">
-        出発点のまま＝β の事前分布の値（中心 18 ＋ 0.33 ×（最近の基準 − 15）、範囲の半分 3、外の1段 4）で、何も学ばずに出した予測。ちょうどよいの範囲は従来版の段（設定の境目）と同じですが、外側の段の幅が違います（#111 でそろえる予定）。
+        出発点のまま＝β の事前分布の値（中心 {PRIOR.m0} ＋ {PRIOR.slope} ×（最近の基準 − 15）、暑くも寒くもないの半分 {PRIOR.h}、外の1段 {PRIOR.g}）で、何も学ばずに出した予測。従来版の段（季節で動く境目）にそろえてあります（#111）。違いは、従来版が過去30日の平均で動くのに対し、出発点は最近の基準（約1週間）で動くこと、外の段が左右同じ幅であること。
       </p>
       {c.base && (
         <div className="basis-scroll">
@@ -733,7 +735,7 @@ function CheckBasis() {
       <Habits />
       <PriorEffect />
       <WeekChange />
-      <TryIt />
+      <TryIt store={store} station={station} />
 
       {c.context && (
         <>
@@ -949,13 +951,13 @@ function WeekChange() {
           <table className="basis-table">
             <tbody>
               <tr>
-                <td>ちょうどよいの中心</td>
+                <td>中心（暑くも寒くもない）</td>
                 <td className="num">
                   {a.mu.toFixed(1)} → <b>{b.mu.toFixed(1)}</b>（{sign(b.mu - a.mu)}）
                 </td>
               </tr>
               <tr>
-                <td>範囲の半分</td>
+                <td>暑くも寒くもないの半分</td>
                 <td className="num">
                   {a.h.toFixed(1)} → <b>{b.h.toFixed(1)}</b>
                 </td>
@@ -977,7 +979,7 @@ function WeekChange() {
 }
 
 /** 試す (#118): the latest answer's moment, with the wind and the place changed: what 肌感 and the levels would have been. */
-function TryIt() {
+function TryIt({ store, station }: { store: WeatherStore | null; station: string }) {
   const list = useReports();
   const beta = useContext(BetaContext);
   const feel = useContext(FeelContext);
@@ -1028,7 +1030,7 @@ function TryIt() {
               </tr>
               <tr>
                 <td>従来版の段</td>
-                <td className="num">{e == null ? "—" : stepName(levelOfFeel(e, feel), scale)}</td>
+                <td className="num">{e == null ? "—" : stepName(levelOfFeel(e, feelOn(store, station, latest.snapshot?.date ?? null, feel)), scale)}</td>
               </tr>
               <tr>
                 <td>あなたの段（β）</td>
@@ -1071,7 +1073,7 @@ function Body({ store, station, target, other }: Omit<Props, "onClose">) {
       <ComfortDay store={store} station={station} date={date} feel={feel} />
       <PreferenceDay store={store} station={station} date={date} feel={feel} />
       <ComfortBasis />
-      <CheckBasis />
+      <CheckBasis store={store} station={station} />
     </div>
   );
 }

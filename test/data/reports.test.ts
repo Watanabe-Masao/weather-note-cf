@@ -89,15 +89,15 @@ describe("β②: wind as an amount over time", () => {
 });
 
 describe("β②: the scale", () => {
-  it("has seven steps from 極寒 (−3) to 猛暑 (+3), the same words as the 肌感 levels", () => {
+  it("has seven steps from 寒い (−3) to 暑い (+3), the same words as the 肌感 levels (SCALE_VERSION 4)", () => {
     expect(SENSATIONS.map((s) => [s.value, s.label])).toEqual([
-      [-3, "極寒"],
-      [-2, "寒い"],
+      [-3, "寒い"],
+      [-2, "肌寒い"],
       [-1, "涼しい"],
-      [0, "ちょうどよい"],
+      [0, "暑くも寒くもない"],
       [1, "暖かい"],
-      [2, "暑い"],
-      [3, "猛暑"],
+      [2, "少し暑い"],
+      [3, "暑い"],
     ]);
     expect(SENSATIONS.map((s) => s.label)).toEqual([...LEVELS]);
   });
