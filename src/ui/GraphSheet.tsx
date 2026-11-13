@@ -12,6 +12,7 @@
 // - Reduced motion: no animation, same positions.
 
 import { type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { swallowGhostClick } from "./ghostClick";
 import { moveDuration, prefersReducedMotion, releaseTarget, SHEET_EASE, softClamp, VelocityTracker, capture } from "./sheetMotion";
 
 export type Detent = "min" | "mid" | "max";
@@ -100,6 +101,7 @@ export function GraphSheet({ title, tabs, detent, heights, onDetent, children, s
     begin(e.clientY);
   };
   const handleUp = () => {
+    swallowGhostClick();
     const moved = finish();
     if (!moved) {
       const { detent: d, onDetent: set } = latest.current;
@@ -129,7 +131,10 @@ export function GraphSheet({ title, tabs, detent, heights, onDetent, children, s
   };
   const tabsUp = () => {
     pending.current = null;
-    if (drag.current) finish();
+    if (drag.current) {
+      swallowGhostClick();
+      finish();
+    }
   };
 
   // ---- the content: touch, so native scrolling keeps working when the sheet should not move ----
@@ -165,7 +170,10 @@ export function GraphSheet({ title, tabs, detent, heights, onDetent, children, s
       }
     };
     const onEnd = () => {
-      if (taking) finish();
+      if (taking) {
+        swallowGhostClick();
+        finish();
+      }
       start = null;
       taking = false;
     };

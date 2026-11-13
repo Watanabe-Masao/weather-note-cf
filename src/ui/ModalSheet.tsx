@@ -11,6 +11,7 @@
 //   sheet's transform and scroll (it opened far above the screen).
 
 import { createPortal } from "react-dom";
+import { swallowGhostClick } from "./ghostClick";
 import { CloseIcon } from "./icons";
 import {
   createContext,
@@ -174,7 +175,10 @@ export function ModalSheet({ title, label, headerEnd, onClose, className, size =
       }
     };
     const onEnd = () => {
-      if (taking) finish();
+      if (taking) {
+        swallowGhostClick();
+        finish();
+      }
       start = null;
       taking = false;
     };
@@ -220,7 +224,10 @@ export function ModalSheet({ title, label, headerEnd, onClose, className, size =
           className="sheet-handle"
           onPointerDown={handleDown}
           onPointerMove={(e) => follow(e.clientY)}
-          onPointerUp={() => finish(true)}
+          onPointerUp={() => {
+            swallowGhostClick();
+            finish(true);
+          }}
           onPointerCancel={() => finish()}
           role="button"
           aria-label="閉じる"
