@@ -34,7 +34,9 @@ import {
   initialHour,
   signedDiff,
 } from "../dayDetail";
-import { barLook, type DataColor, DATA, LIGHT_LEVELS, type LineLook, lineLook } from "../design/tokens";
+import { barLook, type DataColor, DATA, LIGHT_LEVELS, LINE, type LineLook, lineLook } from "../design/tokens";
+import { type AverageWindow, AVERAGE_WINDOWS, daysBefore, meanByHour, nextWindow, WINDOW_LABEL } from "../hourAverage";
+import { Priority } from "../data/plan";
 import { axisWidth, dateLabel, needsYear, niceTicks, tickLabel } from "../design/format";
 import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
 import { levelOf, type Thresholds } from "../../shared/feel";
@@ -97,6 +99,35 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings), [otherHours, metricId, settings]);
   const air = useMemo(() => (metricId === "feel" ? hourSeries(hours?.rows ?? [], "temp", settings) : null), [hours, metricId, settings]);
+  // 手前の平均 (src/hourAverage.ts): each day's own weeks before it, hour by hour. Tapping the legend
+  // steps the span (1週 → 2週 → 1か月) and sets a line aside (grey); both are the person's to choose.
+  const [avgWindow, setAvgWindow] = useState<AverageWindow>(readWindow);
+  const stepWindow = () => {
+    const w = nextWindow(avgWindow);
+    setAvgWindow(w);
+    try {
+      localStorage.setItem(WINDOW_KEY, String(w));
+    } catch {
+      /* not kept: fine */
+    }
+  };
+  const [dim, setDim] = useState<Record<LineId, boolean>>({ main: false, other: false, avgMain: false, avgOther: false });
+  const toggleDim = (k: LineId) => setDim((d) => ({ ...d, [k]: !d[k] }));
+  const avgDaysMain = useMemo(() => daysBefore(date, avgWindow, today), [date, avgWindow, today]);
+  const avgDaysOther = useMemo(() => (other ? daysBefore(other, avgWindow, today) : []), [other, avgWindow, today]);
+  const avgWanted = [...avgDaysMain, ...avgDaysOther].join(",");
+  useEffect(() => {
+    store?.wantHours(station, avgWanted ? avgWanted.split(",") : [], Priority.Behind, "hour-average");
+  }, [store, station, avgWanted]);
+  useEffect(() => () => store?.wantHours(station, [], Priority.Behind, "hour-average"), [store, station]);
+  const averageOf = (days: string[]) => {
+    if (!days.length) return null;
+    const ready = days.map((d) => store?.getHours(station, d)).filter((h) => h?.state === "ready");
+    const m = meanByHour(ready.map((h) => hourSeries(h!.rows, metricId, settings)), days.length);
+    return m.some((p) => p.v != null) ? m : null;
+  };
+  const avgMain = averageOf(avgDaysMain);
+  const avgOther = other ? averageOf(avgDaysOther) : null;
   const chance = useMemo(() => hourSeries(hours?.rows ?? [], "probability", settings), [hours, settings]);
   // 明るさ for each hour 1–24 (null where the hour is missing), both days, at the station.
   // dayLights: a twilight hour's clouds come from the nearest hour of daylight when it has no weather text.
@@ -180,6 +211,27 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             b: other ? formatDetail(at(second), metric) : "—",
             diff: other && metric.unit !== "h" ? signedDiff(at(main), at(second), metric.unit) : "",
           },
+          // The same hour over each day's own weeks before it, and how far the day is from that.
+          ...(avgMain || avgOther
+            ? [
+                {
+                  key: "avg",
+                  label: `手前${WINDOW_LABEL[avgWindow]}の平均`,
+                  color: LINE.reference,
+                  a: avgMain ? formatDetail(at(avgMain), metric) : "—",
+                  b: avgOther ? formatDetail(at(avgOther), metric) : "—",
+                  diff: avgMain && avgOther ? signedDiff(at(avgMain), at(avgOther), metric.unit) : "",
+                },
+                {
+                  key: "dev",
+                  label: "平均との差",
+                  unit: "",
+                  a: (avgMain && signedDiff(at(main), at(avgMain), metric.unit)) || "—",
+                  b: (avgOther && signedDiff(at(second), at(avgOther), metric.unit)) || "—",
+                  diff: avgMain && avgOther ? signedDiff(devOf(at(main), at(avgMain)), devOf(at(second), at(avgOther)), metric.unit) : "",
+                },
+              ]
+            : []),
           // The weather of the shown hour (#: 時間帯の天気), both days. Faint = estimated.
           {
             key: "wx",
@@ -245,6 +297,9 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         main={main}
         second={other ? second : null}
         air={air}
+        avgMain={avgMain}
+        avgOther={avgOther}
+        dim={dim}
         ranges={levelRanges(bands === "you" && personal ? personal : dayFeel.thresholds, settings.scale)}
         guides={bands === "you" ? dayFeel.thresholds : undefined}
         sun={sun}
@@ -312,16 +367,23 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         </p>
       )}
       <p className="line-legend">
-        <span>
-          <i className="ls-solid" style={{ borderColor: color }} />
-          対象 {mainLabel}
-        </span>
-        {other && (
-          <span>
-            <i className="ls-dashed" style={{ borderColor: color }} />
-            比較 {otherLabel}
-          </span>
+        {/* A tap on a line's name sets it aside (grey) or brings it back (design engine: dimmed lines keep their form). */}
+        <LegendLine on={!dim.main} onToggle={() => toggleDim("main")} look={lineLook("target", color, { dimmed: dim.main })} label={`対象 ${mainLabel}`} />
+        {other && <LegendLine on={!dim.other} onToggle={() => toggleDim("other")} look={lineLook("compare", color, { dimmed: dim.other })} label={`比較 ${otherLabel}`} />}
+        {avgMain && (
+          <LegendLine on={!dim.avgMain} onToggle={() => toggleDim("avgMain")} look={lineLook("target", color, { kind: "reference", dimmed: dim.avgMain })} label="対象の手前" />
         )}
+        {avgOther && (
+          <LegendLine on={!dim.avgOther} onToggle={() => toggleDim("avgOther")} look={lineLook("compare", color, { kind: "reference", dimmed: dim.avgOther })} label="比較の手前" />
+        )}
+        <button className="avg-window" onClick={stepWindow} aria-label={`平均の期間（今は手前${WINDOW_LABEL[avgWindow]}）。押すと切り替え`}>
+          平均 <b>{WINDOW_LABEL[avgWindow]}</b>
+          <span className="steps" aria-hidden>
+            {AVERAGE_WINDOWS.map((w) => (
+              <i key={w} className={w === avgWindow ? "on" : undefined} />
+            ))}
+          </span>
+        </button>
         <span>
           <i className="ls-forecast" />
           予報
@@ -593,11 +655,38 @@ function SkyWord({ s }: { s: SkyColour | null }) {
   );
 }
 
+type LineId = "main" | "other" | "avgMain" | "avgOther";
+const WINDOW_KEY = "weather-note:hour-average";
+function readWindow(): AverageWindow {
+  try {
+    const w = Number(localStorage.getItem(WINDOW_KEY));
+    return (AVERAGE_WINDOWS as readonly number[]).includes(w) ? (w as AverageWindow) : 7;
+  } catch {
+    return 7;
+  }
+}
+const devOf = (v: number | null, avg: number | null) => (v == null || avg == null ? null : v - avg);
+
+/** A line's name in the legend, in its own line form; a tap sets it aside (grey) or brings it back. */
+function LegendLine({ look, label, on, onToggle }: { look: LineLook; label: string; on: boolean; onToggle: () => void }) {
+  return (
+    <button className={on ? "legend-line" : "legend-line off"} onClick={onToggle} aria-pressed={on} aria-label={`${label}（${on ? "表示中・押すと薄く" : "薄く表示中・押すと戻す"}）`}>
+      <svg width="22" height="6" aria-hidden>
+        <line x1="1" x2="21" y1="3" y2="3" stroke={look.stroke} strokeWidth={look.strokeWidth} strokeDasharray={look.strokeDasharray} opacity={look.opacity} />
+      </svg>
+      {label}
+    </button>
+  );
+}
+
 function HourChart({
   metricId,
   main,
   second,
   air,
+  avgMain,
+  avgOther,
+  dim,
   ranges,
   sun,
   day,
@@ -617,6 +706,11 @@ function HourChart({
   main: HourPoint[];
   second: HourPoint[] | null;
   air: HourPoint[] | null;
+  /** Each day's own weeks before it (手前の平均), hour by hour. */
+  avgMain?: HourPoint[] | null;
+  avgOther?: HourPoint[] | null;
+  /** Lines the person has set aside: drawn grey, under the others. */
+  dim?: Record<LineId, boolean>;
   /** Coloured 肌感 ranges behind the feel graph (the chosen scale). */
   ranges: { from: number; to: number; color: string }[];
   sun: SunTimes | null;
@@ -643,7 +737,7 @@ function HourChart({
   }, []);
 
   const metric = detailMetric(metricId);
-  const values = [main, second ?? [], air ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null);
+  const values = [main, second ?? [], air ?? [], avgMain ?? [], avgOther ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null);
   // Round ticks (10 / 15 / 20): the padded data range widened to whole steps.
   const range = axisRange(values, metric);
   const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
@@ -697,19 +791,41 @@ function HourChart({
       );
     });
 
-  const bars = (points: HourPoint[], color: string, other: boolean) =>
+  const bars = (points: HourPoint[], color: string, other: boolean, dimmed = false) =>
     points.map((p) =>
       p.v == null || p.v <= 0 ? null : (
         <rect
-          key={`${color}-${p.hour}`}
+          key={`${color}-${other}-${p.hour}`}
           x={xOf(p.hour) - step + (other ? step * 0.5 : step * 0.08)}
           y={yOf(p.v)}
           width={step * 0.42}
           height={Math.max(0, yOf(0) - yOf(p.v))}
-          {...barLook(other ? "compare" : "target", color)}
+          {...barLook(other ? "compare" : "target", color, dimmed)}
         />
       ),
     );
+  // An average over bars: a short line across its own day's bar, in that day's line form.
+  const averageTicks = (points: HourPoint[], other: boolean, dimmed: boolean) => {
+    const look = lineLook(other ? "compare" : "target", color, { kind: "reference", dimmed });
+    return points.map((p) =>
+      p.v == null || p.v <= 0.005 ? null : (
+        <line
+          key={`avg-${other}-${p.hour}`}
+          x1={xOf(p.hour) - step + (other ? step * 0.46 : step * 0.04)}
+          x2={xOf(p.hour) - step + (other ? step * 0.96 : step * 0.54)}
+          y1={yOf(p.v)}
+          y2={yOf(p.v)}
+          stroke={look.stroke}
+          strokeWidth={look.strokeWidth + 0.4}
+          strokeDasharray={look.strokeDasharray ? "3 2" : undefined}
+          opacity={look.opacity}
+        />
+      ),
+    );
+  };
+  const d = dim ?? { main: false, other: false, avgMain: false, avgOther: false };
+  // Lines set aside go under the others, so the ones still in colour read on top.
+  const under = (k: LineId) => (d[k] ? 0 : 1);
 
   return (
     <div
@@ -823,18 +939,32 @@ function HourChart({
 
         {metric.chart === "bar" ? (
           <>
-            {second && bars(second, color, true)}
-            {bars(main, color, false)}
+            {second && bars(second, color, true, d.other)}
+            {bars(main, color, false, d.main)}
+            {avgOther && averageTicks(avgOther, true, d.avgOther)}
+            {avgMain && averageTicks(avgMain, false, d.avgMain)}
           </>
         ) : (
           <>
             {air && line(air, lineLook("target", color, { kind: "reference" }))}
-            {second && line(second, lineLook("compare", color))}
-            {line(main, lineLook("target", color))}
+            {(
+              [
+                ["avgOther", avgOther, lineLook("compare", color, { kind: "reference", dimmed: d.avgOther })],
+                ["avgMain", avgMain, lineLook("target", color, { kind: "reference", dimmed: d.avgMain })],
+                ["other", second, lineLook("compare", color, { dimmed: d.other })],
+                ["main", main, lineLook("target", color, { dimmed: d.main })],
+              ] as [LineId, HourPoint[] | null | undefined, LineLook][]
+            )
+              .filter(([, pts]) => pts)
+              .sort(([a], [b]) => under(a) - under(b))
+              .map(([k, pts, look]) => (
+                <g key={k}>{line(pts!, look)}</g>
+              ))}
             {[main, ...(second ? [second] : [])].map((s, k) => {
               const p = s[hour - 1];
+              const c = (k ? d.other : d.main) ? LINE.dimmed : color;
               return p?.v == null ? null : (
-                <circle key={k} cx={xOf(p.hour)} cy={yOf(p.v)} r={3.6} fill={k ? "var(--surface-base)" : color} stroke={color} opacity={k ? 0.8 : 1} />
+                <circle key={k} cx={xOf(p.hour)} cy={yOf(p.v)} r={3.6} fill={k ? "var(--surface-base)" : c} stroke={c} opacity={k ? 0.8 : 1} />
               );
             })}
           </>
