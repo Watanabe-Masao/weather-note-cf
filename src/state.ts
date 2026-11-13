@@ -5,7 +5,7 @@
 // turning the gap into a custom offset (spec decision).
 
 import { useCallback, useEffect, useState } from "react";
-import { addDays, FIRST_DAY, jstToday } from "../shared/dates";
+import { addDays, FIRST_DAY, isDay, jstToday } from "../shared/dates";
 import { clampDay, type CompareMode, matchDate, offsetOf, presetOf, targetBounds } from "./compare";
 import { lastDay } from "./data/plan";
 import { knownMetric, type MetricId } from "./metrics";
@@ -33,6 +33,8 @@ export interface ViewState {
 }
 
 const SAVED = "weather-note:view";
+/** The days being looked at, for this session only: a reload (a new version, pwa.ts) keeps them. */
+const SESSION = "weather-note:view-days";
 const DEFAULTS: Omit<ViewState, "target" | "compare"> = {
   station: "47893",
   linked: true,
@@ -51,6 +53,13 @@ function load(today: string): ViewState {
   }
   const base = { ...DEFAULTS, ...saved };
   base.metric = knownMetric(base.metric);
+  try {
+    const days = JSON.parse(sessionStorage.getItem(SESSION) ?? "null");
+    // Only on the same day: the next morning starts from today again.
+    if (days?.today === today && isDay(days.target) && isDay(days.compare)) return { ...base, target: days.target, compare: days.compare };
+  } catch {
+    // Not kept: start from today.
+  }
   return { ...base, target: today, compare: matchDate(today, base.mode, base.offset) ?? addDays(today, -364) };
 }
 
@@ -63,10 +72,11 @@ export function useViewState() {
     const { station, linked, mode, offset, metric, sun } = view;
     try {
       localStorage.setItem(SAVED, JSON.stringify({ station, linked, mode, offset, metric, sun }));
+      sessionStorage.setItem(SESSION, JSON.stringify({ today, target: view.target, compare: view.compare }));
     } catch {
       // Not saving preferences is harmless.
     }
-  }, [view]);
+  }, [view, today]);
 
   const last = lastDay(jstToday());
   const bounds = view.linked ? targetBounds(view.mode, view.offset, last) : { min: FIRST_DAY, max: last };
