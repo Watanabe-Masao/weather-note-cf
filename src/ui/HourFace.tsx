@@ -1,6 +1,7 @@
 // The sheet's 時間帯 tab: the chosen item over the 24 hours of the target day and its
 // comparison day. It follows the table: move the day there and this moves with it.
 
+import { PartsOutlook } from "./PartsOutlook";
 import { useContext, useEffect, useState } from "react";
 import type { ChartMetricId } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
@@ -40,6 +41,7 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
   return (
     <div className="hour-face">
       {summary && <CompareSummary store={store} station={station} target={target} other={compareDate} today={today} metric={metric} onStep={onStep} pick={pick} />}
+      {summary && base === "temp" && <PartsOutlook store={store} station={station} date={target} today={today} />}
       <div className="hour-face-head">
         <p>24時間</p>
         {base === "temp" && (

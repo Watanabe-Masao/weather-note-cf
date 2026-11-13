@@ -67,3 +67,16 @@ describe("the person's levels on the hour graph (#118)", () => {
     expect(personalThresholds({ mu: 21, h: 2.5, g: 4, s: 1 } as never)).toEqual([10.5, 14.5, 18.5, 23.5, 27.5, 31.5]);
   });
 });
+
+describe("朝・夕方の見込みの言葉 (#118)", () => {
+  it("names the likeliest step, the next one when close, and how sure", async () => {
+    const { outlookWords, sureness } = await import("../../src/ui/PartsOutlook");
+    // 7 levels: mostly 涼しい (2), some 寒い (1).
+    const w = outlookWords([0, 0.3, 0.6, 0.1, 0, 0, 0], 7);
+    expect([w.first, w.second, w.p]).toEqual([2, 1, 0.6]);
+    expect(outlookWords([0, 0.1, 0.8, 0.1, 0, 0, 0], 7).second).toBeNull();
+    // On 3 steps, 寒い and 涼しい gather into 寒い側.
+    expect(outlookWords([0, 0.3, 0.6, 0.1, 0, 0, 0], 3).first).toBe(0);
+    expect([sureness(0.75), sureness(0.55), sureness(0.3)]).toEqual([3, 2, 1]);
+  });
+});
