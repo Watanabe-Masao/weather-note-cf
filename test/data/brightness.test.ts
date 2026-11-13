@@ -1,7 +1,7 @@
 // The felt brightness (shared/brightness.ts): lux from the sun and the sky, and its six levels.
 
 import { describe, expect, it } from "vitest";
-import { BRIGHTNESS_LEVELS, CLOUD, NIGHT_SKY, brightnessIndex, brightnessLevel, brightnessText, clearSkyLux, cloudFactor, dayBrightness, dayLights, hourLight, luxOf, luxText, nightSkyLux, sunshineDayHours, sunshineFraction, sunUpFraction, twilightLux, usnoSunLux } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, CLOUD, NIGHT_SKY, brightnessIndex, brightnessLevel, brightnessText, clearSkyLux, rainFactor, cloudFactor, dayBrightness, dayLights, hourLight, luxOf, luxText, nightSkyLux, sunshineDayHours, sunshineFraction, sunUpFraction, twilightLux, usnoSunLux } from "../../shared/brightness";
 import type { WeatherRow } from "../../shared/types";
 import { dayLengthHours } from "../../shared/dayWeather";
 
@@ -61,12 +61,14 @@ describe("light from the sun and the sky", () => {
     expect(cloudFactor(row(12, { sun: 1 }))).toBe(CLOUD.clear);
     expect(cloudFactor(row(12, { sun: 0 }))).toBeCloseTo(CLOUD.cloudy, 9);
     expect(cloudFactor(row(12, { sun: 0.5 }))).toBeCloseTo(Math.sqrt(CLOUD.cloudy), 9); // halfway in steps
-    expect(cloudFactor(row(12, { sun: 0, rain: 2 }))).toBeCloseTo(CLOUD.rain, 9);
+    expect(cloudFactor(row(12, { sun: 0, rain: 0.5 }))).toBeCloseTo(CLOUD.rain, 9); // the least rain a record shows
+    expect(cloudFactor(row(12, { sun: 0, rain: 2 }))).toBeCloseTo(rainFactor(2), 9); // heavier rain, thicker cloud (darker)
+    expect(rainFactor(2)).toBeLessThan(CLOUD.rain);
     // An hour with the sun up for 30 minutes and 0.5 h of sunshine was all sunny.
     expect(cloudFactor(row(19, { sun: 0.5 }), 0.5)).toBe(CLOUD.clear);
     // With the sun down the sunshine is always 0 and says nothing: no factor (a neighbour decides), unless it rains.
     expect(cloudFactor(row(21, { sun: 0 }), 0)).toBeNull();
-    expect(cloudFactor(row(21, { sun: 0, rain: 1 }), 0)).toBeCloseTo(CLOUD.rain, 9);
+    expect(cloudFactor(row(21, { sun: 0, rain: 1 }), 0)).toBeCloseTo(rainFactor(1), 9);
   });
   it("uses only what records and forecasts both have: weather text, radiation and drizzle under 0.5 mm change nothing", () => {
     const base = row(13, { sun: 0.4, rain: 0 });
