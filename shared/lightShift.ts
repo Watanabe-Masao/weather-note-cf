@@ -10,8 +10,8 @@
 // days under a clear sky) and the weather (the rest). The same date a year before has almost no
 // season in it; a week before, in autumn, about five minutes of it.
 
-import { CLOUD, clearSkyLux, nightSkyLux, sunshineFactor } from "./brightness";
-import { dayEdges, type Where } from "./dayParts";
+import { CLOUD, clearSkyLux, nightSkyLux, sunshineDayHours, sunshineFactor } from "./brightness";
+import type { Where } from "./dayParts";
 import { DEFAULT_LAT_LON, solarAltitude, solarNoon, stationLatLon } from "./sunTimes";
 
 const latLonOf = (w: Where) => (w && typeof w === "object" ? w : (stationLatLon(w) ?? DEFAULT_LAT_LON));
@@ -159,7 +159,6 @@ export function weeklyChange(date: string, lux: number, where: Where, addDays: (
  */
 export function dayFactor(sunHours: number | null | undefined, date: string, where: Where): number {
   if (sunHours == null || !Number.isFinite(sunHours)) return CLOUD.unknown;
-  const e = dayEdges(date, where);
-  const hours = (e.set - e.rise) / 60;
+  const hours = sunshineDayHours(date, where); // the sunshine the day could have had (the sun above 3°, #132)
   return hours > 0 ? sunshineFactor(sunHours / hours) : CLOUD.unknown;
 }

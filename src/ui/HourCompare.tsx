@@ -6,7 +6,7 @@ import { jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
 import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, dayLights, luxText, stepOutFeel, usualText } from "../../shared/brightness";
 import { usualLightOf } from "../light";
-import { daySky, SKY_STEPS, type SkyColour, stepTime } from "../../shared/sky";
+import { daySky, luminanceText, SKY_STEPS, type SkyColour, stepTime } from "../../shared/sky";
 import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
@@ -110,11 +110,11 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // 空の色（模式, shared/sky.ts）: six 10-minute colours per hour, only for the 日照 item.
   const skyOf = (rows: WeatherRow[] | undefined) => {
     const sorted = [...(rows ?? [])].sort((x, y) => x.n - y.n);
-    const byHour = new Map(daySky(sorted, station).map((h) => [h.n, h.steps]));
+    const byHour = new Map(daySky(sorted, station, settings.alpha).map((h) => [h.n, h.steps])); // the town's glow by 周りの様子
     return Array.from({ length: 24 }, (_, i) => byHour.get(i + 1) ?? null);
   };
-  const skyMain = useMemo(() => (metricId === "sun" ? skyOf(hours?.rows) : []), [hours, station, metricId]); // eslint-disable-line react-hooks/exhaustive-deps
-  const skyOther = useMemo(() => (metricId === "sun" && other ? skyOf(otherHours?.rows) : null), [otherHours, station, metricId, other]); // eslint-disable-line react-hooks/exhaustive-deps
+  const skyMain = useMemo(() => (metricId === "sun" ? skyOf(hours?.rows) : []), [hours, station, metricId, settings.alpha]); // eslint-disable-line react-hooks/exhaustive-deps
+  const skyOther = useMemo(() => (metricId === "sun" && other ? skyOf(otherHours?.rows) : null), [otherHours, station, metricId, other, settings.alpha]); // eslint-disable-line react-hooks/exhaustive-deps
   // The weather under each time tick (0, 3, … 24 o'clock): the hour either side of it.
   const bandWx = useMemo(() => {
     // JMA hour n covers n−1 to n o'clock: hours h and h + 1 are the hour either side of h o'clock.
@@ -552,7 +552,7 @@ function LightStrip({
               </small>
             </div>
             <div className="sky-zoom-light">
-              {brightnessLevel(now.index).label}（{luxText(now.lux)}）
+              地上 {brightnessLevel(now.index).label}（{luxText(now.lux)}）・空 {luminanceText(now.skyLuminance)}
             </div>
             {zoom === "tap" && (
               <button className="sky-zoom-close" onClick={() => setZoom(null)} aria-label="拡大を閉じる">
@@ -571,7 +571,7 @@ function LightStrip({
         ))}
       </p>
       <p className="light-note">
-        マスの色は空の色（模式）：太陽の高さ（10分ごと）と、その時間の日照・降水から描いたもので、写真や実測ではありません。上が見上げた空、下が地平で、色の明るさは明るさの段に合わせています。下の細い線が明るさの段。帯を指でなぞると、その1時間を10分ごとに拡大します。「外に出たとき」は、室内（約500lx）に慣れた目で外に出た直後の感じ方です。
+        マスの色は空の色（模式）：太陽の高さ（10分ごと）と、その時間の日照・降水から描いたもので、写真や実測ではありません。上が見上げた空、下が地平。色の明るさは空の見かけの明るさで、夜は周りの様子（設定）に応じた街の明かりで空が明るく見えます。下の細い線は地上の明るさの段です。帯を指でなぞると、その1時間を10分ごとに拡大します。「外に出たとき」は、室内（約500lx）に慣れた目で外に出た直後の感じ方です。
       </p>
     </div>
   );

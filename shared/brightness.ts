@@ -225,8 +225,19 @@ const MIN_UP = 0.25;
 /** Rain (or snow as water) in an hour that counts as rain (mm): the least a JMA record shows, so a forecast's drizzle below it does not. */
 export const RAIN_MM = 0.5;
 
-/** All of the sunshine an hour could have had → clear; none → average clouds (dark stratus in rain); in between by steps (log). */
-export const sunshineFactor = (share: number, rain = false) => (rain ? CLOUD.rain : CLOUD.cloudy) ** (1 - Math.min(1, Math.max(0, share)));
+/**
+ * Under rain, how much of the clear sky's light gets through, by the hour's precipitation (mm): dark
+ * stratus (CLOUD.rain, 1/10) at the least a record shows (RAIN_MM), darker as the rain gets heavier
+ * (thicker cloud): ×(mm / 0.5)^−0.25, so 2 mm 1/14, 5 mm 1/18, 20 mm 1/25, at most 1/40. Continuous, so
+ * heavy rain is not drawn as drizzle (review of 2026-11-13). The power is provisional, to be checked (#132).
+ */
+export function rainFactor(mm: number): number {
+  const r = Math.max(RAIN_MM, Number.isFinite(mm) ? mm : RAIN_MM);
+  return Math.max(1 / 40, CLOUD.rain * (r / RAIN_MM) ** -0.25);
+}
+
+/** All of the sunshine an hour could have had → clear; none → average clouds (rain: rainFactor of `mm`); in between by steps (log). */
+export const sunshineFactor = (share: number, rain = false, mm = RAIN_MM) => (rain ? rainFactor(mm) : CLOUD.cloudy) ** (1 - Math.min(1, Math.max(0, share)));
 
 /**
  * How much of the clear sky's light gets through in an hour, or null when the row cannot tell.
@@ -234,10 +245,11 @@ export const sunshineFactor = (share: number, rain = false) => (rain ? CLOUD.rai
  * with the sun down or low (under MIN_UP of the hour above SUNSHINE_ALT) only rain tells (dark stratus).
  */
 export function cloudFactor(row: WeatherRow, up = 1): number | null {
-  const rain = (num(row.rain) ?? 0) >= RAIN_MM;
+  const mm = num(row.rain) ?? 0;
+  const rain = mm >= RAIN_MM;
   const sun = num(row.sun);
-  if (sun != null && up >= MIN_UP) return sunshineFactor(sun / up, rain);
-  return rain ? CLOUD.rain : null;
+  if (sun != null && up >= MIN_UP) return sunshineFactor(sun / up, rain, mm);
+  return rain ? rainFactor(mm) : null;
 }
 
 export interface HourLight {
