@@ -77,8 +77,9 @@ export const LINE = {
   opacity: { target: 1, compare: 0.75 },
   /** References are this much of a value line's width. */
   referenceScale: 0.7,
-  reference: "#dfe8f3",
-  dimmed: "#56677b",
+  // From the ink palette, not new colours: references in the primary ink, set-aside lines in the disabled one.
+  reference: ink.primary,
+  dimmed: ink.disabled,
   dimmedScale: 0.7,
   dimmedOpacity: 0.8,
 } as const;

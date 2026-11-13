@@ -1,3 +1,5 @@
+/// <reference lib="dom" />
+// tokens.ts also writes the tokens into the page (applyTokens), so it needs the DOM types.
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
