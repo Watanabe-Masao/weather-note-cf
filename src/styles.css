@@ -1278,8 +1278,13 @@ button.label-feel.shade small {
 .sky-zoom-steps span.on i { height: 70px; outline: 2px solid var(--ink-primary); outline-offset: 1px; }
 .sky-zoom-steps small { font-size: 10px; text-align: center; color: var(--ink-secondary); }
 .sky-zoom-steps u { display: block; height: 4px; border-radius: 2px; }
-.sky-zoom-light { font-size: 12px; color: var(--ink-secondary); margin-top: -4px; }
+.sky-zoom-light { font-size: 12px; color: var(--ink-secondary); margin-top: -2px; }
 .sky-zoom-steps span.on small { color: var(--ink-primary); font-weight: 700; }
+.sky-zoom-day { display: flex; flex-direction: column; gap: 6px; }
+.sky-zoom-day + .sky-zoom-day { padding-top: 8px; border-top: 1px solid var(--line-soft); }
+.sky-zoom-day:not(:only-of-type) .sky-zoom-steps i { height: 36px; }
+.sky-zoom-day:not(:only-of-type) .sky-zoom-steps span.on i { height: 44px; }
+.sky-zoom-now em { font-style: normal; font-size: 11px; font-weight: 700; color: var(--ink-secondary); margin-right: 6px; }
 .sky-zoom-now { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; }
 .sky-zoom-close {
   position: absolute;
