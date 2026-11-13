@@ -1,5 +1,6 @@
 // Weather Note: compare a target day with a comparison day, around a 7-day centre-fixed strip.
 
+import { AfterAnswer } from "./beta/AfterAnswer";
 import { CalendarModal, type CalendarSide } from "./ui/CalendarModal";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, FIRST_DAY } from "../shared/dates";
@@ -505,6 +506,12 @@ export function App() {
           onClose={() => setSimilar(false)}
         />
       )}
+
+      <BetaContext.Provider value={beta}>
+        <FeelContext.Provider value={feelSettings}>
+          <AfterAnswer />
+        </FeelContext.Provider>
+      </BetaContext.Provider>
 
       {reportFrom && (
         <BetaContext.Provider value={beta}>
