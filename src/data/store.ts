@@ -250,7 +250,7 @@ export class WeatherStore {
 
   /**
    * Extra days to have ready, declared by one part of the screen (`owner`): the comparison presets
-   * when idle, or the similar-day search. Replaces that owner's previous request; [] cancels it.
+   * when idle, or 条件から選ぶ. Replaces that owner's previous request; [] cancels it.
    */
   prefetch(station: string, dates: string[], owner = "presets", priority: number = Priority.Prefetch): void {
     const wanted = new Map(

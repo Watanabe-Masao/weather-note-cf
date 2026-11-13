@@ -3,7 +3,7 @@
 import { useEffect, useMemo } from "react";
 import type { WeatherStore } from "../data/store";
 import { type Baseline, type BaselineState, baselineState, historyDays, pastDay } from "./adaptation";
-import { weatherGroup } from "../../shared/similar";
+import { weatherGroup } from "../../shared/dayWeather";
 import { type Drivers, driversFrom, nightOf } from "./comfort";
 import { addDays } from "../../shared/dates";
 import { windMemory } from "./reports";
