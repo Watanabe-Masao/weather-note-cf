@@ -2,7 +2,7 @@
 // Shared by the day detail and the sheet's 時間帯 tab, so both look and behave the same.
 
 import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { jstHour } from "../../shared/dates";
+import { addDays, jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
 import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, dayLights, luxText, stepOutFeel, usualText } from "../../shared/brightness";
 import { usualLightOf } from "../light";
@@ -113,21 +113,32 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   };
   const [dim, setDim] = useState<Record<LineId, boolean>>({ main: false, other: false, avgMain: false, avgOther: false });
   const toggleDim = (k: LineId) => setDim((d) => ({ ...d, [k]: !d[k] }));
-  const avgDaysMain = useMemo(() => daysBefore(date, avgWindow, today), [date, avgWindow, today]);
-  const avgDaysOther = useMemo(() => (other ? daysBefore(other, avgWindow, today) : []), [other, avgWindow, today]);
+  // Every span's days are asked for (the month holds the week and the two weeks), so the graph's
+  // axis can be set from all three spans and does not move when the span is switched.
+  const LONGEST = AVERAGE_WINDOWS.at(-1)!;
+  const avgDaysMain = useMemo(() => daysBefore(date, LONGEST, today), [date, LONGEST, today]);
+  const avgDaysOther = useMemo(() => (other ? daysBefore(other, LONGEST, today) : []), [other, LONGEST, today]);
   const avgWanted = [...avgDaysMain, ...avgDaysOther].join(",");
   useEffect(() => {
     store?.wantHours(station, avgWanted ? avgWanted.split(",") : [], Priority.Behind, "hour-average");
   }, [store, station, avgWanted]);
   useEffect(() => () => store?.wantHours(station, [], Priority.Behind, "hour-average"), [store, station]);
-  const averageOf = (days: string[]) => {
-    if (!days.length) return null;
-    const ready = days.map((d) => store?.getHours(station, d)).filter((h) => h?.state === "ready");
-    const m = meanByHour(ready.map((h) => hourSeries(h!.rows, metricId, settings)), days.length);
+  // daysBefore gives the nearest first, so a span's days are the first `w` of the month's.
+  const seriesOf = (days: string[]) => days.map((d) => store?.getHours(station, d)).map((h) => (h?.state === "ready" ? hourSeries(h.rows, metricId, settings) : null));
+  const daySeriesMain = seriesOf(avgDaysMain);
+  const daySeriesOther = seriesOf(avgDaysOther);
+  const averageOf = (series: (HourPoint[] | null)[], days: string[], anchor: string, w: number) => {
+    const span = days.filter((d) => d >= addDays(anchor, -w)); // a prefix: nearest first
+    if (!span.length) return null;
+    const m = meanByHour(series.slice(0, span.length).filter((x): x is HourPoint[] => !!x), span.length);
     return m.some((p) => p.v != null) ? m : null;
   };
-  const avgMain = averageOf(avgDaysMain);
-  const avgOther = other ? averageOf(avgDaysOther) : null;
+  const avgMain = averageOf(daySeriesMain, avgDaysMain, date, avgWindow);
+  const avgOther = other ? averageOf(daySeriesOther, avgDaysOther, other, avgWindow) : null;
+  // The axis: the days' own values and every span's averages, whichever span is shown.
+  const axisExtra = AVERAGE_WINDOWS.flatMap((w) => [averageOf(daySeriesMain, avgDaysMain, date, w), other ? averageOf(daySeriesOther, avgDaysOther, other, w) : null])
+    .flatMap((a) => a?.map((p) => p.v) ?? [])
+    .filter((v): v is number => v != null);
   const chance = useMemo(() => hourSeries(hours?.rows ?? [], "probability", settings), [hours, settings]);
   // 明るさ for each hour 1–24 (null where the hour is missing), both days, at the station.
   // dayLights: a twilight hour's clouds come from the nearest hour of daylight when it has no weather text.
@@ -299,6 +310,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         air={air}
         avgMain={avgMain}
         avgOther={avgOther}
+        axisExtra={axisExtra}
         dim={dim}
         ranges={levelRanges(bands === "you" && personal ? personal : dayFeel.thresholds, settings.scale)}
         guides={bands === "you" ? dayFeel.thresholds : undefined}
@@ -693,6 +705,7 @@ function HourChart({
   air,
   avgMain,
   avgOther,
+  axisExtra,
   dim,
   ranges,
   sun,
@@ -715,6 +728,8 @@ function HourChart({
   air: HourPoint[] | null;
   /** Each day's own weeks before it (手前の平均), hour by hour. */
   avgMain?: HourPoint[] | null;
+  /** Values the axis must hold besides the lines shown (every span's averages, so switching the span keeps the axis). */
+  axisExtra?: number[];
   avgOther?: HourPoint[] | null;
   /** Lines the person has set aside: drawn grey, under the others. */
   dim?: Record<LineId, boolean>;
@@ -744,7 +759,7 @@ function HourChart({
   }, []);
 
   const metric = detailMetric(metricId);
-  const values = [main, second ?? [], air ?? [], avgMain ?? [], avgOther ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null);
+  const values = [main, second ?? [], air ?? [], avgMain ?? [], avgOther ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null).concat(axisExtra ?? []);
   // Round ticks (10 / 15 / 20): the padded data range widened to whole steps.
   const range = axisRange(values, metric);
   const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
