@@ -16,7 +16,7 @@
 // The warming is the Bureau of Meteorology's radiation term with that load: 0.70·Q/(v₁₀ + 10),
 // Q = absorptivity × direct on the body (absorptivity of skin and clothing about 0.7, ASHRAE 55).
 
-import { sunUpFraction } from "./brightness";
+import { sunshineFraction, sunUpFraction } from "./brightness";
 import { type Where } from "./dayParts";
 import { DEFAULT_LAT_LON, solarAltitude, stationLatLon } from "./sunTimes";
 
@@ -83,7 +83,8 @@ export function directOnBody(date: string, n: number, where: Where, sunHours: nu
     if (alt > 0) sum += projectedArea(alt) * clearDni(alt);
   }
   const clearHour = sum / 12; // mean over the hour (12 five-minute steps), zero where the sun was down
-  const share = Math.min(1, Math.max(0, sunHours / up));
+  const could = sunshineFraction(date, n, where); // the share of the sunshine it could have had (#132)
+  const share = could > 0 ? Math.min(1, Math.max(0, sunHours / could)) : 0;
   return clearHour * share;
 }
 
@@ -126,7 +127,8 @@ export function bodySunLoad(date: string, n: number, where: Where, sunHours: num
     sum += f * projectedArea(alt) * beam;
     if (o.reflect) sum += 0.5 * BODY_EFFECTIVE * GROUND_ALBEDO * beam * Math.sin((alt * Math.PI) / 180);
   }
-  return (sum / 12) * Math.min(1, Math.max(0, sunHours / up));
+  const could = sunshineFraction(date, n, where);
+  return (sum / 12) * (could > 0 ? Math.min(1, Math.max(0, sunHours / could)) : 0);
 }
 
 /** The version name of the 日なた candidate (MATH-03, D18): 案C, β = 1 for everyone. */

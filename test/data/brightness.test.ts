@@ -1,8 +1,9 @@
 // The felt brightness (shared/brightness.ts): lux from the sun and the sky, and its six levels.
 
 import { describe, expect, it } from "vitest";
-import { BRIGHTNESS_LEVELS, CLOUD, NIGHT_SKY, brightnessIndex, brightnessLevel, brightnessText, clearSkyLux, cloudFactor, dayBrightness, dayLights, hourLight, luxOf, luxText, nightSkyLux, sunUpFraction, twilightLux, usnoSunLux } from "../../shared/brightness";
+import { BRIGHTNESS_LEVELS, CLOUD, NIGHT_SKY, brightnessIndex, brightnessLevel, brightnessText, clearSkyLux, cloudFactor, dayBrightness, dayLights, hourLight, luxOf, luxText, nightSkyLux, sunshineDayHours, sunshineFraction, sunUpFraction, twilightLux, usnoSunLux } from "../../shared/brightness";
 import type { WeatherRow } from "../../shared/types";
+import { dayLengthHours } from "../../shared/dayWeather";
 
 const row = (n: number, over: Partial<WeatherRow> = {}): WeatherRow => ({ date: "2026-06-21", n, type: "actual", provider: "test", raw: {}, quality: {}, ...over }) as WeatherRow;
 
@@ -152,5 +153,25 @@ describe("adaptation over days (いつもと比べて)", () => {
     expect(m.under!.map((u) => u.key)).toContain("usualLight");
     expect(graphSeries(m).map((s) => s.key)).not.toContain("usualLight");
     expect(tableSeries(m).map((s) => s.key)).not.toContain("usualLight");
+  });
+});
+
+describe("太陽が低いときの日照（#132）", () => {
+  // 高知 2025-11-01（午後は快晴）の実測：16〜17時 0.9時間（3°を切るのは16:54）、17〜18時 0.0時間（太陽は14分）。
+  const r = (n: number, sun: number) => ({ date: "2025-11-01", n, type: "actual", provider: "test", raw: {}, quality: {}, sun, rain: 0 }) as WeatherRow;
+  it("晴れた夕方の最後の1時間を曇り扱いにしない（照りえた時間は太陽が3°より上の時間）", () => {
+    const could = sunshineFraction("2025-11-01", 17, "47893");
+    expect(could * 60).toBeGreaterThan(50);
+    expect(could * 60).toBeLessThan(58);
+    expect(cloudFactor(r(17, 0.9), could)).toBeGreaterThan(0.97);
+  });
+  it("3°より上にならない時間は日照を読まない（近くの時間から）", () => {
+    expect(sunshineFraction("2025-11-01", 18, "47893")).toBe(0);
+    const lights = dayLights([r(16, 1), r(17, 0.9), r(18, 0), r(19, 0)], "47893");
+    expect(lights[2].factor).toBeGreaterThan(0.97);
+    expect(lights[3].factor).toBeGreaterThan(0.97);
+  });
+  it("1日の照りえた時間は昼の長さより短い", () => {
+    expect(sunshineDayHours("2025-11-01", "47893")).toBeLessThan(dayLengthHours("2025-11-01", "47893") - 0.4);
   });
 });
