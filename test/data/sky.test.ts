@@ -137,3 +137,12 @@ describe("空の色（模式）", () => {
     expect(stepTime(1, 0)).toBe("0:00");
   });
 });
+
+describe("カラーチャート（資料 research/sky/colour-chart.html）", () => {
+  it("リポジトリの資料がコードと一致している（shared/sky.ts を変えたら作り直す）", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { colourChartHtml } = await import("../../research/sky/colour-chart");
+    const committed = readFileSync(new URL("../../research/sky/colour-chart.html", import.meta.url), "utf8");
+    expect(committed === colourChartHtml(), "research/data/node_modules/.bin/vite-node research/sky/write-colour-chart.ts で作り直す").toBe(true);
+  });
+});
