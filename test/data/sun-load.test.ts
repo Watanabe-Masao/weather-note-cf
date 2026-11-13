@@ -1,7 +1,7 @@
 // #96: the candidate 日なた (feel-2) — the direct sun on a standing person (shared/sunLoad.ts).
 
 import { describe, expect, it } from "vitest";
-import { sunUpFraction } from "../../shared/brightness";
+import { sunshineFraction, sunUpFraction } from "../../shared/brightness";
 import { airMass, clearDni, directOnBody, directWarming, projectedArea } from "../../shared/sunLoad";
 
 const K = "47893";
@@ -30,16 +30,19 @@ describe("the sun on a standing person", () => {
     expect(directOnBody("2026-11-15", 13, K, 0.5)!).toBeCloseTo(full / 2, 6);
     expect(directOnBody("2026-11-15", 13, K, null)).toBeNull();
   });
-  it("counts the sunshine an hour could have had (the sun-up part of the hour)", () => {
-    // Kochi, 21 June: hour 20 (19–20時) straddles sunset; its sunshine is judged against the sun-up part.
-    const up = sunUpFraction("2026-06-21", 20, K);
-    expect(up).toBeGreaterThan(0.2);
-    expect(up).toBeLessThan(0.8);
-    const all = directOnBody("2026-06-21", 20, K, up)!;
+  it("counts the sunshine an hour could have had (the sun above SUNSHINE_ALT, #132)", () => {
+    // Kochi, 13 November: hour 17 (16–17時) ends with the sun below 3°; its sunshine is judged against the part above.
+    const could = sunshineFraction("2026-11-13", 17, K);
+    expect(could).toBeGreaterThan(0.5);
+    expect(could).toBeLessThan(1);
+    expect(sunUpFraction("2026-11-13", 17, K)).toBe(1);
+    const all = directOnBody("2026-11-13", 17, K, could)!;
     expect(all).toBeGreaterThan(0);
-    expect(directOnBody("2026-06-21", 20, K, up / 2)!).toBeCloseTo(all / 2, 6);
-    expect(directOnBody("2026-06-21", 20, K, 1)!).toBeCloseTo(all, 6); // never more than all of it
-    expect(all).toBeLessThan(directOnBody("2026-06-21", 19, K, 1)!);
+    expect(directOnBody("2026-11-13", 17, K, could / 2)!).toBeCloseTo(all / 2, 6);
+    expect(directOnBody("2026-11-13", 17, K, 1)!).toBeCloseTo(all, 6); // never more than all of it
+    // The sun up but never above 3° (June, 19–20時): no sunshine could be recorded, so no beam is counted.
+    expect(sunshineFraction("2026-06-21", 20, K)).toBe(0);
+    expect(directOnBody("2026-06-21", 20, K, 0)).toBe(0);
   });
   it("warms a winter noon more and a summer noon less than k × level-ground radiation does", () => {
     const winter = directWarming(directOnBody("2026-12-22", 13, K, 1)!, 3);

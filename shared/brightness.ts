@@ -184,7 +184,42 @@ export function sunUpFraction(date: string, n: number, station: Where): number {
   return Math.max(0, Math.min(n * 60, e.set) - Math.max((n - 1) * 60, e.rise)) / 60;
 }
 
-/** Below this much sun-up time (of the hour) the sunshine says too little; the weather text or a neighbour decides. */
+/**
+ * The sun's altitude (degrees) below which a clear sky gives no sunshine: 日照 counts only the
+ * minutes when the direct sun is 120 W/m² or more (WMO), which a clear sky reaches at about 3° (5° in
+ * haze). Kochi 2025-11-01 (clear afternoon): 16–17 o'clock had 0.9 h, the sun fell below 3° at 16:54;
+ * 17–18 o'clock, 14 minutes of sun, had 0 (#132). Provisional: to be checked with more clear days.
+ */
+export const SUNSHINE_ALT = 3;
+
+const sunshineCache = new Map<string, number>();
+
+/**
+ * The part of JMA hour n (0–1) that could have had sunshine: the sun above SUNSHINE_ALT. The share of
+ * an hour's sunshine is taken against this, not against the sun-up time — or every clear sunrise and
+ * sunset hour would read as partly cloudy (#132).
+ */
+export function sunshineFraction(date: string, n: number, station: Where): number {
+  const key = `${typeof station === "object" && station ? `${station.lat},${station.lon}` : (station ?? "")}/${date}/${n}`;
+  const hit = sunshineCache.get(key);
+  if (hit != null) return hit;
+  const c = typeof station === "object" && station ? station : (stationLatLon(station) ?? DEFAULT_LAT_LON);
+  let k = 0;
+  for (let m = (n - 1) * 60 + 1; m < n * 60; m += 2) if (solarAltitude(date, m, c.lat, c.lon) > SUNSHINE_ALT) k++;
+  const v = k / 30;
+  if (sunshineCache.size > 20_000) sunshineCache.clear();
+  sunshineCache.set(key, v);
+  return v;
+}
+
+/** The hours of a day that could have had sunshine (the sun above SUNSHINE_ALT). */
+export function sunshineDayHours(date: string, station: Where): number {
+  let h = 0;
+  for (let n = 1; n <= 24; n++) h += sunshineFraction(date, n, station);
+  return h;
+}
+
+/** Below this much of the hour that could have had sunshine, the sunshine says too little; rain or a neighbour decides. */
 const MIN_UP = 0.25;
 
 /** Rain (or snow as water) in an hour that counts as rain (mm): the least a JMA record shows, so a forecast's drizzle below it does not. */
@@ -195,8 +230,8 @@ export const sunshineFactor = (share: number, rain = false) => (rain ? CLOUD.rai
 
 /**
  * How much of the clear sky's light gets through in an hour, or null when the row cannot tell.
- * In daylight from its sunshine against the sunshine it could have had (`up`, 0–1); with the sun
- * down (or barely up) only rain tells (dark stratus).
+ * In daylight from its sunshine against the sunshine it could have had (`up`: sunshineFraction, 0–1);
+ * with the sun down or low (under MIN_UP of the hour above SUNSHINE_ALT) only rain tells (dark stratus).
  */
 export function cloudFactor(row: WeatherRow, up = 1): number | null {
   const rain = (num(row.rain) ?? 0) >= RAIN_MM;
@@ -221,7 +256,7 @@ export interface HourLight {
 export function hourLight(row: WeatherRow, station: string | null | undefined, factor?: number): HourLight {
   const c = stationLatLon(station) ?? DEFAULT_LAT_LON;
   const altitude = solarAltitude(row.date, row.n * 60 - 30, c.lat, c.lon);
-  const f = factor ?? cloudFactor(row, sunUpFraction(row.date, row.n, station ?? "")) ?? CLOUD.unknown;
+  const f = factor ?? cloudFactor(row, sunshineFraction(row.date, row.n, station ?? "")) ?? CLOUD.unknown;
   const lux = Math.max(clearSkyLux(altitude) * f, nightSkyLux(f));
   return { lux, index: brightnessIndex(lux), factor: f, altitude };
 }
@@ -236,7 +271,7 @@ const NEIGHBOUR_HOURS = 2;
  */
 export function dayLights(rows: WeatherRow[], station: string | null | undefined): HourLight[] {
   const where = station ?? "";
-  const own = rows.map((r) => cloudFactor(r, sunUpFraction(r.date, r.n, where)));
+  const own = rows.map((r) => cloudFactor(r, sunshineFraction(r.date, r.n, where)));
   return rows.map((r, i) => {
     let f = own[i];
     for (let k = 1; f == null && k <= NEIGHBOUR_HOURS; k++) {
@@ -324,8 +359,7 @@ export function clearDaylightLux(date: string, station: Where): number {
  */
 export function daylightLux(sunHours: number | null | undefined, date: string, station: Where): number | null {
   if (sunHours == null || !Number.isFinite(sunHours) || sunHours < 0) return null;
-  const e = dayEdges(date, station);
-  const hours = (e.set - e.rise) / 60;
+  const hours = sunshineDayHours(date, station); // the sunshine the day could have had (#132)
   return hours > 0 ? clearDaylightLux(date, station) * sunshineFactor(sunHours / hours) : null;
 }
 

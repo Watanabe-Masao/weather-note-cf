@@ -6,6 +6,7 @@
 // length of the day — and shown as an estimate. It is never stored as the day's weather: JMA's
 // summary replaces it as soon as it comes, and nothing that decides whether a day is fixed reads it.
 
+import { sunshineDayHours } from "./brightness";
 import { dayEdges, type Where } from "./dayParts";
 import type { WeatherRow } from "./types";
 
@@ -29,7 +30,7 @@ export function estimateDayWeather(row: WeatherRow, station: Where): string | nu
   const rain = num(row.rain);
   const snow = num(row.snow);
   const sun = num(row.sun);
-  const share = sun == null ? null : sun / dayLengthHours(row.date, station);
+  const share = sun == null ? null : sun / sunshineDayHours(row.date, station); // against the sunshine it could have had (#132)
   if (snow != null && snow > 0) return "雪";
   if (rain != null && rain >= RAINY_MM) return share != null && share >= SUNNY_SHARE ? "晴時々雨" : share != null && share >= CLOUDY_SHARE ? "曇時々雨" : "雨";
   if (share == null) return null;
