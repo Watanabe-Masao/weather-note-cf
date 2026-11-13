@@ -10,6 +10,17 @@ import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { ForecastHatch, GraphReadout, GuideLines } from "./kit";
+
+/** Which boundaries colour the 肌感 graph: everyone's (the app's settings) or the person's (β, #118). */
+type Bands = "shared" | "you";
+const BANDS_KEY = "wn.hourBands";
+const readBands = (): Bands => {
+  try {
+    return localStorage.getItem(BANDS_KEY) === "you" ? "you" : "shared";
+  } catch {
+    return "shared";
+  }
+};
 import { WeatherIcon } from "./WeatherIcon";
 import { cachedSun, hourOfDay, loadSun, sunAvailable, type SunTimes } from "../data/sun";
 import {
@@ -24,7 +35,10 @@ import {
 } from "../dayDetail";
 import { type DataColor, DATA, LIGHT_LEVELS } from "../design/tokens";
 import { dateLabel, needsYear, niceTicks, tickLabel } from "../design/format";
-import { FeelContext, legendOf, levelRanges } from "./FeelBar";
+import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
+import { levelOf, type Thresholds } from "../../shared/feel";
+import { Segmented } from "./kit";
+import { personalThresholds, useDayComfortState } from "../beta/useDayComfort";
 
 /** The colour of an hourly item: the same for both days (they differ by solid / dashed). */
 export const HOUR_TONE: Record<DetailMetricId, DataColor> = {
@@ -100,6 +114,19 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       other: other ? WX_TICKS.map((h) => hoursWeather(otherHours?.rows ?? [], around(h), station, 1)) : null,
     };
   }, [hours, otherHours, other]);
+  // β (#118): the person's own levels for the day, beside everyone's.
+  const comfort = useDayComfortState(store, station, metricId === "feel" ? date : null, hours?.rows, "hour-bands");
+  const [bandsPick, setBandsPick] = useState<Bands>(readBands);
+  const pickBands = (b: Bands) => {
+    setBandsPick(b);
+    try {
+      localStorage.setItem(BANDS_KEY, b);
+    } catch {
+      /* not kept: fine */
+    }
+  };
+  const personal: Thresholds | null = metricId === "feel" && comfort.st && !comfort.hidden ? personalThresholds(comfort.st) : null;
+  const bands: Bands = personal && bandsPick === "you" ? "you" : "shared";
   const isToday = date === today;
   const nowHour = jstHour();
   const [hour, setHour] = useState<number | null>(null);
@@ -162,6 +189,19 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                 },
               ]
             : []),
+          ...(metricId === "feel" && personal
+            ? [
+                // The level of the shown hour: everyone's, and the person's (β).
+                {
+                  key: "level",
+                  label: "あなたの段",
+                  unit: "",
+                  // The person's levels are of the shown day (対象) only.
+                  a: at(main) == null ? "—" : `${levelName(levelOf(at(main)!, { ...settings, thresholds: personal }), settings.scale)}（従来版 ${levelName(levelOf(at(main)!, settings), settings.scale)}）`,
+                  b: "—",
+                },
+              ]
+            : []),
           ...(metricId === "rain" && chance.some((p) => p.v != null)
             ? [{ key: "chance", label: "降水確率", color: DATA.rain, unit: "%", a: at(chance) == null ? "—" : String(Math.round(at(chance)!)) }]
             : []),
@@ -174,7 +214,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         main={main}
         second={other ? second : null}
         air={air}
-        ranges={levelRanges(settings.thresholds, settings.scale)}
+        ranges={levelRanges(bands === "you" && personal ? personal : settings.thresholds, settings.scale)}
+        guides={bands === "you" ? settings.thresholds : undefined}
         sun={sun}
         day={day}
         nowHour={isToday ? nowHour : null}
@@ -192,6 +233,30 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         <LightStrip main={lightMain} other={other ? lightOther : null} shownHour={shownHour} usual={{ main: usualLightOf(store, station, date), other: other ? usualLightOf(store, station, other) : null }} />
       )}
 
+      {metricId === "feel" && comfort.st && (
+        <div className="hour-bands">
+          {comfort.hidden ? (
+            <p className="basis-note">あなた（β）の段は、今日の最初の記録の後に出ます。</p>
+          ) : (
+            <>
+              <Segmented
+                label="段の色"
+                value={bands}
+                onChange={pickBands}
+                options={[
+                  { id: "shared", label: "従来版の段" },
+                  { id: "you", label: "あなたの段（β）" },
+                ]}
+              />
+              {bands === "you" && personal && (
+                <p className="basis-note">
+                  色はあなたの記録から学んだ段（ちょうどよい {personal[2].toFixed(1)}〜{personal[3].toFixed(1)}）。点線は従来版の境目（ちょうどよい {settings.thresholds[2]}〜{settings.thresholds[3]}）。β は検証中の計算です。
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
       {metricId === "feel" && (
         <p className="level-legend">
           {legendOf(settings.scale).map(({ label, color }) => (
@@ -350,8 +415,11 @@ function HourChart({
   height,
   color,
   bandWx,
+  guides,
 }: {
   bandWx?: { main: BandWx[]; other: BandWx[] | null };
+  /** Other boundaries drawn as dashed lines over the feel ranges (everyone's, when the ranges are the person's). */
+  guides?: readonly number[];
   metricId: DetailMetricId;
   main: HourPoint[];
   second: HourPoint[] | null;
@@ -481,6 +549,10 @@ function HourChart({
             const bottom = yOf(Math.max(lo, from));
             return <rect key={i} x={PAD.left} width={plotW} y={top} height={Math.max(0, bottom - top)} fill={color} opacity={0.14} />;
           })}
+        {metricId === "feel" &&
+          guides?.map((v, i) =>
+            v > lo && v < hi ? <line key={`g${i}`} x1={PAD.left} x2={PAD.left + plotW} y1={yOf(v)} y2={yOf(v)} className="chart-guide-shared" /> : null,
+          )}
         <defs>
           <ForecastHatch id="fc-hours" />
         </defs>
