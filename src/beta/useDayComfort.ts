@@ -8,7 +8,7 @@ import type { Thresholds } from "../../shared/feel";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { FeelContext } from "../ui/FeelBar";
-import { centreUnknown, ensembleState, type State } from "./comfort";
+import { centreUnknown, type Drivers, type Ensemble, ensembleState, type State } from "./comfort";
 import { BetaContext } from "./settings";
 import { baselineStateOf, driversOfDay, useBaselineHistory } from "./useBaseline";
 import { useCentreVisible } from "./useReports";
@@ -18,6 +18,9 @@ export interface DayComfortState {
   st: State | null;
   /** Today's, before the day's first report: kept back (the centre is shown after answering). */
   hidden: boolean;
+  /** The day's drivers and the ensemble, for なぜ (engine/why.ts). */
+  x?: Drivers;
+  ens?: Ensemble;
 }
 
 /** The seven-level boundaries of a β state, on the 肌感 scale (ascending). */
@@ -46,5 +49,5 @@ export function useDayComfortState(store: WeatherStore | null, station: string, 
   const hum = typeof day?.humidity === "number" ? day.humidity : null;
   const x = driversOfDay(store, station, date, beta.alpha, sun ?? shade ?? 0, hum, { at: Date.parse(`${date}T12:00:00+09:00`) });
   if (!x) return { st: null, hidden: false };
-  return { st: ensembleState(beta.ens, x), hidden: !centreVisible(date) };
+  return { st: ensembleState(beta.ens, x), hidden: !centreVisible(date), x, ens: beta.ens };
 }

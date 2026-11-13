@@ -11,6 +11,7 @@ import type { WeatherStore } from "../data/store";
 import { hourSeries } from "../dayDetail";
 import { probabilities } from "../beta/comfort";
 import { useDayComfortState } from "../beta/useDayComfort";
+import { whyLine, whyTerms } from "../beta/engine/why";
 import { dateLabel } from "../design/format";
 import { FeelContext, levelColor, levelName } from "./FeelBar";
 
@@ -103,6 +104,14 @@ export function PartsOutlook({ store, station, date, today }: { store: WeatherSt
           );
         })}
       </div>
+      {mine && comfort.ens && comfort.x && (() => {
+        const why = whyLine(whyTerms(comfort.ens, comfort.x));
+        return why ? (
+          <p className="outlook-why">
+            <b>なぜ</b> {why}。
+          </p>
+        ) : null;
+      })()}
       {comfort.hidden && <p className="basis-note">あなた（β）の見込みは、今日の最初の記録の後に出ます。</p>}
       {mine && <p className="basis-note">予報の肌感に、記録から学んだあなたの段を当てた見込みです（β・検証中）。確かさは ●●● ほど確か。予報そのもののぶれは入っていません。</p>}
     </section>
