@@ -15,7 +15,7 @@ import { ModalSheet } from "../ui/ModalSheet";
 import { halfLifeDays, HISTORY_DAYS, historyDays, MIN_COVERAGE, updateRate } from "./adaptation";
 import { beyondRange, centreUnknown, LEARNING_RULES, TIME_BANDS, confoundedPairs, weightsAt, DRIVERS, type DriverKey, ensembleState, interval, type ModelSpec, paramNames, stateOf } from "./comfort";
 import { useCentreVisible, useReports } from "./useReports";
-import { CHECKED, checksOf, MIN_FOR_GROUP, MIN_FOR_SLOPE, weakSpots } from "./engine/checks";
+import { CHECKED, checksOf, MIN_FOR_GROUP, MIN_FOR_SLOPE, PERIOD, weakSpots } from "./engine/checks";
 import { momentUnder } from "./AfterAnswer";
 import { ensembleFromReports, probabilities as probsOf } from "./comfort";
 import { observationsOf } from "./engine/observations";
@@ -402,7 +402,7 @@ function ComfortBasis() {
         <h4 id="basis-params">
           {fit.model.id} {fit.model.name}の中身 <b>重み {Math.round(ens.weights[ens.fits.indexOf(fit)] * 100)}%</b>
         </h4>
-        <p className="basis-note">上の表の行を押すと、そのモデルの中身に切り替わります。初めの値は固定の事前分布（肌感の表示の境目とは無関係）、今の値は記録からの推定です。</p>
+        <p className="basis-note">上の表の行を押すと、そのモデルの中身に切り替わります。初めの値は β の出発点（事前分布、従来版の段の設定とは無関係）、今の値は記録からの推定です。「記録 %」はその値を記録がどれだけ決めたか（1 −（今の幅 ÷ 初めの幅）²。分けられない組では、組としての決まり方は個々より良い）。</p>
         {(() => {
           // Effects the reports cannot tell apart (MATH-07): their estimates move together.
           const pairs = confoundedPairs(fit);
@@ -437,7 +437,21 @@ function ComfortBasis() {
                       {d.effect && <small>{spans ? "　まだ分からない" : "　効いている"}</small>}
                     </td>
                     <td className="num">{d.show(fit.prior.mean[i])}</td>
-                    <td className="num">{d.show(fit.theta[i])}</td>
+                    <td className="num">
+                      {d.show(fit.theta[i])}
+                      {(() => {
+                        // How much of the value the records decided: 1 − (posterior sd / prior sd)².
+                        const sd0 = fit.prior.sd[i];
+                        if (!(sd0 > 0) || !fit.cov) return null;
+                        const share = Math.max(0, 1 - ((hi - lo) / 3.92 / sd0) ** 2);
+                        return (
+                          <small>
+                            <br />
+                            記録 {Math.round(share * 100)}%
+                          </small>
+                        );
+                      })()}
+                    </td>
                     <td className="num">
                       {d.show(lo)}〜{d.show(hi)}
                     </td>
@@ -576,6 +590,60 @@ function CheckBasis() {
       <p className="basis-note">
         {verdict}。{d ? `${d.n}件・${d.days}日。区間は日ごとにまとめて引き直しています（同じ日の答えは似るため、件数ほどの確かさはありません）。` : ""}
       </p>
+
+      {c.periods.length > 1 && (
+        <>
+          <h5>出発点との差の推移（{PERIOD}件ごと）</h5>
+          <p className="basis-note">学習が進むほど差（出発点 − β、＋なら β が良い）が開いていけば、学習が効いています。{PERIOD}件では区間が広く、1つの期間だけで判断はできません。</p>
+          <div className="basis-scroll">
+            <table className="basis-table">
+              <thead>
+                <tr>
+                  <th>期間</th>
+                  <th>差（95%区間）</th>
+                </tr>
+              </thead>
+              <tbody>
+                {c.periods.map((p) => (
+                  <tr key={p.from + p.to}>
+                    <td>
+                      {p.from.slice(5).replace("-", "/")}〜{p.to.slice(5).replace("-", "/")}
+                      <small>
+                        <br />
+                        {p.diff.days}日
+                      </small>
+                    </td>
+                    <td className="num">
+                      {p.diff.mean > 0 ? "+" : ""}
+                      {p.diff.mean.toFixed(3)}
+                      <small>
+                        <br />
+                        {p.diff.lo.toFixed(3)}〜{p.diff.hi.toFixed(3)}
+                      </small>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      {c.cusum.length > 1 && (() => {
+        const lo = Math.min(0, ...c.cusum), hi = Math.max(0, ...c.cusum);
+        const span = Math.max(1, hi - lo);
+        const xOf = (i: number) => (i / (c.cusum.length - 1)) * 300;
+        const yOf = (v: number) => 4 + ((hi - v) / span) * 72;
+        return (
+          <>
+            <h5>ずれの積み上がり</h5>
+            <svg className="basis-cusum" viewBox="0 0 300 80" role="img" aria-label="外れの累積">
+              <line x1={0} x2={300} y1={yOf(0)} y2={yOf(0)} className="basis-pit-even" />
+              <path d={`M${c.cusum.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join("L")}`} />
+            </svg>
+            <p className="basis-note">外れ（＋＝予測より暖かく感じた）を古い順に足していった線。予測が偏りなく当たっていれば 0 のまわりを上下し、同じ向きに傾き続けるなら、その間ずっと同じ向きに外していた（慣れや服装の変化などにモデルが追いついていない）合図です。</p>
+          </>
+        );
+      })()}
 
       <h5>候補を同じ答えで比べる</h5>
       <p className="basis-note">
