@@ -402,6 +402,30 @@ function comfortOfDay(
  * where the day's 肌感（日なた／日かげ） sit: ℃ from the centre, and "範囲内" or how far past the edge.
  * "読み込み中" while past days are on their way, "履歴不足" when they came but are too few.
  */
+const BETA_ROWS_OPEN = "weather-note:summary-beta-open";
+
+/** Whether the β rows of the summary are open (folded by default: the summary stays short). Kept on this device. */
+function useBetaRowsOpen(): [boolean, (open: boolean) => void] {
+  const [open, set] = useState(() => {
+    try {
+      return localStorage.getItem(BETA_ROWS_OPEN) === "1";
+    } catch {
+      return false;
+    }
+  });
+  return [
+    open,
+    (next: boolean) => {
+      set(next);
+      try {
+        localStorage.setItem(BETA_ROWS_OPEN, next ? "1" : "0");
+      } catch {
+        // Not remembering is harmless.
+      }
+    },
+  ];
+}
+
 function BetaRows({
   a,
   b,
@@ -484,14 +508,18 @@ function BetaRows({
     ) : (
       <span className="cs-none beta-short">{loading ? "読み込み中" : "履歴不足"}</span>
     );
+  const [open, setOpen] = useBetaRowsOpen();
   return (
-    <div className="cs-beta" role="group" aria-label="肌感の中心とちょうどよい範囲（β版。研究中の推定）">
+    <div className={open ? "cs-beta" : "cs-beta folded"} role="group" aria-label="肌感の中心とちょうどよい範囲（β版。研究中の推定）">
       <p className="cs-beta-head">
-        肌感の中心とちょうどよい範囲 <span className="beta-tag">β</span>
-        {learning && <span className={`learn-tag ${learning.state}`}>{LEARNING_LABELS[learning.state]}</span>}
-        <small>
+        <button className="cs-beta-fold" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "肌感の中心とちょうどよい範囲を畳む" : "肌感の中心とちょうどよい範囲を広げる"}>
+          肌感の中心とちょうどよい範囲 <span className="beta-tag">β</span>
+          {learning && <span className={`learn-tag ${learning.state}`}>{LEARNING_LABELS[learning.state]}</span>}
+          <span className="cs-beta-chev" aria-hidden="true">{open ? "▴" : "▾"}</span>
+        </button>
+        {open && <small>
           {unknown ? `暑くも寒くもない肌感は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
-        </small>
+        </small>}
         {onBasis && (
           <button className="beta-basis" onClick={onBasis} aria-label="肌感の中心とちょうどよい範囲の計算の根拠を見る">
             根拠
@@ -503,7 +531,7 @@ function BetaRows({
           </button>
         )}
       </p>
-      {rows.map((r) => {
+      {open && rows.map((r) => {
         const x = a ? r.value(a) : null;
         const y = b ? r.value(b) : null;
         return (

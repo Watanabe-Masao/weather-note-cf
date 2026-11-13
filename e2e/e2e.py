@@ -397,8 +397,36 @@ with sync_playwright() as p:
         top = pg.evaluate("document.querySelector('.sheet-body').getBoundingClientRect().top")
         dbot = pg.evaluate("document.querySelector('.sheet-dock').getBoundingClientRect().bottom")
         check("P3 固定の1行は見出しの下（重ならない）", dock == 1 and top >= dbot - 1, f"dock {dock} body {top:.0f} dock下 {dbot:.0f}")
+        # The pinned line (minimized) moves days with a sideways swipe too.
+        dd = lambda: txt(".sheet-dock .cs-line-date")
+        before = dd()
+        db = pg.locator(".sheet-dock .compare-summary.pinned").bounding_box(); y = db["y"] + db["height"] / 2; x = db["x"] + db["width"] * 0.7
+        touch("touchStart", x, y)
+        for k in range(1, 9):
+            touch("touchMove", x - k * 18, y); wait(16)
+        touch("touchEnd", x - 144, y); wait(900)
+        check("P3c 固定の1行も横スワイプで日が動く", pg.locator(".sheet-dock .compare-summary.pinned").count() == 1 and dd() != before, f"{before}→{dd()}")
+        touch("touchStart", x - 144, y)
+        for k in range(1, 9):
+            touch("touchMove", x - 144 + k * 18, y); wait(16)
+        touch("touchEnd", x, y); wait(900)
         pg.locator(".sheet-dock .compare-summary.pinned").click(); wait(700)
         check("P3b 1行をタップで要約に戻る", pg.locator(".sheet-dock .compare-summary").count() == 0)
+        # Folded (畳む) after being open: the folded line still moves days.
+        pg.locator(".cs-toggle").first.click(); wait(500)
+        ld = lambda: txt(".compare-summary.collapsed .cs-line-date")
+        before = ld()
+        lb = pg.locator(".compare-summary.collapsed").first.bounding_box(); y = lb["y"] + lb["height"] / 2; x = lb["x"] + lb["width"] * 0.7
+        touch("touchStart", x, y)
+        for k in range(1, 9):
+            touch("touchMove", x - k * 18, y); wait(16)
+        touch("touchEnd", x - 144, y); wait(900)
+        check("P3d 畳んだ要約も横スワイプで日が動く", ld() != before, f"{before}→{ld()}")
+        touch("touchStart", x - 144, y)
+        for k in range(1, 9):
+            touch("touchMove", x - 144 + k * 18, y); wait(16)
+        touch("touchEnd", x, y); wait(900)
+        pg.locator(".cs-toggle").first.click(); wait(500)
         pg.click(".back-btn"); wait(500)
         pg.evaluate("__flick('.sheet-handle',600,120)"); wait(800)
         pg.locator(".side-target .strip-col.is-center .cell-feel.tappable-feel").first.click(); wait(900)
