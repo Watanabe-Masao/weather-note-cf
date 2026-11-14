@@ -344,10 +344,13 @@ select.chip {
 }
 
 /* Back (‹ 日別): in-sheet navigation, never a close. */
+/* ‹ 日別: the chevron's drawn part starts 7px into its 18px box, so the box steps 6px left and the
+   ink lines up with the sheet's left edge of text. */
 .back-btn {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
+  margin-left: calc(-1 * var(--space-3));
   border: none;
   background: none;
   color: var(--accent-base);
@@ -914,9 +917,17 @@ button.label-feel:active { transform: scale(0.97); }
 }
 
 .sheet-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
   font-size: var(--size-md);
   font-weight: var(--weight-bold);
   white-space: nowrap;
+  min-width: 0;
+}
+
+.sheet-head-text {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -3970,3 +3981,10 @@ svg.scrub {
 
 /* Drawn marks (kit Glyph): no line box of their own, so a flex parent centres them exactly. */
 .glyph { display: block; flex: none; }
+
+/* The item's picture before a sheet title: quiet ink, centred on the title (#151). */
+.item-icon { display: inline-flex; color: var(--ink-secondary); flex: none; }
+/* Below 375px a long title (日照と明るさの時間帯) keeps its words whole; the picture steps aside. */
+@media (max-width: 374px) {
+  .item-icon.long { display: none; }
+}

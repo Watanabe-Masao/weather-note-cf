@@ -19,70 +19,29 @@ export function skyOf(text: string | null | undefined): Sky {
   return "cloud";
 }
 
-const { sun: SUN, cloud: CLOUD, rain: RAIN, glint: GLINT } = ICON;
+const { sun: SUN, cloud: CLOUD, rain: RAIN } = ICON;
 
-function Sun({ x = 12, y = 12, r = 5 }: { x?: number; y?: number; r?: number }) {
-  const rays = Array.from({ length: 8 }, (_, i) => {
-    const a = (i * Math.PI) / 4;
-    return (
-      <line
-        key={i}
-        x1={x + Math.cos(a) * (r + 2)}
-        y1={y + Math.sin(a) * (r + 2)}
-        x2={x + Math.cos(a) * (r + 4)}
-        y2={y + Math.sin(a) * (r + 4)}
-        stroke={SUN}
-        strokeWidth={1.6}
-        strokeLinecap="round"
-      />
-    );
-  });
-  return (
-    <g>
-      {rays}
-      <circle cx={x} cy={y} r={r} fill={SUN} />
-    </g>
-  );
-}
-
-const Cloud = ({ dx = 0, dy = 0 }: { dx?: number; dy?: number }) => (
-  <path
-    transform={`translate(${dx} ${dy})`}
-    d="M7 18h11a4 4 0 0 0 0-8 5.5 5.5 0 0 0-10.6 1.6A3.3 3.3 0 0 0 7 18z"
-    fill={CLOUD}
-  />
-);
+/**
+ * The sky drawn in Lucide's line (https://lucide.dev, ISC; licence in ./icons.tsx), one colour per
+ * sky so a row of days reads by colour first: sun yellow, cloud grey, rain blue (#151).
+ */
+const SKY: Record<Exclude<Sky, "none">, { color: string; d: string }> = {
+  sun: { color: SUN, d: "M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" },
+  sunCloud: { color: SUN, d: "M12 2v2M4.93 4.93l1.41 1.41M20 12h2M19.07 4.93l-1.41 1.41M15.947 12.65a4 4 0 0 0-5.925-4.128M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z" },
+  cloud: { color: CLOUD, d: "M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" },
+  fog: { color: CLOUD, d: "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242M16 17H7M17 21H9" },
+  rain: { color: RAIN, d: "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242M16 14v6M8 14v6M12 16v6" },
+  thunder: { color: RAIN, d: "M6 16.326A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 .5 8.973M13 12l-3 5h4l-3 5" },
+  snow: { color: CLOUD, d: "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242M8 15h.01M8 19h.01M12 17h.01M12 21h.01M16 15h.01M16 19h.01" },
+};
 
 export function WeatherIcon({ text, size = 26 }: { text: string | null | undefined; size?: number }) {
   const sky = skyOf(text);
   if (sky === "none") return <span className="icon-none">—</span>;
+  const { color, d } = SKY[sky];
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label={text ?? ""}>
-      {sky === "sun" && <Sun />}
-      {sky === "sunCloud" && (
-        <>
-          <Sun x={9} y={9} r={4} />
-          <Cloud dx={1} dy={2} />
-        </>
-      )}
-      {(sky === "cloud" || sky === "fog") && <Cloud dy={-1} />}
-      {(sky === "rain" || sky === "thunder") && (
-        <>
-          <Cloud dy={-4} />
-          {[8, 12, 16].map((x) => (
-            <line key={x} x1={x} y1={17} x2={x - 1.5} y2={21} stroke={RAIN} strokeWidth={1.6} strokeLinecap="round" />
-          ))}
-        </>
-      )}
-      {sky === "snow" && (
-        <>
-          <Cloud dy={-4} />
-          {[8, 12, 16].map((x) => (
-            <circle key={x} cx={x} cy={19.5} r={1.3} fill={GLINT} />
-          ))}
-        </>
-      )}
-      {sky === "thunder" && <path d="M13 15l-2.5 4h2.5l-1.5 3.5" stroke={SUN} strokeWidth={1.4} fill="none" />}
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label={text ?? ""} fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      <path d={d} />
     </svg>
   );
 }
