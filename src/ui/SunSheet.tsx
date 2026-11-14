@@ -12,7 +12,7 @@ import { useRef, useState, type PointerEvent } from "react";
 
 const W = 340;
 const H = 230;
-const PAD = { left: 30, right: 8, top: 10, bottom: 20 };
+const PAD = { left: 38, right: 8, top: 10, bottom: 20 };
 
 export function SunSheet({ date, station, sun, hour, onClose }: { date: string; station: string; sun: SunTimes | null; hour: number | null; onClose: () => void }) {
   const e = dayEdges(date, station);
