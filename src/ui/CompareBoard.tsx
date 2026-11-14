@@ -3,6 +3,7 @@
 // and scroll as one. Independent: each strip has its own run of days.
 
 import { Conf, confidenceOfRow } from "./kit";
+import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
 import { signedDiff } from "../design/format";
 import { type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "../../shared/dates";
@@ -62,7 +63,7 @@ function useWindow(center: string, min: string, max: string) {
   }, [win, min, max]);
 }
 
-function kindLabel(store: WeatherStore | null, station: string, date: string) {
+export function kindLabel(store: WeatherStore | null, station: string, date: string) {
   const day = store?.getDay(station, date);
   if (day?.state !== "ready" || !day.row) return "";
   // The status only (one meaning per row): the rain chance has its own row under 降水.
@@ -80,6 +81,7 @@ function Column({
   past = false,
   onOpenFeel,
   against,
+  summaryOther,
 }: {
   store: WeatherStore | null;
   station: string;
@@ -91,8 +93,12 @@ function Column({
   onOpenFeel?: () => void;
   /** The target day this comparison column is read against: adds the 差 rows. */
   against?: string | null;
+  /** The day this column's summary is read against (#176). */
+  summaryOther?: string | null;
 }) {
   const feel = useContext(FeelContext);
+  // A long press on the day's weather picture: the day's summary beside its partner (#176).
+  const press = useDaySummaryPress();
   if (!date)
     return (
       <div className="cell-stack empty-partner">
@@ -112,7 +118,7 @@ function Column({
         {+date.slice(5, 7)}/{+date.slice(8)}
         <small>{weekdayOf(date)}</small>
       </span>
-      <span className="cell-icon">
+      <span className="cell-icon" {...(state === "ready" ? { ...press, ...summaryAttr(date, summaryOther) } : {})}>
         {state === "ready" ? <DayWeatherIcon row={day?.row} station={station} /> : state === "empty" ? <span className="skeleton icon" /> : null}
       </span>
       <span className={state === "error" ? "cell-kind failed" : "cell-kind"}>
@@ -356,6 +362,7 @@ export function CompareBoard({
                   faded={d < bounds.min || d > bounds.max}
                   onOpenFeel={onOpenFeel}
                   onOpen={() => onOpenDay(d, view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d)), "target")}
+                  summaryOther={view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d))}
                 />
               )}
             />
@@ -394,6 +401,7 @@ export function CompareBoard({
                     const shown = partner(d);
                     if (shown) onOpenDay(shown, view.linked ? d : addDays(view.target, diffDays(view.compare, d)), "compare");
                   }}
+                  summaryOther={view.linked ? d : addDays(view.target, diffDays(view.compare, d))}
                 />
               )}
             />

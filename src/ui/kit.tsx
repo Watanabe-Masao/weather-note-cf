@@ -1,7 +1,7 @@
 // Component kit: the small parts every screen is built from. Each has one look and one behaviour,
 // so the same thing never looks different on two screens (rules: docs/design-system.md).
 
-import { type ButtonHTMLAttributes, type CSSProperties, Fragment, type ReactNode, useEffect, useState } from "react";
+import { type ButtonHTMLAttributes, type CSSProperties, Fragment, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { dayTone } from "../../shared/holidays";
 import type { Confidence } from "../../shared/confidence";
 import { type BandMark, barLook, type DataColor, type LineDay, type LineKind, type LineLook, lineLook } from "../design/tokens";
@@ -415,9 +415,24 @@ export interface ReadoutRow {
  * `dates` name the two days under their column heads (対象 / 比較), so the title stays short and
  * nothing is cut: a title that carried both dates ran out of its column.
  */
-export function GraphReadout({ title, rows, unit, live, dates }: { title: ReactNode; rows: ReadoutRow[]; unit: string; live?: boolean; dates?: { a?: ReactNode; b?: ReactNode } }) {
+export function GraphReadout({
+  title,
+  rows,
+  unit,
+  live,
+  dates,
+  bare = false,
+}: {
+  title: ReactNode;
+  rows: ReadoutRow[];
+  unit: string;
+  live?: boolean;
+  dates?: { a?: ReactNode; b?: ReactNode };
+  /** The grid alone, for a face that is already a card (the day's summary): no card in a card. */
+  bare?: boolean;
+}) {
   return (
-    <div className={live ? "readout-card live" : "readout-card"} aria-live="polite">
+    <div className={bare ? "readout-bare" : live ? "readout-card live" : "readout-card"} aria-live={bare ? undefined : "polite"}>
       <div className="ro-grid">
         <b className="ro-title">{title}</b>
         <small className="ro-col">
@@ -456,6 +471,52 @@ export function GraphReadout({ title, rows, unit, live, dates }: { title: ReactN
       </div>
     </div>
   );
+}
+
+/**
+ * A long press (#176): `onLong` after `ms` held still; a move of more than 8px (a swipe, a scroll)
+ * or lifting the finger first cancels it. When it fires, the click that follows the lift is
+ * swallowed, so the tap's own job (opening the day) does not run as well. `onLong` gets the element
+ * the press began on and may return false (nothing there to open): then the tap goes on as usual.
+ * Spread the result on the element; nothing is attached when `onLong` is undefined.
+ */
+export function useLongPress(onLong: ((target: Element) => boolean | void) | undefined, ms = 450) {
+  const timer = useRef<number | null>(null);
+  const start = useRef<{ x: number; y: number; target: Element } | null>(null);
+  const clear = () => {
+    if (timer.current != null) window.clearTimeout(timer.current);
+    timer.current = null;
+    start.current = null;
+  };
+  useEffect(() => clear, []);
+  if (!onLong) return {};
+  return {
+    onPointerDown: (e: ReactPointerEvent) => {
+      clear();
+      start.current = { x: e.clientX, y: e.clientY, target: e.target as Element };
+      timer.current = window.setTimeout(() => {
+        timer.current = null;
+        const target = start.current?.target;
+        if (target && onLong(target) !== false) swallowNextClick();
+      }, ms);
+    },
+    onPointerMove: (e: ReactPointerEvent) => {
+      if (start.current && Math.hypot(e.clientX - start.current.x, e.clientY - start.current.y) > 8) clear();
+    },
+    onPointerUp: clear,
+    onPointerCancel: clear,
+    onPointerLeave: clear,
+    onContextMenu: (e: ReactMouseEvent) => e.preventDefault(),
+  };
+}
+
+function swallowNextClick() {
+  const stop = (e: Event) => {
+    e.stopPropagation();
+    e.preventDefault();
+  };
+  window.addEventListener("click", stop, { capture: true, once: true });
+  window.setTimeout(() => window.removeEventListener("click", stop, { capture: true }), 700);
 }
 
 /**

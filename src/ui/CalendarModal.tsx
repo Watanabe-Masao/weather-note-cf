@@ -18,6 +18,7 @@ import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { useSwipeDays } from "./useSwipeDays";
 import { DayWeatherIcon } from "./WeatherIcon";
 import { STORM, stormOfRow } from "../../shared/storm";
+import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
 
 export type CalendarSide = "target" | "compare";
 
@@ -85,6 +86,8 @@ function Body(p: Props) {
     if (next >= monthOf(p.min) && next <= monthOf(p.max)) setMonth(next);
   };
   const swipe = useSwipeDays(move);
+  // A long press on a day's picture: that day's summary (#176), over the calendar.
+  const press = useDaySummaryPress();
 
   // The pair as it would be with the candidate.
   const pairTarget = p.side === "target" ? shown : p.target;
@@ -204,7 +207,7 @@ function Body(p: Props) {
         </Button>
       </header>
 
-      <div ref={swipe.ref} style={swipe.style} className="calendar-grid">
+      <div ref={swipe.ref} style={swipe.style} className="calendar-grid" {...press}>
         {WEEKDAYS.map((w, i) => (
           <span key={w} className={i === 0 ? "cal-wd holiday" : i === 6 ? "cal-wd saturday" : "cal-wd"}>
             {w}
@@ -244,7 +247,7 @@ function Body(p: Props) {
               aria-pressed={d === cand?.date}
             >
               <span className="cal-n">{+d.slice(8)}</span>
-              <span className="cal-icon" aria-hidden>
+              <span className="cal-icon" aria-hidden {...(row ? summaryAttr(d, p.side === "target" ? p.partnerOf(d) : p.target) : {})}>
                 {row ? <DayWeatherIcon row={row} station={p.station} /> : status === "loading" ? <i className="cal-skel" /> : null}
               </span>
               <span className="cal-max" aria-hidden>

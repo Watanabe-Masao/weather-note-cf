@@ -11,6 +11,7 @@ import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { Button, ForecastHatch, GraphReadout, GuideLines, InfoNote, LineSample } from "./kit";
+import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
 
 /** Which boundaries colour the 肌感 graph: everyone's (the app's settings) or the person's (β, #118). */
 type Bands = "shared" | "you";
@@ -341,6 +342,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         bandWx={bandWx}
         sky={skyStrip}
         otherSun={sunOther}
+        bandDates={[date, other ?? null]}
         onSun={() => setSunOpen(true)}
       />
       {sunOpen && <SunSheet date={date} station={station} sun={sun} hour={shownHour} sky={skyStrip} onClose={() => setSunOpen(false)} />}
@@ -481,10 +483,11 @@ function HourWeather({ w, night = false }: { w: BandWx; night?: boolean }) {
 }
 
 /** One band's weather: the day's icon, and the partner day's smaller beside it. Estimates are faint. */
-function BandWeatherIcons({ main, other, night, otherNight }: { main: BandWx; other: BandWx | null; night: boolean; otherNight: boolean }) {
-  const icon = (w: BandWx, size: number, cls: string, night: boolean) =>
+function BandWeatherIcons({ main, other, night, otherNight, dates }: { main: BandWx; other: BandWx | null; night: boolean; otherNight: boolean; dates: [string, string | null] }) {
+  // Each picture opens its own day's summary on a long press (#176): the comparison day's beside the target.
+  const icon = (w: BandWx, size: number, cls: string, night: boolean, day: string | null, against: string | null) =>
     w.text ? (
-      <span className={`${cls}${w.estimated ? " weather-estimated" : ""}${w.storm ? " wx-with-storm" : ""}`} title={w.estimated ? `${w.text}（推定：日照と降水から）` : w.text}>
+      <span className={`${cls}${w.estimated ? " weather-estimated" : ""}${w.storm ? " wx-with-storm" : ""}`} title={w.estimated ? `${w.text}（推定：日照と降水から）` : w.text} {...summaryAttr(day, against)}>
         <WeatherIcon text={w.text} size={size} night={night} />
         {w.storm && <StormMark level={w.storm} why={w.why} />}
       </span>
@@ -493,8 +496,8 @@ function BandWeatherIcons({ main, other, night, otherNight }: { main: BandWx; ot
     );
   return (
     <>
-      {icon(main, 18, "band-wx-main", night)}
-      {other ? icon(other, 13, "band-wx-other", otherNight) : null}
+      {icon(main, 18, "band-wx-main", night, dates[0], dates[1])}
+      {other ? icon(other, 13, "band-wx-other", otherNight, dates[1], dates[0]) : null}
     </>
   );
 }
@@ -752,9 +755,12 @@ function HourChart({
   onSun,
   sky,
   otherSun,
+  bandDates = ["", null],
 }: {
   /** The comparison day's sunrise and sunset (hours), for its own night pictures. */
   otherSun?: { rise: number; set: number } | null;
+  /** The two days of the weather row, for its long press (#176: that day's summary). */
+  bandDates?: [string, string | null];
   /** Tapping the sun's strip opens 太陽 (the twilights and the times). */
   onSun?: () => void;
   /** The sky's colour every 10 minutes (shared/sky.ts), the strip's ground: night, twilight, day. */
@@ -787,6 +793,7 @@ function HourChart({
   /** The item's data colour (both days). */
   color: string;
 }) {
+  const wxPress = useDaySummaryPress();
   const H = height;
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
@@ -1099,7 +1106,7 @@ function HourChart({
         />
       )}
       {bandWx && (
-        <div className="band-wx" aria-label="時刻ごとの天気（その前後1時間。上が対象日、下が比較日。薄いものは日照と降水からの推定）">
+        <div className="band-wx" {...wxPress} aria-label="時刻ごとの天気（その前後1時間。上が対象日、下が比較日。薄いものは日照と降水からの推定）">
           {/* Each row named in the axis column: 対象 above, 比較 below. */}
           <span className="band-wx-name main" style={{ width: left - 13 }}>対象</span>
           {bandWx.other && <span className="band-wx-name other" style={{ width: left - 13 }}>比較</span>}
@@ -1110,6 +1117,7 @@ function HourChart({
                 other={bandWx.other?.[i] ?? null}
                 night={isNightAt(h, { rise, set })}
                 otherNight={!!otherSun && isNightAt(h, otherSun)}
+                dates={bandDates}
               />
             </span>
           ))}
