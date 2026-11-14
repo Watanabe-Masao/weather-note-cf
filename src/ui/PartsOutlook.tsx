@@ -17,7 +17,7 @@ import { whyLine, whyTerms } from "../beta/engine/why";
 import { dateLabel } from "../design/format";
 import { feelOn } from "../feelSeason";
 import { FeelContext, levelColor, levelName } from "./FeelBar";
-import { Button, SectionHead } from "./kit";
+import { Button, Glyph, SectionHead } from "./kit";
 
 const OUTLOOK_PARTS = ["morning", "evening"] as const;
 /** The next level is named when it has at least this probability. */
@@ -89,8 +89,7 @@ export function PartsOutlook({ store, station, date, today }: { store: WeatherSt
                   {b && <small>（{b.name}かも）</small>}
                 </span>
                 <span className="outlook-sure" aria-label={`確かさ ${dots}/3`}>
-                  {"●".repeat(dots)}
-                  {"○".repeat(3 - dots)}
+                  {[0, 1, 2].map((k) => <Glyph key={k} name={k < dots ? "dot" : "ring"} size="10px" />)}
                 </span>
               </div>
             );

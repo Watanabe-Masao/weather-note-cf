@@ -37,7 +37,7 @@ import type { Station } from "../../shared/types";
 import { type SavedFeel, SUNSHINE_PRESETS } from "../feelSettings";
 import type { StorageReport, WeatherStore } from "../data/store";
 import { LEVEL_COLORS } from "./FeelBar";
-import { Button, DangerButton, Help, Segmented } from "./kit";
+import { Button, DangerButton, Glyph, Help, Segmented } from "./kit";
 import { BetaContext } from "../beta/settings";
 import { halfLifeDays, updateRate } from "../beta/adaptation";
 import { BasisSheet } from "../beta/BasisSheet";
@@ -137,11 +137,11 @@ function LevelBand({ thresholds, onChange }: { thresholds: SavedFeel["thresholds
             </small>
             <div>
               <button onClick={() => onChange(moveThreshold(thresholds, i, t - STEP))} aria-label={`${LEVELS[i]}と${LEVELS[i + 1]}の境目を0.5度下げる`}>
-                −
+                <Glyph name="minus" size="12px" />
               </button>
               <output aria-live="polite">{t.toFixed(1)}</output>
               <button onClick={() => onChange(moveThreshold(thresholds, i, t + STEP))} aria-label={`${LEVELS[i]}と${LEVELS[i + 1]}の境目を0.5度上げる`}>
-                ＋
+                <Glyph name="plus" size="12px" />
               </button>
             </div>
           </div>

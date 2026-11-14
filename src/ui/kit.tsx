@@ -96,6 +96,31 @@ export function Button({
   );
 }
 
+/**
+ * Small marks drawn, not typed (#151): ◀ ▶ ＋ − ↔ ● ○ ▾ as characters sit at a height each font
+ * chooses, so the same button looks centred on one phone and low on another. A drawn mark is
+ * centred in its own box. Sized in em so it follows the text beside it; colour is the text's.
+ */
+export type GlyphName = "prev" | "next" | "plus" | "minus" | "pair" | "dot" | "ring" | "down" | "up";
+const GLYPH: Record<GlyphName, ReactNode> = {
+  prev: <path d="M9 1.5 2.5 6 9 10.5z" fill="currentColor" strokeLinejoin="round" />,
+  next: <path d="M3 1.5 9.5 6 3 10.5z" fill="currentColor" strokeLinejoin="round" />,
+  down: <path d="M2.5 4h7L6 8.5z" fill="currentColor" />,
+  up: <path d="M2.5 8h7L6 3.5z" fill="currentColor" />,
+  plus: <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />,
+  minus: <path d="M2 6h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />,
+  pair: <path d="M3.8 3.5 1.5 6l2.3 2.5M8.2 3.5 10.5 6 8.2 8.5M1.8 6h8.4" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />,
+  dot: <circle cx="6" cy="6" r="3.5" fill="currentColor" />,
+  ring: <circle cx="6" cy="6" r="3" fill="none" stroke="currentColor" strokeWidth="1.2" />,
+};
+export function Glyph({ name, size = "0.85em" }: { name: GlyphName; size?: string }) {
+  return (
+    <svg className="glyph" viewBox="0 0 12 12" width={size} height={size} aria-hidden>
+      {GLYPH[name]}
+    </svg>
+  );
+}
+
 /** ✓ for a button that has just done its job (記録しました). */
 export function CheckGlyph() {
   return (

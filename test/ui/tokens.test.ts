@@ -101,3 +101,22 @@ describe("cards: 浮いた面 and 沈んだ面 only (#151)", () => {
     expect(again).toEqual([]);
   });
 });
+
+describe("marks are drawn, not typed (#151)", () => {
+  // ◀ ▶ ＋ − ↔ ● ○ ▾ ☀ ☁ typed as a button's or a tag's whole content sit at the height each font
+  // chooses (low on one phone, centred on another). They are drawn with kit's Glyph instead. A mark
+  // inside a sentence (確かさは ●●● ほど) is text and stays.
+  const MARK = "[◀▶◁▷＋−↔⇄●○▾▴▼▲☀☁]";
+  it("no mark is typed as the whole content of an element", () => {
+    // A − or ＋ chosen in a ternary is a number's sign (−4.9), which is text; the marks below are not.
+    const ICON = "[◀▶◁▷↔⇄●○▾▴▼▲☀☁]";
+    const alone = new RegExp(`(>\\s*${MARK}+\\s*<)|(\\{\\s*"${MARK}+"(\\.repeat\\([^)]*\\))?\\s*\\})|(\\?\\s*"${ICON}+"\\s*:)|(:\\s*"${ICON}+"\\s*\\})`, "g");
+    const code = all.filter(({ p }) => /\.tsx$/.test(p));
+    const hits = code.flatMap(({ p, s }) => (s.replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, "").match(alone) ?? []).map((m) => `${p}: ${m.trim()}`));
+    expect(hits).toEqual([]);
+  });
+  it("and not as a CSS content mark", () => {
+    const css = readFileSync(join(SRC, "styles.css"), "utf8");
+    expect(css.match(new RegExp(`content:\\s*"${MARK}+"`, "g")) ?? []).toEqual([]);
+  });
+});

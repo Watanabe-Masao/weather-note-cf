@@ -3,6 +3,7 @@
 // physical base only (D18) — how a value is felt is the β model's. For judging the candidate by
 // eye before any data decides. Nothing here changes the app's 肌感 or the model.
 
+import { Glyph } from "./kit";
 import { useContext, useEffect, useMemo, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { feelOf, FORECAST_WIND_HEIGHT } from "../../shared/feel";
@@ -86,11 +87,11 @@ export function SunTestBoard({ store, station, today, onClose }: { store: Weathe
         </p>
         <div className="sun-test-nav">
           <button className="chip sm" onClick={() => setDate(addDays(date, -1))} aria-label="前の日">
-            ◀
+            <Glyph name="prev" size="12px" />
           </button>
           <b>{date}</b>
           <button className="chip sm" onClick={() => setDate(addDays(date, 1))} aria-label="次の日" disabled={date >= addDays(today, 7)}>
-            ▶
+            <Glyph name="next" size="12px" />
           </button>
           {date !== today && (
             <button className="chip sm" onClick={() => setDate(today)}>

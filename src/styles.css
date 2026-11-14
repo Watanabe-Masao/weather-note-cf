@@ -441,6 +441,9 @@ select.chip {
 }
 
 .today-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--accent-base) 60%, transparent);
   color: var(--accent-base);
@@ -456,6 +459,9 @@ select.chip {
 }
 
 .arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   border: none;
   width: 32px;
@@ -1663,6 +1669,9 @@ svg.scrub {
 
 /* ▴ ▾: a 36 px target in the corner. */
 .cs-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   position: absolute;
   top: 0;
   right: 0;
@@ -2612,6 +2621,8 @@ svg.scrub {
 }
 
 .cal-pair-link {
+  display: flex;
+  align-items: center;
   color: var(--ink-tertiary);
 }
 
@@ -3137,6 +3148,9 @@ svg.scrub {
 .level-stepper small i { width: 8px; height: 8px; border-radius: var(--radius-tick); flex: none; }
 .level-stepper div { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; }
 .level-stepper button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   height: 36px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
@@ -3149,8 +3163,14 @@ svg.scrub {
 .set-data summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; list-style: none; cursor: pointer; }
 .set-data summary::-webkit-details-marker { display: none; }
 .set-data summary small { font-size: var(--size-sm); color: var(--ink-tertiary); }
-.set-data summary::after { content: "▾"; color: var(--ink-tertiary); margin-left: auto; }
-.set-data[open] summary::after { content: "▴"; }
+.set-data summary::after {
+  content: "";
+  align-self: center;
+  margin-left: auto;
+  border-inline: 4px solid transparent;
+  border-top: 5px solid var(--ink-tertiary);
+}
+.set-data[open] summary::after { transform: rotate(180deg); }
 
 .report {
   display: grid;
@@ -3587,16 +3607,26 @@ svg.scrub {
   }
 }
 
-/* 信頼度 after 予報: a small letter; only C (caution) carries a colour. */
+/* 信頼度 after 予報: a small letter; only C (caution) carries a colour. The box is centred on 予報
+   (not on its baseline: a Latin capital and a kanji share a baseline but not a middle), and the
+   letter is trimmed to its cap height so it centres in the box. */
+.cell-kind:has(.conf) {
+  display: inline-flex;
+  align-items: center;
+}
 .conf {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 13px;
   margin-left: 3px;
   padding: 0 3px;
   border-radius: var(--radius-tick);
   font-family: var(--font-numeric);
   font-size: var(--size-xs);
   font-weight: var(--weight-bold);
-  line-height: 1.25;
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
   color: var(--ink-secondary);
   box-shadow: 0 0 0 1px var(--line-strong) inset;
 }
@@ -3660,7 +3690,7 @@ svg.scrub {
   font: inherit;
   text-align: left;
 }
-.cs-beta-chev { font-size: var(--size-sm); color: var(--accent-base); }
+.cs-beta-chev { display: inline-flex; align-items: center; color: var(--accent-base); }
 .cs-beta.folded .cs-beta-head { align-items: center; }
 .cs-row.beta .cs-val { font-size: var(--size-base); }
 .beta-fc { display: block; font-size: var(--size-xs); color: var(--status-forecast); line-height: 1.1; }
@@ -3718,6 +3748,7 @@ svg.scrub {
 .outlook-why { margin: 0; font-size: var(--size-sm); line-height: 1.6; }
 .outlook-why b { margin-right: 4px; color: var(--ink-secondary); }
 .outlook-sure, .outlook-none { font-size: var(--size-sm); color: var(--ink-secondary); }
+.outlook-sure { display: inline-flex; align-items: center; gap: var(--space-1); }
 .hour-bands { display: grid; gap: 6px; margin-top: 6px; }
 .chart-guide-shared { stroke: var(--ink-primary); stroke-opacity: 0.55; stroke-width: 1.4; stroke-dasharray: 1.5 3.5; stroke-linecap: round; }
 .try-it { display: grid; gap: 8px; }
@@ -3929,3 +3960,6 @@ svg.scrub {
 .report-missing small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .report-save:disabled { border: 1px dashed var(--line-strong); }
 .report-lead p { font-size: var(--size-base); color: var(--ink-secondary); }
+
+/* Drawn marks (kit Glyph): no line box of their own, so a flex parent centres them exactly. */
+.glyph { display: block; flex: none; }
