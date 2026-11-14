@@ -302,22 +302,21 @@ export function CompareBoard({
   );
 
   return (
-    // One band joins the two tables' centre columns, passing the (left-aligned) comparison header.
+    // Each table's centre column is framed (the frames do not cross the comparison header).
     <section ref={boardRef} className="board linked-band">
-      {/* 連動: one band joins the pair. 個別: two separate frames — the days move on their own. */}
-      {band &&
-        (view.linked ? (
-          <div className="center-band" style={{ left: band.left, width: band.width, top: band.top, height: band.height }} aria-hidden />
-        ) : (
-          <>
-            <div className="center-band apart" style={{ left: band.left, width: band.width, top: band.top, height: band.split }} aria-hidden />
-            <div
-              className="center-band apart"
-              style={{ left: band.left, width: band.width, top: band.top + band.lowTop, height: band.height - band.lowTop }}
-              aria-hidden
-            />
-          </>
-        ))}
+      {/* A frame round each table's centre column. 連動 or not is told by the 連動 button (and the
+          frames' line: solid when the days move together, dashed when apart); nothing joins the two
+          frames, so nothing runs through the comparison header's controls (#151). */}
+      {band && (
+        <>
+          <div className={view.linked ? "center-band" : "center-band apart"} style={{ left: band.left, width: band.width, top: band.top, height: band.split }} aria-hidden />
+          <div
+            className={view.linked ? "center-band" : "center-band apart"}
+            style={{ left: band.left, width: band.width, top: band.top + band.lowTop, height: band.height - band.lowTop }}
+            aria-hidden
+          />
+        </>
+      )}
       <div className="side side-target">
         <DateNav
           label={`対象日 ${view.target.slice(0, 4)}`}
