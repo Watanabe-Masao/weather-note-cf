@@ -198,10 +198,11 @@ function Labels({
           {s.unit && s.unit !== metric.unit && <small className="unit">{s.unit}</small>}
         </span>
       ))}
+      {/* 最高差・最低差; an item with one 差 row says just 差 (降水量差 would not fit 52px). */}
       {diffs &&
-        diffSeries(metric).map((s) => (
+        diffSeries(metric).map((s, _i, all) => (
           <span key={"diff-" + s.key} className="label-value label-diff">
-            {s.tableLabel ?? s.label}差
+            {all.length > 1 ? `${s.tableLabel ?? s.label}差` : "差"}
           </span>
         ))}
       {metric.id === "temp" && (
