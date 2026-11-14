@@ -927,6 +927,7 @@ button.label-feel:active { transform: scale(0.97); }
 }
 
 .sheet-head-text {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -3983,3 +3984,7 @@ svg.scrub {
 
 /* The item's picture before a sheet title: quiet ink, centred on the title (#151). */
 .item-icon { display: inline-flex; color: var(--ink-secondary); flex: none; }
+/* Below 375px a long title (日照と明るさの時間帯) keeps its words whole; the picture steps aside. */
+@media (max-width: 374px) {
+  .item-icon.long { display: none; }
+}

@@ -84,9 +84,9 @@ const ITEM: Record<string, string> = {
   wind: "M12.8 19.6A2 2 0 1 0 14 16H2M17.5 8a2.5 2.5 0 1 1 2 4H2M9.8 4.4A2 2 0 1 1 11 8H2",
   pressure: "M12 14l4-4M3.34 19a10 10 0 1 1 17.32 0",
 };
-export const ItemIcon = ({ id }: { id: string }) =>
+export const ItemIcon = ({ id, long = false }: { id: string; long?: boolean }) =>
   ITEM[id] ? (
-    <span className="item-icon">
+    <span className={long ? "item-icon long" : "item-icon"}>
       <Line size={18}>
         <path d={ITEM[id]} />
       </Line>

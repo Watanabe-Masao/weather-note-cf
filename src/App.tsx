@@ -418,7 +418,7 @@ export function App() {
                       <ChevronIcon />
                       日別
                     </button>
-                    <span className="sheet-head-title"><ItemIcon id={view.metric} /><span className="sheet-head-text">{`${metric.title ?? metric.label}の時間帯`}</span></span>
+                    <span className="sheet-head-title"><ItemIcon id={view.metric} long={(metric.title ?? metric.label).length > 4} /><span className="sheet-head-text">{`${metric.title ?? metric.label}の時間帯`}</span></span>
                     <span className="sheet-head-end">{modeSelect}</span>
                   </>
                 ) : (
