@@ -8,7 +8,7 @@ import { cachedSun, loadSun } from "../data/sun";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { FeelContext } from "../ui/FeelBar";
-import { Segmented } from "../ui/kit";
+import { Button, Segmented } from "../ui/kit";
 import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
 import { reportMoment, DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
@@ -239,9 +239,9 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       {waitingFor == null && !quality.trainable && (
         <p className="report-quality warn">この記録は保存しますが、学習には使いません（{quality.reason}）。</p>
       )}
-      <button className="report-save" disabled={!ready || saving} onClick={() => void save()}>
+      <Button kind="primary" block className="report-save" busy={saving} disabled={!ready || saving} onClick={() => void save()}>
         {waitingFor ?? (ready ? "記録する" : `${night ? "3" : "4"}つとも選ぶと記録できます`)}
-      </button>
+      </Button>
     </div>
   );
 }

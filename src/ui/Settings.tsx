@@ -37,7 +37,7 @@ import type { Station } from "../../shared/types";
 import { type SavedFeel, SUNSHINE_PRESETS } from "../feelSettings";
 import type { StorageReport, WeatherStore } from "../data/store";
 import { LEVEL_COLORS } from "./FeelBar";
-import { Segmented } from "./kit";
+import { Button, DangerButton, Segmented } from "./kit";
 import { BetaContext } from "../beta/settings";
 import { halfLifeDays, updateRate } from "../beta/adaptation";
 import { BasisSheet } from "../beta/BasisSheet";
@@ -154,7 +154,6 @@ function LevelBand({ thresholds, onChange }: { thresholds: SavedFeel["thresholds
 /** β②: the reported feelings on this device — how many, a CSV for analysis, and wiping them. */
 function ReportData() {
   const list = useReports();
-  const [confirming, setConfirming] = useState(false);
   const download = async () => {
     const csv = toCsv(await reports.all());
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -178,21 +177,7 @@ function ReportData() {
         <button onClick={() => void download()} disabled={!list?.length}>
           CSVを書き出す
         </button>
-        {confirming ? (
-          <button
-            className="danger"
-            onClick={() => {
-              void reports.wipe();
-              setConfirming(false);
-            }}
-          >
-            本当に消す（元に戻せません）
-          </button>
-        ) : (
-          <button onClick={() => setConfirming(true)} disabled={!list?.length}>
-            この端末から消す
-          </button>
-        )}
+        <DangerButton label="この端末から消す" armedLabel="もう一度で消えます" disabled={!list?.length} onConfirm={() => void reports.wipe()} />
       </div>
     </div>
   );
@@ -230,9 +215,9 @@ function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: Wea
       <div className="actions tight">
         <button onClick={() => setSunTest(true)}>肌感の計算を比べる（テスト）</button>
       </div>
-      <button className="reset" onClick={reset}>
+      <Button block onClick={reset}>
         肌感の基準を初期値に戻す
-      </button>
+      </Button>
       {sunTest && <SunTestBoard store={store} station={station} today={jstToday()} onClose={() => setSunTest(false)} />}
     </section>
   );
@@ -392,9 +377,9 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
               {beta.fitting ? "（計算中）" : ""}
             </span>
           </p>
-          <button className="link-btn" onClick={() => setBasis(true)}>
+          <Button kind="quiet" size="sm" className="start" onClick={() => setBasis(true)}>
             計算の根拠を見る（今日）
-          </button>
+          </Button>
           {basis && store && <BasisSheet store={store} station={station} target={store.today} other={null} onClose={() => setBasis(false)} />}
         </div>
         <div className="set-row">
