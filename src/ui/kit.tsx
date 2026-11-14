@@ -1,7 +1,7 @@
 // Component kit: the small parts every screen is built from. Each has one look and one behaviour,
 // so the same thing never looks different on two screens (rules: docs/design-system.md).
 
-import { type CSSProperties, Fragment, type ReactNode, useState } from "react";
+import { type ButtonHTMLAttributes, type CSSProperties, Fragment, type ReactNode, useEffect, useState } from "react";
 import { dayTone } from "../../shared/holidays";
 import type { Confidence } from "../../shared/confidence";
 import { type BandMark, barLook, type DataColor, type LineDay, type LineKind, type LineLook, lineLook } from "../design/tokens";
@@ -67,6 +67,65 @@ export function Segmented<T extends string>({
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * 主・副・控えめ・危険 (docs/design-system.md 4.12, 操作の体系 #151). `primary` is the next step of the
+ * open layer and there is one at most; `quiet` opens an explanation; `danger` cannot be undone.
+ * `sm` sits in a row (32 high, pressable 44); `block` spans the width (44). `busy` turns a ring
+ * before the words without changing the width.
+ */
+export type ButtonKind = "primary" | "secondary" | "quiet" | "danger";
+export function Button({
+  kind = "secondary",
+  size = "md",
+  block,
+  busy,
+  className,
+  children,
+  type = "button",
+  ...rest
+}: ButtonHTMLAttributes<HTMLButtonElement> & { kind?: ButtonKind; size?: "md" | "sm"; block?: boolean; busy?: boolean }) {
+  const cls = ["btn", kind, size === "sm" && "sm", block && "block", className].filter(Boolean).join(" ");
+  return (
+    <button type={type} className={cls} aria-busy={busy || undefined} {...rest}>
+      {busy && <span className="btn-spin" aria-hidden />}
+      {children}
+    </button>
+  );
+}
+
+/** ✓ for a button that has just done its job (記録しました). */
+export function CheckGlyph() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M3.5 8.5l3 3 6-7" />
+    </svg>
+  );
+}
+
+/**
+ * A step that cannot be undone, in two presses: the first arms it (filled red, `armedLabel`), the
+ * second does it; left alone for 3 s it disarms. No confirm window.
+ */
+export function DangerButton({ label, armedLabel, onConfirm, disabled, block = true }: { label: ReactNode; armedLabel: ReactNode; onConfirm: () => void; disabled?: boolean; block?: boolean }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (!armed) return;
+    const t = window.setTimeout(() => setArmed(false), 3000);
+    return () => window.clearTimeout(t);
+  }, [armed]);
+  return (
+    <Button
+      kind="danger"
+      block={block}
+      className={armed ? "armed" : undefined}
+      disabled={disabled}
+      onClick={() => (armed ? (setArmed(false), onConfirm()) : setArmed(true))}
+    >
+      {armed ? armedLabel : label}
+    </Button>
   );
 }
 
