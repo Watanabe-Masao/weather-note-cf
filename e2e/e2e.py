@@ -113,6 +113,16 @@ def check(name, cond, detail=""):
 ONLY = [x for x in os.environ.get("WN_ONLY", "").split(",") if x]
 
 TIMES = []
+def settle(cond, timeout=5.0, every=0.1):
+    """Waits until cond() is true (or the time is up) instead of a fixed sleep."""
+    end = time.monotonic() + timeout
+    while time.monotonic() < end:
+        try:
+            if cond(): return True
+        except Exception:
+            pass
+        time.sleep(every)
+    return False
 def step(name, fn):
     # WN_ONLY=A,T runs only those steps (and the first view), for looking into one failure.
     if ONLY and name not in ONLY and name != "A":
@@ -343,8 +353,10 @@ with sync_playwright() as p:
         moved = txt(".side .date-button")
         pg.reload(); wait(2500); pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
         check("H2b 再読み込み（新しい版への切り替え）でも見ていた日のまま", txt(".side .date-button") == moved, txt(".side .date-button"))
-        pg.click(".today-chip"); wait(500)
-        check("H3 今日へ戻る", txt(".side .date-button") == before)
+        pg.click(".today-chip")
+        # Waits for the strip to come back (a slow runner glides longer than a fixed 500 ms).
+        settle(lambda: txt(".side .date-button") == before)
+        check("H3 今日へ戻る", txt(".side .date-button") == before, txt(".side .date-button"))
     step("H", h)
 
     # G2. a tap that lowers the sheet must not also tap the page behind (iOS sends the click afterwards)
