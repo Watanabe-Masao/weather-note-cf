@@ -886,8 +886,15 @@ function HourChart({
   // The strip's sky as gradient stops (the middle of each 10 minutes), computed with the sky, not per move.
   const skyId = `sky${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
   const skyStops = useMemo(() => {
-    const stops = (sky ?? []).flatMap((steps, i) => (steps ?? []).map((c, k) => ({ at: (i + (k + 0.5) / 6) / 24, c })));
-    return stops.length ? stops : null;
+    // An hour without data is left clear (transparent at its edges), not bridged by its neighbours'
+    // colours: each hour also pins its first and last colour to its own edges.
+    const clear = { zenith: "transparent", horizon: "transparent" };
+    const stops = (sky ?? []).flatMap((steps, i) =>
+      steps
+        ? [{ at: i / 24, c: steps[0] }, ...steps.map((c, k) => ({ at: (i + (k + 0.5) / 6) / 24, c })), { at: (i + 1) / 24, c: steps[steps.length - 1] }]
+        : [{ at: i / 24, c: clear }, { at: (i + 1) / 24, c: clear }],
+    );
+    return stops.some((st) => st.c !== clear) ? stops : null;
   }, [sky]);
   // Where the touched value's tag sits on the axis (line graphs), so the tick under it can give way.
   // (As GuideLines places it: kept a half tag above the plot's foot.)
@@ -958,8 +965,8 @@ function HourChart({
             <defs>
               {(["zenith", "horizon"] as const).map((k) => (
                 <linearGradient key={k} id={`${skyId}-${k}`} gradientUnits="userSpaceOnUse" x1={xOf(0)} x2={xOf(24)} y1={0} y2={0}>
-                  {skyStops.map((st) => (
-                    <stop key={st.at} offset={st.at} stopColor={st.c[k]} />
+                  {skyStops.map((st, j) => (
+                    <stop key={`${st.at}-${j}`} offset={st.at} stopColor={st.c[k]} />
                   ))}
                 </linearGradient>
               ))}
@@ -1069,13 +1076,13 @@ function HourChart({
           </text>
         ))}
       </svg>
-      {/* The 太陽 strip opens the sheet: a real button laid over it (VoiceOver and keys reach it,
-          and it is 32 high, the strip's 22 and a little either side). */}
+      {/* The 太陽 strip opens the sheet: a real button laid over it (VoiceOver and keys reach it).
+          32 high from the plot's foot down, over the strip and the hours' row, never the plot. */}
       {onSun && (
         <button
           type="button"
           className="day-sun-button"
-          style={{ top: plotBottom + SUN_H / 2 - 16 }}
+          style={{ top: plotBottom }}
           aria-label="太陽：日の出・日の入りと薄明の時刻を開く（帯の色はその日の空の模式）"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onSun}

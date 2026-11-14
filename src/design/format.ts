@@ -106,7 +106,25 @@ export function hoursMinutes(min: number): string {
 }
 
 /**
- * Words for a narrow column: a break allowed only before the last word (日差しの｜明るさ, とても｜明るい,
- * 日の出前後の｜空), as U+200B; with word-break: keep-all nothing else breaks.
+ * Words for a narrow column: where each phrase the readout shows may break (明るさの段・外に出たとき
+ * ・空の言葉, shared/brightness.ts and shared/sky.ts), written out word by word — never found by a
+ * pattern, which broke 薄暗い into 薄｜暗い and 青空 into 青｜空 (#151). Anything not listed is one
+ * word (with word-break: keep-all it does not break unless it cannot fit at all).
  */
-export const phraseBreak = (v: string) => v.replace(/(明るさ|明るい|まぶしい|暗い|空)$/, "\u200b$1");
+const PHRASE_BREAKS: Record<string, string> = {
+  日差しの明るさ: "日差しの|明るさ",
+  とても明るい: "とても|明るい",
+  少しまぶしい: "少し|まぶしい",
+  夕方の空: "夕方の|空",
+  小雨の空: "小雨の|空",
+  強い雨の空: "強い雨の|空",
+  日の出前後の空: "日の出前後の|空",
+  晴れ間のにわか雨: "晴れ間の|にわか雨",
+  暗い曇り空: "暗い|曇り空",
+  白い曇り空: "白い|曇り空",
+  淡い青空: "淡い|青空",
+  雲の多い青空: "雲の多い|青空",
+  灰色の空: "灰色の|空",
+  薄明の青: "薄明の|青",
+};
+export const phraseBreak = (v: string) => PHRASE_BREAKS[v]?.replace("|", "\u200b") ?? v;

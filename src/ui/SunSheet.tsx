@@ -48,6 +48,7 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
   const skyNow = skies[Math.min(skies.length - 1, Math.round(at / 10))];
   const svg = useRef<SVGSVGElement>(null);
   const scrubbing = useRef(false);
+  const moved = useRef(false);
   const pick = (ev: PointerEvent) => {
     const box = svg.current!.getBoundingClientRect();
     const sx = ((ev.clientX - box.left) / box.width) * W;
@@ -78,14 +79,22 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label="一日の太陽の高さと薄明。左右になぞると10分ごとに読めます"
+        // A tap reads where it lands; a sideways drag scrubs; a vertical drag scrolls the sheet
+        // (pan-y: the browser takes it and cancels), so the cursor does not jump to the finger.
         onPointerDown={(ev) => {
           ev.stopPropagation();
           scrubbing.current = true;
-          (ev.currentTarget as Element).setPointerCapture?.(ev.pointerId);
+          moved.current = false;
+        }}
+        onPointerMove={(ev) => {
+          if (!scrubbing.current) return;
+          moved.current = true;
           pick(ev);
         }}
-        onPointerMove={(ev) => scrubbing.current && pick(ev)}
-        onPointerUp={() => (scrubbing.current = false)}
+        onPointerUp={(ev) => {
+          if (scrubbing.current && !moved.current) pick(ev);
+          scrubbing.current = false;
+        }}
         onPointerCancel={() => (scrubbing.current = false)}
       >
         {/* The ground is the sky itself on a clear day, every 10 minutes (shared/sky.ts, as in 明るさと空):

@@ -54,6 +54,10 @@ describe("words and lengths on the sun's faces (#151)", () => {
     expect(phraseBreak("日差しの明るさ")).toBe("日差しの​明るさ");
     expect(phraseBreak("日の出前後の空")).toBe("日の出前後の​空");
     expect(phraseBreak("とても明るい")).toBe("とても​明るい");
-    expect(phraseBreak("まぶしい")).toBe("​まぶしい");
+    expect(phraseBreak("雲の多い青空")).toBe("雲の多い\u200b青空");
+    // One word stays whole.
+    expect(phraseBreak("まぶしい")).toBe("まぶしい");
+    expect(phraseBreak("薄暗い")).toBe("薄暗い");
+    expect(phraseBreak("青空")).toBe("青空");
   });
 });
