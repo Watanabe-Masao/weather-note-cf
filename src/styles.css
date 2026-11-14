@@ -1256,9 +1256,11 @@ button.label-feel:active { transform: scale(0.97); }
 
 /* The sun's height through the day: a faint hill along the bottom of the graph. */
 .day-sun { fill: none; stroke: var(--ink-secondary); stroke-width: 1.2; }
+.day-sun-casing { fill: none; stroke: var(--surface-page); stroke-opacity: 0.55; stroke-width: 3.2; stroke-linejoin: round; }
 .day-sun.over-sky { fill: none; stroke: var(--ink-primary); stroke-opacity: 0.85; stroke-width: 1.2; }
 .day-sun-label { fill: var(--ink-primary); font-size: var(--size-xs); paint-order: stroke; stroke: var(--surface-page); stroke-width: 3px; stroke-opacity: 0.55; }
 /* The strip's name (太陽) in the axis column, like the unit over the value axis. */
+.day-sun-model { fill: var(--ink-secondary); }
 .day-sun-name { fill: var(--accent-base); font-size: var(--size-xs); }
 .day-sun-chevron { fill: none; stroke: var(--accent-base); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 

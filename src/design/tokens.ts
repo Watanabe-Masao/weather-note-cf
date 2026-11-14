@@ -96,7 +96,8 @@ export const LINE = {
   referenceOpacity: 0.6,
   dimmed: ink.disabled,
   dimmedScale: 0.7,
-  dimmedOpacity: 0.8,
+  // 0.55 (#173): at 0.8 a set-aside reference line hardly changed (ΔE 15.6 from its own look).
+  dimmedOpacity: 0.55,
 } as const;
 
 export interface LineLook {
