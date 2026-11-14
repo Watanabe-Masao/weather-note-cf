@@ -9,7 +9,7 @@ import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import { type ChartMetric, graphSeries } from "../chartMetrics";
 import { barLook, DATA, lineLook } from "../design/tokens";
-import { Chip, ForecastHatch, GraphReadout, GuideLines, BarSample, LineSample } from "./kit";
+import { Button, Chip, ForecastHatch, GraphReadout, GuideLines, BarSample, LineSample } from "./kit";
 import type { WeatherStore } from "../data/store";
 import { dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
 import { FeelContext } from "./FeelBar";
@@ -245,9 +245,9 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       {!series.length && (
         <p className="chart-note">
           表示する線がありません。
-          <button className="link" onClick={reset}>
+          <Button kind="quiet" size="sm" onClick={reset}>
             元に戻す
-          </button>
+          </Button>
         </p>
       )}
       {metric.forecastOnly && <p className="chart-note">予報の日だけの値です（過去の日にはありません）</p>}

@@ -351,15 +351,6 @@ select.chip {
   flex-shrink: 0;
 }
 
-.link {
-  background: none;
-  border: none;
-  color: var(--accent-base);
-  padding: 0 4px;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
 /* ---- layout & header ------------------------------------------------------------------------ */
 
 .app {
@@ -925,6 +916,11 @@ button.label-feel.shade small {
 
 .sheet-head select.chip.sm.mode {
   max-width: 108px;
+}
+
+/* The header row is tight at 360: its small button gives up 2 px of each side. */
+.sheet-head .btn.sm {
+  padding: 0 var(--space-5);
 }
 
 .sheet-body {
@@ -2743,30 +2739,6 @@ svg.scrub {
   margin-top: var(--space-6);
 }
 
-.calendar-foot button {
-  flex: 1;
-  min-height: 42px;
-  background: var(--surface-raised);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  font-size: var(--size-base);
-  color: var(--ink-secondary);
-}
-
-.calendar-foot button.primary {
-  flex: 2;
-  background: var(--accent-base);
-  border-color: var(--accent-base);
-  color: var(--ink-on-accent);
-  font-weight: var(--weight-bold);
-}
-
-.calendar-foot button.primary:disabled {
-  background: var(--surface-raised);
-  border-color: var(--line-strong);
-  color: var(--ink-disabled);
-}
-
 .cal-hint {
   margin: var(--space-3) 0 0;
 }
@@ -2777,16 +2749,133 @@ svg.scrub {
   margin-top: var(--space-7);
 }
 
-.actions button,
-.reset {
-  flex: 1;
-  background: var(--surface-raised);
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-md);
-  padding: 10px;
+/* ---- buttons (docs/design-system.md 4.12, #151) ------------------------------------------------
+   One look per role: 主 primary (the next step; one per open layer), 副 secondary, 控えめ quiet,
+   危険 danger. In a row they are round; full width (block, or any button in .actions) they are
+   rounded squares 44 high. Accent outlines and tints are kept for "chosen", never for a command. */
+.btn,
+.actions > button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  min-height: 36px;
+  min-width: 72px;
+  padding: 0 var(--space-7);
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
   font-size: var(--size-base);
-  color: var(--ink-secondary);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--ink-primary);
+  transition: transform var(--motion-quick) var(--ease-standard), background-color var(--motion-quick) var(--ease-standard);
 }
+.btn.sm {
+  min-height: 32px;
+  min-width: 64px;
+  padding: 0 var(--space-6);
+  font-size: var(--size-sm);
+}
+/* A finger is wider than 32: the small one is pressable 44 high, past what it shows. */
+.btn.sm::after {
+  content: "";
+  position: absolute;
+  inset: 50% 0 auto;
+  height: 44px;
+  transform: translateY(-50%);
+}
+.btn.block,
+.actions > button {
+  width: 100%;
+  min-height: 44px;
+  /* Its width comes from the row, so the sides only keep the words off the edge. */
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  white-space: normal;
+}
+.btn.start { align-self: flex-start; justify-self: start; }
+.btn svg { width: 14px; height: 14px; flex: none; }
+/* Side by side in a row of actions: equal widths. */
+.actions > button,
+.actions > .btn { flex: 1; width: auto; }
+
+/* 副 */
+.btn.secondary,
+.actions > button:not(.primary):not(.danger) {
+  background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
+  border-color: var(--line-strong);
+}
+.btn.secondary:active:not(:disabled),
+.actions > button:not(.primary):not(.danger):active:not(:disabled) { background: var(--surface-overlay); }
+
+/* 主: lit from above, a hair off the face. */
+.btn.primary,
+.actions > button.primary {
+  background: linear-gradient(180deg, var(--effect-sheen), transparent 55%), var(--accent-base);
+  color: var(--ink-on-accent);
+  box-shadow: inset 0 1px 0 var(--line-highlight), inset 0 -1px 0 var(--line-shade), var(--shadow-lift);
+}
+.btn.primary:active:not(:disabled),
+.actions > button.primary:active:not(:disabled) {
+  background: color-mix(in srgb, var(--accent-base) 86%, var(--surface-page));
+  box-shadow: inset 0 1px 2px var(--line-shade);
+}
+
+/* 控えめ: words only; a pale face shows only while pressed. */
+.btn.quiet {
+  min-width: 0;
+  padding: 0 var(--space-5);
+  background: transparent;
+  color: var(--accent-base);
+}
+.btn.quiet:active:not(:disabled) { background: color-mix(in srgb, var(--accent-base) 14%, transparent); }
+.btn.quiet:disabled { border-color: transparent; }
+/* At the start of a column of text, its words line up with the text, not its padding. */
+.btn.quiet.start { margin-left: calc(-1 * var(--space-5)); }
+
+/* 危険: red outline; filled red once armed (the second press does it). */
+.btn.danger,
+.actions > button.danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--status-error) 50%, transparent);
+  color: var(--status-error);
+}
+.btn.danger:active:not(:disabled),
+.actions > button.danger:active:not(:disabled) { background: color-mix(in srgb, var(--status-error) 12%, transparent); }
+.btn.danger.armed,
+.actions > button.danger.armed { background: var(--status-error); border-color: var(--status-error); color: var(--ink-on-accent); }
+
+.btn:active:not(:disabled),
+.actions > button:active:not(:disabled) { transform: scale(0.97); }
+.btn:focus-visible,
+.actions > button:focus-visible { outline: 2px solid var(--line-focus); outline-offset: 2px; }
+
+/* Not yet: a grey face, so a primary that cannot be pressed does not look like a faded one. */
+.btn:disabled,
+.actions > button:disabled {
+  background: transparent;
+  border-color: var(--line-soft);
+  color: var(--ink-disabled);
+  box-shadow: none;
+}
+.btn.primary:disabled,
+.actions > button.primary:disabled { background: var(--surface-raised); }
+
+/* Busy: a turning ring before the words; the width stays. */
+.btn-spin {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  animation: btn-spin 0.8s linear infinite;
+}
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .btn-spin { animation: none; } }
+
 
 /* ---- settings ---------------------------------------------------------------------------------- */
 
@@ -2827,11 +2916,6 @@ svg.scrub {
   position: relative;
 }
 
-.reset {
-  width: 100%;
-  flex: none;
-  font-size: var(--size-base);
-}
 
 /* Groups: 地点・肌感の基準・表示・保存データ. One raised surface each; rows inside are plain. */
 .set-group {
@@ -3306,9 +3390,6 @@ svg.scrub {
   overflow-wrap: anywhere;
 }
 
-.failure-all {
-  align-self: flex-start;
-}
 
 .failure-note {
   font-size: var(--size-xs);
@@ -3333,22 +3414,6 @@ svg.scrub {
 }
 
 /* 再試行: one look wherever it appears. */
-.state-retry {
-  flex: none;
-  min-height: 30px;
-  padding: 4px 12px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--line-strong);
-  background: var(--surface-overlay);
-  color: var(--ink-primary);
-  font-size: var(--size-sm);
-  font-weight: var(--weight-bold);
-}
-
-.state-retry:active {
-  transform: scale(0.97);
-}
-
 .state-spinner {
   width: 14px;
   height: 14px;
@@ -3499,16 +3564,6 @@ svg.scrub {
 .beta-short { font-size: var(--size-sm); }
 
 /* β②: recording how it feels. Neutral buttons (the 肌感 colours stay with 肌感). */
-.beta-report {
-  margin-left: auto;
-  padding: 4px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent-base) 60%, transparent);
-  border-radius: var(--radius-pill);
-  background: none;
-  color: var(--accent-base);
-  font-size: var(--size-sm);
-  white-space: nowrap;
-}
 .report-form { display: grid; gap: var(--space-5); padding-bottom: var(--space-3); }
 /* Seven steps in one row: cold on the left, hot on the right, as on the scale. */
 .report-scale { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
@@ -3531,34 +3586,13 @@ svg.scrub {
   color: var(--ink-primary);
   font-weight: var(--weight-bold);
 }
-.report-save {
-  min-height: 44px;
-  border: none;
-  border-radius: var(--radius-md);
-  background: var(--accent-base);
-  color: var(--ink-on-accent);
-  font-weight: var(--weight-bold);
-  font-size: var(--size-md);
-}
-.report-save:disabled { background: var(--surface-raised); color: var(--ink-disabled); }
 .actions.tight { margin-top: 0; }
-.actions .danger { color: var(--status-error); border-color: color-mix(in srgb, var(--status-error) 50%, transparent); }
 .beta-alpha { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: baseline; font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.55; }
 .beta-alpha b { font-family: var(--font-numeric); font-size: var(--size-lg); color: var(--ink-primary); font-variant-numeric: tabular-nums; }
 .beta-alpha b small { display: block; font-family: var(--font-family); font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); white-space: nowrap; }
 
 /* β: 計算の根拠 — formulas and the numbers that went into them. */
-.beta-basis {
-  padding: 4px 10px;
-  border: 1px solid var(--line-strong);
-  border-radius: var(--radius-pill);
-  background: none;
-  color: var(--ink-secondary);
-  font-size: var(--size-sm);
-}
-.cs-beta-head .beta-basis { margin-left: auto; }
-.cs-beta-head .beta-basis + .beta-report { margin-left: 0; }
-.link-btn { justify-self: start; padding: 2px 0; border: none; background: none; color: var(--accent-base); font-size: var(--size-base); text-decoration: underline; text-underline-offset: 3px; }
+.cs-beta-actions { margin-left: auto; display: inline-flex; align-items: center; gap: var(--space-4); }
 .basis { display: grid; gap: var(--space-5); padding-bottom: var(--space-6); }
 .basis .seg { display: grid; width: 100%; }
 .basis-sec { display: grid; gap: 6px; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-raised); min-width: 0; }
@@ -3580,7 +3614,6 @@ svg.scrub {
 .outlook-word { display: flex; align-items: center; gap: 6px; font-weight: var(--weight-bold); }
 .outlook-word i { width: 10px; height: 10px; border-radius: var(--radius-tick); flex: none; }
 .outlook-word small { font-weight: var(--weight-regular); color: var(--ink-secondary); }
-.outlook-basis { justify-self: start; }
 .outlook-why { margin: 0; font-size: var(--size-sm); line-height: 1.6; }
 .outlook-why b { margin-right: 4px; color: var(--ink-secondary); }
 .outlook-sure, .outlook-none { font-size: var(--size-sm); color: var(--ink-secondary); }
@@ -3639,9 +3672,7 @@ svg.scrub {
   color: var(--ink-primary);
 }
 .login-form .actions, .once-secret .actions, .admin .actions { flex-wrap: wrap; }
-.login-form .actions button, .admin .actions button { min-width: 0; white-space: normal; line-height: 1.3; }
-.set-group .actions button.primary { background: var(--accent-base); border-color: var(--accent-base); color: var(--ink-on-accent); font-weight: var(--weight-bold); }
-.set-group .actions button.primary:disabled { opacity: 0.6; }
+.login-form .actions > button, .admin .actions > button { min-width: 0; }
 .set-small {
   background: var(--surface-raised);
   border: 1px solid var(--line-strong);
@@ -3665,17 +3696,6 @@ svg.scrub {
 
 /* The header's 記録 button (logged in): reporting at any time, not only from a notification. */
 .app-head-actions { display: flex; align-items: center; gap: 8px; }
-.head-report {
-  min-height: 40px;
-  padding: 0 16px;
-  border-radius: var(--radius-pill);
-  border: 1px solid var(--accent-base);
-  background: color-mix(in srgb, var(--accent-base) 16%, transparent);
-  color: var(--ink-primary);
-  font-size: var(--size-base);
-  font-weight: var(--weight-bold);
-}
-
 /* Settings › 記録の通知 */
 .notify-times { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .notify-time {

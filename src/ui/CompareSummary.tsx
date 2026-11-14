@@ -17,7 +17,7 @@ import type { WeatherStore } from "../data/store";
 import { clock, hourOfDay } from "../data/sun";
 import { digitsOf, lineLabel, num, signedDiff, UNIT } from "../design/format";
 import type { DataColor } from "../design/tokens";
-import { Badge, confidenceOfRow, DayLabel, SwipeHint } from "./kit";
+import { Badge, Button, CheckGlyph, confidenceOfRow, DayLabel, SwipeHint } from "./kit";
 import type { MetricId } from "../metrics";
 import { useSun } from "./HourCompare";
 import { useSwipeDays } from "./useSwipeDays";
@@ -520,15 +520,19 @@ function BetaRows({
         {open && <small>
           {unknown ? `暑くも寒くもない肌感は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
         </small>}
-        {onBasis && (
-          <button className="beta-basis" onClick={onBasis} aria-label="肌感の中心とちょうどよい範囲の計算の根拠を見る">
-            根拠
-          </button>
-        )}
-        {onReport && (
-          <button className="beta-report" onClick={onReport}>
-            {saved ? "記録しました" : "今の感じ方を記録"}
-          </button>
+        {(onBasis || onReport) && (
+          <span className="cs-beta-actions">
+            {onBasis && (
+              <Button kind="quiet" size="sm" onClick={onBasis} aria-label="肌感の中心とちょうどよい範囲の計算の根拠を見る">
+                根拠
+              </Button>
+            )}
+            {onReport && (
+              <Button size="sm" onClick={onReport}>
+                {saved ? <><CheckGlyph />記録しました</> : "今の感じ方を記録"}
+              </Button>
+            )}
+          </span>
         )}
       </p>
       {open && rows.map((r) => {

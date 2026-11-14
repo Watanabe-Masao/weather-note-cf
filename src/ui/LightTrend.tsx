@@ -20,7 +20,7 @@ import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { DATA, LIGHT_LEVELS, lineLook } from "../design/tokens";
 import { monthDay } from "../design/format";
-import { Chip, ForecastHatch, GraphReadout, Segmented, InfoNote, LineSample } from "./kit";
+import { Chip, ForecastHatch, GraphReadout, Segmented, InfoNote, LevelScale, LineSample } from "./kit";
 
 type View = "time" | "level";
 type Span = "week" | "month" | "year";
@@ -268,18 +268,28 @@ function TimeView({ station, target, compareDate, at, days, partnerOf, cloudsOf,
         <defs>
           <ForecastHatch id="lt-hatch" />
         </defs>
-        {edges.slice(0, -1).map((lo, i) => (
-          <g key={lo}>
-            <rect x={X0} y={yOf(edges[i + 1])} width={plotW} height={yOf(lo) - yOf(edges[i + 1])} fill={LIGHT_LEVELS[i]} opacity={0.38} />
-            {yOf(lo) - yOf(edges[i + 1]) > 14 && (
-              <text x={X0 - 4} y={(yOf(lo) + yOf(edges[i + 1])) / 2 + 3.5} className="lt-axis" textAnchor="end">
-                {["暗い", "薄明", "薄暗い", "明るい", "とても", "日差し"][i]}
-              </text>
-            )}
-          </g>
-        ))}
+        <LevelScale left={X0} right={X0 + plotW} bands={edges.slice(0, -1).map((lo, i) => ({ y1: yOf(edges[i + 1]), y2: yOf(lo), color: LIGHT_LEVELS[i] }))} />
+        {edges.slice(0, -1).map((lo, i) => {
+          const mid = (yOf(lo) + yOf(edges[i + 1])) / 2;
+          const words = ["暗い", "薄明", "薄暗い", "明るい", "とても明るい", "日差し"][i];
+          if (yOf(lo) - yOf(edges[i + 1]) <= 14) return null;
+          // とても明るい on two lines; it was cut to とても before.
+          const tall = yOf(lo) - yOf(edges[i + 1]);
+          // A long name never shows cut short: two lines, or none when even two do not fit.
+          if (words.length > 3 && tall <= 20) return null;
+          return words.length > 3 ? (
+            <text key={lo} x={X0 - 9} y={mid - 1.5} className="chart-tick" textAnchor="end">
+              <tspan x={X0 - 9}>{words.slice(0, 3)}</tspan>
+              <tspan x={X0 - 9} dy={11}>{words.slice(3)}</tspan>
+            </text>
+          ) : (
+            <text key={lo} x={X0 - 9} y={mid + 3.5} className="chart-tick" textAnchor="end">
+              {words}
+            </text>
+          );
+        })}
         {firstForecast >= 0 && <rect x={X0 + (firstForecast / n) * plotW} y={top} width={plotW - (firstForecast / n) * plotW} height={H} fill="url(#lt-hatch)" />}
-        {ti >= 0 && <rect x={X0 + (ti / n) * plotW + 1} y={top} width={plotW / n - 2} height={H} className="lt-today" rx={4} />}
+        {ti >= 0 && <rect x={X0 + (ti / n) * plotW + 1} y={top} width={plotW / n - 2} height={H} className="chart-center" rx={8} />}
         <path d={clearP} className="lt-clear-line" />
         {compareP && <path d={compareP} fill="none" {...lineLook("compare", DATA.sun)} />}
         <path d={targetP} fill="none" {...lineLook("target", DATA.sun)} />

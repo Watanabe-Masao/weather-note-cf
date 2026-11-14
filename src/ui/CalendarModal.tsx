@@ -13,7 +13,7 @@ import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "../compare
 import type { WeatherStore } from "../data/store";
 import { dateLabel } from "../design/format";
 import { ChevronIcon } from "./icons";
-import { Chip, confidenceOfRow } from "./kit";
+import { Button, Chip, confidenceOfRow } from "./kit";
 import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { useSwipeDays } from "./useSwipeDays";
 import { DayWeatherIcon } from "./WeatherIcon";
@@ -76,6 +76,7 @@ function Body(p: Props) {
   const [cand, setCand] = useState<Candidate | null>(null);
   const shown = cand?.date ?? value;
   const [month, setMonth] = useState(monthOf(value));
+  const thisMonth = p.today < p.min ? p.min : p.today > p.max ? p.max : p.today;
   const canPrev = shiftMonth(month, -1) >= monthOf(p.min);
   const canNext = shiftMonth(month, 1) <= monthOf(p.max);
   const move = (n: number) => {
@@ -196,6 +197,10 @@ function Body(p: Props) {
         <button className="icon-btn sm flip" disabled={!canNext} onClick={() => move(1)} aria-label="次の月">
           <ChevronIcon />
         </button>
+        {/* Beside the month it moves, not down with 決定. */}
+        <Button kind="quiet" size="sm" disabled={month === monthOf(thisMonth)} onClick={() => setMonth(monthOf(thisMonth))}>
+          今月
+        </Button>
       </header>
 
       <div ref={swipe.ref} style={swipe.style} className="calendar-grid">
@@ -263,27 +268,20 @@ function Body(p: Props) {
             {failed && (
               <span>
                 取得できなかった日があります（—）。
-                <button className="state-retry" onClick={() => p.store?.retryAll()}>
+                <Button size="sm" onClick={() => p.store?.retryAll()}>
                   再試行
-                </button>
+                </Button>
               </span>
             )}
           </p>
         );
       })()}
 
+      {/* The one next step here: 決定, across the width once a day is picked. */}
       <footer className="calendar-foot">
-        <button
-          onClick={() => {
-            const t = p.today < p.min ? p.min : p.today > p.max ? p.max : p.today;
-            setMonth(monthOf(t));
-          }}
-        >
-          今月へ
-        </button>
-        <button className="primary" onClick={() => confirm(cand)} disabled={!cand}>
+        <Button kind="primary" block onClick={() => confirm(cand)} disabled={!cand}>
           決定
-        </button>
+        </Button>
       </footer>
       <p className="hint cal-hint">日をタップすると上の組み合わせが変わります。もう一度タップするか［決定］で決まります。</p>
     </>
