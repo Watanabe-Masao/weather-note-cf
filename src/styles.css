@@ -2996,6 +2996,9 @@ svg.scrub {
 .set-row.inline { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); }
 .set-label { display: grid; gap: 2px; font-size: var(--size-base); color: var(--ink-secondary); }
 .set-help { font-size: var(--size-sm); color: var(--ink-tertiary); line-height: 1.5; }
+/* Help: the first sentence, and the rest under ⓘ (#151). */
+.help { display: grid; gap: var(--space-2); }
+.help-more { color: var(--ink-secondary); }
 .set-row select {
   width: 100%;
   background: var(--surface-inset);
@@ -3877,3 +3880,17 @@ svg.scrub {
 .drum-pane {
   touch-action: pan-y;
 }
+
+/* 記録: the save button stays at the bottom of the sheet while the form scrolls (#151). */
+.report-foot {
+  position: sticky;
+  bottom: calc(-1 * max(18px, env(safe-area-inset-bottom)));
+  z-index: 2;
+  margin: var(--space-4) -14px calc(-1 * max(18px, env(safe-area-inset-bottom)));
+  padding: var(--space-6) 14px max(18px, env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, transparent, var(--surface-overlay) 22px);
+}
+.report-missing { display: grid; gap: 2px; line-height: 1.25; }
+.report-missing small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-secondary); }
+.report-save:disabled { border: 1px dashed var(--line-strong); }
+.report-lead p { font-size: var(--size-base); color: var(--ink-secondary); }

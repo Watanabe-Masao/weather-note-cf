@@ -8,7 +8,7 @@ import { cachedSun, loadSun } from "../data/sun";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { FeelContext } from "../ui/FeelBar";
-import { Button, Segmented } from "../ui/kit";
+import { Button, InfoNote, Segmented } from "../ui/kit";
 import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
 import { reportMoment, DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
@@ -97,7 +97,9 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
     return nightAt(now, station, snap ? { sunrise: snap.sunrise, sunset: snap.sunset, date: snap.date } : null);
   };
   const night = nightNow(Date.now());
-  const ready = sensation != null && (night || exposure != null) && windFelt != null && sky != null && waitingFor == null;
+  // What is still to answer, in the order of the form: the save button names it (#151 操作の体系 3).
+  const missing = [sensation == null && "感じ方", !night && exposure == null && "いる場所", windFelt == null && "風", sky == null && "今の天気"].filter((m): m is string => !!m);
+  const ready = missing.length === 0 && waitingFor == null;
 
   /**
    * The comfort model's prediction for a moment: the station's hour then, the place and wind
@@ -126,7 +128,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   })();
 
   const save = async () => {
-    if (!ready || saving) return;
+    if (!ready || saving || sensation == null || windFelt == null || sky == null) return;
     setSaving(true);
     const now = Date.now();
     const hours = store?.getHours(station, today).rows ?? null;
@@ -187,7 +189,9 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
 
   return (
     <div className="report-form">
-      <p className="set-lead">今いる場所の様子を選んでください。観測所の気温・湿度・風・日射、その時刻の予報、直近7日の天気・湿度・日射、最近の基準は自動で添えます。</p>
+      <InfoNote className="report-lead" more="観測所の気温・湿度・風・日射、その時刻の予報、直近7日の天気・湿度・日射、最近の基準は自動で添えます。">
+        今いる場所の様子を選んでください。
+      </InfoNote>
       <div className="set-row">
         <span className="set-label">感じ方</span>
         <div className="report-scale" role="radiogroup" aria-label="感じ方">
@@ -201,7 +205,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
               onClick={() => pick(s.value)}
             >
               {/* Two lines where the word is long, so seven fit a phone's width. */}
-              {s.label.replace("暑くも寒くもない", "暑くも\n寒くも\nない")}
+              {s.label.replace("暑くも寒くもない", "暑くも\n寒くも\nない").replace("少し暑い", "少し\n暑い")}
             </button>
           ))}
         </div>
@@ -218,7 +222,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
           今飲むとしたら、どの温度の飲み物を選びますか<small className="set-help">（任意）</small>
         </span>
         <Segmented label="今飲むとしたら、どの温度の飲み物か" value={drink ?? ("" as DrinkPreference)} options={DRINK_PREFERENCES.map((d) => ({ id: d.id, label: d.label }))} onChange={setDrink} onReselect={() => setDrink(null)} />
-        <small className="set-help">飲み物の種類や味ではなく、温度だけを考えてください。選んだものをもう一度押すと、答えない状態に戻ります。</small>
+        <InfoNote more="飲み物の種類や味ではなく、温度だけを考えてください。選んだものをもう一度押すと、答えない状態に戻ります。">温度だけで選んでください。</InfoNote>
       </div>
       {!night && (
         <div className="set-row">
@@ -234,14 +238,25 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       <div className="set-row">
         <span className="set-label">今の天気</span>
         <Segmented label="今の天気" value={sky ?? ("" as Sky)} options={SKIES.map((k) => ({ id: k.id, label: k.label }))} onChange={setSky} />
-        <small className="set-help">見たままの空。その時刻の予報の天気は自動で添えるので、あとで予報と実際を突き合わせられます。</small>
+        <InfoNote more="その時刻の予報の天気は自動で添えるので、あとで予報と実際を突き合わせられます。">見たままの空を選んでください。</InfoNote>
       </div>
       {waitingFor == null && !quality.trainable && (
         <p className="report-quality warn">この記録は保存しますが、学習には使いません（{quality.reason}）。</p>
       )}
-      <Button kind="primary" block className="report-save" busy={saving} disabled={!ready || saving} onClick={() => void save()}>
-        {waitingFor ?? (ready ? "記録する" : `${night ? "3" : "4"}つとも選ぶと記録できます`)}
-      </Button>
+      {/* The next step stays in view at the bottom; until it can be pressed it says what is missing. */}
+      <div className="report-foot">
+        <Button kind="primary" block className="report-save" busy={saving} disabled={!ready || saving} onClick={() => void save()}>
+          {waitingFor ??
+            (ready ? (
+              "記録する"
+            ) : (
+              <span className="report-missing">
+                <span>あと{missing.length}つで記録できます</span>
+                <small>{missing.join("・")}</small>
+              </span>
+            ))}
+        </Button>
+      </div>
     </div>
   );
 }
