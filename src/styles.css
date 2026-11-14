@@ -695,6 +695,11 @@ button.label-feel.shade small {
   color: var(--ink-secondary);
 }
 
+/* Five characters or more (−10.7): a step down, so a 360-wide column still holds it. */
+.cell-value.long {
+  font-size: var(--size-base);
+}
+
 .cell-feel {
   width: 100%;
   padding: 0 4px;

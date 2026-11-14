@@ -581,7 +581,7 @@ with sync_playwright() as p:
             check(f"T7 明るさで {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())
         pg.locator(".lt-controls button", has_text="時刻で").click(); wait(400)
         pg.click(".back-btn"); wait(600)
-        check("T8 ‹日別で戻る", title() == "日照と明るさの日別", title())
+        check("T8 ‹日別で戻る", title() == "日照の日別", title())
         pg.click(".metrics .chip:nth-child(3)"); wait(500)
         check("T9 日差しには［移り変わり］がない", pg.locator(".trend-btn").count() == 0)
         pg.click(".metrics .chip:nth-child(1)"); wait(400)
