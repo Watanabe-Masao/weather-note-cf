@@ -27,6 +27,8 @@ const line = {
   strong: "#2a3f58",
   soft: "rgba(255, 255, 255, 0.06)",
   focus: "#7cc4ff",
+  swatch: "rgba(255, 255, 255, 0.14)", // the light edge round a colour swatch, so neighbours separate
+  shade: "rgba(0, 0, 0, 0.25)", // the dark edge round a strip of colours on a face
 } as const;
 
 /** Interaction: selection, links, the centre band. Never used for data. */
@@ -178,7 +180,8 @@ const size = { xs: 10, sm: 11.5, base: 13, md: 15, lg: 17, xl: 20, input: 16 } a
 const weight = { regular: 400, medium: 500, bold: 650 } as const;
 
 const space = { 1: 2, 2: 4, 3: 6, 4: 8, 5: 10, 6: 12, 7: 16, 8: 20, 9: 24 } as const;
-const radius = { xs: 4, sm: 6, md: 10, lg: 14, xl: 20, pill: 999 } as const;
+/** Corners. `tick` is for small marks (swatches, bars, badges); circles use 50%. */
+const radius = { tick: 2, xs: 4, sm: 6, md: 10, lg: 14, xl: 20, pill: 999 } as const;
 
 /** Elevation: what sits above what. Shadows deepen with height. */
 const shadow = {
@@ -186,6 +189,9 @@ const shadow = {
   sheet: "0 -1px 0 rgba(255,255,255,0.06) inset, 0 -10px 30px rgba(0,0,0,0.36)",
   overlay: "0 -1px 0 rgba(255,255,255,0.07) inset, 0 -16px 48px rgba(0,0,0,0.55)",
   pinned: "0 8px 20px rgba(0,0,0,0.38)",
+  lift: "0 1px 3px rgba(0,0,0,0.32)", // a chosen segment, a cell or a slider thumb a hair above its face
+  float: "0 10px 28px rgba(0,0,0,0.45)", // a card floating over content (zoom card, toast)
+  edge: "8px 0 10px -8px rgba(0,0,0,0.7)", // the edge of a pinned column that content scrolls under
 } as const;
 
 /** Stacking order (z-index). Only these values are used. */
@@ -217,11 +223,15 @@ export const MOTION = {
   },
 } as const;
 
-/** Effects: dimming and frosted glass. */
+/** Effects: dimming, frosted glass, the light from above, and night on a time axis. */
 const effect = {
   scrim: "rgba(3, 8, 14, 0.55)",
   backdrop: "rgba(3, 8, 14, 0.62)",
   blur: "10px",
+  gloss: "rgba(255, 255, 255, 0.04)", // the faint light on a face's top edge (controls, cards, sheets)
+  glossStrong: "rgba(255, 255, 255, 0.06)", // the same on a chosen control
+  night: "rgba(0, 0, 0, 0.24)", // night hours behind a graph
+  twilight: "rgba(0, 0, 0, 0.12)", // twilight hours behind a graph
 } as const;
 
 // ---- output -------------------------------------------------------------------------------------

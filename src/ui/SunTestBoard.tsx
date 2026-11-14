@@ -12,15 +12,16 @@ import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
 import { FeelContext } from "./FeelBar";
 import { ModalSheet } from "./ModalSheet";
+import { DATA } from "../design/tokens";
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const f1 = (v: number | null) => (v == null ? "—" : v.toFixed(1));
 
 const LINES = [
-  { key: "s1", label: "今の日かげ（feel-1s）", color: "#a9b9cb", dash: "4 3" },
-  { key: "u1", label: "今の日なた（feel-1s）", color: "#a9b9cb", dash: "" },
-  { key: "s3", label: "候補の日かげ（UTCI）", color: "#f39a86", dash: "4 3" },
-  { key: "u3", label: "候補の日なた（UTCI）", color: "#f39a86", dash: "" },
+  { key: "s1", label: "今の日かげ（feel-1s）", color: "var(--ink-secondary)", dash: "4 3" },
+  { key: "u1", label: "今の日なた（feel-1s）", color: "var(--ink-secondary)", dash: "" },
+  { key: "s3", label: "候補の日かげ（UTCI）", color: DATA.hot, dash: "4 3" },
+  { key: "u3", label: "候補の日なた（UTCI）", color: DATA.hot, dash: "" },
 ] as const;
 type Key = (typeof LINES)[number]["key"];
 

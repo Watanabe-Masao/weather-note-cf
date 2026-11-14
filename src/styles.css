@@ -37,7 +37,7 @@ body {
   overscroll-behavior-y: none;
   /* A faint light from the top: depth without decoration. */
   background:
-    radial-gradient(120% 60% at 50% -10%, rgba(124, 196, 255, 0.09), transparent 60%),
+    radial-gradient(120% 60% at 50% -10%, color-mix(in srgb, var(--accent-base) 9%, transparent), transparent 60%),
     var(--surface-page);
   background-attachment: fixed;
   min-height: 100vh;
@@ -146,7 +146,7 @@ p {
   padding: 5px 13px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--line-strong);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), var(--surface-raised);
+  background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
   color: var(--ink-secondary);
   font-size: var(--size-base);
   line-height: 1.2;
@@ -184,7 +184,7 @@ p {
 .chip .dot.band {
   width: 12px;
   height: 7px;
-  border-radius: 2px;
+  border-radius: var(--radius-tick);
   background: color-mix(in srgb, var(--data-hot) 40%, transparent) !important;
 }
 
@@ -198,7 +198,7 @@ select.chip {
   background-image:
     linear-gradient(45deg, transparent 50%, var(--ink-tertiary) 50%),
     linear-gradient(135deg, var(--ink-tertiary) 50%, transparent 50%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent);
+    linear-gradient(180deg, var(--effect-gloss), transparent);
   background-position:
     calc(100% - 13px) 55%,
     calc(100% - 8.5px) 55%,
@@ -239,7 +239,7 @@ select.chip {
 .seg button {
   border: none;
   background: none;
-  border-radius: 7px;
+  border-radius: var(--radius-sm);
   padding: 5px 12px;
   min-height: 28px;
   font-size: var(--size-sm);
@@ -251,10 +251,10 @@ select.chip {
 }
 
 .seg button[aria-selected="true"] {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent), var(--surface-overlay);
+  background: linear-gradient(180deg, var(--effect-gloss-strong), transparent), var(--surface-overlay);
   color: var(--ink-primary);
   font-weight: var(--weight-bold);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lift);
 }
 
 /* Icon button: a 36 px target; `sm` keeps the target at 32 px. */
@@ -266,7 +266,7 @@ select.chip {
   flex: none;
   border-radius: 50%;
   border: 1px solid var(--line-strong);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent), var(--surface-raised);
+  background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
   color: var(--ink-secondary);
   padding: 0;
   transition: transform var(--motion-quick) var(--ease-standard);
@@ -714,7 +714,7 @@ button.label-feel.shade small {
   border-radius: var(--radius-xs);
   overflow: hidden;
   gap: 1px;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 0 1px var(--line-shade);
 }
 
 .feel-bar i {
@@ -730,7 +730,7 @@ button.label-feel.shade small {
 
 /* Forecast (or partly forecast) bands. */
 .feel-bar i.forecast {
-  background-image: repeating-linear-gradient(135deg, rgba(10, 20, 32, 0.35) 0 2px, transparent 2px 5px);
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--surface-page) 35%, transparent) 0 2px, transparent 2px 5px);
 }
 
 .feel-none,
@@ -761,10 +761,10 @@ button.label-feel.shade small {
   z-index: var(--layer-band);
   pointer-events: none;
   border: 1.5px solid var(--accent-base);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(124, 196, 255, 0.08), rgba(124, 196, 255, 0.03));
+  border-radius: var(--radius-md);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-base) 8%, transparent), color-mix(in srgb, var(--accent-base) 3%, transparent));
   box-shadow:
-    0 0 0 1px rgba(124, 196, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, var(--accent-base) 8%, transparent),
     0 0 22px var(--accent-glow);
   transition:
     top var(--motion-base) var(--ease-standard),
@@ -788,7 +788,7 @@ button.label-feel.shade small {
   max-width: 600px;
   margin: 0 auto;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 90px),
+    linear-gradient(180deg, var(--effect-gloss), transparent 90px),
     var(--surface-base);
   border: 1px solid var(--line-soft);
   border-bottom: none;
@@ -811,7 +811,7 @@ button.label-feel.shade small {
   right: 0;
   top: -28px;
   height: 28px;
-  background: linear-gradient(180deg, transparent, rgba(10, 20, 32, 0.85));
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--surface-page) 85%, transparent));
   pointer-events: none;
 }
 
@@ -847,7 +847,7 @@ button.label-feel.shade small {
   display: block;
   width: 38px;
   height: 5px;
-  border-radius: 3px;
+  border-radius: var(--radius-pill);
   background: var(--ink-tertiary);
   opacity: 0.55;
   margin: 0 auto 6px;
@@ -1099,7 +1099,7 @@ button.label-feel.shade small {
   padding: 0 10px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-pill);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent), var(--surface-raised);
+  background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
   color: var(--ink-secondary);
   font-size: var(--size-xs);
 }
@@ -1127,11 +1127,11 @@ button.label-feel.shade small {
 
 
 /* Forecast: the hatch the graphs draw behind forecast days and hours. */
-.line-legend .ls-forecast {
+.ls-forecast {
   width: 14px;
   height: 10px;
   border: none;
-  border-radius: 2px;
+  border-radius: var(--radius-tick);
   background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--status-forecast) 55%, transparent) 0 1.5px, color-mix(in srgb, var(--status-forecast) 8%, transparent) 1.5px 4px);
 }
 
@@ -1151,7 +1151,7 @@ button.label-feel.shade small {
   display: inline-block;
   width: 10px;
   height: 8px;
-  border-radius: 2px;
+  border-radius: var(--radius-tick);
 }
 
 .feel-legend {
@@ -1197,9 +1197,9 @@ button.label-feel.shade small {
   -webkit-user-select: none;
 }
 
-.day-night { fill: rgba(0, 0, 0, 0.24); }
+.day-night { fill: var(--effect-night); }
 /* Twilight (sunrise and sunset to 6° below the horizon): half the night's shade. */
-.day-twilight { fill: rgba(0, 0, 0, 0.12); }
+.day-twilight { fill: var(--effect-twilight); }
 /* The sun's height through the day: a faint hill along the bottom of the graph. */
 .day-sun { fill: var(--data-sun); fill-opacity: 0.1; stroke: var(--data-sun); stroke-opacity: 0.45; stroke-width: 1; }
 .day-sun-label { fill: var(--ink-secondary); font-size: var(--size-xs); paint-order: stroke; stroke: var(--surface-base); stroke-width: 3px; }
@@ -1209,15 +1209,15 @@ button.label-feel.shade small {
 .light-row { display: flex; align-items: center; }
 .light-row-label { width: 34px; font-size: var(--size-sm); color: var(--ink-tertiary); }
 .light-cells { flex: 1; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 1px; margin-right: 10px; }
-.light-cells i { height: 18px; border-radius: 2px; }
+.light-cells i { height: 18px; border-radius: var(--radius-tick); }
 .light-cells i.on { outline: 1.5px solid var(--ink-primary); outline-offset: -1px; }
 .light-note { margin: 2px 0 0 34px; }
 .light-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 0 34px; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .light-legend span { display: inline-flex; align-items: center; gap: 3px; }
-.light-legend i { width: 10px; height: 10px; border-radius: 2px; border: 1px solid var(--line-soft); }
+.light-legend i { width: 10px; height: 10px; border-radius: var(--radius-tick); border: 1px solid var(--line-soft); }
 /* 明るさと空: each hour as its six 10-minute sky colours (zenith above horizon) over a thin line of the light's levels. */
 .light-rows { position: relative; display: flex; flex-direction: column; gap: 4px; }
-.light-cells.sky i { height: 30px; display: flex; flex-direction: column; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.light-cells.sky i { height: 30px; display: flex; flex-direction: column; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line-swatch); }
 .light-cells.sky i.none { box-shadow: none; }
 .light-cells.sky i b { display: block; }
 .light-cells.sky i b:first-of-type { flex: 3; }
@@ -1246,10 +1246,10 @@ button.label-feel.shade small {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--surface-overlay);
   border: 1px solid var(--line-strong);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-float);
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
@@ -1262,10 +1262,10 @@ button.label-feel.shade small {
 .sky-zoom-head small, .sky-zoom-now small { font-size: var(--size-xs); color: var(--ink-secondary); }
 .sky-zoom-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; align-items: end; }
 .sky-zoom-steps span { display: flex; flex-direction: column; gap: 3px; }
-.sky-zoom-steps i { height: 56px; border-radius: 6px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.sky-zoom-steps i { height: 56px; border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px var(--line-swatch); }
 .sky-zoom-steps span.on i { height: 70px; outline: 2px solid var(--ink-primary); outline-offset: 1px; }
 .sky-zoom-steps small { font-size: var(--size-xs); text-align: center; color: var(--ink-secondary); }
-.sky-zoom-steps u { display: block; height: 4px; border-radius: 2px; }
+.sky-zoom-steps u { display: block; height: 4px; border-radius: var(--radius-tick); }
 .sky-zoom-light { font-size: var(--size-sm); color: var(--ink-secondary); margin-top: -2px; }
 .sky-zoom-steps span.on small { color: var(--ink-primary); font-weight: 700; }
 .sky-zoom-day { display: flex; flex-direction: column; gap: 6px; }
@@ -1280,13 +1280,13 @@ button.label-feel.shade small {
   right: -12px;
   width: 32px;
   height: 32px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--line-strong);
   background: var(--surface-raised);
   color: var(--ink-primary);
   font-size: var(--size-md);
 }
-.sky-word i { display: inline-block; width: 9px; height: 12px; margin-right: 3px; vertical-align: -1px; border-radius: 2px; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.15); }
+.sky-word i { display: inline-block; width: 9px; height: 12px; margin-right: 3px; vertical-align: -1px; border-radius: var(--radius-tick); box-shadow: inset 0 0 0 1px var(--line-swatch); }
 .day-band-edge { stroke: var(--line-soft); }
 
 .day-band-label {
@@ -1413,7 +1413,7 @@ button.label-feel.shade small {
 
 /* The value where a guide meets the axis: a tag in the line's colour. */
 .guide-tag {
-  stroke: rgba(10, 20, 32, 0.6);
+  stroke: color-mix(in srgb, var(--surface-page) 60%, transparent);
   stroke-width: 1;
 }
 
@@ -1475,7 +1475,7 @@ svg.scrub {
   margin: 0 2px var(--space-3);
   padding: 8px 10px 6px;
   border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 40px), var(--surface-raised);
+  background: linear-gradient(180deg, var(--effect-gloss), transparent 40px), var(--surface-raised);
   box-shadow:
     0 0 0 1px var(--line-soft) inset,
     var(--shadow-card);
@@ -1578,12 +1578,12 @@ svg.scrub {
 }
 
 .cs-row.chosen > .cs-a {
-  border-radius: 6px 0 0 6px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
   padding-right: 4px;
 }
 
 .cs-row.chosen > .cs-b {
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   padding-left: 4px;
 }
 
@@ -1759,7 +1759,7 @@ svg.scrub {
   border: 1px solid var(--line-soft);
   border-bottom: none;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 120px),
+    linear-gradient(180deg, var(--effect-gloss), transparent 120px),
     var(--surface-overlay);
   box-shadow: var(--shadow-overlay);
   outline: none;
@@ -1942,7 +1942,7 @@ svg.scrub {
   padding: 0;
   background: var(--surface-inset);
   color: var(--ink-on-accent);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-lift);
   transition: transform var(--motion-quick) var(--ease-standard);
 }
 
@@ -1964,7 +1964,7 @@ svg.scrub {
 }
 
 .bm-a {
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.22) inset;
+  box-shadow: 0 1px 0 var(--line-swatch) inset;
 }
 
 .bm-a b {
@@ -1973,7 +1973,7 @@ svg.scrub {
 
 /* The comparison strip: a hairline gap, a little darker, its value small. */
 .bm-b {
-  border-top: 1.5px solid rgba(10, 20, 32, 0.75);
+  border-top: 1.5px solid color-mix(in srgb, var(--surface-page) 75%, transparent);
   filter: saturate(0.85) brightness(0.88);
 }
 
@@ -1992,14 +1992,14 @@ svg.scrub {
 
 .bm-a.forecast,
 .bm-b.forecast {
-  background-image: repeating-linear-gradient(135deg, rgba(10, 20, 32, 0.16) 0 2px, transparent 2px 6px) !important;
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--surface-page) 16%, transparent) 0 2px, transparent 2px 6px) !important;
 }
 
 /* An estimate from the daily values (as in the table): lighter, dashed. */
 .bm-a.estimate,
 .bm-b.estimate {
   opacity: 0.6;
-  outline: 1px dashed rgba(11, 22, 37, 0.65);
+  outline: 1px dashed color-mix(in srgb, var(--surface-page) 65%, transparent);
   outline-offset: -3px;
 }
 
@@ -2045,7 +2045,7 @@ svg.scrub {
 .line-legend .bm-key-b {
   width: 14px;
   border: none;
-  border-radius: 2px;
+  border-radius: var(--radius-tick);
   background: var(--ink-tertiary);
 }
 
@@ -2056,7 +2056,7 @@ svg.scrub {
   width: 14px;
   height: 10px;
   border: 1px dashed var(--ink-tertiary);
-  border-radius: 2px;
+  border-radius: var(--radius-tick);
 }
 
 .map-legend {
@@ -2152,7 +2152,7 @@ svg.scrub {
 }
 
 .cond-line.open {
-  background: rgba(255, 255, 255, 0.025);
+  background: var(--effect-gloss);
 }
 
 .cond-head {
@@ -2171,7 +2171,7 @@ svg.scrub {
 .cond-bar {
   width: 3px;
   height: 16px;
-  border-radius: 2px;
+  border-radius: var(--radius-tick);
   background: currentColor;
   flex: none;
 }
@@ -2224,10 +2224,10 @@ svg.scrub {
 
 /* Several parts of the day can be on at once: pressed reads as selected. */
 .seg.multi button[aria-pressed="true"] {
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent), var(--surface-overlay);
+  background: linear-gradient(180deg, var(--effect-gloss-strong), transparent), var(--surface-overlay);
   color: var(--ink-primary);
   font-weight: var(--weight-bold);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-lift);
 }
 
 .seg.multi small {
@@ -2249,7 +2249,7 @@ svg.scrub {
   position: absolute;
   top: 15px;
   height: 2px;
-  border-radius: 1px;
+  border-radius: var(--radius-tick);
 }
 
 .cond-slider .track {
@@ -2297,7 +2297,7 @@ svg.scrub {
   border-radius: 50%;
   border: none;
   background: var(--ink-primary);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.55);
+  box-shadow: var(--shadow-lift);
 }
 
 .cond-slider input::-moz-range-thumb {
@@ -2365,7 +2365,7 @@ svg.scrub {
   display: flex;
   flex: none;
   background: var(--surface-raised);
-  box-shadow: 1px 0 0 var(--line-strong), 8px 0 10px -8px rgba(0, 0, 0, 0.7);
+  box-shadow: 1px 0 0 var(--line-strong), var(--shadow-edge);
 }
 
 .cond-col {
@@ -2444,7 +2444,7 @@ svg.scrub {
   padding: 0 6px 0 14px;
   border-radius: var(--radius-md);
   background: var(--surface-overlay);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4), 0 0 0 1px var(--line-soft) inset;
+  box-shadow: var(--shadow-float), 0 0 0 1px var(--line-soft) inset;
   font-size: var(--size-base);
 }
 
@@ -2623,7 +2623,7 @@ svg.scrub {
   font-style: normal;
   margin-left: 2px;
   padding: 0 2px;
-  border-radius: 2px;
+  border-radius: var(--radius-tick);
   font-size: var(--size-xs);
   font-weight: var(--weight-bold);
   color: var(--status-warning);
@@ -2648,7 +2648,7 @@ svg.scrub {
   display: inline-block;
   width: 16px;
   height: 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-xs);
   background: color-mix(in srgb, var(--ink-tertiary) 30%, transparent);
   animation: cal-pulse 1.2s var(--ease-standard) infinite alternate;
 }
@@ -2882,7 +2882,7 @@ svg.scrub {
   bottom: -4px;
   width: 4px;
   margin-left: -2px;
-  border-radius: 2px;
+  border-radius: var(--radius-tick);
   background: var(--ink-primary);
   box-shadow: 0 0 0 1.5px var(--surface-raised);
   pointer-events: none;
@@ -2910,7 +2910,7 @@ svg.scrub {
   background: var(--surface-inset);
 }
 .level-stepper small { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.3; }
-.level-stepper small i { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.level-stepper small i { width: 8px; height: 8px; border-radius: var(--radius-tick); flex: none; }
 .level-stepper div { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; }
 .level-stepper button {
   height: 36px;
@@ -3399,7 +3399,7 @@ svg.scrub {
   display: inline-block;
   margin-left: 3px;
   padding: 0 3px;
-  border-radius: 3px;
+  border-radius: var(--radius-tick);
   font-family: var(--font-numeric);
   font-size: var(--size-xs);
   font-weight: var(--weight-bold);
@@ -3542,18 +3542,18 @@ svg.scrub {
 .basis-formula { margin: 0; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface-inset); font-family: var(--font-numeric); font-size: var(--size-base); color: var(--ink-primary); overflow-x: auto; }
 .basis-note { margin: 0; font-size: var(--size-sm); line-height: 1.6; color: var(--ink-secondary); }
 .basis-note.lead { font-size: var(--size-sm); }
-.after-answer { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 60; max-width: 480px; margin: 0 auto; background: var(--surface-raised); border: 1px solid var(--line-soft); border-radius: 14px; padding: 10px 12px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35); font-size: var(--size-base); }
+.after-answer { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: var(--layer-popover); max-width: 480px; margin: 0 auto; background: var(--surface-raised); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); padding: 10px 12px; box-shadow: var(--shadow-float); font-size: var(--size-base); }
 .after-answer-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .after-answer ul { margin: 6px 0 0; padding-left: 1.1em; display: grid; gap: 2px; }
 .after-answer p { margin: 6px 0 0; color: var(--ink-secondary); }
-.outlook { border: 1px solid var(--line-soft); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; margin: 8px 0; }
+.outlook { border: 1px solid var(--line-soft); border-radius: var(--radius-md); padding: 10px 12px; display: grid; gap: 6px; margin: 8px 0; }
 .outlook h4 { margin: 0; font-size: var(--size-base); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .outlook h4 small { font-size: var(--size-sm); font-weight: 400; color: var(--ink-secondary); }
 .outlook-rows { display: grid; gap: 4px; }
 .outlook-row { display: grid; grid-template-columns: 3em minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--size-base); }
 .outlook-part { color: var(--ink-secondary); }
 .outlook-word { display: flex; align-items: center; gap: 6px; font-weight: 700; }
-.outlook-word i { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.outlook-word i { width: 10px; height: 10px; border-radius: var(--radius-tick); flex: none; }
 .outlook-word small { font-weight: 400; color: var(--ink-secondary); }
 .outlook-basis { justify-self: start; }
 .outlook-why { margin: 0; font-size: var(--size-sm); line-height: 1.6; }
@@ -3579,7 +3579,7 @@ svg.scrub {
 .basis-table tr.missing td { color: var(--ink-disabled); }
 .basis-table tr.rest td { color: var(--ink-secondary); border-bottom: none; }
 .basis-table tr.best td { color: var(--accent-base); font-weight: var(--weight-bold); }
-.basis-bar { position: absolute; left: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: 3px; background: color-mix(in srgb, var(--ink-secondary) 22%, transparent); }
+.basis-bar { position: absolute; left: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--ink-secondary) 22%, transparent); }
 .basis-list { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; font-size: var(--size-sm); line-height: 1.55; color: var(--ink-secondary); }
 .basis-list b { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .basis-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
@@ -3590,8 +3590,8 @@ svg.scrub {
 .predict-card .predict-sub { font-size: var(--size-sm); color: var(--ink-tertiary); line-height: 1.5; }
 .predict-card.waiting { font-size: var(--size-sm); color: var(--ink-tertiary); box-shadow: none; }
 .predict-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; align-items: end; height: 54px; margin: 4px 0 2px; }
-.predict-bars span { display: grid; grid-template-rows: 1fr auto; height: 100%; align-items: end; justify-items: center; border-radius: 4px; }
-.predict-bars i { width: 70%; border-radius: 3px 3px 0 0; background: color-mix(in srgb, var(--ink-secondary) 35%, transparent); }
+.predict-bars span { display: grid; grid-template-rows: 1fr auto; height: 100%; align-items: end; justify-items: center; border-radius: var(--radius-xs); }
+.predict-bars i { width: 70%; border-radius: var(--radius-tick) var(--radius-tick) 0 0; background: color-mix(in srgb, var(--ink-secondary) 35%, transparent); }
 .predict-bars .mode i { background: var(--accent-base); }
 .predict-bars .mine { box-shadow: 0 0 0 1.5px var(--ink-primary) inset; }
 .predict-bars small { font-size: var(--size-xs); color: var(--ink-tertiary); font-variant-numeric: tabular-nums; }
@@ -3635,7 +3635,7 @@ svg.scrub {
 .admin-users li.off { opacity: 0.6; }
 .admin-users li > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
 .admin-users li small { color: var(--ink-tertiary); font-size: var(--size-sm); }
-.admin-tag { font-size: var(--size-sm); padding: 1px 6px; border-radius: 999px; border: 1px solid var(--line-strong); color: var(--ink-secondary); }
+.admin-tag { font-size: var(--size-sm); padding: 1px 6px; border-radius: var(--radius-pill); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
 .admin-tag.off { color: var(--status-error); border-color: color-mix(in srgb, var(--status-error) 50%, transparent); }
 
 /* The header's 記録 button (logged in): reporting at any time, not only from a notification. */
@@ -3643,7 +3643,7 @@ svg.scrub {
 .head-report {
   min-height: 40px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   border: 1px solid var(--accent-base);
   background: color-mix(in srgb, var(--accent-base) 16%, transparent);
   color: var(--ink-primary);
@@ -3655,7 +3655,7 @@ svg.scrub {
 .notify-times { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .notify-time {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 4px 4px 12px; border-radius: 999px;
+  padding: 4px 4px 4px 12px; border-radius: var(--radius-pill);
   background: var(--surface-inset); border: 1px solid var(--line-strong);
   font: 600 14px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink-primary);
 }
@@ -3685,7 +3685,7 @@ svg.scrub {
 .notify-time em { font-style: normal; font-family: var(--font-family); font-size: var(--size-sm); color: var(--ink-secondary); margin-right: 2px; }
 
 /* β: how far the learning has got (comfort.ts: learningOf). */
-.learn-tag { display: inline-block; width: fit-content; justify-self: start; margin-right: 6px; padding: 1px 8px; border-radius: 999px; font-size: var(--size-sm); font-weight: var(--weight-bold); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
+.learn-tag { display: inline-block; width: fit-content; justify-self: start; margin-right: 6px; padding: 1px 8px; border-radius: var(--radius-pill); font-size: var(--size-sm); font-weight: var(--weight-bold); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
 .learn-tag.provisional { border-color: color-mix(in srgb, var(--accent-base) 50%, transparent); color: var(--ink-primary); }
 .learn-tag.testable, .learn-tag.verified { border-color: var(--accent-base); color: var(--ink-primary); }
 .predict-state { font-size: var(--size-base); color: var(--ink-secondary); }
@@ -3723,7 +3723,7 @@ svg.scrub {
 .band-wx .none { font-size: var(--size-sm); color: var(--ink-secondary); }
 
 /* Bands with few reports, and a notification to add for each (#62 B). */
-.notify-nudge { display: grid; gap: 6px; padding: 8px 10px; border-radius: 10px; background: color-mix(in srgb, var(--status-warning) 12%, transparent); }
+.notify-nudge { display: grid; gap: 6px; padding: 8px 10px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--status-warning) 12%, transparent); }
 
 /* 移り変わり (LightTrend): 日照's third face. Line rules as everywhere: target solid, comparison dashed, 晴れなら pale and wide. */
 .trend-btn { flex-shrink: 0; }
@@ -3736,7 +3736,7 @@ svg.scrub {
 .lt-head-main { font-size: var(--size-md); line-height: 1.45; }
 .lt-head-main b { font-size: var(--size-xl); color: var(--accent-base); margin: 0 2px; }
 .lt-parts { display: flex; flex-wrap: wrap; gap: 6px; }
-.lt-parts span { font-size: var(--size-sm); padding: 2px 8px; border-radius: 10px; background: var(--surface-inset); color: var(--ink-secondary); }
+.lt-parts span { font-size: var(--size-sm); padding: 2px 8px; border-radius: var(--radius-md); background: var(--surface-inset); color: var(--ink-secondary); }
 .lt-season { font-size: var(--size-sm); color: var(--ink-tertiary); line-height: 1.5; }
 .lt-chart { display: block; overflow: visible; }
 .lt-axis { fill: var(--ink-tertiary); font-size: var(--size-xs); }
@@ -3748,12 +3748,11 @@ svg.scrub {
 .lt-len.on { fill: var(--accent-base); font-weight: 700; }
 .lt-len.sub { fill: var(--ink-tertiary); font-size: var(--size-xs); }
 .lt-today { fill: var(--accent-wash); stroke: var(--accent-base); stroke-width: 1; pointer-events: none; }
-.lt-clear-line { fill: none; stroke: rgba(245, 200, 101, 0.28); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
+.lt-clear-line { fill: none; stroke: color-mix(in srgb, var(--data-sun) 28%, transparent); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
 .lt-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; font-size: var(--size-sm); color: var(--ink-tertiary); }
 .lt-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .lt-legend i { display: inline-block; width: 18px; }
-.lt-clear { height: 6px; border-radius: 3px; background: rgba(245, 200, 101, 0.28); }
-.lt-hatch { width: 14px !important; height: 10px; background: repeating-linear-gradient(45deg, rgba(255,255,255,0.18) 0 2px, transparent 2px 5px); }
+.lt-clear { height: 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--data-sun) 28%, transparent); }
 
 
 /* テスト板 (#96): 日なたの計算の比較. */
