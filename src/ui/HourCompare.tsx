@@ -160,6 +160,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
     return Array.from({ length: 24 }, (_, i) => byHour.get(i + 1) ?? null);
   };
   const skyMain = useMemo(() => (metricId === "sun" ? skyOf(hours?.rows) : []), [hours, station, metricId, settings.alpha]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The same sky, for the 太陽 strip under every item's graph (#151): the day's light at a glance.
+  const skyStrip = useMemo(() => skyOf(hours?.rows), [hours, station, settings.alpha]); // eslint-disable-line react-hooks/exhaustive-deps
   const skyOther = useMemo(() => (metricId === "sun" && other ? skyOf(otherHours?.rows) : null), [otherHours, station, metricId, other, settings.alpha]); // eslint-disable-line react-hooks/exhaustive-deps
   // The weather under each time tick (0, 3, … 24 o'clock): the hour either side of it.
   const bandWx = useMemo(() => {
@@ -326,6 +328,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         height={height}
         color={color}
         bandWx={bandWx}
+        sky={skyStrip}
         onSun={() => setSunOpen(true)}
       />
       {sunOpen && <SunSheet date={date} station={station} sun={sun} hour={shownHour} onClose={() => setSunOpen(false)} />}
@@ -733,9 +736,12 @@ function HourChart({
   bandWx,
   guides,
   onSun,
+  sky,
 }: {
   /** Tapping the sun's strip opens 太陽 (the twilights and the times). */
   onSun?: () => void;
+  /** The sky's colour every 10 minutes (shared/sky.ts), the strip's ground: night, twilight, day. */
+  sky?: (SkyColour[] | null)[];
   bandWx?: { main: BandWx[]; other: BandWx[] | null };
   /** Other boundaries drawn as dashed lines over the feel ranges (everyone's, when the ranges are the person's). */
   guides?: readonly number[];
@@ -931,8 +937,20 @@ function HourChart({
         <rect x={xOf(dusk)} width={xOf(24) - xOf(dusk)} y={plotTop} height={plotBottom - plotTop} className="day-night" />
         <rect x={xOf(dawn)} width={Math.max(0, xOf(rise) - xOf(dawn))} y={plotTop} height={plotBottom - plotTop} className="day-twilight" />
         <rect x={xOf(set)} width={Math.max(0, xOf(dusk) - xOf(set))} y={plotTop} height={plotBottom - plotTop} className="day-twilight" />
-        {/* The sun's height through the day, and its highest point. */}
-        {sunPath && <path d={sunPath} className="day-sun" />}
+        {/* The 太陽 strip: the sky's colour every 10 minutes (as in 明るさと空), the sun's height over it. */}
+        {sky?.map((steps, i) =>
+          steps?.map((c, k) => {
+            const x0 = xOf(i + k / 6);
+            const x1 = xOf(i + (k + 1) / 6);
+            return (
+              <g key={`sky-${i}-${k}`}>
+                <rect x={x0} width={x1 - x0 + 0.4} y={stripTop} height={(stripBottom - stripTop) / 2} fill={c.zenith} />
+                <rect x={x0} width={x1 - x0 + 0.4} y={(stripTop + stripBottom) / 2} height={(stripBottom - stripTop) / 2} fill={c.horizon} />
+              </g>
+            );
+          }),
+        )}
+        {sunPath && <path d={sunPath} className={sky?.some(Boolean) ? "day-sun over-sky" : "day-sun"} />}
         {/* The five parts of the day (by the sun's height), named along the top. */}
         {day.parts.map((p) => {
           const from = clip(p.from);

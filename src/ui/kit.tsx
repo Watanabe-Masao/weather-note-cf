@@ -380,22 +380,24 @@ export function GraphReadout({ title, rows, unit, live, dates }: { title: ReactN
         </small>
         <small className="ro-col">差</small>
         {rows.map((r) => {
+          // Words break only between phrases (日差しの｜明るさ, とても｜明るい), never mid-word (明｜るさ).
+          const words = (v: ReactNode) => (r.text && typeof v === "string" ? v.replace(/(の|とても|少し)(?=\S)/g, "$1\u200b") : v);
           // The unit sits with the row's name, once, so every value is a bare number and the
           // numbers of a column line up on their decimal point (a unit on some rows only moved them).
           const u = r.text || (r.a != null && typeof r.a === "object") ? "" : (r.unit ?? unit);
           const kind = (v: ReactNode) => (typeof v === "string" || typeof v === "number" ? "" : " ro-icon");
           return (
             <Fragment key={r.key}>
-              <span className="ro-label">
+              <span className={r.text ? "ro-label ro-text-label" : "ro-label"}>
                 {r.mark && <MarkIcon shape={r.mark} color={r.color ?? "currentColor"} />}
                 {r.label}
                 {u && <small className="ro-unit">{u}</small>}
               </span>
               <span className={`ro-v${r.text ? " ro-text" : ""}${kind(r.a)}`} style={r.mark ? undefined : { color: r.color }}>
-                {r.a}
+                {words(r.a)}
               </span>
               <span className={`ro-v ro-b${r.text ? " ro-text" : ""}${kind(r.b ?? "—")}`} style={r.mark ? undefined : { color: r.color }}>
-                {r.b ?? "—"}
+                {words(r.b ?? "—")}
               </span>
               <span className="ro-v ro-diff">{r.diff || "—"}</span>
             </Fragment>
