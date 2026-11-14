@@ -58,6 +58,14 @@
       // Cut short by its own box (… ellipsis, or hidden overflow): the box is narrower than its text.
       else if (clips(cs) && cs.overflowX !== "auto" && cs.overflowX !== "scroll" && el.scrollWidth > el.clientWidth + 1) out.clipped.push(`${name(el)} −${el.scrollWidth - el.clientWidth}px`);
     }
+    // A heading column widened by what it holds (a tag too long for 52px pushes the column under
+    // the numbers): every part of .labels keeps inside it.
+    for (const col of document.querySelectorAll(".labels")) {
+      const R = col.getBoundingClientRect();
+      if (!onScreen(R) || hidden(col)) continue;
+      const past = Math.max(0, ...[...col.children].map((c) => c.getBoundingClientRect().right - R.right));
+      if (past > 0.5) out.overflow.push(`${name(col)} 見出し列からはみ出す +${past.toFixed(1)}px`);
+    }
     // Text on text: two runs of different elements whose rects cross by more than a sliver.
     for (let i = 0; i < runs.length; i++) {
       for (let j = i + 1; j < runs.length; j++) {
