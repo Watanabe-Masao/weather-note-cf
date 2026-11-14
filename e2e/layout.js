@@ -10,7 +10,7 @@
     }
     return false;
   };
-  const name = (el) => `${(el.getAttribute("class") || el.tagName.toLowerCase()).split(" ")[0]}「${el.textContent.trim().slice(0, 12)}」`;
+  const name = (el) => `${(el.getAttribute("class") || el.tagName.toLowerCase()).split(" ").slice(0, 3).join(".")}「${el.textContent.trim().slice(0, 12)}」`;
   const clips = (cs) => /hidden|clip|auto|scroll/.test(cs.overflowX) || cs.textOverflow === "ellipsis";
 
   const opaque = (el) => {
@@ -60,7 +60,7 @@
           const h = Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top);
           if (w > 2 && h > 3 && bothSeen(a.el, b.el, Math.max(p.left, q.left) + w / 2, Math.max(p.top, q.top) + h / 2)) hit = true;
         }
-        if (hit) out.overlap.push(`${name(a.el)} × ${name(b.el)}`);
+        if (hit) { const ra = a.rects[0], rb = b.rects[0]; out.overlap.push(`${name(a.el)} × ${name(b.el)} @${Math.round(ra.left)},${Math.round(ra.top)}–${Math.round(ra.right)} / ${Math.round(rb.left)},${Math.round(rb.top)}–${Math.round(rb.right)}`); }
       }
     }
     for (const k of Object.keys(out)) out[k] = [...new Set(out[k])].slice(0, 8);
