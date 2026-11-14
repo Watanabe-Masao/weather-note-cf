@@ -42,7 +42,7 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
     { key: "min", label: "最低", unit: "℃", color: DATA.cold, a: v(a, "min", "℃"), b: v(b, "min", "℃"), diff: d("min", "℃") },
     { key: "rain", label: "降水", unit: "mm", color: DATA.rain, a: v(a, "rain", "mm"), b: v(b, "rain", "mm"), diff: d("rain", "mm") },
     { key: "sun", label: "日照", unit: "h", color: DATA.sun, a: v(a, "sun", "h"), b: v(b, "sun", "h"), diff: d("sun", "h") },
-    { key: "wind", label: "風速（平均）", unit: "m/s", color: DATA.wind, a: v(a, "wind", "m/s"), b: v(b, "wind", "m/s"), diff: d("wind", "m/s") },
+    { key: "wind", label: "平均風速", unit: "m/s", color: DATA.wind, a: v(a, "wind", "m/s"), b: v(b, "wind", "m/s"), diff: d("wind", "m/s") },
     { key: "windMax", label: "最大風速", unit: "m/s", color: DATA.wind, a: v(a, "windMax", "m/s"), b: v(b, "windMax", "m/s"), diff: d("windMax", "m/s") },
     { key: "gust", label: "最大瞬間", unit: "m/s", color: DATA.gust, a: v(a, "gust", "m/s"), b: v(b, "gust", "m/s"), diff: d("gust", "m/s") },
   ];
@@ -78,13 +78,8 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
               <b>{lowA != null ? `${Math.round(lowA)} hPa` : "—"}</b>
               {lowB != null && <small>比較 {Math.round(lowB)} hPa</small>}
             </p>
-            {a.type !== "forecast" && typeof a.dayWeather === "string" && a.dayWeather && (
-              <p className="ds-line">
-                天気概況<span>{a.dayWeather}</span>
-              </p>
-            )}
             <p className="ds-note">
-              基準：気象庁 高知市の強風注意報・暴風警報（平均 {STORM.strong.mean}・{STORM.storm.mean} m/s）。瞬間は {STORM.strong.gust}・{STORM.storm.gust} m/s。実績と予報で同じ基準です。
+              基準：気象庁 高知市の強風注意報・暴風警報（平均 {STORM.strong.mean}・{STORM.storm.mean}{"\u00a0"}m/s）。瞬間は {STORM.strong.gust}・{STORM.storm.gust}{"\u00a0"}m/s。実績と予報で同じ基準です。
             </p>
           </div>
         </>
