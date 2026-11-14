@@ -599,9 +599,13 @@ with sync_playwright() as p:
             check(f"T5 時刻で {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())
         pg.locator(".lt-controls button", has_text="明るさで").click(); wait(600)
         check("T6 明るさで：読み取りに長さ", "長さ" in txt(".light-trend .readout-card"), txt(".light-trend .readout-card"))
+        # Days run across here too (#151): the dates sit under the plot in a row, left to right.
+        xs = pg.evaluate("[...document.querySelectorAll('.light-trend .lt-dates .lt-date:not(.sub)')].map(e => e.getBoundingClientRect()).map(r => [Math.round(r.left), Math.round(r.top)])")
+        check("T6b 明るさで：日は横に並ぶ", len(xs) == 7 and len({y for _, y in xs}) == 1 and [x for x, _ in xs] == sorted(x for x, _ in xs), str(xs))
         for span in ["1か月", "1年", "1週間"]:
             pg.locator(".lt-controls button", has_text=span).click(); wait(700)
             check(f"T7 明るさで {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())
+            layout_ok(f"T7b", f"明るさで {span}")
         pg.locator(".lt-controls button", has_text="時刻で").click(); wait(400)
         pg.click(".back-btn"); wait(600)
         check("T8 ‹日別で戻る", title() == "日照の日別", title())

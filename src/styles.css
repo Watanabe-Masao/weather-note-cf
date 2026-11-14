@@ -3777,7 +3777,6 @@ svg.scrub {
 .lt-parts span { font-size: var(--size-sm); padding: 2px 8px; border-radius: var(--radius-md); background: var(--surface-inset); color: var(--ink-secondary); }
 .lt-season { font-size: var(--size-sm); color: var(--ink-tertiary); line-height: 1.5; }
 .lt-chart { display: block; overflow: visible; }
-.lt-axis { fill: var(--ink-tertiary); font-size: var(--size-xs); }
 .lt-panel { fill: var(--ink-secondary); font-size: var(--size-xs); }
 .lt-date { fill: var(--ink-primary); font-size: var(--size-xs); }
 .lt-date.on { fill: var(--accent-base); font-weight: var(--weight-bold); }
@@ -3785,7 +3784,6 @@ svg.scrub {
 .lt-len { fill: var(--ink-primary); font-size: var(--size-xs); }
 .lt-len.on { fill: var(--accent-base); font-weight: var(--weight-bold); }
 .lt-len.sub { fill: var(--ink-tertiary); font-size: var(--size-xs); }
-.lt-today { fill: var(--accent-wash); stroke: var(--accent-base); stroke-width: 1; pointer-events: none; }
 .lt-clear-line { fill: none; stroke: color-mix(in srgb, var(--data-sun) 28%, transparent); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
 .lt-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; font-size: var(--size-sm); color: var(--ink-tertiary); }
 .lt-legend span { display: inline-flex; align-items: center; gap: 5px; }

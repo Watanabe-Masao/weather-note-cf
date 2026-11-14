@@ -316,7 +316,10 @@ function DateTicks({ days, partnerOf, target, y, xOf, span }: { days: string[]; 
     <g className="lt-dates">
       {days.map((d, i) => {
         const ti = days.indexOf(target);
-        const show = span === "week" || d === target || (span === "month" ? i % 5 === 0 && Math.abs(i - ti) > 2 : d.slice(8) <= "14" && d.slice(8) > "07" && Math.abs(i - ti) > 2);
+        // Keep clear of the target's own label by distance on screen (a year has ~365 points, so
+        // "two days apart" was a hair's width and 10月 ran into 11/10).
+        const near = Math.abs(xOf(i) - xOf(ti)) < 26;
+        const show = span === "week" || d === target || (!near && (span === "month" ? i % 5 === 0 : d.slice(8) <= "14" && d.slice(8) > "07"));
         if (!show) return null;
         const label = span === "year" && d !== target ? `${Number(d.slice(5, 7))}月` : monthDay(d);
         const p = partnerOf(d);
@@ -357,17 +360,25 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
     const stepM = span === "year" ? 60 : 10;
     return vs.length ? [Math.floor((Math.min(...vs) - 15) / stepM) * stepM, Math.ceil((Math.max(...vs) + 15) / stepM) * stepM] : [k === "start" ? 300 : 960, k === "start" ? 480 : 1140];
   };
-  const panels = [
-    { x: X0, w: 116, k: "start" as const, title: "朝（明るくなる）", win: win("start") },
-    { x: X0 + 126, w: 116, k: "end" as const, title: "夕方（暗くなる）", win: win("end") },
-  ];
-  const rowH = span === "week" ? 24 : span === "month" ? 8 : 6;
-  const gap = span === "week" ? 3 : 1;
-  const top = 30;
-  const yOf = (i: number) => top + i * (rowH + gap);
-  const bottom = yOf(rows.length);
+  // Days run across, as in every graph (#151): two panels, the morning (light comes) and the evening
+  // (light goes), each turned so that up is the longer light — an earlier morning, a later evening.
+  const n = days.length;
+  const plotW = W - X0 - 4;
+  const xOf = (i: number) => X0 + ((i + 0.5) / n) * plotW;
   const ti = days.indexOf(target);
-
+  const firstForecast = days.findIndex((d) => isForecast(d));
+  const small = span !== "week";
+  const PH = 104; // one panel's height
+  const panels = [
+    { k: "start" as const, title: "朝　明るくなる（上ほど早い）", top: 20, win: win("start"), late: false },
+    { k: "end" as const, title: "夕方　暗くなる（上ほど遅い）", top: 20 + PH + 30, win: win("end"), late: true },
+  ];
+  const plotBottom = panels[1].top + PH;
+  const lenTop = plotBottom + 38; // under the dates
+  const lengthOf = (r: (typeof rows)[number]) => (r.ct != null ? r.t : r.clear);
+  // A month or a year has no room for numbers under each day: the length is a third, low panel.
+  const lenPanel = span !== "week" ? { top: lenTop + 14, h: 46 } : null;
+  const bottom = lenPanel ? lenPanel.top + lenPanel.h + 6 : lenTop + 30;
   return (
     <>
       <Headline
@@ -386,92 +397,113 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
           { key: "len", label: "長さ", a: st ? clock(spanLength(st)) : "—", b: sc ? clock(spanLength(sc)) : "—", diff: shift ? minutes(shift.total, "長", "短") : "" },
         ]}
       />
-      <svg className="lt-chart" width="100%" viewBox={`0 0 ${W} ${bottom + 8}`} role="img" aria-label={`「${level.label}」以上の時間の移り変わり`}>
+      <svg className="lt-chart" width="100%" viewBox={`0 0 ${W} ${bottom}`} role="img" aria-label={`「${level.label}」以上の時間の移り変わり`}>
         <defs>
           <ForecastHatch id="lt-hatch2" />
         </defs>
         {panels.map((pn) => {
           const [s0, s1] = pn.win;
-          const stepM = s1 - s0 > 120 ? 10 : 5;
-          const cells = Math.round((s1 - s0) / stepM);
-          const cw = pn.w / cells;
-          const xm = (m: number) => pn.x + ((Math.min(s1, Math.max(s0, m)) - s0) / (s1 - s0)) * pn.w;
-          const tick = s1 - s0 > 240 ? 120 : s1 - s0 > 90 ? 60 : 30;
+          const yOf = (m: number) => {
+            const f = (Math.min(s1, Math.max(s0, m)) - s0) / (s1 - s0);
+            return pn.top + (pn.late ? 1 - f : f) * PH;
+          };
+          const range = s1 - s0;
+          const tick = range <= 60 ? 20 : range <= 120 ? 30 : range <= 240 ? 60 : 120;
+          const ticks = Array.from({ length: Math.floor(range / tick) + 1 }, (_, j) => Math.ceil(s0 / tick) * tick + j * tick).filter((m) => m <= s1);
           const line = (f: (r: (typeof rows)[number]) => number | null) => {
             const p = rows.map((r, i) => {
               const v = f(r);
-              return v == null ? null : `${xm(v).toFixed(1)},${(yOf(i) + rowH / 2).toFixed(1)}`;
+              return v == null ? null : `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`;
             });
             return p.filter(Boolean).length ? `M${p.filter(Boolean).join("L")}` : "";
           };
           return (
             <g key={pn.k}>
-              <text x={pn.x + pn.w / 2} y={10} textAnchor="middle" className="lt-panel">
+              <text x={X0} y={pn.top - 7} className="lt-panel">
                 {pn.title}
               </text>
-              {Array.from({ length: Math.floor((s1 - s0) / tick) + 1 }, (_, j) => Math.ceil(s0 / tick) * tick + j * tick)
-                .filter((m) => m <= s1 && (pn.k === "start" ? xm(m) < pn.x + pn.w - 12 : xm(m) > pn.x + 12))
-                .map((m) => (
-                  <text key={m} x={xm(m)} y={24} textAnchor="middle" className="lt-axis">
+              {firstForecast >= 0 && <rect x={X0 + (firstForecast / n) * plotW} y={pn.top} width={plotW - (firstForecast / n) * plotW} height={PH} fill="url(#lt-hatch2)" />}
+              {ticks.map((m) => (
+                <g key={m}>
+                  <line x1={X0} x2={X0 + plotW} y1={yOf(m)} y2={yOf(m)} className="chart-grid" />
+                  <text x={X0 - 6} y={yOf(m) + 3.5} textAnchor="end" className="chart-tick">
                     {clock(m)}
                   </text>
-                ))}
-              {rows.map((r, i) =>
-                Array.from({ length: cells }, (_, q) => {
-                  const m = s0 + q * stepM + stepM / 2;
-                  const v = luxAtMinute(r.d, m, station, r.ct ?? CLOUD.clear);
-                  return <rect key={`${i}-${q}`} x={pn.x + q * cw} y={yOf(i)} width={cw + 0.3} height={rowH} fill={LIGHT_LEVELS[Math.min(5, Math.floor(brightnessIndex(v)))]} opacity={v >= lux ? 1 : 0.35} />;
-                }),
-              )}
-              {rows.map((r, i) => (isForecast(r.d) ? <rect key={`h${i}`} x={pn.x} y={yOf(i)} width={pn.w} height={rowH} fill="url(#lt-hatch2)" /> : null))}
+                </g>
+              ))}
               <path d={line((r) => r.clear?.[pn.k] ?? null)} className="lt-clear-line" />
               {compareDate && <path d={line((r) => r.c?.[pn.k] ?? null)} fill="none" {...lineLook("compare", DATA.sun)} />}
               <path d={line((r) => (r.ct != null ? (r.t?.[pn.k] ?? null) : null))} fill="none" {...lineLook("target", DATA.sun)} />
-              {span === "week" &&
-                rows.map((r, i) => (
-                  <g key={`m${i}`}>
-                    {r.c && <circle cx={xm(r.c[pn.k])} cy={yOf(i) + rowH / 2} r={3} fill="var(--surface-base)" stroke={DATA.sun} strokeWidth={1.4} />}
-                    {r.t && r.ct != null && <circle cx={xm(r.t[pn.k])} cy={yOf(i) + rowH / 2} r={3.4} fill={DATA.sun} />}
-                  </g>
-                ))}
+              {rows.map((r, i) => (
+                <g key={`m${i}`}>
+                  {r.c && <circle cx={xOf(i)} cy={yOf(r.c[pn.k])} r={small ? 1.6 : 3} fill="var(--surface-base)" stroke={DATA.sun} strokeWidth={1.4} />}
+                  {r.t && r.ct != null && <circle cx={xOf(i)} cy={yOf(r.t[pn.k])} r={small ? 1.8 : 3.4} fill={DATA.sun} />}
+                </g>
+              ))}
             </g>
           );
         })}
-        <text x={X0 + 278} y={10} textAnchor="middle" className="lt-panel">
-          長さ
-        </text>
-        {rows.map((r, i) => {
-          const show = span === "week" || r.d === target || (span === "month" ? i % 5 === 0 && Math.abs(i - ti) > 1 : r.d.slice(8) <= "07" && Math.abs(i - ti) > 2);
-          const y = yOf(i) + rowH / 2;
-          return (
-            <g key={r.d} onClick={() => onPickDay?.(r.d)}>
-              <rect x={0} y={yOf(i)} width={W} height={rowH} fill="transparent" />
-              {show && (
-                <text x={X0 - 4} y={y + 3.5} textAnchor="end" className={r.d === target ? "lt-date on" : "lt-date"}>
-                  {span === "year" && r.d !== target ? `${Number(r.d.slice(5, 7))}月` : monthDay(r.d)}
-                </text>
-              )}
-              {span === "week" && (
-                <>
-                  <text x={X0 + 278} y={y - 1} textAnchor="middle" className={r.d === target ? "lt-len on" : "lt-len"}>
-                    {r.t && r.ct != null ? clock(spanLength(r.t)) : r.clear ? clock(spanLength(r.clear)) : "—"}
+        {ti >= 0 && <rect x={X0 + (ti / n) * plotW + 1} y={panels[0].top - 4} width={plotW / n - 2} height={plotBottom - panels[0].top + 8} className="chart-center" rx={8} />}
+        <DateTicks days={days} partnerOf={partnerOf} target={target} y={plotBottom + 14} xOf={xOf} span={span} />
+        {!lenPanel && (
+          <g>
+            <text x={X0 - 6} y={lenTop + 4} textAnchor="end" className="chart-tick">
+              長さ
+            </text>
+            {compareDate && (
+              <text x={X0 - 6} y={lenTop + 18} textAnchor="end" className="chart-tick">
+                比較
+              </text>
+            )}
+            {rows.map((r, i) => {
+              const own = lengthOf(r);
+              return (
+                <g key={`len${i}`}>
+                  <text x={xOf(i)} y={lenTop + 4} textAnchor="middle" className={r.d === target ? "lt-len on" : "lt-len"}>
+                    {own ? clock(spanLength(own)) : "—"}
                   </text>
                   {r.c && (
-                    <text x={X0 + 278} y={y + 10} textAnchor="middle" className="lt-len sub">
+                    <text x={xOf(i)} y={lenTop + 18} textAnchor="middle" className="lt-len sub">
                       {clock(spanLength(r.c))}
                     </text>
                   )}
-                </>
-              )}
-              {span !== "week" && (r.ct != null ? r.t : r.clear) && (
-                <rect x={X0 + 252} y={yOf(i)} width={Math.max(1, ((spanLength(r.ct != null ? r.t : r.clear) - 300) / 600) * 50)} height={rowH} fill={DATA.sun} opacity={r.d === target ? 1 : r.ct != null ? 0.55 : 0.25} />
-              )}
-            </g>
-          );
-        })}
-        {ti >= 0 && <rect x={2} y={yOf(ti) - gap / 2 - 0.5} width={W - 4} height={rowH + gap + 1} className="lt-today" rx={4} />}
+                </g>
+              );
+            })}
+          </g>
+        )}
+        {lenPanel &&
+          (() => {
+            const lens = rows.flatMap((r) => [lengthOf(r), r.c].filter((v): v is NonNullable<typeof v> => !!v).map(spanLength));
+            const lo = lens.length ? Math.floor((Math.min(...lens) - 10) / 30) * 30 : 300;
+            const hi = lens.length ? Math.ceil((Math.max(...lens) + 10) / 30) * 30 : 900;
+            const yL = (v: number) => lenPanel.top + (1 - (v - lo) / (hi - lo)) * lenPanel.h;
+            const path = (f: (r: (typeof rows)[number]) => number | null) => {
+              const p = rows.map((r, i) => (f(r) == null ? null : `${xOf(i).toFixed(1)},${yL(f(r)!).toFixed(1)}`)).filter(Boolean);
+              return p.length ? `M${p.join("L")}` : "";
+            };
+            return (
+              <g>
+                <text x={X0} y={lenPanel.top - 7} className="lt-panel">
+                  長さ
+                </text>
+                {[lo, hi].map((v) => (
+                  <g key={v}>
+                    <line x1={X0} x2={X0 + plotW} y1={yL(v)} y2={yL(v)} className="chart-grid" />
+                    <text x={X0 - 6} y={yL(v) + (v === lo ? 0 : 9)} textAnchor="end" className="chart-tick">
+                      {clock(v)}
+                    </text>
+                  </g>
+                ))}
+                {compareDate && <path d={path((r) => (r.c ? spanLength(r.c) : null))} fill="none" {...lineLook("compare", DATA.sun)} />}
+                <path d={path((r) => (lengthOf(r) ? spanLength(lengthOf(r)!) : null))} fill="none" {...lineLook("target", DATA.sun)} />
+              </g>
+            );
+          })()}
+        {days.map((d, i) => (
+          <rect key={`hit${i}`} x={X0 + (i / n) * plotW} y={0} width={plotW / n} height={bottom} fill="transparent" onClick={() => onPickDay?.(d)} />
+        ))}
       </svg>
-      {span !== "week" && <p className="lt-note">右の棒は長さ（5時間〜15時間）。</p>}
     </>
   );
 }
