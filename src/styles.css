@@ -4081,6 +4081,7 @@ svg.scrub {
 .ds-head .wx-with-storm { margin-right: var(--space-4); }
 .ds-word { font-size: var(--size-base); font-weight: var(--weight-bold); color: var(--ink-primary); }
 .ds-head .badge { margin-left: auto; }
+.ds-comment { display: grid; gap: var(--space-1); margin: 0 2px var(--space-5); font-size: var(--size-base); line-height: 1.5; color: var(--ink-primary); word-break: auto-phrase; }
 .ds-storm-title { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--status-warning); }
 .ds-storm-title .storm-mark { position: static; }
 .ds-wind { display: grid; gap: var(--space-5); }

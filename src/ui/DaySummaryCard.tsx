@@ -9,6 +9,7 @@ import { hourlyExtreme } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
 import { kindLabel } from "./CompareBoard";
+import { dayComment } from "../data/dayComment";
 import { dateLabel, formatValue, monthDay, needsYear, num, signedDiff } from "../design/format";
 import { DATA } from "../design/tokens";
 import { Badge, confidenceOfRow, GraphReadout, type Kind, type ReadoutRow, SectionHead } from "./kit";
@@ -48,6 +49,9 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
   ];
   const storm = stormOfRow(a);
   const lowest = (day: string | null) => (day ? hourlyExtreme(store?.getHours(station, day).rows ?? null, "pressure", "min") : null);
+  const otherName = other ? `${needsYear(other, date) ? `'${other.slice(2, 4)}/` : ""}${monthDay(other)}` : null;
+  // The numbers in words (#176): two or three sentences, each from a value below.
+  const comment = dayComment({ row: a, other: b, otherName, hours: store?.getHours(station, date).rows });
   const lowA = lowest(date);
   const lowB = lowest(other);
   const head = a && (
@@ -61,10 +65,17 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
   return (
     <ModalSheet title={`${dateLabel(date)}の天気`} label={`${dateLabel(date)}の要約`} onClose={onClose} size="fit" className="day-summary-sheet">
       {head}
+      {comment.length > 0 && (
+        <p className="ds-comment">
+          {comment.map((c) => (
+            <span key={c}>{c}</span>
+          ))}
+        </p>
+      )}
       <GraphReadout
         title={storm ? <StormTitle level={storm} /> : "その日の値"}
         unit=""
-        dates={{ a: monthDay(date), b: other ? `${needsYear(other, date) ? `'${other.slice(2, 4)}/` : ""}${monthDay(other)}` : undefined }}
+        dates={{ a: monthDay(date), b: otherName ?? undefined }}
         rows={rows}
       />
       {storm && a && (
