@@ -385,7 +385,7 @@ with sync_playwright() as p:
     # AV. 手前の平均 on the hour chart: rows in the readout, a legend that sets lines aside, the span
     def av():
         pg.locator(".chart-hit").nth(7).click(force=True); wait(2500)
-        check("AV1 読み取りに手前の平均と平均との差", pg.locator(".readout-card .ro-label", has_text="手前1週の平均").count() == 1 and pg.locator(".readout-card .ro-label", has_text="平均との差").count() == 1)
+        check("AV1 読み取りに手前の平均と手前1週との差", pg.locator(".readout-card .ro-label", has_text="手前1週の平均").count() == 1 and pg.locator(".readout-card .ro-label", has_text="手前1週との差").count() == 1)
         # The readout is set on a grid: each column's decimal points on one line, every row 24px high (#151).
         g = pg.evaluate("""() => {
           const grid = [...document.querySelectorAll('.ro-grid')].pop(); const cols = {}; const hs = [];
@@ -411,8 +411,13 @@ with sync_playwright() as p:
         before_ticks = ticks()
         pg.locator(".avg-window").click(); wait(1500)
         check("AV5 平均の期間が 2週 に", pg.locator(".readout-card .ro-label", has_text="手前2週の平均").count() == 1)
+        check("AV5c 差の行の名前も 2週 に", pg.locator(".readout-card .ro-label", has_text="手前2週との差").count() == 1)
         check("AV5b 期間を変えても縦軸は同じ", ticks() == before_ticks, f"{before_ticks} → {ticks()}")
-        pg.locator(".avg-window").click(); wait(300); pg.locator(".avg-window").click(); wait(300)
+        pg.locator(".avg-window").click(); wait(1200)
+        pg.locator(".ro-grid").last.scroll_into_view_if_needed(); wait(300)
+        check("AV5d 1か月 でも名前が列に収まる", pg.locator(".readout-card .ro-label", has_text="手前1か月との差").count() == 1)
+        layout_ok("AV5e", "手前1か月の読み取り")
+        pg.locator(".avg-window").click(); wait(300)
         check("AV6 1か月 を経て 1週 に戻る", pg.locator(".readout-card .ro-label", has_text="手前1週の平均").count() == 1)
         pg.locator(".back-btn").first.click(); wait(600)
     step("AV", av)
