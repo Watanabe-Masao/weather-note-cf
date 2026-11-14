@@ -1479,7 +1479,7 @@ svg.scrub {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  align-items: center;
+  align-items: start;
   column-gap: var(--space-4);
   margin: 0 2px var(--space-3);
   padding: 8px 10px 6px;
@@ -1502,15 +1502,29 @@ svg.scrub {
 }
 
 .cs-head {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 1px 4px;
+  display: grid;
+  justify-items: start;
+  row-gap: 2px;
   min-width: 0;
 }
 
+/* The target leans right and the comparison left, toward the middle like their numbers. */
 .cs-head.cs-a {
-  justify-content: flex-end;
+  justify-items: end;
+}
+
+.cs-head-line {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.cs-head-state {
+  display: inline-flex;
+  min-height: 18px;
 }
 
 .cs-head svg {
@@ -1527,6 +1541,8 @@ svg.scrub {
 
 .cs-vs {
   font-size: var(--size-xs);
+  /* On the dates' line, not between the two lines. */
+  line-height: 22px;
   color: var(--ink-tertiary);
   letter-spacing: 0.12em;
 }
