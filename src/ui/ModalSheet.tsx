@@ -150,6 +150,8 @@ export function ModalSheet({ title, label, headerEnd, onClose, className, size =
     let taking = false;
     const onStart = (e: TouchEvent) => {
       const handle = (e.target as HTMLElement).closest(".sheet-handle");
+      // A part that takes the finger itself (a graph to scrub, a slider) never pulls the sheet.
+      if ((e.target as HTMLElement).closest("[data-no-sheet-drag]")) return;
       if (handle || e.touches.length !== 1) return;
       start = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       decided = false;

@@ -400,6 +400,27 @@ with sync_playwright() as p:
         }""")
         check("AV1b 読み取りの小数点が列ごとにそろう", len(g["spread"]) >= 2 and max(g["spread"]) < 0.6, str(g))
         check("AV1c 読み取りの行の高さが 24px でそろう", g["heights"] == [24], str(g))
+        # HC. The hour graph (#151): rows named, the sun in its own strip, a clear night drawn as the moon.
+        hc = pg.evaluate("""() => ({ names: [...document.querySelectorAll('.band-wx-name')].map(e => e.textContent),
+          strip: !!document.querySelector('.day-sun-name'),
+          sky: [...document.querySelectorAll('.band-wx-cell')].map(c => { const k = c.querySelector('.band-wx-main svg')?.dataset.sky || '';
+            return k === 'sun' ? 'sun' : k.endsWith('-night') ? 'moon' : 'other'; }) })""")
+        check("HC1 天気の行に 対象／比較 の名前", hc["names"][:2] == ["対象", "比較"], str(hc["names"]))
+        check("HC2 太陽の高さは別の帯（太陽）", hc["strip"])
+        # 0・3・21・24時 are night all year in Kochi: no sun there; a moon never by day (12時).
+        check("HC3 夜に太陽を描かない・昼に月を描かない", all(hc["sky"][i] != "sun" for i in (0, 1, 7, 8)) and hc["sky"][4] != "moon", str(hc["sky"]))
+        # SS. 太陽: the sun strip opens the sheet; the three twilights in order; the slider reads 10-minute steps.
+        pg.locator(".day-sun-button").first.scroll_into_view_if_needed(); pg.locator(".day-sun-button").first.click(); wait(900)
+        times = pg.locator(".sun-times dd").all_inner_texts()
+        check("SS1 太陽のシートが開き、薄明の時刻が9つと昼の長さ", pg.locator(".sun-sheet").count() == 1 and len(times) == 10, str(times))
+        mins = [int(t.split(":")[0]) * 60 + int(t.split(":")[1]) for t in (x.split()[-1] for x in times[:9]) if ":" in t]
+        check("SS2 天文→航海→市民→日の出→南中→日の入り→市民→航海→天文 の順", mins == sorted(mins) and len(mins) == 9, str(mins))
+        pg.evaluate("""() => { const r = document.querySelector('.sun-slider input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+          set.call(r, '370'); r.dispatchEvent(new Event('input', { bubbles: true })); }"""); wait(300)
+        check("SS3 スライダーで 6:10 に（10分ごと）", txt(".sun-now-time") == "6:10", txt(".sun-now"))
+        layout_ok("SS4", "太陽のシート")
+        pg.click(".msheet .icon-btn.close"); wait(700)
+        check("SS5 閉じる", pg.locator(".sun-sheet").count() == 0)
         # TR. Text roles (tokens TEXT_ROLES): each role draws the same on the readout and the table.
         roles = pg.evaluate("""() => {
           const R = { 見出し: ['.ro-title'], 指標名: ['.ro-label', '.labels .label-value:not(.label-diff)'],
@@ -548,10 +569,10 @@ with sync_playwright() as p:
         pg.locator(".side-compare select.mode").select_option("__conditions"); wait(1500)
         check("L1 条件から選ぶが開く", pg.locator(".msheet.cond-sheet").count() == 1)
         check("L2 条件は4行", pg.locator(".cond-line").count() == 4)
-        check("L3 最初は最高が開いて範囲（つまみ2つ）", pg.locator(".cond-line.open[data-cond=max] .cond-slider input").count() == 2)
+        check("L3 最初は最高が開いて範囲（つまみ2つ）", pg.locator(".cond-line.open[data-cond=max] .slider input").count() == 2)
         layout_ok("L3b", "条件から選ぶ")
         pg.locator(".cond-line[data-cond=max] .seg button", has_text="以上").click(); wait(300)
-        check("L4 以上はつまみ1つ", pg.locator(".cond-line[data-cond=max] .cond-slider input").count() == 1, txt(".cond-line[data-cond=max] .cond-value"))
+        check("L4 以上はつまみ1つ", pg.locator(".cond-line[data-cond=max] .slider input").count() == 1, txt(".cond-line[data-cond=max] .cond-value"))
         check("L5 値は「以上」と読める", "以上" in txt(".cond-line[data-cond=max] .cond-value"))
         pg.locator(".cond-line[data-cond=max] .seg button", has_text="問わない").click(); wait(200)
         pg.locator(".cond-line[data-cond=min] .cond-head").click(); wait(200)

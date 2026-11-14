@@ -87,7 +87,7 @@ describe("faces: colour, corners, depth", () => {
 
 describe("cards: 浮いた面 and 沈んだ面 only (#151)", () => {
   const css = readFileSync(join(SRC, "styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  const CARDS = ["compare-summary", "band-summary", "lt-head", "cal-pair", "set-group", "cond-list", "cond-table", "readout-card", "predict-card"];
+  const CARDS = ["compare-summary", "band-summary", "lt-head", "cal-pair", "set-group", "cond-list", "cond-table", "readout-card", "predict-card", "sun-card"];
   const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
 
   it("each card's surface, corner and edge are set in the one card rule, not again on its own", () => {

@@ -138,3 +138,22 @@ export const BAND_ALARMS = [
   { id: "evening", label: "夕方", time: "16:00" },
   { id: "night", label: "夜", time: "19:00" },
 ] as const;
+
+/**
+ * The three twilights (#151), by how far the sun is below the horizon: 市民 0–6°, 航海 6–12°,
+ * 天文 12–18°. Each gives its start in the morning and its end in the evening (minutes JST), or
+ * null where the sun never sinks that far (not in Japan).
+ */
+export const TWILIGHTS = [
+  { id: "civil", label: "市民薄明", deg: -6, note: "明かりなしで外を歩ける明るさ。1等星が見え始める" },
+  { id: "nautical", label: "航海薄明", deg: -12, note: "水平線と空の境が見分けられる。多くの星が見える" },
+  { id: "astronomical", label: "天文薄明", deg: -18, note: "暗い星（6等星）まで見え、空はほぼ真っ暗" },
+] as const;
+export type TwilightId = (typeof TWILIGHTS)[number]["id"];
+
+export function twilights(date: string, station: Where): Record<TwilightId, { start: number | null; end: number | null }> {
+  const { lat, lon } = latLonOf(station);
+  return Object.fromEntries(
+    TWILIGHTS.map((t) => [t.id, { start: altitudeCrossing(date, t.deg, true, lat, lon), end: altitudeCrossing(date, t.deg, false, lat, lon) }]),
+  ) as Record<TwilightId, { start: number | null; end: number | null }>;
+}
