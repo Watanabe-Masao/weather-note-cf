@@ -7,7 +7,7 @@ import { type PointerEvent, type ReactNode, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { weekSteps } from "../compare";
 import { dateLabel } from "../design/format";
-import { Glyph } from "./kit";
+import { ChevronIcon } from "./icons";
 
 const LONG_PRESS_MS = 400;
 
@@ -93,7 +93,7 @@ function Arrow({
         onPointerCancel={cancel}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <Glyph name={dir < 0 ? "prev" : "next"} size="15px" />
+        <ChevronIcon dir={dir < 0 ? "left" : "right"} />
       </button>
     </span>
   );
@@ -128,7 +128,7 @@ export function DateNav({ label, date, canBack, canForward, onStep, onOpenCalend
           </span>
         ) : todayChip && (
           <button className="today-chip" onClick={onToday}>
-            {todayChip === "back" ? <><Glyph name="prev" size="10px" />今日</> : <>今日<Glyph name="next" size="10px" /></>}
+            {todayChip === "back" ? <><ChevronIcon dir="left" size={13} />今日</> : <>今日<ChevronIcon dir="right" size={13} /></>}
           </button>
         )}
       </span>

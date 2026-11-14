@@ -51,8 +51,8 @@ export const ShrinkIcon = () => (
 );
 
 /** ‹ for 戻る and the calendar's months (Lucide chevron-left; right is its mirror). */
-export const ChevronIcon = ({ dir = "left" }: { dir?: "left" | "right" }) => (
-  <Line size={18} flip={dir === "right"}>
+export const ChevronIcon = ({ dir = "left", size = 18 }: { dir?: "left" | "right"; size?: number }) => (
+  <Line size={size} flip={dir === "right"}>
     <path d="M15 18l-6-6 6-6" />
   </Line>
 );
