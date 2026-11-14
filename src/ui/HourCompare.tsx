@@ -22,7 +22,8 @@ const readBands = (): Bands => {
     return "shared";
   }
 };
-import { WeatherIcon } from "./WeatherIcon";
+import { StormMark, WeatherIcon } from "./WeatherIcon";
+import { stormLevel, type StormLevel } from "../../shared/storm";
 import { cachedSun, isNightAt, loadSun, sunAvailable, sunHours, type SunTimes } from "../data/sun";
 import {
   axisRange,
@@ -170,9 +171,16 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const bandWx = useMemo(() => {
     // JMA hour n covers n−1 to n o'clock: hours h and h + 1 are the hour either side of h o'clock.
     const around = (h: number) => [h, h + 1].filter((n) => n >= 1 && n <= 24);
+    // Hours carry a mean wind in records and forecasts alike (gusts only in forecasts), so an hour's
+    // mark reads the mean alone: 12 m/s 強風, 20 m/s 暴風 (shared/storm.ts, the data rule).
+    const tick = (rows: WeatherRow[], h: number): BandWx => {
+      const winds = rows.filter((r) => around(h).includes(r.n) && typeof r.wind === "number").map((r) => r.wind as number);
+      const top = winds.length ? Math.max(...winds) : null;
+      return { ...hoursWeather(rows, around(h), station, 1), storm: stormLevel(top, null), why: top != null ? `風速 ${top.toFixed(1)} m/s` : undefined };
+    };
     return {
-      main: WX_TICKS.map((h) => hoursWeather(hours?.rows ?? [], around(h), station, 1)),
-      other: other ? WX_TICKS.map((h) => hoursWeather(otherHours?.rows ?? [], around(h), station, 1)) : null,
+      main: WX_TICKS.map((h) => tick(hours?.rows ?? [], h)),
+      other: other ? WX_TICKS.map((h) => tick(otherHours?.rows ?? [], h)) : null,
     };
   }, [hours, otherHours, other]);
   // β (#118): the person's own levels for the day, beside everyone's.
@@ -455,7 +463,8 @@ const PAD = { right: 10, top: 18, bottom: 26 };
 /** The sun's height has its own strip under the plot (degrees, not the item's unit; #151). */
 const SUN_H = 22;
 
-type BandWx = { text: string | null; estimated: boolean };
+/** One tick's weather, and its 強風／暴風 by the strongest hourly (mean) wind around it (#175). */
+type BandWx = { text: string | null; estimated: boolean; storm?: StormLevel | null; why?: string };
 
 /** The hours of the x axis's labels, under which the weather is shown. */
 const WX_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 24];
@@ -475,8 +484,9 @@ function HourWeather({ w, night = false }: { w: BandWx; night?: boolean }) {
 function BandWeatherIcons({ main, other, night, otherNight }: { main: BandWx; other: BandWx | null; night: boolean; otherNight: boolean }) {
   const icon = (w: BandWx, size: number, cls: string, night: boolean) =>
     w.text ? (
-      <span className={`${cls}${w.estimated ? " weather-estimated" : ""}`} title={w.estimated ? `${w.text}（推定：日照と降水から）` : w.text}>
+      <span className={`${cls}${w.estimated ? " weather-estimated" : ""}${w.storm ? " wx-with-storm" : ""}`} title={w.estimated ? `${w.text}（推定：日照と降水から）` : w.text}>
         <WeatherIcon text={w.text} size={size} night={night} />
+        {w.storm && <StormMark level={w.storm} why={w.why} />}
       </span>
     ) : (
       <span className={`${cls} none`}>—</span>

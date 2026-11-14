@@ -4066,3 +4066,5 @@ svg.scrub {
 .cal-day .storm-mark { top: 50%; right: -15px; transform: translateY(-50%); }
 /* The tag's own picture keeps its size wherever weather pictures are sized (.cell-icon svg …). */
 .wx-with-storm .storm-mark svg { width: 10px; height: 10px; }
+/* Under the comparison day's smaller picture, the tag a size smaller too. */
+.band-wx-other .storm-mark { transform: scale(0.8); top: -6px; right: -10px; }
