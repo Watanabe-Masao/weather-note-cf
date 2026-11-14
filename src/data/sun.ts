@@ -45,3 +45,18 @@ export function hourOfDay(iso: string | null): number | null {
 }
 
 export const clock = (iso: string | null) => iso?.match(/T(\d{2}:\d{2})/)?.[1] ?? "—";
+
+/**
+ * Sunrise and sunset in hours of the day (6.52 = 6:31): the sun API's when known (the stored ones,
+ * as the 時刻 table shows), else calculated (shared/dayParts). One rule for the graph, its weather
+ * rows, the readout and the 太陽 sheet (#151).
+ */
+export function sunHours(sun: SunTimes | null | undefined, edges: { rise: number; set: number }): { rise: number; set: number } {
+  return { rise: hourOfDay(sun?.sunrise ?? null) ?? edges.rise / 60, set: hourOfDay(sun?.sunset ?? null) ?? edges.set / 60 };
+}
+
+/**
+ * Whether a span of the day is night for the weather pictures: its middle (hours) before sunrise
+ * or after sunset. An hour's value n covers n−1 to n o'clock, so its middle is n − 0.5.
+ */
+export const isNightAt = (mid: number, hours: { rise: number; set: number }) => mid < hours.rise || mid > hours.set;

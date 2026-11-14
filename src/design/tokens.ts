@@ -89,8 +89,11 @@ export const LINE = {
   opacity: { target: 1, compare: 0.75 },
   /** References are this much of a value line's width. */
   referenceScale: 0.7,
-  // From the ink palette, not new colours: references in the primary ink, set-aside lines in the disabled one.
+  // From the ink palette, not new colours: references in the primary ink (white: no item's colour is
+  // near it — the quiet ink was, 風速's #a9c6de), drawn at 60% so a reference never outshines the
+  // comparison day it is read against (#151); set-aside lines in the disabled one.
   reference: ink.primary,
+  referenceOpacity: 0.6,
   dimmed: ink.disabled,
   dimmedScale: 0.7,
   dimmedOpacity: 0.8,
@@ -116,7 +119,7 @@ export function lineLook(
     stroke: dimmed ? LINE.dimmed : kind === "reference" ? LINE.reference : color,
     strokeWidth: Math.round(width * 10) / 10,
     strokeDasharray: LINE.dash[day],
-    opacity: dimmed ? LINE.dimmedOpacity : LINE.opacity[day],
+    opacity: dimmed ? LINE.dimmedOpacity : kind === "reference" ? LINE.opacity[day] * LINE.referenceOpacity : LINE.opacity[day],
   };
 }
 
@@ -130,7 +133,7 @@ export function barLook(day: LineDay, color: string, dimmed = false): { fill: st
  * Weather icons (晴 / 曇 / 雨 …). Pictures, not data: the sun is a warmer yellow than DATA.sun so an
  * icon never reads as a 日照 value; glint is the white of a raindrop's highlight.
  */
-export const ICON = { sun: "#f5b83d", cloud: "#a9b9cb", rain: "#6fb3f2", glint: "#ffffff" } as const; // cloud: as quiet as the secondary ink, now that clouds are drawn in line
+export const ICON = { sun: "#f5b83d", moon: "#e6dcae", cloud: "#a9b9cb", rain: "#6fb3f2", glint: "#ffffff" } as const; // cloud: as quiet as the secondary ink, now that clouds are drawn in line
 
 /** The six 明るさ levels (shared/brightness.ts), dark to light: night navy to pale daylight. */
 export const LIGHT_LEVELS = ["#0b1220", "#26305e", "#4f5b80", "#8d9bb3", "#d6dbe0", "#fff1bf"] as const;

@@ -1,7 +1,7 @@
 // The 24 hours of one day next to its partner day, for one hourly item.
 // Shared by the day detail and the sheet's 時間帯 tab, so both look and behave the same.
 
-import { useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
 import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, dayLights, luxText, stepOutFeel, usualText } from "../../shared/brightness";
@@ -23,7 +23,7 @@ const readBands = (): Bands => {
   }
 };
 import { WeatherIcon } from "./WeatherIcon";
-import { cachedSun, hourOfDay, loadSun, sunAvailable, type SunTimes } from "../data/sun";
+import { cachedSun, hourOfDay, isNightAt, loadSun, sunAvailable, sunHours, type SunTimes } from "../data/sun";
 import {
   axisRange,
   type DetailMetricId,
@@ -41,6 +41,7 @@ import { axisWidth, dateLabel, needsYear, niceTicks, tickLabel } from "../design
 import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
 import { levelOf, type Thresholds } from "../../shared/feel";
 import { Segmented } from "./kit";
+import { SunSheet } from "./SunSheet";
 import { personalThresholds, useDayComfortState } from "../beta/useDayComfort";
 import { feelOn } from "../feelSeason";
 
@@ -95,6 +96,11 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const sun = useSun(station, date, today, store?.getDay(station, date).row);
   // The parts of the day and the sun's height, by the sun at this station (shared/dayParts.ts).
   const day = useMemo(() => ({ parts: dayParts(date, station), edges: dayEdges(date, station), curve: altitudeCurve(date, station, 10) }), [date, station]);
+  // Before sunrise or after sunset a clear sky is drawn as the moon (the readout and the weather row).
+  // Each day's own sunrise and sunset (the comparison day may be another season), for drawing a
+  // clear night as the moon in the readout and the weather rows.
+  const sunMain = sunHours(sun, day.edges);
+  const sunOther = useMemo(() => (other ? sunHours(cachedSun(station, other) ?? null, dayEdges(other, station)) : null), [other, station]);
 
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings, station), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings, station), [otherHours, metricId, settings]);
@@ -102,6 +108,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // 手前の平均 (src/hourAverage.ts): each day's own weeks before it, hour by hour. Tapping the legend
   // steps the span (1週 → 2週 → 1か月) and sets a line aside (grey); both are the person's to choose.
   const [avgWindow, setAvgWindow] = useState<AverageWindow>(readWindow);
+  const [sunOpen, setSunOpen] = useState(false);
   const stepWindow = () => {
     const w = nextWindow(avgWindow);
     setAvgWindow(w);
@@ -155,7 +162,9 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
     const byHour = new Map(daySky(sorted, station, settings.alpha).map((h) => [h.n, h.steps])); // the town's glow by 周りの様子
     return Array.from({ length: 24 }, (_, i) => byHour.get(i + 1) ?? null);
   };
-  const skyMain = useMemo(() => (metricId === "sun" ? skyOf(hours?.rows) : []), [hours, station, metricId, settings.alpha]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The day's sky: the 太陽 strip under every item's graph (#151), and 明るさと空 under 日照's.
+  const skyStrip = useMemo(() => skyOf(hours?.rows), [hours, station, settings.alpha]); // eslint-disable-line react-hooks/exhaustive-deps
+  const skyMain = metricId === "sun" ? skyStrip : [];
   const skyOther = useMemo(() => (metricId === "sun" && other ? skyOf(otherHours?.rows) : null), [otherHours, station, metricId, other, settings.alpha]); // eslint-disable-line react-hooks/exhaustive-deps
   // The weather under each time tick (0, 3, … 24 o'clock): the hour either side of it.
   const bandWx = useMemo(() => {
@@ -243,8 +252,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           {
             key: "wx",
             label: "天気",
-            a: <HourWeather w={hoursWeather(hours?.rows ?? [], [shownHour], station, 1)} />,
-            b: other ? <HourWeather w={hoursWeather(otherHours?.rows ?? [], [shownHour], station, 1)} /> : "—",
+            a: <HourWeather w={hoursWeather(hours?.rows ?? [], [shownHour], station, 1)} night={isNightAt(shownHour - 0.5, sunMain)} />,
+            b: other ? <HourWeather w={hoursWeather(otherHours?.rows ?? [], [shownHour], station, 1)} night={!!sunOther && isNightAt(shownHour - 0.5, sunOther)} /> : "—",
           },
           ...(metricId === "sun"
             ? [
@@ -322,7 +331,11 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         height={height}
         color={color}
         bandWx={bandWx}
+        sky={skyStrip}
+        otherSun={sunOther}
+        onSun={() => setSunOpen(true)}
       />
+      {sunOpen && <SunSheet date={date} station={station} sun={sun} hour={shownHour} onClose={() => setSunOpen(false)} />}
       <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
       </div>
 
@@ -439,6 +452,8 @@ function HourStatus({ state, error, onRetry }: { state?: string; error?: string;
 }
 
 const PAD = { right: 10, top: 18, bottom: 26 };
+/** The sun's height has its own strip under the plot (degrees, not the item's unit; #151). */
+const SUN_H = 22;
 
 type BandWx = { text: string | null; estimated: boolean };
 
@@ -446,30 +461,30 @@ type BandWx = { text: string | null; estimated: boolean };
 const WX_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 24];
 
 /** One hour's weather in the readout card: icon and words; faint when estimated. */
-function HourWeather({ w }: { w: BandWx }) {
+function HourWeather({ w, night = false }: { w: BandWx; night?: boolean }) {
   if (!w.text) return <>—</>;
   return (
     // Icon only: the value columns are narrow (the words are in the title and the label).
     <span className={`ro-wx${w.estimated ? " weather-estimated" : ""}`} title={w.estimated ? `${w.text}（日照と降水からの推定）` : w.text} aria-label={w.estimated ? `${w.text}（推定）` : w.text}>
-      <WeatherIcon text={w.text} size={20} />
+      <WeatherIcon text={w.text} size={20} night={night} />
     </span>
   );
 }
 
 /** One band's weather: the day's icon, and the partner day's smaller beside it. Estimates are faint. */
-function BandWeatherIcons({ main, other }: { main: BandWx; other: BandWx | null }) {
-  const icon = (w: BandWx, size: number, cls: string) =>
+function BandWeatherIcons({ main, other, night, otherNight }: { main: BandWx; other: BandWx | null; night: boolean; otherNight: boolean }) {
+  const icon = (w: BandWx, size: number, cls: string, night: boolean) =>
     w.text ? (
       <span className={`${cls}${w.estimated ? " weather-estimated" : ""}`} title={w.estimated ? `${w.text}（推定：日照と降水から）` : w.text}>
-        <WeatherIcon text={w.text} size={size} />
+        <WeatherIcon text={w.text} size={size} night={night} />
       </span>
     ) : (
       <span className={`${cls} none`}>—</span>
     );
   return (
     <>
-      {icon(main, 18, "band-wx-main")}
-      {other ? icon(other, 13, "band-wx-other") : null}
+      {icon(main, 18, "band-wx-main", night)}
+      {other ? icon(other, 13, "band-wx-other", otherNight) : null}
     </>
   );
 }
@@ -605,7 +620,7 @@ function LightStrip({
         {row("対象", skyMain)}
         {hasOther && skyOther && row("比較", skyOther)}
         {zoom && zoomDays.length > 0 && (
-          <div className="sky-zoom" role="group" aria-label={`${stepTime(shownHour, 0)}〜${shownHour}:00の明るさと空（拡大）`} style={{ left: left + 34 }}>
+          <div className="sky-zoom" role="group" aria-label={`${stepTime(shownHour, 0)}〜${shownHour}:00の明るさと空（拡大）`} style={{ left: `calc(${left}px + var(--plot-left))` }}>
             <div className="sky-zoom-head">
               <b>
                 {stepTime(shownHour, 0)}〜{shownHour}:00
@@ -724,7 +739,16 @@ function HourChart({
   color,
   bandWx,
   guides,
+  onSun,
+  sky,
+  otherSun,
 }: {
+  /** The comparison day's sunrise and sunset (hours), for its own night pictures. */
+  otherSun?: { rise: number; set: number } | null;
+  /** Tapping the sun's strip opens 太陽 (the twilights and the times). */
+  onSun?: () => void;
+  /** The sky's colour every 10 minutes (shared/sky.ts), the strip's ground: night, twilight, day. */
+  sky?: (SkyColour[] | null)[];
   bandWx?: { main: BandWx[]; other: BandWx[] | null };
   /** Other boundaries drawn as dashed lines over the feel ranges (everyone's, when the ranges are the person's). */
   guides?: readonly number[];
@@ -770,23 +794,32 @@ function HourChart({
   const range = axisRange(values, metric);
   const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
   // The axis column is as wide as its longest label (1020 hPa needs more than 25 ℃), so nothing is cut.
-  const left = axisWidth(ticks.map(tickLabel));
+  // …and wide enough to name the weather rows (対象 / 比較) clear of the 0時 icon.
+  const left = Math.max(axisWidth(ticks.map(tickLabel)), bandWx ? 40 : 0);
   const plotW = w - left - PAD.right;
+  // The parts under the graph (明るさと空, the loading cover) line up with its plot: they read
+  // the left edge from here (#151: the axis column widened for 対象／比較 and they fell out of step).
+  useLayoutEffect(() => {
+    (ref.current?.closest(".hour-compare") as HTMLElement | null)?.style.setProperty("--plot-left", `${left}px`);
+  }, [left]);
   const step = plotW / 24;
   // Hour n is the value at n o'clock: x runs from 0 to 24 o'clock.
   const xOf = (h: number) => left + (h / 24) * plotW;
   const yOf = (v: number) => PAD.top + ((hi - Math.min(hi, Math.max(lo, v))) * (H - PAD.top - PAD.bottom)) / (hi - lo);
   // Sunrise and sunset from the sun API when known (the stored ones), else calculated.
-  const rise = hourOfDay(sun?.sunrise ?? null) ?? day.edges.rise / 60;
-  const set = hourOfDay(sun?.sunset ?? null) ?? day.edges.set / 60;
+  const { rise, set } = sunHours(sun, day.edges);
   const dawn = day.edges.dawn / 60;
   const dusk = day.edges.dusk / 60;
   const plotTop = PAD.top;
   const plotBottom = H - PAD.bottom;
-  // The sun's height as a faint hill along the bottom: 90° would fill a third of the graph.
-  const sunY = (deg: number) => plotBottom - (Math.max(0, deg) / 90) * (plotBottom - plotTop) * 0.33;
+  // The sun's height in its own strip under the plot, the day's highest point at the strip's top.
+  const stripTop = plotBottom + 2;
+  const stripBottom = plotBottom + SUN_H - 2;
+  const peak = Math.max(1, day.edges.noonAltitude);
+  const sunY = (deg: number) => stripBottom - (Math.max(0, deg) / peak) * (stripBottom - stripTop - 2);
   const above = day.curve.filter((p, i, a) => p.deg > 0 || (a[i - 1]?.deg ?? -1) > 0 || (a[i + 1]?.deg ?? -1) > 0);
-  const sunPath = above.length ? `M${xOf(above[0].min / 60)},${plotBottom} ` + above.map((p) => `L${xOf(p.min / 60)},${sunY(p.deg)}`).join(" ") + ` L${xOf(above.at(-1)!.min / 60)},${plotBottom} Z` : null;
+  // The sun's path as an open line (no base): the 南中 label sits under its peak, clear of it.
+  const sunPath = above.length ? above.map((p, i) => `${i ? "L" : "M"}${xOf(p.min / 60)},${sunY(p.deg)}`).join(" ") : null;
   const clip = (m: number) => Math.min(24, Math.max(0, m / 60));
 
   const pickAt = (clientX: number) => {
@@ -852,6 +885,15 @@ function HourChart({
     );
   };
   const d = dim ?? { main: false, other: false, avgMain: false, avgOther: false };
+  // The strip's sky as gradient stops (the middle of each 10 minutes), computed with the sky, not per move.
+  const skyId = `sky${useId().replace(/[^a-zA-Z0-9]/g, "")}`;
+  const skyStops = useMemo(() => {
+    const stops = (sky ?? []).flatMap((steps, i) => (steps ?? []).map((c, k) => ({ at: (i + (k + 0.5) / 6) / 24, c })));
+    return stops.length ? stops : null;
+  }, [sky]);
+  // Where the touched value's tag sits on the axis (line graphs), so the tick under it can give way.
+  // (As GuideLines places it: kept a half tag above the plot's foot.)
+  const tagY = metric.chart !== "bar" && main[hour - 1]?.v != null ? Math.min(yOf(main[hour - 1].v!), H - PAD.bottom - 7.5) : null;
   // Lines set aside go under the others, so the ones still in colour read on top.
   const under = (k: LineId) => (d[k] ? 0 : 1);
 
@@ -878,7 +920,7 @@ function HourChart({
         onScrub?.(false);
       }}
     >
-      <svg width={w} height={H} role="img" aria-label={`${metric.label}の時間ごとのグラフ`}>
+      <svg width={w} height={H + SUN_H} role="img" aria-label={`${metric.label}の時間ごとのグラフ`}>
         {/* Feel levels behind the lines. */}
         {metricId === "feel" &&
           ranges.map(({ from, to, color }, i) => {
@@ -914,8 +956,24 @@ function HourChart({
         <rect x={xOf(dusk)} width={xOf(24) - xOf(dusk)} y={plotTop} height={plotBottom - plotTop} className="day-night" />
         <rect x={xOf(dawn)} width={Math.max(0, xOf(rise) - xOf(dawn))} y={plotTop} height={plotBottom - plotTop} className="day-twilight" />
         <rect x={xOf(set)} width={Math.max(0, xOf(dusk) - xOf(set))} y={plotTop} height={plotBottom - plotTop} className="day-twilight" />
-        {/* The sun's height through the day, and its highest point. */}
-        {sunPath && <path d={sunPath} className="day-sun" />}
+        {/* The 太陽 strip: the sky's colour every 10 minutes (as in 明るさと空), the sun's height over it. */}
+        {skyStops && (
+          <>
+            {/* Two gradients (overhead above, low over the land below), one stop per 10 minutes. */}
+            <defs>
+              {(["zenith", "horizon"] as const).map((k) => (
+                <linearGradient key={k} id={`${skyId}-${k}`} gradientUnits="userSpaceOnUse" x1={xOf(0)} x2={xOf(24)} y1={0} y2={0}>
+                  {skyStops.map((st) => (
+                    <stop key={st.at} offset={st.at} stopColor={st.c[k]} />
+                  ))}
+                </linearGradient>
+              ))}
+            </defs>
+            <rect x={xOf(0)} width={xOf(24) - xOf(0)} y={stripTop} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-zenith)`} />
+            <rect x={xOf(0)} width={xOf(24) - xOf(0)} y={(stripTop + stripBottom) / 2} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-horizon)`} />
+          </>
+        )}
+        {sunPath && <path d={sunPath} className={skyStops ? "day-sun over-sky" : "day-sun"} />}
         {/* The five parts of the day (by the sun's height), named along the top. */}
         {day.parts.map((p) => {
           const from = clip(p.from);
@@ -935,9 +993,12 @@ function HourChart({
         {ticks.map((t) => (
           <g key={t}>
             <line x1={left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
-            <text x={left - 6} y={yOf(t) + 4} className="chart-tick" textAnchor="end">
-              {tickLabel(t)}
-            </text>
+            {/* A tick the value tag would sit on gives way to it (16.0 over 15). */}
+            {!(tagY != null && Math.abs(yOf(t) - tagY) < 13) && (
+              <text x={left - 6} y={yOf(t) + 4} className="chart-tick" textAnchor="end">
+                {tickLabel(t)}
+              </text>
+            )}
           </g>
         ))}
         {/* The unit once, above the axis. */}
@@ -998,21 +1059,46 @@ function HourChart({
           </>
         )}
 
-        {/* The sun's highest point, in front of bars and lines (it was hidden behind 日差し's bars). */}
-        <text x={xOf(day.edges.noon / 60)} y={sunY(day.edges.noonAltitude) - 4} textAnchor="middle" className="day-sun-label">
+        {/* The strip's name in the axis column (with › : it opens 太陽), and the highest point beside the peak. */}
+        <text x={left - 12} y={stripBottom - 3} textAnchor="end" className="day-sun-name">
+          太陽
+        </text>
+        <path d={`M${left - 9} ${stripBottom - 11}l3.5 3.5-3.5 3.5`} className="day-sun-chevron" />
+        {/* The highest point, under the peak (the line is open, so nothing runs through it). */}
+        <text x={xOf(day.edges.noon / 60)} y={stripBottom - 2} textAnchor="middle" className="day-sun-label">
           南中 {Math.round(day.edges.noonAltitude)}°
         </text>
         {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
-          <text key={h} x={xOf(h)} y={H - 8} textAnchor="middle" className="chart-x">
+          <text key={h} x={xOf(h)} y={H + SUN_H - 8} textAnchor="middle" className="chart-x">
             {h}
           </text>
         ))}
       </svg>
+      {/* The 太陽 strip opens the sheet: a real button laid over it (VoiceOver and keys reach it,
+          and it is 32 high, the strip's 22 and a little either side). */}
+      {onSun && (
+        <button
+          type="button"
+          className="day-sun-button"
+          style={{ top: plotBottom + SUN_H / 2 - 16 }}
+          aria-label="太陽：日の出・日の入りと薄明の時刻を開く（帯の色はその日の空の模式）"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={onSun}
+        />
+      )}
       {bandWx && (
-        <div className="band-wx" aria-label="時刻ごとの天気（その前後1時間。大きい方が対象日、小さい方が比較日。薄いものは日照と降水からの推定）">
+        <div className="band-wx" aria-label="時刻ごとの天気（その前後1時間。上が対象日、下が比較日。薄いものは日照と降水からの推定）">
+          {/* Each row named in the axis column: 対象 above, 比較 below. */}
+          <span className="band-wx-name main" style={{ width: left - 13 }}>対象</span>
+          {bandWx.other && <span className="band-wx-name other" style={{ width: left - 13 }}>比較</span>}
           {WX_TICKS.map((h, i) => (
             <span key={h} className="band-wx-cell" style={{ left: xOf(h) }}>
-              <BandWeatherIcons main={bandWx.main[i]} other={bandWx.other?.[i] ?? null} />
+              <BandWeatherIcons
+                main={bandWx.main[i]}
+                other={bandWx.other?.[i] ?? null}
+                night={isNightAt(h, { rise, set })}
+                otherNight={!!otherSun && isNightAt(h, otherSun)}
+              />
             </span>
           ))}
         </div>

@@ -5,7 +5,7 @@ import { type ButtonHTMLAttributes, type CSSProperties, Fragment, type ReactNode
 import { dayTone } from "../../shared/holidays";
 import type { Confidence } from "../../shared/confidence";
 import { type BandMark, barLook, type DataColor, type LineDay, type LineKind, type LineLook, lineLook } from "../design/tokens";
-import { dateLabel, digitsOf, monthDay, num, weekdayOf } from "../design/format";
+import { dateLabel, digitsOf, monthDay, num, phraseBreak, weekdayOf } from "../design/format";
 
 /** A choice chip. `size="sm"` for filters inside sheets. */
 export function Chip({
@@ -118,6 +118,54 @@ export function Glyph({ name, size = "0.85em" }: { name: GlyphName; size?: strin
     <svg className="glyph" viewBox="0 0 12 12" width={size} height={size} aria-hidden>
       {GLYPH[name]}
     </svg>
+  );
+}
+
+/**
+ * A slider (#151): a thin track, plain white thumbs, the chosen span in the colour of what it sets
+ * (`className` "tone-…" sets it; none leaves the span out). One thumb or two (a range). Ticks mark
+ * points of reference (基準, 日の出 …). Native range inputs, so keys and VoiceOver work; only the
+ * thumbs take the finger, and a drag on it never pulls the sheet it is in (data-no-sheet-drag,
+ * which ModalSheet's own touch handling honours).
+ */
+export function Slider({
+  min,
+  max,
+  step,
+  thumbs,
+  fill,
+  ticks,
+  className,
+}: {
+  min: number;
+  max: number;
+  step: number;
+  thumbs: { value: number; label: string; valueText?: string; onChange: (v: number) => void }[];
+  /** The chosen span (values); left out, no span is drawn. */
+  fill?: [number, number] | null;
+  ticks?: number[];
+  className?: string;
+}) {
+  const pos = (v: number) => ((Math.min(max, Math.max(min, v)) - min) / (max - min)) * 100;
+  return (
+    <div className={className ? `slider ${className}` : "slider"} data-no-sheet-drag onPointerDown={(e) => e.stopPropagation()}>
+      <span className="track" />
+      {fill && <span className="fill" style={{ left: `${pos(fill[0])}%`, width: `${pos(fill[1]) - pos(fill[0])}%` }} />}
+      {ticks?.map((t) => <span key={t} className="tick" style={{ left: `${pos(t)}%` }} />)}
+      {thumbs.map((t) => (
+        <input
+          key={t.label}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={t.value}
+          aria-label={t.label}
+          aria-valuetext={t.valueText}
+          onChange={(e) => t.onChange(Number(e.target.value))}
+        />
+      ))}
+    </div>
   );
 }
 
@@ -380,22 +428,26 @@ export function GraphReadout({ title, rows, unit, live, dates }: { title: ReactN
         </small>
         <small className="ro-col">差</small>
         {rows.map((r) => {
+          // Words break before their last word (日差しの｜明るさ, とても｜明るい, 日の出前後の｜空), never
+          // mid-word; at most two lines (.ro-words).
+          const words = (v: ReactNode) =>
+            r.text && typeof v === "string" ? <span className="ro-words">{phraseBreak(v)}</span> : v;
           // The unit sits with the row's name, once, so every value is a bare number and the
           // numbers of a column line up on their decimal point (a unit on some rows only moved them).
           const u = r.text || (r.a != null && typeof r.a === "object") ? "" : (r.unit ?? unit);
           const kind = (v: ReactNode) => (typeof v === "string" || typeof v === "number" ? "" : " ro-icon");
           return (
             <Fragment key={r.key}>
-              <span className="ro-label">
+              <span className={r.text ? "ro-label ro-text-label" : "ro-label"}>
                 {r.mark && <MarkIcon shape={r.mark} color={r.color ?? "currentColor"} />}
                 {r.label}
                 {u && <small className="ro-unit">{u}</small>}
               </span>
               <span className={`ro-v${r.text ? " ro-text" : ""}${kind(r.a)}`} style={r.mark ? undefined : { color: r.color }}>
-                {r.a}
+                {words(r.a)}
               </span>
               <span className={`ro-v ro-b${r.text ? " ro-text" : ""}${kind(r.b ?? "—")}`} style={r.mark ? undefined : { color: r.color }}>
-                {r.b ?? "—"}
+                {words(r.b ?? "—")}
               </span>
               <span className="ro-v ro-diff">{r.diff || "—"}</span>
             </Fragment>

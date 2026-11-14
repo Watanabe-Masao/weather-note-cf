@@ -1255,18 +1255,27 @@ button.label-feel:active { transform: scale(0.97); }
 /* Twilight (sunrise and sunset to 6° below the horizon): half the night's shade. */
 .day-twilight { fill: var(--effect-twilight); }
 /* The sun's height through the day: a faint hill along the bottom of the graph. */
-.day-sun { fill: var(--data-sun); fill-opacity: 0.1; stroke: var(--data-sun); stroke-opacity: 0.45; stroke-width: 1; }
-.day-sun-label { fill: var(--ink-secondary); font-size: var(--size-xs); paint-order: stroke; stroke: var(--surface-base); stroke-width: 3px; }
-/* 明るさ under the 日差し graph: 24 cells per day, aligned with the plot (left 34px, right 10px). */
+.day-sun { fill: none; stroke: var(--ink-secondary); stroke-width: 1.2; }
+.day-sun.over-sky { fill: none; stroke: var(--ink-primary); stroke-opacity: 0.85; stroke-width: 1.2; }
+.day-sun-label { fill: var(--ink-primary); font-size: var(--size-xs); paint-order: stroke; stroke: var(--surface-page); stroke-width: 3px; stroke-opacity: 0.55; }
+/* The strip's name (太陽) in the axis column, like the unit over the value axis. */
+.day-sun-name { fill: var(--accent-base); font-size: var(--size-xs); }
+.day-sun-chevron { fill: none; stroke: var(--accent-base); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+
+.day-sun-button { position: absolute; left: 0; right: 0; height: 32px; padding: 0; border: none; background: transparent; cursor: pointer; z-index: 1; }
+.day-sun-button:focus-visible { outline: 2px solid var(--accent-base); outline-offset: -2px; border-radius: var(--radius-sm); }
+/* 明るさ under the 日差し graph: 24 cells per day, aligned with the plot (its left edge is --plot-left,
+   set by the graph from its own axis column; right 10px). */
+.hour-compare { --plot-left: 34px; }
 .light-strip { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .light-title { font-size: var(--size-sm); color: var(--ink-secondary); }
 .light-row { display: flex; align-items: center; }
-.light-row-label { width: 34px; font-size: var(--size-sm); color: var(--ink-tertiary); }
+.light-row-label { width: var(--plot-left); font-size: var(--size-sm); color: var(--ink-tertiary); }
 .light-cells { flex: 1; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 1px; margin-right: 10px; }
 .light-cells i { height: 18px; border-radius: var(--radius-tick); }
 .light-cells i.on { outline: 1.5px solid var(--ink-primary); outline-offset: -1px; }
-.light-note { margin: 2px 0 0 34px; }
-.light-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 0 34px; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.light-note { margin: 2px 0 0 var(--plot-left); }
+.light-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 0 var(--plot-left); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .light-legend span { display: inline-flex; align-items: center; gap: 3px; }
 .light-legend i { width: 10px; height: 10px; border-radius: var(--radius-tick); border: 1px solid var(--line-soft); }
 /* 明るさと空: each hour as its six 10-minute sky colours (zenith above horizon) over a thin line of the light's levels. */
@@ -1282,7 +1291,7 @@ button.label-feel:active { transform: scale(0.97); }
 .light-trace.on {
   display: block;
   position: absolute;
-  inset: 0 10px 0 34px;
+  inset: 0 10px 0 var(--plot-left);
   z-index: 1;
   cursor: ew-resize;
   touch-action: pan-y;
@@ -1466,15 +1475,29 @@ button.label-feel:active { transform: scale(0.97); }
   opacity: 0.72;
 }
 
+/* A row of words is two lines tall: its name sits in the middle of them, like the words. */
+.ro-label.ro-text-label { align-self: center; }
+
 /* Words (明るさ・空・段): smaller and up to two lines inside their column, never into the next one.
    Always two lines tall, so the card keeps its height from hour to hour. */
 .ro-v.ro-text {
   font-size: var(--size-xs);
   line-height: 1.25;
   white-space: normal;
-  overflow-wrap: anywhere;
+  /* Two lines tall whatever it holds, so the card keeps its height from hour to hour, and the
+     words — one line or two — sit in the middle of that height, level with the row's name. */
   min-height: 2.5em;
   align-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+/* The words themselves: break where the code allows (before the last word); a word too long for the
+   column may still break inside rather than run into the next; never more than two lines. */
+.ro-words {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
@@ -2372,32 +2395,33 @@ svg.scrub {
   opacity: 0.6;
 }
 
-/* Thin track, plain thumbs; the two native ranges share one track and only the thumbs take the finger. */
-.cond-slider {
+/* kit Slider (#151): thin track, plain thumbs; the native ranges share one track and only the
+   thumbs take the finger. The span takes the colour of what it sets (tone-…). */
+.slider {
   position: relative;
   height: 32px;
   margin: 2px 10px 0;
 }
 
-.cond-slider .track,
-.cond-slider .fill {
+.slider .track,
+.slider .fill {
   position: absolute;
   top: 15px;
   height: 2px;
   border-radius: var(--radius-tick);
 }
 
-.cond-slider .track {
+.slider .track {
   left: 0;
   right: 0;
   background: var(--line-strong);
 }
 
-.cond-slider .fill {
+.slider .fill {
   background: currentColor;
 }
 
-.cond-slider .tick {
+.slider .tick {
   position: absolute;
   top: 11px;
   width: 1px;
@@ -2405,7 +2429,7 @@ svg.scrub {
   background: var(--ink-tertiary);
 }
 
-.cond-slider input {
+.slider input {
   position: absolute;
   left: -10px;
   right: -10px;
@@ -2419,12 +2443,12 @@ svg.scrub {
   appearance: none;
 }
 
-.cond-slider input::-webkit-slider-runnable-track {
+.slider input::-webkit-slider-runnable-track {
   height: 20px;
   background: none;
 }
 
-.cond-slider input::-webkit-slider-thumb {
+.slider input::-webkit-slider-thumb {
   -webkit-appearance: none;
   pointer-events: auto;
   width: 20px;
@@ -2435,7 +2459,7 @@ svg.scrub {
   box-shadow: var(--shadow-lift);
 }
 
-.cond-slider input::-moz-range-thumb {
+.slider input::-moz-range-thumb {
   pointer-events: auto;
   width: 20px;
   height: 20px;
@@ -2444,7 +2468,7 @@ svg.scrub {
   background: var(--ink-primary);
 }
 
-.cond-slider input:focus-visible::-webkit-slider-thumb {
+.slider input:focus-visible::-webkit-slider-thumb {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
@@ -2887,7 +2911,8 @@ svg.scrub {
   padding: var(--space-4) var(--space-5) var(--space-3);
 }
 .readout-card,
-.predict-card {
+.predict-card,
+.sun-card {
   border-radius: var(--radius-md);
   background: var(--surface-inset);
   box-shadow: 0 0 0 1px var(--line-soft) inset;
@@ -3578,7 +3603,7 @@ svg.scrub {
 
 .state-overlay {
   position: absolute;
-  inset: 18px 10px 26px 34px;
+  inset: 18px 10px 26px var(--plot-left);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -3908,9 +3933,12 @@ svg.scrub {
 /* The weather of each band above the hourly graph: the day's icon, the partner day's smaller. */
 .band-wx { position: relative; height: 34px; margin-top: 0; }
 /* The loading / error cover stays on the plot, above the axis and the weather row. */
-.hour-chart-wrap:has(.band-wx) .state-overlay { bottom: calc(26px + 34px); }
+.hour-chart-wrap:has(.band-wx) .state-overlay { bottom: calc(26px + 22px + 34px); }
 .ro-wx { display: inline-flex; align-items: center; gap: 4px; }
 .ro-wx small { font-size: var(--size-sm); color: var(--ink-secondary); }
+.band-wx-name { position: absolute; left: 0; text-align: right; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1; }
+.band-wx-name.main { top: 4px; }
+.band-wx-name.other { top: 21px; }
 .band-wx-cell { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; flex-direction: column; align-items: center; gap: 0; }
 .band-wx-main, .band-wx-other { display: inline-flex; }
 .band-wx-other { opacity: 0.7; }
@@ -3988,3 +4016,34 @@ svg.scrub {
 @media (max-width: 374px) {
   .item-icon.long { display: none; }
 }
+
+/* 太陽 (SunSheet, #151): the day's sun against the horizon and the three twilights. */
+.sun-chart { width: 100%; height: auto; display: block; touch-action: pan-y; cursor: ew-resize; }
+.sun-horizon { stroke: var(--ink-secondary); stroke-width: 1.2; }
+.sun-depth { stroke: var(--ink-tertiary); stroke-opacity: 0.45; stroke-dasharray: 3 3; }
+.sun-tick { fill: var(--ink-tertiary); font-size: var(--size-xs); font-family: var(--font-numeric); }
+.sun-curve { fill: none; stroke: var(--ink-tertiary); stroke-width: 2; stroke-linecap: round; }
+.sun-curve.day { stroke-width: 2.5; }
+.sun-cursor { stroke: var(--ink-secondary); stroke-dasharray: 2 3; }
+.sun-mark { fill: var(--ink-primary); stroke: var(--surface-page); stroke-width: 1; }
+.sun-mark.rise { fill: var(--ink-primary); }
+.sun-dot { fill: var(--surface-base); stroke: var(--ink-primary); stroke-width: 2; }
+.sun-dot.day { fill: var(--ink-primary); stroke: var(--surface-base); }
+.sun-now { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-3); }
+.sun-now-sky { width: 28px; height: 28px; border-radius: var(--radius-sm); box-shadow: 0 0 0 1px var(--line-soft) inset; flex: none; }
+.sun-now-time { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-lg); font-weight: var(--weight-bold); min-width: 3.2em; }
+.sun-now-phase { display: grid; font-size: var(--size-base); color: var(--ink-primary); line-height: 1.25; }
+.sun-now-phase small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.sun-now-alt { margin-left: auto; font-size: var(--size-sm); color: var(--ink-secondary); font-family: var(--font-numeric); }
+.sun-note { margin: var(--space-3) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.sun-times { display: grid; margin: 0; }
+.sun-times > div { display: flex; justify-content: space-between; align-items: baseline; padding: var(--space-3) 0; }
+.sun-times > div + div { border-top: 1px solid var(--line-soft); }
+.sun-times dt { font-size: var(--size-sm); color: var(--ink-secondary); }
+.sun-times dd { margin: 0; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-md); color: var(--ink-primary); display: flex; gap: var(--space-4); align-items: baseline; }
+.sun-times dd small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.sun-times .strong dt, .sun-times .strong dd { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.sun-times .total { border-top-color: var(--line-strong); }
+.sun-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); font-size: var(--size-sm); color: var(--ink-secondary); }
+.sun-notes b { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.sun-swatch { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-tick); box-shadow: 0 0 0 1px var(--line-soft) inset; margin-right: var(--space-3); vertical-align: -1px; }
