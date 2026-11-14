@@ -4,7 +4,7 @@
 import { clockOf, dayEdges, dayParts, altitudeCurve, twilights, TWILIGHTS } from "../../shared/dayParts";
 import { sunHours, type SunTimes } from "../data/sun";
 import { dateLabel, hoursMinutes } from "../design/format";
-import { skyAt } from "../../shared/sky";
+import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
 import { SectionHead, Slider } from "./kit";
 import { ICON } from "../design/tokens";
@@ -14,12 +14,32 @@ const W = 340;
 const H = 230;
 const PAD = { left: 38, right: 8, top: 10, bottom: 20 };
 
-export function SunSheet({ date, station, sun, hour, onClose }: { date: string; station: string; sun: SunTimes | null; hour: number | null; onClose: () => void }) {
+export function SunSheet({
+  date,
+  station,
+  sun,
+  hour,
+  sky,
+  onClose,
+}: {
+  date: string;
+  station: string;
+  sun: SunTimes | null;
+  hour: number | null;
+  /** The day's own sky every 10 minutes (the 太陽 strip's, from the day's weather), by hour; an hour
+   *  without data falls back to a clear day's sky (#151: the strip and the sheet tell the same sky). */
+  sky?: (SkyColour[] | null)[];
+  onClose: () => void;
+}) {
   // The day's sun, worked out once per day and place (not on every move of the finger).
-  const { e, t, curve, skies } = useMemo(() => {
+  const { e, t, curve, skies, filled } = useMemo(() => {
     const c = altitudeCurve(date, station, 10);
-    return { e: dayEdges(date, station), t: twilights(date, station), curve: c, skies: c.map((p) => skyAt(p.deg, 1, 0, p.min > 720)) };
-  }, [date, station]);
+    // Each 10 minutes: the day's own sky when its hour has data, else a clear day's (and how many were clear).
+    const own = (min: number) => sky?.[Math.floor(min / 60)]?.[Math.floor((min % 60) / 10)] ?? null;
+    const skies = c.map((p) => own(p.min) ?? skyAt(p.deg, 1, 0, p.min > 720));
+    const filled = c.slice(0, -1).filter((p) => !own(p.min)).length;
+    return { e: dayEdges(date, station), t: twilights(date, station), curve: c, skies, filled };
+  }, [date, station, sky]);
   // Sunrise and sunset by the same rule as the graph (data/sun sunHours), in minutes.
   const { rise: riseH, set: setH } = sunHours(sun, e);
   const rise = riseH * 60;
@@ -97,7 +117,7 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
         }}
         onPointerCancel={() => (scrubbing.current = false)}
       >
-        {/* The ground is the sky itself on a clear day, every 10 minutes (shared/sky.ts, as in 明るさと空):
+        {/* The ground is the day's sky every 10 minutes (shared/sky.ts, as in 明るさと空 and the strip):
             above the horizon the colour overhead, below it the colour low over the land. */}
         {curve.slice(0, -1).map((p, i) => {
           const c = skies[i];
@@ -152,12 +172,15 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
         <b className="sun-now-time">{clockOf(at)}</b>
         <span className="sun-now-phase">
           {phase}
-          <small>時間帯は{part}</small>
+          <small>
+            時間帯は{part}・{skyNow.word}
+          </small>
         </span>
         <span className="sun-now-alt">{altAt >= 0 ? `地平線の上 ${Math.round(altAt)}°` : `地平線の下 ${Math.round(-altAt)}°`}</span>
       </div>
       <p className="sun-note">
-        左右になぞると10分ごとに動きます。空の色は晴れた日の模式です（グラフの下の帯は、その日の天気の空）。地平線の下は、薄明が見やすいように広げて描いています。
+        左右になぞると10分ごとに動きます。空の色はこの日の天気（実績・予報）からの模式で、グラフの下の帯と同じです
+        {filled > 0 ? "（データのない時間は晴れた日の空）" : ""}。地平線の下は、薄明が見やすいように広げて描いています。
       </p>
       </div>
 

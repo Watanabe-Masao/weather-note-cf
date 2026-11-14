@@ -335,7 +335,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         otherSun={sunOther}
         onSun={() => setSunOpen(true)}
       />
-      {sunOpen && <SunSheet date={date} station={station} sun={sun} hour={shownHour} onClose={() => setSunOpen(false)} />}
+      {sunOpen && <SunSheet date={date} station={station} sun={sun} hour={shownHour} sky={skyStrip} onClose={() => setSunOpen(false)} />}
       <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
       </div>
 
