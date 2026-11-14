@@ -1189,19 +1189,28 @@ button.label-feel.shade small {
 
 /* ---- 時間帯 -------------------------------------------------------------------------------- */
 
-.hour-face-head {
+.section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  margin: var(--space-6) var(--space-2) var(--space-3);
+  min-height: 32px;
+  margin: var(--space-6) 0 var(--space-3);
+  padding: var(--space-5) var(--space-2) 0;
+  border-top: 1px solid var(--line-soft);
 }
 
-.hour-face-head p {
+.section-title {
+  margin: 0;
   font-size: var(--size-sm);
   font-weight: var(--weight-bold);
   color: var(--ink-secondary);
   letter-spacing: 0.04em;
+}
+
+.section-note {
+  font-size: var(--size-sm);
+  color: var(--ink-tertiary);
 }
 
 .day-chart {
@@ -3671,9 +3680,7 @@ svg.scrub {
 .after-answer-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .after-answer ul { margin: 6px 0 0; padding-left: 1.1em; display: grid; gap: 2px; }
 .after-answer p { margin: 6px 0 0; color: var(--ink-secondary); }
-.outlook { border: 1px solid var(--line-soft); border-radius: var(--radius-md); padding: 10px 12px; display: grid; gap: 6px; margin: 8px 0; }
-.outlook h4 { margin: 0; font-size: var(--size-base); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.outlook h4 small { font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
+.outlook { display: grid; gap: 6px; padding: 0 var(--space-2); }
 .outlook-rows { display: grid; gap: 4px; }
 .outlook-row { display: grid; grid-template-columns: 3em minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--size-base); }
 .outlook-part { color: var(--ink-secondary); }
