@@ -2,7 +2,7 @@
 // Linked: both strips render the same run of target days (the comparison cell is that day's partner)
 // and scroll as one. Independent: each strip has its own run of days.
 
-import { Conf, confidenceOfRow } from "./kit";
+import { Conf, confidenceOfRow, useLongPress } from "./kit";
 import { signedDiff } from "../design/format";
 import { type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "../../shared/dates";
@@ -37,6 +37,8 @@ interface Props {
   onToggleSun: () => void;
   /** Tap on a column: open that day's detail, paired with the day on the other side. */
   onOpenDay: (date: string, other: string | null, side: "target" | "compare") => void;
+  /** Long press on a day's weather picture: that day's summary, beside the day it is read against (#176). */
+  onSummary?: (date: string, other: string | null) => void;
   /** Tap on a feel bar: open the feel map. */
   onOpenFeel: () => void;
   /** Right end of the target header (focus button). */
@@ -62,7 +64,7 @@ function useWindow(center: string, min: string, max: string) {
   }, [win, min, max]);
 }
 
-function kindLabel(store: WeatherStore | null, station: string, date: string) {
+export function kindLabel(store: WeatherStore | null, station: string, date: string) {
   const day = store?.getDay(station, date);
   if (day?.state !== "ready" || !day.row) return "";
   // The status only (one meaning per row): the rain chance has its own row under 降水.
@@ -80,6 +82,7 @@ function Column({
   past = false,
   onOpenFeel,
   against,
+  onSummary,
 }: {
   store: WeatherStore | null;
   station: string;
@@ -91,8 +94,11 @@ function Column({
   onOpenFeel?: () => void;
   /** The target day this comparison column is read against: adds the 差 rows. */
   against?: string | null;
+  /** A long press on the day's weather picture: the day's summary (#176). */
+  onSummary?: () => void;
 }) {
   const feel = useContext(FeelContext);
+  const press = useLongPress(onSummary);
   if (!date)
     return (
       <div className="cell-stack empty-partner">
@@ -112,7 +118,7 @@ function Column({
         {+date.slice(5, 7)}/{+date.slice(8)}
         <small>{weekdayOf(date)}</small>
       </span>
-      <span className="cell-icon">
+      <span className="cell-icon" {...(state === "ready" ? press : {})}>
         {state === "ready" ? <DayWeatherIcon row={day?.row} station={station} /> : state === "empty" ? <span className="skeleton icon" /> : null}
       </span>
       <span className={state === "error" ? "cell-kind failed" : "cell-kind"}>
@@ -241,6 +247,7 @@ export function CompareBoard({
   moveCompare,
   onToggleSun,
   onOpenDay,
+  onSummary,
   onOpenFeel,
   targetExtra,
   compareExtra,
@@ -356,6 +363,7 @@ export function CompareBoard({
                   faded={d < bounds.min || d > bounds.max}
                   onOpenFeel={onOpenFeel}
                   onOpen={() => onOpenDay(d, view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d)), "target")}
+                  onSummary={onSummary && (() => onSummary(d, view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d))))}
                 />
               )}
             />
@@ -394,6 +402,13 @@ export function CompareBoard({
                     const shown = partner(d);
                     if (shown) onOpenDay(shown, view.linked ? d : addDays(view.target, diffDays(view.compare, d)), "compare");
                   }}
+                  onSummary={
+                    onSummary &&
+                    (() => {
+                      const shown = partner(d);
+                      if (shown) onSummary(shown, view.linked ? d : addDays(view.target, diffDays(view.compare, d)));
+                    })
+                  }
                 />
               )}
             />

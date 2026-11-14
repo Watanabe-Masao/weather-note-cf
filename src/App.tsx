@@ -39,6 +39,7 @@ import { FeelSheet } from "./ui/FeelSheet";
 import { HourFace } from "./ui/HourFace";
 import { ConditionSheet } from "./ui/ConditionSheet";
 import { LightTrend } from "./ui/LightTrend";
+import { DaySummaryCard, type DaySummaryAsk } from "./ui/DaySummaryCard";
 
 const PREFETCH_IDLE_MS = 1_000;
 const PREFETCH_RADIUS = 14;
@@ -76,6 +77,8 @@ function chartHeight(
 export function App() {
   const store = useWeatherStore();
   const [calendar, setCalendar] = useState<CalendarSide | null>(null);
+  // その日の要約 (#176): a long press on a day's weather picture.
+  const [summary, setSummary] = useState<DaySummaryAsk | null>(null);
   const {
     view,
     today: startToday,
@@ -349,6 +352,7 @@ export function App() {
               moveCompare={moveCompare}
               onToggleSun={() => set("sun", !view.sun)}
               onOpenDay={openDay}
+              onSummary={(date, other) => setSummary({ date, other })}
               onOpenFeel={() => setFeelMap(true)}
               targetExtra={
                 <IconButton
@@ -492,6 +496,10 @@ export function App() {
             />
           </FeelContext.Provider>
         </BetaContext.Provider>
+      )}
+
+      {summary && (
+        <DaySummaryCard store={store} station={view.station} ask={summary} onClose={() => setSummary(null)} />
       )}
 
       {calendar && (
