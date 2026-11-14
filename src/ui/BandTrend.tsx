@@ -129,12 +129,8 @@ export function BandTrend({ store, station, target, partner }: Props) {
       <GraphReadout
         live={touch != null}
         unit=""
-        title={
-          <>
-            {dateLabel(dates[shownDay])}
-            {otherDate && <small> 比較 {monthDay(otherDate)}</small>}
-          </>
-        }
+        title={dateLabel(dates[shownDay])}
+        dates={{ b: otherDate ? monthDay(otherDate) : undefined }}
         rows={chosen.map((i) => {
           const a = mine[shownDay]?.[i]?.feel ?? null;
           const b = theirs[shownDay]?.[i]?.feel ?? null;

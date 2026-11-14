@@ -48,6 +48,12 @@ describe("type scale", () => {
     expect(sizes.filter((v) => !ok(v))).toEqual([]);
   });
 
+  it("weights and families come from the tokens, and the font shorthand is not used (it would hide a size)", () => {
+    expect([...css.matchAll(/(?:^|[\s;{])font:\s*([^;}]+)/g)].map((m) => m[1].trim()).filter((v) => v !== "inherit")).toEqual([]);
+    expect([...css.matchAll(/font-weight:\s*([^;}]+)/g)].map((m) => m[1].trim()).filter((v) => !/^var\(--weight-[a-z]+\)$/.test(v))).toEqual([]);
+    expect([...css.matchAll(/font-family:\s*([^;}]+)/g)].map((m) => m[1].trim()).filter((v) => !/^var\(--font-[a-z]+\)$/.test(v) && v !== "inherit")).toEqual([]);
+  });
+
   it("the input size is used only on inputs (16px keeps iPhone from zooming)", () => {
     const rules = [...css.matchAll(/([^{}]+)\{[^}]*font-size:\s*var\(--size-input\)/g)].map((m) => m[1].trim());
     expect(rules.filter((r) => !/input/.test(r))).toEqual([]);

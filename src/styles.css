@@ -500,7 +500,7 @@ select.chip {
   pointer-events: none;
   animation: fade-in var(--motion-quick) var(--ease-standard);
 }
-.week-badge em { font-style: normal; font-size: var(--size-xs); font-weight: 400; opacity: 0.8; }
+.week-badge em { font-style: normal; font-size: var(--size-xs); font-weight: var(--weight-regular); opacity: 0.8; }
 
 .date-button {
   background: transparent;
@@ -1267,12 +1267,12 @@ button.label-feel.shade small {
 .sky-zoom-steps small { font-size: var(--size-xs); text-align: center; color: var(--ink-secondary); }
 .sky-zoom-steps u { display: block; height: 4px; border-radius: var(--radius-tick); }
 .sky-zoom-light { font-size: var(--size-sm); color: var(--ink-secondary); margin-top: -2px; }
-.sky-zoom-steps span.on small { color: var(--ink-primary); font-weight: 700; }
+.sky-zoom-steps span.on small { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .sky-zoom-day { display: flex; flex-direction: column; gap: 6px; }
 .sky-zoom-day + .sky-zoom-day { padding-top: 8px; border-top: 1px solid var(--line-soft); }
 .sky-zoom-day:not(:only-of-type) .sky-zoom-steps i { height: 36px; }
 .sky-zoom-day:not(:only-of-type) .sky-zoom-steps span.on i { height: 44px; }
-.sky-zoom-now em { font-style: normal; font-size: var(--size-sm); font-weight: 700; color: var(--ink-secondary); margin-right: 6px; }
+.sky-zoom-now em { font-style: normal; font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); margin-right: 6px; }
 .sky-zoom-now { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--size-md); }
 .sky-zoom-close {
   position: absolute;
@@ -1362,6 +1362,15 @@ button.label-feel.shade small {
   font-size: var(--size-xs);
   color: var(--ink-tertiary);
   text-align: right;
+  line-height: 1.25;
+}
+
+/* The day under its column head: 対象 / 11/10. */
+.ro-col em {
+  display: block;
+  font-style: normal;
+  font-family: var(--font-numeric);
+  white-space: nowrap;
 }
 
 .ro-label {
@@ -3520,7 +3529,7 @@ svg.scrub {
 .actions .danger { color: var(--status-error); border-color: color-mix(in srgb, var(--status-error) 50%, transparent); }
 .beta-alpha { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: baseline; font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.55; }
 .beta-alpha b { font-family: var(--font-numeric); font-size: var(--size-lg); color: var(--ink-primary); font-variant-numeric: tabular-nums; }
-.beta-alpha b small { display: block; font-family: var(--font-family); font-size: var(--size-xs); font-weight: 400; color: var(--ink-tertiary); white-space: nowrap; }
+.beta-alpha b small { display: block; font-family: var(--font-family); font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); white-space: nowrap; }
 
 /* β: 計算の根拠 — formulas and the numbers that went into them. */
 .beta-basis {
@@ -3548,13 +3557,13 @@ svg.scrub {
 .after-answer p { margin: 6px 0 0; color: var(--ink-secondary); }
 .outlook { border: 1px solid var(--line-soft); border-radius: var(--radius-md); padding: 10px 12px; display: grid; gap: 6px; margin: 8px 0; }
 .outlook h4 { margin: 0; font-size: var(--size-base); display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
-.outlook h4 small { font-size: var(--size-sm); font-weight: 400; color: var(--ink-secondary); }
+.outlook h4 small { font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .outlook-rows { display: grid; gap: 4px; }
 .outlook-row { display: grid; grid-template-columns: 3em minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--size-base); }
 .outlook-part { color: var(--ink-secondary); }
-.outlook-word { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.outlook-word { display: flex; align-items: center; gap: 6px; font-weight: var(--weight-bold); }
 .outlook-word i { width: 10px; height: 10px; border-radius: var(--radius-tick); flex: none; }
-.outlook-word small { font-weight: 400; color: var(--ink-secondary); }
+.outlook-word small { font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .outlook-basis { justify-self: start; }
 .outlook-why { margin: 0; font-size: var(--size-sm); line-height: 1.6; }
 .outlook-why b { margin-right: 4px; color: var(--ink-secondary); }
@@ -3572,7 +3581,7 @@ svg.scrub {
 .basis-table td.warn, .basis-table tr.warn td { color: var(--status-warning); }
 .beta-fc.inline { display: inline; margin-left: 6px; }
 .basis-table { width: 100%; border-collapse: collapse; font-size: var(--size-sm); font-variant-numeric: tabular-nums; }
-.basis-table th { text-align: left; font-weight: 400; color: var(--ink-tertiary); padding: 2px 4px; border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
+.basis-table th { text-align: left; font-weight: var(--weight-regular); color: var(--ink-tertiary); padding: 2px 4px; border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
 .basis-table td { padding: 3px 4px; border-bottom: 1px solid var(--line-soft); color: var(--ink-primary); white-space: nowrap; }
 .basis-table td small { color: var(--ink-tertiary); font-size: var(--size-xs); }
 .basis-table td.num { text-align: right; position: relative; }
@@ -3627,7 +3636,7 @@ svg.scrub {
   white-space: nowrap;
 }
 .once-secret { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--accent-base); border-radius: var(--radius-md); background: var(--surface-inset); }
-.once-secret code { font: 700 18px/1.3 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: 0.06em; color: var(--ink-primary); user-select: all; overflow-wrap: anywhere; }
+.once-secret code { font-family: var(--font-mono); font-size: var(--size-lg); font-weight: var(--weight-bold); line-height: 1.3; letter-spacing: 0.06em; color: var(--ink-primary); user-select: all; overflow-wrap: anywhere; }
 .once-secret small { color: var(--ink-secondary); font-size: var(--size-sm); }
 .admin { display: grid; gap: var(--space-5); }
 .admin-users { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
@@ -3657,7 +3666,7 @@ svg.scrub {
   display: inline-flex; align-items: center; gap: 4px;
   padding: 4px 4px 4px 12px; border-radius: var(--radius-pill);
   background: var(--surface-inset); border: 1px solid var(--line-strong);
-  font: 600 14px/1 ui-monospace, "SF Mono", Menlo, monospace; color: var(--ink-primary);
+  font-family: var(--font-mono); font-size: var(--size-base); font-weight: var(--weight-bold); line-height: 1; color: var(--ink-primary);
 }
 .notify-time button { width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; color: var(--ink-secondary); font-size: var(--size-md); }
 .notify-add { display: inline-flex; gap: 6px; align-items: center; }
@@ -3679,7 +3688,7 @@ svg.scrub {
   border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--surface-raised); color: var(--ink-secondary);
 }
 .notify-bands button b { font-size: var(--size-base); color: var(--ink-primary); }
-.notify-bands button small { font: 600 11px/1 ui-monospace, "SF Mono", Menlo, monospace; }
+.notify-bands button small { font-family: var(--font-mono); font-size: var(--size-sm); font-weight: var(--weight-bold); line-height: 1; }
 .notify-bands button.on { background: color-mix(in srgb, var(--accent-base) 22%, var(--surface-raised)); border-color: var(--accent-base); }
 .notify-bands button.on b { font-weight: var(--weight-bold); }
 .notify-time em { font-style: normal; font-family: var(--font-family); font-size: var(--size-sm); color: var(--ink-secondary); margin-right: 2px; }
@@ -3703,8 +3712,8 @@ svg.scrub {
 .research-table h3 { margin: 0 0 6px; }
 .research-table table { width: 100%; border-collapse: collapse; font-size: var(--size-base); font-variant-numeric: tabular-nums; }
 .research-table th, .research-table td { padding: 6px 4px; border-top: 1px solid var(--line-soft); text-align: right; vertical-align: top; }
-.research-table thead th { border-top: 0; font-weight: 600; color: var(--ink-secondary); font-size: var(--size-sm); }
-.research-table tbody th { text-align: left; font-weight: 500; }
+.research-table thead th { border-top: 0; font-weight: var(--weight-bold); color: var(--ink-secondary); font-size: var(--size-sm); }
+.research-table tbody th { text-align: left; font-weight: var(--weight-medium); }
 .research-table tr.small { opacity: 0.55; }
 
 /* A day's weather estimated from sunshine and precipitation (JMA's summary not out yet). */
@@ -3742,10 +3751,10 @@ svg.scrub {
 .lt-axis { fill: var(--ink-tertiary); font-size: var(--size-xs); }
 .lt-panel { fill: var(--ink-secondary); font-size: var(--size-xs); }
 .lt-date { fill: var(--ink-primary); font-size: var(--size-xs); }
-.lt-date.on { fill: var(--accent-base); font-weight: 700; }
+.lt-date.on { fill: var(--accent-base); font-weight: var(--weight-bold); }
 .lt-date.sub { fill: var(--ink-tertiary); font-size: var(--size-xs); }
 .lt-len { fill: var(--ink-primary); font-size: var(--size-xs); }
-.lt-len.on { fill: var(--accent-base); font-weight: 700; }
+.lt-len.on { fill: var(--accent-base); font-weight: var(--weight-bold); }
 .lt-len.sub { fill: var(--ink-tertiary); font-size: var(--size-xs); }
 .lt-today { fill: var(--accent-wash); stroke: var(--accent-base); stroke-width: 1; pointer-events: none; }
 .lt-clear-line { fill: none; stroke: color-mix(in srgb, var(--data-sun) 28%, transparent); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
@@ -3764,5 +3773,5 @@ svg.scrub {
 .sun-test-table table { border-collapse: collapse; font-size: var(--size-sm); font-variant-numeric: tabular-nums; width: 100%; letter-spacing: -0.02em; }
 .sun-test-table th, .sun-test-table td { padding: 3px 2px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
 .sun-test-table th:nth-last-child(-n + 4), .sun-test-table td:nth-last-child(-n + 4) { color: var(--ink-primary); padding-left: 4px; }
-.sun-test-table th { color: var(--ink-tertiary); font-weight: 400; }
+.sun-test-table th { color: var(--ink-tertiary); font-weight: var(--weight-regular); }
 .sun-test-table tr.fc td { color: var(--ink-tertiary); }

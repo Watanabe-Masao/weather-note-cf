@@ -259,13 +259,21 @@ export interface ReadoutRow {
  * The values at the touched (or selected) position, in a card above the graph — the same card on
  * every graph: what · target · comparison · difference.
  */
-export function GraphReadout({ title, rows, unit, live }: { title: ReactNode; rows: ReadoutRow[]; unit: string; live?: boolean }) {
+/**
+ * `dates` name the two days under their column heads (対象 / 比較), so the title stays short and
+ * nothing is cut: a title that carried both dates ran out of its column.
+ */
+export function GraphReadout({ title, rows, unit, live, dates }: { title: ReactNode; rows: ReadoutRow[]; unit: string; live?: boolean; dates?: { a?: ReactNode; b?: ReactNode } }) {
   return (
     <div className={live ? "readout-card live" : "readout-card"} aria-live="polite">
       <div className="ro-grid">
         <b className="ro-title">{title}</b>
-        <small className="ro-col">対象</small>
-        <small className="ro-col">比較</small>
+        <small className="ro-col">
+          対象{dates?.a && <em>{dates.a}</em>}
+        </small>
+        <small className="ro-col">
+          比較{dates?.b && <em>{dates.b}</em>}
+        </small>
         <small className="ro-col">差</small>
         {rows.map((r) => (
           <Fragment key={r.key}>

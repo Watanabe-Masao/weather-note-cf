@@ -164,6 +164,7 @@ const status = {
 const font = {
   family: 'system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif',
   numeric: 'ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Hiragino Sans", sans-serif',
+  mono: 'ui-monospace, "SF Mono", Menlo, monospace', // codes and clock times to read out character by character
 } as const;
 
 /**
