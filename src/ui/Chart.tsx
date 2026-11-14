@@ -103,8 +103,12 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   // β: the days before each drawn day, for the 最近の基準 line (only while that line is on).
   const wantsBaseline = beta.enabled && metric.series.some((s) => s.history === "baseline") && shown("baseline");
   useBaselineHistory(store, station, wantsBaseline ? [...days, ...days.map(partner)] : [], "chart-baseline");
-  const step = (w - PAD.left - PAD.right) / 7;
-  const xOf = (i: number) => PAD.left + step * (i - BUFFER + 0.5);
+  // The left margin holds the labels of the rows under the plot (寒暖差, 明るい, いつも比) whole:
+  // never narrower than the axis needs, wider when a label is longer (いつも比 was cut to つも比).
+  const underWords = [...(metric.id === "temp" ? ["寒暖差"] : []), ...(metric.under ?? []).map((r) => r.label)];
+  const frame = { ...PAD, left: Math.max(PAD.left, 12 + 11 * Math.max(0, ...underWords.map((l) => l.length))) };
+  const step = (w - frame.left - PAD.right) / 7;
+  const xOf = (i: number) => frame.left + step * (i - BUFFER + 0.5);
   // Long press (or mouse hover) scrubs: a guide follows the finger and the card above reads that day.
   const [scrub, setScrub] = useState<number | null>(null);
   const scrubbing = useRef(false);
@@ -112,7 +116,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   const pan = useDrumPan(ref, step, onShiftDays, () => scrubbing.current);
   const dayAt = (clientX: number) => {
     const r = ref.current!.getBoundingClientRect();
-    const i = Math.floor((clientX - r.left - PAD.left) / step) + BUFFER;
+    const i = Math.floor((clientX - r.left - frame.left) / step) + BUFFER;
     return Math.max(BUFFER, Math.min(BUFFER + 6, i));
   };
   useEffect(() => {
@@ -275,13 +279,13 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
         <defs>
           <ForecastHatch id={`fc-${metric.id}`} />
           <clipPath id={`plot-${metric.id}`}>
-            <rect x={PAD.left - 4} y={0} width={w - PAD.left - PAD.right + 8} height={H} />
+            <rect x={frame.left - 4} y={0} width={w - frame.left - PAD.right + 8} height={H} />
           </clipPath>
         </defs>
         {ticks.map((t) => (
           <g key={t}>
-            <line x1={PAD.left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
-            <text x={PAD.left - 6} y={yOf(t) + 4} className="chart-tick" textAnchor="end">
+            <line x1={frame.left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
+            <text x={frame.left - 6} y={yOf(t) + 4} className="chart-tick" textAnchor="end">
               {tickLabel(t)}
             </text>
           </g>
@@ -416,7 +420,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             x={xOf(scrub)}
             top={PAD.top}
             bottom={H - bottom}
-            left={PAD.left}
+            left={frame.left}
             points={series
               .filter((x) => !x.compare && !x.s.thin)
               .flatMap(({ s, points }) => {
@@ -429,15 +433,15 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
         {/* Fixed labels at the left edge (they do not move with the days). */}
         {under.map((row, k) =>
           row.label ? (
-            <text key={`ul-${k}`} x={PAD.left - 6} y={H - bottom + 14 + k * UNDER_ROW} textAnchor="end" className="chart-spread label">
+            <text key={`ul-${k}`} x={frame.left - 6} y={H - bottom + 14 + k * UNDER_ROW} textAnchor="end" className="chart-spread label">
               {row.label}
             </text>
           ) : null,
         )}
-        <text x={PAD.left - 6} y={H - 24} textAnchor="end" className="chart-x-side">
+        <text x={frame.left - 6} y={H - 24} textAnchor="end" className="chart-x-side">
           対象
         </text>
-        <text x={PAD.left - 6} y={H - 9} textAnchor="end" className="chart-x-side">
+        <text x={frame.left - 6} y={H - 9} textAnchor="end" className="chart-x-side">
           比較
         </text>
       </svg>

@@ -190,12 +190,12 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     r("max", "temp", "最高", UNIT.temp, num(a?.max), num(b?.max), "hot"),
     r("min", "temp", "最低", UNIT.temp, num(a?.min), num(b?.min), "cold"),
     r("rain", "rain", "降水", UNIT.rain, num(a?.rain), num(b?.rain), "rain"),
-    r("radiation", "radiation", "日射", UNIT.radiation, dailyRadiation(a, hoursOf(target)), dailyRadiation(b, hoursOf(other)), "sun"),
+    r("radiation", "radiation", "日射", UNIT.radiation, dailyRadiation(a, hoursOf(target)), dailyRadiation(b, hoursOf(other)), "radiation"),
     r("sun", "light", "日照", UNIT.hours, num(a?.sun), num(b?.sun), "sun"),
     r("humidity", "humidity", "湿度", UNIT.percent, num(a?.humidity), num(b?.humidity), "humidity"),
     r("wind", "wind", "風速", UNIT.wind, num(a?.wind), num(b?.wind), "wind"),
-    r("pMax", "pressure", "気圧最高", UNIT.pressure, hourlyExtreme(hoursOf(target), "pressure", "max"), hourlyExtreme(hoursOf(other), "pressure", "max"), "hot"),
-    r("pMin", "pressure", "気圧最低", UNIT.pressure, hourlyExtreme(hoursOf(target), "pressure", "min"), hourlyExtreme(hoursOf(other), "pressure", "min"), "cold"),
+    r("pMax", "pressure", "気圧最高", UNIT.pressure, hourlyExtreme(hoursOf(target), "pressure", "max"), hourlyExtreme(hoursOf(other), "pressure", "max"), "pressureHigh"),
+    r("pMin", "pressure", "気圧最低", UNIT.pressure, hourlyExtreme(hoursOf(target), "pressure", "min"), hourlyExtreme(hoursOf(other), "pressure", "min"), "pressureLow"),
   ];
 
   const value = (v: number | null, row: Row) =>
@@ -213,11 +213,16 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     const rel = relative(d, today);
     const kind = kindOf(store, station, d);
     return (
+      // Always two lines, whatever the day: the date (and 今日, the sky) above, the data's state under
+      // it. Each side leans toward the middle, as its numbers below do, so a long and a short day
+      // sit the same way instead of wrapping differently.
       <span className={`cs-head cs-${side}`}>
-        {rel && <Badge kind={rel} />}
-        <span className="cs-date">{dateButton(side === "a" ? "target" : "compare", <DayLabel date={d} year={years && d === other} />)}</span>
-        <DayWeatherIcon row={r} station={station} />
-        {kind && <Badge kind={kind} confidence={confidenceOfRow(r)} />}
+        <span className="cs-head-line">
+          {rel && <Badge kind={rel} />}
+          <span className="cs-date">{dateButton(side === "a" ? "target" : "compare", <DayLabel date={d} year={years && d === other} />)}</span>
+          <DayWeatherIcon row={r} station={station} />
+        </span>
+        <span className="cs-head-state">{kind && <Badge kind={kind} confidence={confidenceOfRow(r)} />}</span>
       </span>
     );
   };
