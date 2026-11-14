@@ -73,3 +73,22 @@ export const CloseIcon = () => (
     <path d="M18 6L6 18M6 6l12 12" />
   </Line>
 );
+
+/** Each item's picture beside its sheet title (気温の日別 …), in the quiet ink: colour stays with the data. */
+const ITEM: Record<string, string> = {
+  temp: "M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z",
+  rain: "M12 13v7a2 2 0 0 0 4 0M12 2v2M20.992 13a1 1 0 0 0 .97-1.274 10.284 10.284 0 0 0-19.923 0A1 1 0 0 0 3 13z",
+  radiation: "M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41",
+  light: "M5 22h14M5 2h14M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2",
+  humidity: "M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z",
+  wind: "M12.8 19.6A2 2 0 1 0 14 16H2M17.5 8a2.5 2.5 0 1 1 2 4H2M9.8 4.4A2 2 0 1 1 11 8H2",
+  pressure: "M12 14l4-4M3.34 19a10 10 0 1 1 17.32 0",
+};
+export const ItemIcon = ({ id }: { id: string }) =>
+  ITEM[id] ? (
+    <span className="item-icon">
+      <Line size={18}>
+        <path d={ITEM[id]} />
+      </Line>
+    </span>
+  ) : null;

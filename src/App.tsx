@@ -25,6 +25,7 @@ import { Chart } from "./ui/Chart";
 import { CompareBoard } from "./ui/CompareBoard";
 import {
   ChevronIcon,
+  ItemIcon,
   ExpandIcon,
   GearIcon,
   LinkIcon,
@@ -404,7 +405,7 @@ export function App() {
                       <ChevronIcon />
                       日別
                     </button>
-                    <span className="sheet-head-title">明るさの移り変わり</span>
+                    <span className="sheet-head-title"><ItemIcon id="light" /><span className="sheet-head-text">明るさの移り変わり</span></span>
                     <span className="sheet-head-end">{modeSelect}</span>
                   </>
                 ) : shownFace === "hours" ? (
@@ -417,13 +418,13 @@ export function App() {
                       <ChevronIcon />
                       日別
                     </button>
-                    <span className="sheet-head-title">{`${metric.title ?? metric.label}の時間帯`}</span>
+                    <span className="sheet-head-title"><ItemIcon id={view.metric} /><span className="sheet-head-text">{`${metric.title ?? metric.label}の時間帯`}</span></span>
                     <span className="sheet-head-end">{modeSelect}</span>
                   </>
                 ) : (
                   <>
                     {/* 日照 has a button here too, so its title is the chip's own word (日照), which fits at 360. */}
-                    <span className="sheet-head-title">{`${view.metric === "light" ? metric.label : (metric.title ?? metric.label)}の日別`}</span>
+                    <span className="sheet-head-title"><ItemIcon id={view.metric} /><span className="sheet-head-text">{`${view.metric === "light" ? metric.label : (metric.title ?? metric.label)}の日別`}</span></span>
                     {view.metric === "light" ? (
                       <Button size="sm" className="trend-btn" onClick={() => setFace("trend")}>
                         移り変わり

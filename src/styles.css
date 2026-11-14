@@ -917,9 +917,16 @@ button.label-feel:active { transform: scale(0.97); }
 }
 
 .sheet-head-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
   font-size: var(--size-md);
   font-weight: var(--weight-bold);
   white-space: nowrap;
+  min-width: 0;
+}
+
+.sheet-head-text {
   overflow: hidden;
   text-overflow: ellipsis;
   min-width: 0;
@@ -3973,3 +3980,6 @@ svg.scrub {
 
 /* Drawn marks (kit Glyph): no line box of their own, so a flex parent centres them exactly. */
 .glyph { display: block; flex: none; }
+
+/* The item's picture before a sheet title: quiet ink, centred on the title (#151). */
+.item-icon { display: inline-flex; color: var(--ink-secondary); flex: none; }
