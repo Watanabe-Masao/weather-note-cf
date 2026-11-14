@@ -19,8 +19,14 @@ jobs:
 
   # The app in a real browser (e2e/e2e.py): every screen and the main flows, at two phone widths,
   # against the built app with made-up weather. Screenshots are kept when it fails.
-  e2e:
+  # The two widths run side by side (each ~2.5 min; one after the other the job took ~5.5 min).
+  e2e-width:
+    name: e2e (${{ matrix.width }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        width: [390, 360]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,11 +40,20 @@ jobs:
       - run: pip install playwright==1.49.1
       - run: python -m playwright install --with-deps chromium
       - run: npx vite build
-      - run: python3 e2e/e2e.py 390
-      - run: python3 e2e/e2e.py 360
-      - run: python3 e2e/swupdate.py
+      - run: python3 e2e/e2e.py ${{ matrix.width }}
+      # The service worker's update flow does not depend on the width: once.
+      - if: matrix.width == 390
+        run: python3 e2e/swupdate.py
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-shots
+          name: e2e-shots-${{ matrix.width }}
           path: e2e/shots
+
+  # The one check named "e2e" (as before the split): passes only when both widths passed.
+  e2e:
+    runs-on: ubuntu-latest
+    needs: e2e-width
+    if: always()
+    steps:
+      - run: test "${{ needs.e2e-width.result }}" = success
