@@ -102,7 +102,11 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // Each day's own sunrise and sunset (the comparison day may be another season), for drawing a
   // clear night as the moon in the readout and the weather rows.
   const sunMain = sunHours(sun, day.edges);
-  const sunOther = useMemo(() => (other ? sunHours(cachedSun(station, other) ?? null, dayEdges(other, station)) : null), [other, station]);
+  // The plot's left edge (its axis column), reported by the graph: the parts under it line up with it.
+  const [plotLeft, setPlotLeft] = useState(34);
+  const otherSunTimes = useSun(station, other, today, other ? store?.getDay(station, other).row : null);
+  const otherEdges = useMemo(() => (other ? dayEdges(other, station) : null), [other, station]);
+  const sunOther = other && otherEdges ? sunHours(otherSunTimes, otherEdges) : null;
 
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings, station), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings, station), [otherHours, metricId, settings]);
@@ -221,7 +225,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const color = DATA[tone];
 
   return (
-    <div className="hour-compare">
+    <div className="hour-compare" style={{ ["--plot-left" as string]: `${plotLeft}px` }}>
       {/* The hour's values above the graph, in the card every graph uses. */}
       <GraphReadout
         live={scrubbing}
@@ -342,6 +346,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         bandWx={bandWx}
         sky={skyStrip}
         otherSun={sunOther}
+        onPlotLeft={setPlotLeft}
         bandDates={[date, other ?? null]}
         onSun={() => setSunOpen(true)}
       />
@@ -421,7 +426,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         </span>
         {metricId === "feel" && (
           <span>
-            <i className="ls-solid" style={{ borderColor: lineLook("target", "", { kind: "reference" }).stroke }} />
+            <LineSample look={lineLook("target", "", { kind: "reference" })} />
             気温
           </span>
         )}
@@ -756,9 +761,12 @@ function HourChart({
   sky,
   otherSun,
   bandDates = ["", null],
+  onPlotLeft,
 }: {
   /** The comparison day's sunrise and sunset (hours), for its own night pictures. */
   otherSun?: { rise: number; set: number } | null;
+  /** Where the plot begins (the axis column's width), for the parts drawn under it. */
+  onPlotLeft?: (left: number) => void;
   /** The two days of the weather row, for its long press (#176: that day's summary). */
   bandDates?: [string, string | null];
   /** Tapping the sun's strip opens 太陽 (the twilights and the times). */
@@ -816,9 +824,7 @@ function HourChart({
   const plotW = w - left - PAD.right;
   // The parts under the graph (明るさと空, the loading cover) line up with its plot: they read
   // the left edge from here (#151: the axis column widened for 対象／比較 and they fell out of step).
-  useLayoutEffect(() => {
-    (ref.current?.closest(".hour-compare") as HTMLElement | null)?.style.setProperty("--plot-left", `${left}px`);
-  }, [left]);
+  useLayoutEffect(() => onPlotLeft?.(left), [left, onPlotLeft]);
   const step = plotW / 24;
   // Hour n is the value at n o'clock: x runs from 0 to 24 o'clock.
   const xOf = (h: number) => left + (h / 24) * plotW;
