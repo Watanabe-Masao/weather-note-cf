@@ -205,7 +205,8 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
     const gap = (compare: boolean, i: number) => {
       const a = pick("max", compare).points[i].v;
       const b = pick("min", compare).points[i].v;
-      return a == null || b == null ? "—" : (a - b).toFixed(1);
+      // From the values as shown (one decimal each), so 最高 − 最低 on screen adds up.
+      return a == null || b == null ? "—" : (+a.toFixed(1) - +b.toFixed(1)).toFixed(1);
     };
     under.push({ label: "寒暖差", cells: days.map((_, i) => gap(false, i)) }, { label: "", cells: days.map((_, i) => gap(true, i)), muted: true });
   }

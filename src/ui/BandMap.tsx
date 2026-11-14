@@ -44,7 +44,8 @@ const signed = (v: number) => {
 
 /** Per-band difference a − b in 肌感（日なた/日かげ）, null where either side is missing. */
 function bandDiffs(a: Band[] | null, b: Band[] | null): (number | null)[] {
-  return BANDS.map((_, i) => (a?.[i]?.feel != null && b?.[i]?.feel != null ? a[i].feel! - b[i].feel! : null));
+  // The difference of the values as shown (whole numbers), so 17 and 21 read −4, never −5.
+  return BANDS.map((_, i) => (a?.[i]?.feel != null && b?.[i]?.feel != null ? Math.round(a[i].feel!) - Math.round(b[i].feel!) : null));
 }
 
 function useExactBands(store: WeatherStore | null, station: string, date: string | null): Band[] | null {
@@ -223,7 +224,7 @@ function MapGrid({
           const cb = b.bands?.[bi];
           const isSelected = selected?.date === a.date && selected.band === bi;
           const pickable = !!a.date && a.state !== "error" && (!a.estimate || !b.estimate);
-          const diff = ca?.feel != null && cb?.feel != null ? ca.feel - cb.feel : null;
+          const diff = ca?.feel != null && cb?.feel != null ? Math.round(ca.feel) - Math.round(cb.feel) : null;
           if (a.state === "error")
             return (
               <button key={bi + "-" + i} className="band-cell bm-day error" onClick={() => a.date && store?.retryDay(station, a.date)}>

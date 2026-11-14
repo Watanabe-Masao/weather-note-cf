@@ -386,6 +386,20 @@ with sync_playwright() as p:
     def av():
         pg.locator(".chart-hit").nth(7).click(force=True); wait(2500)
         check("AV1 読み取りに手前の平均と平均との差", pg.locator(".readout-card .ro-label", has_text="手前1週の平均").count() == 1 and pg.locator(".readout-card .ro-label", has_text="平均との差").count() == 1)
+        # The readout is set on a grid: each column's decimal points on one line, every row 24px high (#151).
+        g = pg.evaluate("""() => {
+          const grid = [...document.querySelectorAll('.ro-grid')].pop(); const cols = {}; const hs = [];
+          for (const el of grid.querySelectorAll('.ro-v')) {
+            hs.push(Math.round(el.getBoundingClientRect().height));
+            const n = [...el.childNodes].find((c) => c.nodeType === 3 && c.textContent.includes('.')); if (!n) continue;
+            const i = n.textContent.indexOf('.'); const r = document.createRange(); r.setStart(n, i); r.setEnd(n, i + 1);
+            const b = r.getBoundingClientRect(); const k = [...el.parentNode.children].indexOf(el) % 4;
+            (cols[k] ||= []).push(b.left + b.width / 2);
+          }
+          return { spread: Object.values(cols).map((xs) => Math.max(...xs) - Math.min(...xs)), heights: [...new Set(hs)] };
+        }""")
+        check("AV1b 読み取りの小数点が列ごとにそろう", len(g["spread"]) >= 2 and max(g["spread"]) < 0.6, str(g))
+        check("AV1c 読み取りの行の高さが 24px でそろう", g["heights"] == [24], str(g))
         n = pg.locator(".legend-line").count()
         check("AV2 凡例の線は4つ（対象・比較・それぞれの手前）", n == 4, str(n))
         pg.locator(".legend-line").nth(1).click(); wait(300)

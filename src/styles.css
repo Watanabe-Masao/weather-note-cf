@@ -1351,12 +1351,16 @@ button.label-feel.shade small {
     0 0 14px var(--accent-glow);
 }
 
+/* The readout's grid (#151 一文字ずつ): a name column, then 対象・比較・差 of one width each, every
+   row 24 high (icons too), names and numbers on one baseline, numbers right-aligned so their
+   decimal points stand in one line (they carry the same number of decimals, and no unit). */
 .ro-grid {
+  --ro-col: 62px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 64px 64px 50px;
+  grid-template-columns: minmax(0, 1fr) repeat(3, var(--ro-col));
+  grid-auto-rows: minmax(24px, auto);
   align-items: baseline;
-  column-gap: 6px;
-  row-gap: 1px;
+  column-gap: var(--space-4);
   font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
 }
@@ -1393,19 +1397,38 @@ button.label-feel.shade small {
 
 .ro-label {
   display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  align-items: baseline;
+  gap: var(--space-2);
   font-family: var(--font-family);
   font-size: var(--size-sm);
   color: var(--ink-secondary);
   white-space: nowrap;
 }
 
+.ro-unit {
+  font-family: var(--font-numeric);
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+}
+
 .ro-v {
   text-align: right;
   font-size: var(--size-md);
+  line-height: 24px;
   white-space: nowrap;
 }
+
+/* A picture (the sky): centred in its 24-high row, at the column's right edge like the numbers.
+   The empty strut before it carries the numbers' baseline, so the row's label sits where it does
+   in every other row. */
+.ro-v.ro-icon {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  height: 24px;
+}
+.ro-v.ro-icon svg { width: 20px; height: 20px; }
+.ro-v.ro-icon::before { content: "\200b"; width: 0; }
 
 .ro-v.ro-b {
   opacity: 0.72;
