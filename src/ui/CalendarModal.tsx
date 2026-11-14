@@ -17,6 +17,7 @@ import { Button, Chip, confidenceOfRow, Glyph } from "./kit";
 import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { useSwipeDays } from "./useSwipeDays";
 import { DayWeatherIcon } from "./WeatherIcon";
+import { STORM, stormOfRow } from "../../shared/storm";
 
 export type CalendarSide = "target" | "compare";
 
@@ -239,7 +240,7 @@ function Body(p: Props) {
               disabled={!enabled}
               title={holidayName(d) || undefined}
               onClick={() => tap(d)}
-              aria-label={`${dateLabel(d)}${holidayName(d) ? ` ${holidayName(d)}` : ""}${d === p.today ? " 今日" : ""}${forecast && enabled ? " 予報" : ""} ${spoken}${confidenceOfRow(row) === "C" ? " 信頼度C" : ""}${d === other ? (p.side === "target" ? " 比較日" : " 対象日") : ""}${d === value ? " 選択中" : ""}`}
+              aria-label={`${dateLabel(d)}${holidayName(d) ? ` ${holidayName(d)}` : ""}${d === p.today ? " 今日" : ""}${forecast && enabled ? " 予報" : ""} ${spoken}${confidenceOfRow(row) === "C" ? " 信頼度C" : ""}${stormOfRow(row) ? ` ${STORM[stormOfRow(row)!].label}` : ""}${d === other ? (p.side === "target" ? " 比較日" : " 対象日") : ""}${d === value ? " 選択中" : ""}`}
               aria-pressed={d === cand?.date}
             >
               <span className="cal-n">{+d.slice(8)}</span>

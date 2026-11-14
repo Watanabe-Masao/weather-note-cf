@@ -3,6 +3,7 @@
 import { dayWeatherOf } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import { ICON } from "../design/tokens";
+import { STORM, stormOfRow, stormReason, type StormLevel } from "../../shared/storm";
 
 type Sky = "sun" | "cloud" | "sunCloud" | "rain" | "snow" | "thunder" | "fog" | "none";
 export function skyOf(text: string | null | undefined): Sky {
@@ -59,10 +60,33 @@ export function WeatherIcon({ text, size = 26, night = false }: { text: string |
  */
 export function DayWeatherIcon({ row, station, size = 26 }: { row: WeatherRow | null | undefined; station: string | null; size?: number }) {
   const { text, estimated } = dayWeatherOf(row, station);
-  if (!estimated) return <WeatherIcon text={text} size={size} />;
-  return (
+  const icon = !estimated ? (
+    <WeatherIcon text={text} size={size} />
+  ) : (
     <span className="weather-estimated" title={`${text}（推定：日照と降水から。気象庁の天気概況はまだ）`} aria-label={`${text}（推定）`}>
       <WeatherIcon text={text} size={size} />
+    </span>
+  );
+  const storm = stormOfRow(row);
+  if (!storm) return icon;
+  // 強風／暴風 (#175): a small wind mark on the picture's shoulder, by JMA's Kochi criteria.
+  const why = stormReason(row?.windMax, row?.gust);
+  return (
+    <span className="wx-with-storm">
+      {icon}
+      <StormMark level={storm} why={why} />
+    </span>
+  );
+}
+
+/** The 強風／暴風 mark: Lucide's wind in a small round tag, outlined for 強風 and filled for 暴風. */
+export function StormMark({ level, why }: { level: StormLevel; why?: string }) {
+  const label = `${STORM[level].label}${why ? `（${why}）` : ""}`;
+  return (
+    <span className={`storm-mark ${level}`} role="img" aria-label={label} title={label}>
+      <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M12.8 19.6A2 2 0 1 0 14 16H2M17.5 8a2.5 2.5 0 1 1 2 4H2M9.8 4.4A2 2 0 1 1 11 8H2" />
+      </svg>
     </span>
   );
 }
