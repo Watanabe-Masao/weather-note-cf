@@ -124,8 +124,8 @@ export function Glyph({ name, size = "0.85em" }: { name: GlyphName; size?: strin
 /** ✓ for a button that has just done its job (記録しました). */
 export function CheckGlyph() {
   return (
-    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M3.5 8.5l3 3 6-7" />
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M20 6 9 17l-5-5" />
     </svg>
   );
 }
