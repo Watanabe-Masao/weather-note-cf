@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-100.06410256410254 -100.06410256410254 1455.128205128205 1455.128205128205" width="1024" height="1024"><defs>
+<linearGradient id="sun" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbb27c"/><stop offset="1" stop-color="#f6875f"/></linearGradient>
+<linearGradient id="arc" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#2f9bf4"/><stop offset="1" stop-color="#5cc2fb"/></linearGradient>
+<linearGradient id="front" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b93f7"/><stop offset="1" stop-color="#0866e8"/></linearGradient>
+<linearGradient id="back" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7cc4f9"/><stop offset="1" stop-color="#a6dbfc"/></linearGradient>
+</defs>
+<rect x="-100.06410256410254" y="-100.06410256410254" width="1455.128205128205" height="1455.128205128205" fill="#061530"/>
+<path d="M258 690 A372 372 0 0 1 878 428" fill="none" stroke="url(#arc)" stroke-width="40" stroke-linecap="round"/>
+<circle cx="878" cy="430" r="46" fill="#ffffff"/>
+<circle cx="622" cy="728" r="224" fill="url(#sun)"/>
+<path d="M108 902 C 200 830, 300 788, 420 786 C 500 785, 560 808, 610 834 C 470 890, 280 928, 108 902 Z" fill="url(#back)"/>
+<path d="M108 902 C 300 962, 520 1000, 680 1000 C 880 1000, 1050 944, 1146 902 C 1080 832, 980 750, 860 748 C 740 746, 640 800, 560 834 C 430 888, 260 928, 108 902 Z" fill="url(#front)"/>
+</svg>
