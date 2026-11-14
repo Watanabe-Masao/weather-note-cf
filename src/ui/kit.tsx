@@ -352,22 +352,28 @@ export function GraphReadout({ title, rows, unit, live, dates }: { title: ReactN
           比較{dates?.b && <em>{dates.b}</em>}
         </small>
         <small className="ro-col">差</small>
-        {rows.map((r) => (
-          <Fragment key={r.key}>
-            <span className="ro-label">
-              {r.mark && <MarkIcon shape={r.mark} color={r.color ?? "currentColor"} />}
-              {r.label}
-            </span>
-            <span className={r.text ? "ro-v ro-text" : "ro-v"} style={r.mark ? undefined : { color: r.color }}>
-              {r.a}
-              {typeof r.a === "string" && r.a !== "—" && (r.unit ?? unit) && <small className="unit">{r.unit ?? unit}</small>}
-            </span>
-            <span className={r.text ? "ro-v ro-b ro-text" : "ro-v ro-b"} style={r.mark ? undefined : { color: r.color }}>
-              {r.b ?? "—"}
-            </span>
-            <span className="ro-v ro-diff">{r.diff || "—"}</span>
-          </Fragment>
-        ))}
+        {rows.map((r) => {
+          // The unit sits with the row's name, once, so every value is a bare number and the
+          // numbers of a column line up on their decimal point (a unit on some rows only moved them).
+          const u = r.text || (r.a != null && typeof r.a === "object") ? "" : (r.unit ?? unit);
+          const kind = (v: ReactNode) => (typeof v === "string" || typeof v === "number" ? "" : " ro-icon");
+          return (
+            <Fragment key={r.key}>
+              <span className="ro-label">
+                {r.mark && <MarkIcon shape={r.mark} color={r.color ?? "currentColor"} />}
+                {r.label}
+                {u && <small className="ro-unit">{u}</small>}
+              </span>
+              <span className={`ro-v${r.text ? " ro-text" : ""}${kind(r.a)}`} style={r.mark ? undefined : { color: r.color }}>
+                {r.a}
+              </span>
+              <span className={`ro-v ro-b${r.text ? " ro-text" : ""}${kind(r.b ?? "—")}`} style={r.mark ? undefined : { color: r.color }}>
+                {r.b ?? "—"}
+              </span>
+              <span className="ro-v ro-diff">{r.diff || "—"}</span>
+            </Fragment>
+          );
+        })}
       </div>
     </div>
   );

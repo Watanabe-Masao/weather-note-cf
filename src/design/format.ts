@@ -41,7 +41,9 @@ export function signedDiff(a: unknown, b: unknown, unitOrDigits: string | number
   const y = num(b);
   if (x == null || y == null) return "";
   const digits = typeof unitOrDigits === "number" ? unitOrDigits : digitsOf(unitOrDigits);
-  const d = +(x - y).toFixed(digits);
+  // The difference of the values as shown (each rounded first), so the numbers on screen add up:
+  // 22.1 and 21.3 give +0.8, not the +0.7 of the unrounded 22.14 and 21.36.
+  const d = +(+x.toFixed(digits) - +y.toFixed(digits)).toFixed(digits);
   return d === 0 ? "±0" : d > 0 ? `+${d.toFixed(digits)}` : `−${Math.abs(d).toFixed(digits)}`;
 }
 
