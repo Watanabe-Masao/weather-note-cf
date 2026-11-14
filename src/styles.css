@@ -1255,8 +1255,10 @@ button.label-feel:active { transform: scale(0.97); }
 /* Twilight (sunrise and sunset to 6° below the horizon): half the night's shade. */
 .day-twilight { fill: var(--effect-twilight); }
 /* The sun's height through the day: a faint hill along the bottom of the graph. */
-.day-sun { fill: var(--data-sun); fill-opacity: 0.1; stroke: var(--data-sun); stroke-opacity: 0.45; stroke-width: 1; }
-.day-sun-label { fill: var(--ink-secondary); font-size: var(--size-xs); paint-order: stroke; stroke: var(--surface-base); stroke-width: 3px; }
+.day-sun { fill: var(--data-sun); fill-opacity: 0.22; stroke: var(--data-sun); stroke-opacity: 0.7; stroke-width: 1; }
+.day-sun-label { fill: var(--ink-secondary); font-size: var(--size-xs); }
+/* The strip's name (太陽) in the axis column, like the unit over the value axis. */
+.day-sun-name { fill: var(--ink-tertiary); font-size: var(--size-xs); }
 /* 明るさ under the 日差し graph: 24 cells per day, aligned with the plot (left 34px, right 10px). */
 .light-strip { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .light-title { font-size: var(--size-sm); color: var(--ink-secondary); }
@@ -3908,9 +3910,12 @@ svg.scrub {
 /* The weather of each band above the hourly graph: the day's icon, the partner day's smaller. */
 .band-wx { position: relative; height: 34px; margin-top: 0; }
 /* The loading / error cover stays on the plot, above the axis and the weather row. */
-.hour-chart-wrap:has(.band-wx) .state-overlay { bottom: calc(26px + 34px); }
+.hour-chart-wrap:has(.band-wx) .state-overlay { bottom: calc(26px + 22px + 34px); }
 .ro-wx { display: inline-flex; align-items: center; gap: 4px; }
 .ro-wx small { font-size: var(--size-sm); color: var(--ink-secondary); }
+.band-wx-name { position: absolute; left: 0; text-align: right; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1; }
+.band-wx-name.main { top: 4px; }
+.band-wx-name.other { top: 21px; }
 .band-wx-cell { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; flex-direction: column; align-items: center; gap: 0; }
 .band-wx-main, .band-wx-other { display: inline-flex; }
 .band-wx-other { opacity: 0.7; }

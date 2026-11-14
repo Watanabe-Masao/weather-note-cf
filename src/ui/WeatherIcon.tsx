@@ -19,7 +19,7 @@ export function skyOf(text: string | null | undefined): Sky {
   return "cloud";
 }
 
-const { sun: SUN, cloud: CLOUD, rain: RAIN } = ICON;
+const { sun: SUN, moon: MOON, cloud: CLOUD, rain: RAIN } = ICON;
 
 /**
  * The sky drawn in Lucide's line (https://lucide.dev, ISC; licence in ./icons.tsx), one colour per
@@ -35,10 +35,16 @@ const SKY: Record<Exclude<Sky, "none">, { color: string; d: string }> = {
   snow: { color: CLOUD, d: "M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242M8 15h.01M8 19h.01M12 17h.01M12 21h.01M16 15h.01M16 19h.01" },
 };
 
-export function WeatherIcon({ text, size = 26 }: { text: string | null | undefined; size?: number }) {
+/** At night a clear sky is the moon, not the sun (#151: 0時・3時 drew a sun). */
+const NIGHT: Partial<Record<Sky, { color: string; d: string }>> = {
+  sun: { color: MOON, d: "M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" },
+  sunCloud: { color: MOON, d: "M13 16a3 3 0 0 1 0 6H7a5 5 0 1 1 4.9-6zM18.376 14.512a6 6 0 0 0 3.461-4.127c.148-.625-.659-.97-1.248-.714a4 4 0 0 1-5.259-5.26c.255-.589-.09-1.395-.716-1.248a6 6 0 0 0-4.594 5.36" },
+};
+
+export function WeatherIcon({ text, size = 26, night = false }: { text: string | null | undefined; size?: number; night?: boolean }) {
   const sky = skyOf(text);
   if (sky === "none") return <span className="icon-none">—</span>;
-  const { color, d } = SKY[sky];
+  const { color, d } = (night && NIGHT[sky]) || SKY[sky];
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label={text ?? ""} fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
       <path d={d} />

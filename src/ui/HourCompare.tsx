@@ -95,6 +95,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const sun = useSun(station, date, today, store?.getDay(station, date).row);
   // The parts of the day and the sun's height, by the sun at this station (shared/dayParts.ts).
   const day = useMemo(() => ({ parts: dayParts(date, station), edges: dayEdges(date, station), curve: altitudeCurve(date, station, 10) }), [date, station]);
+  // Before sunrise or after sunset a clear sky is drawn as the moon (the readout and the weather row).
+  const isNight = (h: number) => h <= (hourOfDay(sun?.sunrise ?? null) ?? day.edges.rise / 60) || h >= (hourOfDay(sun?.sunset ?? null) ?? day.edges.set / 60);
 
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings, station), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings, station), [otherHours, metricId, settings]);
@@ -243,8 +245,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           {
             key: "wx",
             label: "天気",
-            a: <HourWeather w={hoursWeather(hours?.rows ?? [], [shownHour], station, 1)} />,
-            b: other ? <HourWeather w={hoursWeather(otherHours?.rows ?? [], [shownHour], station, 1)} /> : "—",
+            a: <HourWeather w={hoursWeather(hours?.rows ?? [], [shownHour], station, 1)} night={isNight(shownHour)} />,
+            b: other ? <HourWeather w={hoursWeather(otherHours?.rows ?? [], [shownHour], station, 1)} night={isNight(shownHour)} /> : "—",
           },
           ...(metricId === "sun"
             ? [
@@ -439,6 +441,8 @@ function HourStatus({ state, error, onRetry }: { state?: string; error?: string;
 }
 
 const PAD = { right: 10, top: 18, bottom: 26 };
+/** The sun's height has its own strip under the plot (degrees, not the item's unit; #151). */
+const SUN_H = 22;
 
 type BandWx = { text: string | null; estimated: boolean };
 
@@ -446,22 +450,22 @@ type BandWx = { text: string | null; estimated: boolean };
 const WX_TICKS = [0, 3, 6, 9, 12, 15, 18, 21, 24];
 
 /** One hour's weather in the readout card: icon and words; faint when estimated. */
-function HourWeather({ w }: { w: BandWx }) {
+function HourWeather({ w, night = false }: { w: BandWx; night?: boolean }) {
   if (!w.text) return <>—</>;
   return (
     // Icon only: the value columns are narrow (the words are in the title and the label).
     <span className={`ro-wx${w.estimated ? " weather-estimated" : ""}`} title={w.estimated ? `${w.text}（日照と降水からの推定）` : w.text} aria-label={w.estimated ? `${w.text}（推定）` : w.text}>
-      <WeatherIcon text={w.text} size={20} />
+      <WeatherIcon text={w.text} size={20} night={night} />
     </span>
   );
 }
 
 /** One band's weather: the day's icon, and the partner day's smaller beside it. Estimates are faint. */
-function BandWeatherIcons({ main, other }: { main: BandWx; other: BandWx | null }) {
+function BandWeatherIcons({ main, other, night }: { main: BandWx; other: BandWx | null; night: boolean }) {
   const icon = (w: BandWx, size: number, cls: string) =>
     w.text ? (
       <span className={`${cls}${w.estimated ? " weather-estimated" : ""}`} title={w.estimated ? `${w.text}（推定：日照と降水から）` : w.text}>
-        <WeatherIcon text={w.text} size={size} />
+        <WeatherIcon text={w.text} size={size} night={night} />
       </span>
     ) : (
       <span className={`${cls} none`}>—</span>
@@ -770,7 +774,8 @@ function HourChart({
   const range = axisRange(values, metric);
   const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
   // The axis column is as wide as its longest label (1020 hPa needs more than 25 ℃), so nothing is cut.
-  const left = axisWidth(ticks.map(tickLabel));
+  // …and wide enough to name the weather rows (対象 / 比較) clear of the 0時 icon.
+  const left = Math.max(axisWidth(ticks.map(tickLabel)), bandWx ? 40 : 0);
   const plotW = w - left - PAD.right;
   const step = plotW / 24;
   // Hour n is the value at n o'clock: x runs from 0 to 24 o'clock.
@@ -783,10 +788,13 @@ function HourChart({
   const dusk = day.edges.dusk / 60;
   const plotTop = PAD.top;
   const plotBottom = H - PAD.bottom;
-  // The sun's height as a faint hill along the bottom: 90° would fill a third of the graph.
-  const sunY = (deg: number) => plotBottom - (Math.max(0, deg) / 90) * (plotBottom - plotTop) * 0.33;
+  // The sun's height in its own strip under the plot, the day's highest point at the strip's top.
+  const stripTop = plotBottom + 2;
+  const stripBottom = plotBottom + SUN_H - 2;
+  const peak = Math.max(1, day.edges.noonAltitude);
+  const sunY = (deg: number) => stripBottom - (Math.max(0, deg) / peak) * (stripBottom - stripTop - 2);
   const above = day.curve.filter((p, i, a) => p.deg > 0 || (a[i - 1]?.deg ?? -1) > 0 || (a[i + 1]?.deg ?? -1) > 0);
-  const sunPath = above.length ? `M${xOf(above[0].min / 60)},${plotBottom} ` + above.map((p) => `L${xOf(p.min / 60)},${sunY(p.deg)}`).join(" ") + ` L${xOf(above.at(-1)!.min / 60)},${plotBottom} Z` : null;
+  const sunPath = above.length ? `M${xOf(above[0].min / 60)},${stripBottom} ` + above.map((p) => `L${xOf(p.min / 60)},${sunY(p.deg)}`).join(" ") + ` L${xOf(above.at(-1)!.min / 60)},${stripBottom} Z` : null;
   const clip = (m: number) => Math.min(24, Math.max(0, m / 60));
 
   const pickAt = (clientX: number) => {
@@ -852,6 +860,8 @@ function HourChart({
     );
   };
   const d = dim ?? { main: false, other: false, avgMain: false, avgOther: false };
+  // Where the touched value's tag sits on the axis (line graphs), so the tick under it can give way.
+  const tagY = metric.chart !== "bar" && main[hour - 1]?.v != null ? yOf(main[hour - 1].v!) : null;
   // Lines set aside go under the others, so the ones still in colour read on top.
   const under = (k: LineId) => (d[k] ? 0 : 1);
 
@@ -878,7 +888,7 @@ function HourChart({
         onScrub?.(false);
       }}
     >
-      <svg width={w} height={H} role="img" aria-label={`${metric.label}の時間ごとのグラフ`}>
+      <svg width={w} height={H + SUN_H} role="img" aria-label={`${metric.label}の時間ごとのグラフ`}>
         {/* Feel levels behind the lines. */}
         {metricId === "feel" &&
           ranges.map(({ from, to, color }, i) => {
@@ -935,9 +945,12 @@ function HourChart({
         {ticks.map((t) => (
           <g key={t}>
             <line x1={left} x2={w - PAD.right} y1={yOf(t)} y2={yOf(t)} className="chart-grid" />
-            <text x={left - 6} y={yOf(t) + 4} className="chart-tick" textAnchor="end">
-              {tickLabel(t)}
-            </text>
+            {/* A tick the value tag would sit on gives way to it (16.0 over 15). */}
+            {!(tagY != null && Math.abs(yOf(t) - tagY) < 13) && (
+              <text x={left - 6} y={yOf(t) + 4} className="chart-tick" textAnchor="end">
+                {tickLabel(t)}
+              </text>
+            )}
           </g>
         ))}
         {/* The unit once, above the axis. */}
@@ -998,21 +1011,28 @@ function HourChart({
           </>
         )}
 
-        {/* The sun's highest point, in front of bars and lines (it was hidden behind 日差し's bars). */}
-        <text x={xOf(day.edges.noon / 60)} y={sunY(day.edges.noonAltitude) - 4} textAnchor="middle" className="day-sun-label">
+        {/* The strip's name in the axis column, and the highest point beside the peak. */}
+        <text x={left - 6} y={stripBottom - 3} textAnchor="end" className="day-sun-name">
+          太陽
+        </text>
+        {/* The highest point, past the hill's right foot so it never sits on the curve. */}
+        <text x={xOf(set) + 6} y={stripBottom - 3} className="day-sun-label">
           南中 {Math.round(day.edges.noonAltitude)}°
         </text>
         {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
-          <text key={h} x={xOf(h)} y={H - 8} textAnchor="middle" className="chart-x">
+          <text key={h} x={xOf(h)} y={H + SUN_H - 8} textAnchor="middle" className="chart-x">
             {h}
           </text>
         ))}
       </svg>
       {bandWx && (
-        <div className="band-wx" aria-label="時刻ごとの天気（その前後1時間。大きい方が対象日、小さい方が比較日。薄いものは日照と降水からの推定）">
+        <div className="band-wx" aria-label="時刻ごとの天気（その前後1時間。上が対象日、下が比較日。薄いものは日照と降水からの推定）">
+          {/* Each row named in the axis column: 対象 above, 比較 below. */}
+          <span className="band-wx-name main" style={{ width: left - 13 }}>対象</span>
+          {bandWx.other && <span className="band-wx-name other" style={{ width: left - 13 }}>比較</span>}
           {WX_TICKS.map((h, i) => (
             <span key={h} className="band-wx-cell" style={{ left: xOf(h) }}>
-              <BandWeatherIcons main={bandWx.main[i]} other={bandWx.other?.[i] ?? null} />
+              <BandWeatherIcons main={bandWx.main[i]} other={bandWx.other?.[i] ?? null} night={h <= rise || h >= set} />
             </span>
           ))}
         </div>

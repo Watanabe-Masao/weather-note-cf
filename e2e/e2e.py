@@ -400,6 +400,15 @@ with sync_playwright() as p:
         }""")
         check("AV1b 読み取りの小数点が列ごとにそろう", len(g["spread"]) >= 2 and max(g["spread"]) < 0.6, str(g))
         check("AV1c 読み取りの行の高さが 24px でそろう", g["heights"] == [24], str(g))
+        # HC. The hour graph (#151): rows named, the sun in its own strip, a clear night drawn as the moon.
+        hc = pg.evaluate("""() => ({ names: [...document.querySelectorAll('.band-wx-name')].map(e => e.textContent),
+          strip: !!document.querySelector('.day-sun-name'),
+          sky: [...document.querySelectorAll('.band-wx-cell')].map(c => { const d = c.querySelector('.band-wx-main path')?.getAttribute('d') || '';
+            return d.startsWith('M16 12a4') ? 'sun' : d.startsWith('M20.985') ? 'moon' : 'other'; }) })""")
+        check("HC1 天気の行に 対象／比較 の名前", hc["names"][:2] == ["対象", "比較"], str(hc["names"]))
+        check("HC2 太陽の高さは別の帯（太陽）", hc["strip"])
+        # 0・3・21・24時 are night all year in Kochi: no sun there; a moon never by day (12時).
+        check("HC3 夜に太陽を描かない・昼に月を描かない", all(hc["sky"][i] != "sun" for i in (0, 1, 7, 8)) and hc["sky"][4] != "moon", str(hc["sky"]))
         # TR. Text roles (tokens TEXT_ROLES): each role draws the same on the readout and the table.
         roles = pg.evaluate("""() => {
           const R = { 見出し: ['.ro-title'], 指標名: ['.ro-label', '.labels .label-value:not(.label-diff)'],
