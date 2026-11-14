@@ -5,7 +5,7 @@ import { useContext, useEffect, useState } from "react";
 import { nudgeBands } from "../flows/screenFlows";
 import { BetaContext } from "../beta/settings";
 import { BAND_ALARMS, bandAt } from "../../shared/dayParts";
-import { Segmented } from "../ui/kit";
+import { Segmented, Help } from "../ui/kit";
 import { type DeviceState, loadNotify, type NotifySettings, saveNotify, testNotify, turnOffDevice, turnOnDevice, deviceState } from "./push";
 
 const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -95,7 +95,7 @@ export function NotifySection({ station }: { station: string }) {
     <div className="set-row notify">
       <span className="set-label">
         記録の通知
-        <small className="set-help">決めた時刻に「今、外はどう感じますか？」と通知します。押すと記録の画面が開きます。通知がなくても、上の［記録］からいつでも記録できます。</small>
+        <Help text="決めた時刻に「今、外はどう感じますか？」と通知します。押すと記録の画面が開きます。通知がなくても、上の［記録］からいつでも記録できます。" />
       </span>
       <Segmented
         label="記録の通知"
@@ -125,7 +125,7 @@ export function NotifySection({ station }: { station: string }) {
               );
             })}
           </div>
-          <small className="set-help">肌感マップの時間帯のおよその真ん中（春分・秋分のころ）に通知します。時間帯は太陽の高さで決まるので、季節によって通知が時間帯の端に寄ることがあります。ほかの時刻も足せます。</small>
+          <Help text="肌感マップの時間帯のおよその真ん中（春分・秋分のころ）に通知します。時間帯は太陽の高さで決まるので、季節によって通知が時間帯の端に寄ることがあります。ほかの時刻も足せます。" />
           <BandNudge station={station} times={settings.times} busy={busy} onAdd={(t) => void save({ ...settings, times: [...new Set([...settings.times, t])].sort() })} />
           <div className="notify-times" role="group" aria-label="通知の時刻">
             {settings.times.filter((t) => !BAND_TIMES.some((b) => b.time === t)).map((t) => (

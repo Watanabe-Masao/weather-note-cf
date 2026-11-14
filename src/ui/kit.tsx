@@ -422,6 +422,31 @@ export function InfoNote({ children, more, className }: { children?: ReactNode; 
   );
 }
 
+/**
+ * A help line under a setting (#151: 説明は短い1行): the first sentence shows, the rest opens with ⓘ.
+ * `lead` sets it as a group's lead (a little larger) instead of a row's help.
+ */
+export function Help({ text, lead }: { text: string; lead?: boolean }) {
+  const [open, setOpen] = useState(false);
+  const cut = text.indexOf("。");
+  const first = cut >= 0 ? text.slice(0, cut + 1) : text;
+  const rest = cut >= 0 ? text.slice(cut + 1).trim() : "";
+  const cls = lead ? "set-lead help" : "set-help help";
+  return (
+    <span className={cls}>
+      <span className="help-first">
+        {first}
+        {rest && (
+          <button className="info-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "説明を閉じる" : "説明を開く"}>
+            ⓘ
+          </button>
+        )}
+      </span>
+      {open && rest && <span className="help-more">{rest}</span>}
+    </span>
+  );
+}
+
 /** A legend's neutral sample colour: the legend tells which day, the graph's colour tells what. */
 const SAMPLE_INK = "var(--ink-secondary)";
 

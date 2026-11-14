@@ -441,6 +441,25 @@ with sync_playwright() as p:
         esc()
     step("J", j)
 
+    # R. 記録: the save button stays in view and names what is missing (#151 操作の体系)
+    def rr():
+        pg.click(".head-report"); wait(900)
+        check("R1 記録が開く", pg.locator(".msheet.report-sheet").count() == 1)
+        vis = lambda: pg.evaluate("(() => { const r = document.querySelector('.report-save').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 1; })()")
+        check("R2 開いた時から［記録する］が見える（下に固定）", vis())
+        t = txt(".report-save")
+        check("R3 押せない間は足りないものを出す", "あと" in t and "感じ方" in t and "今の天気" in t, t)
+        pg.locator(".msheet button", has_text="涼しい").first.click(); wait(300)
+        t = txt(".report-save")
+        check("R4 答えると足りないものが減る", "感じ方" not in t and "あと" in t, t)
+        pg.locator(".msheet").last.evaluate("e => e.scrollTop = e.scrollHeight / 2"); wait(300)
+        check("R5 途中までスクロールしても見える", vis())
+        st = small_text(); check("R6 10px より小さい文字がない（記録）", not st, str(st))
+        layout_ok("R7", "記録")
+        buttons_ok("R8", "記録", 1)
+        esc()
+    step("R", rr)
+
     # K. feel map
     def k():
         pg.evaluate("__flick('.sheet-handle',600,120)"); wait(800)
