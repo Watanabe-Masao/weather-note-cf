@@ -250,12 +250,8 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       <GraphReadout
         live={scrub != null}
         unit={metric.unit}
-        title={
-          <>
-            {dateLabel(shownDay)}
-            {shownPartner && <small> 比較 {monthDay(shownPartner)}</small>}
-          </>
-        }
+        title={dateLabel(shownDay)}
+        dates={{ b: shownPartner ? monthDay(shownPartner) : undefined }}
         rows={series
           .filter((x) => !x.compare && !x.s.thin)
           .map(({ s, points }) => {

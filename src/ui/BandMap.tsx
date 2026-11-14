@@ -203,7 +203,17 @@ function MapGrid({
         <span key={band.id} className="band-map-label">
           {band.label}
           {/* The middle day's times: the days around it differ by a minute or two. */}
-          <small>{targets[3] ? bandSpan(targets[3], station, bi) : null}</small>
+          {/* Start and end on their own lines: the pair on one line is wider than the label column. */}
+          {targets[3] &&
+            (() => {
+              const [from, to] = bandSpan(targets[3], station, bi).split("–");
+              return (
+                <small>
+                  {from}
+                  <br />–{to}
+                </small>
+              );
+            })()}
         </span>,
         ...cols.map(({ a, b }, i) => {
           const ca = a.bands?.[bi];

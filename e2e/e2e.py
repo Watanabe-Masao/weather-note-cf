@@ -131,12 +131,18 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errors.append("PAGEERROR " + str(e)))
     pg.goto("http://127.0.0.1:8799/")
     pg.wait_for_timeout(1500)
-    pg.add_script_tag(path=os.path.join(HERE, "flick.js"))
+    pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js"))
     cdp = ctx.new_cdp_session(pg)
     wait = pg.wait_for_timeout
     txt = lambda sel: pg.locator(sel).first.inner_text()
     title = lambda: txt(".sheet-head-title")
     no_overflow = lambda: pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
+    # Text that runs out of its box, lies on other text, or is cut short (e2e/layout.js, #151).
+    def layout_ok(code, where):
+        r = pg.evaluate("__layoutIssues()")
+        bad = r["overflow"] + r["overlap"] + r["clipped"]
+        check(f"{code} 文字のはみ出し・重なり・切れがない（{where}）", not bad, str(bad))
+
     # Text on screen smaller than the type scale's xs (10px): none (docs/design-system.md, #151).
     small_text = lambda: pg.evaluate("""[...document.querySelectorAll('body *')].filter(e => {
         const r = e.getBoundingClientRect();
@@ -159,6 +165,7 @@ with sync_playwright() as p:
         check("A4 横にはみ出さない", no_overflow())
         check("A5 シートの見出し", title() == "気温の日別", title())
         st = small_text(); check("A6 10px より小さい文字がない（表）", not st, str(st))
+        layout_ok("A7", "表")
     step("A", a)
 
     # B. every item chip
@@ -169,6 +176,7 @@ with sync_playwright() as p:
             check(f"B{i+1} {label}: シート見出し", title().startswith(label), title())
             check(f"B{i+1} {label}: 読み取りカード", pg.locator(".sheet .readout-card").count() == 1)
             check(f"B{i+1} {label}: 凡例がグラフの下", pg.locator(".sheet .line-legend").count() >= 1)
+            layout_ok(f"B{i+1}b", f"{label}の日別")
         pg.click(".metrics .chip:nth-child(1)"); wait(400)
     step("B", bb)
 
@@ -181,6 +189,7 @@ with sync_playwright() as p:
         chips = pg.evaluate("document.querySelector('.metrics').getBoundingClientRect().bottom")
         check("C1 上へ弾くと高くなる", h1 > h0 + 50, f"{h0:.0f}→{h1:.0f}")
         check("C2 最大はチップの下で止まる", top >= chips - 1, f"top {top:.0f} chips {chips:.0f}")
+        layout_ok("C2b", "シート最大")
         pg.evaluate("__flick('.sheet-handle',600,120)"); wait(800)
         h2 = sheet_h()
         check("C3 下へ弾くと低くなる", h2 < h1 - 50, f"{h1:.0f}→{h2:.0f}")
@@ -207,6 +216,7 @@ with sync_playwright() as p:
         check("U1 明るさと空：1本の帯（切り替えなし）、マスに空の色と段の線", pg.locator(".light-strip .seg").count() == 0 and pg.locator(".light-cells.sky i b").count() >= 48 and pg.locator(".light-cells.sky i u").count() >= 24 and no_overflow(), str(pg.locator(".light-cells.sky i b").count()))
         check("U2 読み取りに空の行", "空（" in txt(".readout-card"), txt(".readout-card"))
         st = small_text(); check("U2b 10px より小さい文字がない（時間帯）", not st, str(st))
+        layout_ok("U2c", "時間帯")
         pg.locator(".light-strip").scroll_into_view_if_needed(); wait(300)
         b = pg.locator(".light-trace.on").bounding_box()
         y = b["y"] + b["height"] / 2
@@ -285,7 +295,7 @@ with sync_playwright() as p:
         check("H1 ▶で次の日", txt(".side .date-button") != before)
         check("H2 今日へ戻るボタンが出る", pg.locator(".today-chip").count() == 1)
         moved = txt(".side .date-button")
-        pg.reload(); wait(2500); pg.add_script_tag(path=os.path.join(HERE, "flick.js"))
+        pg.reload(); wait(2500); pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js"))
         check("H2b 再読み込み（新しい版への切り替え）でも見ていた日のまま", txt(".side .date-button") == moved, txt(".side .date-button"))
         pg.click(".today-chip"); wait(500)
         check("H3 今日へ戻る", txt(".side .date-button") == before)
@@ -371,6 +381,7 @@ with sync_playwright() as p:
             check(f"I 閉じ方（{how}）", ok_open and pg.locator(".msheet").count() == 0)
         pg.locator(".side .date-button").first.click(); wait(600)
         check("I カレンダーは中身の高さ", "fit" in pg.locator(".msheet").get_attribute("class"))
+        layout_ok("I0", "カレンダー")
         pg.locator(".cal-day:not(:disabled)").nth(3).click(); wait(400)
         check("I 1回目のタップは仮（閉じない、上の組み合わせが変わる）", pg.locator(".msheet").count() == 1 and pg.locator(".cal-pair.changed").count() == 1)
         pg.locator(".cal-day:not(:disabled)").nth(3).click(); wait(700)
@@ -385,6 +396,7 @@ with sync_playwright() as p:
         pg.click(".app-head .icon-btn"); wait(600)
         check("J1 設定が開く", pg.locator(".msheet.settings").count() == 1)
         st = small_text(); check("J1b 10px より小さい文字がない（設定）", not st, str(st))
+        layout_ok("J1c", "設定")
         check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
         esc()
     step("J", j)
@@ -398,6 +410,7 @@ with sync_playwright() as p:
         check("K0 中央の日のマップ", head.endswith("/" + md.split("/")[0] + "/" + md.split("/")[1]), f"マップ {md} / 表 {head}")
         check("K1 肌感マップが開く", pg.locator(".msheet.feel-sheet").count() == 1)
         st = small_text(); check("K1b 10px より小さい文字がない（肌感マップ）", not st, str(st))
+        layout_ok("K1c", "肌感マップ")
         mh = pg.evaluate("document.querySelector('.msheet').getBoundingClientRect().height")
         sm = pg.evaluate("parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-max'))")
         check("K2 グラフシート最大と同じ高さ", abs(mh - sm) <= 2, f"{mh:.0f} vs {sm:.0f}")
@@ -423,6 +436,7 @@ with sync_playwright() as p:
         check("L1 条件から選ぶが開く", pg.locator(".msheet.cond-sheet").count() == 1)
         check("L2 条件は4行", pg.locator(".cond-line").count() == 4)
         check("L3 最初は最高が開いて範囲（つまみ2つ）", pg.locator(".cond-line.open[data-cond=max] .cond-slider input").count() == 2)
+        layout_ok("L3b", "条件から選ぶ")
         pg.locator(".cond-line[data-cond=max] .seg button", has_text="以上").click(); wait(300)
         check("L4 以上はつまみ1つ", pg.locator(".cond-line[data-cond=max] .cond-slider input").count() == 1, txt(".cond-line[data-cond=max] .cond-value"))
         check("L5 値は「以上」と読める", "以上" in txt(".cond-line[data-cond=max] .cond-value"))
@@ -495,6 +509,7 @@ with sync_playwright() as p:
         cols = pg.evaluate("[...document.querySelectorAll('.side-target .strip-col')].filter(c=>{const r=c.getBoundingClientRect();return r.left>=%f-1&&r.right<=%f+1}).length" % (wb["x"], wb["x"] + wb["width"]))
         check("P2 表に集中で9日", cols == 9, str(cols))
         check("P2b 横にはみ出さない", no_overflow())
+        layout_ok("P2c", "表に集中")
         pg.locator(".side .icon-btn").first.click(); wait(600)
         pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)
         pg.locator(".chart-hit").nth(7).click(force=True); wait(800)
@@ -555,6 +570,7 @@ with sync_playwright() as p:
         check("T2 見出し", title() == "明るさの移り変わり", title())
         check("T3 時刻で：見出しが分で言う", "分" in txt(".lt-head-main"), txt(".lt-head-main"))
         check("T4 時刻で：グラフ", pg.locator(".light-trend svg.lt-chart").count() == 1)
+        layout_ok("T4b", "明るさの移り変わり")
         for span in ["1か月", "1年", "1週間"]:
             pg.locator(".lt-controls button", has_text=span).click(); wait(500)
             check(f"T5 時刻で {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())

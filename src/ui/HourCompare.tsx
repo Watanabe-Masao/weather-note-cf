@@ -208,11 +208,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       <GraphReadout
         live={scrubbing}
         unit={metric.unit === "h" || metric.unit === "肌感" ? "" : metric.unit}
-        title={
-          <>
-            {shownHour}時<small> {mainLabel}{other ? ` / ${otherLabel}` : ""}</small>
-          </>
-        }
+        title={`${shownHour}時`}
+        dates={{ a: mainLabel, b: other ? otherLabel : undefined }}
         rows={[
           {
             key: "main",
