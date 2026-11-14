@@ -7,6 +7,7 @@ import { type PointerEvent, type ReactNode, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { weekSteps } from "../compare";
 import { dateLabel } from "../design/format";
+import { Glyph } from "./kit";
 
 const LONG_PRESS_MS = 400;
 
@@ -92,7 +93,7 @@ function Arrow({
         onPointerCancel={cancel}
         onContextMenu={(e) => e.preventDefault()}
       >
-        {dir < 0 ? "◀" : "▶"}
+        <Glyph name={dir < 0 ? "prev" : "next"} size="15px" />
       </button>
     </span>
   );
@@ -127,7 +128,7 @@ export function DateNav({ label, date, canBack, canForward, onStep, onOpenCalend
           </span>
         ) : todayChip && (
           <button className="today-chip" onClick={onToday}>
-            {todayChip === "back" ? "◀今日" : "今日▶"}
+            {todayChip === "back" ? <><Glyph name="prev" size="10px" />今日</> : <>今日<Glyph name="next" size="10px" /></>}
           </button>
         )}
       </span>

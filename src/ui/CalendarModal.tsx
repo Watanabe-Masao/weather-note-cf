@@ -13,7 +13,7 @@ import { COMPARE_MODES, type CompareMode, diffDays, matchDate } from "../compare
 import type { WeatherStore } from "../data/store";
 import { dateLabel } from "../design/format";
 import { ChevronIcon } from "./icons";
-import { Button, Chip, confidenceOfRow } from "./kit";
+import { Button, Chip, confidenceOfRow, Glyph } from "./kit";
 import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { useSwipeDays } from "./useSwipeDays";
 import { DayWeatherIcon } from "./WeatherIcon";
@@ -134,7 +134,7 @@ function Body(p: Props) {
           {dateLabel(pairTarget)}
         </span>
         <span className="cal-pair-link" aria-hidden>
-          ↔
+          <Glyph name="pair" size="14px" />
         </span>
         <span className={p.side === "compare" ? "cal-pair-side picking" : "cal-pair-side"}>
           <small>比較</small>

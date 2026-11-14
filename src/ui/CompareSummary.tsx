@@ -17,7 +17,7 @@ import type { WeatherStore } from "../data/store";
 import { clock, hourOfDay } from "../data/sun";
 import { digitsOf, lineLabel, num, signedDiff, UNIT } from "../design/format";
 import type { DataColor } from "../design/tokens";
-import { Badge, Button, CheckGlyph, confidenceOfRow, DayLabel, SwipeHint } from "./kit";
+import { Badge, Button, CheckGlyph, confidenceOfRow, DayLabel, Glyph, SwipeHint } from "./kit";
 import type { MetricId } from "../metrics";
 import { useSun } from "./HourCompare";
 import { useSwipeDays } from "./useSwipeDays";
@@ -234,7 +234,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
       aria-expanded={!collapsed}
       aria-label={collapsed ? "比較を広げる" : "比較を畳む"}
     >
-      {collapsed ? "▾" : "▴"}
+      <Glyph name={collapsed ? "down" : "up"} size="12px" />
     </button>
   );
 
@@ -520,7 +520,7 @@ function BetaRows({
         <button className="cs-beta-fold" onClick={() => setOpen(!open)} aria-expanded={open} aria-label={open ? "肌感の中心とちょうどよい範囲を畳む" : "肌感の中心とちょうどよい範囲を広げる"}>
           肌感の中心とちょうどよい範囲 <span className="beta-tag">β</span>
           {learning && <span className={`learn-tag ${learning.state}`}>{LEARNING_LABELS[learning.state]}</span>}
-          <span className="cs-beta-chev" aria-hidden="true">{open ? "▴" : "▾"}</span>
+          <span className="cs-beta-chev" aria-hidden="true"><Glyph name={open ? "up" : "down"} size="10px" /></span>
         </button>
         {open && <small>
           {unknown ? `暑くも寒くもない肌感は記録からまだ特定できません（${learning?.missing.join("、")}）` : "中心も範囲も、最近の気温への慣れや湿度で動きます。記録から学ぶ研究中の推定です"}
