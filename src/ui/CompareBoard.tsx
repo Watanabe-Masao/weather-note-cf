@@ -16,7 +16,7 @@ import type { CalendarSide } from "./CalendarModal";
 import { DateNav } from "./DateNav";
 import { FeelBar, FeelContext } from "./FeelBar";
 import { Strip, StripSync } from "./Strip";
-import { DayWeatherIcon } from "./WeatherIcon";
+import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
 
 interface Props {
   /** A drum is moving (finger down or settling): switches that change the days wait for it. */
@@ -189,28 +189,33 @@ function Labels({
     <div className="labels">
       <span className="label-date">日付</span>
       <span className="label-icon">天気</span>
-      <span className="label-kind" />
+      {/* The table's unit, once, at the head of the value rows (#151). A row whose unit differs
+          (降雪 cm, 明るい 時間) names its own under its label. */}
+      <span className="label-kind label-unit">{metric.unit}</span>
       {tableSeries(metric, past).map((s) => (
-        <span key={s.key} className={`label-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
+        <span key={s.key} className={`label-value${s.minor ? " minor" : ""}`}>
           {s.tableLabel ?? s.label}
-          <small className="unit">{s.unit ?? metric.unit}</small>
+          {s.unit && s.unit !== metric.unit && <small className="unit">{s.unit}</small>}
         </span>
       ))}
       {diffs &&
         diffSeries(metric).map((s) => (
           <span key={"diff-" + s.key} className="label-value label-diff">
-            差<small>{s.tableLabel ?? s.label}</small>
+            {s.tableLabel ?? s.label}差
           </span>
         ))}
       {metric.id === "temp" && (
+        // 肌感 and the sky it is read under: ☀ 日なた / ☁ 日かげ, one line like every other row.
         <button
           className={sun ? "label-feel sun" : "label-feel shade"}
           onClick={onToggleSun}
           aria-pressed={sun}
           aria-label={sun ? "肌感：日なた（タップで日かげ）" : "肌感：日かげ（タップで日なた）"}
         >
-          肌感
-          <small>{sun ? "☀日なた" : "☁日かげ"}</small>
+          <span className="feel-word">肌感</span>
+          {/* The table's own sky pictures, not ☀☁ characters: a drawn icon centres on the word
+              the same in every font. */}
+          <WeatherIcon text={sun ? "晴" : "曇"} size={12} />
         </button>
       )}
     </div>

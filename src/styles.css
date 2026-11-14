@@ -550,52 +550,60 @@ select.chip {
   border-right: 1px solid var(--line-soft);
 }
 
+/* One line per row, all in the same grey: the colour is the numbers' to carry (#151). */
 .label-value {
   line-height: 1.05;
-}
-
-.label-value .unit {
-  display: block;
-  font-size: var(--size-xs);
-  margin: 0;
-}
-
-.label-value.tone-hot { color: var(--data-hot); }
-.label-value.tone-cold { color: var(--data-cold); }
-.label-value.tone-pressureHigh { color: var(--data-pressure-high); }
-.label-value.tone-pressureLow { color: var(--data-pressure-low); }
-.label-value.minor { font-size: var(--size-xs); color: var(--ink-tertiary); }
-
-button.label-feel {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  background: none;
-  border: none;
-  padding: 0;
-  font-size: var(--size-sm);
-  line-height: 1.15;
-  color: var(--ink-primary);
-  text-align: left;
-}
-
-button.label-feel small {
-  margin-top: 1px;
-  font-size: var(--size-xs);
-  padding: 0 3px;
-  border-radius: var(--radius-xs);
+  color: var(--ink-secondary);
   white-space: nowrap;
 }
 
-button.label-feel.sun small {
-  color: var(--data-sun);
-  border: 1px solid color-mix(in srgb, var(--data-sun) 55%, transparent);
+/* The table's unit, once, on the row of 実績／予報 just above the numbers. */
+.label-unit {
+  align-self: end;
+  font-family: var(--font-numeric);
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
 }
 
-button.label-feel.shade small {
+/* Only a row whose unit differs from the table's names it, under its label. */
+.label-value .unit {
+  display: block;
+  font-family: var(--font-numeric);
+  font-size: var(--size-xs);
   color: var(--ink-tertiary);
-  border: 1px solid var(--line-strong);
+  margin: 0;
 }
+
+.label-value.minor { color: var(--ink-tertiary); }
+
+/* 肌感 switches 日なた ⇄ 日かげ: it wears the chips' face (a 進む/選ぶ button, not a heading), small
+   enough to keep inside the 52px column. Not blue: blue is for the one chosen, and this is a switch. */
+button.label-feel {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--space-1);
+  height: 22px;
+  margin-left: calc(-1 * var(--space-3));
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-strong);
+  background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
+  font-size: var(--size-sm);
+  color: var(--ink-secondary);
+  white-space: nowrap;
+}
+
+/* The word's box is trimmed to its letters (cap height to baseline) so it centres by what is
+   drawn, the same in Hiragino and in Noto; without text-box the em box is near enough. */
+button.label-feel .feel-word {
+  line-height: 1;
+  text-box: trim-both cap alphabetic;
+}
+/* The drawn sun sits 1px inside its 12px box on each side; giving back 1px on the right evens the
+   ink with the 4px on the left of the word. */
+button.label-feel svg { flex: none; display: block; margin-right: -1px; }
+button.label-feel:active { transform: scale(0.97); }
 
 .strip-wrap {
   position: relative;
@@ -3231,18 +3239,6 @@ svg.scrub {
   .cond-caret {
     transition: none;
   }
-}
-
-/* 差 rows under the comparison table — no colour (differences are never coloured). */
-.label-diff {
-  color: var(--ink-secondary);
-  font-size: var(--size-sm);
-}
-
-.label-diff small {
-  display: block;
-  font-size: var(--size-xs);
-  color: var(--ink-tertiary);
 }
 
 .cell-value.cell-diff {
