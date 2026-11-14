@@ -222,6 +222,24 @@ export function ForecastHatch({ id }: { id: string }) {
 }
 
 /**
+ * The levels of a value (肌感の段・明るさの段) beside a graph's axis: a thin strip in each level's
+ * colour just left of the plot, and a guide line where one level meets the next. The plot itself
+ * keeps the face every graph has, so the lines stay easy to see (#151 日を並べる画面の決まり 2).
+ */
+export function LevelScale({ left, right, bands }: { left: number; right: number; bands: { y1: number; y2: number; color: string }[] }) {
+  return (
+    <g className="level-scale" aria-hidden>
+      {bands.map((b, i) => (
+        <g key={i}>
+          <rect x={left - 5} y={b.y1 + 0.5} width={3} height={Math.max(0, b.y2 - b.y1 - 1)} rx={1.5} fill={b.color} />
+          {i > 0 && <line x1={left} x2={right} y1={b.y2} y2={b.y2} className="chart-grid level" />}
+        </g>
+      ))}
+    </g>
+  );
+}
+
+/**
  * A marker shape for the 時間区分 lines (their colours are a neutral family, so the shape tells them
  * apart). Drawn centred on (x, y); `hollow` for the comparison day.
  */

@@ -12,7 +12,7 @@ import type { WeatherStore } from "../data/store";
 import { feelOn } from "../feelSeason";
 import { BAND_LINES, BAND_MARKS, lineLook } from "../design/tokens";
 import { niceTicks, signedDiff, tickLabel, monthDay, dateLabel } from "../design/format";
-import { Chip, ForecastHatch, GraphReadout, GuideLines, Mark, MarkIcon, LineSample } from "./kit";
+import { Chip, ForecastHatch, GraphReadout, GuideLines, Mark, MarkIcon, LineSample, LevelScale } from "./kit";
 import { FeelContext, levelRanges } from "./FeelBar";
 
 export const BAND_COLORS = BAND_LINES;
@@ -84,7 +84,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
   const x = (i: number) => PAD.left + step * (i + 0.5);
   const y = (v: number) => PAD.top + ((hi - v) * (H - PAD.top - PAD.bottom)) / (hi - lo);
 
-  // Level colour bands behind the lines, so a line's height reads as 寒い…暑い at a glance.
+  // The levels beside the axis (LevelScale), so a line's height reads as 寒い…暑い at a glance.
   // The target day's boundaries (they move little over the span shown; #111).
   const levelBands = levelRanges(feelOn(store, station, target, settings).thresholds, settings.scale).map(({ from, to, color }, i) => {
     const top = Math.min(hi, to);
@@ -153,9 +153,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
         <defs>
           <ForecastHatch id="fc-trend" />
         </defs>
-        {levelBands.map(
-          (b) => b && <rect key={b.i} x={PAD.left} width={w - PAD.left - PAD.right} y={b.y1} height={b.y2 - b.y1} fill={b.color} opacity={0.12} />,
-        )}
+        <LevelScale left={PAD.left} right={w - PAD.right} bands={levelBands.filter((b) => b != null)} />
         {dates.map((d, i) =>
           !forecastDay(i) ? null : (
             <g key={`fc-${d}`}>
@@ -171,7 +169,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
         {nice.ticks.map((t) => (
           <g key={t}>
             <line x1={PAD.left} x2={w - PAD.right} y1={y(t)} y2={y(t)} className="chart-grid" />
-            <text x={PAD.left - 5} y={y(t) + 4} textAnchor="end" className="chart-tick">
+            <text x={PAD.left - 9} y={y(t) + 4} textAnchor="end" className="chart-tick">
               {tickLabel(t)}
             </text>
           </g>
@@ -236,7 +234,7 @@ export function BandTrend({ store, station, target, partner }: Props) {
           <i className="ls-forecast" />
           予報
         </span>
-        <span>背景の色＝肌感の段階</span>
+        <span>軸の横の色＝肌感の段階</span>
       </p>
     </div>
   );
