@@ -695,9 +695,13 @@ button.label-feel.shade small {
   color: var(--ink-secondary);
 }
 
-/* Five characters or more (−10.7): a step down, so a 360-wide column still holds it. */
+/* Five characters or more (−10.7): a step down so its column still holds it, two below 375 wide. */
 .cell-value.long {
   font-size: var(--size-base);
+}
+@media (max-width: 374px) {
+  .cell-value.long,
+  .cell-value.cell-diff.long { font-size: var(--size-sm); }
 }
 
 .cell-feel {

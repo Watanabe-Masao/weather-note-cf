@@ -7,6 +7,9 @@ import json, re, sys, datetime, random, threading, http.server, functools, os
 from playwright.sync_api import sync_playwright
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+# The same wide face everywhere (DejaVu Sans is on CI and here, and is wider than the phones' faces),
+# so the layout checks see what CI sees, and what fits here fits on a phone.
+WIDE_FONT = ":root{--font-numeric:'DejaVu Sans',sans-serif!important;--font-family:'DejaVu Sans',sans-serif!important}"
 DIST = os.environ.get("WN_DIST", os.path.join(HERE, "..", "dist", "client"))
 OUT = os.environ.get("WN_SHOTS", os.path.join(HERE, "shots"))
 TODAY = datetime.date(2026, 11, 10)
@@ -131,7 +134,7 @@ with sync_playwright() as p:
     pg.on("pageerror", lambda e: errors.append("PAGEERROR " + str(e)))
     pg.goto("http://127.0.0.1:8799/")
     pg.wait_for_timeout(1500)
-    pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js"))
+    pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
     cdp = ctx.new_cdp_session(pg)
     wait = pg.wait_for_timeout
     txt = lambda sel: pg.locator(sel).first.inner_text()
@@ -295,7 +298,7 @@ with sync_playwright() as p:
         check("H1 ▶で次の日", txt(".side .date-button") != before)
         check("H2 今日へ戻るボタンが出る", pg.locator(".today-chip").count() == 1)
         moved = txt(".side .date-button")
-        pg.reload(); wait(2500); pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js"))
+        pg.reload(); wait(2500); pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
         check("H2b 再読み込み（新しい版への切り替え）でも見ていた日のまま", txt(".side .date-button") == moved, txt(".side .date-button"))
         pg.click(".today-chip"); wait(500)
         check("H3 今日へ戻る", txt(".side .date-button") == before)
