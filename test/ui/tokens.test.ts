@@ -37,3 +37,18 @@ describe("design tokens", () => {
     expect(withFallback).toEqual([]);
   });
 });
+
+describe("type scale", () => {
+  const css = readFileSync(join(SRC, "styles.css"), "utf8");
+
+  it("every font-size is a step of the scale (or inherits, or a step under its parent floored at xs)", () => {
+    const sizes = [...css.matchAll(/font-size:\s*([^;}]+)/g)].map((m) => m[1].replace(/\s*!important/, "").trim());
+    const ok = (v: string) => /^var\(--size-(xs|sm|base|md|lg|xl|input)\)$/.test(v) || v === "inherit" || /^max\(var\(--size-xs\), [0-9.]+em\)$/.test(v);
+    expect(sizes.filter((v) => !ok(v))).toEqual([]);
+  });
+
+  it("the input size is used only on inputs (16px keeps iPhone from zooming)", () => {
+    const rules = [...css.matchAll(/([^{}]+)\{[^}]*font-size:\s*var\(--size-input\)/g)].map((m) => m[1].trim());
+    expect(rules.filter((r) => !/input/.test(r))).toEqual([]);
+  });
+});
