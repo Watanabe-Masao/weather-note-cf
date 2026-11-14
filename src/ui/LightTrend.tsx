@@ -10,7 +10,7 @@
 // Clouds: the week reads each hour (as the hours face does); a month or a year reads each day's
 // sunshine, so that it needs no hours of 60 or 700 days.
 
-import { useEffect, useMemo, useState } from "react";
+import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { CLOUD, brightnessIndex, brightnessLevel, dayLights } from "../../shared/brightness";
 import { addDays } from "../../shared/dates";
 import { type Clouds, dayFactor, lightSpan, luxAtMinute, shiftAt, spanLength, spanShift, weeklyChange, clearClockOf } from "../../shared/lightShift";
@@ -21,6 +21,7 @@ import type { WeatherStore } from "../data/store";
 import { DATA, LIGHT_LEVELS, lineLook } from "../design/tokens";
 import { monthDay } from "../design/format";
 import { Chip, ForecastHatch, GraphReadout, Segmented, InfoNote, LevelScale, LineSample } from "./kit";
+import { DRUM_BUFFER, drumOffsets, useDayDrum } from "./useDayDrum";
 
 type View = "time" | "level";
 type Span = "week" | "month" | "year";
@@ -71,9 +72,25 @@ interface Props {
   today: string;
   height: number;
   onPickDay?: (date: string) => void;
+  /** Drag a week sideways to move the target day (the drum, as in the daily graph). */
+  onShiftDays?: (days: number) => void;
 }
 
-export function LightTrend({ store, station, target, compareDate, today, height, onPickDay }: Props) {
+/** The element's width in px (the graphs are drawn in viewBox units, the drum moves in px). */
+function useWidth(ref: RefObject<HTMLElement | null>) {
+  const [w, setW] = useState(0);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    setW(el.clientWidth);
+    return () => ro.disconnect();
+  }, [ref]);
+  return w;
+}
+
+export function LightTrend({ store, station, target, compareDate, today, height, onPickDay, onShiftDays }: Props) {
   const [saved, setSaved] = useState(loadSaved);
   const { view, span, at, lux } = saved;
   const set = (patch: Partial<typeof saved>) =>
@@ -89,7 +106,7 @@ export function LightTrend({ store, station, target, compareDate, today, height,
 
   const offset = compareDate ? diffDays(target, compareDate) : null;
   const days = useMemo(() => {
-    if (span === "week") return Array.from({ length: 7 }, (_, i) => addDays(target, i - 3));
+    if (span === "week") return drumOffsets.map((n) => addDays(target, n));
     if (span === "month") return Array.from({ length: 31 }, (_, i) => addDays(target, i - 15));
     return Array.from({ length: 53 }, (_, i) => addDays(target, (i - 26) * 7));
   }, [span, target]);
@@ -149,9 +166,9 @@ export function LightTrend({ store, station, target, compareDate, today, height,
             ))}
       </div>
       {view === "time" ? (
-        <TimeView {...{ station, target, compareDate, at, days, partnerOf, cloudsOf, isForecast, height, onPickDay, T, C, span }} />
+        <TimeView {...{ station, target, compareDate, at, days, partnerOf, cloudsOf, isForecast, height, onPickDay, onShiftDays, T, C, span }} />
       ) : (
-        <LevelView {...{ station, target, compareDate, lux, days, partnerOf, cloudsOf, isForecast, onPickDay, T, C, span }} />
+        <LevelView {...{ station, target, compareDate, lux, days, partnerOf, cloudsOf, isForecast, onPickDay, onShiftDays, T, C, span }} />
       )}
       <p className="lt-legend">
         <span><LineSample day="target" color={DATA.sun} />対象日</span>
@@ -183,6 +200,7 @@ interface ViewProps {
   cloudsOf: (d: string | null, byHour?: boolean) => Clouds | null;
   isForecast: (d: string) => boolean;
   onPickDay?: (d: string) => void;
+  onShiftDays?: (days: number) => void;
   T: { date: string; clouds: Clouds | null };
   C: { date: string; clouds: Clouds | null } | null;
   span: Span;
@@ -211,7 +229,25 @@ function Headline({ a, b, c, parts, season }: { a: string; b: string; c: string;
 const W = 340;
 const X0 = 44;
 
-function TimeView({ station, target, compareDate, at, days, partnerOf, cloudsOf, isForecast, height, onPickDay, T, C, span }: ViewProps & { at: number; height: number }) {
+/**
+ * A week is a drum (#151): 15 days drawn, the middle seven in view, dragged sideways like the daily
+ * graph. A month and a year show the whole span and do not move.
+ */
+function useViewDrum(span: Span, days: string[], onShiftDays?: (days: number) => void) {
+  const ref = useRef<HTMLDivElement>(null);
+  const px = useWidth(ref);
+  const B = span === "week" ? DRUM_BUFFER : 0;
+  const n = days.length - 2 * B;
+  const plotW = W - X0 - 4;
+  const scale = px ? px / W : 1;
+  const drum = useDayDrum(ref, (plotW / n) * scale, X0 * scale, span === "week" ? onShiftDays : undefined);
+  const xOf = (i: number) => X0 + ((i - B + 0.5) / n) * plotW;
+  const panStyle = span === "week" ? drum.pan.style : undefined;
+  return { ref, B, n, plotW, xOf, panStyle, tapOk: drum.tapOk };
+}
+
+function TimeView({ station, target, compareDate, at, days, partnerOf, cloudsOf, isForecast, height, onPickDay, onShiftDays, T, C, span }: ViewProps & { at: number; height: number }) {
+  const { ref, n, plotW, xOf, panStyle, tapOk } = useViewDrum(span, days, onShiftDays);
   const luxOf = (d: string | null, clouds: Clouds | null) => (d && clouds != null ? luxAtMinute(d, at, station, clouds) : null);
   const lt = luxOf(target, T.clouds);
   const lc = C ? luxOf(C.date, C.clouds) : null;
@@ -227,9 +263,7 @@ function TimeView({ station, target, compareDate, at, days, partnerOf, cloudsOf,
 
   // The graph: brightness levels behind, one column per day.
   const H = Math.max(180, Math.min(300, height - 40));
-  const top = 8, bottom = top + H, plotW = W - X0 - 4;
-  const n = days.length;
-  const xOf = (i: number) => X0 + ((i + 0.5) / n) * plotW;
+  const top = 8, bottom = top + H;
   const yOf = (l: number) => bottom - ((Math.log10(Math.min(1e5, Math.max(0.01, l))) + 2) / 7) * H;
   const edges = [0.01, 1, 100, 1000, 10000, 50000, 1e5];
   const pts = (f: (d: string) => number | null) =>
@@ -264,9 +298,13 @@ function TimeView({ station, target, compareDate, at, days, partnerOf, cloudsOf,
           { key: "eq", label: "晴れた日の何時", a: eqT != null ? clock(eqT) : "—", b: compareDate && eqC != null ? clock(eqC) : "—", diff: shift ? minutes(shift.total, "遅", "早") : "" },
         ]}
       />
+      <div ref={ref} className="drum-pane">
       <svg className="lt-chart" width="100%" viewBox={`0 0 ${W} ${bottom + 34}`} role="img" aria-label={`${clock(at)}の明るさの移り変わり${who ? "、対象日と比較日" : ""}`}>
         <defs>
           <ForecastHatch id="lt-hatch" />
+          <clipPath id="lt-plot">
+            <rect x={X0 - 4} y={0} width={plotW + 8} height={bottom + 34} />
+          </clipPath>
         </defs>
         <LevelScale left={X0} right={X0 + plotW} bands={edges.slice(0, -1).map((lo, i) => ({ y1: yOf(edges[i + 1]), y2: yOf(lo), color: LIGHT_LEVELS[i] }))} />
         {edges.slice(0, -1).map((lo, i) => {
@@ -288,8 +326,9 @@ function TimeView({ station, target, compareDate, at, days, partnerOf, cloudsOf,
             </text>
           );
         })}
-        {firstForecast >= 0 && <rect x={X0 + (firstForecast / n) * plotW} y={top} width={plotW - (firstForecast / n) * plotW} height={H} fill="url(#lt-hatch)" />}
-        {ti >= 0 && <rect x={X0 + (ti / n) * plotW + 1} y={top} width={plotW / n - 2} height={H} className="chart-center" rx={8} />}
+        <g clipPath="url(#lt-plot)">
+        <g style={panStyle}>
+        {firstForecast >= 0 && <rect x={xOf(firstForecast) - plotW / n / 2} y={top} width={plotW * 3} height={H} fill="url(#lt-hatch)" />}
         <path d={clearP} className="lt-clear-line" />
         {compareP && <path d={compareP} fill="none" {...lineLook("compare", DATA.sun)} />}
         <path d={targetP} fill="none" {...lineLook("target", DATA.sun)} />
@@ -298,15 +337,20 @@ function TimeView({ station, target, compareDate, at, days, partnerOf, cloudsOf,
           const p = partnerOf(d);
           const vc = compareDate ? luxOf(p, cloudsOf(p)) : null;
           return (
-            <g key={d} onClick={() => onPickDay?.(d)}>
+            <g key={d} onClick={() => tapOk() && onPickDay?.(d)}>
               {vc != null && <circle cx={xOf(i)} cy={yOf(vc)} r={small ? 1.6 : 3.2} fill="var(--surface-base)" stroke={DATA.sun} strokeWidth={1.4} />}
               {v != null && <circle cx={xOf(i)} cy={yOf(v)} r={small ? 1.8 : 3.6} fill={DATA.sun} />}
-              <rect x={X0 + (i / n) * plotW} y={top} width={plotW / n} height={H} fill="transparent" />
+              <rect x={xOf(i) - plotW / n / 2} y={top} width={plotW / n} height={H} fill="transparent" />
             </g>
           );
         })}
         <DateTicks days={days} partnerOf={partnerOf} target={target} y={bottom + 14} xOf={xOf} span={span} />
+        </g>
+        </g>
+        {/* The chosen day's frame stays while the days pass under it. */}
+        {ti >= 0 && <rect x={xOf(ti) - plotW / n / 2 + 1} y={top} width={plotW / n - 2} height={H} className="chart-center" rx={8} />}
       </svg>
+      </div>
     </>
   );
 }
@@ -340,7 +384,8 @@ function DateTicks({ days, partnerOf, target, y, xOf, span }: { days: string[]; 
   );
 }
 
-function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsOf, isForecast, onPickDay, T, C, span }: ViewProps & { lux: number }) {
+function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsOf, isForecast, onPickDay, onShiftDays, T, C, span }: ViewProps & { lux: number }) {
+  const { ref, n, plotW, xOf, panStyle, tapOk } = useViewDrum(span, days, onShiftDays);
   const level = LEVELS.find((l) => l.lux === lux)!;
   const spanOf = (d: string | null, clouds: Clouds | null) => (d && clouds != null ? lightSpan(d, lux, station, clouds, span === "week" ? 1 : 2) : null);
   const st = spanOf(target, T.clouds);
@@ -362,9 +407,6 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
   };
   // Days run across, as in every graph (#151): two panels, the morning (light comes) and the evening
   // (light goes), each turned so that up is the longer light — an earlier morning, a later evening.
-  const n = days.length;
-  const plotW = W - X0 - 4;
-  const xOf = (i: number) => X0 + ((i + 0.5) / n) * plotW;
   const ti = days.indexOf(target);
   const firstForecast = days.findIndex((d) => isForecast(d));
   const small = span !== "week";
@@ -397,9 +439,13 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
           { key: "len", label: "長さ", a: st ? clock(spanLength(st)) : "—", b: sc ? clock(spanLength(sc)) : "—", diff: shift ? minutes(shift.total, "長", "短") : "" },
         ]}
       />
+      <div ref={ref} className="drum-pane">
       <svg className="lt-chart" width="100%" viewBox={`0 0 ${W} ${bottom}`} role="img" aria-label={`「${level.label}」以上の時間の移り変わり`}>
         <defs>
           <ForecastHatch id="lt-hatch2" />
+          <clipPath id="lt-plot2">
+            <rect x={X0 - 4} y={0} width={plotW + 8} height={bottom} />
+          </clipPath>
         </defs>
         {panels.map((pn) => {
           const [s0, s1] = pn.win;
@@ -422,7 +468,6 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
               <text x={X0} y={pn.top - 7} className="lt-panel">
                 {pn.title}
               </text>
-              {firstForecast >= 0 && <rect x={X0 + (firstForecast / n) * plotW} y={pn.top} width={plotW - (firstForecast / n) * plotW} height={PH} fill="url(#lt-hatch2)" />}
               {ticks.map((m) => (
                 <g key={m}>
                   <line x1={X0} x2={X0 + plotW} y1={yOf(m)} y2={yOf(m)} className="chart-grid" />
@@ -431,6 +476,9 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
                   </text>
                 </g>
               ))}
+              <g clipPath="url(#lt-plot2)">
+              <g style={panStyle}>
+              {firstForecast >= 0 && <rect x={xOf(firstForecast) - plotW / n / 2} y={pn.top} width={plotW * 3} height={PH} fill="url(#lt-hatch2)" />}
               <path d={line((r) => r.clear?.[pn.k] ?? null)} className="lt-clear-line" />
               {compareDate && <path d={line((r) => r.c?.[pn.k] ?? null)} fill="none" {...lineLook("compare", DATA.sun)} />}
               <path d={line((r) => (r.ct != null ? (r.t?.[pn.k] ?? null) : null))} fill="none" {...lineLook("target", DATA.sun)} />
@@ -440,21 +488,17 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
                   {r.t && r.ct != null && <circle cx={xOf(i)} cy={yOf(r.t[pn.k])} r={small ? 1.8 : 3.4} fill={DATA.sun} />}
                 </g>
               ))}
+              </g>
+              </g>
             </g>
           );
         })}
-        {ti >= 0 && <rect x={X0 + (ti / n) * plotW + 1} y={panels[0].top - 4} width={plotW / n - 2} height={plotBottom - panels[0].top + 8} className="chart-center" rx={8} />}
+        {ti >= 0 && <rect x={xOf(ti) - plotW / n / 2 + 1} y={panels[0].top - 4} width={plotW / n - 2} height={plotBottom - panels[0].top + 8} className="chart-center" rx={8} />}
+        <g clipPath="url(#lt-plot2)">
+        <g style={panStyle}>
         <DateTicks days={days} partnerOf={partnerOf} target={target} y={plotBottom + 14} xOf={xOf} span={span} />
         {!lenPanel && (
           <g>
-            <text x={X0 - 6} y={lenTop + 4} textAnchor="end" className="chart-tick">
-              長さ
-            </text>
-            {compareDate && (
-              <text x={X0 - 6} y={lenTop + 18} textAnchor="end" className="chart-tick">
-                比較
-              </text>
-            )}
             {rows.map((r, i) => {
               const own = lengthOf(r);
               return (
@@ -472,6 +516,8 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
             })}
           </g>
         )}
+        </g>
+        </g>
         {lenPanel &&
           (() => {
             const lens = rows.flatMap((r) => [lengthOf(r), r.c].filter((v): v is NonNullable<typeof v> => !!v).map(spanLength));
@@ -501,9 +547,22 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
             );
           })()}
         {days.map((d, i) => (
-          <rect key={`hit${i}`} x={X0 + (i / n) * plotW} y={0} width={plotW / n} height={bottom} fill="transparent" onClick={() => onPickDay?.(d)} />
+          <rect key={`hit${i}`} style={panStyle} x={xOf(i) - plotW / n / 2} y={0} width={plotW / n} height={bottom} fill="transparent" onClick={() => tapOk() && onPickDay?.(d)} />
         ))}
+        {!lenPanel && (
+          <g>
+            <text x={X0 - 6} y={lenTop + 4} textAnchor="end" className="chart-tick">
+              長さ
+            </text>
+            {compareDate && (
+              <text x={X0 - 6} y={lenTop + 18} textAnchor="end" className="chart-tick">
+                比較
+              </text>
+            )}
+          </g>
+        )}
       </svg>
+      </div>
     </>
   );
 }
