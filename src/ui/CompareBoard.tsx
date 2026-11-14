@@ -119,30 +119,33 @@ function Column({
         {state === "outside" ? "範囲外" : state === "error" ? "取得失敗" : kindLabel(store, station, date)}
         {state === "ready" && confidenceOfRow(day?.row) && <Conf value={confidenceOfRow(day?.row)!} />}
       </span>
-      {tableSeries(metric, past).map((s) => (
-        <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}`}>
+      {tableSeries(metric, past).map((s) => {
+        const text =
+          state === "ready" && !(s.forecastOnly && day?.row?.type !== "forecast")
+            ? formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel, station), s.unit ?? metric.unit)
+            : "";
+        return (
+        <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}${longValue(text) ? " long" : ""}`}>
           {state === "ready" ? (
-            s.forecastOnly && day?.row?.type !== "forecast" ? (
-              ""
-            ) : (
-              formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel, station), s.unit ?? metric.unit)
-            )
+            text
           ) : state === "error" ? (
             <span className="cell-failed">—</span>
           ) : state === "empty" ? (
             <span className="skeleton" />
           ) : null}
         </span>
-      ))}
+        );
+      })}
       {against !== undefined &&
         diffSeries(metric).map((s) => {
           const unit = s.unit ?? metric.unit;
           const hoursOf = (d: string) => (metric.needsHours ? (store?.getHours(station, d).rows ?? null) : null);
           const a = against ? s.value(store?.getDay(station, against).row, hoursOf(against), feel, station) : null;
           const b = s.value(day?.row, hoursOf(date), feel, station);
+          const text = signedDiff(a, b, unit) || "—";
           return (
-            <span key={"diff-" + s.key} className="cell-value cell-diff">
-              {signedDiff(a, b, unit) || "—"}
+            <span key={"diff-" + s.key} className={`cell-value cell-diff${longValue(text) ? " long" : ""}`}>
+              {text}
             </span>
           );
         })}
@@ -213,6 +216,9 @@ function Labels({
     </div>
   );
 }
+
+/** A value of five characters or more (−10.7, 1016) steps down one size so it keeps to its column. */
+const longValue = (text: string) => text.replace(/[^\d.−+\-]/g, "").length >= 5;
 
 export function CompareBoard({
   onMoving,
