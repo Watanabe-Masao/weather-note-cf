@@ -31,7 +31,7 @@ import {
   ShrinkIcon,
 } from "./ui/icons";
 import { StatusBar } from "./ui/StatusBar";
-import { IconButton } from "./ui/kit";
+import { Button, CheckGlyph, IconButton } from "./ui/kit";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { Settings } from "./ui/Settings";
 import { FeelSheet } from "./ui/FeelSheet";
@@ -291,9 +291,16 @@ export function App() {
           <h1>Weather Note</h1>
           <div className="app-head-actions">
             {account.me && (
-              <button className="head-report" onClick={() => setReportFrom({})} aria-label="今の感じ方を記録する">
-                {reportSaved ? "記録しました" : "記録"}
-              </button>
+              <Button size="sm" className="head-report" onClick={() => setReportFrom({})} aria-label="今の感じ方を記録する">
+                {reportSaved ? (
+                  <>
+                    <CheckGlyph />
+                    記録しました
+                  </>
+                ) : (
+                  "記録"
+                )}
+              </Button>
             )}
             <IconButton label="設定" onClick={() => setSettings(true)}>
               <GearIcon />
@@ -418,9 +425,9 @@ export function App() {
                     {/* 日照 has a button here too, so its title is the chip's own word (日照), which fits at 360. */}
                     <span className="sheet-head-title">{`${view.metric === "light" ? metric.label : (metric.title ?? metric.label)}の日別`}</span>
                     {view.metric === "light" ? (
-                      <button className="chip sm trend-btn" onClick={() => setFace("trend")}>
+                      <Button size="sm" className="trend-btn" onClick={() => setFace("trend")}>
                         移り変わり
-                      </button>
+                      </Button>
                     ) : (
                       <span className="sheet-head-hint">日をタップで時間帯</span>
                     )}

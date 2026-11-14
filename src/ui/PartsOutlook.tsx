@@ -17,6 +17,7 @@ import { whyLine, whyTerms } from "../beta/engine/why";
 import { dateLabel } from "../design/format";
 import { feelOn } from "../feelSeason";
 import { FeelContext, levelColor, levelName } from "./FeelBar";
+import { Button } from "./kit";
 
 const OUTLOOK_PARTS = ["morning", "evening"] as const;
 /** The next level is named when it has at least this probability. */
@@ -127,9 +128,9 @@ export function PartsOutlook({ store, station, date, today }: { store: WeatherSt
         );
       })()}
       {mine && (
-        <button className="chip sm outlook-basis" onClick={() => setBasis(true)}>
+        <Button kind="quiet" size="sm" className="start" onClick={() => setBasis(true)}>
           計算の根拠を見る
-        </button>
+        </Button>
       )}
       {basis && <BasisSheet store={store} station={station} target={date} other={null} onClose={() => setBasis(false)} />}
     </section>

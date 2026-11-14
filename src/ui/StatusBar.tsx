@@ -5,6 +5,7 @@
 import { useEffect, useState } from "react";
 import type { WeatherStore } from "../data/store";
 import { FailureSheet } from "./FailureSheet";
+import { Button } from "./kit";
 
 /** How long the selected day may load before the bar says it is slow. */
 const SLOW_MS = 4000;
@@ -62,9 +63,9 @@ export function StatusBar({ store, station, days }: { store: WeatherStore | null
           <button className="status-detail" onClick={() => setDetails(true)} aria-haspopup="dialog">
             {failed}日分のデータを取得できませんでした。<u>詳しく</u>
           </button>
-          <button className="state-retry" onClick={() => store?.retryAll()}>
+          <Button size="sm" onClick={() => store?.retryAll()}>
             再試行
-          </button>
+          </Button>
         </div>
       </>
     );

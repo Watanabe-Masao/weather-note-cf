@@ -3,7 +3,7 @@
 // and which part of the screen wanted it. Each can be tried again on its own, or all at once.
 
 import type { Failure, WeatherStore } from "../data/store";
-import { DayLabel } from "./kit";
+import { Button, DayLabel } from "./kit";
 import { ModalSheet } from "./ModalSheet";
 
 /** Where the values come from, by the request that failed. */
@@ -60,9 +60,10 @@ export function FailureSheet({ store, onClose }: { store: WeatherStore | null; o
                 <FailureItem key={`${f.hourly ? "h" : "d"}:${f.station}/${f.date}`} f={f} now={now} onRetry={() => store?.retryDay(f.station, f.date)} />
               ))}
             </ul>
-            <button className="chip failure-all" onClick={() => store?.retryAll()}>
+            {/* The next step here: try them all. Each row's own 再試行 is secondary. */}
+            <Button kind="primary" block className="failure-all" onClick={() => store?.retryAll()}>
               すべて再試行
-            </button>
+            </Button>
           </>
         )}
         <p className="failure-note">再試行しなくても、少し時間をおいて自動でもう一度取りに行きます。日付が変わると、前の日の失敗は消えて取り直します。</p>
@@ -79,9 +80,9 @@ function FailureItem({ f, now, onRetry }: { f: Failure; now: number; onRetry: ()
           <DayLabel date={f.date} year />
         </b>
         <span className="failure-kind">{f.hourly ? "時間ごとの値" : "その日の値"}</span>
-        <button className="state-retry" onClick={onRetry}>
+        <Button size="sm" onClick={onRetry}>
           再試行
-        </button>
+        </Button>
       </div>
       <dl className="failure-facts">
         <dt>理由</dt>

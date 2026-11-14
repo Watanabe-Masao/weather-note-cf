@@ -10,7 +10,7 @@ import { daySky, luminanceText, SKY_STEPS, type SkyColour, stepTime } from "../.
 import { hoursWeather } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
-import { ForecastHatch, GraphReadout, GuideLines, InfoNote, LineSample } from "./kit";
+import { Button, ForecastHatch, GraphReadout, GuideLines, InfoNote, LineSample } from "./kit";
 
 /** Which boundaries colour the 肌感 graph: everyone's (the app's settings) or the person's (β, #118). */
 type Bands = "shared" | "you";
@@ -420,9 +420,9 @@ function HourStatus({ state, error, onRetry }: { state?: string; error?: string;
       <div className="state-overlay error" role="alert">
         <b>時間ごとのデータを取得できませんでした</b>
         {error && <small>{error}</small>}
-        <button className="state-retry" onClick={onRetry}>
+        <Button size="sm" onClick={onRetry}>
           再試行
-        </button>
+        </Button>
       </div>
     );
   if (state === "outside")
