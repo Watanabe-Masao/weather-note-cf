@@ -3,25 +3,22 @@
 // day, how far the wind went past JMA's criteria.
 
 import { dayWeatherOf } from "../../shared/dayWeather";
-import { STORM, stormLevel, stormOfRow } from "../../shared/storm";
+import { STORM, stormOfRow, type StormLevel } from "../../shared/storm";
 import type { WeatherRow } from "../../shared/types";
 import { hourlyExtreme } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
 import { kindLabel } from "./CompareBoard";
+import type { DaySummaryAsk } from "./daySummaryPress";
 import { dayComment } from "../data/dayComment";
 import { dateLabel, formatValue, monthDay, needsYear, num, signedDiff } from "../design/format";
 import { DATA } from "../design/tokens";
-import { Badge, confidenceOfRow, GraphReadout, type Kind, type ReadoutRow, SectionHead } from "./kit";
+import { Badge, confidenceOfRow, GraphReadout, type Kind, Num, type ReadoutRow, SectionHead } from "./kit";
 import { useEffect } from "react";
 import { ModalSheet } from "./ModalSheet";
 import { DayWeatherIcon, StormMark } from "./WeatherIcon";
 
-export interface DaySummaryAsk {
-  date: string;
-  /** The day it is read against (the partner column), or none. */
-  other: string | null;
-}
+export type { DaySummaryAsk };
 
 export function DaySummaryCard({ store, station, ask, onClose }: { store: WeatherStore | null; station: string; ask: DaySummaryAsk; onClose: () => void }) {
   const { date, other } = ask;
@@ -54,43 +51,52 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
   const comment = dayComment({ row: a, other: b, otherName, hours: store?.getHours(station, date).rows });
   const lowA = lowest(date);
   const lowB = lowest(other);
-  const head = a && (
-    <div className="ds-head">
-      <DayWeatherIcon row={a} station={station} size={30} />
-      <b className="ds-word">{word(a)}</b>
-      {kindLabel(store, station, date) && <Badge kind={kindLabel(store, station, date) as Kind} confidence={confidenceOfRow(a)} />}
-    </div>
-  );
+  const kind = kindLabel(store, station, date);
 
   return (
     <ModalSheet title={`${dateLabel(date)}の天気`} label={`${dateLabel(date)}の要約`} onClose={onClose} size="fit" className="day-summary-sheet">
-      {head}
-      {comment.length > 0 && (
-        <p className="ds-comment">
-          {comment.map((c) => (
-            <span key={c}>{c}</span>
-          ))}
-        </p>
+      {/* まとめ（浮いた面）: the day's picture, weather and status, and the numbers in words. */}
+      {a && (
+        <div className="ds-lead">
+          <div className="ds-head">
+            <DayWeatherIcon row={a} station={station} size={30} />
+            <b className="ds-word">{word(a)}</b>
+            {kind && <Badge kind={kind as Kind} confidence={confidenceOfRow(a)} />}
+          </div>
+          {comment.length > 0 && (
+            <p className="ds-comment">
+              {comment.map((c) => (
+                <span key={c}>{c}</span>
+              ))}
+            </p>
+          )}
+        </div>
       )}
-      <GraphReadout
-        title={storm ? <StormTitle level={storm} /> : "その日の値"}
-        unit=""
-        dates={{ a: monthDay(date), b: otherName ?? undefined }}
-        rows={rows}
-      />
+      {/* 数字を読む所（沈んだ面）: the same readout as every graph. */}
+      <GraphReadout title={storm ? <StormTitle level={storm} /> : "その日の値"} unit="" dates={{ a: monthDay(date), b: otherName ?? undefined }} rows={rows} />
       {storm && a && (
         <>
           <SectionHead title="風の強さ" />
           <div className="ds-wind">
-            <Meter label="最大風速（10分平均）" value={num(a.windMax)} max={25} marks={[STORM.strong.mean, STORM.storm.mean]} />
-            <Meter label="最大瞬間風速" value={num(a.gust)} max={40} marks={[STORM.strong.gust, STORM.storm.gust]} />
-            <p className="ds-line">
-              最低気圧
-              <b>{lowA != null ? `${Math.round(lowA)} hPa` : "—"}</b>
-              {lowB != null && <small>比較 {Math.round(lowB)} hPa</small>}
-            </p>
+            <Meter label="最大風速（10分平均）" tone="wind" value={num(a.windMax)} max={25} marks={[STORM.strong.mean, STORM.storm.mean]} />
+            <Meter label="最大瞬間風速" tone="gust" value={num(a.gust)} max={40} marks={[STORM.strong.gust, STORM.storm.gust]} />
+            {(lowA != null || lowB != null) && (
+              <p className="ds-line">
+                <span className="ds-line-label">最低気圧</span>
+                <Num value={lowA} unit="hPa" tone="pressureLow" />
+                {lowB != null && (
+                  <span className="ds-line-other">
+                    比較 <Num value={lowB} unit="hPa" />
+                  </span>
+                )}
+              </p>
+            )}
             <p className="ds-note">
-              基準：気象庁 高知市の強風注意報・暴風警報（平均 {STORM.strong.mean}・{STORM.storm.mean}{"\u00a0"}m/s）。瞬間は {STORM.strong.gust}・{STORM.storm.gust}{"\u00a0"}m/s。実績と予報で同じ基準です。
+              基準：気象庁 高知市の強風注意報・暴風警報（平均 <span className="nowrap">{STORM.strong.mean}・{STORM.storm.mean} m/s</span>、瞬間{" "}
+              <span className="nowrap">
+                {STORM.strong.gust}・{STORM.storm.gust} m/s
+              </span>
+              ）。実績と予報で同じ基準です。
             </p>
           </div>
         </>
@@ -99,7 +105,7 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
   );
 }
 
-function StormTitle({ level }: { level: "strong" | "storm" }) {
+function StormTitle({ level }: { level: StormLevel }) {
   return (
     <span className="ds-storm-title">
       <StormMark level={level} />
@@ -108,18 +114,20 @@ function StormTitle({ level }: { level: "strong" | "storm" }) {
   );
 }
 
-/** How far a wind went past the criteria: a bar to `max`, ticks at 強風 and 暴風. */
-function Meter({ label, value, max, marks }: { label: string; value: number | null; max: number; marks: [number, number] }) {
+/**
+ * How far a wind went past the criteria: a bar to `max` in the value's data colour, and ticks at
+ * 強風 and 暴風 in the warning colour (the storm mark's colour: the criteria, not the value).
+ */
+function Meter({ label, tone, value, max, marks }: { label: string; tone: "wind" | "gust"; value: number | null; max: number; marks: [number, number] }) {
   const pos = (x: number) => `${Math.min(100, (x / max) * 100)}%`;
-  const level = stormLevel(value, null) ?? stormLevel(null, value);
   return (
     <div className="ds-meter">
       <span className="ds-meter-label">
         {label}
-        <b className={level ? "warn" : undefined}>{value == null ? "—" : `${value.toFixed(1)} m/s`}</b>
+        <Num value={value} unit="m/s" tone={tone} />
       </span>
       <span className="ds-meter-bar" role="img" aria-label={`${label} ${value == null ? "なし" : `${value.toFixed(1)} m/s`}。強風 ${marks[0]}、暴風 ${marks[1]}`}>
-        {value != null && <i className="ds-meter-fill" style={{ width: pos(value) }} />}
+        {value != null && <i className={`ds-meter-fill fill-${tone}`} style={{ width: pos(value) }} />}
         {marks.map((m, k) => (
           <i key={m} className="ds-meter-tick" style={{ left: pos(m) }}>
             <small>

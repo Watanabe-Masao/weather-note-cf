@@ -2892,14 +2892,16 @@ svg.scrub {
 .cal-pair,
 .set-group,
 .cond-list,
-.cond-table {
+.cond-table,
+.ds-lead {
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, var(--effect-gloss), transparent 40px), var(--surface-raised);
   box-shadow: 0 0 0 1px var(--line-soft) inset;
 }
 .band-summary,
 .lt-head,
-.set-group {
+.set-group,
+.ds-lead {
   padding: var(--space-6) var(--space-7);
 }
 .cal-pair {
@@ -4073,27 +4075,37 @@ svg.scrub {
 /* Under the comparison day's smaller picture, the tag a size smaller too. */
 .band-wx-other .storm-mark { transform: scale(0.8); top: -6px; right: -10px; }
 
-/* その日の要約 (#176): opened by a long press on a day's weather picture. The day (picture, weather,
-   status), the readout card of its values beside the comparison day, and on a 強風／暴風 day how
-   far the wind went past the criteria. */
-.ds-head { display: flex; align-items: center; gap: var(--space-4); margin: 0 2px var(--space-4); }
+/* その日の要約 (#176): opened by a long press on a day's weather picture. まとめ (a raised face: the
+   picture, weather, status and the day in words), then the readout (a sunk face), and on a 強風／暴風
+   day how far the wind went past the criteria (a sunk face). Text keeps the five roles (TEXT_ROLES). */
+/* Where a long press opens a summary: no text selection, callout or magnifier on the way. */
+.band-wx,
+.calendar-grid [data-summary] { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+.ds-lead { display: grid; gap: var(--space-4); margin: 0 2px var(--space-3); }
+.ds-head { display: flex; align-items: center; gap: var(--space-4); }
 .ds-head svg { width: 30px; height: 30px; }
 .ds-head .wx-with-storm { margin-right: var(--space-4); }
 .ds-word { font-size: var(--size-base); font-weight: var(--weight-bold); color: var(--ink-primary); }
 .ds-head .badge { margin-left: auto; }
-.ds-comment { display: grid; gap: var(--space-1); margin: 0 2px var(--space-5); font-size: var(--size-base); line-height: 1.5; color: var(--ink-primary); word-break: auto-phrase; }
+.ds-comment { display: grid; gap: var(--space-1); margin: 0; font-size: var(--size-base); line-height: 1.5; color: var(--ink-primary); word-break: auto-phrase; }
 .ds-storm-title { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--status-warning); }
 .ds-storm-title .storm-mark { position: static; }
 .ds-wind { display: grid; gap: var(--space-5); }
 .ds-meter { display: grid; gap: var(--space-2); }
-.ds-meter-label { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--size-sm); color: var(--ink-secondary); }
-.ds-meter-label b { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-md); color: var(--ink-primary); font-weight: var(--weight-bold); }
-.ds-meter-label b.warn { color: var(--status-warning); }
+.ds-meter-label,
+.ds-line-label { font-size: var(--size-sm); color: var(--ink-secondary); }
+.ds-meter-label { display: flex; justify-content: space-between; align-items: baseline; }
+.ds-meter-label .num,
+.ds-line > .num { font-size: var(--size-md); }
 .ds-meter-bar { position: relative; height: 8px; margin-bottom: 16px; border-radius: var(--radius-xs); background: var(--line-soft); }
-.ds-meter-fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-xs); background: var(--data-wind); }
+.ds-meter-fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-xs); }
+.ds-meter-fill.fill-wind { background: var(--data-wind); }
+.ds-meter-fill.fill-gust { background: var(--data-gust); }
 .ds-meter-tick { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--status-warning); }
 .ds-meter-tick small { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: var(--size-xs); font-style: normal; color: var(--ink-tertiary); font-family: var(--font-numeric); }
-.ds-line { display: flex; align-items: baseline; gap: var(--space-4); margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
-.ds-line b { margin-left: auto; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-md); color: var(--ink-primary); }
-.ds-line small { font-size: var(--size-xs); color: var(--ink-tertiary); font-family: var(--font-numeric); }
+.ds-line { display: flex; align-items: baseline; gap: var(--space-4); margin: 0; }
+.ds-line > .num { margin-left: auto; }
+.ds-line-other { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.ds-line-other .num { font-size: var(--size-base); color: var(--ink-primary); }
 .ds-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.nowrap { white-space: nowrap; }

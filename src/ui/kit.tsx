@@ -476,12 +476,13 @@ export function GraphReadout({
 /**
  * A long press (#176): `onLong` after `ms` held still; a move of more than 8px (a swipe, a scroll)
  * or lifting the finger first cancels it. When it fires, the click that follows the lift is
- * swallowed, so the tap's own job (opening the day) does not run as well. Spread the result on the
- * element; nothing is attached when `onLong` is undefined.
+ * swallowed, so the tap's own job (opening the day) does not run as well. `onLong` gets the element
+ * the press began on and may return false (nothing there to open): then the tap goes on as usual.
+ * Spread the result on the element; nothing is attached when `onLong` is undefined.
  */
-export function useLongPress(onLong: (() => void) | undefined, ms = 450) {
+export function useLongPress(onLong: ((target: Element) => boolean | void) | undefined, ms = 450) {
   const timer = useRef<number | null>(null);
-  const start = useRef<{ x: number; y: number } | null>(null);
+  const start = useRef<{ x: number; y: number; target: Element } | null>(null);
   const clear = () => {
     if (timer.current != null) window.clearTimeout(timer.current);
     timer.current = null;
@@ -492,11 +493,11 @@ export function useLongPress(onLong: (() => void) | undefined, ms = 450) {
   return {
     onPointerDown: (e: ReactPointerEvent) => {
       clear();
-      start.current = { x: e.clientX, y: e.clientY };
+      start.current = { x: e.clientX, y: e.clientY, target: e.target as Element };
       timer.current = window.setTimeout(() => {
         timer.current = null;
-        swallowNextClick();
-        onLong();
+        const target = start.current?.target;
+        if (target && onLong(target) !== false) swallowNextClick();
       }, ms);
     },
     onPointerMove: (e: ReactPointerEvent) => {

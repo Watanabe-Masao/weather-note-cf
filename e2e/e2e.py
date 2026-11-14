@@ -15,7 +15,14 @@ OUT = os.environ.get("WN_SHOTS", os.path.join(HERE, "shots"))
 TODAY = datetime.date(2026, 11, 10)
 SKY = ["晴", "曇時々晴", "晴後一時曇", "曇一時雨", "雨後曇", "快晴", "曇"]
 
+# 2026-11-08 is a 強風 day (as 2024-04-09 in Kochi: 最大風速 14.4, 最大瞬間 24.8) for the summary (#176).
+STORM_DAY = datetime.date(2026, 11, 8)
 def row(d, kind="actual"):
+    base = row0(d, kind)
+    if d == STORM_DAY: base.update(windMax=14.4, gust=24.8)
+    return base
+
+def row0(d, kind="actual"):
     r = random.Random(d.toordinal())
     mx = round(19 + 6 * r.random() - (d.month in (12, 1, 2)) * 9, 1)
     mn = round(mx - 6 - 4 * r.random(), 1)
@@ -617,6 +624,31 @@ with sync_playwright() as p:
         us = pg.evaluate("getComputedStyle(document.querySelector('.chart')).webkitUserSelect || getComputedStyle(document.querySelector('.chart')).userSelect")
         check("N1 グラフの文字は選択されない", us == "none", us)
     step("N", n_)
+
+    # DS. その日の要約 (#176): a long press on a day's weather picture, from the table and the calendar.
+    def ds():
+        def hold(loc):
+            loc.scroll_into_view_if_needed(); bx = loc.bounding_box()
+            pg.mouse.move(bx["x"] + bx["width"] / 2, bx["y"] + bx["height"] / 2); pg.mouse.down(); wait(700); pg.mouse.up(); wait(800)
+        pg.evaluate("window.scrollTo(0, 0)")
+        sheets = pg.locator(".msheet").count()
+        hold(pg.locator(".side-target .cell-icon[data-summary^='2026-11-08']").first)
+        check("DS1 表の天気の絵を長押しで要約が開く（タップの動きは起きない）", pg.locator(".day-summary-sheet").count() == 1 and pg.locator(".msheet").count() == sheets + 1, str(pg.locator(".msheet").count()))
+        check("DS2 まとめ（浮いた面）に一言、読み取り（沈んだ面）に対象・比較・差", pg.locator(".day-summary-sheet .ds-lead .ds-comment span").count() >= 1 and pg.locator(".day-summary-sheet .readout-card .ro-label").count() == 8, txt(".day-summary-sheet .ds-comment") if pg.locator(".ds-comment").count() else "")
+        check("DS3 強風の日は風の強さ（基準の目盛り）", pg.locator(".day-summary-sheet .ds-meter").count() == 2 and "強風" in txt(".day-summary-sheet .ro-title") and "強風" in txt(".day-summary-sheet .ds-comment"), txt(".day-summary-sheet .ro-title"))
+        layout_ok("DS4", "要約")
+        st = small_text(); check("DS5 11px より小さい文字がない（要約）", not st, str(st))
+        pg.click(".day-summary-sheet .icon-btn.close"); wait(700)
+        hold(pg.locator(".side-target .cell-icon[data-summary^='2026-11-09']").first)
+        check("DS6 ふつうの日は風の強さを出さない", pg.locator(".day-summary-sheet").count() == 1 and pg.locator(".day-summary-sheet .ds-meter").count() == 0)
+        pg.click(".day-summary-sheet .icon-btn.close"); wait(700)
+        pg.locator(".side-target .date-button").click(); wait(700)
+        hold(pg.locator(".calendar-grid [data-summary^='2026-11-05']").first)
+        check("DS7 カレンダーからも長押しで要約（カレンダーの上に重なる）", pg.locator(".day-summary-sheet").count() == 1 and pg.locator(".msheet.calendar").count() == 1)
+        pg.click(".day-summary-sheet .icon-btn.close"); wait(700)
+        check("DS8 要約を閉じてもカレンダーはそのまま", pg.locator(".msheet.calendar").count() == 1 and pg.locator(".day-summary-sheet").count() == 0)
+        pg.click(".msheet.calendar .icon-btn.close"); wait(700)
+    step("DS", ds)
 
     # Q. calendar: presets and custom
     def q():
