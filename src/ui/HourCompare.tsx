@@ -998,6 +998,9 @@ function HourChart({
             <rect x={xOf(0)} width={xOf(24) - xOf(0)} y={(stripTop + stripBottom) / 2} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-horizon)`} />
           </>
         )}
+        {/* Over the sky, the white line rides on a dark edge (#173: on a clear noon sky white alone
+            stood only 1.5–2.8 : 1 from it; with the edge it reads on every sky). */}
+        {sunPath && skyStops && <path d={sunPath} className="day-sun-casing" />}
         {sunPath && <path d={sunPath} className={skyStops ? "day-sun over-sky" : "day-sun"} />}
         {/* The five parts of the day (by the sun's height), named along the top. */}
         {day.parts.map((p) => {
@@ -1092,6 +1095,11 @@ function HourChart({
         {/* The highest point, under the peak (the line is open, so nothing runs through it). */}
         <text x={xOf(day.edges.noon / 60)} y={stripBottom - 2} textAnchor="middle" className="day-sun-label">
           南中 {Math.round(day.edges.noonAltitude)}°
+        </text>
+        {/* Said on the strip itself (#173): its sky is drawn from the day's weather, not seen. At the
+            right end, over the night, clear of 南中 under the peak. */}
+        <text x={xOf(24) - 4} y={stripBottom - 2} textAnchor="end" className="day-sun-label day-sun-model">
+          空は模式
         </text>
         {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
           <text key={h} x={xOf(h)} y={H + SUN_H - 8} textAnchor="middle" className="chart-x">

@@ -416,6 +416,11 @@ with sync_playwright() as p:
         check("HC2 太陽の高さは別の帯（太陽）", hc["strip"])
         # 0・3・21・24時 are night all year in Kochi: no sun there; a moon never by day (12時).
         check("HC3 夜に太陽を描かない・昼に月を描かない", all(hc["sky"][i] != "sun" for i in (0, 1, 7, 8)) and hc["sky"][4] != "moon", str(hc["sky"]))
+        # #173: the strip says 空は模式 at its right end, clear of 南中 and inside the plot; the sun line has its dark edge.
+        sm = pg.evaluate("""() => { const m = document.querySelector('.day-sun-model'), n = document.querySelector('.day-sun-label:not(.day-sun-model)');
+          const a = m && m.getBoundingClientRect(), b = n && n.getBoundingClientRect(), svg = m && m.ownerSVGElement.getBoundingClientRect();
+          return a && b ? { text: m.textContent, apart: a.left >= b.right + 4, inside: a.right <= svg.right, casing: !!document.querySelector('.day-sun-casing') } : null; }""")
+        check("HC4 太陽の帯に「空は模式」（南中と重ならない）、太陽の線に暗い縁", sm and sm["text"] == "空は模式" and sm["apart"] and sm["inside"] and sm["casing"], str(sm))
         # SS. 太陽: the sun strip opens the sheet; the three twilights in order; the slider reads 10-minute steps.
         pg.locator(".day-sun-button").first.scroll_into_view_if_needed(); pg.locator(".day-sun-button").first.click(); wait(900)
         times = pg.locator(".sun-times dd").all_inner_texts()
