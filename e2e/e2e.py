@@ -235,6 +235,9 @@ with sync_playwright() as p:
         st = small_text(); check("U2b 10px より小さい文字がない（時間帯）", not st, str(st))
         layout_ok("U2c", "時間帯")
         buttons_ok("U2d", "時間帯", 0)
+        lines = pg.evaluate("""[...document.querySelectorAll('.cs-head')].map(h => { const l = h.querySelector('.cs-head-line').getBoundingClientRect(), b = h.querySelector('.cs-head-state').getBoundingClientRect();
+          return b.top >= l.bottom - 1; })""")
+        check("U2e 見出しはどちらの日も2行（日付の下に実績・予報）", len(lines) == 2 and all(lines), str(lines))
         pg.locator(".light-strip").scroll_into_view_if_needed(); wait(300)
         b = pg.locator(".light-trace.on").bounding_box()
         y = b["y"] + b["height"] / 2

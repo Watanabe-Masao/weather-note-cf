@@ -213,11 +213,16 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     const rel = relative(d, today);
     const kind = kindOf(store, station, d);
     return (
+      // Always two lines, whatever the day: the date (and 今日, the sky) above, the data's state under
+      // it. Each side leans toward the middle, as its numbers below do, so a long and a short day
+      // sit the same way instead of wrapping differently.
       <span className={`cs-head cs-${side}`}>
-        {rel && <Badge kind={rel} />}
-        <span className="cs-date">{dateButton(side === "a" ? "target" : "compare", <DayLabel date={d} year={years && d === other} />)}</span>
-        <DayWeatherIcon row={r} station={station} />
-        {kind && <Badge kind={kind} confidence={confidenceOfRow(r)} />}
+        <span className="cs-head-line">
+          {rel && <Badge kind={rel} />}
+          <span className="cs-date">{dateButton(side === "a" ? "target" : "compare", <DayLabel date={d} year={years && d === other} />)}</span>
+          <DayWeatherIcon row={r} station={station} />
+        </span>
+        <span className="cs-head-state">{kind && <Badge kind={kind} confidence={confidenceOfRow(r)} />}</span>
       </span>
     );
   };
