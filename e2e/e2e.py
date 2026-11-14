@@ -622,8 +622,11 @@ with sync_playwright() as p:
         for k in range(1, 4):
             touch("touchMove", x - k * 10, y); wait(16)
         x1 = pg.evaluate("document.querySelector('.band-cell.center').getBoundingClientRect().left")
+        f0 = pg.evaluate("document.querySelector('.bm-center-frame').getBoundingClientRect().left")
         touch("touchEnd", x - 30, y); wait(900)
         check("P4b 指を動かしている間、マスが指についてくる", x1 < x0 - 15, f"{x0:.0f}→{x1:.0f}")
+        f1 = pg.evaluate("document.querySelector('.bm-center-frame').getBoundingClientRect().left")
+        check("P4c 中心の枠は動かない（マスだけが下を通る）", abs(f1 - f0) < 1 and abs(f0 - x0) < 4, f"frame {f0:.0f}→{f1:.0f}, cell {x0:.0f}")
         esc()
     step("P", pp)
 

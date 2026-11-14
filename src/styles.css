@@ -1982,8 +1982,21 @@ svg.scrub {
 
 /* The centre day is marked by its frame, like the tables — not by a colour on the text. */
 .band-map-date.center {
-  box-shadow: 0 0 0 1.5px var(--accent-base) inset;
   font-weight: var(--weight-bold);
+}
+
+/* The fixed frame over the middle column of the drum (header and the five rows). */
+.bm-center-frame {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--bm-label) + var(--bm-gap) + 3 * var(--bm-step) - 2px);
+  width: calc(var(--bm-step) - var(--bm-gap) + 4px);
+  border: 1.5px solid var(--accent-base);
+  border-radius: var(--radius-md);
+  box-shadow: 0 0 12px var(--accent-glow);
+  pointer-events: none;
 }
 
 .band-map-label {
@@ -2076,10 +2089,6 @@ svg.scrub {
   opacity: 0.6;
   outline: 1px dashed color-mix(in srgb, var(--surface-page) 65%, transparent);
   outline-offset: -3px;
-}
-
-.band-cell.center {
-  box-shadow: 0 0 0 1.5px var(--accent-base), 0 0 12px var(--accent-glow);
 }
 
 .band-cell.selected {

@@ -358,6 +358,9 @@ function DrumArea({ onStep, children }: { onStep?: (days: number) => void; child
   return (
     <div ref={ref} className="bm-drum" style={{ "--bm-step": `${step}px`, "--bm-pan": pan.style.transform, "--bm-ease": pan.style.transition } as CSSProperties}>
       {step > 0 && children(step)}
+      {/* The selected day's frame stays put while the days pass under it, as in the table and the
+          daily graph (the frame marks a place, not a day). */}
+      {step > 0 && <span className="bm-center-frame" aria-hidden />}
     </div>
   );
 }
