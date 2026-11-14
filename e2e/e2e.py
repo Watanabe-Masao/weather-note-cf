@@ -400,6 +400,25 @@ with sync_playwright() as p:
         }""")
         check("AV1b 読み取りの小数点が列ごとにそろう", len(g["spread"]) >= 2 and max(g["spread"]) < 0.6, str(g))
         check("AV1c 読み取りの行の高さが 24px でそろう", g["heights"] == [24], str(g))
+        # TR. Text roles (tokens TEXT_ROLES): each role draws the same on the readout and the table.
+        roles = pg.evaluate("""() => {
+          const R = { 見出し: ['.ro-title'], 指標名: ['.ro-label', '.labels .label-value:not(.label-diff)'],
+            主要数値: ['.ro-v:not(.ro-b):not(.ro-diff):not(.ro-text):not(.ro-icon)', '.cell-value:not(.minor):not(.cell-diff):not(.long)', '.cs-row:not(.cs-sun) .cs-val'],
+            比較数値: ['.ro-diff', '.cell-diff:not(.long)'], 補足: ['.ro-unit', '.ro-col', '.cell-kind', '.label-unit'] };
+          const out = {};
+          for (const [role, sels] of Object.entries(R)) {
+            const seen = new Set();
+            for (const s of sels) for (const e of document.querySelectorAll(s)) {
+              if (!e.getBoundingClientRect().width || !e.textContent.trim() || e.textContent.trim() === '—') continue;
+              const c = getComputedStyle(e); seen.add(`${c.fontSize} ${c.fontWeight}`);
+            }
+            out[role] = [...seen];
+          }
+          return out;
+        }""")
+        # The chosen day's column is set in bold (its emphasis), the rest regular; the heading is bold.
+        want = {"見出し": ["13px 650", "13px 700"], "指標名": ["11.5px 400"], "主要数値": ["15px 400", "15px 650"], "比較数値": ["13px 400", "13px 650"], "補足": ["10px 400"]}
+        check("TR 文字の役割がどこでも同じ大きさ・太さ", all(set(roles[k]) <= set(v) and roles[k] for k, v in want.items()), str(roles))
         n = pg.locator(".legend-line").count()
         check("AV2 凡例の線は4つ（対象・比較・それぞれの手前）", n == 4, str(n))
         pg.locator(".legend-line").nth(1).click(); wait(300)

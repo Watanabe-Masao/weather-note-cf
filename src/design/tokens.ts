@@ -188,6 +188,25 @@ const font = {
  * - input 入力欄（16 未満だと iPhone が拡大するため）
  */
 const size = { xs: 10, sm: 11.5, base: 13, md: 15, lg: 17, xl: 20, input: 16 } as const;
+
+/**
+ * Text roles on the data faces (読み取り・日別の表・比較サマリー; #151). Each role is one size,
+ * weight, face and ink wherever it appears, so a value reads as a value on every card.
+ * - 見出し   the card's or row's heading (12時, 11/14（土）)       base · bold · numeric · primary
+ * - 指標名   what a row is (最高, 手前1週の平均, 寒暖差)           sm · regular · text · secondary
+ * - 主要数値 the values themselves, in the item's colour           md · regular · numeric · data
+ *            (the comparison day's the same, at the 比較 tone)
+ * - 比較数値 a difference (差, +0.8)                                base · regular · numeric · primary
+ * - 補足     units, column heads, 実績／予報 (℃, 対象, 予報)       xs · regular · tertiary
+ * e2e (TR) checks that every part given a role draws it the same.
+ */
+export const TEXT_ROLES = {
+  見出し: { size: "base", weight: "bold", ink: "primary" },
+  指標名: { size: "sm", weight: "regular", ink: "secondary" },
+  主要数値: { size: "md", weight: "regular", ink: "data" },
+  比較数値: { size: "base", weight: "regular", ink: "primary" },
+  補足: { size: "xs", weight: "regular", ink: "tertiary" },
+} as const;
 const weight = { regular: 400, medium: 500, bold: 650 } as const;
 
 const space = { 1: 2, 2: 4, 3: 6, 4: 8, 5: 10, 6: 12, 7: 16, 8: 20, 9: 24 } as const;
