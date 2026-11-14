@@ -3,6 +3,7 @@
 #
 # Run:  npx vite build && python3 e2e/e2e.py [width]
 #       WN_CHROME=/path/to/chrome to use a given browser; exits 1 when a check fails (CI).
+import time
 import json, re, sys, datetime, random, threading, http.server, functools, os
 from playwright.sync_api import sync_playwright
 
@@ -111,14 +112,17 @@ def check(name, cond, detail=""):
 
 ONLY = [x for x in os.environ.get("WN_ONLY", "").split(",") if x]
 
+TIMES = []
 def step(name, fn):
     # WN_ONLY=A,T runs only those steps (and the first view), for looking into one failure.
     if ONLY and name not in ONLY and name != "A":
         return
+    t0 = time.monotonic()
     try:
         fn()
     except Exception as e:
         results.append((False, name, "EXCEPTION " + str(e).splitlines()[0][:160]))
+    TIMES.append((name, time.monotonic() - t0))
 
 errors = []
 W = int(sys.argv[1]) if len(sys.argv) > 1 else 390
@@ -799,6 +803,8 @@ with sync_playwright() as p:
 srv.shutdown()
 ok = sum(r[0] for r in results)
 print(f"WIDTH {W}: {ok}/{len(results)} passed")
+# Where the time goes (#CI): the slowest steps, so a slow run can be read from its log.
+print("STEPS " + " ".join(f"{n}={t:.1f}s" for n, t in sorted(TIMES, key=lambda x: -x[1])[:12]) + f" (all {sum(t for _, t in TIMES):.0f}s)")
 for r in results:
     if not r[0] or os.environ.get("WN_ALL"): print("  NG" if not r[0] else "  ok", r[1], r[2][:80])
 sys.exit(0 if ok == len(results) else 1)
