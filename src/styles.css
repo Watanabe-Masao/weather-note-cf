@@ -4044,3 +4044,25 @@ svg.scrub {
 .sun-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); font-size: var(--size-sm); color: var(--ink-secondary); }
 .sun-notes b { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .sun-swatch { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-tick); box-shadow: 0 0 0 1px var(--line-soft) inset; margin-right: var(--space-3); vertical-align: -1px; }
+
+/* 強風／暴風 (#175, shared/storm.ts): a small round tag on the weather picture's shoulder. Amber, the
+   warning colour: outlined for 強風 (注意報の基準), filled for 暴風 (警報の基準). */
+.wx-with-storm { position: relative; display: inline-grid; place-items: center; }
+.storm-mark {
+  position: absolute;
+  top: -5px;
+  right: -9px;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  color: var(--status-warning);
+  background: var(--surface-base);
+  box-shadow: 0 0 0 1.2px var(--status-warning) inset;
+}
+.storm-mark.storm { color: var(--surface-base); background: var(--status-warning); box-shadow: none; }
+/* In a calendar day the number sits right above the picture: the tag goes to the picture's side. */
+.cal-day .storm-mark { top: 50%; right: -15px; transform: translateY(-50%); }
+/* The tag's own picture keeps its size wherever weather pictures are sized (.cell-icon svg …). */
+.wx-with-storm .storm-mark svg { width: 10px; height: 10px; }

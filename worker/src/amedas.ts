@@ -99,6 +99,11 @@ export function aggregateRecentDay(data: PointData, day: string): { daily: Weath
     const vs = samples(name);
     set(k, mean(vs), vs.length, 144);
   }
+  // The day's strongest 10-minute mean wind so far, as the daily table's 最大風速 (#175).
+  {
+    const vs = samples("wind");
+    set("windMax", vs.length ? Math.max(...vs) : null, vs.length, 144);
+  }
   const temps = samples("temp");
   const max = closingValue("maxTemp");
   const min = closingValue("minTemp");

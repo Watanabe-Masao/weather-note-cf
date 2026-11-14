@@ -141,6 +141,8 @@ export function normalizeForecast(data: ForecastPayload): { rows: WeatherRow[]; 
       ["snow", total("snow", 1)],
       ["humidityMin", extreme("humidity", Math.min)],
       ["gust", extreme("gust", Math.max)],
+      // The day's strongest (mean) wind, as JMA's daily 最大風速: the 強風／暴風 mark reads it (#175).
+      ["windMax", extreme("wind", Math.max)],
     ] as const) {
       row[k] = v;
       row.raw[k] = v == null ? "" : String(v);
