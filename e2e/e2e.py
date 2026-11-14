@@ -163,6 +163,8 @@ with sync_playwright() as p:
     pg.wait_for_timeout(1500)
     pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
     cdp = ctx.new_cdp_session(pg)
+    # WN_SLOW=4 runs the page's CPU 4× slower: a slow CI runner, to find waits that only just suffice.
+    if os.environ.get("WN_SLOW"): cdp.send("Emulation.setCPUThrottlingRate", {"rate": float(os.environ["WN_SLOW"])})
     wait = pg.wait_for_timeout
     # Until the page is at rest (e2e/calm.js), at most max_ms: for after a tap or a swipe (#182).
     def calm(max_ms=3000):
