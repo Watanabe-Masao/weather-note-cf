@@ -84,3 +84,20 @@ describe("faces: colour, corners, depth", () => {
     expect(values.filter((v) => !/^var\(--layer-[a-z-]+\)$/.test(v) && !/^[0-3]$/.test(v))).toEqual([]);
   });
 });
+
+describe("cards: 浮いた面 and 沈んだ面 only (#151)", () => {
+  const css = readFileSync(join(SRC, "styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const CARDS = ["compare-summary", "band-summary", "lt-head", "cal-pair", "set-group", "cond-list", "cond-table", "readout-card", "predict-card"];
+  const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+
+  it("each card's surface, corner and edge are set in the one card rule, not again on its own", () => {
+    const again = rules.flatMap(({ sel, body }) => {
+      const parts = sel.split(",").map((p) => p.trim());
+      const own = CARDS.filter((c) => parts.includes(`.${c}`));
+      // The card rules list several cards; a rule naming one card alone must not redo its face.
+      if (own.length !== 1 || parts.length > 1) return [];
+      return /(^|;)\s*(background|border-radius|box-shadow)\s*:/.test(body) ? [`.${own[0]}`] : [];
+    });
+    expect(again).toEqual([]);
+  });
+});

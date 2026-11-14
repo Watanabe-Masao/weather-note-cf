@@ -1341,10 +1341,6 @@ button.label-feel.shade small {
    Columns: what · 対象 · 比較 · 差. Fixed row heights so the graph below never jumps. */
 .readout-card {
   margin: 0 2px var(--space-3);
-  padding: 6px 10px 7px;
-  border-radius: var(--radius-md);
-  background: var(--surface-inset);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
   transition: box-shadow var(--motion-quick) var(--ease-standard);
 }
 
@@ -1505,11 +1501,6 @@ svg.scrub {
   column-gap: var(--space-4);
   margin: 0 2px var(--space-3);
   padding: 8px 10px 6px;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(180deg, var(--effect-gloss), transparent 40px), var(--surface-raised);
-  box-shadow:
-    0 0 0 1px var(--line-soft) inset,
-    var(--shadow-card);
 }
 
 .cs-heads {
@@ -1877,10 +1868,6 @@ svg.scrub {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  padding: var(--space-5) var(--space-6);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
 }
 
 .band-phrase {
@@ -2234,9 +2221,6 @@ svg.scrub {
 
 /* The conditions: one card, a line each; the open line holds its controls. */
 .cond-list {
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
   overflow: hidden;
 }
 
@@ -2442,9 +2426,6 @@ svg.scrub {
   display: flex;
   overflow-x: auto;
   scrollbar-width: none;
-  border-radius: var(--radius-md);
-  background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
 }
 
 .cond-table::-webkit-scrollbar {
@@ -2562,11 +2543,7 @@ svg.scrub {
   align-items: center;
   column-gap: 8px;
   row-gap: 2px;
-  padding: 10px 12px;
   margin-bottom: var(--space-4);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
   transition: box-shadow var(--motion-base) var(--ease-standard);
 }
 
@@ -2821,6 +2798,42 @@ svg.scrub {
   margin-top: var(--space-7);
 }
 
+/* ---- cards (docs/design-system.md 4.13, #151) --------------------------------------------------
+   Two kinds only. 浮いた面 (raised): a summary, a heading, a group of settings — what to take away.
+   沈んだ面 (inset): where numbers are read (a graph's readout, the β prediction). The surface,
+   corner, edge and padding are set here and nowhere else (test/ui/tokens.test.ts). */
+.compare-summary,
+.band-summary,
+.lt-head,
+.cal-pair,
+.set-group,
+.cond-list,
+.cond-table {
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, var(--effect-gloss), transparent 40px), var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+}
+.band-summary,
+.lt-head,
+.set-group {
+  padding: var(--space-6) var(--space-7);
+}
+.cal-pair {
+  /* Two long dates side by side (2025/11/10（月）): the sides stay at 12 so a 360-wide phone holds them. */
+  padding: var(--space-6);
+}
+.compare-summary {
+  /* A dense table of nine rows: its own tighter padding. */
+  padding: var(--space-4) var(--space-5) var(--space-3);
+}
+.readout-card,
+.predict-card {
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  padding: var(--space-4) var(--space-7);
+}
+
 /* ---- buttons (docs/design-system.md 4.12, #151) ------------------------------------------------
    One look per role: 主 primary (the next step; one per open layer), 副 secondary, 控えめ quiet,
    危険 danger. In a row they are round; full width (block, or any button in .actions) they are
@@ -2993,11 +3006,7 @@ svg.scrub {
 .set-group {
   display: grid;
   gap: var(--space-5);
-  padding: var(--space-5);
   margin-bottom: var(--space-5);
-  border-radius: var(--radius-lg);
-  background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
 }
 .set-group h3 { margin: 0; font-size: var(--size-md); color: var(--ink-primary); }
 .set-lead { margin: -6px 0 0; font-size: var(--size-base); color: var(--ink-secondary); line-height: 1.55; }
@@ -3714,7 +3723,7 @@ svg.scrub {
 .basis-list { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; font-size: var(--size-sm); line-height: 1.55; color: var(--ink-secondary); }
 .basis-list b { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .basis-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
-.predict-card { margin: 0; padding: 10px 12px; border-radius: var(--radius-md); background: var(--surface-inset); box-shadow: 0 0 0 1px var(--line-strong) inset; display: grid; gap: 2px; }
+.predict-card { margin: 0; display: grid; gap: 2px; }
 .predict-card p { margin: 0; font-size: var(--size-base); color: var(--ink-primary); }
 .predict-card b { font-size: var(--size-md); }
 .predict-card .predict-num { font-family: var(--font-numeric); color: var(--ink-secondary); }
@@ -3849,7 +3858,7 @@ svg.scrub {
 .lt-controls { display: flex; gap: 8px; flex-wrap: wrap; }
 .lt-controls .seg { flex: 1 1 140px; }
 .lt-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.lt-head { background: var(--surface-raised); border-radius: var(--radius-md); padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.lt-head { display: flex; flex-direction: column; gap: 6px; }
 .lt-head p { margin: 0; }
 .lt-head-main { font-size: var(--size-md); line-height: 1.45; }
 .lt-head-main b { font-size: var(--size-xl); color: var(--accent-base); margin: 0 2px; }
