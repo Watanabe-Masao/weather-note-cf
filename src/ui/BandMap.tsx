@@ -2,7 +2,7 @@
 // comparison day) and one map of 肌感 — seven days × the five 時間区分 朝・日中・昼・夕方・夜 — with the
 // comparison day as a strip in every cell. Opened from a 肌感 bar.
 
-import { type ReactNode, useContext, useState } from "react";
+import { type CSSProperties, type ReactNode, useContext, useEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { clockOf, dayParts, hoursIn } from "../../shared/dayParts";
 import { sunshineRadiation } from "../../shared/mrt";
@@ -12,9 +12,9 @@ import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { feelOn } from "../feelSeason";
 import { BandTrend } from "./BandTrend";
-import { useSwipeDays } from "./useSwipeDays";
+import { useDrumPan } from "./useDrumPan";
 import { CloseIcon } from "./icons";
-import { DayLabel, IconButton, Segmented, SwipeHint } from "./kit";
+import { DayLabel, IconButton, Segmented } from "./kit";
 import { monthDay } from "../design/format";
 import { bandsFor, FeelContext, legendOf, levelColor, levelName } from "./FeelBar";
 
@@ -33,7 +33,9 @@ export const bandSpan = (date: string, station: string, band: number) => {
   return `${clockOf(w.from)}–${clockOf(w.to)}`;
 };
 
-const OFFSETS = [-3, -2, -1, 0, 1, 2, 3];
+/** Days drawn past each side, so a drag (or a flick of up to four days) never shows a gap. */
+const BUFFER = 4;
+const DRUM = Array.from({ length: 7 + 2 * BUFFER }, (_, i) => i - 3 - BUFFER);
 /** Whole degrees with a sign, rounded first so a small difference reads "±0", never "−0". */
 const signed = (v: number) => {
   const r = Math.round(v);
@@ -174,6 +176,7 @@ function MapGrid({
 }) {
   const settings = useContext(FeelContext);
   const cols = targets.map((d) => ({ a: columnOf(store, station, d, settings), b: columnOf(store, station, partner(d), settings) }));
+  const mid = Math.floor(targets.length / 2);
 
   const half = (c: Column, b: number, side: "a" | "b") => {
     const cell = c.bands?.[b];
@@ -189,10 +192,10 @@ function MapGrid({
   };
 
   return (
-    <div className="band-map" role="table" aria-label="肌感マップ（対象日と比較日）">
-      <span aria-hidden="true" />
+    <div className="band-map" role="table" aria-label="肌感マップ（対象日と比較日）" style={{ "--bm-days": targets.length } as CSSProperties}>
+      <span className="band-map-corner" aria-hidden="true" />
       {cols.map(({ a, b }, i) => (
-        <span key={"h" + i} className={`band-map-date${i === 3 ? " center" : ""}`}>
+        <span key={"h" + i} className={`band-map-date bm-day${i === mid ? " center" : ""}`}>
           {a.date ? monthDay(a.date) : "—"}
           <small className={a.date ? `tone-${dayTone(a.date)}` : undefined}>{a.date ? weekdayOf(a.date) : ""}</small>
           {/* The comparison date only when it reads differently (前年同日 would repeat "11/8"). */}
@@ -204,9 +207,9 @@ function MapGrid({
           {band.label}
           {/* The middle day's times: the days around it differ by a minute or two. */}
           {/* Start and end on their own lines: the pair on one line is wider than the label column. */}
-          {targets[3] &&
+          {targets[mid] &&
             (() => {
-              const [from, to] = bandSpan(targets[3], station, bi).split("–");
+              const [from, to] = bandSpan(targets[mid], station, bi).split("–");
               return (
                 <small>
                   {from}
@@ -223,14 +226,14 @@ function MapGrid({
           const diff = ca?.feel != null && cb?.feel != null ? ca.feel - cb.feel : null;
           if (a.state === "error")
             return (
-              <button key={bi + "-" + i} className="band-cell error" onClick={() => a.date && store?.retryDay(station, a.date)}>
+              <button key={bi + "-" + i} className="band-cell bm-day error" onClick={() => a.date && store?.retryDay(station, a.date)}>
                 ×
               </button>
             );
           return (
             <button
               key={bi + "-" + i}
-              className={["band-cell", i === 3 ? "center" : "", isSelected ? "selected" : ""].join(" ")}
+              className={["band-cell bm-day", i === mid ? "center" : "", isSelected ? "selected" : ""].join(" ")}
               disabled={!pickable}
               onClick={() => a.date && onSelect({ date: a.date, partner: b.date, band: bi })}
               aria-label={`${a.date} ${band.label} 対象 ${ca?.feel != null ? `${levelName(ca.level!, settings.scale)} ${ca.feel.toFixed(0)}` : "なし"}、比較 ${
@@ -329,15 +332,32 @@ function Detail({ store, station, selected, onClose }: { store: WeatherStore | n
   );
 }
 
-/** The map's swipe area (mounted with the map, so its listeners come and go with it). */
-function SwipeArea({ onStep, target, children }: { onStep?: (days: number) => void; target: string; children: ReactNode }) {
-  const swipe = useSwipeDays(onStep);
+/**
+ * The map's drum (#151: 日を横に並べるものはドラム): the days follow the finger as in the table and the
+ * daily graph, and settle on whole days. Fifteen days are drawn; the seven in the middle show, the
+ * ones that slide out pass under the label column (left) or the edge (right).
+ */
+function DrumArea({ onStep, children }: { onStep?: (days: number) => void; children: (step: number) => ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const label = parseFloat(cs.getPropertyValue("--bm-label")) || 38;
+      const gap = parseFloat(cs.getPropertyValue("--bm-gap")) || 3;
+      setStep((el.clientWidth - label - gap * 7) / 7 + gap);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const pan = useDrumPan(ref, step, onStep);
   return (
-    <div className="swipe-frame">
-      <SwipeHint pull={swipe.pull} prev={addDays(target, -1)} next={addDays(target, 1)} />
-      <div ref={swipe.ref} className={onStep ? "swipeable" : undefined} style={onStep ? swipe.style : undefined}>
-        {children}
-      </div>
+    <div ref={ref} className="bm-drum" style={{ "--bm-step": `${step}px`, "--bm-pan": pan.style.transform, "--bm-ease": pan.style.transition } as CSSProperties}>
+      {step > 0 && children(step)}
     </div>
   );
 }
@@ -362,7 +382,7 @@ export function BandMap(props: Props) {
   const [selected, setSelected] = useState<Selected | null>(null);
   const [view, setView] = useState<"map" | "trend">("map");
   const onStep = props.onStep;
-  const targets = OFFSETS.map((n) => addDays(target, n));
+  const drumDays = DRUM.map((n) => addDays(target, n));
   const p = partner(target);
   const partnerYear = p && p.slice(0, 4) !== target.slice(0, 4) ? p.slice(0, 4) : null;
   return (
@@ -379,10 +399,9 @@ export function BandMap(props: Props) {
       />
       {view === "map" ? (
         <>
-          <SwipeArea onStep={onStep} target={target}>
-            <MapGrid targets={targets} partner={partner} store={store} station={station} selected={selected} onSelect={setSelected} />
-          </SwipeArea>
-          {onStep && <p className="hint map-hint">マップを左右にスワイプすると、1日ずつ動きます。</p>}
+          <DrumArea onStep={onStep}>
+            {() => <MapGrid targets={drumDays} partner={partner} store={store} station={station} selected={selected} onSelect={setSelected} />}
+          </DrumArea>
           {/* Legend right under the map, in the map's own marks. */}
           <p className="line-legend map-legend">
             <span>
@@ -415,6 +434,6 @@ export function BandMap(props: Props) {
 
 /** Days the face needs hourly data for: the map's seven days on both sides and the day before the target. */
 export function bandMapDays(target: string, partner: (date: string) => string | null): string[] {
-  const days = [-4, ...OFFSETS].map((n) => addDays(target, n));
-  return [...days, ...OFFSETS.map((n) => partner(addDays(target, n))).filter((d): d is string => !!d)];
+  const days = DRUM.map((n) => addDays(target, n));
+  return [...days, ...days.map((d) => partner(d)).filter((d): d is string => !!d)];
 }

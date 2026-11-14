@@ -446,6 +446,7 @@ export function App() {
                 today={today}
                 height={hourHeight(heights[sheetDetent])}
                 onPickDay={(d) => openDay(d, partner(d), "target")}
+                onShiftDays={(n) => moveTarget(addDays(view.target, n))}
               />
             ) : shownFace === "chart" ? (
               <Chart

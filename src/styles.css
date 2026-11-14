@@ -1924,10 +1924,43 @@ svg.scrub {
 /* Differences are never coloured (red and blue mean 最高 and 最低); a big one is just bolder. */
 .band-diff .big { color: var(--ink-primary); font-weight: var(--weight-bold); }
 
+/* The map's drum: the days slide under the label column (left) and past the edge (right). */
+.bm-drum {
+  --bm-label: 38px;
+  --bm-gap: 3px;
+  position: relative;
+  overflow: hidden;
+  touch-action: pan-y;
+  /* The days at the two ends fade a little, as on a drum. */
+  mask-image: linear-gradient(
+    90deg,
+    black var(--bm-label),
+    color-mix(in srgb, black 55%, transparent) calc(var(--bm-label) + 1px),
+    black calc(var(--bm-label) + var(--bm-step) * 0.6),
+    black calc(100% - var(--bm-step) * 0.6),
+    color-mix(in srgb, black 55%, transparent)
+  );
+}
+
+.bm-drum .bm-day {
+  transform: translateX(calc(-4 * var(--bm-step))) var(--bm-pan, translateX(0));
+  transition: var(--bm-ease, none);
+  will-change: transform;
+}
+
+.band-map-label,
+.band-map-corner {
+  position: relative;
+  z-index: 1;
+  background: var(--surface-overlay);
+  /* Cover the gap too, so a day passing under the labels does not show in it. */
+  box-shadow: var(--bm-gap) 0 0 var(--surface-overlay);
+}
+
 .band-map {
   display: grid;
-  grid-template-columns: 38px repeat(7, minmax(0, 1fr));
-  gap: 3px;
+  grid-template-columns: var(--bm-label) repeat(var(--bm-days), calc(var(--bm-step) - var(--bm-gap)));
+  gap: var(--bm-gap);
   align-items: stretch;
 }
 
@@ -1986,6 +2019,10 @@ svg.scrub {
 
 .band-cell:active:not(:disabled) {
   transform: scale(0.96);
+}
+/* In the drum the press keeps the cell where the drum has put it. */
+.bm-drum .band-cell.bm-day:active:not(:disabled) {
+  transform: translateX(calc(-4 * var(--bm-step))) var(--bm-pan, translateX(0)) scale(0.96);
 }
 
 .band-cell:disabled {
@@ -3826,3 +3863,8 @@ svg.scrub {
 .sun-test-table th:nth-last-child(-n + 4), .sun-test-table td:nth-last-child(-n + 4) { color: var(--ink-primary); padding-left: 4px; }
 .sun-test-table th { color: var(--ink-tertiary); font-weight: var(--weight-regular); }
 .sun-test-table tr.fc td { color: var(--ink-tertiary); }
+
+/* A graph on the seven-day drum (useDayDrum): sideways drags are the drum's, the page still scrolls. */
+.drum-pane {
+  touch-action: pan-y;
+}

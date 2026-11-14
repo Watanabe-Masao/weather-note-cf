@@ -102,7 +102,12 @@ results = []
 def check(name, cond, detail=""):
     results.append((bool(cond), name, detail))
 
+ONLY = [x for x in os.environ.get("WN_ONLY", "").split(",") if x]
+
 def step(name, fn):
+    # WN_ONLY=A,T runs only those steps (and the first view), for looking into one failure.
+    if ONLY and name not in ONLY and name != "A":
+        return
     try:
         fn()
     except Exception as e:
@@ -449,7 +454,9 @@ with sync_playwright() as p:
         mh = pg.evaluate("document.querySelector('.msheet').getBoundingClientRect().height")
         sm = pg.evaluate("parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-max'))")
         check("K2 グラフシート最大と同じ高さ", abs(mh - sm) <= 2, f"{mh:.0f} vs {sm:.0f}")
-        check("K3 1枚の比較マップ（35マス）", pg.locator(".band-cell").count() == 35, str(pg.locator(".band-cell").count()))
+        seen = pg.evaluate("""(() => { const d = document.querySelector('.bm-drum').getBoundingClientRect();
+          return [...document.querySelectorAll('.band-cell')].filter(c => { const r = c.getBoundingClientRect(); return r.left >= d.left + 30 && r.right <= d.right + 1; }).length; })()""")
+        check("K3 1枚の比較マップ（見えるのは7日×5区分）", seen == 35, str(seen))
         check("K4 予報のマスに網かけ", pg.locator(".bm-a.forecast").count() >= 1)
         check("K5 凡例がマップの下", pg.evaluate("document.querySelector('.map-legend').getBoundingClientRect().top > document.querySelector('.band-map').getBoundingClientRect().bottom"))
         pg.locator(".band-cell.center").nth(2).click(); wait(400)
@@ -458,10 +465,24 @@ with sync_playwright() as p:
         bx = pg.locator("svg.scrub").bounding_box()
         pg.mouse.move(bx["x"] + bx["width"] * 0.3, bx["y"] + 80); wait(200)
         check("K7 推移で補助線とタグ", pg.locator("svg.scrub .guide-tag").count() >= 1)
+        pg.mouse.move(5, 5); wait(200)
+        # 推移 is a drum too: a sideways drag moves the target day.
+        before = txt(".band-trend .readout-card .ro-title")
+        pg.locator(".band-trend .drum-pane svg").first.scroll_into_view_if_needed(); wait(300)
+        bx = pg.locator(".band-trend .drum-pane svg").first.bounding_box(); y = bx["y"] + min(80, bx["height"] / 2); x = bx["x"] + bx["width"] * 0.75
+        touch("touchStart", x, y)
+        for k in range(1, 9):
+            touch("touchMove", x - k * 18, y); wait(16)
+        touch("touchEnd", x - 144, y); wait(900)
+        after = txt(".band-trend .readout-card .ro-title")
+        check("K7b 推移も横に動かすと日が進む（ドラム）", after != before, f"{before}→{after}")
+        layout_ok("K7c", "肌感の推移（動かした後）")
         check("K8 時間区分の線にデータ色を使わない", pg.evaluate("![...document.querySelectorAll('svg.scrub line[stroke]')].some(l => ['#86b8ff','#f5c865','#c9a6f7','#f39a86','#8fd8c4'].includes(l.getAttribute('stroke')))"))
         check("K9 横にはみ出さない", no_overflow())
         pg.click(".msheet .icon-btn.close"); wait(600)
         check("K10 ×で閉じる", pg.locator(".msheet").count() == 0)
+        # K7b moved the target day; back to today so the later steps start where they expect.
+        pg.click(".today-chip") if pg.locator(".today-chip").count() else None; wait(600)
     step("K", k)
 
     # L. 条件から選ぶ
@@ -593,18 +614,38 @@ with sync_playwright() as p:
         for k in range(1, 9):
             touch("touchMove", x - k * 18, y); wait(16)
         touch("touchEnd", x - 144, y); wait(900)
-        check("P4 肌感マップを横スワイプで1日進む", c() != before and pg.locator(".msheet").count() == 1, f"{before}→{c()}")
+        check("P4 肌感マップを横スワイプで日が進む（ドラム）", c() != before and pg.locator(".msheet").count() == 1, f"{before}→{c()}")
+        # During a drag the days follow the finger (the drum), and a pressed cell stays in place.
+        bb = pg.locator(".band-map").bounding_box(); y = bb["y"] + 120; x = bb["x"] + bb["width"] * 0.75
+        x0 = pg.evaluate("document.querySelector('.band-cell.center').getBoundingClientRect().left")
+        touch("touchStart", x, y)
+        for k in range(1, 4):
+            touch("touchMove", x - k * 10, y); wait(16)
+        x1 = pg.evaluate("document.querySelector('.band-cell.center').getBoundingClientRect().left")
+        touch("touchEnd", x - 30, y); wait(900)
+        check("P4b 指を動かしている間、マスが指についてくる", x1 < x0 - 15, f"{x0:.0f}→{x1:.0f}")
         esc()
     step("P", pp)
 
     # T. 日照 › 移り変わり (時刻で・明るさで, 1週間〜1年)
     def tt():
+        pg.click(".today-chip") if pg.locator(".today-chip").count() else None; wait(600)
         pg.click(".metrics .chip:nth-child(4)"); wait(600)
         check("T1 日照の日別に［移り変わり］", pg.locator(".trend-btn").count() == 1, title())
         pg.click(".trend-btn"); wait(700)
         check("T2 見出し", title() == "明るさの移り変わり", title())
         check("T3 時刻で：見出しが分で言う", "分" in txt(".lt-head-main"), txt(".lt-head-main"))
         check("T4 時刻で：グラフ", pg.locator(".light-trend svg.lt-chart").count() == 1)
+        before = txt(".light-trend .readout-card .ro-title")
+        pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)  # P left the sheet low; the graph must be on screen
+        pg.locator(".light-trend .drum-pane svg").first.scroll_into_view_if_needed(); wait(300)
+        bx = pg.locator(".light-trend .drum-pane svg").first.bounding_box(); y = bx["y"] + min(80, bx["height"] / 2); x = bx["x"] + bx["width"] * 0.75
+        touch("touchStart", x, y)
+        for k in range(1, 9):
+            touch("touchMove", x - k * 18, y); wait(16)
+        touch("touchEnd", x - 144, y); wait(900)
+        after = txt(".light-trend .readout-card .ro-title")
+        check("T4c 1週間は横に動かすと日が進む（ドラム）", after != before, f"{before}→{after}")
         layout_ok("T4b", "明るさの移り変わり")
         for span in ["1か月", "1年", "1週間"]:
             pg.locator(".lt-controls button", has_text=span).click(); wait(500)
@@ -612,7 +653,7 @@ with sync_playwright() as p:
         pg.locator(".lt-controls button", has_text="明るさで").click(); wait(600)
         check("T6 明るさで：読み取りに長さ", "長さ" in txt(".light-trend .readout-card"), txt(".light-trend .readout-card"))
         # Days run across here too (#151): the dates sit under the plot in a row, left to right.
-        xs = pg.evaluate("[...document.querySelectorAll('.light-trend .lt-dates .lt-date:not(.sub)')].map(e => e.getBoundingClientRect()).map(r => [Math.round(r.left), Math.round(r.top)])")
+        xs = pg.evaluate("[...document.querySelectorAll('.light-trend .lt-dates .lt-date:not(.sub)')].map(e => e.getBoundingClientRect()).filter(r => r.left >= 30 && r.right <= innerWidth).map(r => [Math.round(r.left), Math.round(r.top)])")
         check("T6b 明るさで：日は横に並ぶ", len(xs) == 7 and len({y for _, y in xs}) == 1 and [x for x, _ in xs] == sorted(x for x, _ in xs), str(xs))
         for span in ["1か月", "1年", "1週間"]:
             pg.locator(".lt-controls button", has_text=span).click(); wait(700)
