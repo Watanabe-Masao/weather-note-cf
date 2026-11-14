@@ -23,7 +23,7 @@ const readBands = (): Bands => {
   }
 };
 import { WeatherIcon } from "./WeatherIcon";
-import { cachedSun, hourOfDay, isNightAt, loadSun, sunAvailable, sunHours, type SunTimes } from "../data/sun";
+import { cachedSun, isNightAt, loadSun, sunAvailable, sunHours, type SunTimes } from "../data/sun";
 import {
   axisRange,
   type DetailMetricId,
