@@ -329,8 +329,10 @@ export function GuideLines({
       ))}
       {tags.map((t) => {
         const w = Math.max(20, t.label!.length * 5.6 + 6);
+        // Right-aligned to the value axis, but never out past the graph's own left edge (a narrow
+        // margin with a wide value would cut the tag: 19.7 shown as 9.7).
         return (
-          <g key={`tag-${t.i}`} transform={`translate(${left - 2 - w}, ${t.ty - TAG_H / 2})`}>
+          <g key={`tag-${t.i}`} transform={`translate(${Math.max(0, left - 2 - w)}, ${t.ty - TAG_H / 2})`}>
             <rect width={w} height={TAG_H} rx={4} fill={t.color} className="guide-tag" />
             <text x={w / 2} y={11} textAnchor="middle" className="guide-tag-text">
               {t.label}

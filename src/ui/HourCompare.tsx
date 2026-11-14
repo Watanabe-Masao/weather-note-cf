@@ -232,7 +232,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                 },
                 {
                   key: "dev",
-                  label: "平均との差",
+                  label: `手前${WINDOW_LABEL[avgWindow]}との差`,
                   a: (avgMain && signedDiff(at(main), at(avgMain), metric.unit)) || "—",
                   b: (avgOther && signedDiff(at(second), at(avgOther), metric.unit)) || "—",
                   diff: avgMain && avgOther ? signedDiff(devOf(at(main), at(avgMain)), devOf(at(second), at(avgOther)), metric.unit) : "",
