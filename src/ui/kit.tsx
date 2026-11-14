@@ -423,6 +423,20 @@ export function InfoNote({ children, more, className }: { children?: ReactNode; 
 }
 
 /**
+ * A section's heading inside a sheet (#151 時間帯の箱): a hairline above, the name at the left, and
+ * an optional note or control at the right. Sections are told apart by this line, not by boxes, so
+ * the boxes left are the two that mean something: the summary (raised) and a graph's readout (inset).
+ */
+export function SectionHead({ title, children, as: Tag = "h4" }: { title: ReactNode; children?: ReactNode; as?: "h3" | "h4" | "p" }) {
+  return (
+    <div className="section-head">
+      <Tag className="section-title">{title}</Tag>
+      {children}
+    </div>
+  );
+}
+
+/**
  * A help line under a setting (#151: 説明は短い1行): the first sentence shows, the rest opens with ⓘ.
  * `lead` sets it as a group's lead (a little larger) instead of a row's help.
  */

@@ -10,7 +10,7 @@ import { FeelContext } from "./FeelBar";
 import type { CalendarSide } from "./CalendarModal";
 import { CompareSummary } from "./CompareSummary";
 import { HourCompare } from "./HourCompare";
-import { Segmented } from "./kit";
+import { Segmented, SectionHead } from "./kit";
 
 interface Props {
   store: WeatherStore | null;
@@ -42,8 +42,7 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
     <div className="hour-face">
       {summary && <CompareSummary store={store} station={station} target={target} other={compareDate} today={today} metric={metric} onStep={onStep} pick={pick} />}
       {summary && base === "temp" && <PartsOutlook store={store} station={station} date={target} today={today} />}
-      <div className="hour-face-head">
-        <p>24時間</p>
+      <SectionHead title="24時間" as="p">
         {base === "temp" && (
           <Segmented
             label="気温の見方"
@@ -57,7 +56,7 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
             onReselect={(v) => v === "feel" && onToggleSun?.()}
           />
         )}
-      </div>
+      </SectionHead>
       <HourCompare store={store} station={station} date={target} other={compareDate} metricId={id} today={today} height={height} />
     </div>
   );

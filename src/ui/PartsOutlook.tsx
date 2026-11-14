@@ -17,7 +17,7 @@ import { whyLine, whyTerms } from "../beta/engine/why";
 import { dateLabel } from "../design/format";
 import { feelOn } from "../feelSeason";
 import { FeelContext, levelColor, levelName } from "./FeelBar";
-import { Button } from "./kit";
+import { Button, SectionHead } from "./kit";
 
 const OUTLOOK_PARTS = ["morning", "evening"] as const;
 /** The next level is named when it has at least this probability. */
@@ -63,10 +63,9 @@ export function PartsOutlook({ store, station, date, today }: { store: WeatherSt
   };
   return (
     <section className="outlook" aria-label={`${dateLabel(date, { weekday: true })}の朝と夕方の見込み`}>
-      <h4>
-        {date === today ? "今日" : dateLabel(date, { weekday: true })}の見込み
-        <small>{mine ? "あなた（β）" : "従来版"}・肌感（{feel.sun ? "日なた" : "日かげ"}）</small>
-      </h4>
+      <SectionHead title={`${date === today ? "今日" : dateLabel(date, { weekday: true })}の見込み`}>
+        <small className="section-note">{mine ? "あなた（β）" : "従来版"}・肌感（{feel.sun ? "日なた" : "日かげ"}）</small>
+      </SectionHead>
       <div className="outlook-rows">
         {items.map(({ part, e }) => {
           if (e == null)
