@@ -187,7 +187,9 @@ const font = {
  * - xl   いちばん大きい値
  * - input 入力欄（16 未満だと iPhone が拡大するため）
  */
-const size = { xs: 10, sm: 11.5, base: 13, md: 15, lg: 17, xl: 20, input: 16 } as const;
+// The steps are iOS's text styles at the standard setting (#151): xs = Caption 2 (11, the smallest
+// iOS uses), sm = Caption 1, base = Footnote, md = Subheadline, lg = Headline/Body, xl = Title 3.
+const size = { xs: 11, sm: 12, base: 13, md: 15, lg: 17, xl: 20, input: 16 } as const;
 
 /**
  * Text roles on the data faces (読み取り・日別の表・比較サマリー; #151). Each role is one size,
@@ -207,7 +209,9 @@ export const TEXT_ROLES = {
   比較数値: { size: "base", weight: "regular", ink: "primary" },
   補足: { size: "xs", weight: "regular", ink: "tertiary" },
 } as const;
-const weight = { regular: 400, medium: 500, bold: 650 } as const;
+// bold = iOS Semibold (600): Hiragino has W3 and W6 only, so 650 drew the kanji at W6 (600) and
+// the figures heavier; 600 is the one weight both faces draw.
+const weight = { regular: 400, medium: 500, bold: 600 } as const;
 
 const space = { 1: 2, 2: 4, 3: 6, 4: 8, 5: 10, 6: 12, 7: 16, 8: 20, 9: 24 } as const;
 /** Corners. `tick` is for small marks (swatches, bars, badges); circles use 50%. */

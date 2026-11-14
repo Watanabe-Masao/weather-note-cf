@@ -362,7 +362,8 @@ function DateTicks({ days, partnerOf, target, y, xOf, span }: { days: string[]; 
         const ti = days.indexOf(target);
         // Keep clear of the target's own label by distance on screen (a year has ~365 points, so
         // "two days apart" was a hair's width and 10月 ran into 11/10).
-        const near = Math.abs(xOf(i) - xOf(ti)) < 26;
+        // Half of "11/14" plus half of "10月" at the xs size (11px) and a gap: 36.
+        const near = Math.abs(xOf(i) - xOf(ti)) < 36;
         const show = span === "week" || d === target || (!near && (span === "month" ? i % 5 === 0 : d.slice(8) <= "14" && d.slice(8) > "07"));
         if (!show) return null;
         const label = span === "year" && d !== target ? `${Number(d.slice(5, 7))}月` : monthDay(d);

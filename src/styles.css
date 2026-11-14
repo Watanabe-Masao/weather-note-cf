@@ -43,6 +43,13 @@ body {
   min-height: 100vh;
 }
 
+/* The browser's bold is 700; ours is the token (iOS Semibold), on every <b> and <strong>. */
+b,
+strong,
+th {
+  font-weight: var(--weight-bold);
+}
+
 button,
 select,
 input {

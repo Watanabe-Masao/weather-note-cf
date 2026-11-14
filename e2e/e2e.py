@@ -170,12 +170,12 @@ with sync_playwright() as p:
           const hit = Math.max(r.height, parseFloat(getComputedStyle(e, '::after').height) || 0); return hit < 32; }).map(e => e.textContent.trim())""")
         check(f"{code} 押せる高さが32以上（{where}）", not small, str(small))
 
-    # Text on screen smaller than the type scale's xs (10px): none (docs/design-system.md, #151).
+    # Text on screen smaller than the type scale's xs (11px, iOS Caption 2): none (docs/design-system.md, #151).
     small_text = lambda: pg.evaluate("""[...document.querySelectorAll('body *')].filter(e => {
         const r = e.getBoundingClientRect();
         if (!r.width || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) return false;
         if (![...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return false;
-        return parseFloat(getComputedStyle(e).fontSize) < 10;
+        return parseFloat(getComputedStyle(e).fontSize) < 11;
       }).map(e => (e.getAttribute('class') || e.tagName) + ' ' + getComputedStyle(e).fontSize + ' ' + e.textContent.trim().slice(0, 8)).slice(0, 5)""")
     def touch(kind, x, y):
         cdp.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": [] if kind == "touchEnd" else [{"x": x, "y": y}]})
@@ -193,7 +193,7 @@ with sync_playwright() as p:
         check("A3b 中央の枠の線が操作に被らない", not hits, str(hits))
         check("A4 横にはみ出さない", no_overflow())
         check("A5 シートの見出し", title() == "気温の日別", title())
-        st = small_text(); check("A6 10px より小さい文字がない（表）", not st, str(st))
+        st = small_text(); check("A6 11px より小さい文字がない（表）", not st, str(st))
         layout_ok("A7", "表")
         buttons_ok("A8", "表", 0)
     step("A", a)
@@ -245,7 +245,7 @@ with sync_playwright() as p:
         pg.click(".metrics .chip:nth-child(4)"); wait(600)
         check("U1 明るさと空：1本の帯（切り替えなし）、マスに空の色と段の線", pg.locator(".light-strip .seg").count() == 0 and pg.locator(".light-cells.sky i b").count() >= 48 and pg.locator(".light-cells.sky i u").count() >= 24 and no_overflow(), str(pg.locator(".light-cells.sky i b").count()))
         check("U2 読み取りに空の行", "空（" in txt(".readout-card"), txt(".readout-card"))
-        st = small_text(); check("U2b 10px より小さい文字がない（時間帯）", not st, str(st))
+        st = small_text(); check("U2b 11px より小さい文字がない（時間帯）", not st, str(st))
         layout_ok("U2c", "時間帯")
         buttons_ok("U2d", "時間帯", 0)
         lines = pg.evaluate("""[...document.querySelectorAll('.cs-head')].map(h => { const l = h.querySelector('.cs-head-line').getBoundingClientRect(), b = h.querySelector('.cs-head-state').getBoundingClientRect();
@@ -417,7 +417,7 @@ with sync_playwright() as p:
           return out;
         }""")
         # The chosen day's column is set in bold (its emphasis), the rest regular; the heading is bold.
-        want = {"見出し": ["13px 650", "13px 700"], "指標名": ["11.5px 400"], "主要数値": ["15px 400", "15px 650"], "比較数値": ["13px 400", "13px 650"], "補足": ["10px 400"]}
+        want = {"見出し": ["13px 600"], "指標名": ["12px 400"], "主要数値": ["15px 400", "15px 600"], "比較数値": ["13px 400", "13px 600"], "補足": ["11px 400"]}
         check("TR 文字の役割がどこでも同じ大きさ・太さ", all(set(roles[k]) <= set(v) and roles[k] for k, v in want.items()), str(roles))
         n = pg.locator(".legend-line").count()
         check("AV2 凡例の線は4つ（対象・比較・それぞれの手前）", n == 4, str(n))
@@ -472,7 +472,7 @@ with sync_playwright() as p:
     def j():
         pg.click(".app-head .icon-btn"); wait(600)
         check("J1 設定が開く", pg.locator(".msheet.settings").count() == 1)
-        st = small_text(); check("J1b 10px より小さい文字がない（設定）", not st, str(st))
+        st = small_text(); check("J1b 11px より小さい文字がない（設定）", not st, str(st))
         layout_ok("J1c", "設定")
         buttons_ok("J1d", "設定", 0)
         check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
