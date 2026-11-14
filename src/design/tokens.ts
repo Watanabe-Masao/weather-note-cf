@@ -153,7 +153,7 @@ const day = {
 } as const;
 
 const status = {
-  forecast: "#7cc4ff",
+  forecast: "#c6cfdb", // 予報: a neutral grey (not yet measured). Blue is kept for "chosen" (#151)
   provisional: "#d7b46a",
   warning: "#f0b45a",
   error: "#ff8a80",
