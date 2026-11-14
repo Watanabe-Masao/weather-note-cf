@@ -631,6 +631,10 @@ with sync_playwright() as p:
             loc.scroll_into_view_if_needed(); bx = loc.bounding_box()
             pg.mouse.move(bx["x"] + bx["width"] / 2, bx["y"] + bx["height"] / 2); pg.mouse.down(); wait(700); pg.mouse.up(); wait(800)
         pg.evaluate("window.scrollTo(0, 0)")
+        # The day sheet lowered when it covers the table's pictures (raised again at the end).
+        covered = pg.evaluate("""() => { const e = document.querySelector(".side-target .cell-icon[data-summary^='2026-11-08']"); const b = e.getBoundingClientRect();
+          const t = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2); return !(t && e.contains(t)); }""")
+        if covered: pg.evaluate("__flick('.sheet-handle',700,120)"); wait(800)
         sheets = pg.locator(".msheet").count()
         hold(pg.locator(".side-target .cell-icon[data-summary^='2026-11-08']").first)
         check("DS1 表の天気の絵を長押しで要約が開く（タップの動きは起きない）", pg.locator(".day-summary-sheet").count() == 1 and pg.locator(".msheet").count() == sheets + 1, str(pg.locator(".msheet").count()))
@@ -647,7 +651,10 @@ with sync_playwright() as p:
         check("DS7 カレンダーからも長押しで要約（カレンダーの上に重なる）", pg.locator(".day-summary-sheet").count() == 1 and pg.locator(".msheet.calendar").count() == 1)
         pg.click(".day-summary-sheet .icon-btn.close"); wait(700)
         check("DS8 要約を閉じてもカレンダーはそのまま", pg.locator(".msheet.calendar").count() == 1 and pg.locator(".day-summary-sheet").count() == 0)
+        # The table is not left held as moving by a release that landed on the sheet (Strip).
+        check("DS9 長押しの後も表は動いていない扱いにならない", not pg.locator(".side-compare select.mode").is_disabled())
         pg.click(".msheet.calendar .icon-btn.close"); wait(700)
+        if covered: pg.evaluate("__flick('.sheet-handle',-700,120)"); wait(800)
     step("DS", ds)
 
     # Q. calendar: presets and custom
@@ -788,5 +795,5 @@ srv.shutdown()
 ok = sum(r[0] for r in results)
 print(f"WIDTH {W}: {ok}/{len(results)} passed")
 for r in results:
-    if not r[0]: print("  NG", r[1], r[2])
+    if not r[0] or os.environ.get("WN_ALL"): print("  NG" if not r[0] else "  ok", r[1], r[2][:80])
 sys.exit(0 if ok == len(results) else 1)

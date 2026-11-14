@@ -216,8 +216,13 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
-      onPointerDown={(e) => e.pointerType === "mouse" && begin()}
-      onPointerUp={(e) => e.pointerType === "mouse" && onTouchEnd()}
+      // A mouse's release is heard on the window: it may land elsewhere (a sheet opened by a long
+      // press, #176), and a release the strip never hears would keep the screen held as moving.
+      onPointerDown={(e) => {
+        if (e.pointerType !== "mouse") return;
+        begin();
+        window.addEventListener("pointerup", onTouchEnd, { once: true });
+      }}
     >
       <div className="strip-pad" />
       {dates.map((d) => (
