@@ -28,6 +28,7 @@ const line = {
   soft: "rgba(255, 255, 255, 0.06)",
   focus: "#7cc4ff",
   swatch: "rgba(255, 255, 255, 0.14)", // the light edge round a colour swatch, so neighbours separate
+  highlight: "rgba(255, 255, 255, 0.35)", // the lit top edge of a filled button
   shade: "rgba(0, 0, 0, 0.25)", // the dark edge round a strip of colours on a face
 } as const;
 
@@ -231,6 +232,7 @@ const effect = {
   blur: "10px",
   gloss: "rgba(255, 255, 255, 0.04)", // the faint light on a face's top edge (controls, cards, sheets)
   glossStrong: "rgba(255, 255, 255, 0.06)", // the same on a chosen control
+  sheen: "rgba(255, 255, 255, 0.16)", // the light on the upper half of a filled button
   night: "rgba(0, 0, 0, 0.24)", // night hours behind a graph
   twilight: "rgba(0, 0, 0, 0.12)", // twilight hours behind a graph
 } as const;

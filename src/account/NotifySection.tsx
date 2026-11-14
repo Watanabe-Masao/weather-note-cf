@@ -168,7 +168,7 @@ export function NotifySection({ station }: { station: string }) {
           </small>
           <div className="actions tight">
             {device === "off" && (
-              <button className="primary" disabled={busy} onClick={() => void run(async () => (await turnOnDevice(), setDevices((await loadNotify()).devices)))}>
+              <button disabled={busy} onClick={() => void run(async () => (await turnOnDevice(), setDevices((await loadNotify()).devices)))}>
                 この端末で受け取る
               </button>
             )}

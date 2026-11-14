@@ -146,6 +146,19 @@ with sync_playwright() as p:
         bad = r["overflow"] + r["overlap"] + r["clipped"]
         check(f"{code} 文字のはみ出し・重なり・切れがない（{where}）", not bad, str(bad))
 
+    # 操作の体系 (#151): the primary buttons that can be seen (not under a sheet), and buttons too
+    # small to press (the small ones are pressable 44 high through ::after).
+    primaries = lambda: pg.evaluate("""[...document.querySelectorAll('.btn.primary, .actions > button.primary')].filter(e => {
+        const r = e.getBoundingClientRect(); if (!r.width || r.bottom < 0 || r.top > innerHeight) return false;
+        const t = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return t && (e === t || e.contains(t));
+      }).length""")
+    def buttons_ok(code, where, primary):
+        n = primaries()
+        check(f"{code} 主のボタンは{primary}つ（{where}）", n == primary, str(n))
+        small = pg.evaluate("""[...document.querySelectorAll('.btn')].filter(e => { const r = e.getBoundingClientRect(); if (!r.width) return false;
+          const hit = Math.max(r.height, parseFloat(getComputedStyle(e, '::after').height) || 0); return hit < 32; }).map(e => e.textContent.trim())""")
+        check(f"{code} 押せる高さが32以上（{where}）", not small, str(small))
+
     # Text on screen smaller than the type scale's xs (10px): none (docs/design-system.md, #151).
     small_text = lambda: pg.evaluate("""[...document.querySelectorAll('body *')].filter(e => {
         const r = e.getBoundingClientRect();
@@ -169,6 +182,7 @@ with sync_playwright() as p:
         check("A5 シートの見出し", title() == "気温の日別", title())
         st = small_text(); check("A6 10px より小さい文字がない（表）", not st, str(st))
         layout_ok("A7", "表")
+        buttons_ok("A8", "表", 0)
     step("A", a)
 
     # B. every item chip
@@ -220,6 +234,7 @@ with sync_playwright() as p:
         check("U2 読み取りに空の行", "空（" in txt(".readout-card"), txt(".readout-card"))
         st = small_text(); check("U2b 10px より小さい文字がない（時間帯）", not st, str(st))
         layout_ok("U2c", "時間帯")
+        buttons_ok("U2d", "時間帯", 0)
         lines = pg.evaluate("""[...document.querySelectorAll('.cs-head')].map(h => { const l = h.querySelector('.cs-head-line').getBoundingClientRect(), b = h.querySelector('.cs-head-state').getBoundingClientRect();
           return b.top >= l.bottom - 1; })""")
         check("U2e 見出しはどちらの日も2行（日付の下に実績・予報）", len(lines) == 2 and all(lines), str(lines))
@@ -345,6 +360,8 @@ with sync_playwright() as p:
         body = txt(".failure-sheet") if pg.locator(".failure-sheet").count() else ""
         check("FS2 押すと何が取れなかったかのシート", items >= 1, str(items))
         check("FS3 理由・取り先・使う所・時刻が出る", all(w in body for w in ["テスト用の失敗", "時間別の表", "使う所", "失敗"]), body[:120])
+        pg.locator(".failure-all").scroll_into_view_if_needed(); wait(300)
+        buttons_ok("FS3b", "取得できなかったもの", 1)
         FAIL.clear()
         pg.locator(".failure-all").click(); wait(3000)
         check("FS4 すべて再試行で消える", pg.locator(".failure-item").count() == 0 and pg.locator(".status-bar.error").count() == 0, str(pg.locator(".failure-item").count()))
@@ -388,6 +405,8 @@ with sync_playwright() as p:
         pg.locator(".side .date-button").first.click(); wait(600)
         check("I カレンダーは中身の高さ", "fit" in pg.locator(".msheet").get_attribute("class"))
         layout_ok("I0", "カレンダー")
+        buttons_ok("I0b", "カレンダー", 1)
+        check("I0c 日を選ぶまで［決定］は押せない", pg.locator(".calendar-foot .btn.primary").is_disabled())
         pg.locator(".cal-day:not(:disabled)").nth(3).click(); wait(400)
         check("I 1回目のタップは仮（閉じない、上の組み合わせが変わる）", pg.locator(".msheet").count() == 1 and pg.locator(".cal-pair.changed").count() == 1)
         pg.locator(".cal-day:not(:disabled)").nth(3).click(); wait(700)
@@ -403,6 +422,7 @@ with sync_playwright() as p:
         check("J1 設定が開く", pg.locator(".msheet.settings").count() == 1)
         st = small_text(); check("J1b 10px より小さい文字がない（設定）", not st, str(st))
         layout_ok("J1c", "設定")
+        buttons_ok("J1d", "設定", 0)
         check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
         esc()
     step("J", j)
