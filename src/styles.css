@@ -1147,7 +1147,8 @@ button.label-feel.shade small {
   background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--status-forecast) 55%, transparent) 0 1.5px, color-mix(in srgb, var(--status-forecast) 8%, transparent) 1.5px 4px);
 }
 
-/* Hatch in the 予報 blue (the label's colour), so forecast reads at a glance (chosen: E). */
+/* Hatch in the 予報 grey (the label's colour): forecast is "not yet measured", so it has no hue of its own;
+   the accent blue is kept for the chosen day (#151). */
 .hatch-bg { fill: color-mix(in srgb, var(--status-forecast) 4%, transparent); }
 .hatch-line { stroke: color-mix(in srgb, var(--status-forecast) 24%, transparent); stroke-width: 1.4; }
 
