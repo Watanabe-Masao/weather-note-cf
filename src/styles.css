@@ -1258,7 +1258,9 @@ button.label-feel:active { transform: scale(0.97); }
 .day-sun { fill: var(--data-sun); fill-opacity: 0.22; stroke: var(--data-sun); stroke-opacity: 0.7; stroke-width: 1; }
 .day-sun-label { fill: var(--ink-secondary); font-size: var(--size-xs); }
 /* The strip's name (太陽) in the axis column, like the unit over the value axis. */
-.day-sun-name { fill: var(--ink-tertiary); font-size: var(--size-xs); }
+.day-sun-name { fill: var(--accent-base); font-size: var(--size-xs); }
+.day-sun-chevron { fill: none; stroke: var(--accent-base); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+.day-sun-hit { fill: transparent; cursor: pointer; }
 /* 明るさ under the 日差し graph: 24 cells per day, aligned with the plot (left 34px, right 10px). */
 .light-strip { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .light-title { font-size: var(--size-sm); color: var(--ink-secondary); }
@@ -3993,3 +3995,34 @@ svg.scrub {
 @media (max-width: 374px) {
   .item-icon.long { display: none; }
 }
+
+/* 太陽 (SunSheet, #151): the day's sun against the horizon and the three twilights. */
+.sun-chart { width: 100%; height: auto; display: block; }
+.sun-band.night { fill: var(--surface-page); }
+.sun-band.astronomical { fill: color-mix(in srgb, var(--accent-base) 10%, var(--surface-page)); }
+.sun-band.nautical { fill: color-mix(in srgb, var(--accent-base) 21%, var(--surface-page)); }
+.sun-band.civil { fill: color-mix(in srgb, var(--accent-base) 36%, var(--surface-page)); }
+.sun-band.day { fill: color-mix(in srgb, var(--data-sun) 10%, var(--surface-base)); }
+.sun-horizon { stroke: var(--ink-secondary); stroke-width: 1.2; }
+.sun-depth { stroke: var(--line-soft); stroke-dasharray: 3 3; }
+.sun-tick { fill: var(--ink-tertiary); font-size: var(--size-xs); font-family: var(--font-numeric); }
+.sun-curve { fill: none; stroke: var(--ink-tertiary); stroke-width: 2; stroke-linecap: round; }
+.sun-curve.day { stroke: var(--data-sun); stroke-width: 2.5; }
+.sun-cursor { stroke: var(--ink-secondary); stroke-dasharray: 2 3; }
+.sun-dot { fill: var(--surface-base); stroke: var(--ink-primary); stroke-width: 2; }
+.sun-dot.day { fill: var(--data-sun); stroke: var(--surface-base); }
+.sun-now { margin: var(--space-3) 0 0; font-size: var(--size-sm); color: var(--ink-secondary); display: grid; gap: var(--space-1); }
+.sun-now small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.sun-times { display: grid; margin: var(--space-6) 0 0; }
+.sun-times > div { display: flex; justify-content: space-between; align-items: baseline; padding: var(--space-4) var(--space-2); border-top: 1px solid var(--line-soft); }
+.sun-times dt { font-size: var(--size-base); color: var(--ink-secondary); }
+.sun-times dd { margin: 0; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-md); color: var(--ink-secondary); display: flex; gap: var(--space-4); align-items: baseline; }
+.sun-times dd small { font-size: var(--size-sm); color: var(--ink-tertiary); }
+.sun-times .strong dt, .sun-times .strong dd { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.sun-times .total { border-top: 1px solid var(--line-strong); }
+.sun-notes { list-style: none; margin: var(--space-6) 0 0; padding: 0; display: grid; gap: var(--space-4); font-size: var(--size-sm); color: var(--ink-secondary); }
+.sun-notes b { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.sun-swatch { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-tick); margin-right: var(--space-3); vertical-align: -1px; }
+.sun-swatch.civil { background: color-mix(in srgb, var(--accent-base) 36%, var(--surface-page)); }
+.sun-swatch.nautical { background: color-mix(in srgb, var(--accent-base) 21%, var(--surface-page)); }
+.sun-swatch.astronomical { background: color-mix(in srgb, var(--accent-base) 10%, var(--surface-page)); box-shadow: 0 0 0 1px var(--line-soft) inset; }

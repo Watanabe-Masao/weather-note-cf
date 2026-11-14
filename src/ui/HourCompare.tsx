@@ -41,6 +41,7 @@ import { axisWidth, dateLabel, needsYear, niceTicks, tickLabel } from "../design
 import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
 import { levelOf, type Thresholds } from "../../shared/feel";
 import { Segmented } from "./kit";
+import { SunSheet } from "./SunSheet";
 import { personalThresholds, useDayComfortState } from "../beta/useDayComfort";
 import { feelOn } from "../feelSeason";
 
@@ -104,6 +105,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // 手前の平均 (src/hourAverage.ts): each day's own weeks before it, hour by hour. Tapping the legend
   // steps the span (1週 → 2週 → 1か月) and sets a line aside (grey); both are the person's to choose.
   const [avgWindow, setAvgWindow] = useState<AverageWindow>(readWindow);
+  const [sunOpen, setSunOpen] = useState(false);
   const stepWindow = () => {
     const w = nextWindow(avgWindow);
     setAvgWindow(w);
@@ -324,7 +326,9 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         height={height}
         color={color}
         bandWx={bandWx}
+        onSun={() => setSunOpen(true)}
       />
+      {sunOpen && <SunSheet date={date} station={station} sun={sun} hour={shownHour} onClose={() => setSunOpen(false)} />}
       <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
       </div>
 
@@ -728,7 +732,10 @@ function HourChart({
   color,
   bandWx,
   guides,
+  onSun,
 }: {
+  /** Tapping the sun's strip opens 太陽 (the twilights and the times). */
+  onSun?: () => void;
   bandWx?: { main: BandWx[]; other: BandWx[] | null };
   /** Other boundaries drawn as dashed lines over the feel ranges (everyone's, when the ranges are the person's). */
   guides?: readonly number[];
@@ -1011,10 +1018,24 @@ function HourChart({
           </>
         )}
 
-        {/* The strip's name in the axis column, and the highest point beside the peak. */}
-        <text x={left - 6} y={stripBottom - 3} textAnchor="end" className="day-sun-name">
+        {/* The strip's name in the axis column (with › : it opens 太陽), and the highest point beside the peak. */}
+        <text x={left - 12} y={stripBottom - 3} textAnchor="end" className="day-sun-name">
           太陽
         </text>
+        <path d={`M${left - 9} ${stripBottom - 11}l3.5 3.5-3.5 3.5`} className="day-sun-chevron" />
+        {onSun && (
+          <rect
+            x={0}
+            y={plotBottom}
+            width={w}
+            height={SUN_H}
+            className="day-sun-hit"
+            role="button"
+            aria-label="太陽の高さと薄明の時刻を開く"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={onSun}
+          />
+        )}
         {/* The highest point, past the hill's right foot so it never sits on the curve. */}
         <text x={xOf(set) + 6} y={stripBottom - 3} className="day-sun-label">
           南中 {Math.round(day.edges.noonAltitude)}°
