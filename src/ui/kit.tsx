@@ -121,6 +121,53 @@ export function Glyph({ name, size = "0.85em" }: { name: GlyphName; size?: strin
   );
 }
 
+/**
+ * A slider (#151): a thin track, plain white thumbs, the chosen span in the colour of what it sets
+ * (`className` "tone-…" sets it; none leaves the span out). One thumb or two (a range). Ticks mark
+ * points of reference (基準, 日の出 …). Native range inputs, so keys and VoiceOver work; only the
+ * thumbs take the finger, and a drag on it never pulls the sheet it is in.
+ */
+export function Slider({
+  min,
+  max,
+  step,
+  thumbs,
+  fill,
+  ticks,
+  className,
+}: {
+  min: number;
+  max: number;
+  step: number;
+  thumbs: { value: number; label: string; valueText?: string; onChange: (v: number) => void }[];
+  /** The chosen span (values); left out, no span is drawn. */
+  fill?: [number, number] | null;
+  ticks?: number[];
+  className?: string;
+}) {
+  const pos = (v: number) => ((Math.min(max, Math.max(min, v)) - min) / (max - min)) * 100;
+  return (
+    <div className={className ? `slider ${className}` : "slider"} onPointerDown={(e) => e.stopPropagation()}>
+      <span className="track" />
+      {fill && <span className="fill" style={{ left: `${pos(fill[0])}%`, width: `${pos(fill[1]) - pos(fill[0])}%` }} />}
+      {ticks?.map((t) => <span key={t} className="tick" style={{ left: `${pos(t)}%` }} />)}
+      {thumbs.map((t) => (
+        <input
+          key={t.label}
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={t.value}
+          aria-label={t.label}
+          aria-valuetext={t.valueText}
+          onChange={(e) => t.onChange(Number(e.target.value))}
+        />
+      ))}
+    </div>
+  );
+}
+
 /** ✓ for a button that has just done its job (記録しました). */
 export function CheckGlyph() {
   return (

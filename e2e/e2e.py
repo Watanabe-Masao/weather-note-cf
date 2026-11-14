@@ -415,7 +415,7 @@ with sync_playwright() as p:
         check("SS1 太陽のシートが開き、薄明の時刻が9つと昼の長さ", pg.locator(".sun-sheet").count() == 1 and len(times) == 10, str(times))
         mins = [int(t.split(":")[0]) * 60 + int(t.split(":")[1]) for t in (x.split()[-1] for x in times[:9]) if ":" in t]
         check("SS2 天文→航海→市民→日の出→南中→日の入り→市民→航海→天文 の順", mins == sorted(mins) and len(mins) == 9, str(mins))
-        pg.evaluate("""() => { const r = document.querySelector('.sun-slider'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+        pg.evaluate("""() => { const r = document.querySelector('.sun-slider input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
           set.call(r, '370'); r.dispatchEvent(new Event('input', { bubbles: true })); }"""); wait(300)
         check("SS3 スライダーで 6:10 に（10分ごと）", txt(".sun-now-time") == "6:10", txt(".sun-now"))
         layout_ok("SS4", "太陽のシート")
@@ -569,10 +569,10 @@ with sync_playwright() as p:
         pg.locator(".side-compare select.mode").select_option("__conditions"); wait(1500)
         check("L1 条件から選ぶが開く", pg.locator(".msheet.cond-sheet").count() == 1)
         check("L2 条件は4行", pg.locator(".cond-line").count() == 4)
-        check("L3 最初は最高が開いて範囲（つまみ2つ）", pg.locator(".cond-line.open[data-cond=max] .cond-slider input").count() == 2)
+        check("L3 最初は最高が開いて範囲（つまみ2つ）", pg.locator(".cond-line.open[data-cond=max] .slider input").count() == 2)
         layout_ok("L3b", "条件から選ぶ")
         pg.locator(".cond-line[data-cond=max] .seg button", has_text="以上").click(); wait(300)
-        check("L4 以上はつまみ1つ", pg.locator(".cond-line[data-cond=max] .cond-slider input").count() == 1, txt(".cond-line[data-cond=max] .cond-value"))
+        check("L4 以上はつまみ1つ", pg.locator(".cond-line[data-cond=max] .slider input").count() == 1, txt(".cond-line[data-cond=max] .cond-value"))
         check("L5 値は「以上」と読める", "以上" in txt(".cond-line[data-cond=max] .cond-value"))
         pg.locator(".cond-line[data-cond=max] .seg button", has_text="問わない").click(); wait(200)
         pg.locator(".cond-line[data-cond=min] .cond-head").click(); wait(200)

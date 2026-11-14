@@ -6,6 +6,8 @@ import { hourOfDay, type SunTimes } from "../data/sun";
 import { dateLabel } from "../design/format";
 import { skyAt } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
+import { SectionHead, Slider } from "./kit";
+import { ICON } from "../design/tokens";
 import { useRef, useState, type PointerEvent } from "react";
 
 const W = 340;
@@ -60,7 +62,9 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
   ];
 
   return (
-    <ModalSheet title={`太陽　${dateLabel(date)}`} onClose={onClose} className="sun-sheet">
+    <ModalSheet title={`${dateLabel(date)}の太陽`} onClose={onClose} className="sun-sheet">
+      {/* Reading the sun: a sunk face (数字を読む所), as the graph readouts. */}
+      <div className="sun-card">
       <svg
         ref={svg}
         className="sun-chart"
@@ -94,7 +98,7 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
           <g key={d}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(d)} y2={y(d)} className={d === 0 ? "sun-horizon" : "sun-depth"} />
             <text x={PAD.left - 4} y={y(d) + 3.5} textAnchor="end" className="sun-tick">
-              {d === 0 ? "0°" : `${d}°`}
+              {d === 0 ? "0°" : `−${-d}°`}
             </text>
           </g>
         ))}
@@ -102,30 +106,29 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
           {high}°
         </text>
         <path d={path} className="sun-curve" />
-        {dayPath && <path d={dayPath} className="sun-curve day" />}
+        {/* The sun above the horizon in the icons' sun colour, not 日照's data colour (it is no 日照 value). */}
+        {dayPath && <path d={dayPath} className="sun-curve day" style={{ stroke: ICON.sun }} />}
         {/* Where the sun crosses 0°, −6°, −12°, −18°: a dot on the curve, morning and evening. */}
         {[rise, set, t.civil.start, t.civil.end, t.nautical.start, t.nautical.end, t.astronomical.start, t.astronomical.end].map((m, i) =>
           m == null ? null : <circle key={i} cx={x(m)} cy={y(i < 2 ? 0 : TWILIGHTS[Math.floor((i - 2) / 2)].deg)} r={i < 2 ? 3.5 : 2.6} className={i < 2 ? "sun-mark rise" : "sun-mark"} />,
         )}
         <line x1={x(at)} x2={x(at)} y1={PAD.top} y2={H - PAD.bottom} className="sun-cursor" />
         <circle cx={x(at)} cy={y(altAt)} r={5} className={altAt >= 0 ? "sun-dot day" : "sun-dot"} />
-        {[0, 6, 12, 18, 24].map((h) => (
+        {/* Hours as on the hour graph: bare numbers every 3 hours. */}
+        {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
           <text key={h} x={x(h * 60)} y={H - 5} textAnchor={h === 24 ? "end" : "middle"} className="sun-tick">
-            {h}時
+            {h}
           </text>
         ))}
       </svg>
-      <input
+      {/* The same slider as 条件から選ぶ (kit Slider): ticks at sunrise and sunset, no span (a moment, not an amount). */}
+      <Slider
         className="sun-slider"
-        type="range"
         min={0}
         max={1430}
         step={10}
-        value={at}
-        aria-label="時刻（10分ごと）"
-        aria-valuetext={`${clockOf(at)} ${phase}`}
-        onChange={(ev) => setAt(+ev.target.value)}
-        onPointerDown={(ev) => ev.stopPropagation()}
+        ticks={[rise, set]}
+        thumbs={[{ value: at, label: "時刻（10分ごと）", valueText: `${clockOf(at)} ${phase}`, onChange: setAt }]}
       />
       {/* The moment: its time, which part of the day, the sun's height, and the sky's colour then. */}
       <div className="sun-now">
@@ -135,8 +138,10 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
         <span className="sun-now-alt">{altAt >= 0 ? `地平線の上 ${Math.round(altAt)}°` : `地平線の下 ${Math.round(-altAt)}°`}</span>
       </div>
       <p className="sun-note">左右になぞると10分ごとに動きます。地平線の下は、薄明が見やすいように広げて描いています。</p>
+      </div>
 
-      <dl className="sun-times">
+      <SectionHead title="時刻" />
+      <dl className="sun-times sun-card">
         {rows.map((r) => (
           <div key={r.label} className={r.strong ? "strong" : undefined}>
             <dt>{r.label}</dt>
@@ -154,6 +159,7 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
         </div>
       </dl>
 
+      <SectionHead title="3つの薄明" />
       <ul className="sun-notes">
         {TWILIGHTS.map((tw) => (
           <li key={tw.id}>

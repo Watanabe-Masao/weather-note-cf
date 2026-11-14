@@ -2382,32 +2382,33 @@ svg.scrub {
   opacity: 0.6;
 }
 
-/* Thin track, plain thumbs; the two native ranges share one track and only the thumbs take the finger. */
-.cond-slider {
+/* kit Slider (#151): thin track, plain thumbs; the native ranges share one track and only the
+   thumbs take the finger. The span takes the colour of what it sets (tone-…). */
+.slider {
   position: relative;
   height: 32px;
   margin: 2px 10px 0;
 }
 
-.cond-slider .track,
-.cond-slider .fill {
+.slider .track,
+.slider .fill {
   position: absolute;
   top: 15px;
   height: 2px;
   border-radius: var(--radius-tick);
 }
 
-.cond-slider .track {
+.slider .track {
   left: 0;
   right: 0;
   background: var(--line-strong);
 }
 
-.cond-slider .fill {
+.slider .fill {
   background: currentColor;
 }
 
-.cond-slider .tick {
+.slider .tick {
   position: absolute;
   top: 11px;
   width: 1px;
@@ -2415,7 +2416,7 @@ svg.scrub {
   background: var(--ink-tertiary);
 }
 
-.cond-slider input {
+.slider input {
   position: absolute;
   left: -10px;
   right: -10px;
@@ -2429,12 +2430,12 @@ svg.scrub {
   appearance: none;
 }
 
-.cond-slider input::-webkit-slider-runnable-track {
+.slider input::-webkit-slider-runnable-track {
   height: 20px;
   background: none;
 }
 
-.cond-slider input::-webkit-slider-thumb {
+.slider input::-webkit-slider-thumb {
   -webkit-appearance: none;
   pointer-events: auto;
   width: 20px;
@@ -2445,7 +2446,7 @@ svg.scrub {
   box-shadow: var(--shadow-lift);
 }
 
-.cond-slider input::-moz-range-thumb {
+.slider input::-moz-range-thumb {
   pointer-events: auto;
   width: 20px;
   height: 20px;
@@ -2454,7 +2455,7 @@ svg.scrub {
   background: var(--ink-primary);
 }
 
-.cond-slider input:focus-visible::-webkit-slider-thumb {
+.slider input:focus-visible::-webkit-slider-thumb {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
@@ -2897,7 +2898,8 @@ svg.scrub {
   padding: var(--space-4) var(--space-5) var(--space-3);
 }
 .readout-card,
-.predict-card {
+.predict-card,
+.sun-card {
   border-radius: var(--radius-md);
   background: var(--surface-inset);
   box-shadow: 0 0 0 1px var(--line-soft) inset;
@@ -4008,26 +4010,26 @@ svg.scrub {
 .sun-depth { stroke: var(--ink-tertiary); stroke-opacity: 0.45; stroke-dasharray: 3 3; }
 .sun-tick { fill: var(--ink-tertiary); font-size: var(--size-xs); font-family: var(--font-numeric); }
 .sun-curve { fill: none; stroke: var(--ink-tertiary); stroke-width: 2; stroke-linecap: round; }
-.sun-curve.day { stroke: var(--data-sun); stroke-width: 2.5; }
+.sun-curve.day { stroke-width: 2.5; }
 .sun-cursor { stroke: var(--ink-secondary); stroke-dasharray: 2 3; }
 .sun-mark { fill: var(--ink-primary); stroke: var(--surface-page); stroke-width: 1; }
-.sun-mark.rise { fill: var(--data-sun); }
+.sun-mark.rise { fill: var(--ink-primary); }
 .sun-dot { fill: var(--surface-base); stroke: var(--ink-primary); stroke-width: 2; }
-.sun-dot.day { fill: var(--data-sun); stroke: var(--surface-base); }
-.sun-slider { width: 100%; margin: var(--space-4) 0 0; accent-color: var(--data-sun); }
+.sun-dot.day { fill: var(--ink-primary); stroke: var(--surface-base); }
 .sun-now { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-3); }
 .sun-now-sky { width: 28px; height: 28px; border-radius: var(--radius-sm); box-shadow: 0 0 0 1px var(--line-soft) inset; flex: none; }
 .sun-now-time { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-lg); font-weight: var(--weight-bold); min-width: 3.2em; }
 .sun-now-phase { font-size: var(--size-base); color: var(--ink-primary); }
 .sun-now-alt { margin-left: auto; font-size: var(--size-sm); color: var(--ink-secondary); font-family: var(--font-numeric); }
 .sun-note { margin: var(--space-3) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
-.sun-times { display: grid; margin: var(--space-6) 0 0; }
-.sun-times > div { display: flex; justify-content: space-between; align-items: baseline; padding: var(--space-4) var(--space-2); border-top: 1px solid var(--line-soft); }
-.sun-times dt { font-size: var(--size-base); color: var(--ink-secondary); }
-.sun-times dd { margin: 0; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-md); color: var(--ink-secondary); display: flex; gap: var(--space-4); align-items: baseline; }
-.sun-times dd small { font-size: var(--size-sm); color: var(--ink-tertiary); }
+.sun-times { display: grid; margin: 0; }
+.sun-times > div { display: flex; justify-content: space-between; align-items: baseline; padding: var(--space-3) 0; }
+.sun-times > div + div { border-top: 1px solid var(--line-soft); }
+.sun-times dt { font-size: var(--size-sm); color: var(--ink-secondary); }
+.sun-times dd { margin: 0; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-md); color: var(--ink-primary); display: flex; gap: var(--space-4); align-items: baseline; }
+.sun-times dd small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sun-times .strong dt, .sun-times .strong dd { color: var(--ink-primary); font-weight: var(--weight-bold); }
-.sun-times .total { border-top: 1px solid var(--line-strong); }
-.sun-notes { list-style: none; margin: var(--space-6) 0 0; padding: 0; display: grid; gap: var(--space-4); font-size: var(--size-sm); color: var(--ink-secondary); }
+.sun-times .total { border-top-color: var(--line-strong); }
+.sun-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); font-size: var(--size-sm); color: var(--ink-secondary); }
 .sun-notes b { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .sun-swatch { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-tick); box-shadow: 0 0 0 1px var(--line-soft) inset; margin-right: var(--space-3); vertical-align: -1px; }

@@ -28,7 +28,7 @@ import {
 import { monthDay, num, weekdayOf } from "../design/format";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
-import { DayLabel, Segmented } from "./kit";
+import { DayLabel, Segmented, Slider } from "./kit";
 import { ModalSheet } from "./ModalSheet";
 
 interface Props {
@@ -128,37 +128,28 @@ function TempControls({
   origin: number | null;
   onChange: (c: TempCondition) => void;
 }) {
-  const pos = (v: number) => ((v - scale.lo) / (scale.hi - scale.lo)) * 100;
-  const from = cond.mode === "le" ? 0 : pos(cond.lo);
-  const to = cond.mode === "ge" ? 100 : pos(cond.hi);
-  const input = (which: "lo" | "hi") => (
-    <input
-      type="range"
-      min={scale.lo}
-      max={scale.hi}
-      step={TEMP_STEP}
-      value={cond[which]}
-      aria-label={`${label}の${which === "lo" ? "下限" : "上限"}`}
-      onChange={(e) => {
-        const v = Number(e.target.value);
-        if (cond.mode !== "range") onChange({ ...cond, [which]: v });
-        else if (which === "lo") onChange({ ...cond, lo: Math.min(v, cond.hi) });
-        else onChange({ ...cond, hi: Math.max(v, cond.lo) });
-      }}
-    />
-  );
+  const set = (which: "lo" | "hi", v: number) => {
+    if (cond.mode !== "range") onChange({ ...cond, [which]: v });
+    else if (which === "lo") onChange({ ...cond, lo: Math.min(v, cond.hi) });
+    else onChange({ ...cond, hi: Math.max(v, cond.lo) });
+  };
   return (
     <>
       <Segmented label={label} options={TEMP_MODES} value={cond.mode} onChange={(mode) => onChange({ ...cond, mode })} />
       {cond.mode !== "any" && (
         <>
-          <div className={`cond-slider tone-${tone}`}>
-            <span className="track" />
-            <span className="fill" style={{ left: `${from}%`, width: `${to - from}%` }} />
-            {origin != null && <span className="tick" style={{ left: `${pos(origin)}%` }} />}
-            {cond.mode !== "le" && input("lo")}
-            {cond.mode !== "ge" && input("hi")}
-          </div>
+          <Slider
+            className={`tone-${tone}`}
+            min={scale.lo}
+            max={scale.hi}
+            step={TEMP_STEP}
+            fill={[cond.mode === "le" ? scale.lo : cond.lo, cond.mode === "ge" ? scale.hi : cond.hi]}
+            ticks={origin != null ? [origin] : undefined}
+            thumbs={[
+              ...(cond.mode !== "le" ? [{ value: cond.lo, label: `${label}の下限`, onChange: (v: number) => set("lo", v) }] : []),
+              ...(cond.mode !== "ge" ? [{ value: cond.hi, label: `${label}の上限`, onChange: (v: number) => set("hi", v) }] : []),
+            ]}
+          />
           <div className="cond-scale num">
             <span>{scale.lo}℃</span>
             {origin != null && <span>基準 {t1(origin)}℃</span>}
