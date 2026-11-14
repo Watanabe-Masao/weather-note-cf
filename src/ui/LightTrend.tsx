@@ -157,7 +157,7 @@ export function LightTrend({ store, station, target, compareDate, today, height,
         <span><LineSample day="target" color={DATA.sun} />対象日</span>
         <span><LineSample day="compare" color={DATA.sun} />比較日</span>
         <span><i className="lt-clear" />晴れなら</span>
-        <span><i className="lt-hatch" />予報</span>
+        <span><i className="ls-forecast" />予報</span>
       </p>
       <InfoNote
         className="lt-note"

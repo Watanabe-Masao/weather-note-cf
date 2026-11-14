@@ -16,8 +16,9 @@ function files(dir: string): string[] {
   });
 }
 
+const all = files(SRC).map((p) => ({ p: p.slice(SRC.length + 1), s: readFileSync(p, "utf8") }));
+
 describe("design tokens", () => {
-  const all = files(SRC).map((p) => ({ p: p.slice(SRC.length + 1), s: readFileSync(p, "utf8") }));
 
   it("every var(--…) is a token or a variable set in the code", () => {
     const tokens = new Set(Object.keys(cssVariables()));
@@ -50,5 +51,30 @@ describe("type scale", () => {
   it("the input size is used only on inputs (16px keeps iPhone from zooming)", () => {
     const rules = [...css.matchAll(/([^{}]+)\{[^}]*font-size:\s*var\(--size-input\)/g)].map((m) => m[1].trim());
     expect(rules.filter((r) => !/input/.test(r))).toEqual([]);
+  });
+});
+
+describe("faces: colour, corners, depth", () => {
+  const css = readFileSync(join(SRC, "styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+
+  it("no colour is written in the stylesheet (tokens or color-mix of tokens only)", () => {
+    expect(css.match(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g) ?? []).toEqual([]);
+  });
+
+  it("no colour is written in the screens' code (src/ui, src/App.tsx): it comes from the tokens", () => {
+    const code = all.filter(({ p }) => /\.tsx?$/.test(p) && !p.startsWith("design/"));
+    const hits = code.flatMap(({ p, s }) => (s.match(/["'`]#[0-9a-fA-F]{3,8}["'`]|rgba?\([0-9][^)]*\)/g) ?? []).map((m) => `${p}: ${m}`));
+    expect(hits).toEqual([]);
+  });
+
+  it("corners are steps of the radius scale (or 0, or a circle)", () => {
+    const values = [...css.matchAll(/border-radius:\s*([^;}]+)/g)].map((m) => m[1].trim());
+    const ok = (v: string) => v.split(/\s+/).every((p) => /^var\(--radius-[a-z]+\)$/.test(p) || p === "0" || p === "50%");
+    expect(values.filter((v) => !ok(v))).toEqual([]);
+  });
+
+  it("stacking uses the layers (a small local order inside one part is fine)", () => {
+    const values = [...css.matchAll(/z-index:\s*([^;}]+)/g)].map((m) => m[1].trim());
+    expect(values.filter((v) => !/^var\(--layer-[a-z-]+\)$/.test(v) && !/^[0-3]$/.test(v))).toEqual([]);
   });
 });

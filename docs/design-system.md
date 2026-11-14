@@ -241,7 +241,12 @@
 
 - 背景を暗くする：グラフシート `effect.scrim`＋ぼかし 2px、オーバーレイ `effect.backdrop`＋ぼかし 4px。
 - 浮いたものの影：カード `shadow.card` → シート `shadow.sheet` → オーバーレイ `shadow.overlay`。固定表示の行は `shadow.pinned` と `effect.blur` で、すりガラスのように見せる。
-- 面の上端にだけ、ごく薄く明るいグラデーションを入れる（光が上から当たっているように見せる）。
+- 面の上端にだけ、ごく薄く明るいグラデーションを入れる（光が上から当たっているように見せる）：`effect.gloss`、選んでいる操作は `effect.glossStrong`。
+- 面から少し浮かせる（選んだ切り替え・マス・つまみ）：`shadow.lift`。内容の上に浮かぶカード（拡大カード・知らせ）：`shadow.float`。固定した列の端：`shadow.edge`。
+- グラフの夜と薄明の時間：`effect.night` / `effect.twilight`。
+- 色の見本の縁（隣の色と分ける明るい線）：`line.swatch`。色の帯の暗い縁：`line.shade`。
+- 角の丸み：`radius.tick`（2、見本・棒・札などの小さい印）／`xs` 4／`sm` 6／`md` 10（カード）／`lg` 14／`xl` 20（シート）／`pill`。円は `50%`。
+- **styles.css と画面のコードに色を書かない。** 透かしの色は `color-mix(in srgb, var(--accent-base) 8%, transparent)` のように、トークンを薄めて作る。見張り：`test/ui/tokens.test.ts`（色・角・重なり順）。
 - 中央の帯：連動中は実線＋にじみ、個別のときは破線でにじみなし。
 
 ## 9. 言葉
