@@ -4,7 +4,7 @@
 import { type CSSProperties, Fragment, type ReactNode, useState } from "react";
 import { dayTone } from "../../shared/holidays";
 import type { Confidence } from "../../shared/confidence";
-import { type BandMark, type DataColor } from "../design/tokens";
+import { type BandMark, barLook, type DataColor, type LineDay, type LineKind, type LineLook, lineLook } from "../design/tokens";
 import { dateLabel, digitsOf, monthDay, num, weekdayOf } from "../design/format";
 
 /** A choice chip. `size="sm"` for filters inside sheets. */
@@ -334,5 +334,31 @@ export function InfoNote({ children, more, className }: { children?: ReactNode; 
       </p>
       {open && <p className="info-more">{more}</p>}
     </div>
+  );
+}
+
+/** A legend's neutral sample colour: the legend tells which day, the graph's colour tells what. */
+const SAMPLE_INK = "var(--ink-secondary)";
+
+/**
+ * A legend's line sample, drawn by the line rule (tokens.ts lineLook) so it matches the graph's
+ * lines exactly. Give `look` to copy a line as drawn, or `day` (and `color`, `kind`) to draw one.
+ */
+export function LineSample({ look, day = "target", color = SAMPLE_INK, kind = "value" }: { look?: LineLook; day?: LineDay; color?: string; kind?: LineKind }) {
+  const l = look ?? lineLook(day, color, { kind });
+  return (
+    <svg className="line-sample" width="22" height="6" aria-hidden>
+      <line x1="1" x2="21" y1="3" y2="3" stroke={l.stroke} strokeWidth={l.strokeWidth} strokeDasharray={l.strokeDasharray} opacity={l.opacity} />
+    </svg>
+  );
+}
+
+/** A legend's bar sample by the bar rule (tokens.ts barLook): the target filled, the comparison outlined. */
+export function BarSample({ day, color = SAMPLE_INK }: { day: LineDay; color?: string }) {
+  const b = barLook(day, color);
+  return (
+    <svg className="line-sample" width="12" height="12" aria-hidden>
+      <rect x="1" y="1" width="10" height="10" rx="2" fill={b.fill} stroke={b.stroke} strokeWidth={1.5} opacity={b.opacity} />
+    </svg>
   );
 }

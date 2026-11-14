@@ -375,7 +375,7 @@ select.chip {
   font-weight: var(--weight-bold);
   letter-spacing: 0.01em;
   margin: 0 2px;
-  background: linear-gradient(90deg, var(--ink-primary), #bcd9f7);
+  background: linear-gradient(90deg, var(--ink-primary), color-mix(in srgb, var(--accent-base) 45%, var(--ink-primary)));
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1124,17 +1124,6 @@ button.label-feel.shade small {
   background: var(--ink-primary);
 }
 
-.line-legend .ls-solid { border-top-style: solid; }
-.line-legend .ls-dashed { border-top-style: dashed; opacity: 0.75; }
-.line-legend .ls-dotted { border-top-style: dotted; }
-
-.line-legend .ls-fill,
-.line-legend .ls-outline {
-  width: 10px;
-  height: 10px;
-  border: 1.5px solid var(--ink-secondary);
-  border-radius: 2px;
-}
 
 /* Forecast: the hatch the graphs draw behind forecast days and hours. */
 .line-legend .ls-forecast {
@@ -1155,8 +1144,6 @@ button.label-feel.shade small {
   opacity: 0.9;
 }
 
-.line-legend .ls-fill { background: var(--ink-secondary); }
-.line-legend .ls-fill.dotted { background: none; border-style: dashed; }
 
 .level-legend i,
 .feel-legend i {
@@ -1213,8 +1200,8 @@ button.label-feel.shade small {
 /* Twilight (sunrise and sunset to 6° below the horizon): half the night's shade. */
 .day-twilight { fill: rgba(0, 0, 0, 0.12); }
 /* The sun's height through the day: a faint hill along the bottom of the graph. */
-.day-sun { fill: var(--data-sun, #e8b44a); fill-opacity: 0.1; stroke: var(--data-sun, #e8b44a); stroke-opacity: 0.45; stroke-width: 1; }
-.day-sun-label { fill: var(--ink-secondary); font-size: 9px; paint-order: stroke; stroke: var(--surface-base, #0e1726); stroke-width: 3px; }
+.day-sun { fill: var(--data-sun); fill-opacity: 0.1; stroke: var(--data-sun); stroke-opacity: 0.45; stroke-width: 1; }
+.day-sun-label { fill: var(--ink-secondary); font-size: 9px; paint-order: stroke; stroke: var(--surface-base); stroke-width: 3px; }
 /* 明るさ under the 日差し graph: 24 cells per day, aligned with the plot (left 34px, right 10px). */
 .light-strip { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .light-title { font-size: 12px; color: var(--ink-secondary); }
@@ -1430,7 +1417,7 @@ button.label-feel.shade small {
 }
 
 .guide-tag-text {
-  fill: #0b1625;
+  fill: var(--ink-on-accent);
   font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
   font-size: 10px;
@@ -1953,7 +1940,7 @@ svg.scrub {
   overflow: hidden;
   padding: 0;
   background: var(--surface-inset);
-  color: #0b1625;
+  color: var(--ink-on-accent);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
   transition: transform var(--motion-quick) var(--ease-standard);
 }
@@ -3524,7 +3511,7 @@ svg.scrub {
 .actions.tight { margin-top: 0; }
 .actions .danger { color: var(--status-error); border-color: color-mix(in srgb, var(--status-error) 50%, transparent); }
 .beta-alpha { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: baseline; font-size: 12px; color: var(--ink-secondary); line-height: 1.55; }
-.beta-alpha b { font-family: var(--font-numeric); font-size: var(--size-lg, 20px); color: var(--ink-primary); font-variant-numeric: tabular-nums; }
+.beta-alpha b { font-family: var(--font-numeric); font-size: var(--size-lg); color: var(--ink-primary); font-variant-numeric: tabular-nums; }
 .beta-alpha b small { display: block; font-family: var(--font-family); font-size: 10.5px; font-weight: 400; color: var(--ink-tertiary); white-space: nowrap; }
 
 /* β: 計算の根拠 — formulas and the numbers that went into them. */
@@ -3687,7 +3674,7 @@ svg.scrub {
 .notify-bands button small { font: 600 11px/1 ui-monospace, "SF Mono", Menlo, monospace; }
 .notify-bands button.on { background: color-mix(in srgb, var(--accent-base) 22%, var(--surface-raised)); border-color: var(--accent-base); }
 .notify-bands button.on b { font-weight: var(--weight-bold); }
-.notify-time em { font-style: normal; font-family: var(--font-sans, inherit); font-size: 11px; color: var(--ink-secondary); margin-right: 2px; }
+.notify-time em { font-style: normal; font-family: var(--font-family); font-size: 11px; color: var(--ink-secondary); margin-right: 2px; }
 
 /* β: how far the learning has got (comfort.ts: learningOf). */
 .learn-tag { display: inline-block; width: fit-content; justify-self: start; margin-right: 6px; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: var(--weight-bold); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
@@ -3707,7 +3694,7 @@ svg.scrub {
 .research-table { overflow-x: auto; }
 .research-table h3 { margin: 0 0 6px; }
 .research-table table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-.research-table th, .research-table td { padding: 6px 4px; border-top: 1px solid var(--line-subtle, rgba(127, 127, 127, 0.18)); text-align: right; vertical-align: top; }
+.research-table th, .research-table td { padding: 6px 4px; border-top: 1px solid var(--line-soft); text-align: right; vertical-align: top; }
 .research-table thead th { border-top: 0; font-weight: 600; color: var(--ink-secondary); font-size: 12px; }
 .research-table tbody th { text-align: left; font-weight: 500; }
 .research-table tr.small { opacity: 0.55; }
@@ -3757,8 +3744,6 @@ svg.scrub {
 .lt-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; font-size: 11px; color: var(--ink-tertiary); }
 .lt-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .lt-legend i { display: inline-block; width: 18px; }
-.lt-solid { height: 2px; background: #f5c865; }
-.lt-dashed { height: 0; border-top: 2px dashed #f5c865; }
 .lt-clear { height: 6px; border-radius: 3px; background: rgba(245, 200, 101, 0.28); }
 .lt-hatch { width: 14px !important; height: 10px; background: repeating-linear-gradient(45deg, rgba(255,255,255,0.18) 0 2px, transparent 2px 5px); }
 

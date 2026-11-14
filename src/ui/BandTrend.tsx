@@ -12,7 +12,7 @@ import type { WeatherStore } from "../data/store";
 import { feelOn } from "../feelSeason";
 import { BAND_LINES, BAND_MARKS, lineLook } from "../design/tokens";
 import { niceTicks, signedDiff, tickLabel, monthDay, dateLabel } from "../design/format";
-import { Chip, ForecastHatch, GraphReadout, GuideLines, Mark, MarkIcon } from "./kit";
+import { Chip, ForecastHatch, GraphReadout, GuideLines, Mark, MarkIcon, LineSample } from "./kit";
 import { FeelContext, levelRanges } from "./FeelBar";
 
 export const BAND_COLORS = BAND_LINES;
@@ -229,11 +229,11 @@ export function BandTrend({ store, station, target, partner }: Props) {
       {/* Legend right under the graph, in the graph's own marks. */}
       <p className="line-legend">
         <span>
-          <i className="ls-solid" />
+          <LineSample day="target" />
           対象日
         </span>
         <span>
-          <i className="ls-dashed" />
+          <LineSample day="compare" />
           比較日
         </span>
         <span>

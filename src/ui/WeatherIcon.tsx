@@ -2,6 +2,7 @@
 
 import { dayWeatherOf } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
+import { ICON } from "../design/tokens";
 
 type Sky = "sun" | "cloud" | "sunCloud" | "rain" | "snow" | "thunder" | "fog" | "none";
 export function skyOf(text: string | null | undefined): Sky {
@@ -18,9 +19,7 @@ export function skyOf(text: string | null | undefined): Sky {
   return "cloud";
 }
 
-const SUN = "#f5b83d";
-const CLOUD = "#dbe5f0";
-const RAIN = "#6fb3f2";
+const { sun: SUN, cloud: CLOUD, rain: RAIN, glint: GLINT } = ICON;
 
 function Sun({ x = 12, y = 12, r = 5 }: { x?: number; y?: number; r?: number }) {
   const rays = Array.from({ length: 8 }, (_, i) => {
@@ -79,7 +78,7 @@ export function WeatherIcon({ text, size = 26 }: { text: string | null | undefin
         <>
           <Cloud dy={-4} />
           {[8, 12, 16].map((x) => (
-            <circle key={x} cx={x} cy={19.5} r={1.3} fill="#ffffff" />
+            <circle key={x} cx={x} cy={19.5} r={1.3} fill={GLINT} />
           ))}
         </>
       )}

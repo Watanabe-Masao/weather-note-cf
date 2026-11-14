@@ -114,6 +114,12 @@ export function barLook(day: LineDay, color: string, dimmed = false): { fill: st
   return day === "target" ? { fill: c, stroke: "none", opacity: dimmed ? LINE.dimmedOpacity : 1 } : { fill: "none", stroke: c, opacity: dimmed ? LINE.dimmedOpacity : 0.8 };
 }
 
+/**
+ * Weather icons (晴 / 曇 / 雨 …). Pictures, not data: the sun is a warmer yellow than DATA.sun so an
+ * icon never reads as a 日照 value; glint is the white of a raindrop's highlight.
+ */
+export const ICON = { sun: "#f5b83d", cloud: "#dbe5f0", rain: "#6fb3f2", glint: "#ffffff" } as const;
+
 /** The six 明るさ levels (shared/brightness.ts), dark to light: night navy to pale daylight. */
 export const LIGHT_LEVELS = ["#0b1220", "#26305e", "#4f5b80", "#8d9bb3", "#d6dbe0", "#fff1bf"] as const;
 export type DataColor = keyof typeof DATA;
