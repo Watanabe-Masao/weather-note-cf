@@ -415,7 +415,8 @@ export function App() {
                   </>
                 ) : (
                   <>
-                    <span className="sheet-head-title">{`${metric.title ?? metric.label}の日別`}</span>
+                    {/* 日照 has a button here too, so its title is the chip's own word (日照), which fits at 360. */}
+                    <span className="sheet-head-title">{`${view.metric === "light" ? metric.label : (metric.title ?? metric.label)}の日別`}</span>
                     {view.metric === "light" ? (
                       <button className="chip sm trend-btn" onClick={() => setFace("trend")}>
                         移り変わり
