@@ -40,7 +40,16 @@
       const rects = [...range.getClientRects()].filter((r) => r.width > 1 && r.height > 1 && onScreen(r));
       if (!rects.length) continue;
       runs.push({ el, rects });
-      if (el.closest("svg")) continue;
+      if (el.closest("svg")) {
+        // A label in a graph cut by the graph's own edge (いつも比 shown as つも比). Text inside a
+        // clipped group (the days that slide in and out) is cut on purpose.
+        if (el.closest("[clip-path]")) continue;
+        const box = el.ownerSVGElement?.getBoundingClientRect();
+        const r = rects[0];
+        if (box && r && ((r.left < box.left - 0.5 && r.right > box.left) || (r.right > box.right + 0.5 && r.left < box.right)))
+          out.clipped.push(`${name(el)} (グラフの端で切れる)`);
+        continue;
+      }
       // Runs out of its own box: past the element's right or left edge.
       const box = el.getBoundingClientRect();
       const past = Math.max(...rects.map((r) => r.right - box.right), ...rects.map((r) => box.left - r.left));

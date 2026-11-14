@@ -181,7 +181,7 @@ export const CHART_METRICS: ChartMetric[] = [
     zero: true,
     needsHours: true,
     series: [
-      { key: "radiation", label: "日射量", tone: "sun", value: dailyRadiation },
+      { key: "radiation", label: "日射量", tone: "radiation", value: dailyRadiation },
     ],
   },
   {
@@ -214,7 +214,7 @@ export const CHART_METRICS: ChartMetric[] = [
     zero: false,
     series: [
       { key: "humidity", label: "平均", tone: "humidity", value: field("humidity") },
-      { key: "humidityMin", label: "最小", tone: "cold", value: field("humidityMin") },
+      { key: "humidityMin", label: "最小", tone: "humidityLow", value: field("humidityMin") },
     ],
   },
   {
@@ -227,7 +227,7 @@ export const CHART_METRICS: ChartMetric[] = [
     zero: true,
     series: [
       { key: "wind", label: "平均", tone: "wind", value: field("wind") },
-      { key: "gust", label: "最大瞬間", tableLabel: "瞬間", tone: "hot", value: field("gust"), tableOnly: true, minor: true },
+      { key: "gust", label: "最大瞬間", tableLabel: "瞬間", tone: "gust", value: field("gust"), tableOnly: true, minor: true },
     ],
     under: [{ key: "gust", label: "瞬間", format: (v) => v.toFixed(1), compare: true }],
   },
@@ -240,8 +240,8 @@ export const CHART_METRICS: ChartMetric[] = [
     zero: false,
     needsHours: true,
     series: [
-      { key: "pressureMax", label: "最高", tone: "hot", value: (_r, h) => hourlyExtreme(h, "pressure", "max") },
-      { key: "pressureMin", label: "最低", tone: "cold", value: (_r, h) => hourlyExtreme(h, "pressure", "min") },
+      { key: "pressureMax", label: "最高", tone: "pressureHigh", value: (_r, h) => hourlyExtreme(h, "pressure", "max") },
+      { key: "pressureMin", label: "最低", tone: "pressureLow", value: (_r, h) => hourlyExtreme(h, "pressure", "min") },
       { key: "pressure", label: "平均", tone: "mean", value: field("pressure"), thin: true, minor: true },
     ],
   },

@@ -146,6 +146,13 @@ with sync_playwright() as p:
         bad = r["overflow"] + r["overlap"] + r["clipped"]
         check(f"{code} 文字のはみ出し・重なり・切れがない（{where}）", not bad, str(bad))
 
+    # The centre frames' lines must not run through a control (#151: 真ん中の帯が［連動］に被る).
+    frame_hits = lambda: pg.evaluate("""(() => { const fr = [...document.querySelectorAll('.center-band')].map(e => e.getBoundingClientRect());
+          return [...document.querySelectorAll('.board button, .board select')].filter(c => { const r = c.getBoundingClientRect(); if (!r.width) return false;
+            return fr.some(f => { const inside = r.left >= f.left - 1 && r.right <= f.right + 1 && r.top >= f.top - 1 && r.bottom <= f.bottom + 1;
+              const cross = r.left < f.right && r.right > f.left && r.top < f.bottom && r.bottom > f.top; return cross && !inside; }); })
+            .map(c => (c.getAttribute('aria-label') || c.textContent).trim().slice(0, 12)); })()""")
+
     # Text on screen smaller than the type scale's xs (10px): none (docs/design-system.md, #151).
     small_text = lambda: pg.evaluate("""[...document.querySelectorAll('body *')].filter(e => {
         const r = e.getBoundingClientRect();
@@ -164,7 +171,9 @@ with sync_playwright() as p:
     def a():
         check("A1 表が対象・比較の2つ", pg.locator(".side").count() == 2)
         check("A2 対象日の見出し", "2026/11/10" in txt(".side .date-button"), txt(".side .date-button"))
-        check("A3 中央の帯", pg.locator(".center-band").count() == 1)
+        check("A3 中央の枠は表ごとに1つ（2つ）", pg.locator(".center-band").count() == 2)
+        hits = frame_hits()
+        check("A3b 中央の枠の線が操作に被らない", not hits, str(hits))
         check("A4 横にはみ出さない", no_overflow())
         check("A5 シートの見出し", title() == "気温の日別", title())
         st = small_text(); check("A6 10px より小さい文字がない（表）", not st, str(st))
@@ -284,11 +293,12 @@ with sync_playwright() as p:
             sel.select_option(o); wait(500)
             seen.add(txt(".side-compare .date-button"))
         check("G1 比較のプリセットで比較日が変わる", len(seen) >= len(opts) - 1, f"{len(opts)} 種類 → {len(seen)} 通り")
+        hits = frame_hits(); check("G1b どの比較のしかたでも、中央の枠の線が操作に被らない", not hits, str(hits))
         sel.select_option(opts[0]); wait(400)
         pg.click(".link-toggle"); wait(400)
         check("G2 個別にすると帯が2つ", pg.locator(".center-band.apart").count() == 2)
         pg.click(".link-toggle"); wait(400)
-        check("G3 連動に戻すと帯が1つ", pg.locator(".center-band").count() == 1 and pg.locator(".center-band.apart").count() == 0)
+        check("G3 連動に戻すと枠は実線の2つ", pg.locator(".center-band").count() == 2 and pg.locator(".center-band.apart").count() == 0)
     step("G", g)
 
     # H. date arrows and 今日

@@ -113,9 +113,14 @@ p {
 .tone-rain { color: var(--data-rain); }
 .tone-snow { color: var(--data-snow); }
 .tone-sun { color: var(--data-sun); }
+.tone-radiation { color: var(--data-radiation); }
 .tone-humidity { color: var(--data-humidity); }
+.tone-humidityLow { color: var(--data-humidity-low); }
 .tone-wind { color: var(--data-wind); }
+.tone-gust { color: var(--data-gust); }
 .tone-pressure { color: var(--data-pressure); }
+.tone-pressureHigh { color: var(--data-pressure-high); }
+.tone-pressureLow { color: var(--data-pressure-low); }
 .tone-feel { color: var(--data-feel); }
 
 /* Day tones: only on dates and weekdays. */
@@ -566,6 +571,8 @@ select.chip {
 
 .label-value.tone-hot { color: var(--data-hot); }
 .label-value.tone-cold { color: var(--data-cold); }
+.label-value.tone-pressureHigh { color: var(--data-pressure-high); }
+.label-value.tone-pressureLow { color: var(--data-pressure-low); }
 .label-value.minor { font-size: var(--size-xs); color: var(--ink-tertiary); }
 
 button.label-feel {

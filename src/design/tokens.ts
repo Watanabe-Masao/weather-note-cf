@@ -44,17 +44,26 @@ const accent = {
  * The target day and the comparison day are told apart by line style (solid / dashed) and fill
  * (filled / outline), never by colour.
  */
+/**
+ * One colour per item, so switching items changes the picture (気圧 used to look like 気温, 日差し like
+ * 日照). An item with a high and a low uses one hue: the high light, the low deep (#151).
+ */
 export const DATA = {
-  hot: "#f39a86", // highest values: 最高気温, 気圧最高, 最大瞬間
-  cold: "#74b6f5", // lowest values: 最低気温, 気圧最低
+  hot: "#f39a86", // 最高気温
+  cold: "#74b6f5", // 最低気温
   temp: "#f39a86", // temperature over the hours (the same family as 最高)
   mean: "#8ea3b9", // means and references (平均, the air temperature behind 肌感（日なた）)
   rain: "#45c8d8", // rain amounts and chances
   snow: "#cdd9ff",
-  sun: "#f5c865", // 日射量, 日照
+  sun: "#f5c865", // 日照
+  radiation: "#f2a15c", // 日差し（日射量）: orange, apart from 日照's yellow
   humidity: "#8fd8c4",
+  humidityLow: "#5fae98", // 湿度の最小
   wind: "#a9c6de",
+  gust: "#d6e6f4", // 最大瞬間（風速の強い方）
   pressure: "#d8b48d",
+  pressureHigh: "#e9c896", // 気圧最高
+  pressureLow: "#b48a5c", // 気圧最低
   feel: "#c9a6f7", // 肌感（日なた） / 肌感（日かげ） as a value
 } as const;
 
