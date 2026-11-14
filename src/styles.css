@@ -1251,9 +1251,6 @@ button.label-feel:active { transform: scale(0.97); }
   -webkit-user-select: none;
 }
 
-.day-night { fill: var(--effect-night); }
-/* Twilight (sunrise and sunset to 6° below the horizon): half the night's shade. */
-.day-twilight { fill: var(--effect-twilight); }
 /* The sun's height through the day: a faint hill along the bottom of the graph. */
 .day-sun { fill: none; stroke: var(--ink-secondary); stroke-width: 1.2; }
 .day-sun.over-sky { fill: none; stroke: var(--ink-primary); stroke-opacity: 0.85; stroke-width: 1.2; }

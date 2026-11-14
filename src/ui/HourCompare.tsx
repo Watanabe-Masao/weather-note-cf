@@ -808,8 +808,6 @@ function HourChart({
   const yOf = (v: number) => PAD.top + ((hi - Math.min(hi, Math.max(lo, v))) * (H - PAD.top - PAD.bottom)) / (hi - lo);
   // Sunrise and sunset from the sun API when known (the stored ones), else calculated.
   const { rise, set } = sunHours(sun, day.edges);
-  const dawn = day.edges.dawn / 60;
-  const dusk = day.edges.dusk / 60;
   const plotTop = PAD.top;
   const plotBottom = H - PAD.bottom;
   // The sun's height in its own strip under the plot, the day's highest point at the strip's top.
@@ -951,11 +949,8 @@ function HourChart({
             </g>
           );
         })}
-        {/* Night (the sun more than 6° below the horizon) dark; twilight (sunrise and sunset to 6° below) lighter. */}
-        <rect x={xOf(0)} width={xOf(dawn) - xOf(0)} y={plotTop} height={plotBottom - plotTop} className="day-night" />
-        <rect x={xOf(dusk)} width={xOf(24) - xOf(dusk)} y={plotTop} height={plotBottom - plotTop} className="day-night" />
-        <rect x={xOf(dawn)} width={Math.max(0, xOf(rise) - xOf(dawn))} y={plotTop} height={plotBottom - plotTop} className="day-twilight" />
-        <rect x={xOf(set)} width={Math.max(0, xOf(dusk) - xOf(set))} y={plotTop} height={plotBottom - plotTop} className="day-twilight" />
+        {/* Night and twilight are read from the 太陽 strip's sky under the plot, not shaded here (#151:
+            the face of a graph carries the forecast hatching only). */}
         {/* The 太陽 strip: the sky's colour every 10 minutes (as in 明るさと空), the sun's height over it. */}
         {skyStops && (
           <>

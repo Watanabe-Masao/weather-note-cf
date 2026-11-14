@@ -268,8 +268,6 @@ const effect = {
   gloss: "rgba(255, 255, 255, 0.04)", // the faint light on a face's top edge (controls, cards, sheets)
   glossStrong: "rgba(255, 255, 255, 0.06)", // the same on a chosen control
   sheen: "rgba(255, 255, 255, 0.16)", // the light on the upper half of a filled button
-  night: "rgba(0, 0, 0, 0.24)", // night hours behind a graph
-  twilight: "rgba(0, 0, 0, 0.12)", // twilight hours behind a graph
 } as const;
 
 // ---- output -------------------------------------------------------------------------------------
