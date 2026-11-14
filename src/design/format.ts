@@ -98,3 +98,15 @@ export function lineLabel(labels: string[]): string {
   if (n === 0 || labels.some((l) => l.length === n)) return labels.join("/");
   return `${labels[0].slice(0, n)} ${labels.map((l) => l.slice(n)).join("/")}`;
 }
+
+/** "10時間41分" from minutes, rounded to the minute first (never 9時間60分). */
+export function hoursMinutes(min: number): string {
+  const m = Math.round(min);
+  return `${Math.floor(m / 60)}時間${String(m % 60).padStart(2, "0")}分`;
+}
+
+/**
+ * Words for a narrow column: a break allowed only before the last word (日差しの｜明るさ, とても｜明るい,
+ * 日の出前後の｜空), as U+200B; with word-break: keep-all nothing else breaks.
+ */
+export const phraseBreak = (v: string) => v.replace(/(明るさ|明るい|まぶしい|暗い|空)$/, "\u200b$1");

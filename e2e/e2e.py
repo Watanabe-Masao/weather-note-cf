@@ -403,14 +403,14 @@ with sync_playwright() as p:
         # HC. The hour graph (#151): rows named, the sun in its own strip, a clear night drawn as the moon.
         hc = pg.evaluate("""() => ({ names: [...document.querySelectorAll('.band-wx-name')].map(e => e.textContent),
           strip: !!document.querySelector('.day-sun-name'),
-          sky: [...document.querySelectorAll('.band-wx-cell')].map(c => { const d = c.querySelector('.band-wx-main path')?.getAttribute('d') || '';
-            return d.startsWith('M16 12a4') ? 'sun' : d.startsWith('M20.985') ? 'moon' : 'other'; }) })""")
+          sky: [...document.querySelectorAll('.band-wx-cell')].map(c => { const k = c.querySelector('.band-wx-main svg')?.dataset.sky || '';
+            return k === 'sun' ? 'sun' : k.endsWith('-night') ? 'moon' : 'other'; }) })""")
         check("HC1 天気の行に 対象／比較 の名前", hc["names"][:2] == ["対象", "比較"], str(hc["names"]))
         check("HC2 太陽の高さは別の帯（太陽）", hc["strip"])
         # 0・3・21・24時 are night all year in Kochi: no sun there; a moon never by day (12時).
         check("HC3 夜に太陽を描かない・昼に月を描かない", all(hc["sky"][i] != "sun" for i in (0, 1, 7, 8)) and hc["sky"][4] != "moon", str(hc["sky"]))
         # SS. 太陽: the sun strip opens the sheet; the three twilights in order; the slider reads 10-minute steps.
-        pg.locator(".day-sun-hit").first.scroll_into_view_if_needed(); pg.locator(".day-sun-hit").first.click(); wait(900)
+        pg.locator(".day-sun-button").first.scroll_into_view_if_needed(); pg.locator(".day-sun-button").first.click(); wait(900)
         times = pg.locator(".sun-times dd").all_inner_texts()
         check("SS1 太陽のシートが開き、薄明の時刻が9つと昼の長さ", pg.locator(".sun-sheet").count() == 1 and len(times) == 10, str(times))
         mins = [int(t.split(":")[0]) * 60 + int(t.split(":")[1]) for t in (x.split()[-1] for x in times[:9]) if ":" in t]

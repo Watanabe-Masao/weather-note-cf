@@ -1,26 +1,29 @@
 // 太陽 (#151): opened from the sun strip under the hour graph. The sun's height through the day
 // against the horizon and the three twilights, and the times they begin and end.
 
-import { clockOf, dayEdges, altitudeCurve, twilights, TWILIGHTS } from "../../shared/dayParts";
-import { hourOfDay, type SunTimes } from "../data/sun";
-import { dateLabel } from "../design/format";
+import { clockOf, dayEdges, dayParts, altitudeCurve, twilights, TWILIGHTS } from "../../shared/dayParts";
+import { sunHours, type SunTimes } from "../data/sun";
+import { dateLabel, hoursMinutes } from "../design/format";
 import { skyAt } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
 import { SectionHead, Slider } from "./kit";
 import { ICON } from "../design/tokens";
-import { useRef, useState, type PointerEvent } from "react";
+import { useMemo, useRef, useState, type PointerEvent } from "react";
 
 const W = 340;
 const H = 230;
 const PAD = { left: 38, right: 8, top: 10, bottom: 20 };
 
 export function SunSheet({ date, station, sun, hour, onClose }: { date: string; station: string; sun: SunTimes | null; hour: number | null; onClose: () => void }) {
-  const e = dayEdges(date, station);
-  const t = twilights(date, station);
-  const curve = altitudeCurve(date, station, 10);
-  // Sunrise and sunset from the sun API when known (as on the graph), else calculated.
-  const rise = (hourOfDay(sun?.sunrise ?? null) ?? e.rise / 60) * 60;
-  const set = (hourOfDay(sun?.sunset ?? null) ?? e.set / 60) * 60;
+  // The day's sun, worked out once per day and place (not on every move of the finger).
+  const { e, t, curve, skies } = useMemo(() => {
+    const c = altitudeCurve(date, station, 10);
+    return { e: dayEdges(date, station), t: twilights(date, station), curve: c, skies: c.map((p) => skyAt(p.deg, 1, 0, p.min > 720)) };
+  }, [date, station]);
+  // Sunrise and sunset by the same rule as the graph (data/sun sunHours), in minutes.
+  const { rise: riseH, set: setH } = sunHours(sun, e);
+  const rise = riseH * 60;
+  const set = setH * 60;
   const high = Math.max(30, Math.ceil((e.noonAltitude + 8) / 10) * 10);
   const x = (min: number) => PAD.left + (min / 1440) * (W - PAD.left - PAD.right);
   // Above the horizon the axis is even (half the height); below it, it eases off smoothly
@@ -36,10 +39,13 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
   const dayPath = curve.filter((p) => p.deg >= 0).map((p, i) => `${i ? "L" : "M"}${x(p.min).toFixed(1)},${y(p.deg).toFixed(1)}`).join(" ");
   // The moment read out, in 10-minute steps: starts at the graph's hour, moved by swiping the
   // chart or the slider under it.
-  const [at, setAt] = useState(() => (hour != null ? hour * 60 : Math.round(e.noon / 10) * 10));
+  const [at, setAt] = useState(() => Math.min(1430, hour != null ? hour * 60 : Math.round(e.noon / 10) * 10));
   const altAt = curve.reduce((a, p) => (Math.abs(p.min - at) < Math.abs(a.min - at) ? p : a)).deg;
-  const phase = altAt >= 0 ? "昼" : altAt >= -6 ? "市民薄明" : altAt >= -12 ? "航海薄明" : altAt >= -18 ? "天文薄明" : "夜";
-  const skyNow = skyAt(altAt, 1, 0, at > 720);
+  // The sun's state in words that never clash with the app's five parts (朝・日中・昼・夕方・夜,
+  // shared/dayParts): those are named beside it, so 19:00 reads 航海薄明 ・ 時間帯は夜.
+  const phase = altAt >= 0 ? "日の出ている間" : altAt >= -6 ? "市民薄明" : altAt >= -12 ? "航海薄明" : altAt >= -18 ? "天文薄明" : "暗い夜空";
+  const part = dayParts(date, station).find((p) => p.id !== "night" && at >= p.from && at < p.to)?.label ?? "夜";
+  const skyNow = skies[Math.min(skies.length - 1, Math.round(at / 10))];
   const svg = useRef<SVGSVGElement>(null);
   const scrubbing = useRef(false);
   const pick = (ev: PointerEvent) => {
@@ -68,6 +74,7 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
       <svg
         ref={svg}
         className="sun-chart"
+        data-no-sheet-drag
         viewBox={`0 0 ${W} ${H}`}
         role="img"
         aria-label="一日の太陽の高さと薄明。左右になぞると10分ごとに読めます"
@@ -83,8 +90,8 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
       >
         {/* The ground is the sky itself on a clear day, every 10 minutes (shared/sky.ts, as in 明るさと空):
             above the horizon the colour overhead, below it the colour low over the land. */}
-        {curve.slice(0, -1).map((p) => {
-          const c = skyAt(p.deg, 1, 0, p.min > 720);
+        {curve.slice(0, -1).map((p, i) => {
+          const c = skies[i];
           const x0 = x(p.min);
           const x1 = x(p.min + 10) + 0.4;
           return (
@@ -134,10 +141,15 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
       <div className="sun-now">
         <i className="sun-now-sky" style={{ background: `linear-gradient(${skyNow.zenith}, ${skyNow.horizon})` }} />
         <b className="sun-now-time">{clockOf(at)}</b>
-        <span className="sun-now-phase">{phase}</span>
+        <span className="sun-now-phase">
+          {phase}
+          <small>時間帯は{part}</small>
+        </span>
         <span className="sun-now-alt">{altAt >= 0 ? `地平線の上 ${Math.round(altAt)}°` : `地平線の下 ${Math.round(-altAt)}°`}</span>
       </div>
-      <p className="sun-note">左右になぞると10分ごとに動きます。地平線の下は、薄明が見やすいように広げて描いています。</p>
+      <p className="sun-note">
+        左右になぞると10分ごとに動きます。空の色は晴れた日の模式です（グラフの下の帯は、その日の天気の空）。地平線の下は、薄明が見やすいように広げて描いています。
+      </p>
       </div>
 
       <SectionHead title="時刻" />
@@ -154,7 +166,7 @@ export function SunSheet({ date, station, sun, hour, onClose }: { date: string; 
         <div className="total">
           <dt>昼の長さ（日の出〜日の入り）</dt>
           <dd>
-            {Math.floor(length / 60)}時間{String(Math.round(length % 60)).padStart(2, "0")}分
+            {hoursMinutes(length)}
           </dd>
         </div>
       </dl>

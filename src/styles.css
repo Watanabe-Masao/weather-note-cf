@@ -1255,23 +1255,27 @@ button.label-feel:active { transform: scale(0.97); }
 /* Twilight (sunrise and sunset to 6° below the horizon): half the night's shade. */
 .day-twilight { fill: var(--effect-twilight); }
 /* The sun's height through the day: a faint hill along the bottom of the graph. */
-.day-sun { fill: var(--data-sun); fill-opacity: 0.22; stroke: var(--data-sun); stroke-opacity: 0.7; stroke-width: 1; }
+.day-sun { fill: none; stroke: var(--ink-secondary); stroke-width: 1.2; }
 .day-sun.over-sky { fill: none; stroke: var(--ink-primary); stroke-opacity: 0.85; stroke-width: 1.2; }
-.day-sun-label { fill: var(--ink-secondary); font-size: var(--size-xs); }
+.day-sun-label { fill: var(--ink-primary); font-size: var(--size-xs); paint-order: stroke; stroke: var(--surface-page); stroke-width: 3px; stroke-opacity: 0.55; }
 /* The strip's name (太陽) in the axis column, like the unit over the value axis. */
 .day-sun-name { fill: var(--accent-base); font-size: var(--size-xs); }
 .day-sun-chevron { fill: none; stroke: var(--accent-base); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
-.day-sun-hit { fill: transparent; cursor: pointer; }
-/* 明るさ under the 日差し graph: 24 cells per day, aligned with the plot (left 34px, right 10px). */
+
+.day-sun-button { position: absolute; left: 0; right: 0; height: 32px; padding: 0; border: none; background: transparent; cursor: pointer; z-index: 1; }
+.day-sun-button:focus-visible { outline: 2px solid var(--accent-base); outline-offset: -2px; border-radius: var(--radius-sm); }
+/* 明るさ under the 日差し graph: 24 cells per day, aligned with the plot (its left edge is --plot-left,
+   set by the graph from its own axis column; right 10px). */
+.hour-compare { --plot-left: 34px; }
 .light-strip { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .light-title { font-size: var(--size-sm); color: var(--ink-secondary); }
 .light-row { display: flex; align-items: center; }
-.light-row-label { width: 34px; font-size: var(--size-sm); color: var(--ink-tertiary); }
+.light-row-label { width: var(--plot-left); font-size: var(--size-sm); color: var(--ink-tertiary); }
 .light-cells { flex: 1; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 1px; margin-right: 10px; }
 .light-cells i { height: 18px; border-radius: var(--radius-tick); }
 .light-cells i.on { outline: 1.5px solid var(--ink-primary); outline-offset: -1px; }
-.light-note { margin: 2px 0 0 34px; }
-.light-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 0 34px; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.light-note { margin: 2px 0 0 var(--plot-left); }
+.light-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 0 var(--plot-left); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .light-legend span { display: inline-flex; align-items: center; gap: 3px; }
 .light-legend i { width: 10px; height: 10px; border-radius: var(--radius-tick); border: 1px solid var(--line-soft); }
 /* 明るさと空: each hour as its six 10-minute sky colours (zenith above horizon) over a thin line of the light's levels. */
@@ -1287,7 +1291,7 @@ button.label-feel:active { transform: scale(0.97); }
 .light-trace.on {
   display: block;
   position: absolute;
-  inset: 0 10px 0 34px;
+  inset: 0 10px 0 var(--plot-left);
   z-index: 1;
   cursor: ew-resize;
   touch-action: pan-y;
@@ -1480,8 +1484,6 @@ button.label-feel:active { transform: scale(0.97); }
   font-size: var(--size-xs);
   line-height: 1.25;
   white-space: normal;
-  word-break: keep-all;
-  overflow-wrap: normal;
   /* Two lines tall whatever it holds, so the card keeps its height from hour to hour, and the
      words — one line or two — sit in the middle of that height, level with the row's name. */
   min-height: 2.5em;
@@ -1489,6 +1491,17 @@ button.label-feel:active { transform: scale(0.97); }
   display: flex;
   align-items: center;
   justify-content: flex-end;
+}
+
+/* The words themselves: break where the code allows (before the last word); a word too long for the
+   column may still break inside rather than run into the next; never more than two lines. */
+.ro-words {
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
 }
 
 .ro-v.ro-diff {
@@ -3590,7 +3603,7 @@ svg.scrub {
 
 .state-overlay {
   position: absolute;
-  inset: 18px 10px 26px 34px;
+  inset: 18px 10px 26px var(--plot-left);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -4005,7 +4018,7 @@ svg.scrub {
 }
 
 /* 太陽 (SunSheet, #151): the day's sun against the horizon and the three twilights. */
-.sun-chart { width: 100%; height: auto; display: block; touch-action: none; cursor: ew-resize; }
+.sun-chart { width: 100%; height: auto; display: block; touch-action: pan-y; cursor: ew-resize; }
 .sun-horizon { stroke: var(--ink-secondary); stroke-width: 1.2; }
 .sun-depth { stroke: var(--ink-tertiary); stroke-opacity: 0.45; stroke-dasharray: 3 3; }
 .sun-tick { fill: var(--ink-tertiary); font-size: var(--size-xs); font-family: var(--font-numeric); }
@@ -4019,7 +4032,8 @@ svg.scrub {
 .sun-now { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-3); }
 .sun-now-sky { width: 28px; height: 28px; border-radius: var(--radius-sm); box-shadow: 0 0 0 1px var(--line-soft) inset; flex: none; }
 .sun-now-time { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-lg); font-weight: var(--weight-bold); min-width: 3.2em; }
-.sun-now-phase { font-size: var(--size-base); color: var(--ink-primary); }
+.sun-now-phase { display: grid; font-size: var(--size-base); color: var(--ink-primary); line-height: 1.25; }
+.sun-now-phase small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sun-now-alt { margin-left: auto; font-size: var(--size-sm); color: var(--ink-secondary); font-family: var(--font-numeric); }
 .sun-note { margin: var(--space-3) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sun-times { display: grid; margin: 0; }

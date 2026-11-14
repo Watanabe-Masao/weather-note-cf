@@ -5,7 +5,7 @@ import { type ButtonHTMLAttributes, type CSSProperties, Fragment, type ReactNode
 import { dayTone } from "../../shared/holidays";
 import type { Confidence } from "../../shared/confidence";
 import { type BandMark, barLook, type DataColor, type LineDay, type LineKind, type LineLook, lineLook } from "../design/tokens";
-import { dateLabel, digitsOf, monthDay, num, weekdayOf } from "../design/format";
+import { dateLabel, digitsOf, monthDay, num, phraseBreak, weekdayOf } from "../design/format";
 
 /** A choice chip. `size="sm"` for filters inside sheets. */
 export function Chip({
@@ -125,7 +125,8 @@ export function Glyph({ name, size = "0.85em" }: { name: GlyphName; size?: strin
  * A slider (#151): a thin track, plain white thumbs, the chosen span in the colour of what it sets
  * (`className` "tone-…" sets it; none leaves the span out). One thumb or two (a range). Ticks mark
  * points of reference (基準, 日の出 …). Native range inputs, so keys and VoiceOver work; only the
- * thumbs take the finger, and a drag on it never pulls the sheet it is in.
+ * thumbs take the finger, and a drag on it never pulls the sheet it is in (data-no-sheet-drag,
+ * which ModalSheet's own touch handling honours).
  */
 export function Slider({
   min,
@@ -147,7 +148,7 @@ export function Slider({
 }) {
   const pos = (v: number) => ((Math.min(max, Math.max(min, v)) - min) / (max - min)) * 100;
   return (
-    <div className={className ? `slider ${className}` : "slider"} onPointerDown={(e) => e.stopPropagation()}>
+    <div className={className ? `slider ${className}` : "slider"} data-no-sheet-drag onPointerDown={(e) => e.stopPropagation()}>
       <span className="track" />
       {fill && <span className="fill" style={{ left: `${pos(fill[0])}%`, width: `${pos(fill[1]) - pos(fill[0])}%` }} />}
       {ticks?.map((t) => <span key={t} className="tick" style={{ left: `${pos(t)}%` }} />)}
@@ -427,8 +428,10 @@ export function GraphReadout({ title, rows, unit, live, dates }: { title: ReactN
         </small>
         <small className="ro-col">差</small>
         {rows.map((r) => {
-          // Words break only between phrases (日差しの｜明るさ, とても｜明るい), never mid-word (明｜るさ).
-          const words = (v: ReactNode) => (r.text && typeof v === "string" ? v.replace(/(の|とても|少し)(?=\S)/g, "$1\u200b") : v);
+          // Words break before their last word (日差しの｜明るさ, とても｜明るい, 日の出前後の｜空), never
+          // mid-word; at most two lines (.ro-words).
+          const words = (v: ReactNode) =>
+            r.text && typeof v === "string" ? <span className="ro-words">{phraseBreak(v)}</span> : v;
           // The unit sits with the row's name, once, so every value is a bare number and the
           // numbers of a column line up on their decimal point (a unit on some rows only moved them).
           const u = r.text || (r.a != null && typeof r.a === "object") ? "" : (r.unit ?? unit);

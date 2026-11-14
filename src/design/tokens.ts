@@ -89,9 +89,11 @@ export const LINE = {
   opacity: { target: 1, compare: 0.75 },
   /** References are this much of a value line's width. */
   referenceScale: 0.7,
-  // From the ink palette, not new colours: references in the quiet ink (a reference never outshines the
-  // comparison day it is read against, #151), set-aside lines in the disabled one.
-  reference: ink.tertiary,
+  // From the ink palette, not new colours: references in the primary ink (white: no item's colour is
+  // near it — the quiet ink was, 風速's #a9c6de), drawn at 60% so a reference never outshines the
+  // comparison day it is read against (#151); set-aside lines in the disabled one.
+  reference: ink.primary,
+  referenceOpacity: 0.6,
   dimmed: ink.disabled,
   dimmedScale: 0.7,
   dimmedOpacity: 0.8,
@@ -117,7 +119,7 @@ export function lineLook(
     stroke: dimmed ? LINE.dimmed : kind === "reference" ? LINE.reference : color,
     strokeWidth: Math.round(width * 10) / 10,
     strokeDasharray: LINE.dash[day],
-    opacity: dimmed ? LINE.dimmedOpacity : LINE.opacity[day],
+    opacity: dimmed ? LINE.dimmedOpacity : kind === "reference" ? LINE.opacity[day] * LINE.referenceOpacity : LINE.opacity[day],
   };
 }
 

@@ -44,9 +44,10 @@ const NIGHT: Partial<Record<Sky, { color: string; d: string }>> = {
 export function WeatherIcon({ text, size = 26, night = false }: { text: string | null | undefined; size?: number; night?: boolean }) {
   const sky = skyOf(text);
   if (sky === "none") return <span className="icon-none">—</span>;
-  const { color, d } = (night && NIGHT[sky]) || SKY[sky];
+  const moon = night && !!NIGHT[sky];
+  const { color, d } = (moon && NIGHT[sky]) || SKY[sky];
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label={text ?? ""} fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label={text ?? ""} data-sky={moon ? `${sky}-night` : sky} fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
       <path d={d} />
     </svg>
   );
