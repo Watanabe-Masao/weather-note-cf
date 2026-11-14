@@ -164,8 +164,17 @@ const font = {
   numeric: 'ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Hiragino Sans", sans-serif',
 } as const;
 
-/** Type scale (px). Values are larger than labels; labels never go below `xs`. */
-const size = { xs: 10, sm: 11.5, base: 13, md: 15, lg: 17, xl: 20, value: 18 } as const;
+/**
+ * Type scale (px), by role. Nothing on screen is smaller than `xs`.
+ * - xs   注記・単位・状態の札・軸の目盛り
+ * - sm   ラベル・補足・小さいチップ
+ * - base 本文・ボタン・チップ
+ * - md   値（表・読み取り）・小見出し
+ * - lg   見出し・強調する値
+ * - xl   いちばん大きい値
+ * - input 入力欄（16 未満だと iPhone が拡大するため）
+ */
+const size = { xs: 10, sm: 11.5, base: 13, md: 15, lg: 17, xl: 20, input: 16 } as const;
 const weight = { regular: 400, medium: 500, bold: 650 } as const;
 
 const space = { 1: 2, 2: 4, 3: 6, 4: 8, 5: 10, 6: 12, 7: 16, 8: 20, 9: 24 } as const;

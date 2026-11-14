@@ -137,6 +137,13 @@ with sync_playwright() as p:
     txt = lambda sel: pg.locator(sel).first.inner_text()
     title = lambda: txt(".sheet-head-title")
     no_overflow = lambda: pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
+    # Text on screen smaller than the type scale's xs (10px): none (docs/design-system.md, #151).
+    small_text = lambda: pg.evaluate("""[...document.querySelectorAll('body *')].filter(e => {
+        const r = e.getBoundingClientRect();
+        if (!r.width || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) return false;
+        if (![...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return false;
+        return parseFloat(getComputedStyle(e).fontSize) < 10;
+      }).map(e => (e.getAttribute('class') || e.tagName) + ' ' + getComputedStyle(e).fontSize + ' ' + e.textContent.trim().slice(0, 8)).slice(0, 5)""")
     def touch(kind, x, y):
         cdp.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": [] if kind == "touchEnd" else [{"x": x, "y": y}]})
     def sheet_h():
@@ -151,6 +158,7 @@ with sync_playwright() as p:
         check("A3 中央の帯", pg.locator(".center-band").count() == 1)
         check("A4 横にはみ出さない", no_overflow())
         check("A5 シートの見出し", title() == "気温の日別", title())
+        st = small_text(); check("A6 10px より小さい文字がない（表）", not st, str(st))
     step("A", a)
 
     # B. every item chip
@@ -198,6 +206,7 @@ with sync_playwright() as p:
         pg.click(".metrics .chip:nth-child(4)"); wait(600)
         check("U1 明るさと空：1本の帯（切り替えなし）、マスに空の色と段の線", pg.locator(".light-strip .seg").count() == 0 and pg.locator(".light-cells.sky i b").count() >= 48 and pg.locator(".light-cells.sky i u").count() >= 24 and no_overflow(), str(pg.locator(".light-cells.sky i b").count()))
         check("U2 読み取りに空の行", "空（" in txt(".readout-card"), txt(".readout-card"))
+        st = small_text(); check("U2b 10px より小さい文字がない（時間帯）", not st, str(st))
         pg.locator(".light-strip").scroll_into_view_if_needed(); wait(300)
         b = pg.locator(".light-trace.on").bounding_box()
         y = b["y"] + b["height"] / 2
@@ -375,6 +384,7 @@ with sync_playwright() as p:
     def j():
         pg.click(".app-head .icon-btn"); wait(600)
         check("J1 設定が開く", pg.locator(".msheet.settings").count() == 1)
+        st = small_text(); check("J1b 10px より小さい文字がない（設定）", not st, str(st))
         check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
         esc()
     step("J", j)
@@ -387,6 +397,7 @@ with sync_playwright() as p:
         md = txt(".band-map-date.center").split()[0]
         check("K0 中央の日のマップ", head.endswith("/" + md.split("/")[0] + "/" + md.split("/")[1]), f"マップ {md} / 表 {head}")
         check("K1 肌感マップが開く", pg.locator(".msheet.feel-sheet").count() == 1)
+        st = small_text(); check("K1b 10px より小さい文字がない（肌感マップ）", not st, str(st))
         mh = pg.evaluate("document.querySelector('.msheet').getBoundingClientRect().height")
         sm = pg.evaluate("parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-max'))")
         check("K2 グラフシート最大と同じ高さ", abs(mh - sm) <= 2, f"{mh:.0f} vs {sm:.0f}")
