@@ -4156,3 +4156,9 @@ svg.scrub {
 .ds-line-other .num { font-size: var(--size-base); color: var(--ink-primary); }
 .ds-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .nowrap { white-space: nowrap; }
+
+/* 慣れの比べ方（テスト） */
+.adapt-cmp-facts { display: grid; gap: var(--space-1); margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
+.adapt-cmp-facts b { color: var(--ink-primary); font-variant-numeric: tabular-nums; }
+.adapt-cmp-diff td { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.adapt-cmp-reasons { margin: 0; padding-left: 1.2em; font-size: var(--size-sm); color: var(--ink-secondary); }
