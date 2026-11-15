@@ -155,7 +155,7 @@ export function ShortHistoryBoard({ store, station, today, onClose }: { store: W
               <path d={path((h) => valueOf(h.feel))} fill="none" stroke={DATA.feel} strokeWidth={2.2} />
               {answers.map((a) => {
                 const v = valueOf(at(a.hour)?.feel);
-                return v == null ? null : <circle key={a.r.id} cx={xs(a.hour)} cy={ys(v)} r={4.5} fill="var(--surface-sheet, #1c2a3d)" stroke="var(--ink-primary)" strokeWidth={2} />;
+                return v == null ? null : <circle key={a.r.id} cx={xs(a.hour)} cy={ys(v)} r={4.5} fill="var(--surface-overlay)" stroke="var(--ink-primary)" strokeWidth={2} />;
               })}
             </svg>
             <p className="sun-test-legend">
