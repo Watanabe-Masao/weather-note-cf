@@ -4434,7 +4434,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .week-detail-row > b.tone-holiday { color: var(--day-holiday); }
 .week-detail-bar { position: relative; height: 10px; border-radius: var(--radius-xs); background: var(--line-soft); }
 .week-detail-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: var(--radius-xs); }
-.week-detail-bar em { position: absolute; top: -3px; bottom: -3px; width: 2px; border-left: 2px solid; margin-left: -1px; box-shadow: 0 0 0 1.5px var(--surface-inset); border-radius: 1px; }
+.week-detail-bar em { position: absolute; top: -3px; bottom: -3px; width: 2px; border-left: 2px solid; margin-left: -1px; box-shadow: 0 0 0 1.5px var(--surface-inset); }
 .week-detail-num { display: grid; justify-items: end; font-family: var(--font-numeric); line-height: 1.15; }
 .week-detail-num i { font-style: normal; font-size: var(--size-md); }
 .week-detail-num i small { font-size: var(--size-xs); color: var(--ink-tertiary); }
