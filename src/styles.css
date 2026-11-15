@@ -4283,3 +4283,35 @@ svg.scrub {
 .ds-hours .line-legend { margin-top: var(--space-2); }
 .mini-day { width: 100%; }
 .mini-day svg { display: block; }
+
+/* The daily graph's foot (#151 すっきり): one line of legend with ⓘ at its end (信頼度 and the notes
+   behind it), then the line switches on one row that scrolls sideways instead of wrapping. */
+.chart-key {
+  margin: var(--space-3) var(--space-3) 0;
+}
+.chart-key > p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.chart-key .line-legend {
+  margin: 0;
+}
+.chart-key .info-more {
+  display: grid;
+  gap: var(--space-1);
+}
+.chip-row.chip-row-scroll {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+  /* the last chip fades at the edge, so more to the right reads as more */
+  mask-image: linear-gradient(90deg, var(--ink-primary) calc(100% - 24px), transparent);
+}
+.chip-row.chip-row-scroll::-webkit-scrollbar {
+  display: none;
+}
+.chip-row.chip-row-scroll > * {
+  flex: none;
+}
