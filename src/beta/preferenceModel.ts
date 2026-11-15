@@ -14,9 +14,8 @@
 // yet (P4): fitting and evaluation, and when an index may be shown, are decided separately.
 
 import { bfgs, burstWeights, drawsOf, laplace, type ModelFit, placeTempOf } from "./comfort";
-import { inputQuality } from "./quality";
 import { PREFERENCE_SCORE, type PreferenceScore } from "./preference";
-import type { Report } from "./reports";
+import { type Report, teaches } from "./reports";
 
 export type PreferenceKind = "thermal" | "drink";
 
@@ -145,7 +144,8 @@ export function preferenceLearning(obs: PrefObs[], fit: PrefFit, at: PrefPredict
 
 /** The answers of one question in a person's reports, ready for the model (trainable reports only). */
 export function preferenceObservations(reports: Report[], kind: PreferenceKind): PrefObs[] {
-  const answered = reports.filter((r) => !r.deleted && inputQuality(r).trainable && (kind === "thermal" ? r.thermalPreference : r.drinkPreference));
+  // The same reports as the feeling model learns from (reports.ts teaches).
+  const answered = reports.filter((r) => teaches(r) && (kind === "thermal" ? r.thermalPreference : r.drinkPreference));
   // Only reports the model can read join runs (as observationsOf does for the feeling model).
   const used = answered.filter((r) => placeTempOf(r) != null && r.baseline?.value != null);
   const w = burstWeights(used.map((r) => Date.parse(r.at)));

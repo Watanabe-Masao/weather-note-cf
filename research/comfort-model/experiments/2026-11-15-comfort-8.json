@@ -1,0 +1,47 @@
+{
+  "id": "2026-11-15-comfort-8",
+  "date": "2026-11-15",
+  "modelVersion": "comfort-8",
+  "scaleVersion": 4,
+  "commit": "model/feel1-out",
+  "dataset": {
+    "id": "none-feel1s",
+    "hash": "sha256:none",
+    "kind": "synthetic",
+    "period": null,
+    "n": 0,
+    "excluded": {
+      "feel-1": "11/13 18時〜11/14 0時台の、肌感が feel-1 で保存された記録"
+    }
+  },
+  "seed": 0,
+  "settings": {
+    "prior": "PRIOR m0 18±4（最近の基準 15℃ のとき）, h 3, g 4.5 (log ±0.5), slope 0.7（従来版の季節の動き shared/season.ts と同じ。#111）",
+    "optimiser": "BFGS 200 iterations, Laplace (Cholesky), 200 draws per model（comfort-6 と同じ）",
+    "alpha": "0.8 until 30 reports, then chosen by M2 evidence（comfort-6 と同じ）",
+    "adapt": "aLim の頭打ち 5〜30℃（以前 10〜30）",
+    "scale": "SCALE_VERSION 4 の答えで、肌感が feel-1s（今の式）で保存された記録だけで学ぶ（reports.ts teaches）。時間帯ごとの数・学習した日数も同じ記録で数える"
+  },
+  "compared": [
+    "comfort-7（feel-1 と feel-1s の記録が混ざって学習）"
+  ],
+  "results": {
+    "rps": null,
+    "logLoss": null,
+    "skill": null,
+    "calibration": null,
+    "notes": "学習に使う記録を絞るだけで、モデルの形・出発点は comfort-7 と同じ。合成の記録（すべて feel-1s）では答えは変わらない（golden の数値が同じ）。実データで外れる件数は研究用の分析で数える"
+  },
+  "checks": {
+    "mathematical": true,
+    "recovery": true,
+    "performance": "実データでの比較なし（外れる記録は数時間分）",
+    "calibration": "実データがないため未評価",
+    "stability": true,
+    "compatibility": true,
+    "contract": true
+  },
+  "decision": "adopted",
+  "reason": "学習に使う場所の肌感 E は、記録したときの式で保存されている。11/13 18時〜11/14 0時台の記録は feel-1（日なたは日射の実測か予報）で、それ以降の feel-1s（日照から出す日射）と物差しが違うため、学習から外す。独立レビュー（2026-11-15、#189）の指摘",
+  "approvedBy": "渡辺正雄（2026-11-15、feel-1 の記録を学習から外すことを承認。D10）"
+}

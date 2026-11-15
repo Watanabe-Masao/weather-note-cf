@@ -1,5 +1,5 @@
 {
- "modelVersion": "comfort-7",
+ "modelVersion": "comfort-8",
  "fits": [
   {
    "id": "M0",
@@ -412,7 +412,7 @@
     0.006476,
     0.184625
    ],
-   "version": "comfort-7"
+   "version": "comfort-8"
   },
   "night": {
    "probs": [
@@ -587,7 +587,7 @@
     0,
     0.202133
    ],
-   "version": "comfort-7"
+   "version": "comfort-8"
   },
   "hot": {
    "probs": [
@@ -803,7 +803,7 @@
     0.006476,
     0.184625
    ],
-   "version": "comfort-7"
+   "version": "comfort-8"
   },
   "missing": {
    "probs": [
@@ -948,7 +948,7 @@
     0,
     0.317402
    ],
-   "version": "comfort-7"
+   "version": "comfort-8"
   }
  },
  "empty": {

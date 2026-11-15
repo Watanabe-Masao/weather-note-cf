@@ -2,6 +2,7 @@
 // scripts without real data:  npm run fixture  → raw/ds-fixture.json
 import { MODEL_VERSION } from "../../src/beta/comfort";
 import { type Report, SCALE_VERSION } from "../../src/beta/reports";
+import { FEEL_TRANSFORM } from "../../shared/feel";
 import type { Export } from "./transform";
 
 const snapshot = (hour: number, temp: number, from: "amedas" | "forecast" = "amedas") => ({
@@ -16,7 +17,7 @@ const snapshot = (hour: number, temp: number, from: "amedas" | "forecast" = "ame
   shadeTemp: temp - 1,
   forecastSky: "晴れ",
   forecastSkyCode: 1,
-  transform: "feel-1",
+  transform: FEEL_TRANSFORM,
 });
 
 export function makeReport(id: string, hour: number, temp: number, y: number, over: Partial<Report> = {}): Report {

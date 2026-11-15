@@ -1,3 +1,4 @@
+import { FEEL_TRANSFORM } from "../../shared/feel";
 import { describe, expect, it } from "vitest";
 import { adoptionOn, compareOn, compareRolling, compareStored, eligibleOf, LOG_FLOOR, logLoss, pairOf, type Prediction } from "../../src/beta/engine/compareAll";
 import { sharedPrediction } from "../../src/beta/engine/checks";
@@ -23,7 +24,7 @@ function reports(n: number, seed = 2): Report[] {
       sensation: y,
       scaleVersion: SCALE_VERSION,
       exposure: "shade",
-      snapshot: { shadeTemp: e, sunTemp: e } as never,
+      snapshot: { shadeTemp: e, sunTemp: e, transform: FEEL_TRANSFORM } as never,
       baseline: { value: 14 + (i % 30) / 3, alpha: 0.8 } as never,
       comfort: { probs: P(e), mode: 0, n: i, models } as never,
       updatedAt: 1,
