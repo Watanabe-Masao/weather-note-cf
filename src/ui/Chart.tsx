@@ -235,7 +235,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   if (lo !== 0) lo -= pad;
   hi = metric.max ?? hi + pad;
   // Round ticks, widened to whole steps (a fixed top such as 100% stays).
-  const nice = niceTicks(lo, hi, 5);
+  const nice = niceTicks(lo, hi, range ? 8 : 5);
   if (metric.max == null) hi = nice.hi;
   lo = metric.zero ? Math.max(0, nice.lo) : nice.lo;
   const ticks = nice.ticks.filter((t) => t >= lo - 1e-9 && t <= hi + 1e-9);
@@ -339,18 +339,15 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           ? series.map(({ s, compare, points }) =>
               points.map((p, i) =>
                 p.v == null ? null : (
-                  <rect
+                  <path
                     key={`${s.key}-${compare}-${i}`}
-                    x={p.x + (compare ? 1 : -step * 0.32)}
-                    y={yOf(p.v)}
-                    width={step * 0.3}
-                    height={Math.max(0, yOf(0) - yOf(p.v))}
+                    d={roundTop(p.x + (compare ? 1 : -step * 0.32), yOf(p.v), step * 0.3, Math.max(0, yOf(0) - yOf(p.v)))}
                     {...barLook(compare ? "compare" : "target", COLORS[s.tone])}
                   />
                 ),
               ),
             )
-          : series.filter(({ s }) => !(range && (s.key === "max" || s.key === "min" || s.key === "temp"))).map(({ s, compare, points }) =>
+          : series.filter(({ s }) => !(range && (s.key === "max" || s.key === "min" || s.key === "temp" || s.key === "feel"))).map(({ s, compare, points }) =>
               points.slice(1).map((p, i) => {
                 const a = points[i];
                 if (a.v == null || p.v == null) return null;
@@ -625,12 +622,12 @@ function RangeBars({
             {tMax != null && tMin != null && <rect {...capsule(xT, tMax, tMin)} fill={`url(#range-${id})`} />}
             {mean != null && <line x1={xT - bw / 2 - 2} x2={xT + bw / 2 + 2} y1={yOf(mean)} y2={yOf(mean)} stroke={LINE_INK} strokeWidth={2.4} strokeLinecap="round" />}
             {showMax && tMax != null && (
-              <text x={xT} y={yOf(tMax) - 5} textAnchor="middle" className="range-label" fill={COLORS.hot}>
+              <text x={xT + bw / 2} y={yOf(tMax) - 5} textAnchor="end" className="range-label" fill={COLORS.hot}>
                 {tMax.toFixed(1)}
               </text>
             )}
             {showMin && tMin != null && (
-              <text x={xT} y={Math.max(yOf(tMin), yOf(tMax ?? tMin) + bw) + 13} textAnchor="middle" className="range-label" fill={COLORS.cold}>
+              <text x={xT + bw / 2} y={Math.max(yOf(tMin), yOf(tMax ?? tMin) + bw) + 13} textAnchor="end" className="range-label" fill={COLORS.cold}>
                 {tMin.toFixed(1)}
               </text>
             )}
@@ -642,4 +639,14 @@ function RangeBars({
 }
 
 const LINE_INK = "var(--ink-primary)";
+
+/**
+ * 見本（sample/texture）: an amount bar (0 から積み上げる) with only its top rounded — the bottom stays
+ * flat on the 0 line, so the length from 0 still reads. A bar too short for the round is drawn square.
+ */
+function roundTop(x: number, y: number, w: number, h: number): string {
+  const r = Math.min(w / 2, h);
+  if (r <= 0) return `M${x},${y}h${w}v${h}h${-w}Z`;
+  return `M${x},${y + h}V${y + r}A${r},${r} 0 0 1 ${x + r},${y}H${x + w - r}A${r},${r} 0 0 1 ${x + w},${y + r}V${y + h}Z`;
+}
 
