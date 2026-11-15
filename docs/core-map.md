@@ -17,6 +17,10 @@ flowchart LR
     adaptMean["慣れ（単純平均）<br><code>adapt.long.mean@1</code> ℃<br><small>数：days・minDays</small>"]
     adaptEma["慣れ（重み付きの平均）<br><code>adapt.long.ema@1</code> ℃<br><small>数：alpha・days・minCoverage</small>"]
   end
+  subgraph 判定
+    seasonShift["境目のずれ（季節）<br><code>judge.shift.season@1</code> ℃<br><small>数：slope・lo・hi・ref</small>"]
+    level7["7段の判定<br><code>judge.level7@1</code> 段<br><small>数：b1・b2・b3・b4・b5・b6</small>"]
+  end
   wind --> windPerson
   windHeight --> windPerson
   temp --> feelShade
@@ -24,4 +28,8 @@ flowchart LR
   windPerson --> feelShade
   dayMeans -. 前の日から .-> adaptMean
   dayMeans -. 前の日から .-> adaptEma
+  adaptMean == どれか ==> seasonShift
+  adaptEma == どれか ==> seasonShift
+  feelShade == どれか ==> level7
+  seasonShift == どれか ==> level7
 ```

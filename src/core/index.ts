@@ -19,3 +19,8 @@ export { type AnyFormula, type Run, type Series, type Shortage } from "./estimat
 export { coreMapDoc, edges, FORMULAS, MATERIAL_INPUTS, mermaid } from "./map";
 export { dayMeanSeries } from "./material/inputs";
 export { adaptationEma, adaptationMean } from "./plain/adaptation";
+export { type ComparedDay, type Comparison, compareAdaptation, type ComparisonSets, type DayOutcome, type HourOutcome } from "./compare/adaptation";
+export { level7 } from "./judge/level7/formula";
+export { LEVEL_NAMES, level7Settings } from "./judge/level7/params";
+export { seasonShift } from "./judge/season-shift/formula";
+export { SEASON_SHIFT_STANDARD } from "./judge/season-shift/params";
