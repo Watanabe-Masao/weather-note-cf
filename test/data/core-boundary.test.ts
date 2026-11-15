@@ -31,6 +31,29 @@ describe("src/core stays inside its walls", () => {
     });
 });
 
+// 計算式とパラメータを分ける (principles 5): outside params.ts and constants.ts, the only numbers
+// written in src/core are 0 and 1. Every other number has a name, a unit and a basis there.
+const NUMBER_FILES = /(^|\/)(params|constants)\.ts$/;
+const code = (text: string) =>
+  text
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/\/\/.*$/gm, "")
+    .replace(/`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/g, '""');
+
+describe("no magic numbers in formulas", () => {
+  for (const file of files(CORE).filter((f) => !NUMBER_FILES.test(f)))
+    it(relative(ROOT, file), () => {
+      const numbers = [...code(readFileSync(file, "utf8")).matchAll(/(?<![\w.$])\d[\d_]*(?:\.\d+)?(?:e[+-]?\d+)?/gi)].map((m) => m[0]);
+      expect(numbers.filter((n) => +n !== 0 && +n !== 1), "数は params.ts か constants.ts に名前を付けて置く").toEqual([]);
+    });
+
+  it("the check finds a number in code and not in comments or strings", () => {
+    const found = (t: string) => [...code(t).matchAll(/(?<![\w.$])\d[\d_]*(?:\.\d+)?(?:e[+-]?\d+)?/gi)].map((m) => m[0]);
+    expect(found("const x = a * 0.7; // 30日\nconst s = \"24時\";")).toEqual(["0.7"]);
+    expect(found("x[0] + x1 - 1")).toEqual(["0", "1"]);
+  });
+});
+
 // 学習なし版と学習あり版 (principles 0): only learned/ may reach learned/. The material, the
 // estimates and the plain version never read the learned version or the answers.
 describe("the plain version does not lean on learning", () => {
