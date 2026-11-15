@@ -98,7 +98,7 @@ export interface Comparison {
   hitsB: number;
   /** Mean of RPS(B) − RPS(A) over the same answers: below 0, B is better. */
   diff: number;
-  /** Day-block bootstrap interval of `diff`; null with fewer than two days. */
+  /** Day-block bootstrap interval of `diff`; null with fewer than BOOTSTRAP.minDays days. */
   interval: [number, number] | null;
 }
 
@@ -111,7 +111,7 @@ export function compareScores(scored: readonly Scored[], a: string, b: string): 
   both.forEach((s, i) => byDay.set(s.date, [...(byDay.get(s.date) ?? []), d[i]]));
   const blocks = [...byDay.values()];
   let interval: [number, number] | null = null;
-  if (blocks.length > 1) {
+  if (blocks.length >= BOOTSTRAP.minDays) {
     const next = rng(SEED);
     const means: number[] = [];
     for (let r = 0; r < BOOTSTRAP.resamples; r++) {
@@ -133,4 +133,19 @@ export function compareScores(scored: readonly Scored[], a: string, b: string): 
     diff: mean(d),
     interval,
   };
+}
+
+/**
+ * The answers after a learned predictor's warm-up: those with at least `minAnswers` earlier answers
+ * it could use (before that it says only its prior). Comparisons that ask whether learning helped
+ * are made here; the warm-up answers would only compare priors.
+ */
+export function afterWarmUp(scored: readonly Scored[], predictorId: string, minAnswers: number): Scored[] {
+  let usable = 0;
+  const out: Scored[] = [];
+  for (const s of scored) {
+    if (usable >= minAnswers) out.push(s);
+    if (s.by[predictorId]) usable++;
+  }
+  return out;
 }

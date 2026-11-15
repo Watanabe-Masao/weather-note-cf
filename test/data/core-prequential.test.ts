@@ -3,7 +3,7 @@
 
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { type Case, compareScores, plainLevelPredictor, type PlainInputs, type Predictor, prequential, rps, STEPS } from "../../src/core";
+import { afterWarmUp, BOOTSTRAP, type Case, compareScores, plainLevelPredictor, type PlainInputs, type Predictor, prequential, rps, STEPS } from "../../src/core";
 import { climatologyPredictor } from "../../src/core/learned";
 
 const oneHot = (k: number) => Array.from({ length: STEPS }, (_, i) => (i === k ? 1 : 0));
@@ -118,8 +118,24 @@ describe("comparing two on the same answers", () => {
     expect(compareScores(s, climatologyPredictor.id, plainLevelPredictor.id)).toEqual(compareScores(s, climatologyPredictor.id, plainLevelPredictor.id));
   });
 
-  it("with a single day there is no interval", () => {
-    const s = prequential(cases([1, 2]), [plainLevelPredictor, climatologyPredictor]);
-    expect(compareScores(s, climatologyPredictor.id, plainLevelPredictor.id).interval).toBeNull();
+  it("with fewer days than BOOTSTRAP.minDays there is no interval (2 days once looked decisive)", () => {
+    const few = (BOOTSTRAP.minDays - 1) * 2; // two answers a day
+    const s = prequential(cases(Array.from({ length: few }, (_, i) => i % STEPS)), [plainLevelPredictor, climatologyPredictor]);
+    const c = compareScores(s, climatologyPredictor.id, plainLevelPredictor.id);
+    expect(c.days).toBe(BOOTSTRAP.minDays - 1);
+    expect(c.interval).toBeNull();
+  });
+});
+
+describe("the learned version's warm-up", () => {
+  it("leaves out the answers before it had minAnswers earlier ones it could use", () => {
+    // 5 answers, the 2nd not usable by the plain judge: with 2 needed, the warm-up is c0, c1, c2
+    const s = prequential(cases([1, 2, 3, 4, 5], [1, null, 3, 4, 5]), [plainLevelPredictor]);
+    expect(afterWarmUp(s, plainLevelPredictor.id, 2).map((x) => x.id)).toEqual(["c3", "c4"]);
+  });
+
+  it("with fewer answers than the warm-up, nothing is left to compare (the first real run: 5 of 10)", () => {
+    const s = prequential(cases([1, 2, 3, 4, 5]), [plainLevelPredictor]);
+    expect(afterWarmUp(s, plainLevelPredictor.id, 10)).toEqual([]);
   });
 });

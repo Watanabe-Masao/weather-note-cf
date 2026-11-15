@@ -5,7 +5,17 @@ export const STEPS = 7;
 
 /** The block bootstrap of the differences: days are the blocks (1–3 answers a day: days, not
  *  answers, are the information). Resamples, and the interval's two tails. */
-export const BOOTSTRAP = { resamples: 2000, lower: 0.025, upper: 0.975 } as const;
+export const BOOTSTRAP = {
+  resamples: 2000,
+  lower: 0.025,
+  upper: 0.975,
+  /**
+   * The fewest days an interval is given from (仮). With few days the resampling can only rebuild a
+   * handful of orders (2 days: 3), so the interval comes out far too narrow: 2 days once gave an
+   * interval wholly below 0 for 5 answers (2026-11-15, the first real run).
+   */
+  minDays: 10,
+} as const;
 
 /** A fixed seed, so the same answers give the same interval every time (reproducible). */
 export const SEED = 20261115;

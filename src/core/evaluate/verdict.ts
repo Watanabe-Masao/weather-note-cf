@@ -5,7 +5,7 @@
 import type { Comparison } from "./prequential";
 
 export type Verdict =
-  /** Fewer than two days: no interval yet. */
+  /** Too few days (BOOTSTRAP.minDays): no interval yet. */
   | "tooFew"
   /** The model does not beat the answers' shares alone: nothing learned from the weather yet. */
   | "noWeather"
