@@ -13,10 +13,8 @@ export function modelMap(c: Catalog): string {
     return ids.get(id)!;
   };
   const families = [...new Set(c.parts.map((p) => p.family))];
-  const weather = c.sources.filter((s) => s.kind === "気象" || s.kind === "計算");
-  const mer: string[] = ["flowchart LR", "  subgraph 入力"];
-  for (const s of weather) mer.push(`    ${nid(s.id)}["${s.label}${s.kind !== "気象" || (s.record && s.forecast) ? "" : s.record ? "<br>（実績だけ）" : "<br>（予報だけ）"}"]`);
-  mer.push(`    ${nid("答え")}["人の答え"]`, `    ${nid("設定")}["設定"]`, "  end");
+  // Parts and what reads them; the sources are in the tables (drawn too, the picture is a thicket).
+  const mer: string[] = ["flowchart LR", `  ${nid("答え")}[["人の答え"]]`];
   for (const f of families) {
     mer.push(`  subgraph ${f}`);
     for (const p of c.parts.filter((x) => x.family === f)) mer.push(`    ${nid(p.id)}["${p.id}${p.status === "使用中" ? "" : `<br>（${p.status}）`}"]`);
@@ -27,19 +25,23 @@ export function modelMap(c: Catalog): string {
   mer.push("  end");
   const node = (id: string) => {
     const s = c.sources.find((x) => x.id === id);
-    return s?.kind === "答え" ? nid("答え") : s?.kind === "設定" ? nid("設定") : nid(id);
+    return s?.kind === "答え" ? nid("答え") : s ? null : nid(id);
   };
   const edges = new Set<string>();
-  for (const p of c.parts) for (const i of p.inputs) edges.add(`  ${node(i)} --> ${nid(p.id)}`);
+  const edge = (from: string, to: string) => {
+    const n = node(from);
+    if (n) edges.add(`  ${n} --> ${to}`);
+  };
+  for (const p of c.parts) for (const i of p.inputs) edge(i, nid(p.id));
   const into = (target: string, keys: string[]) => {
     for (const k of keys) {
       const d = c.drivers.find((x) => x.key === k);
-      for (const f of [...(d?.learn.from ?? []), ...(d?.predict?.from ?? [])]) edges.add(`  ${node(f)} --> ${target}`);
+      for (const f of [...(d?.learn.from ?? []), ...(d?.predict?.from ?? [])]) edge(f, target);
     }
   };
   into(nid("β"), [...new Set(c.recipes.filter((r) => r.family === "温冷感").flatMap((r) => [...r.base, ...Object.values(r.roles).flat()]))] as string[]);
   into(nid("選好"), [...new Set(c.recipes.filter((r) => r.family === "選好").flatMap((r) => r.base))]);
-  for (const r of c.rules) for (const p of r.reads) edges.add(`  ${node(p)} --> ${nid(`rule:${r.id}`)}`);
+  for (const r of c.rules) for (const p of r.reads) edge(p, nid(`rule:${r.id}`));
   mer.push(...edges);
 
   const out: string[] = [];
@@ -55,7 +57,7 @@ export function modelMap(c: Catalog): string {
     "- S1（今）：登録は今のコードを説明しているだけ。S2 で計算そのものを部品に移す",
     "",
   );
-  out.push("## 全体の流れ", "", "```mermaid", ...mer, "```", "");
+  out.push("## 全体の流れ", "", "部品と、それを読む判定（入力からの線は省き、下の表に書く）。", "", "```mermaid", ...mer, "```", "");
 
   out.push("## 入力", "", "| ID | 中身 | 種類 | 実績 | 予報 | メモ |", "|---|---|---|---|---|---|");
   for (const s of c.sources) out.push(`| \`${s.id}\` | ${s.label} | ${s.kind} | ${s.kind === "気象" ? (s.record ? "○" : "—") : ""} | ${s.kind === "気象" ? (s.forecast ? "○" : "—") : ""} | ${cell(s.note)} |`);
