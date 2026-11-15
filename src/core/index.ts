@@ -44,3 +44,4 @@ export { BOOTSTRAP, SEED, STEPS } from "./evaluate/constants";
 export { type Case, type Comparison as ScoreComparison, compareScores, type Fitted, type Forecast, type Predictor, prequential, rps, type Scored } from "./evaluate/prequential";
 export { type PlainInputs, plainLevelPredictor } from "./plain/predictor";
 export { caseInputs, type CaseInputs, type Place } from "./plain/caseInputs";
+export { type Verdict, verdict } from "./evaluate/verdict";

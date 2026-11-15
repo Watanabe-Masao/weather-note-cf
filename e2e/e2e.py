@@ -588,6 +588,21 @@ with sync_playwright() as p:
         esc(); esc()
     step("AS", as_)
 
+    # AL. 学習あり版を比べる（テスト）: one step ahead on the person's answers (#189, #117)
+    def al():
+        pg.click(".app-head .icon-btn"); calm()
+        pg.locator(".msheet.settings button", has_text="学習あり版を比べる").click(); calm()
+        check("AL1 学習あり版を比べるが開く", pg.locator(".msheet.learned-cmp").count() == 1)
+        t = txt(".learned-cmp .history-cmp-facts")
+        check("AL2 要約に答えの件数", "答え" in t and "件" in t, t)
+        b = pg.locator(".learned-cmp .btn.primary")
+        check("AL3 答えがないうちは［比べる］を押せない", b.count() == 1 and b.is_disabled(), t)
+        st = small_text(); check("AL4 11px より小さい文字がない（学習あり版を比べる）", not st, str(st))
+        layout_ok("AL5", "学習あり版を比べる")
+        buttons_ok("AL6", "学習あり版を比べる", 1)
+        esc(); esc()
+    step("AL", al)
+
     # R. 記録: the save button stays in view and names what is missing (#151 操作の体系)
     def rr():
         pg.click(".head-report"); calm()
