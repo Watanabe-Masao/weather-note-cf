@@ -4,7 +4,8 @@
 // b_k the settings' boundaries, shift the plain seasonal shift (long history L1), F the 肌感 at the
 // place answered, S the short history. Only the intercept moves (S1); the slope — the spread s —
 // is learned once for all hours. `base` learns a₀ and s alone: S1 must beat it, not only the plain
-// version, for the short history to be said to matter.
+// version, for the short history to be said to matter. `history: "L2"` reads the shift from the long
+// history L2 instead of L1 — the same model with only that swapped (#208-3).
 
 import { STEPS } from "../evaluate/constants";
 import type { Case, Predictor } from "../evaluate/prequential";
@@ -16,8 +17,10 @@ import { ORDINAL_FIT } from "./params";
 export interface OrdinalInputs {
   /** 肌感 at the place answered. */
   feel: Estimate;
-  /** The plain seasonal shift of the boundaries. */
+  /** The plain seasonal shift of the boundaries (long history L1). */
   shift: Estimate;
+  /** The same shift from the long history L2: read instead when `history` is "L2". */
+  shiftL2?: Estimate;
   /** The short history S (same place). */
   short: Estimate;
 }
@@ -31,10 +34,11 @@ function chances(b: readonly number[], shift: number, feel: number, delta: numbe
   return Array.from({ length: STEPS }, (_, k) => (k < STEPS - 1 ? cum[k] : 1) - (k > 0 ? cum[k - 1] : 0));
 }
 
-export function ordinalPredictor(o: { id: string; thresholds: readonly number[]; useShort: boolean }): Predictor<OrdinalInputs> {
+export function ordinalPredictor(o: { id: string; thresholds: readonly number[]; useShort: boolean; history?: "L1" | "L2" }): Predictor<OrdinalInputs> {
   const v = ORDINAL_FIT.values;
   const read = (x: OrdinalInputs) => {
-    const f = num(x.feel), sh = num(x.shift), st = num(x.short);
+    const f = num(x.feel), st = num(x.short);
+    const sh = o.history === "L2" ? (x.shiftL2 ? num(x.shiftL2) : null) : num(x.shift);
     if (f == null || sh == null || (o.useShort && st == null)) return null;
     return { f, sh, d: o.useShort ? f - st! : 0 };
   };

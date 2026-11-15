@@ -7,25 +7,16 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { stationLatLon } from "../../shared/sunTimes";
-import { type Report, SCALE_VERSION } from "../beta/reports";
+import { SCALE_VERSION } from "../beta/reports";
 import { useReports } from "../beta/useReports";
-import { afterWarmUp, BOOTSTRAP, type Case, type CaseInputs, caseInputs, compareScores, dayOf, hourOf, plainLevelPredictor, type Predictor, prequential, type ScoreComparison, type Verdict, verdict } from "../core";
+import { afterWarmUp, BOOTSTRAP, type CaseInputs, compareScores, plainLevelPredictor, type Predictor, prequential, type ScoreComparison, type Verdict, verdict } from "../core";
 import { climatologyPredictor, ORDINAL_FIT, ordinalPredictor } from "../core/learned";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { FeelContext } from "./FeelBar";
 import { Button, SectionHead } from "./kit";
 import { ModalSheet } from "./ModalSheet";
-
-/** Days of the long history read before each answer (the plain shift's 30-day window). */
-const HISTORY_DAYS = 30;
-const SENSATION_OFFSET = 3; // sensation −3…3 → step 0…6
-
-function placeOf(r: Report): { date: string; hour: number } {
-  if (r.snapshot) return { date: r.snapshot.date, hour: r.snapshot.hour };
-  const jst = new Date(Date.parse(r.at) + 9 * 3_600_000);
-  return { date: jst.toISOString().slice(0, 10), hour: jst.getUTCHours() + 1 };
-}
+import { casesFromAnswers, countedAnswers, HISTORY_DAYS } from "./learnedCases";
 
 const f3 = (v: number) => (Number.isFinite(v) ? v.toFixed(3) : "—");
 const signed3 = (v: number) => (Number.isFinite(v) ? `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(3)}` : "—");
@@ -36,13 +27,21 @@ const VERDICT: Record<Verdict, string> = {
   hurts: "S1 の方が外れが大きい：短期の履歴の項は、この答えでは邪魔になっています。",
   unclear: "効いたとは言えません：差の幅が 0 をまたいでいます。",
 };
+/** L1 against L2: the same rule, read as a swap rather than an added part. */
+const HISTORY_VERDICT: Record<Verdict, string> = {
+  tooFew: "まだ言えません：答えが足りません。",
+  noWeather: "まだ言えません：L2 を使った予測も「答えの割合だけ」に勝っていないので、天気から学べているとは言えません。",
+  helps: "L2 の方がよい：外れが小さく、差の幅もすべて 0 より下です。",
+  hurts: "L1 の方がよい：L2 の方が外れが大きく、差の幅もすべて 0 より上です。",
+  unclear: "どちらとも言えません：差の幅が 0 をまたいでいます。",
+};
 const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : "—");
 
 export function LearnedCompareBoard({ store, station, onClose }: { store: WeatherStore | null; station: string; onClose: () => void }) {
   const feel = useContext(FeelContext);
   const reports = useReports();
   const answers = useMemo(
-    () => (reports ?? []).filter((r) => r.station === station && (r.scaleVersion ?? 1) === SCALE_VERSION).map((r) => ({ r, ...placeOf(r) })),
+    () => countedAnswers(reports ?? [], station),
     [reports, station],
   );
   const otherScale = (reports ?? []).filter((r) => r.station === station && (r.scaleVersion ?? 1) !== SCALE_VERSION).length;
@@ -70,6 +69,7 @@ export function LearnedCompareBoard({ store, station, onClose }: { store: Weathe
       plainLevelPredictor,
       climatologyPredictor,
       ordinalPredictor({ id: "learned.ordinal.base", thresholds: feel.thresholds, useShort: false }),
+      ordinalPredictor({ id: "learned.ordinal.base-l2", thresholds: feel.thresholds, useShort: false, history: "L2" }),
       ordinalPredictor({ id: "learned.ordinal.s1", thresholds: feel.thresholds, useShort: true }),
     ],
     [feel.thresholds],
@@ -79,13 +79,7 @@ export function LearnedCompareBoard({ store, station, onClose }: { store: Weathe
     setBusy(true);
     // Let the button show it is working before the long loop.
     setTimeout(() => {
-      const hoursOf = (d: string) => Array.from({ length: 24 }, (_, i) => store?.getHours(station, d).rows.find((r) => r.n === i + 1)).map((r) => (r ? hourOf(r, station) : null)).map((h) => (h && h.date === d ? h : null));
-      const cases: Case<CaseInputs>[] = answers.map(({ r, date, hour }) => {
-        const hours = [...hoursOf(addDays(date, -1)), ...hoursOf(date)];
-        const before = Array.from({ length: HISTORY_DAYS }, (_, i) => store?.getDay(station, addDays(date, -(i + 1))).row).map((row) => (row ? dayOf(row, station) : null));
-        const place = r.exposure === "sun" || r.exposure === "shade" || r.exposure === "mixed" ? r.exposure : null;
-        return { id: r.id, at: Date.parse(r.at), date, answer: r.sensation + SENSATION_OFFSET, inputs: caseInputs(hours, 24 + hour - 1, before, place, site, feel, feel.thresholds) };
-      });
+      const cases = casesFromAnswers(answers, station, { hours: (d) => store?.getHours(station, d).rows ?? [], day: (d) => store?.getDay(station, d).row }, site, feel);
       const scored = prequential(cases, predictors);
       setRun({ scored, used: cases.filter((c) => "value" in c.inputs.feel).length, noFeel: cases.filter((c) => !("value" in c.inputs.feel)).length });
       setBusy(false);
@@ -109,10 +103,14 @@ export function LearnedCompareBoard({ store, station, onClose }: { store: Weathe
   const s1VsBase: ScoreComparison | null = run ? compareScores(learned, "learned.ordinal.base", "learned.ordinal.s1") : null;
   // Learned anything from the weather at all? Only if S1 beats the answers' shares alone (principles 7).
   const s1VsShares: ScoreComparison | null = run ? compareScores(learned, climatologyPredictor.id, "learned.ordinal.s1") : null;
+  // L1 or L2 (#208-3): the same model with only the long history swapped, L1 as A, L2 as B.
+  const l2VsL1: ScoreComparison | null = run ? compareScores(learned, "learned.ordinal.base", "learned.ordinal.base-l2") : null;
+  const l2VsShares: ScoreComparison | null = run ? compareScores(learned, climatologyPredictor.id, "learned.ordinal.base-l2") : null;
   const LABEL: Record<string, string> = {
     [plainLevelPredictor.id]: "学習なし版（段）",
     [climatologyPredictor.id]: "答えの割合だけ",
-    "learned.ordinal.base": "順序 base",
+    "learned.ordinal.base": "順序 base（L1）",
+    "learned.ordinal.base-l2": "順序 base（L2）",
     "learned.ordinal.s1": "順序 S1（短期の履歴）",
   };
   const interval = (c: ScoreComparison | null) => (c?.interval ? `${signed3(c.interval[0])}〜${signed3(c.interval[1])}` : "—");
@@ -164,6 +162,21 @@ export function LearnedCompareBoard({ store, station, onClose }: { store: Weathe
               </p>
             )}
 
+            {l2VsL1 && l2VsShares && (
+              <>
+                <SectionHead title="長期の気温履歴は L1 か L2 か（base の比べ合い）" />
+                <p className="learned-verdict">
+                  {HISTORY_VERDICT[verdict(l2VsL1, l2VsShares)]}
+                  <small>
+                    L2 − L1：{signed3(l2VsL1.diff)}（幅 {interval(l2VsL1)}）・{l2VsL1.n} 件・{l2VsL1.days} 日
+                  </small>
+                  <small>
+                    L2 − 答えの割合だけ：{signed3(l2VsShares.diff)}（幅 {interval(l2VsShares)}）
+                  </small>
+                </p>
+              </>
+            )}
+
             <SectionHead title="予測ごとの点" />
             <div className="sun-test-table">
               <table>
@@ -189,7 +202,7 @@ export function LearnedCompareBoard({ store, station, onClose }: { store: Weathe
                 </tbody>
               </table>
             </div>
-            <p className="set-help">どの行も、学習の慣らし（最初の {MIN} 件）の後で、4つの予測がそろって点を付けられた同じ答え（{common.length} 件）の上。差は「その予測 − 学習なし版」。マイナスならその予測の方がよい。幅は日を単位にした95%の範囲で、答えが少ないうちは広くなります。</p>
+            <p className="set-help">どの行も、学習の慣らし（最初の {MIN} 件）の後で、{predictors.length}つの予測がそろって点を付けられた同じ答え（{common.length} 件）の上。差は「その予測 − 学習なし版」。マイナスならその予測の方がよい。幅は日を単位にした95%の範囲で、答えが少ないうちは広くなります。</p>
           </>
         )}
       </div>
