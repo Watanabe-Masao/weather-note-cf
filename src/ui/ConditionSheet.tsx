@@ -28,7 +28,7 @@ import {
 import { monthDay, num, weekdayOf, yearMark } from "../design/format";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
-import { DayLabel, Segmented, Slider } from "./kit";
+import { DayLabel, SectionHead, Segmented, Slider } from "./kit";
 import { ModalSheet } from "./ModalSheet";
 
 interface Props {
@@ -272,14 +272,20 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
       </div>
 
       <div className="cond-result">
-        <p className="cond-count">
-          合う日 <b className="num">{result.matches.length}</b> 日
+        {/* The result under its own head (#151), the count in it; while fetching, the progress on its right. */}
+        <SectionHead
+          title={
+            <span className="cond-count">
+              合う日 <b className="num">{result.matches.length}</b> 日
+            </span>
+          }
+        >
           {loading && (
-            <span className="loading">
+            <span className="section-note loading">
               取得中 {result.loaded}/{result.total}日{result.hoursWanted.length > 0 && `・時間別 残り${result.hoursWanted.length}日`}
             </span>
           )}
-        </p>
+        </SectionHead>
         {result.matches.length === 0 && !loading && (
           <p className="hint">
             {result.loosen

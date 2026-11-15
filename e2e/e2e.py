@@ -620,7 +620,7 @@ with sync_playwright() as p:
         pg.locator(".cond-line[data-cond=rain] .seg.multi button").nth(1).click(); wait(200)
         check("L7 雨は時間帯で", "降らない" in txt(".cond-line[data-cond=rain] .cond-value") and "昼" not in txt(".cond-line[data-cond=rain] .cond-value"), txt(".cond-line[data-cond=rain] .cond-value"))
         for _ in range(30):
-            if pg.locator(".cond-col.day").count() and pg.locator(".cond-count .loading").count() == 0: break
+            if pg.locator(".cond-col.day").count() and pg.locator(".cond-result .loading").count() == 0: break
             calm()
         n = pg.locator(".cond-col.day").count()
         check("L8 合う日の表", n >= 1, txt(".cond-count"))
