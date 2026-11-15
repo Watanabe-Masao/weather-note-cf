@@ -1,3 +1,4 @@
+import { FEEL_TRANSFORM } from "../../shared/feel";
 import { describe, expect, it } from "vitest";
 import { checksOf, MIN_FOR_SLOPE, sharedPrediction } from "../../src/beta/engine/checks";
 import { seeded } from "../../src/beta/engine/diagnostics";
@@ -23,7 +24,7 @@ function people(n: number, windFault: number, seed = 4): Report[] {
       sensation: y,
       scaleVersion: SCALE_VERSION,
       exposure: "shade",
-      snapshot: { date: "2026-10-01", hour: 8 + Math.floor(r() * 12), temp: e, humidity: 50 + r() * 40, wind, solar: null, from: {}, sunTemp: e, shadeTemp: e, forecastSky: null, forecastSkyCode: null, sunshine: r() },
+      snapshot: { date: "2026-10-01", hour: 8 + Math.floor(r() * 12), temp: e, humidity: 50 + r() * 40, wind, solar: null, from: {}, sunTemp: e, shadeTemp: e, forecastSky: null, forecastSkyCode: null, sunshine: r(), transform: FEEL_TRANSFORM },
       baseline: { value: a, alpha: 0.8 },
       comfort: { probs, mode: probs.indexOf(Math.max(...probs)) - 3, models: [] },
       context: { version: 1, from: "button", shownFeel: e, shownExposure: "shade", shownLevel: probs.indexOf(Math.max(...probs)), firstSensation: y, picks: 1, predictionSeen: true, sensationAtPrediction: y, changedAfterPrediction: i % 10 === 0 },

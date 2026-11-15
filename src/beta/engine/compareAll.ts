@@ -87,6 +87,8 @@ const WORST: LearnState[] = ["priorOnly", "unknown", "few", "learned"];
 /** The answers judged at all (E), oldest first; ties keep their id order so the result does not depend on the input order. */
 export function eligibleOf(reports: Report[]): Report[] {
   return reports
+    // The answers judged: on the same words (predictions made at sending are judged as made, MATH-06;
+    // which reports a refit learns from is observationsOf's, reports.ts teaches).
     .filter((r) => !r.deleted && (r.scaleVersion ?? 1) === SCALE_VERSION && Number.isInteger(r.sensation))
     .sort((a, b) => (a.at === b.at ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : a.at < b.at ? -1 : 1));
 }

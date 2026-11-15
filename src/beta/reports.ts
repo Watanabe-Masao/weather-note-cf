@@ -36,6 +36,15 @@ import type { ComfortPrediction } from "./comfort";
  */
 export const SCALE_VERSION = 4;
 
+/**
+ * A report the models can learn from (comfort-8): on the current words (SCALE_VERSION), with its
+ * 肌感 worked out the current way (FEEL_TRANSFORM: feel-1s; 11/13 18時〜11/14 0時台 the reports
+ * carried feel-1, whose 日なた read the measured or forecast radiation), and inputs good enough
+ * (MATH-02). Other reports are kept and shown, not learned from. Judging the predictions made at
+ * sending is another matter (MATH-06): that only needs the same words.
+ */
+export const teaches = (r: Report) => !r.deleted && (r.scaleVersion ?? 1) === SCALE_VERSION && r.snapshot?.transform === FEEL_TRANSFORM && inputQuality(r).trainable;
+
 export const SENSATIONS = [
   { value: -3, label: "寒い" },
   { value: -2, label: "肌寒い" },

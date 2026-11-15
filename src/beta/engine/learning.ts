@@ -2,14 +2,13 @@
 // Contract: research/comfort-model/mathematical-contract.md
 
 import { partAt, type PartId } from "../../../shared/dayParts";
-import { type Report, SCALE_VERSION } from "../reports";
+import { type Report, SCALE_VERSION, teaches } from "../reports";
 import { type Ensemble } from "./ensemble";
 import { type Observation } from "./estimation";
 import { referenceProbs, rps } from "./evaluation";
 import { burstWeights, observationsOf, placeTempOf } from "./observations";
 import { type Learning, muIntervalOf } from "./prediction";
 import { r1 } from "./util";
-import { inputQuality } from "../quality";
 
 //
 // Not a count of reports: a centre can be found only when the answers lie on both sides of ちょうどよい,
@@ -57,7 +56,7 @@ export function bandOf(at: string | number, station: string | null | undefined):
  */
 export function bandCounts(reports: Report[]): Record<TimeBand, number> {
   const out = { morning: 0, day: 0, evening: 0, night: 0 } as Record<TimeBand, number>;
-  const used = reports.filter((r) => !r.deleted && inputQuality(r).trainable && placeTempOf(r) != null);
+  const used = reports.filter((r) => teaches(r) && placeTempOf(r) != null);
   const w = burstWeights(used.map((r) => Date.parse(r.at)));
   used.forEach((r, i) => (out[bandOf(r.at, r.station)] += w[i]));
   for (const k of Object.keys(out) as TimeBand[]) out[k] = Math.round(out[k] * 100) / 100;
@@ -99,7 +98,7 @@ export function learningOf(reports: Report[], ens: Ensemble): LearningView {
     .map(({ r, earlier }) => ({ probs: r.comfort!.probs, y: r.sensation as number, earlier }));
   // Days with a report that teaches the model, in JST (review 2026-11-12: UTC days counted one
   // Japanese morning as two days).
-  const days = new Set(live.filter((r) => inputQuality(r).trainable && placeTempOf(r) != null).map((r) => jstDay(r.at))).size;
+  const days = new Set(live.filter((r) => teaches(r) && placeTempOf(r) != null).map((r) => jstDay(r.at))).size;
   const bands = bandCounts(live);
   // In time order, so "the latest" observation is the latest report.
   return { ...learningFrom(observationsOf(live, ens.alpha), days, checked, ens, bandsCovered(bands)), bands };
