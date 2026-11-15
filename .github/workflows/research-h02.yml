@@ -1,0 +1,36 @@
+name: research-h02
+
+# #132 H-02: the app's cloud factor against what JMA measured (research/brightness/h02.ts). Manual
+# only. Reads the station's hourly tables from JMA one day a second, the way the app does; the
+# records and the report are kept as this run's artifact, never committed.
+on:
+  workflow_dispatch:
+    inputs:
+      station:
+        description: "観測所（blockNo）"
+        default: "47893"
+      from:
+        description: "最初の日（YYYY-MM-DD）"
+        default: "2025-11-01"
+      to:
+        description: "最後の日（YYYY-MM-DD）"
+        default: "2026-10-31"
+
+jobs:
+  h02:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx --yes tsx@4.19.2 research/brightness/h02.ts --station "${{ inputs.station }}" --from "${{ inputs.from }}" --to "${{ inputs.to }}" --out research/brightness/out
+      - run: cat research/brightness/out/h02-report.md >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h02-${{ inputs.station }}-${{ inputs.from }}-${{ inputs.to }}
+          path: research/brightness/out
