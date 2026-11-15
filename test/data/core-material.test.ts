@@ -59,11 +59,24 @@ describe("quality marks decide what goes in (principles 4)", () => {
     const h = hourOf(row({}), "47893")!;
     expect(h.values).toEqual({ temp: 18.2, humidity: 60, wind: null, rain: 0, sunshine: null, pressure: null });
     expect(h.rough).toEqual(["humidity"]);
+    // Each missing value says why: 資料不足値, 欠測, and a column the row does not have.
+    expect(h.absent).toEqual({ wind: "rejected", sunshine: "notObserved", pressure: "notProvided" });
     expect(h).toMatchObject({ station: "47893", date: "2025-11-01", hour: 13, kind: "record", provider: "JMA", provisional: false });
   });
 
   it("a number with no quality mark is not taken", () => {
-    expect(hourOf(row({ quality: {} }), "47893")!.values.temp).toBeNull();
+    const h = hourOf(row({ quality: {} }), "47893")!;
+    expect(h.values.temp).toBeNull();
+    expect(h.absent.temp).toBe("rejected");
+  });
+
+  it("a value not out yet is unpublished, not missing", () => {
+    expect(hourOf(row({ unpublished: ["sun"], raw: { sun: "" } }), "47893")!.absent.sunshine).toBe("unpublished");
+  });
+
+  it("JMA's blank 日照 is not measured; a blank 気温 is not observed", () => {
+    const h = hourOf(row({ temp: null, raw: { sun: "", temp: "" }, quality: { temp: "missing", sun: "missing" } }), "47893")!;
+    expect(h.absent).toMatchObject({ sunshine: "notMeasured", temp: "notObserved" });
   });
 
   it("an hour outside 1–24 is not an hour", () => {
@@ -76,6 +89,8 @@ describe("the same shape from every source", () => {
   it("JMA hours", () => {
     const hours = jmaHourly().map((r) => hourOf(r, "47893")!);
     expect(hours).toHaveLength(24);
+    // Hour 24 is midnight: its 日照 is blank by design.
+    expect(hours[23].absent.sunshine).toBe("notMeasured");
     expect(hours.every((h) => h.kind === "record" && !h.provisional)).toBe(true);
     expect(hours.some((h) => h.values.temp != null)).toBe(true);
   });
@@ -99,7 +114,20 @@ describe("the same shape from every source", () => {
     const d = dayOf(daily, "47893");
     expect(d.provisional).toBe(true);
     for (const f of d.rough) expect(d.values[f]).not.toBeNull();
-    // JMA-recent has no 最大瞬間風速: it is missing, not 0.
+    // JMA-recent has no 最大瞬間風速: it is not there, and not 0.
     expect(d.values.gust).toBeNull();
+    expect(d.absent.gust).toBe("notProvided");
+  });
+});
+
+describe("a value is null exactly when it says why (principles 2)", () => {
+  it("every row of every source", () => {
+    const { rows, hourlyRows } = forecast();
+    const all = [
+      ...[...jmaHourly(), ...hourlyRows, ...parseLivePoint(live(), "2026-11-08").rows].map((r) => hourOf(r, "47893")!),
+      ...[...jmaDaily(), ...rows, aggregateRecentDay(live(), "2026-11-08").daily].map((r) => dayOf(r, "47893")),
+    ];
+    for (const m of all)
+      for (const [f, v] of Object.entries(m.values)) expect(v == null, `${m.provider} ${m.date} ${f}`).toBe((m.absent as Record<string, unknown>)[f] != null);
   });
 });

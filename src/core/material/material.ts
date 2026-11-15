@@ -1,5 +1,6 @@
 // 材料 (docs/engineering-principles.md 1–4): the record and the forecast in one shape. A value is
-// there (a number) or not (null) — never filled in. Where it came from travels with it.
+// there (a number) or not (null) — never filled in — and a value that is not there says why.
+// Where it came from travels with it.
 
 import type { Quality, WeatherRow } from "../../../shared/types";
 import { HOUR_FIRST, HOUR_LAST } from "./constants";
@@ -18,8 +19,21 @@ interface Origin {
   provisional: boolean;
 }
 
+/**
+ * Why a material is not there (principles 2). A failed fetch never reaches the core: it arrives as
+ * no row at all.
+ * - notProvided: the source has no such column (アメダスの速報に最大瞬間風速はない)
+ * - unpublished: the column exists, the value is not out yet
+ * - notMeasured: blank by design (JMA's hourly 日照 at night)
+ * - notObserved: 欠測, or no value
+ * - rejected: there is a number, but its quality keeps it out (資料不足値, or no quality mark)
+ */
+export type Absence = "notProvided" | "unpublished" | "notMeasured" | "notObserved" | "rejected";
+
 export interface Material<F extends string> extends Origin {
+  /** A number, or null exactly when `absent` names the field. */
   values: Record<F, number | null>;
+  absent: Partial<Record<F, Absence>>;
   /** Fields whose value is 準正常値: kept, but named so a reader can leave them out. */
   rough: F[];
 }
@@ -44,16 +58,31 @@ export function admits(q: Quality | undefined): "yes" | "rough" | "no" {
   }
 }
 
-function read<F extends string>(row: WeatherRow, fields: readonly (FieldDef & { id: F })[]) {
+function absence(row: WeatherRow, f: FieldDef, hourly: boolean, isNumber: boolean): Absence {
+  if (!(f.wire in row)) return "notProvided";
+  if (row.unpublished?.includes(f.wire)) return "unpublished";
+  if (isNumber) return "rejected";
+  if (hourly && f.blankAtNight && row.raw?.[f.wire] === "") return "notMeasured";
+  return "notObserved";
+}
+
+function read<F extends string>(row: WeatherRow, fields: readonly (FieldDef & { id: F })[], hourly: boolean) {
   const values = {} as Record<F, number | null>;
+  const absent: Partial<Record<F, Absence>> = {};
   const rough: F[] = [];
   for (const f of fields) {
     const v = row[f.wire];
+    const isNumber = typeof v === "number" && Number.isFinite(v);
     const ok = admits(row.quality?.[f.wire]);
-    values[f.id] = typeof v === "number" && Number.isFinite(v) && ok !== "no" ? v : null;
-    if (values[f.id] != null && ok === "rough") rough.push(f.id);
+    if (isNumber && ok !== "no") {
+      values[f.id] = v;
+      if (ok === "rough") rough.push(f.id);
+    } else {
+      values[f.id] = null;
+      absent[f.id] = absence(row, f, hourly, isNumber);
+    }
   }
-  return { values, rough };
+  return { values, absent, rough };
 }
 
 function origin(row: WeatherRow, station: string): Origin {
@@ -69,10 +98,10 @@ function origin(row: WeatherRow, station: string): Origin {
 /** One hourly row as material; null when the row is not a valid hour. */
 export function hourOf(row: WeatherRow, station: string): MaterialHour | null {
   if (!Number.isInteger(row.n) || row.n < HOUR_FIRST || row.n > HOUR_LAST) return null;
-  return { ...origin(row, station), hour: row.n, ...read(row, HOUR_FIELDS) };
+  return { ...origin(row, station), hour: row.n, ...read(row, HOUR_FIELDS, true) };
 }
 
 /** One daily row as material. */
 export function dayOf(row: WeatherRow, station: string): MaterialDay {
-  return { ...origin(row, station), ...read(row, DAY_FIELDS) };
+  return { ...origin(row, station), ...read(row, DAY_FIELDS, false) };
 }

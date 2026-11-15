@@ -8,6 +8,8 @@ export interface FieldDef {
   unit: string;
   /** The key the value has on the wire (WeatherRow). */
   wire: string;
+  /** JMA leaves the hourly cell blank at night by design (not measured, not missing). */
+  blankAtNight?: true;
 }
 
 export const HOUR_FIELDS = [
@@ -15,7 +17,7 @@ export const HOUR_FIELDS = [
   { id: "humidity", label: "湿度", unit: "%", wire: "humidity" },
   { id: "wind", label: "風速", unit: "m/s", wire: "wind" },
   { id: "rain", label: "降水量", unit: "mm", wire: "rain" },
-  { id: "sunshine", label: "日照時間", unit: "h", wire: "sun" },
+  { id: "sunshine", label: "日照時間", unit: "h", wire: "sun", blankAtNight: true },
   { id: "pressure", label: "気圧", unit: "hPa", wire: "pressure" },
 ] as const satisfies readonly FieldDef[];
 
