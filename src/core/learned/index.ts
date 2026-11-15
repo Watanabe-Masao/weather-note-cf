@@ -2,3 +2,5 @@
 // (src/core/index.ts) never does.
 
 export { climatologyPredictor } from "./climatology";
+export { ORDINAL_FIT } from "./params";
+export { type OrdinalInputs, ordinalPredictor } from "./ordinal";
