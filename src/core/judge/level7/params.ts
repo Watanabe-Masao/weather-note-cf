@@ -1,4 +1,4 @@
-// judge.level7 の数: the person's own six boundaries (設定), as at a 慣れ of the shift's `ref`.
+// judge.level7 の数: the person's own six boundaries (設定), as at a long history of the shift's `ref`.
 
 import { defineParams } from "../../estimate/engine";
 import { level7 } from "./formula";

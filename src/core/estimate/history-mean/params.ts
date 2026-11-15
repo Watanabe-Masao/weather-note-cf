@@ -1,9 +1,9 @@
-// adapt.long.mean の数: the window of 従来版's seasonal boundaries (shared/season.ts SEASON).
+// history.long.mean の数: the window of 従来版's seasonal boundaries (shared/season.ts SEASON).
 
 import { defineParams } from "../engine";
-import { adaptMean } from "./formula";
+import { historyMean } from "./formula";
 
-export const ADAPT_MEAN_SEASON = defineParams(adaptMean, {
+export const HISTORY_MEAN_SEASON = defineParams(historyMean, {
   id: "season",
   version: 1,
   values: {

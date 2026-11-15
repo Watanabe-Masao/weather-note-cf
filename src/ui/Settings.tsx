@@ -4,7 +4,7 @@
 
 import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { SunTestBoard } from "./SunTestBoard";
-import { AdaptCompareBoard } from "./AdaptCompareBoard";
+import { HistoryCompareBoard } from "./HistoryCompareBoard";
 import { jstToday } from "../../shared/dates";
 import { AccountSection } from "../account/AccountSection";
 import { centreUnknown, LEARNING_LABELS } from "../beta/comfort";
@@ -188,7 +188,7 @@ function ReportData() {
 function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: WeatherStore | null; station: string }) {
   const { saved, update, reset } = feel;
   const [sunTest, setSunTest] = useState(false);
-  const [adaptTest, setAdaptTest] = useState(false);
+  const [historyTest, setHistoryTest] = useState(false);
   return (
     <section className="set-group" aria-labelledby="set-feel">
       <h3 id="set-feel">肌感の基準</h3>
@@ -216,13 +216,13 @@ function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: Wea
       </div>
       <div className="actions tight">
         <button onClick={() => setSunTest(true)}>肌感の計算を比べる（テスト）</button>
-        <button onClick={() => setAdaptTest(true)}>慣れの計算を比べる（テスト）</button>
+        <button onClick={() => setHistoryTest(true)}>長期の気温履歴を比べる（テスト）</button>
       </div>
       <Button block onClick={reset}>
         肌感の基準を初期値に戻す
       </Button>
       {sunTest && <SunTestBoard store={store} station={station} today={jstToday()} onClose={() => setSunTest(false)} />}
-      {adaptTest && <AdaptCompareBoard store={store} station={station} today={jstToday()} onClose={() => setAdaptTest(false)} />}
+      {historyTest && <HistoryCompareBoard store={store} station={station} today={jstToday()} onClose={() => setHistoryTest(false)} />}
     </section>
   );
 }

@@ -1,4 +1,6 @@
-// adapt.long.ema (慣れ-L2): what one is used to, as the running mean of adaptive comfort standards
+// history.long.ema（長期の気温履歴 L2）: the days before summed up as the running mean of adaptive
+// comfort standards. One summary of the long history that 慣れ is thought to come from — not 慣れ
+// itself, which is a latent state no formula gives (principles 0b).
 // (EN 16798-1: θrm = (1 − α)·θ(d−1) + α·θrm(d−1)). In closed form day d−k weighs (1 − α)·α^(k−1),
 // so newer days count more; α is how slowly it forgets.
 //   L2 = Σ w_k·θ_k / Σ w_k over the days that have a value among the last `days`
@@ -10,11 +12,11 @@ import { defineFormula, type Run } from "../engine";
 const weights = (run: Run, alpha: number, days: number) =>
   run.slice(0, days).map((v, k) => ({ v, w: (1 - alpha) * alpha ** k }));
 
-export const adaptEma = defineFormula({
-  id: "adapt.long.ema",
+export const historyEma = defineFormula({
+  id: "history.long.ema",
   version: 1,
-  key: "adaptEma",
-  label: "慣れ（重み付きの平均）",
+  key: "historyEma",
+  label: "長期の気温履歴（重み付きの平均）",
   unit: "℃",
   needs: [],
   series: ["dayMeans"],

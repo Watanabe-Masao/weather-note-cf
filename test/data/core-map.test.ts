@@ -4,7 +4,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { type AnyFormula, coreMapDoc, edges, FORMULAS, MATERIAL_INPUTS } from "../../src/core";
+import { type AnyFormula, CONCEPTS, coreMapDoc, edges, FORMULAS, HYPOTHESES, MATERIAL_INPUTS } from "../../src/core";
 
 const DOC = resolve(__dirname, "../../docs/core-map.md");
 
@@ -41,5 +41,22 @@ describe("the map is the formulas'", () => {
     const reaches = (from: string, target: string, seen = new Set<string>()): boolean =>
       (next.get(from) ?? []).some((n) => n === target || (!seen.has(n) && (seen.add(n), reaches(n, target, seen))));
     for (const f of FORMULAS) expect(reaches(f.key, f.key), f.id).toBe(false);
+  });
+});
+
+describe("hypotheses are kept apart from the computation (principles 0b)", () => {
+  it("ids are unique, and each joins known things", () => {
+    const ids = HYPOTHESES.map((h) => h.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    const known = new Set([...Object.keys(CONCEPTS), ...FORMULAS.map((f) => f.key)]);
+    for (const h of HYPOTHESES) {
+      expect(known.has(h.from), `${h.id} from ${h.from}`).toBe(true);
+      expect(Object.keys(CONCEPTS), h.id).toContain(h.to);
+    }
+  });
+
+  it("no hypothesis is a computed dependency (a wire in a formula is not a finding)", () => {
+    const computed = new Set(edges().map((e) => `${e.from}→${e.to}`));
+    for (const h of HYPOTHESES) expect(computed.has(`${h.from}→${h.to}`), h.id).toBe(false);
   });
 });

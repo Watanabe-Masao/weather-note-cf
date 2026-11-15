@@ -2,8 +2,8 @@
 // params — never written by hand. docs/core-map.md is this file's output (npm run core-map), and a
 // test fails when the two differ.
 
-import { adaptEma } from "./estimate/adapt-ema/formula";
-import { adaptMean } from "./estimate/adapt-mean/formula";
+import { historyEma } from "./estimate/history-ema/formula";
+import { historyMean } from "./estimate/history-mean/formula";
 import type { AnyFormula } from "./estimate/engine";
 import { feelShade } from "./estimate/feel-shade/formula";
 import { feelSun } from "./estimate/feel-sun/formula";
@@ -12,10 +12,11 @@ import { windTen } from "./estimate/wind-ten/formula";
 import { windPerson } from "./estimate/wind-person/formula";
 import { level7 } from "./judge/level7/formula";
 import { seasonShift } from "./judge/season-shift/formula";
+import { CONCEPTS, HYPOTHESES } from "./hypotheses";
 import { DAY_FIELDS, HOUR_FIELDS } from "./material/fields";
 
 /** Every formula in the core (a test checks none is left out). */
-export const FORMULAS: readonly AnyFormula[] = [windPerson, feelShade, radSunshine, windTen, feelSun, adaptMean, adaptEma, seasonShift, level7];
+export const FORMULAS: readonly AnyFormula[] = [windPerson, feelShade, radSunshine, windTen, feelSun, historyMean, historyEma, seasonShift, level7];
 
 /** The inputs that come from the material, by the name formulas use for them. */
 export const MATERIAL_INPUTS: Record<string, string> = {
@@ -64,6 +65,16 @@ export function mermaid(formulas: readonly AnyFormula[] = FORMULAS): string {
   return lines.join("\n");
 }
 
+/** The hypotheses as Mermaid: what is thought to act on what, apart from the computation. */
+export function hypothesisMermaid(): string {
+  const label = (k: string) => (k in CONCEPTS ? CONCEPTS[k as keyof typeof CONCEPTS] : (FORMULAS.find((f) => f.key === k)?.label ?? k));
+  const nodes = [...new Set(HYPOTHESES.flatMap((h) => [h.from, h.to]))];
+  const lines = ["flowchart LR"];
+  for (const k of nodes) lines.push(`  ${node(k)}${k in CONCEPTS ? `(["${label(k)}"])` : `["${label(k)}<br><code>${k}</code>"]`}`);
+  for (const h of HYPOTHESES) lines.push(`  ${node(h.from)} -. "${h.status}<br><code>${h.id}</code>" .-> ${node(h.to)}`);
+  return lines.join("\n");
+}
+
 /** docs/core-map.md, whole. */
 export function coreMapDoc(): string {
   return [
@@ -71,9 +82,25 @@ export function coreMapDoc(): string {
     "",
     "`src/core/map.ts` が計算式の `needs`・`series`・`params` から作る図（`npm run core-map`）。手で直さない。計算式を足す・変えると、テストがこの文書との違いを知らせる。",
     "",
+    "## 計算上の依存",
+    "",
+    "どの値から計算するか。コード（計算式の `needs`・`series`・`choices`）からだけ作る。線があることは、効くことが確かめられたという意味ではない。",
+    "",
     "```mermaid",
     mermaid(),
     "```",
+    "",
+    "## 仮説上の影響",
+    "",
+    "何が何に効くと考えているか（研究上の主張、`src/core/hypotheses.ts`）。状態は、答えの1歩先の予測で比べた結果だけが変える（仮説 → 確かめ中 → 支持／支持されない）。",
+    "",
+    "```mermaid",
+    hypothesisMermaid(),
+    "```",
+    "",
+    "## 確かめられた関係",
+    "",
+    "まだない。学習あり版の比べた結果（効果の大きさと幅つき）から作る。手で書かない。",
     "",
   ].join("\n");
 }
