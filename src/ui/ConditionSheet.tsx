@@ -25,7 +25,7 @@ import {
   YEAR_CHOICES,
   type Years,
 } from "../../shared/conditions";
-import { monthDay, num, weekdayOf } from "../design/format";
+import { monthDay, num, weekdayOf, yearMark } from "../design/format";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { DayLabel, Segmented, Slider } from "./kit";
@@ -319,7 +319,7 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
                   <span className="head">
                     <span className="num">{monthDay(m.date)}</span>
                     <small>
-                      ’{m.date.slice(2, 4)} {weekdayOf(m.date)}
+                      {yearMark(m.date)} {weekdayOf(m.date)}
                     </small>
                   </span>
                   <span className="num grid tone-hot">{t1(m.max)}</span>

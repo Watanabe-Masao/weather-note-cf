@@ -15,7 +15,7 @@ import type { WeatherRow } from "../../shared/types";
 import { dailyRadiation, hourlyExtreme } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { clock, hourOfDay } from "../data/sun";
-import { lineLabel, num, signedDiff, UNIT } from "../design/format";
+import { lineLabel, num, signedDiff, UNIT, yearMark } from "../design/format";
 import type { DataColor } from "../design/tokens";
 import { Badge, Button, CheckGlyph, confidenceOfRow, DayLabel, Glyph, SwipeHint } from "./kit";
 import type { MetricId } from "../metrics";
@@ -266,7 +266,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
             dateButton(
               "compare",
               <span className="day-label">
-                {years && <small className="cs-year">’{other.slice(2, 4)}/</small>}
+                {years && <small className="cs-year">{yearMark(other)}/</small>}
                 <DayLabel date={other} />
               </span>,
             )}

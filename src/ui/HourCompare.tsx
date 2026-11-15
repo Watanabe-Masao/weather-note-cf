@@ -39,7 +39,7 @@ import {
 import { barLook, type DataColor, DATA, LIGHT_LEVELS, LINE, type LineLook, lineLook } from "../design/tokens";
 import { type AverageWindow, AVERAGE_WINDOWS, daysBefore, meanByHour, nextWindow, WINDOW_LABEL } from "../hourAverage";
 import { Priority } from "../data/plan";
-import { axisWidth, dateLabel, needsYear, niceTicks, tickLabel } from "../design/format";
+import { axisWidth, dateLabel, niceTicks, shortDay, tickLabel } from "../design/format";
 import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
 import { levelOf, type Thresholds } from "../../shared/feel";
 import { Segmented } from "./kit";
@@ -220,7 +220,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // Same month and day a year apart would read "11/10" twice: the comparison day keeps its year.
   const mainLabel = dateLabel(date, { weekday: false });
   // Another year as 'YY (as in the summary line), so the title fits beside the column heads.
-  const otherLabel = other ? (needsYear(other, date) ? `’${other.slice(2, 4)}/` : "") + dateLabel(other, { weekday: false }) : "";
+  const otherLabel = other ? shortDay(other, date) : "";
   const tone = HOUR_TONE[metricId];
   const color = DATA[tone];
 

@@ -64,6 +64,17 @@ export function dateLabel(d: string, { year = false, weekday = true }: { year?: 
 /** The comparison day carries its year when it is in another year than the target day. */
 export const needsYear = (d: string | null, target: string) => !!d && d.slice(0, 4) !== target.slice(0, 4);
 
+/** A year in the short form: "’25" (U+2019, never a straight '). */
+export const yearMark = (d: string) => `’${d.slice(2, 4)}`;
+
+/**
+ * The short form for narrow places — a column's head, the folded line, a sentence: "’25/11/10",
+ * the year only when it is another year than `target`. The long form "2025/11/10（月）" (dateLabel
+ * with year) is for headers and where a day is chosen.
+ */
+export const shortDay = (d: string, target: string, { weekday = false }: { weekday?: boolean } = {}) =>
+  `${needsYear(d, target) ? `${yearMark(d)}/` : ""}${dateLabel(d, { weekday })}`;
+
 /**
  * Round axis ticks: a step of 1, 2, 2.5 or 5 × 10ⁿ so labels read "10 / 15 / 20", never "16.8".
  * Returns the widened range and about `count` ticks inside it.

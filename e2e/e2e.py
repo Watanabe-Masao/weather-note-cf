@@ -669,6 +669,7 @@ with sync_playwright() as p:
         hold(pg.locator(".side-target .cell-icon[data-summary^='2026-11-08']").first)
         check("DS1 表の天気の絵を長押しで要約が開く（タップの動きは起きない）", pg.locator(".day-summary-sheet").count() == 1 and pg.locator(".msheet").count() == sheets + 1, str(pg.locator(".msheet").count()))
         check("DS2 まとめ（浮いた面）に一言、読み取り（沈んだ面）に対象・比較・差", pg.locator(".day-summary-sheet .ds-lead .ds-comment span").count() >= 1 and pg.locator(".day-summary-sheet .readout-card .ro-label").count() == 8, txt(".day-summary-sheet .ds-comment") if pg.locator(".ds-comment").count() else "")
+        check("DS2b 要約の年は「’25/」（半角の ' を使わない）", "'" not in txt(".day-summary-sheet"), txt(".day-summary-sheet .readout-card .ro-col")[:40] if pg.locator(".day-summary-sheet .ro-col").count() else "")
         check("DS3 強風の日は風の強さ（基準の目盛り）", pg.locator(".day-summary-sheet .ds-meter").count() == 2 and "強風" in txt(".day-summary-sheet .ro-title") and "強風" in txt(".day-summary-sheet .ds-comment"), txt(".day-summary-sheet .ro-title"))
         layout_ok("DS4", "要約")
         st = small_text(); check("DS5 11px より小さい文字がない（要約）", not st, str(st))
@@ -831,14 +832,16 @@ with sync_playwright() as p:
           const a = cs ? [...cs.querySelectorAll('.cs-val.cs-a .cs-num')].map(right) : [];
           const b = cs ? [...cs.querySelectorAll('.cs-val.cs-b .cs-num')].map(right) : [];
           const units = cs ? cs.querySelectorAll('.cs-val .unit').length : -1;
+          const straight = (document.body.innerText.match(/'\d\d\//g) || []).length;
           const sun = cs ? [...cs.querySelectorAll('.cs-sun .cs-val')].map(e => e.getClientRects().length === 1 && e.scrollWidth <= e.clientWidth + 1 && Math.round(e.getBoundingClientRect().height) < 26) : [];
-          return { col, a, b, units, sun };
+          return { col, a, b, units, sun, straight };
         }""")
         check("GR1 表の列で小数点が縦にそろう（右そろえ）", len(r["col"]) >= 3 and max(r["col"]) - min(r["col"]) <= 1, str(r["col"]))
         if r["a"]:
             check("GR2 比較の要約の両側で小数点が縦にそろう", max(r["a"]) - min(r["a"]) <= 1 and max(r["b"]) - min(r["b"]) <= 1, f'{r["a"]} {r["b"]}')
             check("GR3 比較の要約の単位は名前の後ろ（数字に付けない）", r["units"] == 0, str(r["units"]))
             check("GR4 日の出・日の入りの時刻は1行（折り返さない）", r["sun"] and all(r["sun"]), str(r["sun"]))
+            check("GR5 短い年は「’25/」（半角の ' を使わない）", r["straight"] == 0, str(r["straight"]))
         else:
             check("GR2 比較の要約が開いている", False, "no .compare-summary")
         pg.click(".back-btn"); calm()
