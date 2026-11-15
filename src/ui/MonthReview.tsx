@@ -19,6 +19,8 @@ import { Chip, GraphReadout, type ReadoutRow, SectionHead, Segmented } from "./k
 import { ModalSheet } from "./ModalSheet";
 import { feelOn } from "../feelSeason";
 
+/** 前年同曜日: 52 weeks back. */
+const PREV_SAME_WEEKDAY = 364;
 const daysOf = (month: string) => {
   const first = `${month}-01`;
   const out: string[] = [];
@@ -104,7 +106,9 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   // the whole month. Empty = the whole month.
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
   const sel = picked.size ? days.filter((d) => picked.has(d)) : days;
-  const selB = picked.size ? sel.map((d) => `${before}${d.slice(7)}`).filter((d) => daysB.includes(d)) : daysB;
+  // Chosen days are set against the same weekday a year before (前年同曜日: 364 days back, the app's
+  // pairing), so 土日 meets 土日; the whole month against the same month.
+  const selB = picked.size ? sel.map((d) => addDays(d, -PREV_SAME_WEEKDAY)) : daysB;
   const a = statsOf(store, station, sel, parts);
   const b = statsOf(store, station, selB, parts);
   const full = picked.size ? statsOf(store, station, days, parts) : a;
@@ -175,7 +179,12 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   if (a.temp != null && b.temp != null) lean.push(Math.abs(a.temp - b.temp) < 0.5 ? "気温は前年並み" : a.temp > b.temp ? "前年より暖かく" : "前年より涼しく");
   if (a.rain != null && b.rain != null) lean.push(Math.abs(a.rain - b.rain) < Math.max(5, b.rain * 0.15) ? "雨は同じくらい" : a.rain > b.rain ? "雨は多め" : "雨は少なめ");
   if (a.sun != null && b.sun != null && b.sun > 0) lean.push(a.sun / b.sun > 1.1 ? "日差しは多め" : a.sun / b.sun < 0.9 ? "日差しは少なめ" : "日差しは同じくらい");
-  const [tab, setTab] = useState<"sum" | "days" | "week" | "feel">("sum");
+  const [tab, setTab] = useState<"sum" | "days" | "feel">("sum");
+  const dowOf = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const weekend = days.filter((d) => dowOf(d) >= 5);
+  const weekdays = days.filter((d) => dowOf(d) < 5);
+  /** Exactly these days chosen (a quick button), or the whole month again when they already are. */
+  const pickOnly = (ds: string[]) => setPicked(picked.size === ds.length && ds.every((d) => picked.has(d)) ? new Set() : new Set(ds));
   if (layout === "tabs") {
     const marks = new Map<string, string>();
     for (const s of standouts) if (s.p && !marks.has(s.p.date) && s.color !== DATA.mean) marks.set(s.p.date, s.color);
@@ -200,7 +209,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
               </button>
             )}
             {parts != null && <small>{partsLabel}　</small>}
-            {lean.join("、")}。<small>（{label(before)}と比べて）</small>
+            {lean.join("、")}。<small>（{picked.size ? "前年同曜日" : label(before)}と比べて）</small>
           </p>
           <div className="month-tiles">
             <Tile name="平均気温" value={a.temp} unit="℃" other={b.temp} digits={1} color={DATA.mean} />
@@ -215,7 +224,6 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
             options={[
               { id: "sum", label: "まとめ" },
               { id: "days", label: "日ごと" },
-              { id: "week", label: "曜日" },
               { id: "feel", label: "肌感" },
             ]}
             onChange={setTab}
@@ -223,7 +231,11 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
         </div>
         {tab === "sum" && (
           <>
-            <GraphReadout title={`月の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
+            <GraphReadout title={`${picked.size ? `選んだ ${picked.size}日` : "月"}の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={picked.size ? { a: "", b: "前年同曜日" } : monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
+            <SectionHead title="曜日の傾向" />
+            <div className="ds-hours">
+              <WeekStrip days={days} rows={full.rows} daysB={daysB} rowsB={fullB.rows} picked={picked} onPick={(ds) => pickOnly(ds)} />
+            </div>
             <SectionHead title="目立った日" />
             <div className="ds-hours month-standouts">
               {standouts.map((s) => (
@@ -242,14 +254,20 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
               <MonthRange a={full.rows} b={fullB.rows} />
               <RangeLegend now={label(month)} then={label(before)} />
             </div>
+            <div className="month-quick chip-row" role="group" aria-label="まとめて選ぶ">
+              <Chip size="sm" on={picked.size === 0} onClick={() => setPicked(new Set())}>
+                月全体
+              </Chip>
+              <Chip size="sm" on={picked.size === weekdays.length && weekdays.every((d) => picked.has(d))} onClick={() => pickOnly(weekdays)}>
+                平日
+              </Chip>
+              <Chip size="sm" on={picked.size === weekend.length && weekend.every((d) => picked.has(d))} onClick={() => pickOnly(weekend)}>
+                土日
+              </Chip>
+            </div>
             <MonthCalendar store={store} station={station} days={days} rows={full.rows} marks={marks} picked={picked} onPick={pickDays} />
-            <p className="month-cal-legend">日・週（左）・曜日（上）を押すと選べる（複数可）。上の数字とまとめは選んだ日だけに。最高／最低 ℃・肌感（朝〜夜）・降水 mm。</p>
+            <p className="month-cal-legend">日・週（左）・曜日（上）でも選べる（複数可）。上の数字とまとめは選んだ日だけ、前年同曜日と比べる。</p>
           </>
-        )}
-        {tab === "week" && (
-          <div className="ds-hours">
-            <Weekdays station={station} days={days} rows={full.rows} daysB={daysB} rowsB={fullB.rows} />
-          </div>
         )}
         {tab === "feel" && (
           <div className="ds-hours">
@@ -694,5 +712,60 @@ function RangeLegend({ now, then }: { now: string; then: string }) {
         {then}
       </span>
     </p>
+  );
+}
+
+/**
+ * The weekdays side by side (まとめ): each weekday's mean 最高 and its rain days, with the same month a
+ * year before under them; a tap chooses that weekday's days (as the calendar's head does).
+ */
+function WeekStrip({
+  days,
+  rows,
+  daysB,
+  rowsB,
+  picked,
+  onPick,
+}: {
+  days: string[];
+  rows: (WeatherRow | null)[];
+  daysB: string[];
+  rowsB: (WeatherRow | null)[];
+  picked: ReadonlySet<string>;
+  onPick: (days: string[]) => void;
+}) {
+  const dow = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const group = (ds: string[], rs: (WeatherRow | null)[], w: number) => ds.map((d, i) => ({ d, r: rs[i] })).filter((x) => dow(x.d) === w);
+  const wet = (g: { r: WeatherRow | null }[]) => g.filter((x) => (num(x.r?.rain) ?? 0) >= 1).length;
+  const avgMax = (g: { r: WeatherRow | null }[]) => mean(g.map((x) => num(x.r?.max)).filter((v): v is number => v != null));
+  const cols = WEEK.map((name, w) => {
+    const g = group(days, rows, w);
+    const gb = group(daysB, rowsB, w);
+    return { name, w, g, gb, wet: wet(g), max: avgMax(g) };
+  });
+  const most = Math.max(...cols.map((c) => c.wet / Math.max(1, c.g.length)));
+  return (
+    <div className="week-strip">
+      {cols.map((c) => {
+        // Lit when all of its days are among the chosen (土日 lights both).
+        const on = c.g.length > 0 && c.g.every((x) => picked.has(x.d));
+        const wettest = most > 0 && c.wet / Math.max(1, c.g.length) === most;
+        return (
+          <button key={c.name} className={`week-strip-col${on ? " on" : ""}`} onClick={() => onPick(c.g.map((x) => x.d))} aria-pressed={on} aria-label={`${c.name}曜日を選ぶ`}>
+            <b className={c.w === 5 ? "tone-saturday" : c.w === 6 ? "tone-holiday" : ""}>{c.name}</b>
+            <span className="week-strip-max" style={{ color: DATA.hot }}>
+              {c.max == null ? "—" : c.max.toFixed(1)}
+            </span>
+            <span className={`week-strip-rain${wettest ? " most" : ""}`}>
+              {c.wet}/{c.g.length}
+            </span>
+            <small>
+              {wet(c.gb)}/{c.gb.length}
+            </small>
+          </button>
+        );
+      })}
+      <p className="week-strip-note">上から 最高の平均 ℃・雨の日（1mm以上）・前年の雨の日。押すとその曜日を選ぶ。</p>
+    </div>
   );
 }

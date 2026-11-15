@@ -4389,3 +4389,17 @@ svg.scrub {
 button.month-cal-day { border: none; font: inherit; color: inherit; cursor: pointer; }
 .month-cal-day.picked { background: var(--accent-wash); box-shadow: 0 0 0 1.5px var(--accent-base) inset !important; }
 .month-picked { margin-right: var(--space-3); border: none; border-radius: var(--radius-pill); padding: 2px 10px; background: var(--accent-wash); color: var(--accent-base); font: inherit; font-size: var(--size-xs); box-shadow: 0 0 0 1px var(--accent-base) inset; vertical-align: middle; }
+
+/* 見本 案D 曜日の傾向・まとめて選ぶ */
+.week-strip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
+.week-strip-col { display: grid; justify-items: center; gap: 2px; padding: 6px 0; border: none; border-radius: var(--radius-sm); background: none; font: inherit; color: var(--ink-secondary); }
+.week-strip-col.on { background: var(--accent-wash); box-shadow: 0 0 0 1px var(--accent-base) inset; }
+.week-strip-col b { font-size: var(--size-sm); font-weight: var(--weight-regular); }
+.week-strip-col b.tone-saturday { color: var(--day-saturday); }
+.week-strip-col b.tone-holiday { color: var(--day-holiday); }
+.week-strip-max { font-family: var(--font-numeric); font-size: var(--size-sm); }
+.week-strip-rain { font-family: var(--font-numeric); font-size: var(--size-sm); color: var(--ink-primary); }
+.week-strip-rain.most { color: var(--data-rain); font-weight: var(--weight-bold); }
+.week-strip-col small { font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-tertiary); }
+.week-strip-note { grid-column: 1 / -1; margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.month-quick { margin-top: var(--space-5); }
