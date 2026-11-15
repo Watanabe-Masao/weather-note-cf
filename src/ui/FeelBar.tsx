@@ -73,8 +73,36 @@ export function FeelBar({ store, station, date }: { store: WeatherStore | null; 
   ]
     .filter(Boolean)
     .join("\n");
-  // 見本（sample/texture）: ?feel=a 丸い帯／?feel=b 丸い帯＋今の時間帯の印（今日だけ）。
-  const variant = typeof location !== "undefined" ? (location.search.match(/[?&]feel=([ab])/)?.[1] ?? "") : "";
+  // 見本（sample/texture）: ?feel=a 丸い帯／?feel=b 丸い帯＋今の時間帯の印（今日だけ）／
+  // ?feel=c 少しだけ角を取り、境目をぼかした帯／?feel=d c＋今の時間帯の印。
+  const variant = typeof location !== "undefined" ? (location.search.match(/[?&]feel=([abcd])/)?.[1] ?? "") : "";
+  if (variant === "c" || variant === "d") {
+    const nowMin = (() => {
+      const d = new Date(Date.now() + 9 * 3_600_000);
+      return d.getUTCHours() * 60 + d.getUTCMinutes();
+    })();
+    const today = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10) === date;
+    const current = variant === "d" && today && exact ? bands.findIndex((b) => b.window && nowMin >= b.window.from && nowMin < b.window.to) : -1;
+    const widths = exact ? bands.map(() => 1) : [1, 1.4, 1];
+    const total = widths.reduce((a, b) => a + b, 0);
+    const edges = widths.reduce<number[]>((acc, w) => [...acc, acc[acc.length - 1] + (w / total) * 100], [0]);
+    const color = (i: number) => (bands[i].level == null ? "var(--line-strong)" : levelColor(bands[i].level!, settings.scale));
+    const BLUR = 22; // 境目のぼかし（帯1つの幅に対する%）
+    const stops = bands.flatMap((_, i) => {
+      const w = edges[i + 1] - edges[i];
+      const soft = (w * BLUR) / 100 / 2;
+      return [`${color(i)} ${i === 0 ? 0 : edges[i] + soft}%`, `${color(i)} ${i === bands.length - 1 ? 100 : edges[i + 1] - soft}%`];
+    });
+    return (
+      <span className="feel-wrap" title={title} role="img" aria-label={title}>
+        <span className={`feel-bar v-soft${exact ? "" : " estimate"}`} style={{ gridTemplateColumns: widths.map((w) => `${w}fr`).join(" "), backgroundImage: `linear-gradient(90deg, ${stops.join(", ")})` }}>
+          {bands.map((b, i) => (
+            <i key={i} className={[b.source === "actual" ? "" : "forecast", i === current ? "now" : ""].join(" ").trim() || undefined} />
+          ))}
+        </span>
+      </span>
+    );
+  }
   if (variant) {
     const nowMin = (() => {
       const d = new Date(Date.now() + 9 * 3_600_000);

@@ -4191,3 +4191,18 @@ svg.scrub {
 }
 .feel-bar.v-round { overflow: visible; }
 .feel-bar.v-round i.now { box-shadow: 0 0 0 1.5px var(--surface-page), 0 0 0 3px var(--ink-primary); position: relative; z-index: 1; }
+
+/* 見本 c/d: 少しだけ角を取り、境目をぼかした帯 */
+.feel-bar.v-soft {
+  border-radius: 4px;
+  gap: 0;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface-page) 25%, transparent);
+  overflow: visible;
+}
+.feel-bar.v-soft i { background: transparent; }
+.feel-bar.v-soft i.forecast {
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--surface-page) 12%, transparent) 0 1.5px, transparent 1.5px 5px);
+}
+.feel-bar.v-soft i.forecast:last-child { border-radius: 0 4px 4px 0; }
+.feel-bar.v-soft.estimate { opacity: 0.8; outline: 1px dashed var(--line-strong); outline-offset: 2px; }
+.feel-bar.v-soft i.now { border-radius: 3px; box-shadow: 0 0 0 1.5px var(--ink-primary); position: relative; z-index: 1; }
