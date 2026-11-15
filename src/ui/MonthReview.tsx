@@ -184,31 +184,60 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   if (a.rain != null && b.rain != null) lean.push(Math.abs(a.rain - b.rain) < Math.max(5, b.rain * 0.15) ? "雨は同じくらい" : a.rain > b.rain ? "雨は多め" : "雨は少なめ");
   if (a.sun != null && b.sun != null && b.sun > 0) lean.push(a.sun / b.sun > 1.1 ? "日差しは多め" : a.sun / b.sun < 0.9 ? "日差しは少なめ" : "日差しは同じくらい");
   const [tab, setTab] = useState<"sum" | "days" | "feel">("sum");
+  const [calOpen, setCalOpen] = useState(false);
   const [metric, setMetric] = useState<MonthMetricId>("temp");
   // The day the card reads: where the finger last was (at first the month's last day).
   const [focusDay, setFocusDay] = useState(days.length - 1);
   const dowOf = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
-  const weekend = days.filter((d) => dowOf(d) >= 5);
-  const weekdays = days.filter((d) => dowOf(d) < 5);
   /** Exactly these days chosen (a quick button), or the whole month again when they already are. */
   const seriesA = metric === "daylight" ? days.map((d) => sunRow(d, station)) : full.rows;
   const seriesB = metric === "daylight" ? daysB.map((d) => sunRow(d, station)) : fullB.rows;
-  const pickOnly = (ds: string[]) => setPicked(picked.size === ds.length && ds.every((d) => picked.has(d)) ? new Set() : new Set(ds));
   if (layout === "tabs") {
     const marks = new Map<string, string>();
     for (const s of standouts) if (s.p && !marks.has(s.p.date) && s.color !== DATA.mean) marks.set(s.p.date, s.color);
     return (
       <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
-        {/* 案D ページを分ける: 上は どのページでも同じ（時間帯・まとめの数字）、下を4つのページに。 */}
-        <div className="month-parts chip-row" role="group" aria-label="時間帯で絞る">
-          <Chip size="sm" on={parts == null} onClick={() => setParts(null)}>
-            1日
-          </Chip>
-          {PARTS.map((p) => (
-            <Chip key={p.id} size="sm" on={parts?.has(p.id) ?? false} onClick={() => toggle(p.id)}>
-              {p.label}
-            </Chip>
-          ))}
+        {/* 案D ページを分ける: 上は どのページでも同じ（絞り込み・まとめの数字）、下をページに。
+            絞り込みは1か所（2026-11-16）: 時間帯と日（曜日・カレンダー）をここだけで選ぶ。 */}
+        <div className="month-filter">
+          <div className="month-filter-row">
+            <span className="month-filter-name">時間</span>
+            <div className="chip-row" role="group" aria-label="時間帯で絞る">
+              <Chip size="sm" on={parts == null} onClick={() => setParts(null)}>
+                1日
+              </Chip>
+              {PARTS.map((p) => (
+                <Chip key={p.id} size="sm" on={parts?.has(p.id) ?? false} onClick={() => toggle(p.id)}>
+                  {p.label}
+                </Chip>
+              ))}
+            </div>
+          </div>
+          <div className="month-filter-row">
+            <span className="month-filter-name">日</span>
+            <div className="chip-row month-filter-days" role="group" aria-label="日で絞る">
+              <Chip size="sm" on={picked.size === 0} onClick={() => setPicked(new Set())}>
+                全
+              </Chip>
+              {WEEK.map((name, w) => {
+                const ds = days.filter((d) => dowOf(d) === w);
+                return (
+                  <Chip key={name} size="sm" on={ds.length > 0 && ds.every((d) => picked.has(d))} onClick={() => pickDays(ds)}>
+                    <span className={w === 5 ? "tone-saturday" : w === 6 ? "tone-holiday" : ""}>{name}</span>
+                  </Chip>
+                );
+              })}
+              <Chip size="sm" on={calOpen} onClick={() => setCalOpen(!calOpen)}>
+                {calOpen ? "閉じる" : "日付"}
+              </Chip>
+            </div>
+          </div>
+          {calOpen && (
+            <>
+              <MonthCalendar store={store} station={station} days={days} rows={full.rows} marks={marks} picked={picked} onPick={pickDays} />
+              <p className="month-cal-legend">日・週（左）・曜日（上）で選ぶ（複数可）。長押しでその日の詳細。</p>
+            </>
+          )}
         </div>
         <div className="ds-lead month-head">
           <p className="month-lean">
@@ -245,11 +274,11 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
             <MonthReport store={store} station={station} days={sel} rows={a.rows} rowsB={b.rows} picked={picked.size > 0} />
             <SectionHead title="曜日の傾向" />
             <div className="ds-hours">
-              <WeekDetail store={store} station={station} days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} onPick={pickDays} />
+              <WeekDetail store={store} station={station} days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} />
             </div>
             <SectionHead title="天気の型" />
             <div className="ds-hours">
-              <DayTypes days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} onPick={pickOnly} />
+              <DayTypes days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} />
             </div>
             <SectionHead title="目立った日" />
             <div className="ds-hours month-standouts">
@@ -281,19 +310,6 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
               )}
               <MonthLegend kind={metric === "temp" ? "range" : MONTH_METRICS.find((x) => x.id === metric)!.kind} color={DATA[MONTH_METRICS.find((x) => x.id === metric)!.tone]} now={label(month)} then="前年同曜日" />
             </div>
-            <div className="month-quick chip-row" role="group" aria-label="まとめて選ぶ">
-              <Chip size="sm" on={picked.size === 0} onClick={() => setPicked(new Set())}>
-                月全体
-              </Chip>
-              <Chip size="sm" on={picked.size === weekdays.length && weekdays.every((d) => picked.has(d))} onClick={() => pickOnly(weekdays)}>
-                平日
-              </Chip>
-              <Chip size="sm" on={picked.size === weekend.length && weekend.every((d) => picked.has(d))} onClick={() => pickOnly(weekend)}>
-                土日
-              </Chip>
-            </div>
-            <MonthCalendar store={store} station={station} days={days} rows={full.rows} marks={marks} picked={picked} onPick={pickDays} />
-            <p className="month-cal-legend">日・週（左）・曜日（上）でも選べる（複数可）。上の数字とまとめは選んだ日だけ、前年同曜日と比べる。</p>
           </>
         )}
         {tab === "feel" && (
@@ -1156,7 +1172,7 @@ const WEEK_MEASURES: { id: WeekMeasure; label: string; unit: string; tone: keyof
  * The weekdays in detail: one measure at a time (最高・最低・雨の日・降水量・日照・晴れの日・昼の肌感),
  * a bar per weekday (this month filled, 前年同曜日 as an outline mark), its value and the difference,
  * the dates' weather beside it, two groups of weekdays the viewer puts together, and a line naming
- * the highest and lowest weekday. A tap on a row adds (or drops) that weekday's days to the choice.
+ * the highest and lowest weekday. The days are chosen at the top only (one place); a chosen weekday is framed.
  */
 function WeekDetail({
   store,
@@ -1165,7 +1181,6 @@ function WeekDetail({
   rows,
   rowsB,
   picked,
-  onPick,
 }: {
   store: WeatherStore | null;
   station: string;
@@ -1173,7 +1188,6 @@ function WeekDetail({
   rows: (WeatherRow | null)[];
   rowsB: (WeatherRow | null)[];
   picked: ReadonlySet<string>;
-  onPick: (days: string[]) => void;
 }) {
   const base = useContext(FeelContext);
   const [measure, setMeasure] = useState<WeekMeasure>("max");
@@ -1247,7 +1261,7 @@ function WeekDetail({
         {cols.map((c) => {
           const on = c.g.length > 0 && c.g.every((x) => picked.has(x.d));
           return (
-            <button key={c.name} className={`week-detail-row${on ? " on" : ""}`} onClick={() => onPick(c.g.map((x) => x.d))} aria-pressed={on} aria-label={`${c.name}曜日を選ぶ`}>
+            <div key={c.name} className={`week-detail-row${on ? " on" : ""}`}>
               <b className={c.w === 5 ? "tone-saturday" : c.w === 6 ? "tone-holiday" : ""}>{c.name}</b>
               <span className="week-detail-bar">
                 <i style={{ width: `${pct(c.a)}%`, background: color }} />
@@ -1265,7 +1279,7 @@ function WeekDetail({
                   <span key={x.d}>{x.a ? <DayWeatherIcon row={x.a} station={station} size={12} /> : null}</span>
                 ))}
               </span>
-            </button>
+            </div>
           );
         })}
       </div>
@@ -1304,7 +1318,7 @@ function WeekDetail({
         {m.id === "sunnyDays" ? `晴れの日は日照 ${SUNNY_DAY_H}時間以上。` : ""}
         {m.id === "warmNoon" ? "昼の肌感が「暖かい」以上の日。" : ""}
         {m.count ? "まとめた曜日は日数の割合。" : ""}
-        行を押すとその曜日の日を選ぶ（複数可・レポートも選んだ日に）。
+        選んだ曜日は枠で示す（選ぶのは上の「日」から）。
       </p>
     </div>
   );
@@ -1315,20 +1329,18 @@ const SKY_COLOR = { sun: DATA.sun, part: DATA.radiation, cloud: DATA.mean, rain:
 
 /**
  * The month's days grouped by how alike they were (monthClusters): each type with its centre, how many
- * days it had this month and 前年同曜日, and its dates. A tap chooses the type's days (and the report follows).
+ * days it had this month and 前年同曜日, and its dates.
  */
 function DayTypes({
   days,
   rows,
   rowsB,
   picked,
-  onPick,
 }: {
   days: string[];
   rows: (WeatherRow | null)[];
   rowsB: (WeatherRow | null)[];
   picked: ReadonlySet<string>;
-  onPick: (days: string[]) => void;
 }) {
   // 型の数: 自動 (the silhouette's choice) or fixed by the viewer.
   const [k, setK] = useState<number | null>(null);
@@ -1359,7 +1371,7 @@ function DayTypes({
         const on = ds.length > 0 && ds.length === picked.size && ds.every((d) => picked.has(d));
         const color = SKY_COLOR[t.sky];
         return (
-          <button key={t.name} className={`day-type${on ? " on" : ""}`} onClick={() => ds.length && onPick(ds)} aria-pressed={on} aria-label={`${t.name}の日を選ぶ`}>
+          <div key={t.name} className={`day-type${on ? " on" : ""}`}>
             <span className="day-type-head">
               <i style={{ background: color }} />
               <b>{t.name}</b>
@@ -1380,12 +1392,12 @@ function DayTypes({
             <span className="day-type-dates">
               {ds.length ? ds.map((d) => <span key={d}>{+d.slice(8)}</span>) : <small>この月はなし</small>}
             </span>
-          </button>
+          </div>
         );
       })}
       <p className="month-report-note">
         最高・最低・雨・日照・湿度・風が似た日を、この月と前年同曜日をいっしょにして {c.types.length}つの型にまとめた（{k ? "数は指定" : "数は自動"}・{clear}）。
-        {c.missingA ? `記録が欠けた ${c.missingA}日は入れていない。` : ""}押すとその型の日を選ぶ。
+        {c.missingA ? `記録が欠けた ${c.missingA}日は入れていない。` : ""}
       </p>
     </div>
   );

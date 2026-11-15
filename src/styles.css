@@ -4470,3 +4470,12 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .day-type-dates { display: flex; flex-wrap: wrap; gap: 3px; }
 .day-type-dates span { min-width: 22px; padding: 1px 4px; border-radius: var(--radius-xs); background: var(--surface-inset); font-family: var(--font-numeric); font-size: var(--size-xs); text-align: center; color: var(--ink-secondary); }
 .day-type-dates small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+
+/* 見本 絞り込みは1か所 */
+.month-filter { display: grid; gap: var(--space-3); margin: 0 0 var(--space-4); }
+.month-filter-row { display: grid; grid-template-columns: 28px 1fr; gap: var(--space-3); align-items: start; }
+.month-filter-name { padding-top: 7px; }
+.month-filter-name { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.month-filter-days .tone-saturday { color: var(--day-saturday); }
+.month-filter-days .tone-holiday { color: var(--day-holiday); }
+.week-detail-row, .day-type { cursor: default; }
