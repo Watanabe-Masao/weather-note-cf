@@ -9,6 +9,7 @@
     "deploy": "npm run build && wrangler deploy",
     "typecheck": "tsc -b && tsc --noEmit -p tsconfig.research.json",
     "test": "vitest run",
+    "core-map": "CORE_MAP_WRITE=1 vitest run test/data/core-map.test.ts",
     "check": "npm run typecheck && npm run test && vite build",
     "e2e": "vite build && python3 e2e/e2e.py"
   },

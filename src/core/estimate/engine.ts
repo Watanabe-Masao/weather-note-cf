@@ -8,7 +8,12 @@ export type Reason = string;
 /** One input or one result: a number, or why there is none. */
 export type Value = { value: number } | { absent: Reason };
 
-export const has = (v: Value | undefined): v is { value: number } => v != null && "value" in v;
+/** A run of values, newest first (index 0 = the day before): each a number or why there is none. */
+export interface Series {
+  series: Value[];
+}
+
+export const has = (v: Value | Estimate | undefined): v is { value: number } => v != null && "value" in v;
 
 /** A number with what it is and where it comes from (principles 5). */
 export interface Param {
@@ -24,22 +29,42 @@ export interface Range {
   above?: number;
 }
 
-export interface Formula<N extends string, P extends string> {
+/** Too little of a series to say anything (principles 2): what was there against what is needed. */
+export interface Shortage {
+  have: number;
+  need: number;
+  /** What the two numbers count ("日", "重みの割合"). */
+  of: string;
+}
+
+/** A series as `compute` sees it: the numbers by position, null where a day has none. */
+export type Run = readonly (number | null)[];
+
+export interface Formula<N extends string, P extends string, S extends string = never> {
   /** The estimate's name; issues and notes call it by this. */
   id: string;
-  /** Raised when the formula's shape changes. */
+  /** Raised when the formula's shape changes. The old version is kept, not rewritten (principles 5). */
   version: number;
+  /** How other formulas name this one in their `needs`. */
+  key: string;
   label: string;
   unit: string;
   /** Material or other estimates it is computed from: the only way in. */
   needs: readonly N[];
+  /** Runs of past values it is computed from (newest first). */
+  series?: readonly S[];
   /** The names of the numbers it uses. */
   params: readonly P[];
   /** Where the formula holds; outside it the result is outOfDomain, never clamped. */
   domain?: Partial<Record<N, Range>>;
-  /** Called only with every need present and in range. */
-  compute: (x: Record<N, number>, p: Record<P, number>) => number;
+  /** Whether a series has enough in it: null when it has, else what is short. Checked before compute. */
+  enough?: (s: Record<S, Run>, p: Record<P, number>) => Shortage | null;
+  /** Called only with every need present, in range, and every series enough. */
+  compute: (x: Record<N, number>, p: Record<P, number>, s: Record<S, Run>) => number;
 }
+
+/** Any formula, for lists of formulas of different shapes (the map). */
+export type AnyFormula = Formula<any, any, any>;
 
 export interface ParamSet<P extends string> {
   /** Which set of numbers ("standard", "settings", or a learned fit's name). */
@@ -49,11 +74,11 @@ export interface ParamSet<P extends string> {
   values: Record<P, Param>;
 }
 
-export function defineFormula<N extends string, P extends string>(f: Formula<N, P>): Formula<N, P> {
+export function defineFormula<N extends string, P extends string, S extends string = never>(f: Formula<N, P, S>): Formula<N, P, S> {
   return f;
 }
 
-export function defineParams<P extends string>(_formula: Formula<string, P>, set: ParamSet<P>): ParamSet<P> {
+export function defineParams<P extends string>(_formula: Formula<string, P, string>, set: ParamSet<P>): ParamSet<P> {
   return set;
 }
 
@@ -68,7 +93,8 @@ export interface Step {
 export type Estimate =
   | { value: number; trace: Step[] }
   | { absent: "missingInput"; inputs: Record<string, Reason>; trace: Step[] }
-  | { absent: "outOfDomain"; input: string; got: number; range: Range; trace: Step[] };
+  | { absent: "outOfDomain"; input: string; got: number; range: Range; trace: Step[] }
+  | { absent: "tooShort"; input: string; shortage: Shortage; trace: Step[] };
 
 const tag = (id: string, version: number) => `${id}@${version}`;
 
@@ -76,10 +102,10 @@ const tag = (id: string, version: number) => `${id}@${version}`;
  * Compute one formula from its inputs. Inputs that are estimates bring their trace along, so the
  * result names everything it was made from (principles 5: both the formula and the set, by version).
  */
-export function evaluate<N extends string, P extends string>(
-  f: Formula<N, P>,
+export function evaluate<N extends string, P extends string, S extends string = never>(
+  f: Formula<N, P, S>,
   set: ParamSet<P>,
-  inputs: Record<N, Value | Estimate>,
+  inputs: Record<N, Value | Estimate> & Record<S, Series>,
 ): Estimate {
   const p = {} as Record<P, number>;
   for (const k of f.params) p[k] = set.values[k].value;
@@ -87,18 +113,19 @@ export function evaluate<N extends string, P extends string>(
   const trace = [...before, { formula: tag(f.id, f.version), params: tag(set.id, set.version), values: { ...p } }];
   const missing: Record<string, Reason> = {};
   for (const n of f.needs) {
-    const v = inputs[n];
+    const v = inputs[n] as Value | Estimate | undefined;
     if (has(v)) continue;
     // An estimate that is itself missing inputs passes down which ones ("windPerson.wind"), so the
     // reason reaches the material it started from.
     if (v && "absent" in v && v.absent === "missingInput" && "inputs" in v) for (const [k, r] of Object.entries(v.inputs)) missing[`${n}.${k}`] = r;
-    else if (!(v && "absent" in v && v.absent === "outOfDomain")) missing[n] = v && "absent" in v ? v.absent : "notProvided";
+    else if (!(v && "absent" in v && (v.absent === "outOfDomain" || v.absent === "tooShort"))) missing[n] = v && "absent" in v ? v.absent : "notProvided";
   }
+  for (const s of f.series ?? []) if (!inputs[s]) missing[s] = "notProvided";
   if (Object.keys(missing).length) return { absent: "missingInput", inputs: missing, trace };
-  // An estimate input out of its range: the result is out of range too, at the same place.
+  // An estimate input out of its range or too short: so is the result, at the same place.
   for (const n of f.needs) {
-    const v = inputs[n];
-    if (v && "absent" in v && v.absent === "outOfDomain" && "input" in v) return { ...v, input: `${n}.${v.input}`, trace };
+    const v = inputs[n] as Value | Estimate;
+    if ("absent" in v && "input" in v) return { ...v, input: `${n}.${v.input}`, trace };
   }
   const x = {} as Record<N, number>;
   for (const n of f.needs) {
@@ -107,5 +134,9 @@ export function evaluate<N extends string, P extends string>(
     if (r && ((r.min != null && v < r.min) || (r.max != null && v > r.max) || (r.above != null && v <= r.above))) return { absent: "outOfDomain", input: n, got: v, range: r, trace };
     x[n] = v;
   }
-  return { value: f.compute(x, p), trace };
+  const runs = {} as Record<S, Run>;
+  for (const s of f.series ?? []) runs[s] = (inputs[s] as Series).series.map((v) => (has(v) ? v.value : null));
+  const short = f.enough?.(runs, p);
+  if (short) return { absent: "tooShort", input: (f.series ?? []).join(","), shortage: short, trace };
+  return { value: f.compute(x, p, runs), trace };
 }

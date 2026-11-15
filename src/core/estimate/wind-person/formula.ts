@@ -6,6 +6,7 @@ import { defineFormula } from "../engine";
 export const windPerson = defineFormula({
   id: "wind.person",
   version: 1,
+  key: "windPerson",
   label: "人の高さの風速",
   unit: "m/s",
   needs: ["wind", "windHeight"],

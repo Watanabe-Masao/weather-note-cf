@@ -9,6 +9,7 @@ import { defineFormula } from "../engine";
 export const feelShade = defineFormula({
   id: "feel.shade",
   version: 1,
+  key: "feelShade",
   label: "肌感（日かげ）",
   unit: "℃",
   needs: ["temp", "humidity", "windPerson"],
