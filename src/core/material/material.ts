@@ -2,6 +2,7 @@
 // there (a number) or not (null) — never filled in. Where it came from travels with it.
 
 import type { Quality, WeatherRow } from "../../../shared/types";
+import { HOUR_FIRST, HOUR_LAST } from "./constants";
 import { DAY_FIELDS, type DayField, type FieldDef, HOUR_FIELDS, type HourField } from "./fields";
 
 /** 記録 (measured) or 予報 (forecast). */
@@ -67,7 +68,7 @@ function origin(row: WeatherRow, station: string): Origin {
 
 /** One hourly row as material; null when the row is not a valid hour. */
 export function hourOf(row: WeatherRow, station: string): MaterialHour | null {
-  if (!Number.isInteger(row.n) || row.n < 1 || row.n > 24) return null;
+  if (!Number.isInteger(row.n) || row.n < HOUR_FIRST || row.n > HOUR_LAST) return null;
   return { ...origin(row, station), hour: row.n, ...read(row, HOUR_FIELDS) };
 }
 
