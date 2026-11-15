@@ -831,12 +831,14 @@ with sync_playwright() as p:
           const a = cs ? [...cs.querySelectorAll('.cs-val.cs-a .cs-num')].map(right) : [];
           const b = cs ? [...cs.querySelectorAll('.cs-val.cs-b .cs-num')].map(right) : [];
           const units = cs ? cs.querySelectorAll('.cs-val .unit').length : -1;
-          return { col, a, b, units };
+          const sun = cs ? [...cs.querySelectorAll('.cs-sun .cs-val')].map(e => e.getClientRects().length === 1 && e.scrollWidth <= e.clientWidth + 1 && Math.round(e.getBoundingClientRect().height) < 26) : [];
+          return { col, a, b, units, sun };
         }""")
         check("GR1 表の列で小数点が縦にそろう（右そろえ）", len(r["col"]) >= 3 and max(r["col"]) - min(r["col"]) <= 1, str(r["col"]))
         if r["a"]:
             check("GR2 比較の要約の両側で小数点が縦にそろう", max(r["a"]) - min(r["a"]) <= 1 and max(r["b"]) - min(r["b"]) <= 1, f'{r["a"]} {r["b"]}')
             check("GR3 比較の要約の単位は名前の後ろ（数字に付けない）", r["units"] == 0, str(r["units"]))
+            check("GR4 日の出・日の入りの時刻は1行（折り返さない）", r["sun"] and all(r["sun"]), str(r["sun"]))
         else:
             check("GR2 比較の要約が開いている", False, "no .compare-summary")
         pg.click(".back-btn"); calm()

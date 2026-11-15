@@ -15,7 +15,7 @@ import type { WeatherRow } from "../../shared/types";
 import { dailyRadiation, hourlyExtreme } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { clock, hourOfDay } from "../data/sun";
-import { digitsOf, lineLabel, num, signedDiff, UNIT } from "../design/format";
+import { lineLabel, num, signedDiff, UNIT } from "../design/format";
 import type { DataColor } from "../design/tokens";
 import { Badge, Button, CheckGlyph, confidenceOfRow, DayLabel, Glyph, SwipeHint } from "./kit";
 import type { MetricId } from "../metrics";
@@ -73,13 +73,6 @@ function minutes(a: string | null, b: string | null): string {
   const d = Math.round((x - y) * 60);
   return d === 0 ? "±0" : d > 0 ? `+${d}分` : `−${-d}分`;
 }
-
-/** A hidden ".0": a whole number takes the place of one with a decimal, so the points line up. */
-const Pad = () => (
-  <span className="num-pad" aria-hidden>
-    .0
-  </span>
-);
 
 interface Row {
   key: string;
@@ -182,14 +175,16 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     return () => clearTimeout(t);
   }, [saved]);
 
-  // One line per value, units and digits by the design rules (format.ts).
+  // One line per value, units by the design rules (format.ts). Digits: one decimal on every row,
+  // humidity and pressure too (62.0 %, 1016.3 hPa), so the summary's numbers and their decimal
+  // points stand in one grid (the day's pressure is given to 0.1 hPa, the mean humidity is a mean).
   const r = (key: string, metric: MetricId, label: string, unit: string, a: number | null, b: number | null, tone?: DataColor): Row => ({
     key,
     metric,
     label,
     unit,
     tone,
-    digits: digitsOf(unit),
+    digits: 1,
     a,
     b,
   });
@@ -210,10 +205,9 @@ export function CompareSummary({ store, station, target, other, today, metric, o
       <span className="cs-none">—</span>
     ) : (
       // The number alone, in a box of one width (#151 grid): right-aligned, so the decimal points
-      // stand in one line down each side; a whole number keeps a hidden ".0" for its place.
+      // stand in one line down each side.
       <span className="cs-num">
         {v.toFixed(row.digits)}
-        {row.digits === 0 && <Pad />}
       </span>
     );
 
@@ -359,7 +353,6 @@ export function CompareSummary({ store, station, target, other, today, metric, o
             </span>
             <span className="cs-diff">
               {signedDiff(r.a, r.b, r.digits)}
-              {r.digits === 0 && signedDiff(r.a, r.b, r.digits) && <Pad />}
             </span>
           </span>
           <span className={`cs-val cs-b${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.b, r)}</span>

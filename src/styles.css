@@ -1683,10 +1683,10 @@ svg.scrub {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
-.num-pad { visibility: hidden; }
 .cs-mid.cs-grid {
   display: grid;
-  grid-template-columns: 6.4em 3.4em;
+  /* 気圧最高 hPa / +1.0: the longest name with its unit, and a difference. */
+  grid-template-columns: 66px 40px; /* −10.7 */
   justify-content: center;
   column-gap: 4px;
   min-width: 0;
@@ -1741,6 +1741,7 @@ svg.scrub {
 .cs-row > .cs-b { padding-left: 4px; }
 
 .cs-sun .cs-val {
+  white-space: nowrap;
   font-size: var(--size-sm);
   color: var(--ink-tertiary);
 }
