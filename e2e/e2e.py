@@ -274,7 +274,7 @@ with sync_playwright() as p:
     # TX. 質感 (design-system.md 4.1): values by the points, the 幅 view, rounded amount bars
     def tx():
         check("TX1 気温の値を点のそばに（対象日の最高・最低）", pg.locator(".sheet .chart-values text").count() >= 14, str(pg.locator(".sheet .chart-values text").count()))
-        check("TX2 線は区間ごとに1本（日ごとの線分にしない）", pg.evaluate("document.querySelectorAll('.sheet .chart svg line[stroke-dasharray]:not(.guide *)').length") == 0)
+        check("TX2 線は区間ごとに1本（日ごとの線分にしない）", pg.evaluate("document.querySelectorAll('.sheet .chart > svg line[stroke-dasharray]:not(.guide *)').length") == 0)
         pg.locator(".chart-look button", has_text="幅").click(); calm()
         check("TX3 幅：1日1本の丸い棒（対象・比較）", pg.locator(".sheet .range-bars rect").count() >= 14, str(pg.locator(".sheet .range-bars rect").count()))
         check("TX4 幅：最高・最低のチップは出さない", pg.locator(".sheet .chip-row .chip", has_text="最高").count() == 0)
