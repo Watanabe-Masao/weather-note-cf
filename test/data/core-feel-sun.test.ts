@@ -41,7 +41,8 @@ describe("the sun's position is the app's", () => {
     fc.assert(
       fc.property(date, fc.double({ min: 0, max: 1439, noNaN: true }), (d, m) => {
         const ms = Date.parse(`${d}T00:00:00+09:00`) + m * 60_000;
-        expect(solarAltitude(ms, KOCHI.lat, KOCHI.lon)).toBeCloseTo(legacyAltitude(d, m, KOCHI.lat, KOCHI.lon), 9);
+        // Within a millionth of a degree: the two reach the same moment by different arithmetic (ms vs date + minutes).
+        expect(solarAltitude(ms, KOCHI.lat, KOCHI.lon)).toBeCloseTo(legacyAltitude(d, m, KOCHI.lat, KOCHI.lon), 6);
       }),
     );
   });
