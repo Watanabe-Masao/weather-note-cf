@@ -168,6 +168,7 @@ shadeFeel(hour, { anemometerHeight: 10 }, { windPerson: windPersonSettings(alpha
 - 見せるのは core に移ったものだけ。構造は計算式から、値は同じ `evaluate` で計算して取る。画面の側に式や依存を書かない
 - 旧実装（`shared/`・`src/beta/`）を読む仕組みは作らない（別に書き出すと二重管理になる）。旧実装は「未移行」とだけ示し、見たいものは先に core へ移す
 - 最初の比べ板：設定 →「慣れの計算を比べる（テスト）」（`src/ui/HistoryCompareBoard.tsx`）。その地点の記録で `compareLongHistory` を動かし、L1・L2・境目の差・選んだ日の段を出す。画面は値を計算しない
+- S0 の観察板：設定 →「短期の履歴と答え（テスト）」（`src/ui/ShortHistoryBoard.tsx`）。その日の肌感・短期の履歴 S・変化の速さを `shortHistories` で出し、自分の答えを同じ時間の軸に並べる。表は答えたときの場所（日なた・日かげ）の値。「いつもと違う動き」（昼に冷えた・夜に暖まった時間）で、時刻と履歴を切り分けられる日を探す
 
 ## 8. 設計の原則との対応
 
