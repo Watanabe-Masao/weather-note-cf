@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_FEEL, feelOf } from "../../shared/feel";
 import { sunshineRadiation as legacyRadiation } from "../../shared/mrt";
 import { solarAltitude as legacyAltitude, stationLatLon } from "../../shared/sunTimes";
-import { type Estimate, hourStartOf, type MaterialHour, shadeFeel, sunFeel, sunshineRadiation, windPersonSettings } from "../../src/core";
+import { type Estimate, hourStartOf, type MaterialHour, RAD_SUNSHINE_STANDARD, shadeFeel, shortHistories, sunFeel, sunshineRadiation, windPersonSettings } from "../../src/core";
 import { solarAltitude } from "../../src/core/estimate/sun/position";
 
 const KOCHI = stationLatLon("47893")!;
@@ -131,7 +131,7 @@ describe("肌感（日なた） rebuilds feel-1s", () => {
 
   it("names every formula and set on the way", () => {
     const e = sunFeel(hour("2026-06-21", 13, { sunshine: 0.5, rain: 0 }), site, settings);
-    expect(e.trace.map((s) => s.formula)).toEqual(["wind.person@1", "feel.shade@1", "rad.sunshine@1", "wind.ten@1", "feel.sun@1"]);
+    expect(e.trace.map((s) => s.formula)).toEqual(["wind.person@1", "feel.shade@1", "rad.sunshine@2", "wind.ten@1", "feel.sun@1"]);
   });
 });
 
@@ -139,5 +139,43 @@ describe("JMA's hour n begins at (n − 1):00 JST", () => {
   it("hour 1 at 0:00, hour 24 at 23:00", () => {
     expect(new Date(hourStartOf("2026-11-15", 1)).toISOString()).toBe("2026-11-14T15:00:00.000Z");
     expect(new Date(hourStartOf("2026-11-15", 24)).toISOString()).toBe("2026-11-15T14:00:00.000Z");
+  });
+});
+
+// v2 (#208 H-02b): an hour with no sunshine and no rain is told apart by the hours beside it — a run of
+// cloud lets less through than a cloud between sunny spells. Measured on one year, checked on another.
+describe("日照 0 by its neighbours (rad.sunshine v2)", () => {
+  const P = RAD_SUNSHINE_STANDARD.values;
+  const noon = (s: number | null, mm: number | null = 0) => hour("2026-03-20", 13, { sunshine: s, rain: mm });
+  const rad = (h: MaterialHour, around?: Parameters<typeof sunshineRadiation>[2]) => valueOf(sunshineRadiation(h, site, around))!;
+  const alone = rad(noon(0));
+
+  it("a run of cloud (both neighbours without sunshine) lets through cloudyDark, a cloud between sunny spells cloudyBetween", () => {
+    expect(rad(noon(0), { before: noon(0), after: noon(0) }) / alone).toBeCloseTo(P.cloudyDark.value / P.cloudy.value, 9);
+    expect(rad(noon(0), { before: noon(0.6), after: noon(0) }) / alone).toBeCloseTo(P.cloudyBetween.value / P.cloudy.value, 9);
+    expect(rad(noon(0), { before: noon(0), after: noon(0.3) }) / alone).toBeCloseTo(P.cloudyBetween.value / P.cloudy.value, 9);
+  });
+
+  it("a neighbour not known (no row, blank, not yet) keeps cloudy — unless the other had sunshine", () => {
+    expect(rad(noon(0), { before: noon(0) })).toBeCloseTo(alone, 9); // an answer's hour: no "after" yet
+    expect(rad(noon(0), { before: noon(null), after: noon(0) })).toBeCloseTo(alone, 9);
+    expect(rad(noon(0), { before: noon(0.5) }) / alone).toBeCloseTo(P.cloudyBetween.value / P.cloudy.value, 9);
+  });
+
+  it("leaves rain and hours with sunshine as they were", () => {
+    fc.assert(
+      fc.property(fc.double({ min: 0.05, max: 1, noNaN: true }), fc.double({ min: 0, max: 1, noNaN: true }), (s, nb) => {
+        expect(rad(noon(s), { before: noon(nb), after: noon(nb) })).toBeCloseTo(rad(noon(s)), 9);
+      }),
+    );
+    expect(rad(noon(0, 2), { before: noon(0), after: noon(0) })).toBeCloseTo(rad(noon(0, 2)), 9);
+  });
+
+  it("the short history passes each hour its neighbours in the list (the last hour has none after)", () => {
+    const run = [noon(0), noon(0), noon(0)];
+    const feels = shortHistories(run, site, settings, "sun").map((h) => valueOf(h.feel)!);
+    expect(feels[1]).toBeCloseTo(valueOf(sunFeel(run[1], site, settings, { before: run[0], after: run[2] }))!, 9);
+    expect(feels[2]).toBeCloseTo(valueOf(sunFeel(run[2], site, settings, { before: run[1] }))!, 9);
+    expect(feels[1]).toBeLessThan(feels[2]); // a run of cloud is darker than an hour whose next is not known
   });
 });

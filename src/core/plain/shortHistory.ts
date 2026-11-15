@@ -25,7 +25,11 @@ const asValue = (e: Estimate | null): Value => (e == null ? { absent: "noRow" } 
 
 /** `hours` consecutive, oldest first (null: no row for that hour). One outcome per hour. */
 export function shortHistories(hours: readonly (MaterialHour | null)[], site: Site, s: FeelSettingsLike, exposure: Exposure): HourHistory[] {
-  const feels = hours.map((h) => (h == null ? null : exposure === "sun" ? sunFeel(h, site, s) : shadeFeel(h, site, { windPerson: windPersonSettings(s.alpha) })));
+  // The hours are consecutive: each one's neighbours are the hours beside it in the list (the last
+  // has no "after" — for an answer's hour it is not known yet).
+  const feels = hours.map((h, i) =>
+    h == null ? null : exposure === "sun" ? sunFeel(h, site, s, { before: hours[i - 1], after: hours[i + 1] }) : shadeFeel(h, site, { windPerson: windPersonSettings(s.alpha) }),
+  );
   return feels.map((feel, i) => {
     const before: Series = { series: feels.slice(0, i).reverse().map(asValue) };
     const now: Estimate = feel ?? { absent: "missingInput", inputs: { hour: "noRow" }, trace: [] };

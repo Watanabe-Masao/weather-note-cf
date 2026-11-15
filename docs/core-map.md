@@ -18,12 +18,14 @@ flowchart LR
     lat["緯度（場所）<br><code>lat</code>"]
     lon["経度（場所）<br><code>lon</code>"]
     hourStart["時刻<br><code>hourStart</code>"]
+    sunshineBefore["日照（1時間前）<br><code>sunshineBefore</code>"]
+    sunshineAfter["日照（1時間後）<br><code>sunshineAfter</code>"]
     dayMeans["平均気温（前の日から）<br><code>dayMeans</code>"]
   end
   subgraph 推測値
     windPerson["人の高さの風速<br><code>wind.person@1</code> m/s<br><small>数：personHeight・alpha</small>"]
     feelShade["肌感（日かげ）<br><code>feel.shade@1</code> ℃<br><small>数：neutral・a0・a1・a2・c0・c1・d</small>"]
-    radSunshine["日照から推測した日射<br><code>rad.sunshine@1</code> W/m²<br><small>数：hazeMean・hazeAmplitude・hazeClearestDay・cloudy・sharePower・rainRef・rainDim・rainPower・rainFloor</small>"]
+    radSunshine["日照から推測した日射<br><code>rad.sunshine@2</code> W/m²<br><small>数：hazeMean・hazeAmplitude・hazeClearestDay・cloudy・cloudyDark・cloudyBetween・sharePower・rainRef・rainDim・rainPower・rainFloor</small>"]
     windTen["10 m の風速<br><code>wind.ten@1</code> m/s<br><small>数：tenMeters・alpha</small>"]
     feelSun["肌感（日なた）<br><code>feel.sun@1</code> ℃<br><small>数：k・windOffset・absorb</small>"]
     historyMean["長期の気温履歴（単純平均）<br><code>history.long.mean@1</code> ℃<br><small>数：days・minDays</small>"]
@@ -45,6 +47,8 @@ flowchart LR
   lon --> radSunshine
   sunshine --> radSunshine
   rain --> radSunshine
+  sunshineBefore --> radSunshine
+  sunshineAfter --> radSunshine
   wind --> windTen
   windHeight --> windTen
   feelShade --> feelSun

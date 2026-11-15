@@ -53,7 +53,8 @@ function numbersIn(text: string): string[] {
 describe("no magic numbers in formulas", () => {
   for (const file of files(CORE).filter((f) => !NUMBER_FILES.test(f)))
     it(relative(ROOT, file), () => {
-      const numbers = numbersIn(readFileSync(file, "utf8"));
+      // A formula's version is its name in the trace, not a number it computes with.
+      const numbers = numbersIn(readFileSync(file, "utf8").replace(/\bversion:\s*\d+/g, "version: 1"));
       expect(numbers.filter((n) => +n !== 0 && +n !== 1), "数は params.ts か constants.ts に名前を付けて置く").toEqual([]);
     });
 

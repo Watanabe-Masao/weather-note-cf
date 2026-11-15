@@ -32,7 +32,7 @@ export { RAD_SUNSHINE_STANDARD } from "./estimate/sun/params";
 export { windTen } from "./estimate/wind-ten/formula";
 export { windTenSettings } from "./estimate/wind-ten/params";
 export { hourStartOf } from "./material/inputs";
-export { type FeelSettingsLike, sunFeel, sunshineRadiation } from "./plain/feelSun";
+export { type FeelSettingsLike, type Neighbours, sunFeel, sunshineRadiation } from "./plain/feelSun";
 export { type Concept, CONCEPTS, type Hypothesis, HYPOTHESES } from "./hypotheses";
 export { hypothesisMermaid } from "./map";
 export { feelRate } from "./estimate/feel-rate/formula";

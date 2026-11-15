@@ -27,6 +27,8 @@ export const MATERIAL_INPUTS: Record<string, string> = {
   lat: "緯度（場所）",
   lon: "経度（場所）",
   hourStart: "時刻",
+  sunshineBefore: "日照（1時間前）",
+  sunshineAfter: "日照（1時間後）",
   dayMeans: `${DAY_FIELDS.find((f) => f.id === "temp")!.label}（前の日から）`,
 };
 
