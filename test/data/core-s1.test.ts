@@ -112,3 +112,21 @@ describe("an answer's inputs from the materials", () => {
     expect("value" in x.shift).toBe(true);
   });
 });
+
+describe("the long history swapped (#208-3)", () => {
+  const l1 = ordinalPredictor({ id: "l1", thresholds: T, useShort: false });
+  const l2 = ordinalPredictor({ id: "l2", thresholds: T, useShort: false, history: "L2" });
+  const c = world(1, 0, 9)[0];
+
+  it("L2 reads shiftL2, L1 reads shift: different shifts, different forecasts", () => {
+    const x = { ...c.inputs, shift: v(0), shiftL2: v(3) };
+    const [s] = prequential([{ ...c, inputs: x }], [l1, l2]);
+    expect(s.by.l1!.forecast).not.toEqual(s.by.l2!.forecast);
+  });
+
+  it("without shiftL2, the L2 model says nothing", () => {
+    const [s] = prequential([c], [l1, l2]);
+    expect(s.by.l2).toBeNull();
+    expect(s.by.l1).not.toBeNull();
+  });
+});

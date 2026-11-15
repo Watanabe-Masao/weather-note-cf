@@ -9,6 +9,7 @@ import { ShortHistoryBoard } from "./ShortHistoryBoard";
 import { LearnedCompareBoard } from "./LearnedCompareBoard";
 import { jstToday } from "../../shared/dates";
 import { AccountSection } from "../account/AccountSection";
+import { useAccount } from "../account/account";
 import { centreUnknown, LEARNING_LABELS } from "../beta/comfort";
 import { useContext, useEffect, useRef, useState } from "react";
 
@@ -187,12 +188,8 @@ function ReportData() {
 }
 
 /** Spec 4.8: the boundaries between the five levels, surroundings and sunshine. */
-function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: WeatherStore | null; station: string }) {
+function FeelSection({ feel }: { feel: Props["feel"] }) {
   const { saved, update, reset } = feel;
-  const [sunTest, setSunTest] = useState(false);
-  const [historyTest, setHistoryTest] = useState(false);
-  const [shortTest, setShortTest] = useState(false);
-  const [learnedTest, setLearnedTest] = useState(false);
   return (
     <section className="set-group" aria-labelledby="set-feel">
       <h3 id="set-feel">肌感の基準</h3>
@@ -218,19 +215,36 @@ function FeelSection({ feel, store, station }: { feel: Props["feel"]; store: Wea
         />
         <small className="set-help">肌感（日なた）で、日差しをどれだけ足すか。</small>
       </div>
-      <div className="actions tight">
-        <button onClick={() => setSunTest(true)}>肌感の計算を比べる（テスト）</button>
-        <button onClick={() => setHistoryTest(true)}>長期の気温履歴を比べる（テスト）</button>
-        <button onClick={() => setShortTest(true)}>短期の履歴と答え（テスト）</button>
-        <button onClick={() => setLearnedTest(true)}>学習あり版を比べる（テスト）</button>
-      </div>
       <Button block onClick={reset}>
         肌感の基準を初期値に戻す
       </Button>
-      {sunTest && <SunTestBoard store={store} station={station} today={jstToday()} onClose={() => setSunTest(false)} />}
-      {learnedTest && <LearnedCompareBoard store={store} station={station} onClose={() => setLearnedTest(false)} />}
-      {shortTest && <ShortHistoryBoard store={store} station={station} today={jstToday()} onClose={() => setShortTest(false)} />}
-      {historyTest && <HistoryCompareBoard store={store} station={station} today={jstToday()} onClose={() => setHistoryTest(false)} />}
+    </section>
+  );
+}
+
+/**
+ * 研究用（テスト）: the boards for looking into the models (#189, #207) — for the administrator only.
+ * They change nothing in the app; other people's settings do not show them.
+ */
+function ResearchSection({ store, station }: { store: WeatherStore | null; station: string }) {
+  const { me } = useAccount();
+  const [open, setOpen] = useState<null | "sun" | "history" | "short" | "learned">(null);
+  if (me?.role !== "admin") return null;
+  const close = () => setOpen(null);
+  return (
+    <section className="set-group" aria-labelledby="set-research">
+      <h3 id="set-research">研究用（テスト）</h3>
+      <Help lead text="モデルを確かめるための比べ板です。管理者にだけ表示されます。アプリの表示とモデルは変えません。" />
+      <div className="actions tight">
+        <button onClick={() => setOpen("sun")}>肌感の計算を比べる</button>
+        <button onClick={() => setOpen("history")}>長期の気温履歴を比べる</button>
+        <button onClick={() => setOpen("short")}>短期の履歴と答え</button>
+        <button onClick={() => setOpen("learned")}>学習あり版を比べる</button>
+      </div>
+      {open === "sun" && <SunTestBoard store={store} station={station} today={jstToday()} onClose={close} />}
+      {open === "history" && <HistoryCompareBoard store={store} station={station} today={jstToday()} onClose={close} />}
+      {open === "short" && <ShortHistoryBoard store={store} station={station} today={jstToday()} onClose={close} />}
+      {open === "learned" && <LearnedCompareBoard store={store} station={station} onClose={close} />}
     </section>
   );
 }
@@ -300,7 +314,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
         </label>
       </section>
 
-      <FeelSection feel={feel} store={store} station={station} />
+      <FeelSection feel={feel} />
 
       <section className="set-group" aria-labelledby="set-view">
         <h3 id="set-view">表示</h3>
@@ -330,6 +344,8 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
       </section>
 
       <AccountSection station={station} />
+
+      <ResearchSection store={store} station={station} />
 
       {beta.enabled && (
       <section className="set-group" aria-labelledby="set-beta">

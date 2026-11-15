@@ -10,12 +10,15 @@ import { SEASON_SHIFT_STANDARD } from "../judge/season-shift/params";
 import type { Site } from "../material/inputs";
 import type { MaterialDay, MaterialHour } from "../material/material";
 import type { FeelSettingsLike } from "./feelSun";
-import { longHistoryMean } from "./history";
+import { longHistoryEma, longHistoryMean } from "./history";
 import { shortHistories } from "./shortHistory";
 
 export interface CaseInputs {
   feel: Estimate;
+  /** The plain seasonal shift from the long history L1 (30-day mean): the plain judge's own. */
   shift: Estimate;
+  /** The same shift from the long history L2 (weighted mean), for comparing L1 with L2 (#208). */
+  shiftL2: Estimate;
   short: Estimate;
   rate: Estimate;
   level: Estimate;
@@ -26,7 +29,7 @@ export type Place = "sun" | "shade" | "mixed" | null;
 
 /**
  * `hours` consecutive and oldest first, the answer's hour at `index` (pass the day before's evening
- * too); `daysBefore` the days before the answer's date, newest first. 半々 has no 肌感 of its own.
+ * too); `daysBefore` the days before the answer's date, newest first (60 for L2's window). 半々 has no 肌感 of its own.
  */
 export function caseInputs(
   hours: readonly (MaterialHour | null)[],
@@ -38,10 +41,11 @@ export function caseInputs(
   thresholds: readonly [number, number, number, number, number, number],
 ): CaseInputs {
   const shift = evaluate(seasonShift, SEASON_SHIFT_STANDARD, { history: longHistoryMean(daysBefore) });
+  const shiftL2 = evaluate(seasonShift, SEASON_SHIFT_STANDARD, { history: longHistoryEma(daysBefore) });
   if (place === "mixed") {
     const none: Estimate = { absent: "missingInput", inputs: { place: "mixed" }, trace: [] };
-    return { feel: none, shift, short: none, rate: none, level: none };
+    return { feel: none, shift, shiftL2, short: none, rate: none, level: none };
   }
   const h = shortHistories(hours.slice(0, index + 1), site, s, place === "sun" ? "sun" : "shade")[index];
-  return { feel: h.feel, shift, short: h.short, rate: h.rate, level: evaluate(level7, level7Settings(thresholds), { feel: h.feel, shift }) };
+  return { feel: h.feel, shift, shiftL2, short: h.short, rate: h.rate, level: evaluate(level7, level7Settings(thresholds), { feel: h.feel, shift }) };
 }

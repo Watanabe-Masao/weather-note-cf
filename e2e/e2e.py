@@ -544,6 +544,8 @@ with sync_playwright() as p:
         layout_ok("J1c", "設定")
         buttons_ok("J1d", "設定", 0)
         check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
+        check("J3 管理者には「研究用（テスト）」に比べ板が4つまとまる", pg.locator("#set-research").count() == 1 and pg.locator("section[aria-labelledby='set-research'] .actions button").count() == 4)
+        check("J4 肌感の基準にはテストのボタンがない", pg.locator("section[aria-labelledby='set-feel'] button", has_text="比べる").count() == 0)
         esc()
     step("J", j)
 
