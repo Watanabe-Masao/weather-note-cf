@@ -4162,3 +4162,7 @@ svg.scrub {
 .history-cmp-facts b { color: var(--ink-primary); font-variant-numeric: tabular-nums; }
 .history-cmp-diff td { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .history-cmp-reasons { margin: 0; padding-left: 1.2em; font-size: var(--size-sm); color: var(--ink-secondary); }
+/* 学習あり版を比べる（テスト） */
+.learned-verdict { display: grid; gap: var(--space-1); margin: 0; font-size: var(--size-base); color: var(--ink-primary); }
+.learned-verdict small { font-size: var(--size-sm); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+.learned-name { text-align: left !important; white-space: normal !important; }
