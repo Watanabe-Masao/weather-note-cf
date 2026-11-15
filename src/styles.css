@@ -715,6 +715,19 @@ button.label-feel:active { transform: scale(0.97); }
   font-size: var(--size-md);
 }
 
+/* The grid (#151 一文字ずつ): in each day's column the numbers are right-aligned on one line, a
+   "00.0" wide box centred in the column, so 19.7 and 9.8 keep their decimal points one above the
+   other (centred, they slid by a digit). Every row of a column has the same decimals (a unit's). */
+.strip-col .cell-value {
+  justify-self: stretch;
+  text-align: right;
+  padding-right: max(2px, calc((var(--col) - 34px) / 2));
+  font-variant-numeric: tabular-nums;
+}
+.strip-col .cell-value:has(> .grid-none),
+.strip-col .cell-value:has(> .cell-failed),
+.strip-col .cell-value:has(> .skeleton) { text-align: center; padding-right: 0; }
+
 .cell-value.minor {
   font-size: var(--size-base);
   color: var(--ink-secondary);
@@ -1662,6 +1675,26 @@ svg.scrub {
   opacity: 0.82;
 }
 
+/* The grid (#151 一文字ずつ): each side's numbers in a box of one width, right-aligned, so the
+   decimal points stand in one line from 最高 to 気圧; the units sit once after the names. */
+.cs-num {
+  display: inline-block;
+  min-width: 6ch; /* 1016.0 */
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.cs-mid.cs-grid {
+  display: grid;
+  /* 気圧最高 hPa / +1.0: the longest name with its unit, and a difference. */
+  grid-template-columns: 66px 40px; /* −10.7 */
+  justify-content: center;
+  column-gap: 4px;
+  min-width: 0;
+}
+.cs-grid .cs-label { white-space: nowrap; }
+.cs-grid .cs-label .unit { margin-left: 3px; }
+.cs-grid .cs-diff { text-align: right; }
+
 .cs-mid {
   display: flex;
   justify-content: center;
@@ -1697,15 +1730,18 @@ svg.scrub {
 
 .cs-row.chosen > .cs-a {
   border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  padding-right: 4px;
 }
 
 .cs-row.chosen > .cs-b {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding-left: 4px;
 }
 
+/* Every row the same inset (the chosen one too), so the numbers keep one line (#151 grid). */
+.cs-row > .cs-a { padding-right: 4px; }
+.cs-row > .cs-b { padding-left: 4px; }
+
 .cs-sun .cs-val {
+  white-space: nowrap;
   font-size: var(--size-sm);
   color: var(--ink-tertiary);
 }
@@ -2574,6 +2610,14 @@ svg.scrub {
   color: var(--ink-tertiary);
 }
 
+/* The grid (#151): 最高・最低 right-aligned in a "00.0" box centred in the column, so 19.7 and 9.8
+   keep their decimal points one above the other. 雨 (words: 朝・夕…) stays centred. */
+.cond-col > span.num.grid {
+  justify-content: flex-end;
+  padding-right: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
 .cond-col.origin .num {
   font-weight: var(--weight-bold);
 }
@@ -2771,11 +2815,19 @@ svg.scrub {
 }
 
 .cal-max {
+  position: relative;
   font-size: var(--size-xs);
   color: var(--data-hot);
+  font-variant-numeric: tabular-nums;
 }
 
+/* The grid (#151): the C tag hangs to the right of the number, so the number stands in the middle
+   of its cell like every other day's (beside it, the tag pushed a forecast day's number aside). */
 .cal-c {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
   font-style: normal;
   margin-left: 2px;
   padding: 0 2px;

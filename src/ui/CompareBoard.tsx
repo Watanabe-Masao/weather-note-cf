@@ -63,6 +63,14 @@ function useWindow(center: string, min: string, max: string) {
   }, [win, min, max]);
 }
 
+/**
+ * A number for the grid (#151): right-aligned in its column (every row of a column has the same
+ * decimals, so the points line up); "—" (no value) sits in the middle of the column instead.
+ */
+function GridNum({ text }: { text: string }) {
+  return !text || text === "—" ? <span className="grid-none">{text}</span> : <>{text}</>;
+}
+
 export function kindLabel(store: WeatherStore | null, station: string, date: string) {
   const day = store?.getDay(station, date);
   if (day?.state !== "ready" || !day.row) return "";
@@ -133,7 +141,7 @@ function Column({
         return (
         <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}${longValue(text) ? " long" : ""}`}>
           {state === "ready" ? (
-            text
+            <GridNum text={text} />
           ) : state === "error" ? (
             <span className="cell-failed">—</span>
           ) : state === "empty" ? (
@@ -151,7 +159,7 @@ function Column({
           const text = signedDiff(a, b, unit) || "—";
           return (
             <span key={"diff-" + s.key} className={`cell-value cell-diff${longValue(text) ? " long" : ""}`}>
-              {text}
+              <GridNum text={text} />
             </span>
           );
         })}
@@ -230,7 +238,8 @@ function Labels({
 }
 
 /** A value of five characters or more (−10.7, 1016) steps down one size so it keeps to its column. */
-const longValue = (text: string) => text.replace(/[^\d.−+\-]/g, "").length >= 5;
+// Five characters or more (−10.7), or four digits (1023 hPa: at full size it ran into the next day's).
+const longValue = (text: string) => text.replace(/[^\d.−+\-]/g, "").length >= 5 || text.replace(/\D/g, "").length >= 4;
 
 export function CompareBoard({
   onMoving,

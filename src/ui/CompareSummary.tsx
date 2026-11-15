@@ -15,7 +15,7 @@ import type { WeatherRow } from "../../shared/types";
 import { dailyRadiation, hourlyExtreme } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { clock, hourOfDay } from "../data/sun";
-import { digitsOf, lineLabel, num, signedDiff, UNIT } from "../design/format";
+import { lineLabel, num, signedDiff, UNIT } from "../design/format";
 import type { DataColor } from "../design/tokens";
 import { Badge, Button, CheckGlyph, confidenceOfRow, DayLabel, Glyph, SwipeHint } from "./kit";
 import type { MetricId } from "../metrics";
@@ -175,14 +175,16 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     return () => clearTimeout(t);
   }, [saved]);
 
-  // One line per value, units and digits by the design rules (format.ts).
+  // One line per value, units by the design rules (format.ts). Digits: one decimal on every row,
+  // humidity and pressure too (62.0 %, 1016.3 hPa), so the summary's numbers and their decimal
+  // points stand in one grid (the day's pressure is given to 0.1 hPa, the mean humidity is a mean).
   const r = (key: string, metric: MetricId, label: string, unit: string, a: number | null, b: number | null, tone?: DataColor): Row => ({
     key,
     metric,
     label,
     unit,
     tone,
-    digits: digitsOf(unit),
+    digits: 1,
     a,
     b,
   });
@@ -202,10 +204,11 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     v == null ? (
       <span className="cs-none">—</span>
     ) : (
-      <>
+      // The number alone, in a box of one width (#151 grid): right-aligned, so the decimal points
+      // stand in one line down each side.
+      <span className="cs-num">
         {v.toFixed(row.digits)}
-        <small className="unit">{row.unit}</small>
-      </>
+      </span>
     );
 
   const head = (d: string | null, r: WeatherRow | null, side: "a" | "b") => {
@@ -342,9 +345,15 @@ export function CompareSummary({ store, station, target, other, today, metric, o
       {rows.map((r) => (
         <div key={r.key} className={r.metric === metric ? "cs-row chosen" : "cs-row"}>
           <span className={`cs-val cs-a${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.a, r)}</span>
-          <span className="cs-mid">
-            <span className="cs-label">{r.label}</span>
-            <span className="cs-diff">{signedDiff(r.a, r.b, r.digits)}</span>
+          {/* The unit once, after the name (as in the readouts); the difference right-aligned in its column. */}
+          <span className="cs-mid cs-grid">
+            <span className="cs-label">
+              {r.label}
+              <small className="unit">{r.unit}</small>
+            </span>
+            <span className="cs-diff">
+              {signedDiff(r.a, r.b, r.digits)}
+            </span>
           </span>
           <span className={`cs-val cs-b${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.b, r)}</span>
         </div>
@@ -354,7 +363,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
         <span className="cs-val cs-a">
           {clock(sunA?.sunrise ?? null)}–{clock(sunA?.sunset ?? null)}
         </span>
-        <span className="cs-mid">
+        <span className="cs-mid cs-grid">
           <span className="cs-label">日の出</span>
           <span className="cs-diff">{minutes(sunA?.sunrise ?? null, sunB?.sunrise ?? null)}</span>
         </span>

@@ -239,6 +239,7 @@ with sync_playwright() as p:
         pg.click(".metrics .chip:nth-child(1)"); calm()
     step("B", bb)
 
+
     # C. sheet heights
     def c():
         h0 = sheet_h()
@@ -815,6 +816,33 @@ with sync_playwright() as p:
         check("T9 日差しには［移り変わり］がない", pg.locator(".trend-btn").count() == 0)
         pg.click(".metrics .chip:nth-child(1)"); calm()
     step("T", tt)
+
+    # GR. 数字の格子 (#151): decimal points in one line down the table's centre column and down each
+    # side of the comparison summary; the units once after the names there.
+    def gr():
+        esc() if pg.locator(".msheet").count() else None
+        pg.evaluate("window.scrollTo(0, 0)")
+        # The day's hours: its sheet opens with the comparison summary at the top.
+        pg.locator(".side-target .strip-col.is-center .cell-stack").first.dispatch_event("click"); calm()  # under the sheet, perhaps
+        r = pg.evaluate("""() => {
+          const right = (e) => Math.round(e.getBoundingClientRect().right);
+          const col = [...document.querySelectorAll('.side-target .strip-col.is-center .cell-value')].filter(e => /\d/.test(e.textContent)).map(right);
+          const cs = document.querySelector('.compare-summary');
+          const a = cs ? [...cs.querySelectorAll('.cs-val.cs-a .cs-num')].map(right) : [];
+          const b = cs ? [...cs.querySelectorAll('.cs-val.cs-b .cs-num')].map(right) : [];
+          const units = cs ? cs.querySelectorAll('.cs-val .unit').length : -1;
+          const sun = cs ? [...cs.querySelectorAll('.cs-sun .cs-val')].map(e => e.getClientRects().length === 1 && e.scrollWidth <= e.clientWidth + 1 && Math.round(e.getBoundingClientRect().height) < 26) : [];
+          return { col, a, b, units, sun };
+        }""")
+        check("GR1 表の列で小数点が縦にそろう（右そろえ）", len(r["col"]) >= 3 and max(r["col"]) - min(r["col"]) <= 1, str(r["col"]))
+        if r["a"]:
+            check("GR2 比較の要約の両側で小数点が縦にそろう", max(r["a"]) - min(r["a"]) <= 1 and max(r["b"]) - min(r["b"]) <= 1, f'{r["a"]} {r["b"]}')
+            check("GR3 比較の要約の単位は名前の後ろ（数字に付けない）", r["units"] == 0, str(r["units"]))
+            check("GR4 日の出・日の入りの時刻は1行（折り返さない）", r["sun"] and all(r["sun"]), str(r["sun"]))
+        else:
+            check("GR2 比較の要約が開いている", False, "no .compare-summary")
+        pg.click(".back-btn"); calm()
+    step("GR", gr)
 
     # The 500s step FS asks for on purpose are not errors of the app.
     errors = [e for e in errors if not (FAILED_ON_PURPOSE and "status of 500" in e)]

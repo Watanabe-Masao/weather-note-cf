@@ -302,8 +302,8 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
                     <b className="num">{monthDay(target)}</b>
                     <small>{originRow?.type === "forecast" ? "予報" : "基準"}</small>
                   </span>
-                  <span className="num tone-hot">{origin.max == null ? "—" : t1(origin.max)}</span>
-                  <span className="num tone-cold">{origin.min == null ? "—" : t1(origin.min)}</span>
+                  <span className={origin.max == null ? "num tone-hot" : "num grid tone-hot"}>{origin.max == null ? "—" : t1(origin.max)}</span>
+                  <span className={origin.min == null ? "num tone-cold" : "num grid tone-cold"}>{origin.min == null ? "—" : t1(origin.min)}</span>
                   <span className="num tone-rain">{rainCell(num(originRow?.rain) ?? 0, null)}</span>
                 </div>
               </div>
@@ -322,8 +322,8 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
                       ’{m.date.slice(2, 4)} {weekdayOf(m.date)}
                     </small>
                   </span>
-                  <span className="num tone-hot">{t1(m.max)}</span>
-                  <span className="num tone-cold">{t1(m.min)}</span>
+                  <span className="num grid tone-hot">{t1(m.max)}</span>
+                  <span className="num grid tone-cold">{t1(m.min)}</span>
                   <span className="num tone-rain">{rainCell(m.rain, m.wet)}</span>
                 </button>
               ))}
