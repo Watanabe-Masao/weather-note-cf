@@ -6,7 +6,8 @@
 //     sunshine method is at its best)
 // A against B answers "is the forecast's radiation a better material than its sunshine?". C shows
 // the method's own error, apart from the forecast's.
-//  D (H-03b). A or B by the forecast's own sky (its sunshine share), E. the mean of A and B — read
+//  D (H-03b). A or B by the forecast's own sky (its sunshine share), E. the mean of A and B,
+//  F (H-03c). A and B weighed by the forecast's cloud cover — read
 //     against B, the app's way today, by error and by bias (the app compares a forecast day with a
 //     recorded one, so a bias between them matters more than the size of the error).
 //
@@ -88,12 +89,16 @@ async function forecastMonth(start: string, end: string): Promise<WeatherRow[]> 
   const endPlus = new Date(Date.parse(`${end}T00:00:00Z`) + DAY_MS).toISOString().slice(0, 10);
   const url =
     "https://historical-forecast-api.open-meteo.com/v1/forecast?" +
-    new URLSearchParams({ ...coords, timezone: "Asia/Tokyo", start_date: start, end_date: endPlus, hourly: "shortwave_radiation,sunshine_duration,precipitation" });
+    new URLSearchParams({ ...coords, timezone: "Asia/Tokyo", start_date: start, end_date: endPlus, hourly: "shortwave_radiation,sunshine_duration,precipitation,cloud_cover" });
   for (let k = 0; k < 3; k++) {
     try {
       const r = await fetch(url, { signal: AbortSignal.timeout(60_000) });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const { hourlyRows } = normalizeForecast(await r.json());
+      const data = await r.json();
+      const { hourlyRows } = normalizeForecast(data);
+      // The forecast's cloud cover (%, F): not a field the app reads, kept beside each row (same order).
+      const cloud: unknown[] = data?.hourly?.cloud_cover ?? [];
+      hourlyRows.forEach((row, i) => (row.cloud = num(cloud[i])));
       writeFileSync(f, JSON.stringify(hourlyRows));
       await sleep(1000);
       return hourlyRows;
@@ -128,6 +133,8 @@ interface Hour {
   d: number | null;
   /** The mean of A and B. */
   e: number | null;
+  /** H-03c: A and B weighed by the forecast's cloud cover — B under a clear forecast sky, A under a cloudy one. */
+  f: number | null;
 }
 const hours: Hour[] = [];
 let forecastMissing = 0;
@@ -162,6 +169,7 @@ for (const day of days) {
       c: hourRadiation(day, r.n, blockNo, sun, rain)?.ghi ?? null,
       d: a == null || b == null || fcShare == null ? null : fcShare >= H03B.sunnyShare ? b : a,
       e: a == null || b == null ? null : (a + b) / 2,
+      f: a == null || b == null || num(fc?.cloud) == null ? null : (1 - num(fc!.cloud)! / 100) * b + (num(fc!.cloud)! / 100) * a,
     });
   }
 }
@@ -181,7 +189,7 @@ const pa = (x: number) => (Number.isFinite(x) ? `${(x * 100).toFixed(1)}%` : "�
 const pc = (x: number) => (Number.isFinite(x) ? `${Math.round(x * 100)}%` : "—");
 
 // Only hours where all three can be compared: the same hours for every estimate.
-const both = hours.filter((h) => h.a != null && h.b != null && h.c != null && h.d != null && h.e != null);
+const both = hours.filter((h) => h.a != null && h.b != null && h.c != null && h.d != null && h.e != null && h.f != null);
 const steady = both.filter((h) => !h.low);
 const hourLine = (label: string, hs: Hour[]) => {
   const e = (k: "a" | "b" | "c") => hs.map((h) => h[k]! - h.measured);
@@ -204,13 +212,13 @@ for (const h of hours) byDay.set(h.date, [...(byDay.get(h.date) ?? []), h]);
 const dayRows = [...byDay.entries()]
   .filter(([d, hs]) => {
     const needed = Array.from({ length: 24 }, (_, i) => i + 1).filter((n) => daylight(d, n, blockNo)).length;
-    return hs.length === needed && hs.every((h) => h.a != null && h.b != null && h.c != null && h.d != null && h.e != null);
+    return hs.length === needed && hs.every((h) => h.a != null && h.b != null && h.c != null && h.d != null && h.e != null && h.f != null);
   })
   .map(([date, hs]) => {
-    const sum = (k: "measured" | "a" | "b" | "c" | "d" | "e") => hs.reduce((s, h) => s + (h[k] as number), 0) * W_TO_MJ_HOUR;
+    const sum = (k: "measured" | "a" | "b" | "c" | "d" | "e" | "f") => hs.reduce((s, h) => s + (h[k] as number), 0) * W_TO_MJ_HOUR;
     const m = sum("measured");
-    const rel = (k: "a" | "b" | "c" | "d" | "e") => (sum(k) - m) / Math.max(1, m);
-    return { date, m, a: rel("a"), b: rel("b"), c: rel("c"), d: rel("d"), e: rel("e") };
+    const rel = (k: "a" | "b" | "c" | "d" | "e" | "f") => (sum(k) - m) / Math.max(1, m);
+    return { date, m, a: rel("a"), b: rel("b"), c: rel("c"), d: rel("d"), e: rel("e"), f: rel("f") };
   });
 const dayLine = (label: string, ds: typeof dayRows) => {
   const diff = meanWithInterval(ds.map((d) => Math.abs(d.a) - Math.abs(d.b)));
@@ -254,32 +262,34 @@ const report = [
   "",
   "**先に決めた判断の条件**：日の合計の誤差の差（候補 − B）の 95% の幅が 0 より下で、晴れの多い日を悪くせず（幅の上が +1% 以下）、晴れ・雲どちらの偏りも B より 0 に近いこと。",
   "",
+  "**H-03c（F）**：A と B を予報の雲量で重み付け（雲量 0% → B、100% → A、その間は比例）。重みは雲量そのもので調整しない。E より採る条件（2026-11-15 に先に決めた）：上の条件を満たし、**毎時**の偏りの大きさが、実際の空のどの区分（晴れ・晴れ間・日照 0・雨）でも E 以下。",
+  "",
   "### 毎時（太陽の高い時間）：誤差（偏り）W/m²",
-  "| 実際の空 | 時間 | A | B | D 使い分け | E 平均 |",
-  "|---|---|---|---|---|---|",
+  "| 実際の空 | 時間 | A | B | D 使い分け | E 平均 | F 雲量で重み |",
+  "|---|---|---|---|---|---|---|",
   ...[["すべて", steady] as [string, Hour[]], ...skies.map(([l, k]) => [l, steady.filter((h) => h.sky === k)] as [string, Hour[]])].map(([l, hs]) => {
-    const cell = (k: "a" | "b" | "d" | "e") => {
+    const cell = (k: "a" | "b" | "d" | "e" | "f") => {
       const e = hs.map((h) => h[k]! - h.measured);
       return `${w0(mean(e.map(Math.abs)))}（${sw0(mean(e))}）`;
     };
-    return `| ${l} | ${hs.length} | ${cell("a")} | ${cell("b")} | ${cell("d")} | ${cell("e")} |`;
+    return `| ${l} | ${hs.length} | ${cell("a")} | ${cell("b")} | ${cell("d")} | ${cell("e")} | ${cell("f")} |`;
   }),
   "",
   "### 日の合計：候補 − B（|誤差| の差の平均 [95%]）と、偏り（推定 − 実測 の平均）",
-  "| 区分 | 日数 | D − B | E − B | A − B | 偏り B | 偏り D | 偏り E | 偏り A |",
-  "|---|---|---|---|---|---|---|---|---|",
+  "| 区分 | 日数 | D − B | E − B | F − B | A − B | 偏り B | 偏り D | 偏り E | 偏り F | 偏り A |",
+  "|---|---|---|---|---|---|---|---|---|---|---|",
   ...([
     ["すべて", dayRows],
     ["晴れの時間が 6 時間以上の日", dayRows.filter((d) => clearHours(d) >= 6)],
     ["晴れの時間が 2 時間未満の日", dayRows.filter((d) => clearHours(d) < 2)],
     ...seasons.map(([l, ms]) => [l, dayRows.filter((d) => inSeason(d.date, ms))]),
   ] as [string, typeof dayRows][]).map(([l, ds]) => {
-    const vs = (k: "a" | "d" | "e") => {
+    const vs = (k: "a" | "d" | "e" | "f") => {
       const r = meanWithInterval(ds.map((d) => Math.abs(d[k]) - Math.abs(d.b)));
       return `${sp(r.mean)}${r.interval ? ` [${sp(r.interval[0])}, ${sp(r.interval[1])}]` : ""}`;
     };
-    const bias = (k: "a" | "b" | "d" | "e") => sp(mean(ds.map((d) => d[k])));
-    return `| ${l} | ${ds.length} | ${vs("d")} | ${vs("e")} | ${vs("a")} | ${bias("b")} | ${bias("d")} | ${bias("e")} | ${bias("a")} |`;
+    const bias = (k: "a" | "b" | "d" | "e" | "f") => sp(mean(ds.map((d) => d[k])));
+    return `| ${l} | ${ds.length} | ${vs("d")} | ${vs("e")} | ${vs("f")} | ${vs("a")} | ${bias("b")} | ${bias("d")} | ${bias("e")} | ${bias("f")} | ${bias("a")} |`;
   }),
   "",
   "## 参考：太陽の低い時間",
