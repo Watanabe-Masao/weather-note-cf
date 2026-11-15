@@ -715,6 +715,19 @@ button.label-feel:active { transform: scale(0.97); }
   font-size: var(--size-md);
 }
 
+/* The grid (#151 一文字ずつ): in each day's column the numbers are right-aligned on one line, a
+   "00.0" wide box centred in the column, so 19.7 and 9.8 keep their decimal points one above the
+   other (centred, they slid by a digit). Every row of a column has the same decimals (a unit's). */
+.strip-col .cell-value {
+  justify-self: stretch;
+  text-align: right;
+  padding-right: max(2px, calc((var(--col) - 34px) / 2));
+  font-variant-numeric: tabular-nums;
+}
+.strip-col .cell-value:has(> .grid-none),
+.strip-col .cell-value:has(> .cell-failed),
+.strip-col .cell-value:has(> .skeleton) { text-align: center; padding-right: 0; }
+
 .cell-value.minor {
   font-size: var(--size-base);
   color: var(--ink-secondary);
@@ -1661,6 +1674,26 @@ svg.scrub {
 .cs-b.cs-val {
   opacity: 0.82;
 }
+
+/* The grid (#151 一文字ずつ): each side's numbers in a box of one width, right-aligned, so the
+   decimal points stand in one line from 最高 to 気圧; the units sit once after the names. */
+.cs-num {
+  display: inline-block;
+  min-width: 5.2ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.num-pad { visibility: hidden; }
+.cs-mid.cs-grid {
+  display: grid;
+  grid-template-columns: 6.4em 3.4em;
+  justify-content: center;
+  column-gap: 4px;
+  min-width: 0;
+}
+.cs-grid .cs-label { white-space: nowrap; }
+.cs-grid .cs-label .unit { margin-left: 3px; }
+.cs-grid .cs-diff { text-align: right; }
 
 .cs-mid {
   display: flex;

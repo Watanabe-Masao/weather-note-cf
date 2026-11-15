@@ -74,6 +74,13 @@ function minutes(a: string | null, b: string | null): string {
   return d === 0 ? "±0" : d > 0 ? `+${d}分` : `−${-d}分`;
 }
 
+/** A hidden ".0": a whole number takes the place of one with a decimal, so the points line up. */
+const Pad = () => (
+  <span className="num-pad" aria-hidden>
+    .0
+  </span>
+);
+
 interface Row {
   key: string;
   /** The chip this row belongs to. */
@@ -202,10 +209,12 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     v == null ? (
       <span className="cs-none">—</span>
     ) : (
-      <>
+      // The number alone, in a box of one width (#151 grid): right-aligned, so the decimal points
+      // stand in one line down each side; a whole number keeps a hidden ".0" for its place.
+      <span className="cs-num">
         {v.toFixed(row.digits)}
-        <small className="unit">{row.unit}</small>
-      </>
+        {row.digits === 0 && <Pad />}
+      </span>
     );
 
   const head = (d: string | null, r: WeatherRow | null, side: "a" | "b") => {
@@ -342,9 +351,16 @@ export function CompareSummary({ store, station, target, other, today, metric, o
       {rows.map((r) => (
         <div key={r.key} className={r.metric === metric ? "cs-row chosen" : "cs-row"}>
           <span className={`cs-val cs-a${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.a, r)}</span>
-          <span className="cs-mid">
-            <span className="cs-label">{r.label}</span>
-            <span className="cs-diff">{signedDiff(r.a, r.b, r.digits)}</span>
+          {/* The unit once, after the name (as in the readouts); the difference right-aligned in its column. */}
+          <span className="cs-mid cs-grid">
+            <span className="cs-label">
+              {r.label}
+              <small className="unit">{r.unit}</small>
+            </span>
+            <span className="cs-diff">
+              {signedDiff(r.a, r.b, r.digits)}
+              {r.digits === 0 && signedDiff(r.a, r.b, r.digits) && <Pad />}
+            </span>
           </span>
           <span className={`cs-val cs-b${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.b, r)}</span>
         </div>
@@ -354,7 +370,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
         <span className="cs-val cs-a">
           {clock(sunA?.sunrise ?? null)}–{clock(sunA?.sunset ?? null)}
         </span>
-        <span className="cs-mid">
+        <span className="cs-mid cs-grid">
           <span className="cs-label">日の出</span>
           <span className="cs-diff">{minutes(sunA?.sunrise ?? null, sunB?.sunrise ?? null)}</span>
         </span>
