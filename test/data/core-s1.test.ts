@@ -40,7 +40,9 @@ function world(n: number, a1: number, seed: number): Case<OrdinalInputs & { leve
   });
 }
 
-describe("S1 one step ahead", () => {
+// Fitting one step ahead over 160 answers takes 2 s here and over 5 s on a busy CI runner: the same
+// 60 s allowance as the other fitting tests (comfort.test.ts).
+describe("S1 one step ahead", { timeout: 60_000 }, () => {
   it("finds the short history when the answers have it, and beats the model without it", () => {
     const scored = prequential(world(160, 0.6, 7), [plainLevelPredictor, climatologyPredictor, base, s1]);
     const vsBase = compareScores(scored, base.id, s1.id);
