@@ -489,7 +489,7 @@ export function App() {
       {/* 見本（sample/month、マージしない）: ?month=YYYY-MM で月の振り返り */}
       {sampleMonth && (
         <FeelContext.Provider value={feelSettings}>
-          <MonthReview store={store} station={view.station} month={sampleMonth} onClose={() => setSampleMonth(null)} layout={/[?&]layout=combo/.test(location.search) ? "combo" : /[?&]layout=cal/.test(location.search) ? "calendar" : "list"} />
+          <MonthReview store={store} station={view.station} month={sampleMonth} onClose={() => setSampleMonth(null)} layout={/[?&]layout=tabs/.test(location.search) ? "tabs" : /[?&]layout=combo/.test(location.search) ? "combo" : /[?&]layout=cal/.test(location.search) ? "calendar" : "list"} />
         </FeelContext.Provider>
       )}
       {feelMap && (

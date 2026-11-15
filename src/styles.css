@@ -4366,7 +4366,15 @@ svg.scrub {
 .month-week-num { display: grid; justify-items: end; font-family: var(--font-numeric); font-size: var(--size-sm); font-variant-numeric: tabular-nums; line-height: 1.25; }
 .month-week-num i { font-style: normal; }
 .month-week-num small { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.month-week-foot { grid-column: 1 / -1; margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.month-week-foot { grid-column: 1 / -1; display: grid; gap: 2px; margin: var(--space-3) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.month-week-foot span:first-child { color: var(--ink-secondary); font-size: var(--size-sm); }
 
 .month-parts { margin: 0 0 var(--space-4); }
 .month-parts-note { font-size: var(--size-xs); color: var(--ink-secondary); }
+
+/* 見本 案D ページを分ける */
+.month-head .month-tiles { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--line-soft); }
+.month-lean { margin: 0; font-size: var(--size-md); color: var(--ink-primary); }
+.month-lean small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.month-tabs { display: flex; justify-content: center; margin: var(--space-5) 0 var(--space-4); }
+.month-tabs .seg { width: 100%; }

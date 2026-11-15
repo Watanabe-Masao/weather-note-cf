@@ -15,7 +15,7 @@ import { DATA, FEEL_SCALE_COLORS, SHAPE } from "../design/tokens";
 import { bandsFor, FeelBar, FeelContext } from "./FeelBar";
 import { DayWeatherIcon } from "./WeatherIcon";
 import { dayTone } from "../../shared/holidays";
-import { Chip, GraphReadout, type ReadoutRow, SectionHead } from "./kit";
+import { Chip, GraphReadout, type ReadoutRow, SectionHead, Segmented } from "./kit";
 import { ModalSheet } from "./ModalSheet";
 import { feelOn } from "../feelSeason";
 
@@ -77,7 +77,7 @@ function statsOf(store: WeatherStore | null, station: string, days: string[], pa
   };
 }
 
-export function MonthReview({ store, station, month, onClose, layout = "list" }: { store: WeatherStore | null; station: string; month: string; onClose: () => void; layout?: "list" | "calendar" | "combo" }) {
+export function MonthReview({ store, station, month, onClose, layout = "list" }: { store: WeatherStore | null; station: string; month: string; onClose: () => void; layout?: "list" | "calendar" | "combo" | "tabs" }) {
   const feel = useContext(FeelContext);
   const before = yearBefore(month);
   const days = daysOf(month);
@@ -155,6 +155,90 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
     { label: "雨がいちばん多い日", p: pick((r) => num(r.rain), "max"), fmt: (v: number) => `${v.toFixed(1)}mm`, color: DATA.rain },
   ];
 
+  // One line in words, no numbers (the numbers are in the tiles just under it): how the month leaned.
+  const lean: string[] = [];
+  if (a.temp != null && b.temp != null) lean.push(Math.abs(a.temp - b.temp) < 0.5 ? "気温は前年並み" : a.temp > b.temp ? "前年より暖かく" : "前年より涼しく");
+  if (a.rain != null && b.rain != null) lean.push(Math.abs(a.rain - b.rain) < Math.max(5, b.rain * 0.15) ? "雨は同じくらい" : a.rain > b.rain ? "雨は多め" : "雨は少なめ");
+  if (a.sun != null && b.sun != null && b.sun > 0) lean.push(a.sun / b.sun > 1.1 ? "日差しは多め" : a.sun / b.sun < 0.9 ? "日差しは少なめ" : "日差しは同じくらい");
+  const [tab, setTab] = useState<"sum" | "days" | "week" | "feel">("sum");
+  if (layout === "tabs") {
+    const marks = new Map<string, string>();
+    for (const s of standouts) if (s.p && !marks.has(s.p.date) && s.color !== DATA.mean) marks.set(s.p.date, s.color);
+    return (
+      <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
+        {/* 案D ページを分ける: 上は どのページでも同じ（時間帯・まとめの数字）、下を4つのページに。 */}
+        <div className="month-parts chip-row" role="group" aria-label="時間帯で絞る">
+          <Chip size="sm" on={parts == null} onClick={() => setParts(null)}>
+            1日
+          </Chip>
+          {PARTS.map((p) => (
+            <Chip key={p.id} size="sm" on={parts?.has(p.id) ?? false} onClick={() => toggle(p.id)}>
+              {p.label}
+            </Chip>
+          ))}
+        </div>
+        <div className="ds-lead month-head">
+          <p className="month-lean">
+            {parts != null && <small>{partsLabel}　</small>}
+            {lean.join("、")}。<small>（{label(before)}と比べて）</small>
+          </p>
+          <div className="month-tiles">
+            <Tile name="平均気温" value={a.temp} unit="℃" other={b.temp} digits={1} color={DATA.mean} />
+            <Tile name="雨" value={a.rain} unit="mm" other={b.rain} digits={0} color={DATA.rain} note={`${a.rainDays}日`} />
+            <Tile name="日照" value={a.sun} unit="時間" other={b.sun} digits={0} color={DATA.sun} />
+          </div>
+        </div>
+        <div className="month-tabs">
+          <Segmented
+            label="振り返りのページ"
+            value={tab}
+            options={[
+              { id: "sum", label: "まとめ" },
+              { id: "days", label: "日ごと" },
+              { id: "week", label: "曜日" },
+              { id: "feel", label: "肌感" },
+            ]}
+            onChange={setTab}
+          />
+        </div>
+        {tab === "sum" && (
+          <>
+            <GraphReadout title={`月の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
+            <SectionHead title="目立った日" />
+            <div className="ds-hours month-standouts">
+              {standouts.map((s) => (
+                <p key={s.label} className="month-standout">
+                  <span>{s.label}</span>
+                  <b>{s.p ? md(s.p.date) : "—"}</b>
+                  <em style={{ color: s.color }}>{s.p ? s.fmt(s.p.v) : ""}</em>
+                </p>
+              ))}
+            </div>
+          </>
+        )}
+        {tab === "days" && (
+          <>
+            <div className="ds-hours">
+              <MonthRange a={a.rows} b={b.rows} />
+              <RangeLegend now={label(month)} then={label(before)} />
+            </div>
+            <MonthCalendar store={store} station={station} days={days} rows={a.rows} marks={marks} />
+            <p className="month-cal-legend">最高／最低 ℃・肌感（朝〜夜）・降水 mm。色の枠は「まとめ」の目立った日。</p>
+          </>
+        )}
+        {tab === "week" && (
+          <div className="ds-hours">
+            <Weekdays station={station} days={days} rows={a.rows} daysB={daysB} rowsB={b.rows} />
+          </div>
+        )}
+        {tab === "feel" && (
+          <div className="ds-hours">
+            <FeelMonth store={store} station={station} days={days} daysB={daysB} />
+          </div>
+        )}
+      </ModalSheet>
+    );
+  }
   if (layout === "combo") {
     // The standouts marked on the calendar too: the day's colour round its square.
     const marks = new Map<string, string>();
@@ -508,7 +592,10 @@ function Weekdays({ station, days, rows, daysB, rowsB }: { station: string; days
         );
       })}
       <p className="month-week-foot">
-        小さい数字は前年の同じ月の同じ曜日との差（雨の日は前年の日数）。雨の日（1mm以上）：土日 {wet(now.end)}/{now.end.length}日・平日 {wet(now.mid)}/{now.mid.length}日（前年 土日 {wet(then.end)}/{then.end.length}日・平日 {wet(then.mid)}/{then.mid.length}日）。
+        <span>
+          雨の日：土日 {wet(now.end)}/{now.end.length}・平日 {wet(now.mid)}/{now.mid.length}（前年 {wet(then.end)}/{then.end.length}・{wet(then.mid)}/{then.mid.length}）
+        </span>
+        <span>小さい数字は前年の同じ曜日との差と、前年の雨の日。</span>
       </p>
     </div>
   );
