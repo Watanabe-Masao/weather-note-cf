@@ -783,6 +783,29 @@ with sync_playwright() as p:
         if covered: pg.evaluate("__flick('.sheet-handle',-700,120)"); calm()
     step("DS", ds)
 
+    # MR. 月の振り返り: opened from the calendar's month name; one place chooses; the pages follow.
+    def mr():
+        pg.locator(".side-target .date-button").click(); calm()
+        pg.locator(".calendar-head .icon-btn").first.click(); calm()  # the month before: a whole month
+        pg.click(".cal-month-review"); calm()
+        check("MR1 カレンダーの月の名前で月の振り返りが開く（カレンダーは閉じる）", pg.locator(".month-review").count() == 1 and pg.locator(".msheet.calendar").count() == 0)
+        check("MR2 ページは4つ（まとめ・日ごと・曜日・肌感）", pg.locator(".month-tabs button").count() == 4, txt(".month-tabs"))
+        check("MR3 まとめに月の値とレポート（前年同曜日と比べる）", pg.locator(".month-review .readout-card").count() >= 1 and pg.locator(".month-report-part").count() >= 3 and "前年同曜日" in txt(".month-review"))
+        pg.locator(".month-filter-days .chip").nth(6).click(); calm()  # 土
+        check("MR4 曜日を選ぶと「選んだ N日」、レポートも選んだ日に", pg.locator(".month-picked").count() == 1 and "選んだ" in txt(".month-review .section-head") if pg.locator(".month-review .section-head").count() else False, txt(".month-picked") if pg.locator(".month-picked").count() else "")
+        bx = pg.locator(".month-filter-days").bounding_box()
+        pg.mouse.move(bx["x"] + bx["width"] / 2, bx["y"] + bx["height"] / 2); pg.mouse.down(); pg.mouse.move(bx["x"] + bx["width"] / 2, bx["y"] + bx["height"] / 2 + 60, steps=4); pg.mouse.up(); calm()
+        check("MR5 曜日の並びを下に引くとカレンダー（曜日の並びは隠れる）", pg.locator(".month-filter .month-cal").count() == 1 and pg.locator(".month-filter-days").count() == 0)
+        pg.click(".month-fold"); calm()
+        check("MR6 つまみでたたむ", pg.locator(".month-filter .month-cal").count() == 0 and pg.locator(".month-filter-days").count() == 1)
+        for i, name in enumerate(["日ごと", "曜日", "肌感"]):
+            pg.locator(".month-tabs button").nth(i + 1).click(); calm()
+            layout_ok(f"MR7{i}", f"月の振り返り {name}")
+        st = small_text(); check("MR8 11px より小さい文字がない（月の振り返り）", not st, str(st))
+        pg.click(".month-review .icon-btn.close"); calm()
+        check("MR9 閉じると元の画面", pg.locator(".month-review").count() == 0)
+    step("MR", mr)
+
     # Q. calendar: presets and custom
     def q():
         pg.locator(".side-compare .date-button").click(); calm()

@@ -34,6 +34,7 @@ import {
 import { StatusBar } from "./ui/StatusBar";
 import { Button, CheckGlyph, IconButton } from "./ui/kit";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
+import { MonthReview } from "./ui/MonthReview";
 import { Settings } from "./ui/Settings";
 import { FeelSheet } from "./ui/FeelSheet";
 import { HourFace } from "./ui/HourFace";
@@ -78,6 +79,8 @@ function chartHeight(
 export function App() {
   const store = useWeatherStore();
   const [calendar, setCalendar] = useState<CalendarSide | null>(null);
+  // 月の振り返り: opened from the calendar's month name; the calendar closes behind it.
+  const [monthReview, setMonthReview] = useState<string | null>(null);
   // その日の要約 (#176): a long press on a day's weather picture.
   const [summary, setSummary] = useState<DaySummaryAsk | null>(null);
   const {
@@ -515,7 +518,17 @@ export function App() {
           onCompare={pickCompare}
           onPreset={setMode}
           onClose={() => setCalendar(null)}
+          onMonthReview={(m) => {
+            setCalendar(null);
+            setMonthReview(m);
+          }}
         />
+      )}
+
+      {monthReview && (
+        <FeelContext.Provider value={feelSettings}>
+          <MonthReview store={store} station={view.station} month={monthReview} today={today} onClose={() => setMonthReview(null)} />
+        </FeelContext.Provider>
       )}
 
       {conditions && (

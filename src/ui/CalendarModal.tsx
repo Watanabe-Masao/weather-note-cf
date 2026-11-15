@@ -40,6 +40,8 @@ interface Props {
   onCompare: (date: string) => void;
   onPreset: (mode: CompareMode) => void;
   onClose: () => void;
+  /** The month's name opens its 月の振り返り (a month up to this one: a later month has no records). */
+  onMonthReview?: (month: string) => void;
 }
 
 const shiftMonth = (month: string, n: number) => {
@@ -196,7 +198,14 @@ function Body(p: Props) {
               </option>
             ))}
           </select>
-          {+month.slice(5)}月
+          {p.onMonthReview && month <= monthOf(p.today) ? (
+            // Dotted underline: a name that opens something, as the dates in the table's head.
+            <button className="cs-date-btn cal-month-review" onClick={() => p.onMonthReview!(month)} aria-label={`${+month.slice(0, 4)}年${+month.slice(5)}月の振り返りを開く`}>
+              {+month.slice(5)}月
+            </button>
+          ) : (
+            <>{+month.slice(5)}月</>
+          )}
         </strong>
         <button className="icon-btn sm flip" disabled={!canNext} onClick={() => move(1)} aria-label="次の月">
           <ChevronIcon />
