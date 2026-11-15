@@ -4166,3 +4166,7 @@ svg.scrub {
 .learned-verdict { display: grid; gap: var(--space-1); margin: 0; font-size: var(--size-base); color: var(--ink-primary); }
 .learned-verdict small { font-size: var(--size-sm); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
 .learned-name { text-align: left !important; white-space: normal !important; }
+/* 見本（sample/texture） */
+.chart-look { display: flex; justify-content: flex-end; margin: 0 0 var(--space-2); }
+.chart-look .seg { width: 120px; }
+.range-label { font-family: var(--font-numeric); font-size: var(--size-xs); font-weight: var(--weight-bold); }

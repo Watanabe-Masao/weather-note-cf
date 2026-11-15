@@ -9,7 +9,7 @@ import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import { type ChartMetric, graphSeries } from "../chartMetrics";
 import { barLook, DATA, lineLook } from "../design/tokens";
-import { Button, Chip, ForecastHatch, GraphReadout, GuideLines, BarSample, LineSample } from "./kit";
+import { Button, Chip, ForecastHatch, GraphReadout, GuideLines, BarSample, LineSample, Segmented } from "./kit";
 import type { WeatherStore } from "../data/store";
 import { dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
 import { FeelContext } from "./FeelBar";
@@ -87,7 +87,11 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   const feel = useContext(FeelContext);
   const beta = useContext(BetaContext);
   const { shown, toggle, reset } = useHidden(metric);
-  const spreadOn = !!metric.spread && shown("spread");
+  // 見本（sample/texture）: 気温は「線」と「幅」（1日の最高〜最低を丸い棒で）を切り替える。
+  const [look, setLook] = useState<"line" | "range">(() => (typeof location !== "undefined" && /[?&]look=range/.test(location.search) ? "range" : "line"));
+  const range = metric.id === "temp" && look === "range";
+  const spreadOnRaw = !!metric.spread && shown("spread");
+  const spreadOn = spreadOnRaw;
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   useLayoutEffect(() => {
@@ -275,6 +279,11 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             };
           })}
       />
+      {metric.id === "temp" && (
+        <div className="chart-look">
+          <Segmented label="気温の見せ方" value={look} options={[{ id: "line", label: "線" }, { id: "range", label: "幅" }]} onChange={setLook} />
+        </div>
+      )}
       <svg width={w} height={H} role="img" aria-label={`${metric.title ?? metric.label}の日別グラフ`}>
         {/* centre day */}
         <defs>
@@ -313,7 +322,18 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             </g>
           );
         })}
-        {spreadOn && <Spread top={pick("max", false).points} low={pick("min", false).points} yOf={yOf} />}
+        {spreadOn && !range && <Spread top={pick("max", false).points} low={pick("min", false).points} yOf={yOf} />}
+        {range && (
+          <RangeBars
+            id={metric.id}
+            step={step}
+            yOf={yOf}
+            target={{ max: pick("max", false).points, min: pick("min", false).points, mean: shown("temp") ? pick("temp", false).points : null }}
+            compare={{ max: pick("max", true).points, min: pick("min", true).points }}
+            showMax={shown("max")}
+            showMin={shown("min")}
+          />
+        )}
 
         {metric.chart === "bar"
           ? series.map(({ s, compare, points }) =>
@@ -330,7 +350,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
                 ),
               ),
             )
-          : series.map(({ s, compare, points }) =>
+          : series.filter(({ s }) => !(range && (s.key === "max" || s.key === "min" || s.key === "temp"))).map(({ s, compare, points }) =>
               points.slice(1).map((p, i) => {
                 const a = points[i];
                 if (a.v == null || p.v == null) return null;
@@ -353,7 +373,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
               }),
             )}
         {metric.chart === "line" &&
-          series.filter(({ s }) => !s.thin).map(({ s, compare, points }) =>
+          series.filter(({ s }) => !s.thin && !(range && (s.key === "max" || s.key === "min"))).map(({ s, compare, points }) =>
             points.map((p, i) =>
               p.v == null ? null : (
                 <circle
@@ -558,3 +578,68 @@ function Spread({ top, low, yOf }: { top: Point[]; low: Point[]; yOf: (v: number
     </>
   );
 }
+
+/**
+ * 見本（sample/texture）: each day's 最高〜最低 as a rounded bar — the target filled (最高の色から最低の色へ),
+ * the comparison day outlined beside it — with the target's 平均 as a short mark and its 最高・最低 at
+ * the ends. Which day by fill / outline, what by colour (tokens.ts).
+ */
+function RangeBars({
+  id,
+  step,
+  yOf,
+  target,
+  compare,
+  showMax,
+  showMin,
+}: {
+  id: string;
+  step: number;
+  yOf: (v: number) => number;
+  target: { max: Point[]; min: Point[]; mean: Point[] | null };
+  compare: { max: Point[]; min: Point[] };
+  showMax: boolean;
+  showMin: boolean;
+}) {
+  const bw = Math.min(14, step * 0.26);
+  const capsule = (x: number, hi: number, lo: number) => {
+    const y1 = yOf(hi);
+    const h = Math.max(bw, yOf(lo) - y1);
+    return { x: x - bw / 2, y: y1, width: bw, height: h, rx: bw / 2 };
+  };
+  return (
+    <g className="range-bars">
+      <defs>
+        <linearGradient id={`range-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={COLORS.hot} />
+          <stop offset="1" stopColor={COLORS.cold} />
+        </linearGradient>
+      </defs>
+      {target.max.map((p, i) => {
+        const tMax = p.v, tMin = target.min[i].v, cMax = compare.max[i].v, cMin = compare.min[i].v;
+        const xT = p.x - bw * 0.62, xC = p.x + bw * 0.62;
+        const mean = target.mean?.[i].v ?? null;
+        return (
+          <g key={i}>
+            {cMax != null && cMin != null && <rect {...capsule(xC, cMax, cMin)} fill="none" stroke={`url(#range-${id})`} strokeWidth={1.4} opacity={0.75} />}
+            {tMax != null && tMin != null && <rect {...capsule(xT, tMax, tMin)} fill={`url(#range-${id})`} />}
+            {mean != null && <line x1={xT - bw / 2 - 2} x2={xT + bw / 2 + 2} y1={yOf(mean)} y2={yOf(mean)} stroke={LINE_INK} strokeWidth={2.4} strokeLinecap="round" />}
+            {showMax && tMax != null && (
+              <text x={xT} y={yOf(tMax) - 5} textAnchor="middle" className="range-label" fill={COLORS.hot}>
+                {tMax.toFixed(1)}
+              </text>
+            )}
+            {showMin && tMin != null && (
+              <text x={xT} y={Math.max(yOf(tMin), yOf(tMax ?? tMin) + bw) + 13} textAnchor="middle" className="range-label" fill={COLORS.cold}>
+                {tMin.toFixed(1)}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+const LINE_INK = "var(--ink-primary)";
+

@@ -271,6 +271,26 @@ const effect = {
   sheen: "rgba(255, 255, 255, 0.16)", // the light on the upper half of a filled button
 } as const;
 
+// ---- 見本：明るい画面（sample/texture だけ。?theme=light で切り替え。マージしない） -------------------
+const SAMPLE_LIGHT = typeof location !== "undefined" && /[?&]theme=light/.test(location.search);
+if (SAMPLE_LIGHT) {
+  const set = <T extends object>(o: T, v: Partial<Record<keyof T, string>>) => Object.assign(o as Record<string, unknown>, v);
+  set(surface, { page: "#eef2f7", base: "#ffffff", raised: "#ffffff", overlay: "#f7f9fc", inset: "#eef2f7" });
+  set(ink, { primary: "#162332", secondary: "#53667a", tertiary: "#53667a", disabled: "#a9b5c2", onAccent: "#ffffff" });
+  set(line, { strong: "#cfd8e2", soft: "rgba(20, 40, 70, 0.08)", focus: "#2a74c4", swatch: "rgba(0, 0, 0, 0.10)", highlight: "rgba(255, 255, 255, 0.7)", shade: "rgba(0, 0, 0, 0.08)" });
+  set(accent, { base: "#2a74c4", strong: "#1d5ea6", wash: "rgba(42, 116, 196, 0.08)", glow: "rgba(42, 116, 196, 0.16)" });
+  set(DATA, {
+    hot: "#d2553c", cold: "#2c79c9", temp: "#d2553c", mean: "#5f7489", rain: "#0f8ea3", snow: "#5a6cd2", sun: "#c08400",
+    radiation: "#cf6d18", humidity: "#24917a", humidityLow: "#1c6f5d", wind: "#4b779c", gust: "#6d97bd", pressure: "#94643a",
+    pressureHigh: "#ab7f4b", pressureLow: "#734d26", feel: "#8550d0",
+  });
+  set(day, { saturday: "#2f6fd0", holiday: "#d2453b" });
+  set(status, { forecast: "#7d8b9b", provisional: "#a77a12", warning: "#b8740f", error: "#c9372c" });
+  set(effect, { scrim: "rgba(20, 35, 55, 0.25)", backdrop: "rgba(20, 35, 55, 0.30)", gloss: "rgba(255, 255, 255, 0.5)", glossStrong: "rgba(255, 255, 255, 0.7)", sheen: "rgba(255, 255, 255, 0.4)" });
+  Object.assign(LINE as Record<string, unknown>, { reference: ink.primary, dimmed: ink.disabled });
+  Object.assign(ICON as Record<string, unknown>, { sun: "#e09a14", moon: "#a89a52", cloud: "#7c8da0", rain: "#2c86d6" });
+}
+
 // ---- output -------------------------------------------------------------------------------------
 
 const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
