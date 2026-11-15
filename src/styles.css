@@ -4452,3 +4452,21 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .week-group-val { display: grid; justify-items: end; min-width: 72px; line-height: 1.2; }
 .week-group-val b { font-family: var(--font-numeric); font-size: var(--size-lg); font-weight: var(--weight-regular); }
 .week-group-val small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+
+/* 見本 天気の型 */
+.day-types { display: grid; gap: var(--space-3); }
+.day-type { display: grid; gap: 6px; padding: 8px 10px; border: none; border-radius: var(--radius-sm); background: var(--surface-raised); font: inherit; color: var(--ink-secondary); text-align: left; }
+.day-type.on { background: var(--accent-wash); box-shadow: 0 0 0 1px var(--accent-base) inset; }
+.day-type-head { display: grid; grid-template-columns: 10px auto 1fr; gap: 6px; align-items: baseline; }
+.day-type-head i { width: 10px; height: 10px; border-radius: var(--radius-xs); align-self: center; }
+.day-type-head b { color: var(--ink-primary); font-size: var(--size-md); }
+.day-type-head small { grid-column: 2 / -1; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.day-type-bars { display: grid; grid-template-columns: 1fr 64px; gap: 3px var(--space-4); align-items: center; }
+.day-type-bars > span { height: 8px; }
+.day-type-bars em { display: block; height: 100%; border-radius: var(--radius-xs); }
+.day-type-bars em.then { background: none; border: 1.5px solid; box-sizing: border-box; }
+.day-type-bars b { font-family: var(--font-numeric); font-weight: var(--weight-regular); color: var(--ink-primary); font-size: var(--size-sm); }
+.day-type-bars small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.day-type-dates { display: flex; flex-wrap: wrap; gap: 3px; }
+.day-type-dates span { min-width: 22px; padding: 1px 4px; border-radius: var(--radius-xs); background: var(--surface-inset); font-family: var(--font-numeric); font-size: var(--size-xs); text-align: center; color: var(--ink-secondary); }
+.day-type-dates small { font-size: var(--size-xs); color: var(--ink-tertiary); }

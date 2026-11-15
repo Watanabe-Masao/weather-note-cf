@@ -19,6 +19,7 @@ import { BarSample, Chip, GraphReadout, LineSample, type ReadoutRow, SectionHead
 import { ModalSheet } from "./ModalSheet";
 import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
 import { feelOn } from "../feelSeason";
+import { clusterDays } from "./monthClusters";
 
 /** 前年同曜日: 52 weeks back. */
 const PREV_SAME_WEEKDAY = 364;
@@ -245,6 +246,10 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
             <SectionHead title="曜日の傾向" />
             <div className="ds-hours">
               <WeekDetail store={store} station={station} days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} onPick={pickDays} />
+            </div>
+            <SectionHead title="天気の型" />
+            <div className="ds-hours">
+              <DayTypes days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} onPick={pickOnly} />
             </div>
             <SectionHead title="目立った日" />
             <div className="ds-hours month-standouts">
@@ -1300,6 +1305,87 @@ function WeekDetail({
         {m.id === "warmNoon" ? "昼の肌感が「暖かい」以上の日。" : ""}
         {m.count ? "まとめた曜日は日数の割合。" : ""}
         行を押すとその曜日の日を選ぶ（複数可・レポートも選んだ日に）。
+      </p>
+    </div>
+  );
+}
+
+// ---- 天気の型（クラスター） ----------------------------------------------------------------------------
+const SKY_COLOR = { sun: DATA.sun, part: DATA.radiation, cloud: DATA.mean, rain: DATA.rain } as const;
+
+/**
+ * The month's days grouped by how alike they were (monthClusters): each type with its centre, how many
+ * days it had this month and 前年同曜日, and its dates. A tap chooses the type's days (and the report follows).
+ */
+function DayTypes({
+  days,
+  rows,
+  rowsB,
+  picked,
+  onPick,
+}: {
+  days: string[];
+  rows: (WeatherRow | null)[];
+  rowsB: (WeatherRow | null)[];
+  picked: ReadonlySet<string>;
+  onPick: (days: string[]) => void;
+}) {
+  // 型の数: 自動 (the silhouette's choice) or fixed by the viewer.
+  const [k, setK] = useState<number | null>(null);
+  const c = clusterDays(rows, rowsB, k ? [k, k] : [2, 5]);
+  const kChips = (
+    <div className="chip-row" role="group" aria-label="型の数">
+      {[null, 3, 4, 5].map((x) => (
+        <Chip key={x ?? 0} size="sm" on={k === x} onClick={() => setK(x)}>
+          {x ? `${x}つ` : "自動"}
+        </Chip>
+      ))}
+    </div>
+  );
+  if (!c)
+    return (
+      <div className="day-types">
+        {kChips}
+        <p className="month-report-note">この数では分けられません（そろった日が少ないか、1日だけの型ができる）。</p>
+      </div>
+    );
+  const most = Math.max(1, ...c.types.flatMap((t) => [t.a.length, t.b.length]));
+  const clear = c.silhouette >= 0.35 ? "はっきり分かれた" : c.silhouette >= 0.2 ? "ある程度分かれた" : "境目があいまい";
+  return (
+    <div className="day-types">
+      {kChips}
+      {c.types.map((t) => {
+        const ds = t.a.map((i) => days[i]);
+        const on = ds.length > 0 && ds.length === picked.size && ds.every((d) => picked.has(d));
+        const color = SKY_COLOR[t.sky];
+        return (
+          <button key={t.name} className={`day-type${on ? " on" : ""}`} onClick={() => ds.length && onPick(ds)} aria-pressed={on} aria-label={`${t.name}の日を選ぶ`}>
+            <span className="day-type-head">
+              <i style={{ background: color }} />
+              <b>{t.name}</b>
+              <small>
+                最高 {t.centre.max.toFixed(0)}℃・最低 {t.centre.min.toFixed(0)}℃・雨 {t.centre.rain.toFixed(t.centre.rain < 10 ? 1 : 0)}mm・日照 {t.centre.sun.toFixed(1)}h・湿度 {t.centre.humidity.toFixed(0)}%
+              </small>
+            </span>
+            <span className="day-type-bars">
+              <span>
+                <em style={{ width: `${(t.a.length / most) * 100}%`, background: color }} />
+              </span>
+              <b>{t.a.length}日</b>
+              <span>
+                <em className="then" style={{ width: `${(t.b.length / most) * 100}%`, borderColor: color }} />
+              </span>
+              <small>前年 {t.b.length}日</small>
+            </span>
+            <span className="day-type-dates">
+              {ds.length ? ds.map((d) => <span key={d}>{+d.slice(8)}</span>) : <small>この月はなし</small>}
+            </span>
+          </button>
+        );
+      })}
+      <p className="month-report-note">
+        最高・最低・雨・日照・湿度・風が似た日を、この月と前年同曜日をいっしょにして {c.types.length}つの型にまとめた（{k ? "数は指定" : "数は自動"}・{clear}）。
+        {c.missingA ? `記録が欠けた ${c.missingA}日は入れていない。` : ""}押すとその型の日を選ぶ。
       </p>
     </div>
   );
