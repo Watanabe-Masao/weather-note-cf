@@ -4363,7 +4363,9 @@ svg.scrub {
 .month-week-name.tone-saturday { color: var(--day-saturday); }
 .month-week-name.tone-holiday { color: var(--day-holiday); }
 .month-week-icons { display: flex; gap: 4px; align-items: center; }
-.month-week-num { font-family: var(--font-numeric); font-size: var(--size-sm); text-align: right; font-variant-numeric: tabular-nums; }
+.month-week-num { display: grid; justify-items: end; font-family: var(--font-numeric); font-size: var(--size-sm); font-variant-numeric: tabular-nums; line-height: 1.25; }
+.month-week-num i { font-style: normal; }
+.month-week-num small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .month-week-foot { grid-column: 1 / -1; margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
 
 .month-parts { margin: 0 0 var(--space-4); }

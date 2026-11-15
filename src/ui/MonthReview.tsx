@@ -187,7 +187,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
         <p className="month-cal-legend">数字は 最高／最低（℃）。帯は肌感（朝〜夜）、水色の数字は降水 mm（1mm以上の日）。色の枠は下の「目立った日」。</p>
         <SectionHead title="曜日ごと" />
         <div className="ds-hours">
-          <Weekdays station={station} days={days} rows={a.rows} />
+          <Weekdays station={station} days={days} rows={a.rows} daysB={daysB} rowsB={b.rows} />
         </div>
         <SectionHead title={`肌感（${feel.sun ? "日なた" : "日かげ"}）の月`} />
         <div className="ds-hours">
@@ -441,16 +441,20 @@ function MonthCalendar({ store, station, days, rows, marks }: { store: WeatherSt
 
 /**
  * The month by day of the week (月〜日): each date's weather in a row, the mean 最高／最低 and the rain
- * days — for the questions a week asks (were the weekends wet?). A line at the foot sets 土日 against
- * the weekdays.
+ * days, each with the same weekdays of the month a year before under it (前年同曜日, as the app pairs
+ * days). A line at the foot sets 土日 against the weekdays, both years.
  */
-function Weekdays({ station, days, rows }: { station: string; days: string[]; rows: (WeatherRow | null)[] }) {
+function Weekdays({ station, days, rows, daysB, rowsB }: { station: string; days: string[]; rows: (WeatherRow | null)[]; daysB: string[]; rowsB: (WeatherRow | null)[] }) {
   const dow = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
-  const groups = WEEK.map((_, w) => days.map((d, i) => ({ d, r: rows[i] })).filter((x) => dow(x.d) === w));
-  const f0 = (v: number | null) => (v == null ? "—" : v.toFixed(1));
+  const byDow = (ds: string[], rs: (WeatherRow | null)[]) => WEEK.map((_, w) => ds.map((d, i) => ({ d, r: rs[i] })).filter((x) => dow(x.d) === w));
+  const groups = byDow(days, rows);
+  const groupsB = byDow(daysB, rowsB);
+  const f1 = (v: number | null) => (v == null ? "—" : v.toFixed(1));
+  const avg = (g: { r: WeatherRow | null }[], k: string) => mean(g.map((x) => num(x.r?.[k])).filter((v): v is number => v != null));
   const wet = (g: { r: WeatherRow | null }[]) => g.filter((x) => (num(x.r?.rain) ?? 0) >= 1).length;
-  const weekend = [...groups[5], ...groups[6]];
-  const weekday = groups.slice(0, 5).flat();
+  const ends = (gs: typeof groups) => ({ end: [...gs[5], ...gs[6]], mid: gs.slice(0, 5).flat() });
+  const now = ends(groups);
+  const then = ends(groupsB);
   return (
     <div className="month-week">
       <span className="month-week-h" />
@@ -459,8 +463,17 @@ function Weekdays({ station, days, rows }: { station: string; days: string[]; ro
       <span className="month-week-h">最低</span>
       <span className="month-week-h">雨の日</span>
       {groups.map((g, w) => {
-        const mx = mean(g.map((x) => num(x.r?.max)).filter((v): v is number => v != null));
-        const mn = mean(g.map((x) => num(x.r?.min)).filter((v): v is number => v != null));
+        const gb = groupsB[w];
+        const cell = (k: string, color: string) => {
+          const v = avg(g, k);
+          const vb = avg(gb, k);
+          return (
+            <span className="month-week-num">
+              <i style={{ color }}>{f1(v)}</i>
+              <small>{signedDiff(v, vb, "℃") || "—"}</small>
+            </span>
+          );
+        };
         return (
           <Fragment key={WEEK[w]}>
             <b className={`month-week-name${w === 5 ? " tone-saturday" : w === 6 ? " tone-holiday" : ""}`}>{WEEK[w]}</b>
@@ -471,20 +484,21 @@ function Weekdays({ station, days, rows }: { station: string; days: string[]; ro
                 </span>
               ))}
             </span>
-            <span className="month-week-num" style={{ color: DATA.hot }}>
-              {f0(mx)}
-            </span>
-            <span className="month-week-num" style={{ color: DATA.cold }}>
-              {f0(mn)}
-            </span>
+            {cell("max", DATA.hot)}
+            {cell("min", DATA.cold)}
             <span className="month-week-num">
-              {wet(g)}/{g.length}
+              <i>
+                {wet(g)}/{g.length}
+              </i>
+              <small>
+                前年 {wet(gb)}/{gb.length}
+              </small>
             </span>
           </Fragment>
         );
       })}
       <p className="month-week-foot">
-        雨の日（1mm以上）：土日 {wet(weekend)}/{weekend.length}日、平日 {wet(weekday)}/{weekday.length}日。
+        小さい数字は前年の同じ月の同じ曜日との差（雨の日は前年の日数）。雨の日（1mm以上）：土日 {wet(now.end)}/{now.end.length}日・平日 {wet(now.mid)}/{now.mid.length}日（前年 土日 {wet(then.end)}/{then.end.length}日・平日 {wet(then.mid)}/{then.mid.length}日）。
       </p>
     </div>
   );
