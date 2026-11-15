@@ -22,7 +22,7 @@ import { RAIN_MM, sunshineFactor, sunshineFraction } from "../../shared/brightne
 import { hourRadiation } from "../../shared/mrt";
 import { radiationOf } from "../../shared/feel";
 import { solarAltitude, stationLatLon } from "../../shared/sunTimes";
-import { clearSkyW, dayCheck, daylight, daySky, type DaySky, LOW_SUN, lowSun, type Missing, neighbours, rainState, type RainState, sunOf } from "./h02-lib";
+import { clearSkyW, dayCheck, daylight, h02bFactor, H02B, meanWithInterval, overlapsFit, daySky, type DaySky, LOW_SUN, lowSun, type Missing, neighbours, rainState, type RainState, sunOf } from "./h02-lib";
 
 const arg = (k: string, d: string) => {
   const i = process.argv.indexOf(`--${k}`);
@@ -82,7 +82,9 @@ interface Hour {
   model: number | null;
 }
 const hours: Hour[] = [];
-const dayTotals: { date: string; measured: number; estimated: number; sun: number }[] = [];
+const dayTotals: { date: string; measured: number; estimated: number; sun: number; estimatedB: number }[] = [];
+/** The app's share for a 日照 0・雨なし hour (CLOUD.cloudy), which H-02b replaces. */
+const APP_DARK = sunshineFactor(0, false, 0);
 /** Per month: days asked, read, complete, and the needed hours missing each value. */
 const months = new Map<string, { days: number; read: number; complete: number; needed: number; missing: Record<Missing, number> }>();
 
@@ -99,7 +101,7 @@ for (const day of days) {
   if (check.complete) mo.complete++;
   // The day's sunshine, only when every daylight hour has it (a gap would read as a dull day).
   const daySun = check.missing.some((m) => m.what.includes("sun")) ? null : rows.reduce((t, r) => t + (sunOf(r, day, blockNo) ?? 0), 0);
-  let m = 0, e = 0;
+  let m = 0, e = 0, eB = 0;
   for (const r of rows) {
     const w = radiationOf(r);
     const sun = sunOf(r, day, blockNo);
@@ -107,8 +109,13 @@ for (const day of days) {
     const clear = clearSkyW(day, r.n, blockNo);
     if (w == null || sun == null || !daylight(day, r.n, blockNo)) continue;
     if (check.complete) {
+      const est = (hourRadiation(day, r.n, blockNo, sun, rain!)?.ghi ?? 0) * W_TO_MJ_HOUR;
       m += w * W_TO_MJ_HOUR;
-      e += (hourRadiation(day, r.n, blockNo, sun, rain!)?.ghi ?? 0) * W_TO_MJ_HOUR;
+      e += est;
+      // H-02b: with no sunshine the hour's light is the clear sky's × the share, so swapping the
+      // share scales it (exactly: no beam to keep).
+      const b = sun === 0 && rainState(rain) === "dry" ? h02bFactor(neighbours(rows, r.n)) : null;
+      eB += b == null ? est : (est * b) / APP_DARK;
     }
     const up = sunshineFraction(day, r.n, blockNo);
     const share = up > 0 ? Math.min(1, sun / up) : 0;
@@ -129,7 +136,7 @@ for (const day of days) {
       model: rain == null ? null : sunshineFactor(share, rain >= RAIN_MM, rain),
     });
   }
-  if (check.complete) dayTotals.push({ date: day, measured: m, estimated: e, sun: daySun ?? 0 });
+  if (check.complete) dayTotals.push({ date: day, measured: m, estimated: e, sun: daySun ?? 0, estimatedB: eB });
 }
 
 // ---- report ------------------------------------------------------------------------------------
@@ -231,6 +238,40 @@ const report = [
   dayLine("日照 8 時間以上の日", dayTotals.filter((d) => d.sun >= 8)),
   ...seasons.map(([l, ms]) => dayLine(l, dayTotals.filter((d) => inSeason(d.date, ms)))),
   "",
+  "## H-02b：日照 0 の割合を前後の時間の日照で分ける案（#208）",
+  overlapsFit(from, to)
+    ? `**注意：この期間は H-02b の数を決めた年（${H02B.fittedOn.from}〜${H02B.fittedOn.to}）と重なる。ここの成績は当てはめの成績で、確かめにはならない。**`
+    : `確かめ：H-02b の数（前後も日照 0：${H02B.dark}、前後のどちらかに日照：${H02B.between}）は ${H02B.fittedOn.from}〜${H02B.fittedOn.to} で決めた。この期間はその外。`,
+  "",
+  "### 毎時（日照 0・雨なし、太陽の高い時間）：誤差の大きさ（実測 ÷ 快晴との差の絶対値の平均）と偏り",
+  "| 前後の時間 | 時間 | 今（1/3）の誤差 | H-02b の誤差 | 今の偏り | H-02b の偏り |",
+  "|---|---|---|---|---|---|",
+  ...(["dark", "sunny", "unknown"] as const).map((k) => {
+    const hs = none.filter((h) => h.around === k);
+    const a = hs.map((h) => APP_DARK - h.ratio);
+    const b = hs.map((h) => (h02bFactor(k) ?? APP_DARK) - h.ratio);
+    const mean = (xs: number[]) => (xs.length ? xs.reduce((s, x) => s + x, 0) / xs.length : NaN);
+    const label = k === "dark" ? "前後も日照 0" : k === "sunny" ? "前後のどちらかに日照" : "分からない（H-02b も 1/3）";
+    return `| ${label} | ${hs.length} | ${f2(mean(a.map(Math.abs)))} | ${f2(mean(b.map(Math.abs)))} | ${signed(mean(a))} | ${signed(mean(b))} |`;
+  }),
+  "",
+  "### 日の合計：誤差の大きさ（|推定 − 実測| ÷ 実測）",
+  "差は「H-02b − 今」で、負なら H-02b がよい。幅は日を単位にしたブートストラップの 95%。",
+  "| 区分 | 日数 | 今の誤差（中央） | H-02b の誤差（中央） | 差の平均 [95%] | H-02b がよい日 |",
+  "|---|---|---|---|---|---|",
+  ...([
+    ["すべて", dayTotals],
+    ["日照 2 時間未満の日", dayTotals.filter((d) => d.sun < 2)],
+    ["日照 2〜8 時間の日", dayTotals.filter((d) => d.sun >= 2 && d.sun < 8)],
+    ["日照 8 時間以上の日", dayTotals.filter((d) => d.sun >= 8)],
+  ] as [string, typeof dayTotals][]).map(([l, ds]) => {
+    const ea = ds.map((d) => Math.abs(d.estimated - d.measured) / Math.max(1, d.measured));
+    const eb = ds.map((d) => Math.abs(d.estimatedB - d.measured) / Math.max(1, d.measured));
+    const diff = meanWithInterval(eb.map((x, i) => x - ea[i]));
+    const iv = diff.interval ? ` [${signed(diff.interval[0])}, ${signed(diff.interval[1])}]` : "（日数不足）";
+    return `| ${l} | ${ds.length} | ${f2(q(ea, 0.5))} | ${f2(q(eb, 0.5))} | ${signed(diff.mean)}${iv} | ${pc(eb.filter((x, i) => x < ea[i]).length / ds.length)} |`;
+  }),
+  "",
   "## 参考：太陽の低い時間（割る数が小さく、値が揺れる）",
   head,
   line("日照 0・雨なし", hours.filter((h) => h.low && h.wet === "dry" && h.sun === 0)),
@@ -249,5 +290,5 @@ writeFileSync(
     ),
   ].join("\n"),
 );
-writeFileSync(join(out, "h02-days.csv"), ["date,measured_mj,estimated_mj,sun_h", ...dayTotals.map((d) => [d.date, d.measured.toFixed(2), d.estimated.toFixed(2), d.sun.toFixed(1)].join(","))].join("\n"));
+writeFileSync(join(out, "h02-days.csv"), ["date,measured_mj,estimated_mj,estimated_h02b_mj,sun_h", ...dayTotals.map((d) => [d.date, d.measured.toFixed(2), d.estimated.toFixed(2), d.estimatedB.toFixed(2), d.sun.toFixed(1)].join(","))].join("\n"));
 console.log(report);
