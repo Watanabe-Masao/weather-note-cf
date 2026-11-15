@@ -1,6 +1,7 @@
 // The new calculation core (docs/engineering-principles.md). Layers: material → estimate → judge,
 // the judge in two versions: plain/ (no learning, never reads answers) and learned/.
 // Nothing here imports from outside src/core except shared/types (test/data/core-boundary.test.ts).
+// The learned version has its own entry (src/core/learned/index.ts): this one is plain only.
 
 export { DAY_FIELDS, HOUR_FIELDS, type DayField, type HourField } from "./material/fields";
 export { type Absence, admits, dayOf, hourOf, type Kind, type MaterialDay, type MaterialHour } from "./material/material";
@@ -39,3 +40,6 @@ export { FEEL_RATE_STANDARD } from "./estimate/feel-rate/params";
 export { historyShort } from "./estimate/history-short/formula";
 export { HISTORY_SHORT_STANDARD } from "./estimate/history-short/params";
 export { type Exposure, type HourHistory, shortHistories } from "./plain/shortHistory";
+export { BOOTSTRAP, SEED, STEPS } from "./evaluate/constants";
+export { type Case, type Comparison as ScoreComparison, compareScores, type Fitted, type Forecast, type Predictor, prequential, rps, type Scored } from "./evaluate/prequential";
+export { type PlainInputs, plainLevelPredictor } from "./plain/predictor";
