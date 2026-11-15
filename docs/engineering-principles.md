@@ -57,6 +57,8 @@
 | 日照時間 | ○ | ○ | 時間 |
 | 気圧（海面） | ○ | ○ | hPa |
 
+行に書かれていない場所の事実（風速計の高さなど）は、`Site` として材料と一緒に渡す。予報の風は 10 m（Open-Meteo の `wind_speed_10m`）。記録の風速計の高さが分からなければ「ない」（`notProvided`）。
+
 材料にしないもの（理由）：
 - 日射：記録は測っている地点だけ → 日照などからの**推測値**にする
 - 露点：予報にない → 気温と湿度からの推測値にする
@@ -87,30 +89,33 @@
 推測値は「計算式」と「パラメータ（式の中で使う数）」の2つに分けて持つ。**計算式の中に数を直接書かない**（マジックナンバーを置かない）。
 
 ```ts
-// 計算式（formula.ts）：形だけ。数は名前で受け取る
-export const shadeFeel = defineFormula({
-  id: "feel.shade",                     // 名前。課題・研究メモでもこの名前で呼ぶ
-  version: 1,                           // 式の形を変えたら上げる
-  needs: ["temp", "humidity", "wind"],  // 材料か、ほかの推測値の id
-  params: ["windWeight", "vaporWeight", "offset"],  // 使う数の名前
-  domain: { wind: … },                  // 式が使える範囲（数はパラメータか定数から）
-  compute: (x, p) => ...,               // needs がそろい、範囲の中のときだけ呼ばれる
+// 計算式（src/core/estimate/feel-shade/formula.ts）：形だけ。数は名前で受け取る
+export const feelShade = defineFormula({
+  id: "feel.shade",                             // 名前。課題・研究メモでもこの名前で呼ぶ
+  version: 1,                                   // 式の形を変えたら上げる
+  label: "肌感（日かげ）", unit: "℃",
+  needs: ["temp", "humidity", "windPerson"],    // 材料か、ほかの推測値
+  params: ["neutral", "a0", "a1", "a2", "c0", "c1", "d"],  // 使う数の名前
+  domain: { humidity: { min: HUMIDITY_MIN, max: HUMIDITY_MAX }, windPerson: { min: 0 } },
+  compute: (x, p) => …,                         // needs がそろい、範囲の中のときだけ呼ばれる
 });
 
-// パラメータ（params.ts）：数と、その根拠
-export const SHADE_FEEL_STANDARD = defineParams(shadeFeel, {
-  id: "standard",
-  version: 1,                           // 数を変えたら上げる
-  values: {
-    windWeight: { value: …, unit: "℃/(m/s)", basis: "文献・出典" },
-    …
-  },
+// パラメータ（params.ts）：数と、その単位と根拠
+export const FEEL_SHADE_MISSENARD = defineParams(feelShade, {
+  id: "missenard",
+  version: 1,                                   // 数を変えたら上げる
+  values: { a2: { value: 0.75, unit: "", basis: "改良ミスナール式の係数：風速のべき" }, … },
 });
+
+// 学習なし版（src/core/plain/feelShade.ts）：材料 → wind.person → feel.shade
+shadeFeel(hour, { anemometerHeight: 10 }, { windPerson: windPersonSettings(alpha) });
 ```
 
 - **計算式に書いてよい数は 0 と 1 だけ**。それ以外の数は、名前・単位・根拠を付けて `params.ts`（パラメータ）か `constants.ts`（物理の定数・気象庁の決まりなど、変えない数）に置く。テストで確かめる（`test/data/core-boundary.test.ts`）
 - 1つの計算式に、パラメータの組をいくつも持てる。結果には「式の id と版」と「パラメータの組の id と版」の両方を残す
 - 結果は「値」か「ない（理由）」のどちらか（2）。`compute` の中で「ない」を作らない。足りない入力と範囲の外は、呼ぶ前に仕組みが見分ける
+- 「ない」の理由は、もとの材料まで届ける。推測値を入力にした推測値は、どの入力のどの入力かを点でつないで残す（`windPerson.wind: notObserved`、範囲の外なら `windPerson.windHeight`）
+- 結果の `trace` に、通った計算式とパラメータの組（id と版）と、使った数を順に残す。設定から作った組は、id と版が同じでも数が違うので、数も残す
 - 依存は `needs` だけ。関数の中でほかの値を取りに行かない
 - 同じ値でも式の形が違うもの（慣れの式が3つ、など）は、別の id の計算式にする（`adapt.long.mean30`、`adapt.long.ema` など）。数が違うだけなら、同じ式の別のパラメータの組にする
 - 依存の図は、コードから作る（手で書かない）
@@ -154,7 +159,7 @@ export const SHADE_FEEL_STANDARD = defineParams(shadeFeel, {
 
 | ライブラリ | 使う所 | 入れる時 |
 |---|---|---|
-| fast-check | 推測値と判定の性質を、多数の入力で確かめる（入力がなければ答えもない、範囲、確率の合計が1、学習なし版は答えを変えても結果が同じ） | 推測値の段 |
+| fast-check | 推測値と判定の性質を、多数の入力で確かめる（入力がなければ答えもない、範囲、確率の合計が1、学習なし版は答えを変えても結果が同じ） | 入れた（4.10.2） |
 | Zod | 外から来るものの入口だけ（保存されている答えの記録、D1 から戻るデータ）。core の中は TypeScript の型で足りる | 古い記録を引き継ぐ段 |
 | Mermaid | 依存の図を `needs` から作って文書に出す（いまの文書と同じ） | 推測値の段 |
 | rolldown（`parseAst`） | コードの決まりの検査（数の検査など）を、文字の検索でなく構文で読む。ビルドがすでに使っている解析器なので、新しく増えない（TypeScript 7 には JS から使える解析器がない） | 入れた |

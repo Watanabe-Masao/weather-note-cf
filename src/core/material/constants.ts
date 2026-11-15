@@ -5,3 +5,10 @@
  *  the day before (気象庁 時別値の表). */
 export const HOUR_FIRST = 1;
 export const HOUR_LAST = 24;
+
+/** Open-Meteo's wind is `wind_speed_10m`: measured (modelled) at 10 m above the ground. */
+export const FORECAST_WIND_HEIGHT = 10;
+
+/** Relative humidity is a percentage: 0–100 %. */
+export const HUMIDITY_MIN = 0;
+export const HUMIDITY_MAX = 100;
