@@ -7,8 +7,8 @@ const r = (v: Record<string, unknown>): WeatherRow => ({ date: "2026-11-08", n: 
 describe("dayComment (#176)", () => {
   it("says warmth against the comparison day, rain, and a storm with its hour", () => {
     const hours = [r({ n: 13, wind: 9 }), r({ n: 14, wind: 13.2 }), r({ n: 15, wind: 8 })];
-    expect(dayComment({ row: r({ max: 21.6, min: 13.4, rain: 10.9, sun: 1.4, windMax: 14.4, gust: 24.8 }), other: r({ max: 19.4 }), otherName: "'25/11/8", hours })).toEqual([
-      "'25/11/8より最高気温が2.2℃高く、暖かい一日。",
+    expect(dayComment({ row: r({ max: 21.6, min: 13.4, rain: 10.9, sun: 1.4, windMax: 14.4, gust: 24.8 }), other: r({ max: 19.4 }), otherName: "’25/11/8", hours })).toEqual([
+      "’25/11/8より最高気温が2.2℃高く、暖かい一日。",
       "雨が10.9mm。",
       "14時ごろに強風（最大瞬間24.8m/s）。",
     ]);

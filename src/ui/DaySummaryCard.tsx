@@ -11,7 +11,7 @@ import { Priority } from "../data/plan";
 import { kindLabel } from "./CompareBoard";
 import type { DaySummaryAsk } from "./daySummaryPress";
 import { dayComment } from "../data/dayComment";
-import { dateLabel, formatValue, monthDay, needsYear, num, signedDiff } from "../design/format";
+import { dateLabel, formatValue, monthDay, num, shortDay, signedDiff } from "../design/format";
 import { DATA } from "../design/tokens";
 import { Badge, confidenceOfRow, GraphReadout, type Kind, Num, type ReadoutRow, SectionHead } from "./kit";
 import { useEffect } from "react";
@@ -46,7 +46,7 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
   ];
   const storm = stormOfRow(a);
   const lowest = (day: string | null) => (day ? hourlyExtreme(store?.getHours(station, day).rows ?? null, "pressure", "min") : null);
-  const otherName = other ? `${needsYear(other, date) ? `'${other.slice(2, 4)}/` : ""}${monthDay(other)}` : null;
+  const otherName = other ? shortDay(other, date) : null;
   // The numbers in words (#176): two or three sentences, each from a value below.
   const comment = dayComment({ row: a, other: b, otherName, hours: store?.getHours(station, date).rows });
   const lowA = lowest(date);
