@@ -1679,7 +1679,7 @@ svg.scrub {
    decimal points stand in one line from 最高 to 気圧; the units sit once after the names. */
 .cs-num {
   display: inline-block;
-  min-width: 5.2ch;
+  min-width: 6ch; /* 1016.0 */
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
@@ -1730,13 +1730,15 @@ svg.scrub {
 
 .cs-row.chosen > .cs-a {
   border-radius: var(--radius-sm) 0 0 var(--radius-sm);
-  padding-right: 4px;
 }
 
 .cs-row.chosen > .cs-b {
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  padding-left: 4px;
 }
+
+/* Every row the same inset (the chosen one too), so the numbers keep one line (#151 grid). */
+.cs-row > .cs-a { padding-right: 4px; }
+.cs-row > .cs-b { padding-left: 4px; }
 
 .cs-sun .cs-val {
   font-size: var(--size-sm);
@@ -2607,6 +2609,14 @@ svg.scrub {
   color: var(--ink-tertiary);
 }
 
+/* The grid (#151): 最高・最低 right-aligned in a "00.0" box centred in the column, so 19.7 and 9.8
+   keep their decimal points one above the other. 雨 (words: 朝・夕…) stays centred. */
+.cond-col > span.num.grid {
+  justify-content: flex-end;
+  padding-right: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
 .cond-col.origin .num {
   font-weight: var(--weight-bold);
 }
@@ -2804,11 +2814,19 @@ svg.scrub {
 }
 
 .cal-max {
+  position: relative;
   font-size: var(--size-xs);
   color: var(--data-hot);
+  font-variant-numeric: tabular-nums;
 }
 
+/* The grid (#151): the C tag hangs to the right of the number, so the number stands in the middle
+   of its cell like every other day's (beside it, the tag pushed a forecast day's number aside). */
 .cal-c {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  transform: translateY(-50%);
   font-style: normal;
   margin-left: 2px;
   padding: 0 2px;
