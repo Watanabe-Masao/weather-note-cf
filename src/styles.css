@@ -991,8 +991,10 @@ button.label-feel:active { transform: scale(0.97); }
 }
 
 .chart-grid {
+  /* 見本（sample/texture）: 目盛の線は控えめに。 */
   stroke: var(--line-strong);
-  stroke-dasharray: 3 4;
+  stroke-opacity: 0.55;
+  stroke-dasharray: 2 5;
 }
 
 .chart-tick,

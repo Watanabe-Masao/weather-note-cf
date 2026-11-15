@@ -235,7 +235,8 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   if (lo !== 0) lo -= pad;
   hi = metric.max ?? hi + pad;
   // Round ticks, widened to whole steps (a fixed top such as 100% stays).
-  const nice = niceTicks(lo, hi, range ? 8 : 5);
+  // 見本（sample/texture）: 目盛を細かくし、値に合わせて軸を縮める（下の空きを減らす）。
+  const nice = niceTicks(lo, hi, 8);
   if (metric.max == null) hi = nice.hi;
   lo = metric.zero ? Math.max(0, nice.lo) : nice.lo;
   const ticks = nice.ticks.filter((t) => t >= lo - 1e-9 && t <= hi + 1e-9);
@@ -364,6 +365,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
                     strokeWidth={look.strokeWidth}
                     strokeDasharray={look.strokeDasharray}
                     strokeLinecap={compare ? "butt" : "round"}
+                    strokeLinejoin="round"
                     opacity={look.opacity}
                   />
                 );
@@ -386,6 +388,21 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             ),
           )}
 
+        {/* 見本（sample/texture）: 対象日の値を点のそばに（上の線は上へ、下の線は下へ）。 */}
+        {metric.chart === "line" &&
+          series
+            .filter(({ s, compare }) => !compare && !s.thin && !(range && (s.key === "max" || s.key === "min" || s.key === "feel")))
+            .map(({ s, points }) => {
+              const below = s.key === "min" || s.key === "pressureMin";
+              const d = digitsOf(s.unit ?? metric.unit);
+              return points.map((p, i) =>
+                p.v == null ? null : (
+                  <text key={`${s.key}-val-${i}`} x={p.x} y={yOf(p.v) + (below ? 15 : -8)} textAnchor="middle" className="range-label" fill={COLORS[s.tone]}>
+                    {p.v.toFixed(d)}
+                  </text>
+                ),
+              );
+            })}
         {under.map((row, k) => (
           <g key={`under-${k}`}>
             {row.cells.map((c, i) => (

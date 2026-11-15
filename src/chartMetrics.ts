@@ -239,6 +239,8 @@ export const CHART_METRICS: ChartMetric[] = [
     chart: "line",
     zero: false,
     needsHours: true,
+    // 見本（sample/texture）: 平均は初めは出さない（線を6本から4本へ）。
+    hiddenByDefault: ["pressure"],
     series: [
       { key: "pressureMax", label: "最高", tone: "pressureHigh", value: (_r, h) => hourlyExtreme(h, "pressure", "max") },
       { key: "pressureMin", label: "最低", tone: "pressureLow", value: (_r, h) => hourlyExtreme(h, "pressure", "min") },
