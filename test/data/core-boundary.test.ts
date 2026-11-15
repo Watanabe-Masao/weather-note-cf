@@ -3,6 +3,7 @@
 
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { parseAst } from "rolldown/parseAst";
 import { describe, expect, it } from "vitest";
 
 const ROOT = resolve(__dirname, "../..");
@@ -32,25 +33,35 @@ describe("src/core stays inside its walls", () => {
 });
 
 // 計算式とパラメータを分ける (principles 5): outside params.ts and constants.ts, the only numbers
-// written in src/core are 0 and 1. Every other number has a name, a unit and a basis there.
+// written in src/core are 0 and 1. Every other number has a name, a unit and a basis there. Read
+// from the syntax tree (the parser the build already uses, rolldown/oxc; TypeScript 7 has no JS
+// API), so comments, strings and template text are not numbers, and a number inside ${…} is.
 const NUMBER_FILES = /(^|\/)(params|constants)\.ts$/;
-const code = (text: string) =>
-  text
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/.*$/gm, "")
-    .replace(/`(?:\\.|[^`\\])*`|"(?:\\.|[^"\\\n])*"|'(?:\\.|[^'\\\n])*'/g, '""');
+function numbersIn(text: string): string[] {
+  const out: string[] = [];
+  const visit = (node: unknown) => {
+    if (Array.isArray(node)) return node.forEach(visit);
+    if (!node || typeof node !== "object") return;
+    const n = node as Record<string, unknown>;
+    if (n.type === "Literal" && (typeof n.value === "number" || typeof n.value === "bigint")) out.push(String(n.value));
+    for (const v of Object.values(n)) visit(v);
+  };
+  visit(parseAst(text, { lang: "ts" }));
+  return out;
+}
 
 describe("no magic numbers in formulas", () => {
   for (const file of files(CORE).filter((f) => !NUMBER_FILES.test(f)))
     it(relative(ROOT, file), () => {
-      const numbers = [...code(readFileSync(file, "utf8")).matchAll(/(?<![\w.$])\d[\d_]*(?:\.\d+)?(?:e[+-]?\d+)?/gi)].map((m) => m[0]);
+      const numbers = numbersIn(readFileSync(file, "utf8"));
       expect(numbers.filter((n) => +n !== 0 && +n !== 1), "数は params.ts か constants.ts に名前を付けて置く").toEqual([]);
     });
 
-  it("the check finds a number in code and not in comments or strings", () => {
-    const found = (t: string) => [...code(t).matchAll(/(?<![\w.$])\d[\d_]*(?:\.\d+)?(?:e[+-]?\d+)?/gi)].map((m) => m[0]);
-    expect(found("const x = a * 0.7; // 30日\nconst s = \"24時\";")).toEqual(["0.7"]);
-    expect(found("x[0] + x1 - 1")).toEqual(["0", "1"]);
+  it("the check reads code, not comments or strings", () => {
+    expect(numbersIn("const x = a * 0.7; // 30日\nconst s = \"24時\";")).toEqual(["0.7"]);
+    expect(numbersIn("const t = `${a * 3600}秒 30分`;")).toEqual(["3600"]);
+    expect(numbersIn("x[0] + x1 - 1 + 1e3 + 0x10 + 2n")).toEqual(["0", "1", "1000", "16", "2"]);
+    expect(numbersIn("/* 24 */ type H = 24;")).toEqual(["24"]);
   });
 });
 

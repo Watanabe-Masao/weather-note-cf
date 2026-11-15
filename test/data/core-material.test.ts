@@ -59,11 +59,46 @@ describe("quality marks decide what goes in (principles 4)", () => {
     const h = hourOf(row({}), "47893")!;
     expect(h.values).toEqual({ temp: 18.2, humidity: 60, wind: null, rain: 0, sunshine: null, pressure: null });
     expect(h.rough).toEqual(["humidity"]);
+    // Each missing value says why: 資料不足値, 欠測, and a column the row does not have.
+    expect(h.absent).toEqual({ wind: "rejected", sunshine: "notObserved", pressure: "notProvided" });
     expect(h).toMatchObject({ station: "47893", date: "2025-11-01", hour: 13, kind: "record", provider: "JMA", provisional: false });
   });
 
   it("a number with no quality mark is not taken", () => {
-    expect(hourOf(row({ quality: {} }), "47893")!.values.temp).toBeNull();
+    const h = hourOf(row({ quality: {} }), "47893")!;
+    expect(h.values.temp).toBeNull();
+    expect(h.absent.temp).toBe("rejected");
+  });
+
+  it("a value not out yet is unpublished, not missing", () => {
+    expect(hourOf(row({ unpublished: ["sun"], raw: { sun: "" } }), "47893")!.absent.sunshine).toBe("unpublished");
+  });
+
+  it("a number the source calls unpublished is not taken: unpublished comes first", () => {
+    const h = hourOf(row({ unpublished: ["temp", "humidity"] }), "47893")!;
+    expect(h.values.temp).toBeNull();
+    expect(h.values.humidity).toBeNull();
+    expect(h.absent).toMatchObject({ temp: "unpublished", humidity: "unpublished" });
+    expect(h.rough).toEqual([]);
+  });
+
+  it("JMA's empty hourly 日照 is blank (night, or not out yet: the table cannot say)", () => {
+    // 12時 as much as 0時: the material does not decide night by the clock.
+    for (const n of [13, 24]) {
+      const h = hourOf(row({ n, raw: { sun: "" }, quality: { sun: "missing" } }), "47893")!;
+      expect(h.absent.sunshine).toBe("blank");
+    }
+  });
+
+  it("欠測 written × is not observed, day or night; an empty 気温 is not observed", () => {
+    expect(hourOf(row({ raw: { sun: "×" }, quality: { sun: "missing" } }), "47893")!.absent.sunshine).toBe("notObserved");
+    const h = hourOf(row({ temp: null, raw: { temp: "" }, quality: { temp: "missing" } }), "47893")!;
+    expect(h.absent.temp).toBe("notObserved");
+  });
+
+  it("a day's empty 日照 is not observed: only the hourly table leaves it blank", () => {
+    const d = dayOf(row({ n: 1, raw: { sun: "" }, quality: { sun: "missing" } }), "47893");
+    expect(d.absent.sunshine).toBe("notObserved");
   });
 
   it("an hour outside 1–24 is not an hour", () => {
@@ -76,6 +111,8 @@ describe("the same shape from every source", () => {
   it("JMA hours", () => {
     const hours = jmaHourly().map((r) => hourOf(r, "47893")!);
     expect(hours).toHaveLength(24);
+    // Hour 24 is midnight: its 日照 is blank.
+    expect(hours[23].absent.sunshine).toBe("blank");
     expect(hours.every((h) => h.kind === "record" && !h.provisional)).toBe(true);
     expect(hours.some((h) => h.values.temp != null)).toBe(true);
   });
@@ -99,7 +136,20 @@ describe("the same shape from every source", () => {
     const d = dayOf(daily, "47893");
     expect(d.provisional).toBe(true);
     for (const f of d.rough) expect(d.values[f]).not.toBeNull();
-    // JMA-recent has no 最大瞬間風速: it is missing, not 0.
+    // JMA-recent has no 最大瞬間風速: it is not there, and not 0.
     expect(d.values.gust).toBeNull();
+    expect(d.absent.gust).toBe("notProvided");
+  });
+});
+
+describe("a value is null exactly when it says why (principles 2)", () => {
+  it("every row of every source", () => {
+    const { rows, hourlyRows } = forecast();
+    const all = [
+      ...[...jmaHourly(), ...hourlyRows, ...parseLivePoint(live(), "2026-11-08").rows].map((r) => hourOf(r, "47893")!),
+      ...[...jmaDaily(), ...rows, aggregateRecentDay(live(), "2026-11-08").daily].map((r) => dayOf(r, "47893")),
+    ];
+    for (const m of all)
+      for (const [f, v] of Object.entries(m.values)) expect(v == null, `${m.provider} ${m.date} ${f}`).toBe((m.absent as Record<string, unknown>)[f] != null);
   });
 });
