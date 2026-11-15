@@ -6,6 +6,9 @@
 //     sunshine method is at its best)
 // A against B answers "is the forecast's radiation a better material than its sunshine?". C shows
 // the method's own error, apart from the forecast's.
+//  D (H-03b). A or B by the forecast's own sky (its sunshine share), E. the mean of A and B — read
+//     against B, the app's way today, by error and by bias (the app compares a forecast day with a
+//     recorded one, so a bias between them matters more than the size of the error).
 //
 // The forecasts are Open-Meteo's historical forecasts (the first hours of each run, stitched): a
 // short lead, not the 2–7 days ahead the app shows. The comparison is of the materials, not of a
@@ -26,6 +29,14 @@ import { hourRadiation } from "../../shared/mrt";
 import { radiationOf } from "../../shared/feel";
 import { sunshineFraction } from "../../shared/brightness";
 import { daylight, lowSun, meanWithInterval, rainState, sunOf } from "./h02-lib";
+
+/**
+ * H-03b (#208): the forecast's sky picks the estimate — where the forecast says the sun shines most of
+ * the hour (its sunshine share at least `sunnyShare`), the radiation from its sunshine (B, right in the
+ * clear); else its own radiation (A, right under cloud). The share is set beforehand at the middle and
+ * not tuned on any year, so every year is a test. Read against B (the app's way today).
+ */
+const H03B = { sunnyShare: 0.5 } as const;
 
 const arg = (k: string, d: string) => {
   const i = process.argv.indexOf(`--${k}`);
@@ -113,6 +124,10 @@ interface Hour {
   a: number | null;
   b: number | null;
   c: number | null;
+  /** H-03b: A or B by the forecast's own sky (its sunshine share against H03B.sunnyShare). */
+  d: number | null;
+  /** The mean of A and B. */
+  e: number | null;
 }
 const hours: Hour[] = [];
 let forecastMissing = 0;
@@ -132,15 +147,21 @@ for (const day of days) {
     if (fcSolar == null || fcSun == null || fcRain == null) forecastMissing++;
     const up = sunshineFraction(day, r.n, blockNo);
     const share = up > 0 ? sun / up : 0;
+    const a = fcSolar;
+    const b = fcSun == null || fcRain == null ? null : (hourRadiation(day, r.n, blockNo, fcSun, fcRain)?.ghi ?? null);
+    // The forecast's own sky: what is known when the forecast is used (the real sky is not).
+    const fcShare = fcSun == null ? null : up > 0 ? Math.min(1, fcSun / up) : 0;
     hours.push({
       date: day,
       n: r.n,
       low: lowSun(day, r.n, blockNo),
       sky: rainState(rain) === "wet" ? "rain" : share >= 0.7 ? "clear" : share > 0 ? "broken" : "dark",
       measured,
-      a: fcSolar,
-      b: fcSun == null || fcRain == null ? null : (hourRadiation(day, r.n, blockNo, fcSun, fcRain)?.ghi ?? null),
+      a,
+      b,
       c: hourRadiation(day, r.n, blockNo, sun, rain)?.ghi ?? null,
+      d: a == null || b == null || fcShare == null ? null : fcShare >= H03B.sunnyShare ? b : a,
+      e: a == null || b == null ? null : (a + b) / 2,
     });
   }
 }
@@ -160,7 +181,7 @@ const pa = (x: number) => (Number.isFinite(x) ? `${(x * 100).toFixed(1)}%` : "�
 const pc = (x: number) => (Number.isFinite(x) ? `${Math.round(x * 100)}%` : "—");
 
 // Only hours where all three can be compared: the same hours for every estimate.
-const both = hours.filter((h) => h.a != null && h.b != null && h.c != null);
+const both = hours.filter((h) => h.a != null && h.b != null && h.c != null && h.d != null && h.e != null);
 const steady = both.filter((h) => !h.low);
 const hourLine = (label: string, hs: Hour[]) => {
   const e = (k: "a" | "b" | "c") => hs.map((h) => h[k]! - h.measured);
@@ -183,12 +204,13 @@ for (const h of hours) byDay.set(h.date, [...(byDay.get(h.date) ?? []), h]);
 const dayRows = [...byDay.entries()]
   .filter(([d, hs]) => {
     const needed = Array.from({ length: 24 }, (_, i) => i + 1).filter((n) => daylight(d, n, blockNo)).length;
-    return hs.length === needed && hs.every((h) => h.a != null && h.b != null && h.c != null);
+    return hs.length === needed && hs.every((h) => h.a != null && h.b != null && h.c != null && h.d != null && h.e != null);
   })
   .map(([date, hs]) => {
-    const sum = (k: "measured" | "a" | "b" | "c") => hs.reduce((s, h) => s + (h[k] as number), 0) * W_TO_MJ_HOUR;
+    const sum = (k: "measured" | "a" | "b" | "c" | "d" | "e") => hs.reduce((s, h) => s + (h[k] as number), 0) * W_TO_MJ_HOUR;
     const m = sum("measured");
-    return { date, m, a: (sum("a") - m) / Math.max(1, m), b: (sum("b") - m) / Math.max(1, m), c: (sum("c") - m) / Math.max(1, m) };
+    const rel = (k: "a" | "b" | "c" | "d" | "e") => (sum(k) - m) / Math.max(1, m);
+    return { date, m, a: rel("a"), b: rel("b"), c: rel("c"), d: rel("d"), e: rel("e") };
   });
 const dayLine = (label: string, ds: typeof dayRows) => {
   const diff = meanWithInterval(ds.map((d) => Math.abs(d.a) - Math.abs(d.b)));
@@ -226,6 +248,39 @@ const report = [
   dayLine("晴れの時間が 6 時間以上の日", dayRows.filter((d) => clearHours(d) >= 6)),
   dayLine("晴れの時間が 2 時間未満の日", dayRows.filter((d) => clearHours(d) < 2)),
   ...seasons.map(([l, ms]) => dayLine(l, dayRows.filter((d) => inSeason(d.date, ms)))),
+  "",
+  "## H-03b：予報の空で A と B を使い分ける（#208）",
+  `予報の日照の割合が ${H03B.sunnyShare} 以上の時間は B、それ以外は A（D）。A と B の平均（E）も並べる。しきい値は前もって真ん中に決め、どの年でも調整していないので、どの年の結果も確かめになる。比べる相手は今のアプリのやり方 B。`,
+  "",
+  "**先に決めた判断の条件**：日の合計の誤差の差（候補 − B）の 95% の幅が 0 より下で、晴れの多い日を悪くせず（幅の上が +1% 以下）、晴れ・雲どちらの偏りも B より 0 に近いこと。",
+  "",
+  "### 毎時（太陽の高い時間）：誤差（偏り）W/m²",
+  "| 実際の空 | 時間 | A | B | D 使い分け | E 平均 |",
+  "|---|---|---|---|---|---|",
+  ...[["すべて", steady] as [string, Hour[]], ...skies.map(([l, k]) => [l, steady.filter((h) => h.sky === k)] as [string, Hour[]])].map(([l, hs]) => {
+    const cell = (k: "a" | "b" | "d" | "e") => {
+      const e = hs.map((h) => h[k]! - h.measured);
+      return `${w0(mean(e.map(Math.abs)))}（${sw0(mean(e))}）`;
+    };
+    return `| ${l} | ${hs.length} | ${cell("a")} | ${cell("b")} | ${cell("d")} | ${cell("e")} |`;
+  }),
+  "",
+  "### 日の合計：候補 − B（|誤差| の差の平均 [95%]）と、偏り（推定 − 実測 の平均）",
+  "| 区分 | 日数 | D − B | E − B | A − B | 偏り B | 偏り D | 偏り E | 偏り A |",
+  "|---|---|---|---|---|---|---|---|---|",
+  ...([
+    ["すべて", dayRows],
+    ["晴れの時間が 6 時間以上の日", dayRows.filter((d) => clearHours(d) >= 6)],
+    ["晴れの時間が 2 時間未満の日", dayRows.filter((d) => clearHours(d) < 2)],
+    ...seasons.map(([l, ms]) => [l, dayRows.filter((d) => inSeason(d.date, ms))]),
+  ] as [string, typeof dayRows][]).map(([l, ds]) => {
+    const vs = (k: "a" | "d" | "e") => {
+      const r = meanWithInterval(ds.map((d) => Math.abs(d[k]) - Math.abs(d.b)));
+      return `${sp(r.mean)}${r.interval ? ` [${sp(r.interval[0])}, ${sp(r.interval[1])}]` : ""}`;
+    };
+    const bias = (k: "a" | "b" | "d" | "e") => sp(mean(ds.map((d) => d[k])));
+    return `| ${l} | ${ds.length} | ${vs("d")} | ${vs("e")} | ${vs("a")} | ${bias("b")} | ${bias("d")} | ${bias("e")} | ${bias("a")} |`;
+  }),
   "",
   "## 参考：太陽の低い時間",
   hourHead,
