@@ -422,12 +422,15 @@ export function GraphReadout({
   live,
   dates,
   bare = false,
+  footer,
 }: {
   title: ReactNode;
   rows: ReadoutRow[];
   unit: string;
   live?: boolean;
   dates?: { a?: ReactNode; b?: ReactNode };
+  /** A line under the rows, inside the card (the daily graph: the day's weather by time band). */
+  footer?: ReactNode;
   /** The grid alone, for a face that is already a card (the day's summary): no card in a card. */
   bare?: boolean;
 }) {
@@ -469,6 +472,7 @@ export function GraphReadout({
           );
         })}
       </div>
+      {footer}
     </div>
   );
 }

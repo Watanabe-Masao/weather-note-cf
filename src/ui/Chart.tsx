@@ -16,6 +16,7 @@ import { FeelContext } from "./FeelBar";
 import { BetaContext } from "../beta/settings";
 import { baselineOf, useBaselineHistory } from "../beta/useBaseline";
 import { useDrumPan } from "./useDrumPan";
+import { PartsWeather } from "./PartsWeather";
 
 interface Props {
   store: WeatherStore | null;
@@ -103,6 +104,10 @@ function useLook(): [Look, (l: Look) => void] {
   return [look, set];
 }
 
+/** The plot is never smaller than this (a short sheet scrolls instead), nor the graph taller than MAX_SVG. */
+const MIN_PLOT = 150;
+const MAX_SVG = 640;
+
 /** Days drawn beyond each edge, so a swipe reveals real data instead of blank space. */
 const BUFFER = 4;
 /** Hold this long (ms) without moving to scrub instead of panning. */
@@ -120,11 +125,28 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   const ranged = (key: string) => range && (key === "max" || key === "min");
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
+  // The graph fills what the sheet has left, so the whole face fits without scrolling: the sheet's
+  // body less everything else in it (the card, the switches, the legend, the chips, the notes) —
+  // measured, not guessed. Null until measured (then `height` from the sheet's size is used).
+  const [fit, setFit] = useState<number | null>(null);
   useLayoutEffect(() => {
     const el = ref.current!;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    const body = el.closest<HTMLElement>(".sheet-body");
+    const measure = () => {
+      setW(el.clientWidth);
+      const svg = el.querySelector<SVGSVGElement>(":scope > svg");
+      if (!body || !svg) return;
+      // The content's foot, margins and all, from the body's top (scrolled or not).
+      const top = body.getBoundingClientRect().top - body.scrollTop;
+      const foot = Math.max(...[...body.children].map((c) => c.getBoundingClientRect().bottom));
+      const content = Math.ceil(foot - top + parseFloat(getComputedStyle(body).paddingBottom));
+      const others = content - svg.getBoundingClientRect().height;
+      setFit(Math.floor(body.clientHeight - others));
+    };
+    const ro = new ResizeObserver(measure);
     ro.observe(el);
-    setW(el.clientWidth);
+    if (body) ro.observe(body);
+    measure();
     return () => ro.disconnect();
   }, []);
 
@@ -251,10 +273,16 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
     if (row.compare) under.push({ label: "", cells: other.map(text), muted: true });
   }
   const bottom = PAD.bottom + (under.length ? under.length * UNDER_ROW + 4 : 0);
-  // The rows of numbers add to the height, so the plot keeps its size however many there are.
-  const H = height + (bottom - PAD.bottom);
+  // The rows of numbers add to the height, so the plot keeps its size however many there are — unless
+  // the sheet's room is measured (`fit`): then the whole graph takes that room, never less than MIN_PLOT.
+  const H = fit != null ? Math.max(MIN_PLOT + (bottom - PAD.bottom), Math.min(MAX_SVG, fit)) : height + (bottom - PAD.bottom);
 
-  const values = series.flatMap((x) => x.points.map((p) => p.v)).filter((v): v is number => v != null);
+  // The axis fits the seven days shown and one beside each (what a swipe of a day reveals): the days
+  // drawn further out for a long swipe would stretch it (a cold day four days off once took the
+  // axis to 0 and left a third of the graph empty).
+  const values = series
+    .flatMap((x) => x.points.filter((_, i) => i >= BUFFER - 1 && i <= BUFFER + 7).map((p) => p.v))
+    .filter((v): v is number => v != null);
   let lo = values.length ? Math.min(...values) : 0;
   let hi = values.length ? Math.max(...values) : 1;
   if (metric.zero) lo = 0;
@@ -264,7 +292,9 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   const labelled = metric.chart === "line" && series.some(({ s }) => s.valueLabel);
   const plotH = H - PAD.top - bottom;
   const room = labelled ? ((hi - lo) * (SHAPE.valueLabel.below + 2)) / Math.max(1, plotH - 2 * (SHAPE.valueLabel.below + 2)) : 0;
-  const pad = Math.max((hi - lo) * 0.12, metric.unit === "℃" ? 1 : 0.5, room);
+  // A little room beyond the values (the labels' room when there are labels); the round ticks widen
+  // it further. 12% here as well used to tip the axis a whole step lower (0 to 30 for 7 to 26 ℃).
+  const pad = Math.max((hi - lo) * 0.04, metric.unit === "℃" ? 0.5 : 0.25, room);
   if (lo !== 0) lo -= pad;
   hi = metric.max ?? hi + pad;
   // Round ticks, widened to whole steps (a fixed top such as 100% stays).
@@ -311,6 +341,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
               diff: signedDiff(a, b, d),
             };
           })}
+        footer={<PartsWeather store={store} station={station} date={shownDay} partner={shownPartner} />}
       />
       {metric.id === "temp" && (
         <div className="chart-look">

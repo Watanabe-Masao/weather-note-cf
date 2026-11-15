@@ -1009,6 +1009,8 @@ button.label-feel:active { transform: scale(0.97); }
 
 .chart {
   position: relative;
+  /* Its children's margins stay inside it, so its box is all the room it takes (the sheet measures it). */
+  display: flow-root;
 }
 
 .chart svg {
@@ -3010,7 +3012,8 @@ svg.scrub {
 .readout-card,
 .predict-card,
 .sun-card,
-.ds-wind {
+.ds-wind,
+.ds-hours {
   border-radius: var(--radius-md);
   background: var(--surface-inset);
   box-shadow: 0 0 0 1px var(--line-soft) inset;
@@ -4236,3 +4239,47 @@ svg.scrub {
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+/* The day's weather by time band in the daily graph's card (PartsWeather): a name column as the
+   rows' labels, then 朝・日中・昼・夕方・夜, the shown day large and the comparison day small beside it. */
+.parts-wx {
+  display: grid;
+  grid-template-columns: auto repeat(5, minmax(0, 1fr));
+  align-items: end;
+  gap: 0 var(--space-2);
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--line-soft);
+}
+.parts-wx-name {
+  font-size: var(--size-sm);
+  color: var(--ink-secondary);
+  padding-bottom: 3px;
+}
+.parts-wx-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+.parts-wx-cell small {
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+  line-height: 1;
+}
+.parts-wx-icons {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 20px;
+}
+.parts-wx .none {
+  font-size: var(--size-sm);
+  color: var(--ink-disabled);
+}
+
+/* その日の要約: the hours at a glance (沈んだ面, as the values). */
+.ds-hours .line-legend { margin-top: var(--space-2); }
+.mini-day { width: 100%; }
+.mini-day svg { display: block; }
