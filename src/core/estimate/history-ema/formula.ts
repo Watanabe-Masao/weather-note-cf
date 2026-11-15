@@ -7,10 +7,8 @@
 // It holds only when the day before is there and the present days carry at least `minCoverage` of
 // the weight.
 
-import { defineFormula, type Run } from "../engine";
-
-const weights = (run: Run, alpha: number, days: number) =>
-  run.slice(0, days).map((v, k) => ({ v, w: (1 - alpha) * alpha ** k }));
+import { ema, emaShortage } from "../ema";
+import { defineFormula } from "../engine";
 
 export const historyEma = defineFormula({
   id: "history.long.ema",
@@ -21,15 +19,6 @@ export const historyEma = defineFormula({
   needs: [],
   series: ["dayMeans"],
   params: ["alpha", "days", "minCoverage"],
-  enough: (s, p) => {
-    if (s.dayMeans[0] == null) return { have: 0, need: 1, of: "前日" };
-    const all = weights(s.dayMeans, p.alpha, p.days);
-    const total = all.reduce((a, d) => a + d.w, 0);
-    const have = all.filter((d) => d.v != null).reduce((a, d) => a + d.w, 0) / total;
-    return have >= p.minCoverage ? null : { have, need: p.minCoverage, of: "重みの割合" };
-  },
-  compute: (_x, p, s) => {
-    const present = weights(s.dayMeans, p.alpha, p.days).filter((d): d is { v: number; w: number } => d.v != null);
-    return present.reduce((a, d) => a + d.w * d.v, 0) / present.reduce((a, d) => a + d.w, 0);
-  },
+  enough: (s, p) => emaShortage(s.dayMeans, p.alpha, p.days, p.minCoverage, "前日"),
+  compute: (_x, p, s) => ema(s.dayMeans, p.alpha, p.days),
 });

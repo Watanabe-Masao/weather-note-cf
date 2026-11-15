@@ -6,7 +6,9 @@ import { historyEma } from "./estimate/history-ema/formula";
 import { historyMean } from "./estimate/history-mean/formula";
 import type { AnyFormula } from "./estimate/engine";
 import { feelShade } from "./estimate/feel-shade/formula";
+import { feelRate } from "./estimate/feel-rate/formula";
 import { feelSun } from "./estimate/feel-sun/formula";
+import { historyShort } from "./estimate/history-short/formula";
 import { radSunshine } from "./estimate/sun/formula";
 import { windTen } from "./estimate/wind-ten/formula";
 import { windPerson } from "./estimate/wind-person/formula";
@@ -16,7 +18,7 @@ import { CONCEPTS, HYPOTHESES } from "./hypotheses";
 import { DAY_FIELDS, HOUR_FIELDS } from "./material/fields";
 
 /** Every formula in the core (a test checks none is left out). */
-export const FORMULAS: readonly AnyFormula[] = [windPerson, feelShade, radSunshine, windTen, feelSun, historyMean, historyEma, seasonShift, level7];
+export const FORMULAS: readonly AnyFormula[] = [windPerson, feelShade, radSunshine, windTen, feelSun, historyMean, historyEma, historyShort, feelRate, seasonShift, level7];
 
 /** The inputs that come from the material, by the name formulas use for them. */
 export const MATERIAL_INPUTS: Record<string, string> = {
@@ -42,7 +44,10 @@ export function edges(formulas: readonly AnyFormula[] = FORMULAS): Edge[] {
       const c: readonly string[] | undefined = f.choices?.[n];
       return c ? c.map((from) => ({ from, to: f.key, kind: "choice" as const })) : [{ from: n, to: f.key, kind: "need" }];
     }),
-    ...(f.series ?? []).map((n: string): Edge => ({ from: n, to: f.key, kind: "series" })),
+    ...(f.series ?? []).flatMap((n: string): Edge[] => {
+      const c: readonly string[] | undefined = f.choices?.[n];
+      return c ? c.map((from) => ({ from, to: f.key, kind: "series" as const })) : [{ from: n, to: f.key, kind: "series" }];
+    }),
   ]);
 }
 
