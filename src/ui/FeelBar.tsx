@@ -73,6 +73,25 @@ export function FeelBar({ store, station, date }: { store: WeatherStore | null; 
   ]
     .filter(Boolean)
     .join("\n");
+  // 見本（sample/texture）: ?feel=a 丸い帯／?feel=b 丸い帯＋今の時間帯の印（今日だけ）。
+  const variant = typeof location !== "undefined" ? (location.search.match(/[?&]feel=([ab])/)?.[1] ?? "") : "";
+  if (variant) {
+    const nowMin = (() => {
+      const d = new Date(Date.now() + 9 * 3_600_000);
+      return d.getUTCHours() * 60 + d.getUTCMinutes();
+    })();
+    const today = new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10) === date;
+    const current = variant === "b" && today && exact ? bands.findIndex((b) => b.window && nowMin >= b.window.from && nowMin < b.window.to) : -1;
+    return (
+      <span className="feel-wrap" title={title} role="img" aria-label={title}>
+        <span className={`feel-bar v-round${exact ? "" : " estimate"}`} style={{ gridTemplateColumns: exact ? "repeat(5, 1fr)" : "1fr 1.4fr 1fr" }}>
+          {bands.map((b, i) => (
+            <i key={i} className={[b.source === "actual" ? "" : "forecast", i === current ? "now" : ""].join(" ").trim() || undefined} style={{ background: b.level == null ? "var(--line-strong)" : levelColor(b.level, settings.scale) }} />
+          ))}
+        </span>
+      </span>
+    );
+  }
   return (
     <span
       className={exact ? "feel-bar" : "feel-bar estimate"}

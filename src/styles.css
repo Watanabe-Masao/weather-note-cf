@@ -4172,3 +4172,22 @@ svg.scrub {
 .chart-look { display: flex; justify-content: flex-end; margin: 0 0 var(--space-2); }
 .chart-look .seg { width: 120px; }
 .range-label { font-family: var(--font-numeric); font-size: var(--size-xs); font-weight: var(--weight-bold); }
+/* 見本（sample/texture）: 肌感の帯 */
+.feel-wrap { position: relative; display: block; }
+.feel-bar.v-round {
+  height: 12px;
+  border-radius: var(--radius-pill);
+  gap: 2px;
+  box-shadow: none;
+  background: var(--surface-base);
+  padding: 0;
+}
+.feel-bar.v-round i { border-radius: 2px; }
+.feel-bar.v-round i:first-child { border-radius: 6px 2px 2px 6px; }
+.feel-bar.v-round i:last-child { border-radius: 2px 6px 6px 2px; }
+.feel-bar.v-round.estimate { opacity: 0.8; outline: 1px dashed var(--line-strong); outline-offset: 2px; }
+.feel-bar.v-round i.forecast {
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--surface-page) 22%, transparent) 0 2px, transparent 2px 6px);
+}
+.feel-bar.v-round { overflow: visible; }
+.feel-bar.v-round i.now { box-shadow: 0 0 0 1.5px var(--surface-page), 0 0 0 3px var(--ink-primary); position: relative; z-index: 1; }
