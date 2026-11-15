@@ -24,11 +24,13 @@ interface Origin {
  * no row at all.
  * - notProvided: the source has no such column (アメダスの速報に最大瞬間風速はない)
  * - unpublished: the column exists, the value is not out yet
- * - notMeasured: blank by design (JMA's hourly 日照 at night)
+ * - blank: an empty cell that the table does not explain — JMA's hourly 日照 is empty both at
+ *   night (not measured) and for an hour not out yet. The material cannot tell which; whether it
+ *   is night is for an estimate that knows the sun (never "blank means 0")
  * - notObserved: 欠測, or no value
  * - rejected: there is a number, but its quality keeps it out (資料不足値, or no quality mark)
  */
-export type Absence = "notProvided" | "unpublished" | "notMeasured" | "notObserved" | "rejected";
+export type Absence = "notProvided" | "unpublished" | "blank" | "notObserved" | "rejected";
 
 export interface Material<F extends string> extends Origin {
   /** A number, or null exactly when `absent` names the field. */
@@ -58,11 +60,20 @@ export function admits(q: Quality | undefined): "yes" | "rough" | "no" {
   }
 }
 
+/**
+ * Why a field is not taken, in this order (principles 4):
+ * 1. the row has no such column → notProvided
+ * 2. the source says it is not out yet → unpublished, even if a number is there: a value the source
+ *    has not published is not a value yet (the two never meet in JMA's parser; the rule is for a
+ *    row that says both)
+ * 3. a number whose quality keeps it out → rejected
+ * 4. an empty cell the table does not explain → blank; anything else → notObserved
+ */
 function absence(row: WeatherRow, f: FieldDef, hourly: boolean, isNumber: boolean): Absence {
   if (!(f.wire in row)) return "notProvided";
   if (row.unpublished?.includes(f.wire)) return "unpublished";
   if (isNumber) return "rejected";
-  if (hourly && f.blankAtNight && row.raw?.[f.wire] === "") return "notMeasured";
+  if (hourly && f.blankAmbiguous && row.raw?.[f.wire] === "") return "blank";
   return "notObserved";
 }
 
@@ -74,7 +85,7 @@ function read<F extends string>(row: WeatherRow, fields: readonly (FieldDef & { 
     const v = row[f.wire];
     const isNumber = typeof v === "number" && Number.isFinite(v);
     const ok = admits(row.quality?.[f.wire]);
-    if (isNumber && ok !== "no") {
+    if (isNumber && ok !== "no" && !row.unpublished?.includes(f.wire)) {
       values[f.id] = v;
       if (ok === "rough") rough.push(f.id);
     } else {
