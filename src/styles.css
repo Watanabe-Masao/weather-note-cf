@@ -4407,3 +4407,6 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .month-metric { margin-bottom: var(--space-3); }
 .month-picked-bands rect { fill: var(--accent-wash); }
 .month-empty { font-size: var(--size-xs); color: var(--ink-tertiary); padding: var(--space-5) 0; }
+
+.month-cal-day.muted { opacity: 0.45; }
+.month-scrub { touch-action: pan-y; cursor: crosshair; }

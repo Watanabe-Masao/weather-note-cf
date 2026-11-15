@@ -17,6 +17,7 @@ import { DayWeatherIcon } from "./WeatherIcon";
 import { dayTone } from "../../shared/holidays";
 import { BarSample, Chip, GraphReadout, LineSample, type ReadoutRow, SectionHead, Segmented } from "./kit";
 import { ModalSheet } from "./ModalSheet";
+import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
 import { feelOn } from "../feelSeason";
 
 /** 前年同曜日: 52 weeks back. */
@@ -181,6 +182,8 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   if (a.sun != null && b.sun != null && b.sun > 0) lean.push(a.sun / b.sun > 1.1 ? "日差しは多め" : a.sun / b.sun < 0.9 ? "日差しは少なめ" : "日差しは同じくらい");
   const [tab, setTab] = useState<"sum" | "days" | "feel">("sum");
   const [metric, setMetric] = useState<MonthMetricId>("temp");
+  // The day the card reads: where the finger last was (at first the month's last day).
+  const [focusDay, setFocusDay] = useState(days.length - 1);
   const dowOf = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
   const weekend = days.filter((d) => dowOf(d) >= 5);
   const weekdays = days.filter((d) => dowOf(d) < 5);
@@ -259,7 +262,12 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
                   </Chip>
                 ))}
               </div>
-              {metric === "temp" ? <MonthRange a={full.rows} b={fullB.rows} picked={picked} days={days} /> : <MonthSeries m={MONTH_METRICS.find((x) => x.id === metric)!} a={full.rows} b={fullB.rows} picked={picked} days={days} />}
+              <DayCard m={metric === "temp" ? null : MONTH_METRICS.find((x) => x.id === metric)!} date={days[focusDay]} dateB={daysB[focusDay] ?? null} a={full.rows[focusDay]} b={fullB.rows[focusDay] ?? null} />
+              {metric === "temp" ? (
+                <MonthRange a={full.rows} b={fullB.rows} picked={picked} days={days} focus={focusDay} onFocus={setFocusDay} />
+              ) : (
+                <MonthSeries m={MONTH_METRICS.find((x) => x.id === metric)!} a={full.rows} b={fullB.rows} picked={picked} days={days} focus={focusDay} onFocus={setFocusDay} />
+              )}
               <MonthLegend kind={metric === "temp" ? "range" : MONTH_METRICS.find((x) => x.id === metric)!.kind} color={DATA[MONTH_METRICS.find((x) => x.id === metric)!.tone]} now={label(month)} then={label(before)} />
             </div>
             <div className="month-quick chip-row" role="group" aria-label="まとめて選ぶ">
@@ -413,7 +421,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
 }
 
 /** Each day's 最高〜最低 as a round bar: the month filled (最高の色から最低の色へ), the year before outlined beside it. */
-function MonthRange({ a, b, picked, days }: { a: (WeatherRow | null)[]; b: (WeatherRow | null)[]; picked?: ReadonlySet<string>; days?: string[] }) {
+function MonthRange({ a, b, picked, days, focus, onFocus }: { a: (WeatherRow | null)[]; b: (WeatherRow | null)[]; picked?: ReadonlySet<string>; days?: string[] } & Scrub) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   useLayoutEffect(() => {
@@ -437,9 +445,10 @@ function MonthRange({ a, b, picked, days }: { a: (WeatherRow | null)[]; b: (Weat
   const ticks: number[] = [];
   for (let t = lo; t <= hi; t += hi - lo > 20 ? 10 : 5) ticks.push(t);
   const cap = (cx: number, mx: number, mn: number) => ({ x: cx - bw / 2, y: y(mx), width: bw, height: Math.max(bw, y(mn) - y(mx)), rx: bw / 2 });
+  const dim = dimOf(picked, days);
   return (
     <div ref={ref}>
-      <svg width={w} height={H} role="img" aria-label="日ごとの最高〜最低">
+      <svg width={w} height={H} role="img" aria-label="日ごとの最高〜最低" className="month-scrub" {...scrubHandlers(PAD.left, step, n, onFocus)}>
         <defs>
           <linearGradient id="month-range" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={DATA.hot} />
@@ -459,12 +468,13 @@ function MonthRange({ a, b, picked, days }: { a: (WeatherRow | null)[]; b: (Weat
           const ra = a[i];
           const rb = b[i];
           return (
-            <g key={i}>
+            <g key={i} opacity={dim(i) ? DIM : 1}>
               {num(rb?.max) != null && num(rb?.min) != null && <rect {...cap(x(i) + bw * 0.45, num(rb!.max)!, num(rb!.min)!)} fill="none" stroke="url(#month-range)" strokeWidth={1.1} opacity={0.7} />}
               {num(ra?.max) != null && num(ra?.min) != null && <rect {...cap(x(i) - bw * 0.45, num(ra!.max)!, num(ra!.min)!)} fill="url(#month-range)" />}
             </g>
           );
         })}
+        <FocusGuide x={focus == null ? null : x(focus)} top={PAD.top} bottom={H - PAD.bottom} />
         {[1, 5, 10, 15, 20, 25, 30].filter((d) => d <= n).map((d) => (
           <text key={d} x={x(d - 1)} y={H - 4} className="chart-tick" textAnchor="middle">
             {d}
@@ -566,6 +576,7 @@ function MonthCalendar({
   while (cells.length % 7) cells.push(null);
   const weeks = Array.from({ length: cells.length / 7 }, (_, k) => cells.slice(k * 7, k * 7 + 7));
   const pickable = !!onPick;
+  const press = useDaySummaryPress();
   const on = (ds: string[]) => ds.length > 0 && ds.every((d) => picked?.has(d));
   const day = (d: string) => {
     const i = days.indexOf(d);
@@ -590,7 +601,8 @@ function MonthCalendar({
     );
     const style = marks?.has(d) ? { boxShadow: `0 0 0 1.5px ${marks.get(d)} inset` } : undefined;
     return pickable ? (
-      <button key={d} className={`month-cal-day${chosen ? " picked" : ""}`} style={style} onClick={() => onPick!([d])} aria-pressed={!!chosen}>
+      // A long press opens the day's summary (#176, as everywhere a day's picture is), beside 前年同曜日.
+      <button key={d} className={`month-cal-day${chosen ? " picked" : picked?.size ? " muted" : ""}`} style={style} onClick={() => onPick!([d])} aria-pressed={!!chosen} {...summaryAttr(d, addDays(d, -PREV_SAME_WEEKDAY))}>
         {body}
       </button>
     ) : (
@@ -600,7 +612,7 @@ function MonthCalendar({
     );
   };
   return (
-    <div className={`month-cal${pickable ? " pickable" : ""}`}>
+    <div className={`month-cal${pickable ? " pickable" : ""}`} {...press}>
       {pickable && (
         <button className={`month-cal-pick corner${picked?.size ? "" : " on"}`} onClick={() => onPick!(picked?.size ? [...picked] : [])} aria-label="選んだ日をすべて外す">
           全
@@ -811,7 +823,7 @@ function PickedBands({ picked, days, x, step, top, bottom }: { picked?: Readonly
 }
 
 /** A month of one item: amounts as bars (the month filled, the year before outlined), levels as lines (solid, dashed). */
-function MonthSeries({ m, a, b, picked, days }: { m: MonthMetric; a: (WeatherRow | null)[]; b: (WeatherRow | null)[]; picked?: ReadonlySet<string>; days?: string[] }) {
+function MonthSeries({ m, a, b, picked, days, focus, onFocus }: { m: MonthMetric; a: (WeatherRow | null)[]; b: (WeatherRow | null)[]; picked?: ReadonlySet<string>; days?: string[] } & Scrub) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   useLayoutEffect(() => {
@@ -851,9 +863,11 @@ function MonthSeries({ m, a, b, picked, days }: { m: MonthMetric; a: (WeatherRow
   const la = lineLook("target", color);
   const lb = lineLook("compare", color);
   const bw = Math.min(SHAPE.range.maxWidth, step * 0.38);
+  const dim = dimOf(picked, days);
+  const anyPicked = !!picked?.size;
   return (
     <div ref={ref}>
-      <svg width={w} height={H} role="img" aria-label={`日ごとの${m.label}`}>
+      <svg width={w} height={H} role="img" aria-label={`日ごとの${m.label}`} className="month-scrub" {...scrubHandlers(PAD.left, step, n, onFocus)}>
         <PickedBands picked={picked} days={days} x={x} step={step} top={PAD.top} bottom={H - PAD.bottom} />
         {nice.ticks
           .filter((t) => t >= lo && t <= hi)
@@ -870,15 +884,26 @@ function MonthSeries({ m, a, b, picked, days }: { m: MonthMetric; a: (WeatherRow
         </text>
         {m.kind === "bar" ? (
           <>
-            {vb.map((v, i) => (v != null && v > 0 ? <path key={`b${i}`} d={barPath(x(i) + bw * 0.05, y(v), bw * 0.9, y(0) - y(v))} {...barLook("compare", color)} /> : null))}
-            {va.map((v, i) => (v != null && v > 0 ? <path key={`a${i}`} d={barPath(x(i) - bw * 0.95, y(v), bw * 0.9, y(0) - y(v))} {...barLook("target", color)} /> : null))}
+            {vb.map((v, i) => (v != null && v > 0 ? <path key={`b${i}`} d={barPath(x(i) + bw * 0.05, y(v), bw * 0.9, y(0) - y(v))} {...barLook("compare", color)} opacity={(dim(i) ? DIM : 1) * barLook("compare", color).opacity} /> : null))}
+            {va.map((v, i) => (v != null && v > 0 ? <path key={`a${i}`} d={barPath(x(i) - bw * 0.95, y(v), bw * 0.9, y(0) - y(v))} {...barLook("target", color)} opacity={dim(i) ? DIM : 1} /> : null))}
           </>
         ) : (
           <>
-            <path d={path(vb)} fill="none" stroke={lb.stroke} strokeWidth={lb.strokeWidth} strokeDasharray={lb.strokeDasharray} opacity={lb.opacity} strokeLinejoin="round" />
-            <path d={path(va)} fill="none" stroke={la.stroke} strokeWidth={la.strokeWidth} opacity={la.opacity} strokeLinejoin="round" strokeLinecap="round" />
+            {/* With days chosen, the lines step back and the chosen days stand as dots on them. */}
+            <path d={path(vb)} fill="none" stroke={lb.stroke} strokeWidth={lb.strokeWidth} strokeDasharray={lb.strokeDasharray} opacity={lb.opacity * (anyPicked ? DIM : 1)} strokeLinejoin="round" />
+            <path d={path(va)} fill="none" stroke={la.stroke} strokeWidth={la.strokeWidth} opacity={la.opacity * (anyPicked ? DIM : 1)} strokeLinejoin="round" strokeLinecap="round" />
+            {anyPicked &&
+              va.map((v, i) =>
+                v != null && !dim(i) ? (
+                  <g key={`p${i}`}>
+                    {vb[i] != null && <circle cx={x(i)} cy={y(vb[i]!)} r={2.4} fill="var(--surface-inset)" stroke={color} opacity={0.8} />}
+                    <circle cx={x(i)} cy={y(v)} r={3} fill={color} />
+                  </g>
+                ) : null,
+              )}
           </>
         )}
+        <FocusGuide x={focus == null ? null : x(focus)} top={PAD.top} bottom={H - PAD.bottom} />
         {[1, 5, 10, 15, 20, 25, 30].filter((d) => d <= n).map((d) => (
           <text key={d} x={x(d - 1)} y={H - 4} className="chart-tick" textAnchor="middle">
             {d}
@@ -905,3 +930,57 @@ function MonthLegend({ kind, color, now, then }: { kind: "range" | "bar" | "line
     </p>
   );
 }
+
+// ---- なぞって日を読む ------------------------------------------------------------------------------
+/** Unchosen days, when some are chosen: drawn at this strength (still there, a step back). */
+const DIM = 0.3;
+const dimOf = (picked?: ReadonlySet<string>, days?: string[]) => (i: number) => !!picked?.size && !!days && !picked.has(days[i]);
+
+interface Scrub {
+  /** The day read in the card above (its index), drawn as a guide. */
+  focus?: number | null;
+  /** A finger (or the mouse) on the graph: the day under it. */
+  onFocus?: (i: number) => void;
+}
+
+/**
+ * Sideways along the graph, the card above reads the day under the finger (as the daily graph's
+ * long press does; here the graph does not pan, so a touch reads at once). Up and down still scroll.
+ */
+function scrubHandlers(left: number, step: number, n: number, onFocus?: (i: number) => void) {
+  if (!onFocus) return {};
+  const at = (e: React.PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    onFocus(Math.max(0, Math.min(n - 1, Math.floor((e.clientX - r.left - left) / step))));
+  };
+  return {
+    onPointerDown: (e: React.PointerEvent<SVGSVGElement>) => {
+      e.currentTarget.setPointerCapture(e.pointerId);
+      at(e);
+    },
+    onPointerMove: (e: React.PointerEvent<SVGSVGElement>) => {
+      if (e.pointerType === "mouse" || e.buttons) at(e);
+    },
+  };
+}
+
+function FocusGuide({ x, top, bottom }: { x: number | null; top: number; bottom: number }) {
+  return x == null ? null : <line x1={x} x2={x} y1={top} y2={bottom} className="guide-v" />;
+}
+
+/** The day's card over the month's graph: its values beside the same date a year before. */
+function DayCard({ m, date, dateB, a, b }: { m: MonthMetric | null; date: string; dateB: string | null; a: WeatherRow | null; b: WeatherRow | null }) {
+  const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
+  const one = (label: string, key: string, unit: string, color: string): ReadoutRow => {
+    const va = num(a?.[key]);
+    const vb = num(b?.[key]);
+    const d = unit === "%" || unit === "hPa" ? 0 : 1;
+    return { key, label, unit, color, a: va == null ? "—" : va.toFixed(d), b: vb == null ? "—" : vb.toFixed(d), diff: signedDiff(va, vb, unit) };
+  };
+  const rows =
+    m == null
+      ? [one("最高", "max", "℃", DATA.hot), one("最低", "min", "℃", DATA.cold)]
+      : [one(m.label, m.key, m.unit, DATA[m.tone])];
+  return <GraphReadout title={dateLabelOf(date)} unit="" dates={{ a: md(date), b: dateB ? `’${dateB.slice(2, 4)}/${md(dateB)}` : undefined }} rows={rows} />;
+}
+const dateLabelOf = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}（${WEEK[(new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7]}）`;
