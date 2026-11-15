@@ -99,3 +99,51 @@ export function neighbours(rows: WeatherRow[], n: number): "dark" | "sunny" | "u
   if (both.some((s) => s != null && s > 0)) return "sunny";
   return both.every((s) => s === 0) ? "dark" : "unknown";
 }
+
+/**
+ * H-02b (#208): 日照 0・雨なしの時間の割合を、前後の時間の日照で分ける案。厚い雲が続く時間（前後も
+ * 日照 0）は暗く、晴れ間の合間の雲（前後のどちらかに日照）は明るい。数は高知の1年
+ * （`fittedOn`、run 43718498200）の実測 ÷ 快晴の中央で、その年の答えを見て決めた。だから成績は
+ * 別の年で測る（決まり：答えを見て数を選んだら、成績はその外の答えで）。前後が分からない時間は
+ * アプリの値のまま。
+ */
+export const H02B = { dark: 0.25, between: 0.41, fittedOn: { from: "2025-11-01", to: "2026-10-31" } } as const;
+
+/** H-02b's share of the clear sky for a 日照 0・雨なし hour, or null to keep the app's (neighbours unknown). */
+export function h02bFactor(around: "dark" | "sunny" | "unknown"): number | null {
+  return around === "dark" ? H02B.dark : around === "sunny" ? H02B.between : null;
+}
+
+/** Whether [from, to] overlaps the year H-02b's numbers were chosen on (its results there are not a test). */
+export function overlapsFit(from: string, to: string): boolean {
+  return from <= H02B.fittedOn.to && to >= H02B.fittedOn.from;
+}
+
+/** A seeded generator (mulberry32), so a bootstrap gives the same interval every run. */
+export function seeded(seed: number): () => number {
+  let a = seed;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * The mean of `d` (one value per day) with a day-bootstrap 95% interval (days are the blocks: one
+ * day's hours are not independent). Null interval with fewer than `minDays`.
+ */
+export function meanWithInterval(d: number[], minDays = 10, resamples = 2000, seed = 20261115): { mean: number; interval: [number, number] | null } {
+  const mean = d.length ? d.reduce((a, b) => a + b, 0) / d.length : NaN;
+  if (d.length < minDays) return { mean, interval: null };
+  const next = seeded(seed);
+  const means: number[] = [];
+  for (let r = 0; r < resamples; r++) {
+    let s = 0;
+    for (let k = 0; k < d.length; k++) s += d[Math.floor(next() * d.length)];
+    means.push(s / d.length);
+  }
+  means.sort((a, b) => a - b);
+  return { mean, interval: [means[Math.floor(0.025 * resamples)], means[Math.floor(0.975 * resamples)]] };
+}

@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import { sunshineFraction } from "../../shared/brightness";
 import type { WeatherRow } from "../../shared/types";
-import { clearSkyW, dayCheck, daylight, daySky, neighbours, RECORD_STEP_W, rainState, sunOf } from "../../research/brightness/h02-lib";
+import { clearSkyW, dayCheck, daylight, daySky, h02bFactor, H02B, meanWithInterval, neighbours, overlapsFit, RECORD_STEP_W, rainState, sunOf } from "../../research/brightness/h02-lib";
 
 const KOCHI = "47893";
 const day = (date: string, at: (n: number) => Partial<WeatherRow> = () => ({})): WeatherRow[] =>
@@ -71,5 +71,32 @@ describe("日照 0 is not one sky", () => {
     expect(neighbours(rows, 12)).toBe("sunny");
     expect(neighbours(rows, 13)).toBe("dark");
     expect(neighbours(rows, 14)).toBe("unknown");
+  });
+});
+
+describe("H-02b: chosen on one year, tested on another", () => {
+  it("splits 日照 0 by its neighbours, and keeps the app's where they are not known", () => {
+    expect(h02bFactor("dark")).toBe(H02B.dark);
+    expect(h02bFactor("sunny")).toBe(H02B.between);
+    expect(h02bFactor("unknown")).toBeNull();
+    expect(H02B.dark).toBeLessThan(1 / 3);
+    expect(H02B.between).toBeGreaterThan(1 / 3);
+  });
+
+  it("knows when a run overlaps the year its numbers were chosen on (not a test there)", () => {
+    expect(overlapsFit("2024-11-01", "2025-10-31")).toBe(false);
+    expect(overlapsFit("2025-10-01", "2025-11-30")).toBe(true);
+    expect(overlapsFit("2025-11-01", "2026-10-31")).toBe(true);
+  });
+
+  it("gives a day-bootstrap interval only with enough days, the same every run", () => {
+    expect(meanWithInterval([1, 2, 3]).interval).toBeNull();
+    expect(Number.isNaN(meanWithInterval([]).mean)).toBe(true);
+    const d = Array.from({ length: 40 }, (_, i) => -0.02 + (i % 5) * 0.001);
+    const a = meanWithInterval(d);
+    expect(a).toEqual(meanWithInterval(d));
+    expect(a.interval![0]).toBeLessThanOrEqual(a.mean);
+    expect(a.interval![1]).toBeGreaterThanOrEqual(a.mean);
+    expect(a.interval![1]).toBeLessThan(0);
   });
 });
