@@ -570,6 +570,24 @@ with sync_playwright() as p:
         esc(); esc()
     step("AC", ac)
 
+    # AS. 短期の履歴と答え（テスト）: one day's 肌感, S and rate from the new core (#189 S0)
+    def as_():
+        pg.click(".app-head .icon-btn"); calm()
+        pg.locator(".msheet.settings button", has_text="短期の履歴と答え").click(); calm()
+        check("AS1 短期の履歴と答えが開く", pg.locator(".msheet.short-hist").count() == 1)
+        settle(lambda: pg.locator(".short-hist svg[aria-label*='短期の履歴 S']").count() == 1, 8)
+        check("AS2 肌感と S のグラフ、変化の速さのグラフ", pg.locator(".short-hist svg[aria-label*='短期の履歴 S']").count() == 1 and pg.locator(".short-hist svg[aria-label='肌感の変化の速さ']").count() == 1)
+        paths = pg.locator(".short-hist svg[aria-label*='短期の履歴 S'] path").count()
+        check("AS3 肌感と S の線が引かれる", paths == 2, str(paths))
+        t = txt(".short-hist .history-cmp-facts")
+        check("AS4 要約に答えの件数と、いつもと違う動き", "この日の答え" in t and "いつもと違う動き" in t, t)
+        pg.locator(".short-hist .seg button", has_text="日なた").click(); calm()
+        check("AS5 日なたに切り替えると凡例も日なた", "肌感（日なた）" in txt(".short-hist .sun-test-legend"))
+        st = small_text(); check("AS6 11px より小さい文字がない（短期の履歴と答え）", not st, str(st))
+        layout_ok("AS7", "短期の履歴と答え")
+        esc(); esc()
+    step("AS", as_)
+
     # R. 記録: the save button stays in view and names what is missing (#151 操作の体系)
     def rr():
         pg.click(".head-report"); calm()
