@@ -12,7 +12,9 @@ import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
 import { num, signedDiff } from "../design/format";
 import { DATA, FEEL_SCALE_COLORS, SHAPE } from "../design/tokens";
-import { bandsFor, FeelContext } from "./FeelBar";
+import { bandsFor, FeelBar, FeelContext } from "./FeelBar";
+import { DayWeatherIcon } from "./WeatherIcon";
+import { dayTone } from "../../shared/holidays";
 import { GraphReadout, type ReadoutRow, SectionHead } from "./kit";
 import { ModalSheet } from "./ModalSheet";
 import { feelOn } from "../feelSeason";
@@ -59,7 +61,7 @@ function statsOf(store: WeatherStore | null, station: string, days: string[]): M
   };
 }
 
-export function MonthReview({ store, station, month, onClose }: { store: WeatherStore | null; station: string; month: string; onClose: () => void }) {
+export function MonthReview({ store, station, month, onClose, layout = "list" }: { store: WeatherStore | null; station: string; month: string; onClose: () => void; layout?: "list" | "calendar" }) {
   const feel = useContext(FeelContext);
   const before = yearBefore(month);
   const days = daysOf(month);
@@ -124,6 +126,26 @@ export function MonthReview({ store, station, month, onClose }: { store: Weather
     { label: "雨がいちばん多い日", p: pick((r) => num(r.rain), "max"), fmt: (v: number) => `${v.toFixed(1)}mm`, color: DATA.rain },
   ];
 
+  if (layout === "calendar")
+    return (
+      <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
+        {/* 案B カレンダー型: 3つの数字 → その月のカレンダー（毎日の天気・最高/最低・肌感・雨）→ 一言 */}
+        <div className="ds-lead month-tiles">
+          <Tile name="平均気温" value={a.temp} unit="℃" other={b.temp} digits={1} color={DATA.mean} />
+          <Tile name="雨" value={a.rain} unit="mm" other={b.rain} digits={0} color={DATA.rain} note={`${a.rainDays}日`} />
+          <Tile name="日照" value={a.sun} unit="時間" other={b.sun} digits={0} color={DATA.sun} />
+        </div>
+        <MonthCalendar store={store} station={station} days={days} rows={a.rows} />
+        <p className="month-cal-legend">数字は 最高／最低（℃）。帯は肌感（朝〜夜）、水色の数字は降水 mm（1mm以上の日）。</p>
+        <div className="ds-hours">
+          <p className="ds-comment">
+            {words.map((w) => (
+              <span key={w}>{w}</span>
+            ))}
+          </p>
+        </div>
+      </ModalSheet>
+    );
   return (
     <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
       <div className="ds-lead">
@@ -278,6 +300,61 @@ function FeelMonth({ store, station, days, daysB }: { store: WeatherStore | null
         ))}
       </p>
       <p className="chart-key-note">太い帯がこの月、細い帯が前の年の同じ月。帯の長さはその段の日数。</p>
+    </div>
+  );
+}
+
+/** A month's number, big, with the year before's difference under it. */
+function Tile({ name, value, unit, other, digits, color, note }: { name: string; value: number | null; unit: string; other: number | null; digits: number; color: string; note?: string }) {
+  return (
+    <div className="month-tile">
+      <small>{name}</small>
+      <b style={{ color }}>
+        {value == null ? "—" : value.toFixed(digits)}
+        <span className="unit">{unit}</span>
+      </b>
+      <em>
+        {note ? `${note}・` : ""}前年 {signedDiff(value, other, unit) || "—"}
+      </em>
+    </div>
+  );
+}
+
+const WEEK = ["月", "火", "水", "木", "金", "土", "日"];
+/** The month as a calendar: each day its weather, 最高／最低, its 肌感 band and its rain. */
+function MonthCalendar({ store, station, days, rows }: { store: WeatherStore | null; station: string; days: string[]; rows: (WeatherRow | null)[] }) {
+  const lead = (new Date(`${days[0]}T00:00:00Z`).getUTCDay() + 6) % 7; // Monday first
+  return (
+    <div className="month-cal">
+      {WEEK.map((w, i) => (
+        <span key={w} className={`month-cal-head${i === 5 ? " tone-saturday" : i === 6 ? " tone-holiday" : ""}`}>
+          {w}
+        </span>
+      ))}
+      {Array.from({ length: lead }, (_, i) => (
+        <span key={`e${i}`} />
+      ))}
+      {days.map((d, i) => {
+        const r = rows[i];
+        const mx = num(r?.max);
+        const mn = num(r?.min);
+        const rain = num(r?.rain);
+        const tone = dayTone(d);
+        return (
+          <div key={d} className="month-cal-day">
+            <span className={`month-cal-date tone-${tone}`}>{+d.slice(8)}</span>
+            <span className="month-cal-icon">{r ? <DayWeatherIcon row={r} station={station} size={18} /> : null}</span>
+            <span className="month-cal-temp">
+              <i style={{ color: DATA.hot }}>{mx == null ? "—" : mx.toFixed(0)}</i>
+              <i style={{ color: DATA.cold }}>{mn == null ? "—" : mn.toFixed(0)}</i>
+            </span>
+            <span className="month-cal-feel">
+              <FeelBar store={store} station={station} date={d} />
+            </span>
+            <span className="month-cal-rain">{rain != null && rain >= 1 ? rain.toFixed(0) : ""}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

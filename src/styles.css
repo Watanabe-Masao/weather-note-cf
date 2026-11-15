@@ -4332,3 +4332,24 @@ svg.scrub {
 .month-standout b { font-family: var(--font-numeric); color: var(--ink-primary); font-weight: var(--weight-bold); }
 .month-standout em { font-style: normal; font-family: var(--font-numeric); min-width: 96px; text-align: right; }
 .month-review .chart-key-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+
+/* 見本 案B カレンダー型 */
+.month-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
+.month-tile { display: grid; gap: 2px; justify-items: start; }
+.month-tile small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.month-tile b { font-family: var(--font-numeric); font-size: var(--size-xl); font-weight: var(--weight-regular); }
+.month-tile b .unit { font-size: var(--size-xs); color: var(--ink-tertiary); margin-left: 2px; }
+.month-tile em { font-style: normal; font-size: var(--size-xs); color: var(--ink-secondary); font-family: var(--font-numeric); }
+.month-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin-top: var(--space-5); }
+.month-cal-head { text-align: center; font-size: var(--size-xs); color: var(--ink-tertiary); padding-bottom: 2px; }
+.month-cal-head.tone-saturday { color: var(--day-saturday); }
+.month-cal-head.tone-holiday { color: var(--day-holiday); }
+.month-cal-day { display: grid; justify-items: center; gap: 1px; padding: 4px 2px 3px; border-radius: var(--radius-sm); background: var(--surface-inset); box-shadow: 0 0 0 1px var(--line-soft) inset; min-width: 0; }
+.month-cal-date { font-size: var(--size-xs); font-family: var(--font-numeric); color: var(--ink-secondary); justify-self: start; padding-left: 3px; line-height: 1; }
+.month-cal-icon { height: 18px; }
+.month-cal-temp { display: flex; gap: 4px; font-family: var(--font-numeric); font-size: var(--size-xs); }
+.month-cal-temp i { font-style: normal; }
+.month-cal-feel { width: 100%; padding: 0 3px; }
+.month-cal-feel .feel-bar { height: 5px; }
+.month-cal-rain { font-size: var(--size-xs); font-family: var(--font-numeric); color: var(--data-rain); height: 13px; line-height: 13px; }
+.month-cal-legend { font-size: var(--size-xs); color: var(--ink-tertiary); margin: var(--space-3) var(--space-2) var(--space-5); }
