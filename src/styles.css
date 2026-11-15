@@ -4410,3 +4410,16 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 
 .month-cal-day.muted { opacity: 0.45; }
 .month-scrub { touch-action: pan-y; cursor: crosshair; }
+
+/* 見本 月のレポート */
+.month-report { display: grid; gap: var(--space-5); }
+.month-thirds { display: grid; grid-template-columns: auto repeat(4, minmax(0, 1fr)); gap: var(--space-2) var(--space-3); align-items: baseline; }
+.month-thirds > small { font-size: var(--size-xs); color: var(--ink-tertiary); text-align: right; }
+.month-thirds > b { font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
+.month-thirds > span { display: grid; justify-items: end; font-family: var(--font-numeric); line-height: 1.2; }
+.month-thirds i { font-style: normal; font-size: var(--size-md); }
+.month-thirds em { font-style: normal; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.month-report-part { display: grid; grid-template-columns: 72px 1fr; gap: var(--space-4); border-top: 1px solid var(--line-soft); padding-top: var(--space-4); }
+.month-report-part b { font-size: var(--size-sm); color: var(--ink-secondary); font-weight: var(--weight-bold); }
+.month-report-part p { margin: 0; display: grid; gap: 3px; font-size: var(--size-sm); line-height: 1.55; color: var(--ink-primary); }
+.month-report-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }

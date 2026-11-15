@@ -84,7 +84,9 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   const feel = useContext(FeelContext);
   const before = yearBefore(month);
   const days = daysOf(month);
-  const daysB = daysOf(before);
+  // 前年同曜日 everywhere (2026-11-16): each day against the day 52 weeks before, so a Saturday
+  // always meets a Saturday — the month, the chosen days, the graphs and the day's card alike.
+  const daysB = days.map((d) => addDays(d, -PREV_SAME_WEEKDAY));
   useEffect(() => {
     store?.prefetch(station, [...days, ...daysB], "month", Priority.Visible);
     store?.wantHours(station, [...days, ...daysB], Priority.Visible, "month");
@@ -109,7 +111,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   const sel = picked.size ? days.filter((d) => picked.has(d)) : days;
   // Chosen days are set against the same weekday a year before (前年同曜日: 364 days back, the app's
   // pairing), so 土日 meets 土日; the whole month against the same month.
-  const selB = picked.size ? sel.map((d) => addDays(d, -PREV_SAME_WEEKDAY)) : daysB;
+  const selB = sel.map((d) => addDays(d, -PREV_SAME_WEEKDAY));
   const a = statsOf(store, station, sel, parts);
   const b = statsOf(store, station, selB, parts);
   const full = picked.size ? statsOf(store, station, days, parts) : a;
@@ -124,7 +126,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   const f1 = (v: number | null, u = "") => (v == null ? "—" : `${v.toFixed(1)}${u}`);
   const d1 = (x: number | null, y: number | null, unit: string) => signedDiff(x, y, unit);
   const cnt = (n: number) => `${n}日`;
-  const monthDates = { a: `’${month.slice(2, 4)}/${+month.slice(5)}`, b: `’${before.slice(2, 4)}/${+before.slice(5)}` };
+  const monthDates = { a: `’${month.slice(2, 4)}/${+month.slice(5)}`, b: "前年同曜日" };
   const rows: ReadoutRow[] = [
     { key: "temp", label: "平均気温", unit: "℃", color: DATA.mean, a: f1(a.temp), b: f1(b.temp), diff: d1(a.temp, b.temp, "℃") },
     { key: "max", label: "最高の平均", unit: "℃", color: DATA.hot, a: f1(a.max), b: f1(b.max), diff: d1(a.max, b.max, "℃") },
@@ -213,7 +215,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
               </button>
             )}
             {parts != null && <small>{partsLabel}　</small>}
-            {lean.join("、")}。<small>（{picked.size ? "前年同曜日" : label(before)}と比べて）</small>
+            {lean.join("、")}。<small>（前年同曜日と比べて）</small>
           </p>
           <div className="month-tiles">
             <Tile name="平均気温" value={a.temp} unit="℃" other={b.temp} digits={1} color={DATA.mean} />
@@ -236,6 +238,8 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
         {tab === "sum" && (
           <>
             <GraphReadout title={`${picked.size ? `選んだ ${picked.size}日` : "月"}の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={picked.size ? { a: "", b: "前年同曜日" } : monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
+            <SectionHead title="月のレポート" />
+            <MonthReport store={store} station={station} days={days} rows={full.rows} rowsB={fullB.rows} picked={picked.size > 0} />
             <SectionHead title="曜日の傾向" />
             <div className="ds-hours">
               <WeekStrip days={days} rows={full.rows} daysB={daysB} rowsB={fullB.rows} picked={picked} onPick={(ds) => pickOnly(ds)} />
@@ -268,7 +272,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
               ) : (
                 <MonthSeries m={MONTH_METRICS.find((x) => x.id === metric)!} a={full.rows} b={fullB.rows} picked={picked} days={days} focus={focusDay} onFocus={setFocusDay} />
               )}
-              <MonthLegend kind={metric === "temp" ? "range" : MONTH_METRICS.find((x) => x.id === metric)!.kind} color={DATA[MONTH_METRICS.find((x) => x.id === metric)!.tone]} now={label(month)} then={label(before)} />
+              <MonthLegend kind={metric === "temp" ? "range" : MONTH_METRICS.find((x) => x.id === metric)!.kind} color={DATA[MONTH_METRICS.find((x) => x.id === metric)!.tone]} now={label(month)} then="前年同曜日" />
             </div>
             <div className="month-quick chip-row" role="group" aria-label="まとめて選ぶ">
               <Chip size="sm" on={picked.size === 0} onClick={() => setPicked(new Set())}>
@@ -328,7 +332,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
         <SectionHead title="日ごとの気温（最高〜最低）" />
         <div className="ds-hours">
           <MonthRange a={a.rows} b={b.rows} />
-          <RangeLegend now={label(month)} then={label(before)} />
+          <RangeLegend now={label(month)} then="前年同曜日" />
         </div>
         <SectionHead title="カレンダー" />
         <MonthCalendar store={store} station={station} days={days} rows={a.rows} marks={marks} />
@@ -984,3 +988,155 @@ function DayCard({ m, date, dateB, a, b }: { m: MonthMetric | null; date: string
   return <GraphReadout title={dateLabelOf(date)} unit="" dates={{ a: md(date), b: dateB ? `’${dateB.slice(2, 4)}/${md(dateB)}` : undefined }} rows={rows} />;
 }
 const dateLabelOf = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}（${WEEK[(new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7]}）`;
+
+// ---- 月のレポート（まとめ） ---------------------------------------------------------------------------
+const THIRDS: [string, number, number][] = [
+  ["上旬", 1, 10],
+  ["中旬", 11, 20],
+  ["下旬", 21, 31],
+];
+/** A day counts as 晴れ with this much sunshine (h), as the hours' estimate leans (shared/dayWeather). */
+const SUNNY_DAY_H = 6;
+
+/** The longest run of days that pass `test`: its length and its first and last date. */
+function longestRun(days: string[], rows: (WeatherRow | null)[], test: (r: WeatherRow) => boolean) {
+  let best = { n: 0, from: "", to: "" };
+  let n = 0;
+  let from = "";
+  days.forEach((d, i) => {
+    const r = rows[i];
+    if (r && test(r)) {
+      if (!n) from = d;
+      n++;
+      if (n > best.n) best = { n, from, to: d };
+    } else n = 0;
+  });
+  return best;
+}
+
+/**
+ * The month as a report: the thirds of the month (上旬・中旬・下旬) beside 前年同曜日, then a few lines per
+ * topic (気温, 雨と日差し, 曜日, 肌感) — every number from the records shown elsewhere on the page.
+ */
+function MonthReport({ store, station, days, rows, rowsB, picked }: { store: WeatherStore | null; station: string; days: string[]; rows: (WeatherRow | null)[]; rowsB: (WeatherRow | null)[]; picked: boolean }) {
+  const base = useContext(FeelContext);
+  const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
+  const vals = (rs: (WeatherRow | null)[], k: string) => rs.map((r) => num(r?.[k])).filter((v): v is number => v != null);
+  const third = (rs: (WeatherRow | null)[], lo: number, hi: number) => rs.filter((_, i) => i + 1 >= lo && i + 1 <= hi);
+  const thirds = THIRDS.map(([name, lo, hi]) => {
+    const a = third(rows, lo, hi);
+    const b = third(rowsB, lo, hi);
+    return { name, max: mean(vals(a, "max")), maxB: mean(vals(b, "max")), min: mean(vals(a, "min")), minB: mean(vals(b, "min")), rain: sum(vals(a, "rain")), rainB: sum(vals(b, "rain")), sun: sum(vals(a, "sun")), sunB: sum(vals(b, "sun")) };
+  });
+  const f1 = (v: number | null) => (v == null ? "—" : v.toFixed(1));
+  const f0 = (v: number | null) => (v == null ? "—" : v.toFixed(0));
+  const d1 = (x: number | null, y: number | null, u: string) => signedDiff(x, y, u) || "—";
+
+  // 気温: how the month went from its start to its end, and its extremes.
+  const first = thirds[0].max;
+  const last = thirds[2].max;
+  const trend = first == null || last == null ? null : Math.abs(last - first) < 1 ? "月を通して大きな変化はなかった" : last < first ? `上旬から下旬へ ${(first - last).toFixed(1)}℃ 下がった` : `上旬から下旬へ ${(last - first).toFixed(1)}℃ 上がった`;
+  const hot = vals(rows, "max").filter((v) => v >= 25).length;
+  const hotB = vals(rowsB, "max").filter((v) => v >= 25).length;
+  const spread = rows.map((r, i) => ({ d: days[i], v: num(r?.max) != null && num(r?.min) != null ? num(r!.max)! - num(r!.min)! : null })).filter((x) => x.v != null) as { d: string; v: number }[];
+  const bigSpread = spread.filter((x) => x.v >= 10).length;
+
+  // 雨と日差し: the longest wet and sunny runs, the wettest third.
+  const wet = longestRun(days, rows, (r) => (num(r.rain) ?? 0) >= 1);
+  const sunny = longestRun(days, rows, (r) => (num(r.sun) ?? 0) >= SUNNY_DAY_H);
+  const wettest = [...thirds].sort((x, y) => (y.rain ?? 0) - (x.rain ?? 0))[0];
+  const sunnyDays = vals(rows, "sun").filter((v) => v >= SUNNY_DAY_H).length;
+  const sunnyDaysB = vals(rowsB, "sun").filter((v) => v >= SUNNY_DAY_H).length;
+
+  // 曜日: the wettest weekday and the weekends.
+  const dow = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const wetOf = (rs: (WeatherRow | null)[], pick: (w: number) => boolean) => {
+    const g = days.map((d, i) => ({ w: dow(d), r: rs[i] })).filter((x) => pick(x.w));
+    return { n: g.filter((x) => (num(x.r?.rain) ?? 0) >= 1).length, of: g.length };
+  };
+  const byDow = WEEK.map((name, w) => ({ name, ...wetOf(rows, (x) => x === w) }));
+  const wettestDow = [...byDow].sort((x, y) => y.n / Math.max(1, y.of) - x.n / Math.max(1, x.of))[0];
+  const we = wetOf(rows, (w) => w >= 5);
+  const weB = wetOf(rowsB, (w) => w >= 5);
+
+  // 肌感: warm afternoons, cool mornings (the hourly bands, where they are in).
+  const bandsOf = (i: number) => days.map((d) => bandsFor(store, station, d, feelOn(store, station, d, base))).map((f) => (f?.exact ? f.bands[i]?.level : null));
+  const noon = bandsOf(2).filter((l): l is NonNullable<typeof l> => l != null);
+  const morning = bandsOf(0).filter((l): l is NonNullable<typeof l> => l != null);
+  const warmNoons = noon.filter((l) => l >= 4).length;
+  const coolMornings = morning.filter((l) => l <= 2).length;
+
+  const lines: [string, string[]][] = [
+    [
+      "気温",
+      [
+        trend ? `最高気温は${trend}（上旬 ${f1(first)}℃ → 下旬 ${f1(last)}℃）。` : "",
+        `夏日（25℃以上）は ${hot}日、前年同曜日は ${hotB}日。`,
+        bigSpread ? `寒暖差 10℃以上の日が ${bigSpread}日。` : "",
+      ],
+    ],
+    [
+      "雨と日差し",
+      [
+        wet.n ? `雨（1mm以上）がいちばん続いたのは ${wet.n}日（${md(wet.from)}${wet.n > 1 ? `〜${md(wet.to)}` : ""}）。雨がいちばん多かったのは${wettest.name}（${f0(wettest.rain)}mm）。` : "雨の日はなかった。",
+        `日照 ${SUNNY_DAY_H}時間以上の晴れの日は ${sunnyDays}日（前年同曜日 ${sunnyDaysB}日）${sunny.n > 1 ? `、いちばん続いたのは ${sunny.n}日（${md(sunny.from)}〜${md(sunny.to)}）` : ""}。`,
+      ],
+    ],
+    [
+      "曜日",
+      [
+        wettestDow.n ? `雨の日がいちばん多いのは${wettestDow.name}曜（${wettestDow.n}/${wettestDow.of}日）。` : "",
+        `土日の雨の日は ${we.n}/${we.of}日、前年同曜日は ${weB.n}/${weB.of}日。`,
+      ],
+    ],
+    [
+      "肌感",
+      noon.length
+        ? [`昼が「暖かい」以上だった日は ${warmNoons}/${noon.length}日、朝が「涼しい」以下だった日は ${coolMornings}/${morning.length}日。`]
+        : ["時間ごとの記録がそろうと出ます。"],
+    ],
+  ];
+  return (
+    <div className="ds-hours month-report">
+      <div className="month-thirds" role="table" aria-label="上旬・中旬・下旬（前年同曜日との差）">
+        <span />
+        <small>最高 ℃</small>
+        <small>最低 ℃</small>
+        <small>雨 mm</small>
+        <small>日照 h</small>
+        {thirds.map((t) => (
+          <Fragment key={t.name}>
+            <b>{t.name}</b>
+            <span>
+              <i style={{ color: DATA.hot }}>{f1(t.max)}</i>
+              <em>{d1(t.max, t.maxB, "℃")}</em>
+            </span>
+            <span>
+              <i style={{ color: DATA.cold }}>{f1(t.min)}</i>
+              <em>{d1(t.min, t.minB, "℃")}</em>
+            </span>
+            <span>
+              <i style={{ color: DATA.rain }}>{f0(t.rain)}</i>
+              <em>{d1(t.rain, t.rainB, "mm")}</em>
+            </span>
+            <span>
+              <i style={{ color: DATA.sun }}>{f0(t.sun)}</i>
+              <em>{d1(t.sun, t.sunB, "h")}</em>
+            </span>
+          </Fragment>
+        ))}
+      </div>
+      {lines.map(([head, ls]) => (
+        <div key={head} className="month-report-part">
+          <b>{head}</b>
+          <p>
+            {ls.filter(Boolean).map((l) => (
+              <span key={l}>{l}</span>
+            ))}
+          </p>
+        </div>
+      ))}
+      {picked && <p className="month-report-note">レポートは月全体（選んだ日は上の数字と表に）。</p>}
+    </div>
+  );
+}
