@@ -11,7 +11,7 @@ import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
 import { niceTicks, num, signedDiff, tickLabel } from "../design/format";
-import { barLook, barPath, DATA, FEEL_SCALE_COLORS, lineLook, SHAPE } from "../design/tokens";
+import { barLook, barPath, DATA, FEEL_SCALE_COLORS, ICON, lineLook, SHAPE } from "../design/tokens";
 import { bandsFor, FeelBar, FeelContext } from "./FeelBar";
 import { DayWeatherIcon } from "./WeatherIcon";
 import { dayTone } from "../../shared/holidays";
@@ -60,7 +60,8 @@ function rowIn(store: WeatherStore | null, station: string, date: string, parts:
   const hs = h.rows.filter((r) => want.has(r.n));
   const v = (k: string) => hs.map((r) => num(r[k])).filter((x): x is number => x != null);
   const t = v("temp");
-  return { ...row, rain: sum(v("rain")), sun: sum(v("sun")), temp: mean(t), max: t.length ? Math.max(...t) : null, min: t.length ? Math.min(...t) : null };
+  // Every value of the band from its hours (humidity, wind and pressure too), so a band's day is one picture.
+  return { ...row, rain: sum(v("rain")), sun: sum(v("sun")), temp: mean(t), max: t.length ? Math.max(...t) : null, min: t.length ? Math.min(...t) : null, humidity: mean(v("humidity")), wind: mean(v("wind")), pressure: mean(v("pressure")) };
 }
 
 function statsOf(store: WeatherStore | null, station: string, days: string[], parts: ReadonlySet<PartId> | null = null): MonthStats {
@@ -183,7 +184,22 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   if (a.temp != null && b.temp != null) lean.push(Math.abs(a.temp - b.temp) < 0.5 ? "気温は前年並み" : a.temp > b.temp ? "前年より暖かく" : "前年より涼しく");
   if (a.rain != null && b.rain != null) lean.push(Math.abs(a.rain - b.rain) < Math.max(5, b.rain * 0.15) ? "雨は同じくらい" : a.rain > b.rain ? "雨は多め" : "雨は少なめ");
   if (a.sun != null && b.sun != null && b.sun > 0) lean.push(a.sun / b.sun > 1.1 ? "日差しは多め" : a.sun / b.sun < 0.9 ? "日差しは少なめ" : "日差しは同じくらい");
-  const [tab, setTab] = useState<"sum" | "days" | "feel">("sum");
+  const [tab, setTab] = useState<"sum" | "days" | "trend" | "feel">("sum");
+  // 天気の型: the number of types (null = chosen by the silhouette), and the grouping, shared by the
+  // 傾向 page and the calendar's marks.
+  const [typeK, setTypeK] = useState<number | null>(null);
+  // A band's sunshine is set against the daylight inside the band (mid-month), not a whole day's.
+  const mid = days[Math.floor(days.length / 2)];
+  const sunPossible = (() => {
+    if (parts == null) return null;
+    const e = dayEdges(mid, station);
+    return dayParts(mid, station)
+      .filter((p) => parts.has(p.id))
+      .reduce((h, p) => h + Math.max(0, Math.min(p.to, e.set) - Math.max(p.from, e.rise)) / 60, 0);
+  })();
+  const clusters = clusterDays(full.rows, fullB.rows, typeK ? [typeK, typeK] : [2, 5], sunPossible);
+  const typeMarks = new Map<string, TypeMark>();
+  clusters?.types.forEach((t) => t.a.forEach((i) => typeMarks.set(days[i], { color: SKY_COLOR[t.sky], warm: t.warm, name: t.name })));
   const [calOpen, setCalOpen] = useState(false);
   // A vertical pull opens the calendar, a push folds it (the chips' row only opens: the open
   // calendar scrolls with the sheet, so it folds from the grip).
@@ -209,8 +225,6 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   const seriesA = metric === "daylight" ? days.map((d) => sunRow(d, station)) : full.rows;
   const seriesB = metric === "daylight" ? daysB.map((d) => sunRow(d, station)) : fullB.rows;
   if (layout === "tabs") {
-    const marks = new Map<string, string>();
-    for (const s of standouts) if (s.p && !marks.has(s.p.date) && s.color !== DATA.mean) marks.set(s.p.date, s.color);
     return (
       <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
         {/* 案D ページを分ける: 上は どのページでも同じ（絞り込み・まとめの数字）、下をページに。
@@ -249,12 +263,12 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
                   })}
                 </div>
               ) : (
-                <MonthCalendar store={store} station={station} days={days} rows={full.rows} marks={marks} picked={picked} onPick={pickDays} />
+                <MonthCalendar store={store} station={station} days={days} rows={full.rows} types={typeMarks} picked={picked} onPick={pickDays} />
               )}
             </div>
           </div>
           <button className={`month-fold${calOpen ? " open" : ""}`} {...foldGesture(false)} onClick={() => setCalOpen(!calOpen)} aria-expanded={calOpen} aria-label={calOpen ? "カレンダーをたたむ" : "カレンダーを開く"}>
-            <i />
+            <span className="grabber" />
           </button>
         </div>
         <div className="ds-lead month-head">
@@ -280,6 +294,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
             options={[
               { id: "sum", label: "まとめ" },
               { id: "days", label: "日ごと" },
+              { id: "trend", label: "傾向" },
               { id: "feel", label: "肌感" },
             ]}
             onChange={setTab}
@@ -289,25 +304,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
           <>
             <GraphReadout title={`${picked.size ? `選んだ ${picked.size}日` : "月"}の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={picked.size ? { a: "", b: "前年同曜日" } : monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
             <SectionHead title={picked.size ? `選んだ ${picked.size}日のレポート` : "月のレポート"} />
-            <MonthReport store={store} station={station} days={sel} rows={a.rows} rowsB={b.rows} picked={picked.size > 0} />
-            <SectionHead title="曜日の傾向" />
-            <div className="ds-hours">
-              <WeekDetail store={store} station={station} days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} />
-            </div>
-            <SectionHead title="天気の型" />
-            <div className="ds-hours">
-              <DayTypes days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} />
-            </div>
-            <SectionHead title="目立った日" />
-            <div className="ds-hours month-standouts">
-              {standouts.map((s) => (
-                <p key={s.label} className="month-standout">
-                  <span>{s.label}</span>
-                  <b>{s.p ? md(s.p.date) : "—"}</b>
-                  <em style={{ color: s.color }}>{s.p ? s.fmt(s.p.v) : ""}</em>
-                </p>
-              ))}
-            </div>
+            <MonthReport station={station} days={sel} rows={a.rows} rowsB={b.rows} picked={picked.size > 0} standouts={standouts.map((x) => (x.p ? `${x.label}は ${md(x.p.date)}（${x.fmt(x.p.v)}）。` : ""))} />
           </>
         )}
         {tab === "days" && (
@@ -324,9 +321,22 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
               {metric === "temp" ? (
                 <MonthRange a={full.rows} b={fullB.rows} picked={picked} days={days} focus={focusDay} onFocus={setFocusDay} />
               ) : (
-                <MonthSeries m={MONTH_METRICS.find((x) => x.id === metric)!} a={seriesA} b={seriesB} picked={picked} days={days} focus={focusDay} onFocus={setFocusDay} />
+                // 昼の長さ: the year before lies on the same line (one day's shift), so it is not drawn.
+                <MonthSeries m={MONTH_METRICS.find((x) => x.id === metric)!} a={seriesA} b={metric === "daylight" ? seriesA.map(() => null) : seriesB} picked={picked} days={days} focus={focusDay} onFocus={setFocusDay} />
               )}
-              <MonthLegend kind={metric === "temp" ? "range" : MONTH_METRICS.find((x) => x.id === metric)!.kind} color={DATA[MONTH_METRICS.find((x) => x.id === metric)!.tone]} now={label(month)} then="前年同曜日" />
+              <MonthLegend kind={metric === "temp" ? "range" : MONTH_METRICS.find((x) => x.id === metric)!.kind} color={DATA[MONTH_METRICS.find((x) => x.id === metric)!.tone]} now={label(month)} then={metric === "daylight" ? "" : "前年同曜日"} />
+            </div>
+          </>
+        )}
+        {tab === "trend" && (
+          <>
+            <SectionHead title="曜日の傾向" />
+            <div className="ds-hours">
+              <WeekDetail store={store} station={station} days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} />
+            </div>
+            <SectionHead title="天気の型" />
+            <div className="ds-hours">
+              <DayTypes c={clusters} k={typeK} setK={setTypeK} picked={picked} days={days} timeBand={parts == null ? null : partsLabel} />
             </div>
           </>
         )}
@@ -604,6 +614,7 @@ function MonthCalendar({
   days,
   rows,
   marks,
+  types,
   picked,
   onPick,
 }: {
@@ -612,6 +623,8 @@ function MonthCalendar({
   days: string[];
   rows: (WeatherRow | null)[];
   marks?: Map<string, string>;
+  /** 天気の型 of each day: a small mark in the type's colour (filled warm, ringed cool). */
+  types?: Map<string, TypeMark>;
   /** Choosing days: the chosen ones, and a call with the days a tap chooses (a day, a week, a weekday). */
   picked?: ReadonlySet<string>;
   onPick?: (days: string[]) => void;
@@ -642,6 +655,7 @@ function MonthCalendar({
           <FeelBar store={store} station={station} date={d} />
         </span>
         <span className="month-cal-rain">{rain != null && rain >= 1 ? rain.toFixed(0) : ""}</span>
+        {types?.has(d) && <TypeDot mark={types.get(d)!} className="month-cal-type" />}
       </>
     );
     const style = marks?.has(d) ? { boxShadow: `0 0 0 1.5px ${marks.get(d)} inset` } : undefined;
@@ -926,10 +940,12 @@ function MonthLegend({ kind, color, now, then }: { kind: "range" | "bar" | "line
         {kind === "bar" ? <BarSample day="target" color={color} /> : <LineSample day="target" color={color} />}
         {now}
       </span>
-      <span>
-        {kind === "bar" ? <BarSample day="compare" color={color} /> : <LineSample day="compare" color={color} />}
-        {then}
-      </span>
+      {then && (
+        <span>
+          {kind === "bar" ? <BarSample day="compare" color={color} /> : <LineSample day="compare" color={color} />}
+          {then}
+        </span>
+      )}
     </p>
   );
 }
@@ -1027,10 +1043,9 @@ function longestRun(days: string[], rows: (WeatherRow | null)[], test: (r: Weath
 
 /**
  * The month as a report: the thirds of the month (上旬・中旬・下旬) beside 前年同曜日, then a few lines per
- * topic (気温, 雨と日差し, 曜日, 肌感) — every number from the records shown elsewhere on the page.
+ * topic (気温, 雨と日差し, 目立った日, 日の出・日の入り). 曜日 and 肌感 have their own pages.
  */
-function MonthReport({ store, station, days, rows, rowsB, picked }: { store: WeatherStore | null; station: string; days: string[]; rows: (WeatherRow | null)[]; rowsB: (WeatherRow | null)[]; picked: boolean }) {
-  const base = useContext(FeelContext);
+function MonthReport({ station, days, rows, rowsB, picked, standouts }: { station: string; days: string[]; rows: (WeatherRow | null)[]; rowsB: (WeatherRow | null)[]; picked: boolean; standouts: string[] }) {
   const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
   const vals = (rs: (WeatherRow | null)[], k: string) => rs.map((r) => num(r?.[k])).filter((v): v is number => v != null);
   // By the day of the month (the days may be a choice, not the whole month).
@@ -1060,18 +1075,8 @@ function MonthReport({ store, station, days, rows, rowsB, picked }: { store: Wea
   const sunnyDays = vals(rows, "sun").filter((v) => v >= SUNNY_DAY_H).length;
   const sunnyDaysB = vals(rowsB, "sun").filter((v) => v >= SUNNY_DAY_H).length;
 
-  // 曜日: the wettest weekday and the weekends.
-  const dow = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
-  const wetOf = (rs: (WeatherRow | null)[], pick: (w: number) => boolean) => {
-    const g = days.map((d, i) => ({ w: dow(d), r: rs[i] })).filter((x) => pick(x.w));
-    return { n: g.filter((x) => (num(x.r?.rain) ?? 0) >= 1).length, of: g.length };
-  };
-  const byDow = WEEK.map((name, w) => ({ name, ...wetOf(rows, (x) => x === w) }));
-  const wettestDow = [...byDow].sort((x, y) => y.n / Math.max(1, y.of) - x.n / Math.max(1, x.of))[0];
-
   // 日の出・日の入り: from the first day to the last, and how far the light moved (worked out, not recorded).
   const edges = days.map((d) => dayEdges(d, station));
-  const edgesB = days.map((d) => dayEdges(addDays(d, -PREV_SAME_WEEKDAY), station));
   const sunLines: string[] = [];
   if (edges.length) {
     const e0 = edges[0];
@@ -1084,16 +1089,8 @@ function MonthReport({ store, station, days, rows, rowsB, picked }: { store: Wea
       sunLines.push(`日の出は ${hm(e0.rise)}（${first}）→ ${hm(e1.rise)}（${lastD}）、日の入りは ${hm(e0.set)} → ${hm(e1.set)}。`);
       sunLines.push(`昼の長さは ${hLong(len(e0))} → ${hLong(len(e1))}（${dl >= 0 ? "+" : "−"}${Math.abs(dl)}分）。`);
     } else sunLines.push(`日の出 ${hm(e0.rise)}、日の入り ${hm(e0.set)}、昼の長さ ${hLong(len(e0))}（${first}）。`);
-    const shift = mean(edges.map((e, i) => len(e) - len(edgesB[i])));
-    if (shift != null) sunLines.push(`前年同曜日は暦が1日ずれるだけなので、昼の長さの差は平均 ${Math.abs(shift).toFixed(1)}分。日の出入りは計算値（記録ではない）。`);
+    sunLines.push("日の出入りは日付と場所からの計算値（記録ではない）。");
   }
-
-  // 肌感: warm afternoons, cool mornings (the hourly bands, where they are in).
-  const bandsOf = (i: number) => days.map((d) => bandsFor(store, station, d, feelOn(store, station, d, base))).map((f) => (f?.exact ? f.bands[i]?.level : null));
-  const noon = bandsOf(2).filter((l): l is NonNullable<typeof l> => l != null);
-  const morning = bandsOf(0).filter((l): l is NonNullable<typeof l> => l != null);
-  const warmNoons = noon.filter((l) => l >= 4).length;
-  const coolMornings = morning.filter((l) => l <= 2).length;
 
   const lines: [string, string[]][] = [
     [
@@ -1111,21 +1108,10 @@ function MonthReport({ store, station, days, rows, rowsB, picked }: { store: Wea
         `日照 ${SUNNY_DAY_H}時間以上の晴れの日は ${sunnyDays}日（前年同曜日 ${sunnyDaysB}日）${sunny.n > 1 ? `、いちばん続いたのは ${sunny.n}日（${md(sunny.from)}〜${md(sunny.to)}）` : ""}。`,
       ],
     ],
-    [
-      "曜日",
-      [
-        wettestDow.n ? `雨の日がいちばん多いのは${wettestDow.name}曜（${wettestDow.n}/${wettestDow.of}日）。` : "",
-      ],
-    ],
+    ["目立った日", standouts],
     [
       "日の出・日の入り",
       sunLines,
-    ],
-    [
-      "肌感",
-      noon.length
-        ? [`昼が「暖かい」以上だった日は ${warmNoons}/${noon.length}日、朝が「涼しい」以下だった日は ${coolMornings}/${morning.length}日。`]
-        : ["時間ごとの記録がそろうと出ます。"],
     ],
   ];
   return (
@@ -1281,9 +1267,10 @@ function WeekDetail({
           return (
             <div key={c.name} className={`week-detail-row${on ? " on" : ""}`}>
               <b className={c.w === 5 ? "tone-saturday" : c.w === 6 ? "tone-holiday" : ""}>{c.name}</b>
+              {/* This month filled, 前年同曜日 outlined under it (the bars' rule: filled / outlined). */}
               <span className="week-detail-bar">
                 <i style={{ width: `${pct(c.a)}%`, background: color }} />
-                {c.b != null && <em style={{ left: `${pct(c.b)}%`, borderColor: color }} title="前年同曜日" />}
+                <em style={{ width: `${pct(c.b)}%`, borderColor: color }} title="前年同曜日" />
               </span>
               <span className="week-detail-num">
                 <i style={{ color }}>
@@ -1304,22 +1291,17 @@ function WeekDetail({
       <div className="week-groups" role="group" aria-label="曜日をまとめて比べる">
         {groups.map((ws, gi) => (
           <div key={gi} className="week-group">
-            <span className="week-group-days">
+            <span className="chip-row week-group-days">
               {WEEK.map((name, w) => (
-                <button
-                  key={name}
-                  className={`week-group-day${ws.includes(w) ? " on" : ""}${w === 5 ? " tone-saturday" : w === 6 ? " tone-holiday" : ""}`}
-                  aria-pressed={ws.includes(w)}
-                  aria-label={`${GROUP_NAMES[gi]}に${name}曜日を${ws.includes(w) ? "入れない" : "入れる"}`}
-                  onClick={() => toggleGroup(gi, w)}
-                >
-                  {name}
-                </button>
+                <Chip key={name} size="sm" on={ws.includes(w)} onClick={() => toggleGroup(gi, w)} aria-label={`${GROUP_NAMES[gi]}に${name}曜日を${ws.includes(w) ? "入れない" : "入れる"}`}>
+                  <span className={w === 5 ? "tone-saturday" : w === 6 ? "tone-holiday" : ""}>{name}</span>
+                </Chip>
               ))}
             </span>
             <span className="week-group-val">
               <b style={{ color }}>{ws.length ? show(groupVals[gi].a) : "—"}</b>
-              <small>前年 {ws.length ? show(groupVals[gi].b) : "—"}</small>
+              <small>前年同曜日 {ws.length ? show(groupVals[gi].b) : "—"}</small>
+              <small>{ws.length && groupVals[gi].a != null && groupVals[gi].b != null ? `差 ${m.count ? `${groupVals[gi].a! - groupVals[gi].b! >= 0 ? "+" : "−"}${Math.abs(groupVals[gi].a! - groupVals[gi].b!).toFixed(0)}%` : signedDiff(groupVals[gi].a, groupVals[gi].b, m.unit)}` : ""}</small>
             </span>
           </div>
         ))}
@@ -1332,7 +1314,7 @@ function WeekDetail({
             {m.count ? "日" : m.unit}）。
           </>
         ) : null}
-        棒はこの月、縦の印は前年同曜日。{m.id === "sun" ? "日照は1日あたりの平均。" : ""}
+        太い塗りの棒はこの月、細い枠の棒は前年同曜日。{m.id === "sun" ? "日照は1日あたりの平均。" : ""}
         {m.id === "sunnyDays" ? `晴れの日は日照 ${SUNNY_DAY_H}時間以上。` : ""}
         {m.id === "warmNoon" ? "昼の肌感が「暖かい」以上の日。" : ""}
         {m.count ? "まとめた曜日は日数の割合。" : ""}
@@ -1343,26 +1325,40 @@ function WeekDetail({
 }
 
 // ---- 天気の型（クラスター） ----------------------------------------------------------------------------
-const SKY_COLOR = { sun: DATA.sun, part: DATA.radiation, cloud: DATA.mean, rain: DATA.rain } as const;
+// The weather pictures' own colours (ICON: 晴れ 黄・曇り 灰・雨 青), not the data colours (one meaning each):
+// a type is a kind of sky. 晴れ間 is half 晴れ, half 曇り.
+const SKY_COLOR = { sun: ICON.sun, part: `linear-gradient(90deg, ${ICON.sun} 50%, ${ICON.cloud} 50%)`, cloud: ICON.cloud, rain: ICON.rain } as const;
+
+export type TypeMark = { color: string; warm: "warm" | "cool" | null; name: string };
+
+/** A type's mark: its sky's colour, filled when warm, ringed when cool, a small dot when neither. */
+function TypeDot({ mark, className = "" }: { mark: TypeMark; className?: string }) {
+  // A ring cannot carry two colours: 晴れ間 rings in its 晴れ half, over a 曇り centre.
+  const ring = mark.color.startsWith("linear") ? ICON.sun : mark.color;
+  const style = mark.warm === "cool" ? { borderColor: ring, background: mark.color.startsWith("linear") ? `${ICON.cloud}55` : "none" } : { background: mark.color };
+  return <i className={`type-dot ${mark.warm ?? "plain"} ${className}`} style={style} title={mark.name} />;
+}
 
 /**
- * The month's days grouped by how alike they were (monthClusters): each type with its centre, how many
- * days it had this month and 前年同曜日, and its dates.
+ * The month's days grouped by how alike they were (monthClusters): each type with its centre and how
+ * many days it had this month and 前年同曜日. Its days are marked on the calendar (the same mark).
+ * With a time band chosen, every value is the band's (rowIn), so the types are of that band.
  */
 function DayTypes({
-  days,
-  rows,
-  rowsB,
+  c,
+  k,
+  setK,
   picked,
+  days,
+  timeBand,
 }: {
-  days: string[];
-  rows: (WeatherRow | null)[];
-  rowsB: (WeatherRow | null)[];
+  c: ReturnType<typeof clusterDays>;
+  k: number | null;
+  setK: (k: number | null) => void;
   picked: ReadonlySet<string>;
+  days: string[];
+  timeBand: string | null;
 }) {
-  // 型の数: 自動 (the silhouette's choice) or fixed by the viewer.
-  const [k, setK] = useState<number | null>(null);
-  const c = clusterDays(rows, rowsB, k ? [k, k] : [2, 5]);
   const kChips = (
     <div className="chip-row" role="group" aria-label="型の数">
       {[null, 3, 4, 5].map((x) => (
@@ -1391,7 +1387,7 @@ function DayTypes({
         return (
           <div key={t.name} className={`day-type${on ? " on" : ""}`}>
             <span className="day-type-head">
-              <i style={{ background: color }} />
+              <TypeDot mark={{ color, warm: t.warm, name: t.name }} />
               <b>{t.name}</b>
               <small>
                 最高 {t.centre.max.toFixed(0)}℃・最低 {t.centre.min.toFixed(0)}℃・雨 {t.centre.rain.toFixed(t.centre.rain < 10 ? 1 : 0)}mm・日照 {t.centre.sun.toFixed(1)}h・湿度 {t.centre.humidity.toFixed(0)}%
@@ -1399,23 +1395,21 @@ function DayTypes({
             </span>
             <span className="day-type-bars">
               <span>
-                <em style={{ width: `${(t.a.length / most) * 100}%`, background: color }} />
+                {/* A count of days is no data colour: the bars stay neutral, the type is told by its mark. */}
+                <em style={{ width: `${(t.a.length / most) * 100}%` }} />
               </span>
               <b>{t.a.length}日</b>
               <span>
-                <em className="then" style={{ width: `${(t.b.length / most) * 100}%`, borderColor: color }} />
+                <em className="then" style={{ width: `${(t.b.length / most) * 100}%` }} />
               </span>
               <small>前年 {t.b.length}日</small>
-            </span>
-            <span className="day-type-dates">
-              {ds.length ? ds.map((d) => <span key={d}>{+d.slice(8)}</span>) : <small>この月はなし</small>}
             </span>
           </div>
         );
       })}
       <p className="month-report-note">
-        最高・最低・雨・日照・湿度・風が似た日を、この月と前年同曜日をいっしょにして {c.types.length}つの型にまとめた（{k ? "数は指定" : "数は自動"}・{clear}）。
-        {c.missingA ? `記録が欠けた ${c.missingA}日は入れていない。` : ""}
+        {timeBand ? `${timeBand}の` : ""}最高・最低・雨・日照・湿度・風が似た日を、この月と前年同曜日をいっしょにして {c.types.length}つの型にまとめた（{k ? "数は指定" : "数は自動"}・{clear}）。
+        {c.missingA ? `記録が欠けた ${c.missingA}日は入れていない。` : ""}型の日はカレンダー（「日」を下に引く）に同じ印。
       </p>
     </div>
   );

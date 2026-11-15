@@ -15,6 +15,8 @@ export interface DayType {
   name: string;
   /** 雨 / 晴れ / 晴れ間 / 曇り: the colour family. */
   sky: "rain" | "sun" | "part" | "cloud";
+  /** Warmer or cooler than the two years' mean 最高 by 1.5℃ or more. */
+  warm: "warm" | "cool" | null;
   /** The group's centre in the record's units. */
   centre: Record<Key, number>;
   /** Indexes (into this year's days and the year before's) of the group's days. */
@@ -89,7 +91,13 @@ function silhouette(points: number[][], label: number[], k: number) {
 }
 
 /** Group the days. `rowsA` this month's days, `rowsB` 前年同曜日's. */
-export function clusterDays(rowsA: (WeatherRow | null)[], rowsB: (WeatherRow | null)[], kRange: [number, number] = [2, 5]): Clustering | null {
+/**
+ * `sunPossible`: the hours of daylight the values cover (a time band has fewer than a day), so 晴れ
+ * keeps its meaning: sunny from 55% of them (6h of an 11h day), 晴れ間 from 27% (3h).
+ */
+export function clusterDays(rowsA: (WeatherRow | null)[], rowsB: (WeatherRow | null)[], kRange: [number, number] = [2, 5], sunPossible: number | null = null): Clustering | null {
+  const sunny = sunPossible == null ? 6 : sunPossible * 0.55;
+  const broken = sunPossible == null ? 3 : sunPossible * 0.27;
   const read = (r: WeatherRow | null) => {
     const v = CLUSTER_KEYS.map((k) => num(r?.[k]));
     return v.every((x) => x != null) ? (v as number[]) : null;
@@ -123,12 +131,13 @@ export function clusterDays(rowsA: (WeatherRow | null)[], rowsB: (WeatherRow | n
     const centre = Object.fromEntries(CLUSTER_KEYS.map((k, j) => [k, mine.reduce((s, x) => s + x.v[j], 0) / mine.length])) as Record<Key, number>;
     // Named in the record's units: wet by the share of rain days, sky by sunshine, warmth against the two years' mean.
     const wetShare = mine.filter((x) => x.v[2] >= 1).length / mine.length;
-    const sky: DayType["sky"] = wetShare >= 0.5 ? "rain" : centre.sun >= 6 ? "sun" : centre.sun >= 3 ? "part" : "cloud";
+    const sky: DayType["sky"] = wetShare >= 0.5 ? "rain" : centre.sun >= sunny ? "sun" : centre.sun >= broken ? "part" : "cloud";
     const skyName = { rain: "雨", sun: "晴れ", part: "晴れ間", cloud: "曇り" }[sky];
-    const warm = centre.max - meanMax >= 1.5 ? "暖か" : meanMax - centre.max >= 1.5 ? "涼しい" : "";
+    const warmth: DayType["warm"] = centre.max - meanMax >= 1.5 ? "warm" : meanMax - centre.max >= 1.5 ? "cool" : null;
+    const warm = warmth === "warm" ? "暖か" : warmth === "cool" ? "涼しい" : "";
     const windy = (centre.wind - mu[5]) / sd[5] >= 1 ? "風" : "";
     const name = [skyName, warm, windy].filter(Boolean).join("・");
-    return { name, sky, centre, a: mine.filter((x) => x.side === "a").map((x) => x.i), b: mine.filter((x) => x.side === "b").map((x) => x.i) };
+    return { name, sky, warm: warmth, centre, a: mine.filter((x) => x.side === "a").map((x) => x.i), b: mine.filter((x) => x.side === "b").map((x) => x.i) };
   });
   // Same names apart by their warmth.
   for (const t of types) if (types.filter((u) => u.name === t.name).length > 1) t.name = `${t.name}（${t.centre.max.toFixed(0)}℃）`;
