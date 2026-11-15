@@ -216,10 +216,13 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
           <div className="month-filter-row">
             <span className="month-filter-name">日</span>
             <div className="chip-row month-filter-days" role="group" aria-label="日で絞る">
-              <Chip size="sm" on={picked.size === 0} onClick={() => setPicked(new Set())}>
-                全
-              </Chip>
-              {WEEK.map((name, w) => {
+              {/* While the calendar is open its own head (全・曜日) chooses: the chips step aside. */}
+              {!calOpen && (
+                <Chip size="sm" on={picked.size === 0} onClick={() => setPicked(new Set())}>
+                  全
+                </Chip>
+              )}
+              {!calOpen && WEEK.map((name, w) => {
                 const ds = days.filter((d) => dowOf(d) === w);
                 return (
                   <Chip key={name} size="sm" on={ds.length > 0 && ds.every((d) => picked.has(d))} onClick={() => pickDays(ds)}>
