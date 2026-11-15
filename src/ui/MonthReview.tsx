@@ -10,12 +10,12 @@ import { stormOfRow } from "../../shared/storm";
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
-import { num, signedDiff } from "../design/format";
-import { DATA, FEEL_SCALE_COLORS, SHAPE } from "../design/tokens";
+import { niceTicks, num, signedDiff, tickLabel } from "../design/format";
+import { barLook, barPath, DATA, FEEL_SCALE_COLORS, lineLook, SHAPE } from "../design/tokens";
 import { bandsFor, FeelBar, FeelContext } from "./FeelBar";
 import { DayWeatherIcon } from "./WeatherIcon";
 import { dayTone } from "../../shared/holidays";
-import { Chip, GraphReadout, type ReadoutRow, SectionHead, Segmented } from "./kit";
+import { BarSample, Chip, GraphReadout, LineSample, type ReadoutRow, SectionHead, Segmented } from "./kit";
 import { ModalSheet } from "./ModalSheet";
 import { feelOn } from "../feelSeason";
 
@@ -180,6 +180,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   if (a.rain != null && b.rain != null) lean.push(Math.abs(a.rain - b.rain) < Math.max(5, b.rain * 0.15) ? "雨は同じくらい" : a.rain > b.rain ? "雨は多め" : "雨は少なめ");
   if (a.sun != null && b.sun != null && b.sun > 0) lean.push(a.sun / b.sun > 1.1 ? "日差しは多め" : a.sun / b.sun < 0.9 ? "日差しは少なめ" : "日差しは同じくらい");
   const [tab, setTab] = useState<"sum" | "days" | "feel">("sum");
+  const [metric, setMetric] = useState<MonthMetricId>("temp");
   const dowOf = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
   const weekend = days.filter((d) => dowOf(d) >= 5);
   const weekdays = days.filter((d) => dowOf(d) < 5);
@@ -251,8 +252,15 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
         {tab === "days" && (
           <>
             <div className="ds-hours">
-              <MonthRange a={full.rows} b={fullB.rows} />
-              <RangeLegend now={label(month)} then={label(before)} />
+              <div className="month-metric chip-row" role="group" aria-label="グラフの項目">
+                {MONTH_METRICS.map((m) => (
+                  <Chip key={m.id} size="sm" on={metric === m.id} tone={DATA[m.tone]} onClick={() => setMetric(m.id)}>
+                    {m.label}
+                  </Chip>
+                ))}
+              </div>
+              {metric === "temp" ? <MonthRange a={full.rows} b={fullB.rows} picked={picked} days={days} /> : <MonthSeries m={MONTH_METRICS.find((x) => x.id === metric)!} a={full.rows} b={fullB.rows} picked={picked} days={days} />}
+              <MonthLegend kind={metric === "temp" ? "range" : MONTH_METRICS.find((x) => x.id === metric)!.kind} color={DATA[MONTH_METRICS.find((x) => x.id === metric)!.tone]} now={label(month)} then={label(before)} />
             </div>
             <div className="month-quick chip-row" role="group" aria-label="まとめて選ぶ">
               <Chip size="sm" on={picked.size === 0} onClick={() => setPicked(new Set())}>
@@ -405,7 +413,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
 }
 
 /** Each day's 最高〜最低 as a round bar: the month filled (最高の色から最低の色へ), the year before outlined beside it. */
-function MonthRange({ a, b }: { a: (WeatherRow | null)[]; b: (WeatherRow | null)[] }) {
+function MonthRange({ a, b, picked, days }: { a: (WeatherRow | null)[]; b: (WeatherRow | null)[]; picked?: ReadonlySet<string>; days?: string[] }) {
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   useLayoutEffect(() => {
@@ -438,6 +446,7 @@ function MonthRange({ a, b }: { a: (WeatherRow | null)[]; b: (WeatherRow | null)
             <stop offset="1" stopColor={DATA.cold} />
           </linearGradient>
         </defs>
+        <PickedBands picked={picked} days={days} x={x} step={step} top={PAD.top} bottom={H - PAD.bottom} />
         {ticks.map((t) => (
           <g key={t}>
             <line x1={PAD.left} x2={w - PAD.right} y1={y(t)} y2={y(t)} className="chart-grid" />
@@ -767,5 +776,132 @@ function WeekStrip({
       })}
       <p className="week-strip-note">上から 最高の平均 ℃・雨の日（1mm以上）・前年の雨の日。押すとその曜日を選ぶ。</p>
     </div>
+  );
+}
+
+// ---- 日ごとのグラフ（項目を選ぶ） ------------------------------------------------------------------
+type MonthMetricId = "temp" | "rain" | "sun" | "humidity" | "wind" | "pressure";
+interface MonthMetric {
+  id: MonthMetricId;
+  label: string;
+  key: string;
+  unit: string;
+  tone: keyof typeof DATA;
+  /** bar: an amount from 0 (rain, sunshine); line: a level (humidity, wind, pressure). */
+  kind: "bar" | "line";
+  zero: boolean;
+}
+const MONTH_METRICS: MonthMetric[] = [
+  { id: "temp", label: "気温", key: "max", unit: "℃", tone: "hot", kind: "line", zero: false },
+  { id: "rain", label: "降水", key: "rain", unit: "mm", tone: "rain", kind: "bar", zero: true },
+  { id: "sun", label: "日照", key: "sun", unit: "h", tone: "sun", kind: "bar", zero: true },
+  { id: "humidity", label: "湿度", key: "humidity", unit: "%", tone: "humidity", kind: "line", zero: false },
+  { id: "wind", label: "風速", key: "wind", unit: "m/s", tone: "wind", kind: "line", zero: true },
+  { id: "pressure", label: "気圧", key: "pressure", unit: "hPa", tone: "pressure", kind: "line", zero: false },
+];
+
+/** The chosen days, a faint band behind each (what the numbers above are of). */
+function PickedBands({ picked, days, x, step, top, bottom }: { picked?: ReadonlySet<string>; days?: string[]; x: (i: number) => number; step: number; top: number; bottom: number }) {
+  if (!picked?.size || !days) return null;
+  return (
+    <g className="month-picked-bands">
+      {days.map((d, i) => (picked.has(d) ? <rect key={d} x={x(i) - step / 2} y={top} width={step} height={bottom - top} rx={SHAPE.bar.radius} /> : null))}
+    </g>
+  );
+}
+
+/** A month of one item: amounts as bars (the month filled, the year before outlined), levels as lines (solid, dashed). */
+function MonthSeries({ m, a, b, picked, days }: { m: MonthMetric; a: (WeatherRow | null)[]; b: (WeatherRow | null)[]; picked?: ReadonlySet<string>; days?: string[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(320);
+  useLayoutEffect(() => {
+    const el = ref.current!;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    setW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+  const H = 160;
+  // The unit sits above the axis, clear of the top tick.
+  const PAD = { left: 30, right: 4, top: 18, bottom: 18 };
+  const va = a.map((r) => num(r?.[m.key]));
+  const vb = b.map((r) => num(r?.[m.key]));
+  const vals = [...va, ...vb].filter((v): v is number => v != null);
+  if (!vals.length) return <div ref={ref} className="month-empty">この月の値がありません</div>;
+  const nice = niceTicks(m.zero ? 0 : Math.min(...vals), Math.max(...vals, m.zero ? 1 : -Infinity), 4);
+  const lo = m.zero ? 0 : nice.lo;
+  const hi = nice.hi;
+  const n = Math.max(a.length, b.length);
+  const step = (w - PAD.left - PAD.right) / n;
+  const x = (i: number) => PAD.left + step * (i + 0.5);
+  const y = (v: number) => PAD.top + ((hi - v) / (hi - lo || 1)) * (H - PAD.top - PAD.bottom);
+  const color = DATA[m.tone];
+  const path = (vs: (number | null)[]) => {
+    let d = "";
+    let pen = false;
+    vs.forEach((v, i) => {
+      if (v == null) pen = false;
+      else {
+        d += `${pen ? "L" : "M"}${x(i)},${y(v)}`;
+        pen = true;
+      }
+    });
+    return d;
+  };
+  const la = lineLook("target", color);
+  const lb = lineLook("compare", color);
+  const bw = Math.min(SHAPE.range.maxWidth, step * 0.38);
+  return (
+    <div ref={ref}>
+      <svg width={w} height={H} role="img" aria-label={`日ごとの${m.label}`}>
+        <PickedBands picked={picked} days={days} x={x} step={step} top={PAD.top} bottom={H - PAD.bottom} />
+        {nice.ticks
+          .filter((t) => t >= lo && t <= hi)
+          .map((t) => (
+            <g key={t}>
+              <line x1={PAD.left} x2={w - PAD.right} y1={y(t)} y2={y(t)} className="chart-grid" />
+              <text x={PAD.left - 4} y={y(t) + 4} className="chart-tick" textAnchor="end">
+                {tickLabel(t)}
+              </text>
+            </g>
+          ))}
+        <text x={2} y={10} className="chart-unit">
+          {m.unit}
+        </text>
+        {m.kind === "bar" ? (
+          <>
+            {vb.map((v, i) => (v != null && v > 0 ? <path key={`b${i}`} d={barPath(x(i) + bw * 0.05, y(v), bw * 0.9, y(0) - y(v))} {...barLook("compare", color)} /> : null))}
+            {va.map((v, i) => (v != null && v > 0 ? <path key={`a${i}`} d={barPath(x(i) - bw * 0.95, y(v), bw * 0.9, y(0) - y(v))} {...barLook("target", color)} /> : null))}
+          </>
+        ) : (
+          <>
+            <path d={path(vb)} fill="none" stroke={lb.stroke} strokeWidth={lb.strokeWidth} strokeDasharray={lb.strokeDasharray} opacity={lb.opacity} strokeLinejoin="round" />
+            <path d={path(va)} fill="none" stroke={la.stroke} strokeWidth={la.strokeWidth} opacity={la.opacity} strokeLinejoin="round" strokeLinecap="round" />
+          </>
+        )}
+        {[1, 5, 10, 15, 20, 25, 30].filter((d) => d <= n).map((d) => (
+          <text key={d} x={x(d - 1)} y={H - 4} className="chart-tick" textAnchor="middle">
+            {d}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+/** The legend of the month's graph, in its own marks: round bars, amount bars or lines. */
+function MonthLegend({ kind, color, now, then }: { kind: "range" | "bar" | "line"; color: string; now: string; then: string }) {
+  if (kind === "range") return <RangeLegend now={now} then={then} />;
+  return (
+    <p className="line-legend">
+      <span>
+        {kind === "bar" ? <BarSample day="target" color={color} /> : <LineSample day="target" color={color} />}
+        {now}
+      </span>
+      <span>
+        {kind === "bar" ? <BarSample day="compare" color={color} /> : <LineSample day="compare" color={color} />}
+        {then}
+      </span>
+    </p>
   );
 }

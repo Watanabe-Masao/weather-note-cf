@@ -4403,3 +4403,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .week-strip-col small { font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .week-strip-note { grid-column: 1 / -1; margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .month-quick { margin-top: var(--space-5); }
+
+.month-metric { margin-bottom: var(--space-3); }
+.month-picked-bands rect { fill: var(--accent-wash); }
+.month-empty { font-size: var(--size-xs); color: var(--ink-tertiary); padding: var(--space-5) 0; }
