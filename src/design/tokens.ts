@@ -130,6 +130,39 @@ export function barLook(day: LineDay, color: string, dimmed = false): { fill: st
   return day === "target" ? { fill: c, stroke: "none", opacity: dimmed ? LINE.dimmedOpacity : 1 } : { fill: "none", stroke: c, opacity: dimmed ? LINE.dimmedOpacity : 0.8 };
 }
 
+// ---- shapes in graphs (質感) -----------------------------------------------------------------------
+//
+// 「少しだけ角を取る」: marks get soft corners, never so round that where a value ends is lost.
+//  - Amount bars (降水量・日射量・日照, 0 から積む): only the top corners, `bar.radius`; the foot stays
+//    square on the 0 line, so the length from 0 still reads. A short or narrow bar gets a smaller
+//    round (never past its own height or a quarter of its width).
+//  - Range bars (気温の「幅」: 最高〜最低): round at both ends (a capsule) — both ends are values, and
+//    the round lies inside the bar, so its tip is the value.
+//  - Value labels: the target day's main lines only, the high side above its point and the low side
+//    below (`valueLabel`), with a halo of the face behind so a line crossing them never cuts a digit.
+//  - Joins: a day's line is one path (round joins), so a dashed line's rhythm runs on through the days.
+
+export const SHAPE = {
+  bar: { radius: 3, widthShare: 0.25 },
+  /** 幅 bars: width (a share of a day, at most maxWidth), the centres `offset` widths either side of the day's. */
+  range: { maxWidth: 12, share: 0.24, offset: 0.62, compareStroke: 1.4, meanOverhang: 2, meanWidth: 2.4 },
+  /** Distance (px) from a point to its label's baseline: above, and below (the digits' height added). */
+  valueLabel: { above: 7, below: 15, halo: 3 },
+} as const;
+
+/**
+ * An amount bar from the 0 line up to y, its top corners rounded (SHAPE.bar). `h` is the bar's
+ * height; the foot (y + h) stays square.
+ */
+export function barPath(x: number, y: number, w: number, h: number, r: number = SHAPE.bar.radius): string {
+  // A narrow bar (時間帯: 24 to a row) gets a smaller round, so it stays a bar with soft corners
+  // and never turns into a pill: at most a quarter of its width.
+  const k = Math.max(0, Math.min(r, w * SHAPE.bar.widthShare, h));
+  const n = (v: number) => Math.round(v * 100) / 100;
+  if (k === 0) return `M${n(x)},${n(y)}h${n(w)}v${n(h)}h${n(-w)}Z`;
+  return `M${n(x)},${n(y + h)}V${n(y + k)}A${n(k)},${n(k)} 0 0 1 ${n(x + k)},${n(y)}H${n(x + w - k)}A${n(k)},${n(k)} 0 0 1 ${n(x + w)},${n(y + k)}V${n(y + h)}Z`;
+}
+
 /**
  * Weather icons (晴 / 曇 / 雨 …). Pictures, not data: the sun is a warmer yellow than DATA.sun so an
  * icon never reads as a 日照 value; glint is the white of a raindrop's highlight.
@@ -221,6 +254,13 @@ const space = { 1: 2, 2: 4, 3: 6, 4: 8, 5: 10, 6: 12, 7: 16, 8: 20, 9: 24 } as c
 /** Corners. `tick` is for small marks (swatches, bars, badges); circles use 50%. */
 const radius = { tick: 2, xs: 4, sm: 6, md: 10, lg: 14, xl: 20, pill: 999 } as const;
 
+/**
+ * The table's 肌感 band (FeelBar): one strip with soft corners (`radius.xs`), the time bands' colours
+ * blended over `blur` of a band's width at each border, and a thin `divider` of the face between them
+ * — the bands still count, without hard tiles. Today's band now is ringed (`ring`).
+ */
+export const FEEL_BAND = { divider: 1.5, blur: 0.22, ring: 1.5 } as const;
+
 /** Elevation: what sits above what. Shadows deepen with height. */
 const shadow = {
   card: "0 1px 0 rgba(255,255,255,0.04) inset, 0 6px 18px rgba(0,0,0,0.22)",
@@ -294,6 +334,7 @@ export function cssVariables(): Record<string, string> {
   put("weight", weight);
   put("space", space, "px");
   put("radius", radius, "px");
+  put("feel-band", { divider: FEEL_BAND.divider, ring: FEEL_BAND.ring }, "px");
   put("shadow", shadow);
   put("layer", LAYER);
   put("motion", { quick: MOTION.quick, base: MOTION.base, enter: MOTION.enter, exit: MOTION.exit }, "ms");

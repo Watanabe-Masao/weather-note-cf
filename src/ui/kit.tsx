@@ -4,7 +4,7 @@
 import { type ButtonHTMLAttributes, type CSSProperties, Fragment, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { dayTone } from "../../shared/holidays";
 import type { Confidence } from "../../shared/confidence";
-import { type BandMark, barLook, type DataColor, type LineDay, type LineKind, type LineLook, lineLook } from "../design/tokens";
+import { type BandMark, barLook, barPath, type DataColor, type LineDay, type LineKind, type LineLook, lineLook, SHAPE } from "../design/tokens";
 import { dateLabel, digitsOf, monthDay, num, phraseBreak, weekdayOf } from "../design/format";
 
 /** A choice chip. `size="sm"` for filters inside sheets. */
@@ -626,9 +626,20 @@ export function LineSample({ look, day = "target", color = SAMPLE_INK, kind = "v
 /** A legend's bar sample by the bar rule (tokens.ts barLook): the target filled, the comparison outlined. */
 export function BarSample({ day, color = SAMPLE_INK }: { day: LineDay; color?: string }) {
   const b = barLook(day, color);
+  // The graph's amount bar in small: top corners round, the foot square (tokens.ts barPath).
   return (
     <svg className="line-sample" width="12" height="12" aria-hidden>
-      <rect x="1" y="1" width="10" height="10" rx="2" fill={b.fill} stroke={b.stroke} strokeWidth={1.5} opacity={b.opacity} />
+      <path d={barPath(1.75, 1.75, 8.5, 9.5, SHAPE.bar.radius)} fill={b.fill} stroke={b.stroke} strokeWidth={1.5} opacity={b.opacity} />
+    </svg>
+  );
+}
+
+/** A legend's 幅 sample: the target a filled round bar, the comparison an outlined one (Chart RangeBars). */
+export function RangeSample({ day, color = SAMPLE_INK }: { day: LineDay; color?: string }) {
+  const b = barLook(day, color);
+  return (
+    <svg className="line-sample" width="10" height="14" aria-hidden>
+      <rect x="2" y="1" width="6" height="12" rx="3" fill={b.fill} stroke={b.stroke} strokeWidth={SHAPE.range.compareStroke} opacity={b.opacity} />
     </svg>
   );
 }
