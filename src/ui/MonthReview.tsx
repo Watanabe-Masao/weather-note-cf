@@ -99,8 +99,23 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
     setParts(next.size === 0 || next.size === PARTS.length ? null : next);
   };
   const partsLabel = parts == null ? "1日" : PARTS.filter((p) => parts.has(p.id)).map((p) => p.label).join("・");
-  const a = statsOf(store, station, days, parts);
-  const b = statsOf(store, station, daysB, parts);
+  // 日を選ぶ（案D）: the numbers (the line, the tiles, the table, the standouts) over the chosen days
+  // only, against the same dates a year before; the pictures (graph, calendar, weekdays, 肌感) keep
+  // the whole month. Empty = the whole month.
+  const [picked, setPicked] = useState<ReadonlySet<string>>(new Set());
+  const sel = picked.size ? days.filter((d) => picked.has(d)) : days;
+  const selB = picked.size ? sel.map((d) => `${before}${d.slice(7)}`).filter((d) => daysB.includes(d)) : daysB;
+  const a = statsOf(store, station, sel, parts);
+  const b = statsOf(store, station, selB, parts);
+  const full = picked.size ? statsOf(store, station, days, parts) : a;
+  const fullB = picked.size ? statsOf(store, station, daysB, parts) : b;
+  /** Choose or drop days: when every one of them is chosen already, they are dropped; else all chosen. */
+  const pickDays = (ds: string[]) => {
+    const next = new Set(picked);
+    if (ds.every((d) => next.has(d))) ds.forEach((d) => next.delete(d));
+    else ds.forEach((d) => next.add(d));
+    setPicked(next);
+  };
   const f1 = (v: number | null, u = "") => (v == null ? "—" : `${v.toFixed(1)}${u}`);
   const d1 = (x: number | null, y: number | null, unit: string) => signedDiff(x, y, unit);
   const cnt = (n: number) => `${n}日`;
@@ -139,7 +154,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
         at = i;
       }
     });
-    return at < 0 ? null : { date: days[at], v: v! };
+    return at < 0 ? null : { date: sel[at], v: v! };
   };
   const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
   const standouts = [
@@ -179,6 +194,11 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
         </div>
         <div className="ds-lead month-head">
           <p className="month-lean">
+            {picked.size > 0 && (
+              <button className="month-picked" onClick={() => setPicked(new Set())} aria-label="選んだ日を外す">
+                選んだ {picked.size}日 ×
+              </button>
+            )}
             {parts != null && <small>{partsLabel}　</small>}
             {lean.join("、")}。<small>（{label(before)}と比べて）</small>
           </p>
@@ -219,16 +239,16 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
         {tab === "days" && (
           <>
             <div className="ds-hours">
-              <MonthRange a={a.rows} b={b.rows} />
+              <MonthRange a={full.rows} b={fullB.rows} />
               <RangeLegend now={label(month)} then={label(before)} />
             </div>
-            <MonthCalendar store={store} station={station} days={days} rows={a.rows} marks={marks} />
-            <p className="month-cal-legend">最高／最低 ℃・肌感（朝〜夜）・降水 mm。色の枠は「まとめ」の目立った日。</p>
+            <MonthCalendar store={store} station={station} days={days} rows={full.rows} marks={marks} picked={picked} onPick={pickDays} />
+            <p className="month-cal-legend">日・週（左）・曜日（上）を押すと選べる（複数可）。上の数字とまとめは選んだ日だけに。最高／最低 ℃・肌感（朝〜夜）・降水 mm。</p>
           </>
         )}
         {tab === "week" && (
           <div className="ds-hours">
-            <Weekdays station={station} days={days} rows={a.rows} daysB={daysB} rowsB={b.rows} />
+            <Weekdays station={station} days={days} rows={full.rows} daysB={daysB} rowsB={fullB.rows} />
           </div>
         )}
         {tab === "feel" && (
@@ -496,37 +516,94 @@ function Tile({ name, value, unit, other, digits, color, note }: { name: string;
 
 const WEEK = ["月", "火", "水", "木", "金", "土", "日"];
 /** The month as a calendar: each day its weather, 最高／最低, its 肌感 band and its rain. */
-function MonthCalendar({ store, station, days, rows, marks }: { store: WeatherStore | null; station: string; days: string[]; rows: (WeatherRow | null)[]; marks?: Map<string, string> }) {
+function MonthCalendar({
+  store,
+  station,
+  days,
+  rows,
+  marks,
+  picked,
+  onPick,
+}: {
+  store: WeatherStore | null;
+  station: string;
+  days: string[];
+  rows: (WeatherRow | null)[];
+  marks?: Map<string, string>;
+  /** Choosing days: the chosen ones, and a call with the days a tap chooses (a day, a week, a weekday). */
+  picked?: ReadonlySet<string>;
+  onPick?: (days: string[]) => void;
+}) {
   const lead = (new Date(`${days[0]}T00:00:00Z`).getUTCDay() + 6) % 7; // Monday first
-  return (
-    <div className="month-cal">
-      {WEEK.map((w, i) => (
-        <span key={w} className={`month-cal-head${i === 5 ? " tone-saturday" : i === 6 ? " tone-holiday" : ""}`}>
-          {w}
+  const cells: (string | null)[] = [...Array.from({ length: lead }, () => null), ...days];
+  while (cells.length % 7) cells.push(null);
+  const weeks = Array.from({ length: cells.length / 7 }, (_, k) => cells.slice(k * 7, k * 7 + 7));
+  const pickable = !!onPick;
+  const on = (ds: string[]) => ds.length > 0 && ds.every((d) => picked?.has(d));
+  const day = (d: string) => {
+    const i = days.indexOf(d);
+    const r = rows[i];
+    const mx = num(r?.max);
+    const mn = num(r?.min);
+    const rain = num(r?.rain);
+    const chosen = picked?.has(d);
+    const body = (
+      <>
+        <span className={`month-cal-date tone-${dayTone(d)}`}>{+d.slice(8)}</span>
+        <span className="month-cal-icon">{r ? <DayWeatherIcon row={r} station={station} size={18} /> : null}</span>
+        <span className="month-cal-temp">
+          <i style={{ color: DATA.hot }}>{mx == null ? "—" : mx.toFixed(0)}</i>
+          <i style={{ color: DATA.cold }}>{mn == null ? "—" : mn.toFixed(0)}</i>
         </span>
-      ))}
-      {Array.from({ length: lead }, (_, i) => (
-        <span key={`e${i}`} />
-      ))}
-      {days.map((d, i) => {
-        const r = rows[i];
-        const mx = num(r?.max);
-        const mn = num(r?.min);
-        const rain = num(r?.rain);
-        const tone = dayTone(d);
+        <span className="month-cal-feel">
+          <FeelBar store={store} station={station} date={d} />
+        </span>
+        <span className="month-cal-rain">{rain != null && rain >= 1 ? rain.toFixed(0) : ""}</span>
+      </>
+    );
+    const style = marks?.has(d) ? { boxShadow: `0 0 0 1.5px ${marks.get(d)} inset` } : undefined;
+    return pickable ? (
+      <button key={d} className={`month-cal-day${chosen ? " picked" : ""}`} style={style} onClick={() => onPick!([d])} aria-pressed={!!chosen}>
+        {body}
+      </button>
+    ) : (
+      <div key={d} className="month-cal-day" style={style}>
+        {body}
+      </div>
+    );
+  };
+  return (
+    <div className={`month-cal${pickable ? " pickable" : ""}`}>
+      {pickable && (
+        <button className={`month-cal-pick corner${picked?.size ? "" : " on"}`} onClick={() => onPick!(picked?.size ? [...picked] : [])} aria-label="選んだ日をすべて外す">
+          全
+        </button>
+      )}
+      {WEEK.map((w, i) => {
+        const col = weeks.map((wk) => wk[i]).filter((d): d is string => d != null);
+        const cls = `month-cal-head${i === 5 ? " tone-saturday" : i === 6 ? " tone-holiday" : ""}`;
+        return pickable ? (
+          <button key={w} className={`${cls} month-cal-pick${on(col) ? " on" : ""}`} onClick={() => onPick!(col)} aria-label={`${w}曜日をまとめて選ぶ`} aria-pressed={on(col)}>
+            {w}
+          </button>
+        ) : (
+          <span key={w} className={cls}>
+            {w}
+          </span>
+        );
+      })}
+      {weeks.map((wk, k) => {
+        const ds = wk.filter((d): d is string => d != null);
         return (
-          <div key={d} className="month-cal-day" style={marks?.has(d) ? { boxShadow: `0 0 0 1.5px ${marks.get(d)} inset` } : undefined}>
-            <span className={`month-cal-date tone-${tone}`}>{+d.slice(8)}</span>
-            <span className="month-cal-icon">{r ? <DayWeatherIcon row={r} station={station} size={18} /> : null}</span>
-            <span className="month-cal-temp">
-              <i style={{ color: DATA.hot }}>{mx == null ? "—" : mx.toFixed(0)}</i>
-              <i style={{ color: DATA.cold }}>{mn == null ? "—" : mn.toFixed(0)}</i>
-            </span>
-            <span className="month-cal-feel">
-              <FeelBar store={store} station={station} date={d} />
-            </span>
-            <span className="month-cal-rain">{rain != null && rain >= 1 ? rain.toFixed(0) : ""}</span>
-          </div>
+          <Fragment key={k}>
+            {pickable && (
+              <button className={`month-cal-pick week${on(ds) ? " on" : ""}`} onClick={() => onPick!(ds)} aria-label={`${k + 1}週目をまとめて選ぶ`} aria-pressed={on(ds)}>
+                {k + 1}
+                <small>週</small>
+              </button>
+            )}
+            {wk.map((d, i) => (d ? day(d) : <span key={`e${k}-${i}`} />))}
+          </Fragment>
         );
       })}
     </div>

@@ -4378,3 +4378,14 @@ svg.scrub {
 .month-lean small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .month-tabs { display: flex; justify-content: center; margin: var(--space-5) 0 var(--space-4); }
 .month-tabs .seg { width: 100%; }
+
+/* 見本 案D 日を選ぶ */
+.month-cal.pickable { grid-template-columns: 26px repeat(7, minmax(0, 1fr)); }
+.month-cal-pick { border: none; background: none; padding: 4px 0; border-radius: var(--radius-sm); color: var(--ink-tertiary); font: inherit; font-size: var(--size-xs); }
+.month-cal-pick.week { display: grid; place-items: center; align-self: stretch; font-family: var(--font-numeric); font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.1; }
+.month-cal-pick.week small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.month-cal-pick.on { background: var(--accent-wash); color: var(--accent-base); box-shadow: 0 0 0 1px var(--accent-base) inset; }
+.month-cal-pick.corner { font-size: var(--size-xs); }
+button.month-cal-day { border: none; font: inherit; color: inherit; cursor: pointer; }
+.month-cal-day.picked { background: var(--accent-wash); box-shadow: 0 0 0 1.5px var(--accent-base) inset !important; }
+.month-picked { margin-right: var(--space-3); border: none; border-radius: var(--radius-pill); padding: 2px 10px; background: var(--accent-wash); color: var(--accent-base); font: inherit; font-size: var(--size-xs); box-shadow: 0 0 0 1px var(--accent-base) inset; vertical-align: middle; }
