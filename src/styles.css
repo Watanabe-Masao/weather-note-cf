@@ -4206,3 +4206,18 @@ svg.scrub {
 .feel-bar.v-soft i.forecast:last-child { border-radius: 0 4px 4px 0; }
 .feel-bar.v-soft.estimate { opacity: 0.8; outline: 1px dashed var(--line-strong); outline-offset: 2px; }
 .feel-bar.v-soft i.now { border-radius: 3px; box-shadow: 0 0 0 1.5px var(--ink-primary); position: relative; z-index: 1; }
+
+/* 見本: 今日の列は曜日を塗りの丸で（カレンダーの「今日」と同じ見え方、列の幅は変えない） */
+.cell-date.is-today small {
+  display: block;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 0 6px;
+  border-radius: var(--radius-pill);
+  background: var(--ink-primary);
+  color: var(--surface-page);
+  font-weight: 700;
+}
+/* 見本 c/d: 細いすき間（1px、境目のぼかしの上に） */
+.feel-bar.v-soft i + i { box-shadow: inset 1.5px 0 0 color-mix(in srgb, var(--surface-page) 75%, transparent); }
+.feel-bar.v-soft i.now + i { box-shadow: none; }

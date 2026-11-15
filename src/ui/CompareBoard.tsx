@@ -8,6 +8,10 @@ import { signedDiff } from "../design/format";
 import { type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, daysBetween } from "../../shared/dates";
 import { dayTone, weekdayOf } from "../../shared/holidays";
+
+// 見本（sample/texture）: ?feel=b|d のとき、今日の列の日付に「今日」の印。
+const SAMPLE_TODAY = typeof location !== "undefined" && /[?&]feel=[bd]/.test(location.search);
+const jstToday = () => new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 10);
 import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
 import type { WeatherStore } from "../data/store";
 import { tableSeries } from "../chartMetrics";
@@ -122,7 +126,7 @@ function Column({
       className={`cell-stack state-${state}${faded ? " state-outside" : ""}${onOpen && !faded ? " tappable" : ""}`}
       onClick={faded ? undefined : onOpen}
     >
-      <span className={`cell-date tone-${tone}`}>
+      <span className={`cell-date tone-${tone}${SAMPLE_TODAY && date === jstToday() ? " is-today" : ""}`}>
         {+date.slice(5, 7)}/{+date.slice(8)}
         <small>{weekdayOf(date)}</small>
       </span>
