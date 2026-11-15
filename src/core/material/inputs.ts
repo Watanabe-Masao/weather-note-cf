@@ -3,7 +3,7 @@
 // record. The record's is not in the data, so it comes with the site, and is absent when unknown.
 
 import type { Series, Value } from "../estimate/engine";
-import { FORECAST_WIND_HEIGHT } from "./constants";
+import { FORECAST_WIND_HEIGHT, HOUR_FIRST, MS_PER_HOUR } from "./constants";
 import type { HourField } from "./fields";
 import type { MaterialDay, MaterialHour } from "./material";
 
@@ -11,15 +11,26 @@ import type { MaterialDay, MaterialHour } from "./material";
 export interface Site {
   /** Height of the station's anemometer (m); null when not known. */
   anemometerHeight: number | null;
+  /** Where the station is (decimal degrees); null when not known. */
+  lat?: number | null;
+  lon?: number | null;
 }
 
-export type HourInput = HourField | "windHeight";
+export type HourInput = HourField | "windHeight" | "hourStart" | "lat" | "lon";
+
+/** When JMA's hour n begins (ms): (n − 1):00 JST of the date. */
+export function hourStartOf(date: string, hour: number): number {
+  return Date.parse(`${date}T00:00:00+09:00`) + (hour - HOUR_FIRST) * MS_PER_HOUR;
+}
 
 export function hourInputs(m: MaterialHour, site: Site): Record<HourInput, Value> {
   const out = {} as Record<HourInput, Value>;
   for (const [f, v] of Object.entries(m.values) as [HourField, number | null][]) out[f] = v != null ? { value: v } : { absent: m.absent[f] ?? "notObserved" };
   const height = m.kind === "forecast" ? FORECAST_WIND_HEIGHT : site.anemometerHeight;
   out.windHeight = height != null ? { value: height } : { absent: "notProvided" };
+  out.hourStart = { value: hourStartOf(m.date, m.hour) };
+  out.lat = site.lat != null ? { value: site.lat } : { absent: "notProvided" };
+  out.lon = site.lon != null ? { value: site.lon } : { absent: "notProvided" };
   return out;
 }
 

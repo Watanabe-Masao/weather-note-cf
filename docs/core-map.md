@@ -8,12 +8,20 @@ flowchart LR
     temp["気温（毎時）<br><code>temp</code>"]
     humidity["湿度（毎時）<br><code>humidity</code>"]
     wind["風速（毎時）<br><code>wind</code>"]
+    rain["降水量（毎時）<br><code>rain</code>"]
+    sunshine["日照時間（毎時）<br><code>sunshine</code>"]
     windHeight["風速計の高さ（場所）<br><code>windHeight</code>"]
+    lat["緯度（場所）<br><code>lat</code>"]
+    lon["経度（場所）<br><code>lon</code>"]
+    hourStart["時刻<br><code>hourStart</code>"]
     dayMeans["平均気温（前の日から）<br><code>dayMeans</code>"]
   end
   subgraph 推測値
     windPerson["人の高さの風速<br><code>wind.person@1</code> m/s<br><small>数：personHeight・alpha</small>"]
     feelShade["肌感（日かげ）<br><code>feel.shade@1</code> ℃<br><small>数：neutral・a0・a1・a2・c0・c1・d</small>"]
+    radSunshine["日照から推測した日射<br><code>rad.sunshine@1</code> W/m²<br><small>数：hazeMean・hazeAmplitude・hazeClearestDay・cloudy・sharePower・rainRef・rainDim・rainPower・rainFloor</small>"]
+    windTen["10 m の風速<br><code>wind.ten@1</code> m/s<br><small>数：tenMeters・alpha</small>"]
+    feelSun["肌感（日なた）<br><code>feel.sun@1</code> ℃<br><small>数：k・windOffset・absorb</small>"]
     adaptMean["慣れ（単純平均）<br><code>adapt.long.mean@1</code> ℃<br><small>数：days・minDays</small>"]
     adaptEma["慣れ（重み付きの平均）<br><code>adapt.long.ema@1</code> ℃<br><small>数：alpha・days・minCoverage</small>"]
   end
@@ -26,6 +34,16 @@ flowchart LR
   temp --> feelShade
   humidity --> feelShade
   windPerson --> feelShade
+  hourStart --> radSunshine
+  lat --> radSunshine
+  lon --> radSunshine
+  sunshine --> radSunshine
+  rain --> radSunshine
+  wind --> windTen
+  windHeight --> windTen
+  feelShade --> feelSun
+  radSunshine --> feelSun
+  windTen --> feelSun
   dayMeans -. 前の日から .-> adaptMean
   dayMeans -. 前の日から .-> adaptEma
   adaptMean == どれか ==> seasonShift

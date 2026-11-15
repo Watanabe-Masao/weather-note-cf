@@ -12,3 +12,6 @@ export const FORECAST_WIND_HEIGHT = 10;
 /** Relative humidity is a percentage: 0–100 %. */
 export const HUMIDITY_MIN = 0;
 export const HUMIDITY_MAX = 100;
+
+/** ms in an hour. */
+export const MS_PER_HOUR = 3_600_000;

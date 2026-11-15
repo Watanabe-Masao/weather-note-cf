@@ -6,18 +6,24 @@ import { adaptEma } from "./estimate/adapt-ema/formula";
 import { adaptMean } from "./estimate/adapt-mean/formula";
 import type { AnyFormula } from "./estimate/engine";
 import { feelShade } from "./estimate/feel-shade/formula";
+import { feelSun } from "./estimate/feel-sun/formula";
+import { radSunshine } from "./estimate/sun/formula";
+import { windTen } from "./estimate/wind-ten/formula";
 import { windPerson } from "./estimate/wind-person/formula";
 import { level7 } from "./judge/level7/formula";
 import { seasonShift } from "./judge/season-shift/formula";
 import { DAY_FIELDS, HOUR_FIELDS } from "./material/fields";
 
 /** Every formula in the core (a test checks none is left out). */
-export const FORMULAS: readonly AnyFormula[] = [windPerson, feelShade, adaptMean, adaptEma, seasonShift, level7];
+export const FORMULAS: readonly AnyFormula[] = [windPerson, feelShade, radSunshine, windTen, feelSun, adaptMean, adaptEma, seasonShift, level7];
 
 /** The inputs that come from the material, by the name formulas use for them. */
 export const MATERIAL_INPUTS: Record<string, string> = {
   ...Object.fromEntries(HOUR_FIELDS.map((f) => [f.id, `${f.label}（毎時）`])),
   windHeight: "風速計の高さ（場所）",
+  lat: "緯度（場所）",
+  lon: "経度（場所）",
+  hourStart: "時刻",
   dayMeans: `${DAY_FIELDS.find((f) => f.id === "temp")!.label}（前の日から）`,
 };
 
