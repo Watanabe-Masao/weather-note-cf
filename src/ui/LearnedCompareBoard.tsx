@@ -9,8 +9,8 @@ import { addDays } from "../../shared/dates";
 import { stationLatLon } from "../../shared/sunTimes";
 import { type Report, SCALE_VERSION } from "../beta/reports";
 import { useReports } from "../beta/useReports";
-import { type Case, type CaseInputs, caseInputs, compareScores, dayOf, hourOf, plainLevelPredictor, type Predictor, prequential, type ScoreComparison, type Verdict, verdict } from "../core";
-import { climatologyPredictor, ordinalPredictor } from "../core/learned";
+import { afterWarmUp, BOOTSTRAP, type Case, type CaseInputs, caseInputs, compareScores, dayOf, hourOf, plainLevelPredictor, type Predictor, prequential, type ScoreComparison, type Verdict, verdict } from "../core";
+import { climatologyPredictor, ORDINAL_FIT, ordinalPredictor } from "../core/learned";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { FeelContext } from "./FeelBar";
@@ -30,7 +30,7 @@ function placeOf(r: Report): { date: string; hour: number } {
 const f3 = (v: number) => (Number.isFinite(v) ? v.toFixed(3) : "—");
 const signed3 = (v: number) => (Number.isFinite(v) ? `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(3)}` : "—");
 const VERDICT: Record<Verdict, string> = {
-  tooFew: "答えが2日分に満たないので、まだ言えません。",
+  tooFew: "まだ言えません：答えが足りません。",
   noWeather: "まだ言えません：S1 は「答えの割合だけ」の予測に勝っていないので、天気から学べているとは言えません。",
   helps: "効いた：S1 は base より外れが小さく、差の幅もすべて 0 より下です。",
   hurts: "S1 の方が外れが大きい：短期の履歴の項は、この答えでは邪魔になっています。",
@@ -92,18 +92,23 @@ export function LearnedCompareBoard({ store, station, onClose }: { store: Weathe
     }, 30);
   };
 
+  // Only the answers after the learned versions' warm-up: before it they say their prior alone, and
+  // comparing priors says nothing about learning (the first real run, 2026-11-15: 5 answers).
+  const MIN = ORDINAL_FIT.values.minAnswers.value;
+  const learned = run ? afterWarmUp(run.scored, "learned.ordinal.base", MIN) : [];
+  const warmUp = run ? run.scored.filter((x) => x.by["learned.ordinal.base"]).length - learned.filter((x) => x.by["learned.ordinal.base"]).length : 0;
   // Every row on the same answers: those every predictor could say something about.
-  const common = run ? run.scored.filter((x) => predictors.every((p) => x.by[p.id])) : [];
+  const common = learned.filter((x) => predictors.every((p) => x.by[p.id]));
   const rows = run
     ? predictors.map((p) => {
         const s = common;
-        const vsPlain = p.id === plainLevelPredictor.id ? null : compareScores(run.scored, plainLevelPredictor.id, p.id);
-        return { p, n: s.length, rps: s.reduce((a, x) => a + x.by[p.id]!.rps, 0) / (s.length || 1), hits: s.filter((x) => x.by[p.id]!.hit).length, vsPlain };
+        const vsPlain = p.id === plainLevelPredictor.id ? null : compareScores(learned, plainLevelPredictor.id, p.id);
+        return { p, n: s.length, rps: s.length ? s.reduce((a, x) => a + x.by[p.id]!.rps, 0) / s.length : NaN, hits: s.filter((x) => x.by[p.id]!.hit).length, vsPlain };
       })
     : [];
-  const s1VsBase: ScoreComparison | null = run ? compareScores(run.scored, "learned.ordinal.base", "learned.ordinal.s1") : null;
+  const s1VsBase: ScoreComparison | null = run ? compareScores(learned, "learned.ordinal.base", "learned.ordinal.s1") : null;
   // Learned anything from the weather at all? Only if S1 beats the answers' shares alone (principles 7).
-  const s1VsShares: ScoreComparison | null = run ? compareScores(run.scored, climatologyPredictor.id, "learned.ordinal.s1") : null;
+  const s1VsShares: ScoreComparison | null = run ? compareScores(learned, climatologyPredictor.id, "learned.ordinal.s1") : null;
   const LABEL: Record<string, string> = {
     [plainLevelPredictor.id]: "学習なし版（段）",
     [climatologyPredictor.id]: "答えの割合だけ",
@@ -125,7 +130,7 @@ export function LearnedCompareBoard({ store, station, onClose }: { store: Weathe
             </span>
             {run && (
               <span>
-                予測に使えた <b>{run.used}</b> 件{run.noFeel ? `（肌感なし ${run.noFeel} 件：半々・材料の欠け）` : ""}
+                予測に使えた <b>{run.used}</b> 件{run.noFeel ? `（肌感なし ${run.noFeel} 件：半々・材料の欠け）` : ""}・うち学習の慣らし {warmUp} 件
               </span>
             )}
             {!ready && (
@@ -145,6 +150,11 @@ export function LearnedCompareBoard({ store, station, onClose }: { store: Weathe
             {s1VsShares && (
               <p className={`learned-verdict${verdict(s1VsBase, s1VsShares) === "helps" ? " yes" : ""}`}>
                 {VERDICT[verdict(s1VsBase, s1VsShares)]}
+                {verdict(s1VsBase, s1VsShares) === "tooFew" && (
+                  <small>
+                    学習あり版が学び始めるのは、使える答えが {MIN} 件たまってから（いま慣らし {warmUp} 件）。比べるのはその後の答えで、{BOOTSTRAP.minDays} 日分が要ります（いま {s1VsBase.n} 件・{s1VsBase.days} 日）。
+                  </small>
+                )}
                 <small>
                   S1 − base：{signed3(s1VsBase.diff)}（幅 {interval(s1VsBase)}）・{s1VsBase.n} 件・{s1VsBase.days} 日
                 </small>
@@ -179,7 +189,7 @@ export function LearnedCompareBoard({ store, station, onClose }: { store: Weathe
                 </tbody>
               </table>
             </div>
-            <p className="set-help">どの行も、4つの予測がそろって点を付けられた同じ答え（{common.length} 件）の上。差は「その予測 − 学習なし版」。マイナスならその予測の方がよい。幅は日を単位にした95%の範囲で、答えが少ないうちは広くなります。</p>
+            <p className="set-help">どの行も、学習の慣らし（最初の {MIN} 件）の後で、4つの予測がそろって点を付けられた同じ答え（{common.length} 件）の上。差は「その予測 − 学習なし版」。マイナスならその予測の方がよい。幅は日を単位にした95%の範囲で、答えが少ないうちは広くなります。</p>
           </>
         )}
       </div>
