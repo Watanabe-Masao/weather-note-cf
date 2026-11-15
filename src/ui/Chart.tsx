@@ -9,9 +9,9 @@ import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import { type ChartMetric, graphSeries } from "../chartMetrics";
 import { barLook, barPath, DATA, lineLook, SHAPE } from "../design/tokens";
-import { Button, Chip, ForecastHatch, GraphReadout, GuideLines, BarSample, LineSample, RangeSample, Segmented } from "./kit";
+import { Button, Chip, ForecastHatch, GraphReadout, GuideLines, BarSample, InfoNote, LineSample, RangeSample, Segmented } from "./kit";
 import type { WeatherStore } from "../data/store";
-import { dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
+import { dateLabel, digitsOf, monthDay, niceTicks, shortDay, signedDiff, tickLabel } from "../design/format";
 import { FeelContext } from "./FeelBar";
 import { BetaContext } from "../beta/settings";
 import { baselineOf, useBaselineHistory } from "../beta/useBaseline";
@@ -41,6 +41,8 @@ const HIDDEN_KEY = "weather-note:chart-hidden";
 const LOOK_KEY = "weather-note:chart-look";
 // Bottom: two rows of dates (the target days, then their comparison days).
 const PAD = { left: 34, right: 10, top: 14, bottom: 44 };
+/** The band under the plot with one row of dates (the comparison days are the same dates). */
+const DATE_ROW_ONE = 26;
 /** Height of one row of small numbers under the plot (spread, rain chance, snow). */
 const UNDER_ROW = 13;
 
@@ -272,10 +274,17 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
     under.push({ label: row.label, cells: own.map(text) });
     if (row.compare) under.push({ label: "", cells: other.map(text), muted: true });
   }
-  const bottom = PAD.bottom + (under.length ? under.length * UNDER_ROW + 4 : 0);
+  // One row of dates when every comparison day is the same date (前年同日): the second row would
+  // repeat the first; which year it is, the card says. Otherwise both rows (前週, 前年同曜日, custom).
+  const oneDateRow = days.slice(BUFFER - 1, BUFFER + 8).every((d) => {
+    const p = partner(d);
+    return !p || p.slice(5) === d.slice(5);
+  });
+  const dateBand = oneDateRow ? DATE_ROW_ONE : PAD.bottom;
+  const bottom = dateBand + (under.length ? under.length * UNDER_ROW + 4 : 0);
   // The rows of numbers add to the height, so the plot keeps its size however many there are — unless
   // the sheet's room is measured (`fit`): then the whole graph takes that room, never less than MIN_PLOT.
-  const H = fit != null ? Math.max(MIN_PLOT + (bottom - PAD.bottom), Math.min(MAX_SVG, fit)) : height + (bottom - PAD.bottom);
+  const H = fit != null ? Math.max(MIN_PLOT + (bottom - dateBand), Math.min(MAX_SVG, fit)) : height + (bottom - dateBand);
 
   // The axis fits the seven days shown and one beside each (what a swipe of a day reveals): the days
   // drawn further out for a long swipe would stretch it (a cold day four days off once took the
@@ -323,7 +332,8 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
         live={scrub != null}
         unit={metric.unit}
         title={dateLabel(shownDay)}
-        dates={{ b: shownPartner ? monthDay(shownPartner) : undefined }}
+        // With one row of dates the comparison's year is said here ('25/11/10), not under the graph.
+        dates={{ b: shownPartner ? (oneDateRow ? shortDay(shownPartner, shownDay) : monthDay(shownPartner)) : undefined }}
         rows={series
           .filter((x) => !x.compare && !x.s.thin)
           .map(({ s, points }) => {
@@ -484,10 +494,10 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
 
         {days.map((d, i) => (
           <g key={d}>
-            <text x={xOf(i)} y={H - 24} textAnchor="middle" className={`chart-x tone-${dayTone(d)}`}>
+            <text x={xOf(i)} y={oneDateRow ? H - 9 : H - 24} textAnchor="middle" className={`chart-x tone-${dayTone(d)}`}>
               {+d.slice(5, 7)}/{+d.slice(8)}
             </text>
-            {(() => {
+            {!oneDateRow && (() => {
               // The comparison day each column is compared with (it differs from the target date
               // with 前年同曜日, 前週 or a custom pair).
               const p = partner(d);
@@ -542,59 +552,37 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             </text>
           ) : null,
         )}
-        <text x={frame.left - 6} y={H - 24} textAnchor="end" className="chart-x-side">
-          対象
-        </text>
-        <text x={frame.left - 6} y={H - 9} textAnchor="end" className="chart-x-side">
-          比較
-        </text>
+        {!oneDateRow && (
+          <>
+            <text x={frame.left - 6} y={H - 24} textAnchor="end" className="chart-x-side">
+              対象
+            </text>
+            <text x={frame.left - 6} y={H - 9} textAnchor="end" className="chart-x-side">
+              比較
+            </text>
+          </>
+        )}
       </svg>
-      {/* Legend in the graph's own marks: lines for line graphs, fills and outlines for bars. */}
-      {metric.chart === "bar" ? (
-        <p className="line-legend">
+      {/* Legend in the graph's own marks, on one line: which day (lines, fills or round bars), 予報.
+          Everything that explains rather than names (信頼度, what a bar or a number is) is behind ⓘ. */}
+      <InfoNote className="chart-key" more={<ChartNotes metric={metric} range={range} spread={spreadOn} feel={shown("feel") && lines.some((s) => s.key === "feel")} mean={shown("temp")} />}>
+        <span className="line-legend">
           <span>
-            <BarSample day="target" />
+            {metric.chart === "bar" ? <BarSample day="target" /> : range ? <RangeSample day="target" /> : <LineSample day="target" />}
             対象日
           </span>
           <span>
-            <BarSample day="compare" />
+            {metric.chart === "bar" ? <BarSample day="compare" /> : range ? <RangeSample day="compare" /> : <LineSample day="compare" />}
             比較日
           </span>
           <span>
             <i className="ls-forecast" />
             予報
           </span>
-          <span title="予報の計算のそろい具合。A がいちばん確か、C は変わりやすい">
-            <b className="conf">A</b>
-            <b className="conf">B</b>
-            <b className="conf conf-C">C</b>
-            信頼度
-          </span>
-        </p>
-      ) : (
-        <p className="line-legend">
-          <span>
-            {range ? <RangeSample day="target" /> : <LineSample day="target" />}
-            対象日
-          </span>
-          <span>
-            {range ? <RangeSample day="compare" /> : <LineSample day="compare" />}
-            比較日
-          </span>
-          <span>
-            <i className="ls-forecast" />
-            予報
-          </span>
-          <span title="予報の計算のそろい具合。A がいちばん確か、C は変わりやすい">
-            <b className="conf">A</b>
-            <b className="conf">B</b>
-            <b className="conf conf-C">C</b>
-            信頼度
-          </span>
-        </p>
-      )}
+        </span>
+      </InfoNote>
       {(lines.length > 1 || metric.spread) && (
-        <div className="chip-row" role="group" aria-label="表示する線">
+        <div className="chip-row chip-row-scroll" role="group" aria-label="表示する線">
           {/* Line switches: the chip shows the line's colour; off is dimmed. */}
           {lines.filter((s) => !ranged(s.key)).map((s) => (
             <Chip
@@ -625,14 +613,29 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           )}
         </div>
       )}
-      {/* One note per item; the row order is always 上＝対象日・下＝比較日. */}
-      {range && <p className="chart-note">棒は最高（上）から最低（下）まで。{shown("temp") ? "白い印は平均。" : ""}</p>}
-      {spreadOn && <p className="chart-note">寒暖差は最高−最低。肌感は日中・昼・夕方の平均。</p>}
-      {metric.under?.some((r) => r.key === "probability") && <p className="chart-note">降水確率は予報の日だけ。雪は降った日だけ。</p>}
-      {metric.under?.some((r) => r.key === "gust") && <p className="chart-note">線は平均風速、数字は最大瞬間風速。</p>}
-      {metric.under?.some((r) => r.key === "sun") && <p className="chart-note">棒は日射量、数字は日照時間。</p>}
-      {!spreadOn && shown("feel") && lines.some((s) => s.key === "feel") && <p className="chart-note">肌感は日中・昼・夕方の平均</p>}
     </div>
+  );
+}
+
+/** What the graph's marks mean, behind the legend's ⓘ: 信頼度 and the item's own notes. */
+function ChartNotes({ metric, range, spread, feel, mean }: { metric: ChartMetric; range: boolean; spread: boolean; feel: boolean; mean: boolean }) {
+  const notes = [
+    range && `棒は最高（上）から最低（下）まで${mean ? "、白い印は平均" : ""}。`,
+    spread && "寒暖差は最高−最低。",
+    feel && "肌感は日中・昼・夕方の平均。",
+    metric.under?.some((r) => r.key === "probability") && "降水確率は予報の日だけ、雪は降った日だけ。",
+    metric.under?.some((r) => r.key === "gust") && "線は平均風速、数字は最大瞬間風速。",
+    metric.under?.some((r) => r.key === "sun") && "棒は日射量、数字は日照時間。",
+    "予報の日の A・B・C は信頼度（予報の計算のそろい具合）。A がいちばん確か、C は変わりやすい。",
+  ].filter(Boolean);
+  return (
+    <>
+      {notes.map((n) => (
+        <span key={n as string} className="chart-key-note">
+          {n}
+        </span>
+      ))}
+    </>
   );
 }
 
