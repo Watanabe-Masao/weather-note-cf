@@ -227,8 +227,9 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
                   </Chip>
                 );
               })}
-              <Chip size="sm" on={calOpen} onClick={() => setCalOpen(!calOpen)}>
-                {calOpen ? "閉じる" : "日付"}
+              {/* One chip opens and closes the calendar: lit while open, no separate 閉じる. */}
+              <Chip size="sm" on={calOpen} onClick={() => setCalOpen(!calOpen)} aria-expanded={calOpen}>
+                日付
               </Chip>
             </div>
           </div>
