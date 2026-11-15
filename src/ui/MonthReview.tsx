@@ -4,7 +4,7 @@
 
 import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
-import { PARTS } from "../../shared/dayParts";
+import { dayParts, hoursIn, PARTS, type PartId } from "../../shared/dayParts";
 import { SCALE_STEPS } from "../../shared/feel";
 import { stormOfRow } from "../../shared/storm";
 import type { WeatherRow } from "../../shared/types";
@@ -15,7 +15,7 @@ import { DATA, FEEL_SCALE_COLORS, SHAPE } from "../design/tokens";
 import { bandsFor, FeelBar, FeelContext } from "./FeelBar";
 import { DayWeatherIcon } from "./WeatherIcon";
 import { dayTone } from "../../shared/holidays";
-import { GraphReadout, type ReadoutRow, SectionHead } from "./kit";
+import { Chip, GraphReadout, type ReadoutRow, SectionHead } from "./kit";
 import { ModalSheet } from "./ModalSheet";
 import { feelOn } from "../feelSeason";
 
@@ -43,8 +43,24 @@ interface MonthStats {
   frost: number;
   storm: number;
 }
-function statsOf(store: WeatherStore | null, station: string, days: string[]): MonthStats {
-  const rows = days.map((d) => store?.getDay(station, d).row ?? null);
+/**
+ * A day's values over the chosen time bands only (from its hours): rain and sunshine added up, the
+ * temperature's mean, highest and lowest. All bands chosen: the day's own row, as recorded.
+ */
+function rowIn(store: WeatherStore | null, station: string, date: string, parts: ReadonlySet<PartId> | null): WeatherRow | null {
+  const row = store?.getDay(station, date).row ?? null;
+  if (!parts || !row) return row;
+  const h = store?.getHours(station, date);
+  if (h?.state !== "ready" || !h.rows.length) return null;
+  const want = new Set(dayParts(date, station).filter((p) => parts.has(p.id)).flatMap((p) => hoursIn(p)));
+  const hs = h.rows.filter((r) => want.has(r.n));
+  const v = (k: string) => hs.map((r) => num(r[k])).filter((x): x is number => x != null);
+  const t = v("temp");
+  return { ...row, rain: sum(v("rain")), sun: sum(v("sun")), temp: mean(t), max: t.length ? Math.max(...t) : null, min: t.length ? Math.min(...t) : null };
+}
+
+function statsOf(store: WeatherStore | null, station: string, days: string[], parts: ReadonlySet<PartId> | null = null): MonthStats {
+  const rows = days.map((d) => rowIn(store, station, d, parts));
   const vals = (k: string) => rows.map((r) => num(r?.[k])).filter((v): v is number => v != null);
   return {
     rows,
@@ -72,8 +88,19 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
     return () => store?.wantHours(station, [], Priority.Visible, "month");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store, station, month]);
-  const a = statsOf(store, station, days);
-  const b = statsOf(store, station, daysB);
+  // 時間帯で絞る（案C）: null = all bands (the day as recorded).
+  const [parts, setParts] = useState<ReadonlySet<PartId> | null>(null);
+  const toggle = (id: PartId) => {
+    const next = new Set(parts ?? PARTS.map((p) => p.id));
+    if (parts == null) {
+      next.clear();
+      next.add(id);
+    } else if (!next.delete(id)) next.add(id);
+    setParts(next.size === 0 || next.size === PARTS.length ? null : next);
+  };
+  const partsLabel = parts == null ? "1日" : PARTS.filter((p) => parts.has(p.id)).map((p) => p.label).join("・");
+  const a = statsOf(store, station, days, parts);
+  const b = statsOf(store, station, daysB, parts);
   const f1 = (v: number | null, u = "") => (v == null ? "—" : `${v.toFixed(1)}${u}`);
   const d1 = (x: number | null, y: number | null, unit: string) => signedDiff(x, y, unit);
   const cnt = (n: number) => `${n}日`;
@@ -133,8 +160,19 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
     return (
       <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
         {/* 案C 組み合わせ: まとめ（文章＋3つの数字）→ カレンダー（目立った日に印）→ 曜日ごと → 肌感の月 → 目立った日 */}
+        <div className="month-parts chip-row" role="group" aria-label="時間帯で絞る">
+          <Chip size="sm" on={parts == null} onClick={() => setParts(null)}>
+            1日
+          </Chip>
+          {PARTS.map((p) => (
+            <Chip key={p.id} size="sm" on={parts?.has(p.id) ?? false} onClick={() => toggle(p.id)}>
+              {p.label}
+            </Chip>
+          ))}
+        </div>
         <div className="ds-lead">
           <p className="ds-comment">
+            {parts != null && <span className="month-parts-note">{partsLabel}の値（時間ごとの記録から）</span>}
             {words.map((w) => (
               <span key={w}>{w}</span>
             ))}

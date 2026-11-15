@@ -4365,3 +4365,6 @@ svg.scrub {
 .month-week-icons { display: flex; gap: 4px; align-items: center; }
 .month-week-num { font-family: var(--font-numeric); font-size: var(--size-sm); text-align: right; font-variant-numeric: tabular-nums; }
 .month-week-foot { grid-column: 1 / -1; margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+
+.month-parts { margin: 0 0 var(--space-4); }
+.month-parts-note { font-size: var(--size-xs); color: var(--ink-secondary); }
