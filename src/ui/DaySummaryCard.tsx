@@ -1,6 +1,7 @@
 // その日の要約 (#176): a long press on a day's weather picture opens the day at a glance, beside
 // its comparison day — the weather, temperatures, rain, sunshine and wind — and, on a 強風／暴風
-// day, how far the wind went past JMA's criteria.
+// day, how far the wind went past JMA's criteria. Under the values: the day by time band (weather) and
+// by the hour (temperature and rain, a small graph).
 
 import { dayWeatherOf } from "../../shared/dayWeather";
 import { STORM, stormOfRow, type StormLevel } from "../../shared/storm";
@@ -13,7 +14,9 @@ import type { DaySummaryAsk } from "./daySummaryPress";
 import { dayComment } from "../data/dayComment";
 import { dateLabel, formatValue, monthDay, num, shortDay, signedDiff } from "../design/format";
 import { DATA } from "../design/tokens";
-import { Badge, confidenceOfRow, GraphReadout, type Kind, Num, type ReadoutRow, SectionHead } from "./kit";
+import { Badge, BarSample, confidenceOfRow, GraphReadout, type Kind, LineSample, Num, type ReadoutRow, SectionHead } from "./kit";
+import { MiniDayChart } from "./MiniDayChart";
+import { PartsWeather } from "./PartsWeather";
 import { useEffect } from "react";
 import { ModalSheet } from "./ModalSheet";
 import { DayWeatherIcon, StormMark } from "./WeatherIcon";
@@ -52,6 +55,12 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
   const lowA = lowest(date);
   const lowB = lowest(other);
   const kind = kindLabel(store, station, date);
+  const ready = (day: string | null) => {
+    const h = day ? store?.getHours(station, day) : null;
+    return h?.state === "ready" && h.rows.length ? h.rows : null;
+  };
+  const hoursA = ready(date);
+  const hoursB = ready(other);
 
   return (
     <ModalSheet title={`${dateLabel(date)}の天気`} label={`${dateLabel(date)}の要約`} onClose={onClose} size="fit" className="day-summary-sheet">
@@ -73,7 +82,38 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
         </div>
       )}
       {/* 数字を読む所（沈んだ面）: the same readout as every graph. */}
-      <GraphReadout title={storm ? <StormTitle level={storm} /> : "その日の値"} unit="" dates={{ a: monthDay(date), b: otherName ?? undefined }} rows={rows} />
+      <GraphReadout
+        title={storm ? <StormTitle level={storm} /> : "その日の値"}
+        unit=""
+        dates={{ a: monthDay(date), b: otherName ?? undefined }}
+        rows={rows}
+        footer={<PartsWeather store={store} station={station} date={date} partner={other} />}
+      />
+      {/* 時間ごと: the day's temperature beside its comparison day's, and its rain, at a glance. */}
+      {(hoursA || hoursB) && (
+        <>
+          <SectionHead title="時間ごと" />
+          <div className="ds-hours">
+            <MiniDayChart rows={hoursA} otherRows={hoursB} label={`${dateLabel(date)}の時間ごとの気温${other ? `（破線は${otherName}）` : ""}と降水`} />
+            <p className="line-legend">
+              <span>
+                <LineSample day="target" color={DATA.temp} />
+                気温 ℃（{monthDay(date)}）
+              </span>
+              {other && (
+                <span>
+                  <LineSample day="compare" color={DATA.temp} />
+                  {otherName}
+                </span>
+              )}
+              <span>
+                <BarSample day="target" color={DATA.rain} />
+                降水（{other ? "枠は比較" : "mm"}）
+              </span>
+            </p>
+          </div>
+        </>
+      )}
       {storm && a && (
         <>
           <SectionHead title="風の強さ" />

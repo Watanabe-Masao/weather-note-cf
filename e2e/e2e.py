@@ -273,6 +273,9 @@ with sync_playwright() as p:
 
     # TX. 質感 (design-system.md 4.1): values by the points, the 幅 view, rounded amount bars
     def tx():
+        fit = pg.evaluate("(()=>{const b=document.querySelector('.sheet-body');return [b.scrollHeight,b.clientHeight]})()")
+        check("TX0 日別のグラフはシートに収まる（縦にスクロールしない）", fit[0] <= fit[1] + 1, str(fit))
+        check("TX0b 上のカードに時間帯の天気（朝〜夜の5つ）", pg.locator(".sheet .readout-card .parts-wx-cell").count() == 5)
         check("TX1 気温の値を点のそばに（対象日の最高・最低）", pg.locator(".sheet .chart-values text").count() >= 14, str(pg.locator(".sheet .chart-values text").count()))
         check("TX2 線は区間ごとに1本（日ごとの線分にしない）", pg.evaluate("document.querySelectorAll('.sheet .chart > svg line[stroke-dasharray]:not(.guide *)').length") == 0)
         pg.locator(".chart-look button", has_text="幅").click(); calm()
