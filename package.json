@@ -10,7 +10,8 @@
     "typecheck": "tsc -b && tsc --noEmit -p tsconfig.research.json",
     "test": "vitest run",
     "check": "npm run typecheck && npm run test && vite build",
-    "e2e": "vite build && python3 e2e/e2e.py"
+    "e2e": "vite build && python3 e2e/e2e.py",
+    "model-map": "npx --yes tsx@4.19.2 scripts/model-map.ts"
   },
   "dependencies": {
     "idb": "^8.0.4",
