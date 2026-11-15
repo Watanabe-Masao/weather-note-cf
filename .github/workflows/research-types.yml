@@ -1,0 +1,37 @@
+name: research-types
+
+# #222 (天気の型を本物の記録で確かめる): each month grouped with its 前年同曜日 days the way the month
+# review's sample does, against criteria set beforehand (research/types/t01.ts). Manual only. Reads
+# JMA's daily table one month a request; the records and the report are kept as this run's artifact,
+# never committed.
+on:
+  workflow_dispatch:
+    inputs:
+      station:
+        description: "観測所（blockNo）"
+        default: "47893"
+      from:
+        description: "最初の月（YYYY-MM）"
+        default: "2024-11"
+      to:
+        description: "最後の月（YYYY-MM）"
+        default: "2026-10"
+
+jobs:
+  t01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx --yes tsx@4.19.2 research/types/t01.ts --station "${{ inputs.station }}" --from "${{ inputs.from }}" --to "${{ inputs.to }}" --out research/types/out
+      - run: cat research/types/out/t01-report.md >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: types-${{ inputs.station }}-${{ inputs.from }}-${{ inputs.to }}
+          path: research/types/out
