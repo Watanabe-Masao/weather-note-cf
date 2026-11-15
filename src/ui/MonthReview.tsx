@@ -1,0 +1,283 @@
+// 見本（sample/month、マージしない）: 月の振り返り — a month beside the same month a year before, from the
+// records only: the month in words, its numbers, each day's 最高〜最低, 肌感 by time band, and the days
+// that stood out. Opened with ?month=YYYY-MM.
+
+import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { addDays } from "../../shared/dates";
+import { PARTS } from "../../shared/dayParts";
+import { SCALE_STEPS } from "../../shared/feel";
+import { stormOfRow } from "../../shared/storm";
+import type { WeatherRow } from "../../shared/types";
+import type { WeatherStore } from "../data/store";
+import { Priority } from "../data/plan";
+import { num, signedDiff } from "../design/format";
+import { DATA, FEEL_SCALE_COLORS, SHAPE } from "../design/tokens";
+import { bandsFor, FeelContext } from "./FeelBar";
+import { GraphReadout, type ReadoutRow, SectionHead } from "./kit";
+import { ModalSheet } from "./ModalSheet";
+import { feelOn } from "../feelSeason";
+
+const daysOf = (month: string) => {
+  const first = `${month}-01`;
+  const out: string[] = [];
+  for (let d = first; d.startsWith(month); d = addDays(d, 1)) out.push(d);
+  return out;
+};
+const yearBefore = (month: string) => `${+month.slice(0, 4) - 1}${month.slice(4)}`;
+const label = (month: string) => `${+month.slice(0, 4)}年${+month.slice(5)}月`;
+const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
+const sum = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) : null);
+
+interface MonthStats {
+  rows: (WeatherRow | null)[];
+  temp: number | null;
+  max: number | null;
+  min: number | null;
+  rain: number | null;
+  rainDays: number;
+  sun: number | null;
+  hot30: number;
+  hot25: number;
+  frost: number;
+  storm: number;
+}
+function statsOf(store: WeatherStore | null, station: string, days: string[]): MonthStats {
+  const rows = days.map((d) => store?.getDay(station, d).row ?? null);
+  const vals = (k: string) => rows.map((r) => num(r?.[k])).filter((v): v is number => v != null);
+  return {
+    rows,
+    temp: mean(vals("temp")),
+    max: mean(vals("max")),
+    min: mean(vals("min")),
+    rain: sum(vals("rain")),
+    rainDays: vals("rain").filter((v) => v >= 1).length,
+    sun: sum(vals("sun")),
+    hot30: vals("max").filter((v) => v >= 30).length,
+    hot25: vals("max").filter((v) => v >= 25).length,
+    frost: vals("min").filter((v) => v < 0).length,
+    storm: rows.filter((r) => stormOfRow(r)).length,
+  };
+}
+
+export function MonthReview({ store, station, month, onClose }: { store: WeatherStore | null; station: string; month: string; onClose: () => void }) {
+  const feel = useContext(FeelContext);
+  const before = yearBefore(month);
+  const days = daysOf(month);
+  const daysB = daysOf(before);
+  useEffect(() => {
+    store?.prefetch(station, [...days, ...daysB], "month", Priority.Visible);
+    store?.wantHours(station, [...days, ...daysB], Priority.Visible, "month");
+    return () => store?.wantHours(station, [], Priority.Visible, "month");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store, station, month]);
+  const a = statsOf(store, station, days);
+  const b = statsOf(store, station, daysB);
+  const f1 = (v: number | null, u = "") => (v == null ? "—" : `${v.toFixed(1)}${u}`);
+  const d1 = (x: number | null, y: number | null, unit: string) => signedDiff(x, y, unit);
+  const cnt = (n: number) => `${n}日`;
+  const rows: ReadoutRow[] = [
+    { key: "temp", label: "平均気温", unit: "℃", color: DATA.mean, a: f1(a.temp), b: f1(b.temp), diff: d1(a.temp, b.temp, "℃") },
+    { key: "max", label: "最高の平均", unit: "℃", color: DATA.hot, a: f1(a.max), b: f1(b.max), diff: d1(a.max, b.max, "℃") },
+    { key: "min", label: "最低の平均", unit: "℃", color: DATA.cold, a: f1(a.min), b: f1(b.min), diff: d1(a.min, b.min, "℃") },
+    { key: "rain", label: "降水の合計", unit: "mm", color: DATA.rain, a: f1(a.rain), b: f1(b.rain), diff: d1(a.rain, b.rain, "mm") },
+    { key: "rainDays", label: "雨の日（1mm以上）", text: true, unit: "", a: cnt(a.rainDays), b: cnt(b.rainDays), diff: `${a.rainDays - b.rainDays >= 0 ? "+" : "−"}${Math.abs(a.rainDays - b.rainDays)}` },
+    { key: "sun", label: "日照の合計", unit: "h", color: DATA.sun, a: f1(a.sun), b: f1(b.sun), diff: d1(a.sun, b.sun, "h") },
+    { key: "hot25", label: "夏日（25℃以上）", text: true, unit: "", a: cnt(a.hot25), b: cnt(b.hot25), diff: `${a.hot25 - b.hot25 >= 0 ? "+" : "−"}${Math.abs(a.hot25 - b.hot25)}` },
+  ];
+  // The month in words: from the numbers above only.
+  const words: string[] = [];
+  if (a.temp != null && b.temp != null) {
+    const dt = a.temp - b.temp;
+    words.push(Math.abs(dt) < 0.5 ? `平均気温は ${a.temp.toFixed(1)}℃ で、${label(before)}とほぼ同じ。` : `平均気温は ${a.temp.toFixed(1)}℃ で、${label(before)}より ${Math.abs(dt).toFixed(1)}℃ ${dt > 0 ? "高い" : "低い"}。`);
+  }
+  if (a.rain != null && b.rain != null) words.push(`雨は ${a.rainDays}日・${a.rain.toFixed(0)}mm（${label(before)}は ${b.rainDays}日・${b.rain.toFixed(0)}mm）。`);
+  if (a.sun != null && b.sun != null && b.sun > 0) {
+    const r = a.sun / b.sun;
+    words.push(r > 1.1 ? `日差しは多め（日照 ${a.sun.toFixed(0)}時間、${r.toFixed(1)}倍）。` : r < 0.9 ? `日差しは少なめ（日照 ${a.sun.toFixed(0)}時間、${r.toFixed(1)}倍）。` : `日差しは同じくらい（日照 ${a.sun.toFixed(0)}時間）。`);
+  }
+  // The days that stood out.
+  const pick = (score: (r: WeatherRow, i: number) => number | null, best: "max" | "min") => {
+    let at = -1;
+    let v: number | null = null;
+    a.rows.forEach((r, i) => {
+      if (!r) return;
+      const s = score(r, i);
+      if (s == null) return;
+      if (v == null || (best === "max" ? s > v : s < v)) {
+        v = s;
+        at = i;
+      }
+    });
+    return at < 0 ? null : { date: days[at], v: v! };
+  };
+  const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
+  const standouts = [
+    { label: "いちばん暑い日", p: pick((r) => num(r.max), "max"), fmt: (v: number) => `最高 ${v.toFixed(1)}℃`, color: DATA.hot },
+    { label: "いちばん寒い日", p: pick((r) => num(r.min), "min"), fmt: (v: number) => `最低 ${v.toFixed(1)}℃`, color: DATA.cold },
+    { label: "寒暖差がいちばん大きい日", p: pick((r) => (num(r.max) != null && num(r.min) != null ? num(r.max)! - num(r.min)! : null), "max"), fmt: (v: number) => `${v.toFixed(1)}℃`, color: DATA.mean },
+    {
+      label: "前の日からいちばん変わった日",
+      p: pick((r, i) => (i > 0 && a.rows[i - 1] && num(r.max) != null && num(a.rows[i - 1]!.max) != null ? Math.abs(num(r.max)! - num(a.rows[i - 1]!.max)!) : null), "max"),
+      fmt: (v: number) => `最高が ${v.toFixed(1)}℃ 変化`,
+      color: DATA.mean,
+    },
+    { label: "雨がいちばん多い日", p: pick((r) => num(r.rain), "max"), fmt: (v: number) => `${v.toFixed(1)}mm`, color: DATA.rain },
+  ];
+
+  return (
+    <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
+      <div className="ds-lead">
+        <p className="ds-comment">
+          {words.map((w) => (
+            <span key={w}>{w}</span>
+          ))}
+        </p>
+      </div>
+      <GraphReadout title="月の値" unit="" dates={{ a: label(month).replace(/^\d+年/, "’" + month.slice(2, 4) + "/").replace("月", ""), b: "’" + before.slice(2, 4) + "/" + +before.slice(5) }} rows={rows} />
+      <SectionHead title="日ごとの気温（最高〜最低）" />
+      <div className="ds-hours">
+        <MonthRange a={a.rows} b={b.rows} />
+        <p className="line-legend">
+          <span>
+            <svg className="line-sample" width="10" height="14" aria-hidden>
+              <rect x="2" y="1" width="6" height="12" rx="3" fill={DATA.hot} />
+            </svg>
+            {label(month)}
+          </span>
+          <span>
+            <svg className="line-sample" width="10" height="14" aria-hidden>
+              <rect x="2" y="1" width="6" height="12" rx="3" fill="none" stroke={DATA.hot} strokeWidth={1.4} opacity={0.8} />
+            </svg>
+            {label(before)}
+          </span>
+        </p>
+      </div>
+      <SectionHead title={`肌感（${feel.sun ? "日なた" : "日かげ"}）の月`} />
+      <div className="ds-hours">
+        <FeelMonth store={store} station={station} days={days} daysB={daysB} />
+      </div>
+      <SectionHead title="目立った日" />
+      <div className="ds-hours month-standouts">
+        {standouts.map((s) => (
+          <p key={s.label} className="month-standout">
+            <span>{s.label}</span>
+            <b>{s.p ? md(s.p.date) : "—"}</b>
+            <em style={{ color: s.color }}>{s.p ? s.fmt(s.p.v) : ""}</em>
+          </p>
+        ))}
+      </div>
+    </ModalSheet>
+  );
+}
+
+/** Each day's 最高〜最低 as a round bar: the month filled (最高の色から最低の色へ), the year before outlined beside it. */
+function MonthRange({ a, b }: { a: (WeatherRow | null)[]; b: (WeatherRow | null)[] }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(320);
+  useLayoutEffect(() => {
+    const el = ref.current!;
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    setW(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+  const H = 150;
+  const PAD = { left: 24, right: 4, top: 6, bottom: 18 };
+  const vals = [...a, ...b].flatMap((r) => [num(r?.max), num(r?.min)]).filter((v): v is number => v != null);
+  if (!vals.length) return <div ref={ref} />;
+  const lo = Math.floor(Math.min(...vals) / 5) * 5;
+  const hi = Math.ceil(Math.max(...vals) / 5) * 5;
+  const n = Math.max(a.length, b.length);
+  const step = (w - PAD.left - PAD.right) / n;
+  const bw = Math.min(SHAPE.range.maxWidth, step * 0.38);
+  const x = (i: number) => PAD.left + step * (i + 0.5);
+  const y = (v: number) => PAD.top + ((hi - v) / (hi - lo)) * (H - PAD.top - PAD.bottom);
+  const ticks: number[] = [];
+  for (let t = lo; t <= hi; t += hi - lo > 20 ? 10 : 5) ticks.push(t);
+  const cap = (cx: number, mx: number, mn: number) => ({ x: cx - bw / 2, y: y(mx), width: bw, height: Math.max(bw, y(mn) - y(mx)), rx: bw / 2 });
+  return (
+    <div ref={ref}>
+      <svg width={w} height={H} role="img" aria-label="日ごとの最高〜最低">
+        <defs>
+          <linearGradient id="month-range" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={DATA.hot} />
+            <stop offset="1" stopColor={DATA.cold} />
+          </linearGradient>
+        </defs>
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={PAD.left} x2={w - PAD.right} y1={y(t)} y2={y(t)} className="chart-grid" />
+            <text x={PAD.left - 4} y={y(t) + 4} className="chart-tick" textAnchor="end">
+              {t}
+            </text>
+          </g>
+        ))}
+        {Array.from({ length: n }, (_, i) => {
+          const ra = a[i];
+          const rb = b[i];
+          return (
+            <g key={i}>
+              {num(rb?.max) != null && num(rb?.min) != null && <rect {...cap(x(i) + bw * 0.45, num(rb!.max)!, num(rb!.min)!)} fill="none" stroke="url(#month-range)" strokeWidth={1.1} opacity={0.7} />}
+              {num(ra?.max) != null && num(ra?.min) != null && <rect {...cap(x(i) - bw * 0.45, num(ra!.max)!, num(ra!.min)!)} fill="url(#month-range)" />}
+            </g>
+          );
+        })}
+        {[1, 5, 10, 15, 20, 25, 30].filter((d) => d <= n).map((d) => (
+          <text key={d} x={x(d - 1)} y={H - 4} className="chart-tick" textAnchor="middle">
+            {d}
+          </text>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+/** 肌感 by time band over the month: for each band, how many days fell in each step (the month above, the year before below). */
+function FeelMonth({ store, station, days, daysB }: { store: WeatherStore | null; station: string; days: string[]; daysB: string[] }) {
+  const base = useContext(FeelContext);
+  const scale = base.scale;
+  const steps = SCALE_STEPS[scale];
+  const count = (ds: string[]) =>
+    PARTS.map((_, pi) =>
+      steps.map((_, si) =>
+        ds.filter((d) => {
+          const found = bandsFor(store, station, d, feelOn(store, station, d, base));
+          const lv = found?.exact ? found.bands[pi]?.level : null;
+          return lv != null && steps[si].of.includes(lv);
+        }).length,
+      ),
+    );
+  const a = count(days);
+  const b = count(daysB);
+  const bar = (c: number[], thin: boolean) => {
+    const total = c.reduce((x, y) => x + y, 0);
+    if (!total) return <span className={`month-feel-bar${thin ? " thin" : ""} empty`} />;
+    return (
+      <span className={`month-feel-bar${thin ? " thin" : ""}`}>
+        {c.map((k, i) => (k ? <i key={i} style={{ flex: k, background: FEEL_SCALE_COLORS[scale][i] }} title={`${steps[i].label} ${k}日`} /> : null))}
+      </span>
+    );
+  };
+  return (
+    <div className="month-feel">
+      {PARTS.map((p, pi) => (
+        <div key={p.id} className="month-feel-row">
+          <span className="month-feel-name">{p.label}</span>
+          <span className="month-feel-bars">
+            {bar(a[pi], false)}
+            {bar(b[pi], true)}
+          </span>
+        </div>
+      ))}
+      <p className="line-legend">
+        {steps.map((s, i) => (
+          <span key={s.label}>
+            <i style={{ background: FEEL_SCALE_COLORS[scale][i], width: 10, height: 10, borderRadius: 2 }} />
+            {s.label}
+          </span>
+        ))}
+      </p>
+      <p className="chart-key-note">太い帯がこの月、細い帯が前の年の同じ月。帯の長さはその段の日数。</p>
+    </div>
+  );
+}

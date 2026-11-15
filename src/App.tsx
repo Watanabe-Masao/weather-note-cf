@@ -34,6 +34,7 @@ import {
 import { StatusBar } from "./ui/StatusBar";
 import { Button, CheckGlyph, IconButton } from "./ui/kit";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
+import { MonthReview } from "./ui/MonthReview";
 import { Settings } from "./ui/Settings";
 import { FeelSheet } from "./ui/FeelSheet";
 import { HourFace } from "./ui/HourFace";
@@ -78,6 +79,7 @@ function chartHeight(
 export function App() {
   const store = useWeatherStore();
   const [calendar, setCalendar] = useState<CalendarSide | null>(null);
+  const [sampleMonth, setSampleMonth] = useState<string | null>(() => (typeof location !== "undefined" ? (location.search.match(/[?&]month=(\d{4}-\d{2})/)?.[1] ?? null) : null));
   // その日の要約 (#176): a long press on a day's weather picture.
   const [summary, setSummary] = useState<DaySummaryAsk | null>(null);
   const {
@@ -484,6 +486,12 @@ export function App() {
         </FeelContext.Provider>
       </BetaContext.Provider>
 
+      {/* 見本（sample/month、マージしない）: ?month=YYYY-MM で月の振り返り */}
+      {sampleMonth && (
+        <FeelContext.Provider value={feelSettings}>
+          <MonthReview store={store} station={view.station} month={sampleMonth} onClose={() => setSampleMonth(null)} />
+        </FeelContext.Provider>
+      )}
       {feelMap && (
         <BetaContext.Provider value={beta}>
           <FeelContext.Provider value={feelSettings}>
