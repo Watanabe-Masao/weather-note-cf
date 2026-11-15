@@ -33,6 +33,12 @@ export interface ChartSeries {
   graphOnly?: boolean;
   /** A thin line without dots (a reference, such as the mean). */
   thin?: boolean;
+  /**
+   * The target day's value written by its point (design-system.md 4.1): "above" for the high side
+   * of a pair (最高), "below" for the low side (最低), "auto" for a line alone (above at a peak,
+   * below in a dip). Left out: no labels (the 肌感 line, references).
+   */
+  valueLabel?: "above" | "below" | "auto";
   /** A table row only (the graph shows it another way, such as the spread band). */
   tableOnly?: boolean;
   /** A secondary table row, set smaller. */
@@ -123,8 +129,8 @@ export const CHART_METRICS: ChartMetric[] = [
     chart: "line",
     zero: false,
     series: [
-      { key: "max", label: "最高", tone: "hot", value: field("max") },
-      { key: "min", label: "最低", tone: "cold", value: field("min") },
+      { key: "max", label: "最高", tone: "hot", value: field("max"), valueLabel: "above" },
+      { key: "min", label: "最低", tone: "cold", value: field("min"), valueLabel: "below" },
       { key: "temp", label: "平均", tone: "mean", value: field("temp"), thin: true, minor: true },
       {
         key: "range",
@@ -213,8 +219,8 @@ export const CHART_METRICS: ChartMetric[] = [
     chart: "line",
     zero: false,
     series: [
-      { key: "humidity", label: "平均", tone: "humidity", value: field("humidity") },
-      { key: "humidityMin", label: "最小", tone: "humidityLow", value: field("humidityMin") },
+      { key: "humidity", label: "平均", tone: "humidity", value: field("humidity"), valueLabel: "above" },
+      { key: "humidityMin", label: "最小", tone: "humidityLow", value: field("humidityMin"), valueLabel: "below" },
     ],
   },
   {
@@ -226,7 +232,7 @@ export const CHART_METRICS: ChartMetric[] = [
     chart: "line",
     zero: true,
     series: [
-      { key: "wind", label: "平均", tone: "wind", value: field("wind") },
+      { key: "wind", label: "平均", tone: "wind", value: field("wind"), valueLabel: "auto" },
       { key: "gust", label: "最大瞬間", tableLabel: "瞬間", tone: "gust", value: field("gust"), tableOnly: true, minor: true },
     ],
     under: [{ key: "gust", label: "瞬間", format: (v) => v.toFixed(1), compare: true }],
@@ -239,9 +245,11 @@ export const CHART_METRICS: ChartMetric[] = [
     chart: "line",
     zero: false,
     needsHours: true,
+    // 平均 is off at first: 最高・最低 and their comparison days are four lines already (on in the legend).
+    hiddenByDefault: ["pressure"],
     series: [
-      { key: "pressureMax", label: "最高", tone: "pressureHigh", value: (_r, h) => hourlyExtreme(h, "pressure", "max") },
-      { key: "pressureMin", label: "最低", tone: "pressureLow", value: (_r, h) => hourlyExtreme(h, "pressure", "min") },
+      { key: "pressureMax", label: "最高", tone: "pressureHigh", value: (_r, h) => hourlyExtreme(h, "pressure", "max"), valueLabel: "above" },
+      { key: "pressureMin", label: "最低", tone: "pressureLow", value: (_r, h) => hourlyExtreme(h, "pressure", "min"), valueLabel: "below" },
       { key: "pressure", label: "平均", tone: "mean", value: field("pressure"), thin: true, minor: true },
     ],
   },

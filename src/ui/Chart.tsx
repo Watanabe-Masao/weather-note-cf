@@ -8,8 +8,8 @@ import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import { type ChartMetric, graphSeries } from "../chartMetrics";
-import { barLook, DATA, lineLook } from "../design/tokens";
-import { Button, Chip, ForecastHatch, GraphReadout, GuideLines, BarSample, LineSample } from "./kit";
+import { barLook, barPath, DATA, lineLook, SHAPE } from "../design/tokens";
+import { Button, Chip, ForecastHatch, GraphReadout, GuideLines, BarSample, LineSample, RangeSample, Segmented } from "./kit";
 import type { WeatherStore } from "../data/store";
 import { dateLabel, digitsOf, monthDay, niceTicks, signedDiff, tickLabel } from "../design/format";
 import { FeelContext } from "./FeelBar";
@@ -37,6 +37,7 @@ interface Props {
 /** Data colours from the design tokens. */
 const COLORS = DATA;
 const HIDDEN_KEY = "weather-note:chart-hidden";
+const LOOK_KEY = "weather-note:chart-look";
 // Bottom: two rows of dates (the target days, then their comparison days).
 const PAD = { left: 34, right: 10, top: 14, bottom: 44 };
 /** Height of one row of small numbers under the plot (spread, rain chance, snow). */
@@ -78,6 +79,30 @@ function useHidden(metric: ChartMetric) {
   return { shown: (key: string) => !hidden.has(key), toggle, reset };
 }
 
+/**
+ * 気温 drawn as lines (線) or as each day's 最高〜最低 bar (幅), remembered on this device (a
+ * convenience only, like the lines turned off).
+ */
+type Look = "line" | "range";
+function useLook(): [Look, (l: Look) => void] {
+  const [look, setLook] = useState<Look>(() => {
+    try {
+      return localStorage.getItem(LOOK_KEY) === "range" ? "range" : "line";
+    } catch {
+      return "line";
+    }
+  });
+  const set = (l: Look) => {
+    setLook(l);
+    try {
+      localStorage.setItem(LOOK_KEY, l);
+    } catch {
+      // Not remembering the choice is harmless.
+    }
+  };
+  return [look, set];
+}
+
 /** Days drawn beyond each edge, so a swipe reveals real data instead of blank space. */
 const BUFFER = 4;
 /** Hold this long (ms) without moving to scrub instead of panning. */
@@ -87,7 +112,12 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   const feel = useContext(FeelContext);
   const beta = useContext(BetaContext);
   const { shown, toggle, reset } = useHidden(metric);
+  const [look, setLook] = useLook();
+  // 幅: temperature only (its 最高・最低 are one day's range; other pairs are not drawn this way).
+  const range = metric.id === "temp" && look === "range";
   const spreadOn = !!metric.spread && shown("spread");
+  // In 幅 the bar is the 最高〜最低 itself: those two are drawn by it, whatever their chips said.
+  const ranged = (key: string) => range && (key === "max" || key === "min");
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   useLayoutEffect(() => {
@@ -192,7 +222,9 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
     { s, compare: false, points: days.map((d, i): Point => ({ x: xOf(i), ...read(d, s) })) },
     { s, compare: true, points: days.map((d, i): Point => ({ x: xOf(i), ...read(partner(d), s) })) },
   ]);
-  const series = all.filter(({ s }) => shown(s.key));
+  const series = all.filter(({ s }) => ranged(s.key) || shown(s.key));
+  // What is drawn as lines (and dots): in 幅, everything but 最高・最低.
+  const lineSeries = series.filter(({ s }) => !ranged(s.key));
   const pick = (key: string, compare: boolean) => all.find((x) => x.s.key === key && x.compare === compare)!;
 
   // Rows of small numbers under the plot: the spread (temperature), rain chance and snow (rain).
@@ -227,7 +259,12 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   let hi = values.length ? Math.max(...values) : 1;
   if (metric.zero) lo = 0;
   const nothing = metric.emptyNote && !values.some((v) => v > 0);
-  const pad = Math.max((hi - lo) * 0.12, metric.unit === "℃" ? 1 : 0.5);
+  // Room for the value labels above the highest point and below the lowest (SHAPE.valueLabel),
+  // as a share of the plot's height, so a label is never cut by the frame.
+  const labelled = metric.chart === "line" && series.some(({ s }) => s.valueLabel);
+  const plotH = H - PAD.top - bottom;
+  const room = labelled ? ((hi - lo) * (SHAPE.valueLabel.below + 2)) / Math.max(1, plotH - 2 * (SHAPE.valueLabel.below + 2)) : 0;
+  const pad = Math.max((hi - lo) * 0.12, metric.unit === "℃" ? 1 : 0.5, room);
   if (lo !== 0) lo -= pad;
   hi = metric.max ?? hi + pad;
   // Round ticks, widened to whole steps (a fixed top such as 100% stays).
@@ -275,7 +312,20 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             };
           })}
       />
-      <svg width={w} height={H} role="img" aria-label={`${metric.title ?? metric.label}の日別グラフ`}>
+      {metric.id === "temp" && (
+        <div className="chart-look">
+          <Segmented
+            label="気温の見せ方"
+            value={look}
+            options={[
+              { id: "line", label: "線" },
+              { id: "range", label: "幅" },
+            ]}
+            onChange={setLook}
+          />
+        </div>
+      )}
+      <svg width={w} height={H} role="img" aria-label={`${metric.title ?? metric.label}の日別グラフ${range ? "（最高〜最低の幅）" : ""}`}>
         {/* centre day */}
         <defs>
           <ForecastHatch id={`fc-${metric.id}`} />
@@ -313,47 +363,48 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
             </g>
           );
         })}
-        {spreadOn && <Spread top={pick("max", false).points} low={pick("min", false).points} yOf={yOf} />}
+        {spreadOn && !range && <Spread top={pick("max", false).points} low={pick("min", false).points} yOf={yOf} />}
+        {range && (
+          <RangeBars
+            step={step}
+            yOf={yOf}
+            target={{ max: pick("max", false).points, min: pick("min", false).points, mean: shown("temp") ? pick("temp", false).points : null }}
+            compare={{ max: pick("max", true).points, min: pick("min", true).points }}
+          />
+        )}
 
         {metric.chart === "bar"
           ? series.map(({ s, compare, points }) =>
               points.map((p, i) =>
                 p.v == null ? null : (
-                  <rect
+                  <path
                     key={`${s.key}-${compare}-${i}`}
-                    x={p.x + (compare ? 1 : -step * 0.32)}
-                    y={yOf(p.v)}
-                    width={step * 0.3}
-                    height={Math.max(0, yOf(0) - yOf(p.v))}
+                    d={barPath(p.x + (compare ? 1 : -step * 0.32), yOf(p.v), step * 0.3, Math.max(0, yOf(0) - yOf(p.v)))}
                     {...barLook(compare ? "compare" : "target", COLORS[s.tone])}
                   />
                 ),
               ),
             )
-          : series.map(({ s, compare, points }) =>
-              points.slice(1).map((p, i) => {
-                const a = points[i];
-                if (a.v == null || p.v == null) return null;
-                // The rule (tokens.ts): which day by form, a second series (平均) thinner.
-                const look = lineLook(compare ? "compare" : "target", COLORS[s.tone], { weight: s.thin ? "minor" : "main" });
-                return (
-                  <line
-                    key={`${s.key}-${compare}-${i}`}
-                    x1={a.x}
-                    y1={yOf(a.v)}
-                    x2={p.x}
-                    y2={yOf(p.v)}
-                    stroke={look.stroke}
-                    strokeWidth={look.strokeWidth}
-                    strokeDasharray={look.strokeDasharray}
-                    strokeLinecap={compare ? "butt" : "round"}
-                    opacity={look.opacity}
-                  />
-                );
-              }),
-            )}
+          : lineSeries.map(({ s, compare, points }) => {
+              // The rule (tokens.ts): which day by form, a second series (平均) thinner. One path per
+              // unbroken run (a missing day breaks it), so the joins are round and a dash runs on.
+              const look = lineLook(compare ? "compare" : "target", COLORS[s.tone], { weight: s.thin ? "minor" : "main" });
+              return runsOf(points).map((run, k) => (
+                <path
+                  key={`${s.key}-${compare}-${k}`}
+                  d={run.map((p, i) => `${i ? "L" : "M"}${p.x},${yOf(p.v!)}`).join("")}
+                  fill="none"
+                  stroke={look.stroke}
+                  strokeWidth={look.strokeWidth}
+                  strokeDasharray={look.strokeDasharray}
+                  strokeLinecap={compare ? "butt" : "round"}
+                  strokeLinejoin="round"
+                  opacity={look.opacity}
+                />
+              ));
+            })}
         {metric.chart === "line" &&
-          series.filter(({ s }) => !s.thin).map(({ s, compare, points }) =>
+          lineSeries.filter(({ s }) => !s.thin).map(({ s, compare, points }) =>
             points.map((p, i) =>
               p.v == null ? null : (
                 <circle
@@ -368,6 +419,27 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
               ),
             ),
           )}
+        {metric.chart === "line" && (
+          <ValueLabels
+            yOf={yOf}
+            top={PAD.top}
+            bottom={H - bottom}
+            items={series
+              .filter(({ s, compare }) => !compare && s.valueLabel)
+              .map(({ s, points }) => ({
+                key: s.key,
+                side: s.valueLabel!,
+                color: COLORS[s.tone],
+                digits: digitsOf(s.unit ?? metric.unit),
+                points,
+                // In 幅 the 最低 label sits under the bar's round foot (a bar is never shorter than wide).
+                // In 幅 the labels stand over the target's bar (left of the day's centre), and the 最低
+                // label sits under the bar's round foot (a bar is never shorter than it is wide).
+                ...(ranged(s.key) ? { dx: -rangeWidth(step) * SHAPE.range.offset } : {}),
+                ...(ranged(s.key) && s.key === "min" ? { floor: pick("max", false).points.map((p) => (p.v == null ? null : yOf(p.v) + rangeWidth(step))) } : {}),
+              }))}
+          />
+        )}
 
         {under.map((row, k) => (
           <g key={`under-${k}`}>
@@ -471,11 +543,11 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       ) : (
         <p className="line-legend">
           <span>
-            <LineSample day="target" />
+            {range ? <RangeSample day="target" /> : <LineSample day="target" />}
             対象日
           </span>
           <span>
-            <LineSample day="compare" />
+            {range ? <RangeSample day="compare" /> : <LineSample day="compare" />}
             比較日
           </span>
           <span>
@@ -493,7 +565,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       {(lines.length > 1 || metric.spread) && (
         <div className="chip-row" role="group" aria-label="表示する線">
           {/* Line switches: the chip shows the line's colour; off is dimmed. */}
-          {lines.map((s) => (
+          {lines.filter((s) => !ranged(s.key)).map((s) => (
             <Chip
               key={s.key}
               size="sm"
@@ -523,6 +595,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
         </div>
       )}
       {/* One note per item; the row order is always 上＝対象日・下＝比較日. */}
+      {range && <p className="chart-note">棒は最高（上）から最低（下）まで。{shown("temp") ? "白い印は平均。" : ""}</p>}
       {spreadOn && <p className="chart-note">寒暖差は最高−最低。肌感は日中・昼・夕方の平均。</p>}
       {metric.under?.some((r) => r.key === "probability") && <p className="chart-note">降水確率は予報の日だけ。雪は降った日だけ。</p>}
       {metric.under?.some((r) => r.key === "gust") && <p className="chart-note">線は平均風速、数字は最大瞬間風速。</p>}
@@ -558,3 +631,129 @@ function Spread({ top, low, yOf }: { top: Point[]; low: Point[]; yOf: (v: number
     </>
   );
 }
+
+/** Unbroken runs of a line's points (a missing day breaks the line; it is never bridged). */
+function runsOf(points: Point[]): Point[][] {
+  const runs: Point[][] = [];
+  let run: Point[] = [];
+  for (const p of points) {
+    if (p.v == null) {
+      if (run.length) runs.push(run);
+      run = [];
+    } else run.push(p);
+  }
+  if (run.length) runs.push(run);
+  // A lone day has no line, only its dot.
+  return runs.filter((r) => r.length > 1);
+}
+
+/** Width of a 幅 bar: a share of a day, at most SHAPE.range.maxWidth. */
+const rangeWidth = (step: number) => Math.min(SHAPE.range.maxWidth, step * SHAPE.range.share);
+
+/**
+ * The target day's values by its points (design-system.md 4.1): the high side above, the low side
+ * below, a line alone above at a peak and below in a dip. A label that would leave the plot goes to
+ * the other side. The halo is the face's colour, so a line through a label never cuts its digits.
+ */
+function ValueLabels({
+  items,
+  yOf,
+  top,
+  bottom,
+}: {
+  items: { key: string; side: "above" | "below" | "auto"; color: string; digits: number; points: Point[]; dx?: number; floor?: (number | null)[] }[];
+  yOf: (v: number) => number;
+  top: number;
+  bottom: number;
+}) {
+  const { above, below } = SHAPE.valueLabel;
+  return (
+    <g className="chart-values" aria-hidden>
+      {items.flatMap(({ key, side, color, digits, points, dx = 0, floor }) =>
+        points.map((p, i) => {
+          if (p.v == null) return null;
+          const y = yOf(p.v);
+          let up = side === "above";
+          if (side === "auto") {
+            const near = [points[i - 1]?.v, points[i + 1]?.v].filter((v): v is number => v != null);
+            up = !near.length || p.v >= near.reduce((a, b) => a + b, 0) / near.length;
+          }
+          const foot = floor?.[i] != null ? Math.max(y, floor[i]!) : y;
+          let base = up ? y - above : foot + below;
+          if (up && base - (below - above) < top) base = foot + below;
+          else if (!up && base > bottom - 1) base = y - above;
+          return (
+            <text key={`${key}-${i}`} x={p.x + dx} y={base} textAnchor="middle" className="chart-value" fill={color}>
+              {p.v.toFixed(digits)}
+            </text>
+          );
+        }),
+      )}
+    </g>
+  );
+}
+
+/**
+ * 幅: each day's 最高〜最低 as one rounded bar — the target filled from the 最高 colour down to the
+ * 最低 colour, the comparison day outlined beside it — with the target's 平均 as a short white mark.
+ * Which day by fill / outline, what by colour (tokens.ts); the round ends lie inside the bar.
+ */
+function RangeBars({
+  step,
+  yOf,
+  target,
+  compare,
+}: {
+  step: number;
+  yOf: (v: number) => number;
+  target: { max: Point[]; min: Point[]; mean: Point[] | null };
+  compare: { max: Point[]; min: Point[] };
+}) {
+  const bw = rangeWidth(step);
+  const R = SHAPE.range;
+  const capsule = (x: number, hi: number, lo: number) => {
+    const y = yOf(hi);
+    return { x: x - bw / 2, y, width: bw, height: Math.max(bw, yOf(lo) - y), rx: bw / 2 };
+  };
+  const meanLook = lineLook("target", COLORS.mean, { kind: "reference" });
+  return (
+    <g className="range-bars">
+      <defs>
+        <linearGradient id="range-target" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={COLORS.hot} />
+          <stop offset="1" stopColor={COLORS.cold} />
+        </linearGradient>
+      </defs>
+      {target.max.map((p, i) => {
+        const tMax = p.v;
+        const tMin = target.min[i].v;
+        const cMax = compare.max[i].v;
+        const cMin = compare.min[i].v;
+        // The target left of the day's centre, the comparison right (as the amount bars).
+        const xT = p.x - bw * SHAPE.range.offset;
+        const xC = p.x + bw * SHAPE.range.offset;
+        const mean = target.mean?.[i].v ?? null;
+        const c = barLook("compare", COLORS.hot);
+        return (
+          <g key={i}>
+            {cMax != null && cMin != null && <rect {...capsule(xC, cMax, cMin)} fill="none" stroke="url(#range-target)" strokeWidth={R.compareStroke} opacity={c.opacity} />}
+            {tMax != null && tMin != null && <rect {...capsule(xT, tMax, tMin)} fill="url(#range-target)" />}
+            {mean != null && tMax != null && tMin != null && (
+              <line
+                x1={xT - bw / 2 - R.meanOverhang}
+                x2={xT + bw / 2 + R.meanOverhang}
+                y1={yOf(mean)}
+                y2={yOf(mean)}
+                stroke={meanLook.stroke}
+                strokeWidth={R.meanWidth}
+                strokeLinecap="round"
+              />
+            )}
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+
+

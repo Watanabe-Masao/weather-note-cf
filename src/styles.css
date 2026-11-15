@@ -755,29 +755,55 @@ button.label-feel:active { transform: scale(0.97); }
   opacity: 0.7;
 }
 
+/* The 肌感 band (FeelBar, tokens.ts FEEL_BAND): one strip with soft corners. The colours are the
+   strip's own gradient (blended at the borders); each band is a cell over it that carries only its
+   divider, its forecast hatch and today's ring. */
 .feel-bar {
   display: grid;
   height: 12px;
   border-radius: var(--radius-xs);
-  overflow: hidden;
-  gap: 1px;
   box-shadow: 0 0 0 1px var(--line-shade);
 }
 
 .feel-bar i {
   display: block;
+  position: relative;
+}
+
+/* A thin divider of the face between the bands: they still count, without hard tiles. */
+.feel-bar i + i {
+  box-shadow: inset var(--feel-band-divider) 0 0 color-mix(in srgb, var(--surface-page) 70%, transparent);
+}
+
+.feel-bar i:first-child {
+  border-radius: var(--radius-xs) 0 0 var(--radius-xs);
+}
+
+.feel-bar i:last-child {
+  border-radius: 0 var(--radius-xs) var(--radius-xs) 0;
+}
+
+/* Forecast (or partly forecast) bands: a fine hatch, light enough to keep the colour. */
+.feel-bar i.forecast {
+  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--surface-page) 12%, transparent) 0 1.5px, transparent 1.5px 5px);
+}
+
+/* Today: the band the time is in now, ringed in the primary ink (over its neighbours' dividers). */
+.feel-bar i.now {
+  z-index: 1;
+  border-radius: var(--radius-tick);
+  box-shadow: 0 0 0 var(--feel-band-ring) var(--ink-primary);
+}
+
+.feel-bar i.now + i {
+  box-shadow: none;
 }
 
 /* Estimate from the daily row until hourly data arrives. */
 .feel-bar.estimate {
   outline: 1px dashed var(--ink-tertiary);
-  outline-offset: 1px;
+  outline-offset: 2px;
   opacity: 0.85;
-}
-
-/* Forecast (or partly forecast) bands. */
-.feel-bar i.forecast {
-  background-image: repeating-linear-gradient(135deg, color-mix(in srgb, var(--surface-page) 35%, transparent) 0 2px, transparent 2px 5px);
 }
 
 .feel-none,
@@ -990,9 +1016,31 @@ button.label-feel:active { transform: scale(0.97); }
   touch-action: pan-y;
 }
 
+/* The grid steps back behind the values: finer dots, a little lighter (質感, design-system.md 4.1). */
 .chart-grid {
   stroke: var(--line-strong);
-  stroke-dasharray: 3 4;
+  stroke-dasharray: 2 5;
+  stroke-opacity: 0.55;
+}
+
+/* The target day's values by its points: the item's colour, haloed in the face behind (a line
+   crossing a label never cuts a digit). */
+.chart-value {
+  font-family: var(--font-numeric);
+  font-size: var(--size-xs);
+  font-variant-numeric: tabular-nums;
+  paint-order: stroke;
+  stroke: var(--surface-base);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* 線／幅 (気温): a small switch at the right, between the readout and the graph. */
+.chart-look {
+  display: flex;
+  justify-content: flex-end;
+  margin: var(--space-2) 0 calc(-1 * var(--space-2));
 }
 
 .chart-tick,
@@ -4166,3 +4214,25 @@ svg.scrub {
 .learned-verdict { display: grid; gap: var(--space-1); margin: 0; font-size: var(--size-base); color: var(--ink-primary); }
 .learned-verdict small { font-size: var(--size-sm); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
 .learned-name { text-align: left !important; white-space: normal !important; }
+
+/* Today in the tables: the weekday filled, as a calendar marks today; the column keeps its width. */
+.cell-date.is-today small {
+  display: block;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--ink-primary);
+  color: var(--surface-page);
+  font-weight: var(--weight-bold);
+}
+
+/* Read out, not shown. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

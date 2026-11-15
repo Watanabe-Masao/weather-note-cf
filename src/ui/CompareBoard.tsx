@@ -90,9 +90,12 @@ function Column({
   onOpenFeel,
   against,
   summaryOther,
+  today,
 }: {
   store: WeatherStore | null;
   station: string;
+  /** Today (JST): its column's weekday is marked, and its 肌感 band rings the band now. */
+  today: string;
   date: string | null;
   metric: Metric;
   faded?: boolean;
@@ -122,9 +125,11 @@ function Column({
       className={`cell-stack state-${state}${faded ? " state-outside" : ""}${onOpen && !faded ? " tappable" : ""}`}
       onClick={faded ? undefined : onOpen}
     >
-      <span className={`cell-date tone-${tone}`}>
+      <span className={`cell-date tone-${tone}${date === today ? " is-today" : ""}`}>
         {+date.slice(5, 7)}/{+date.slice(8)}
+        {/* Today: the weekday filled, as a calendar marks today (the column keeps its width). */}
         <small>{weekdayOf(date)}</small>
+        {date === today && <span className="sr-only">今日</span>}
       </span>
       <span className="cell-icon" {...(state === "ready" ? { ...press, ...summaryAttr(date, summaryOther) } : {})}>
         {state === "ready" ? <DayWeatherIcon row={day?.row} station={station} /> : state === "empty" ? <span className="skeleton icon" /> : null}
@@ -176,7 +181,7 @@ function Column({
               : undefined
           }
         >
-          {state === "outside" ? null : <FeelBar store={store} station={station} date={date} />}
+          {state === "outside" ? null : <FeelBar store={store} station={station} date={date} today={today} />}
         </span>
       )}
     </div>
@@ -366,6 +371,7 @@ export function CompareBoard({
                 <Column
                   store={store}
                   station={station}
+                  today={today}
                   date={d}
                   metric={metric}
                   faded={d < bounds.min || d > bounds.max}
@@ -400,6 +406,7 @@ export function CompareBoard({
                 <Column
                   store={store}
                   station={station}
+                  today={today}
                   date={partner(d)}
                   metric={metric}
                   past={comparePast}

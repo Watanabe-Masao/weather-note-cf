@@ -235,6 +235,11 @@ with sync_playwright() as p:
         st = small_text(); check("A6 11px より小さい文字がない（表）", not st, str(st))
         layout_ok("A7", "表")
         buttons_ok("A8", "表", 0)
+        # Today (2026-11-10, 12:00 JST): its weekday filled, its 肌感 band ringed at the band now.
+        check("A9 今日の列だけ曜日に印", pg.locator(".cell-date.is-today").count() == 1 and "火" in txt(".cell-date.is-today small"), str(pg.locator(".cell-date.is-today").count()))
+        ring = pg.evaluate("[...document.querySelectorAll('.feel-bar i.now')].map(i => !!i.closest('.cell-stack').querySelector('.cell-date.is-today'))")
+        check("A10 今の時間帯の輪は今日の帯に1つ", ring == [True], str(ring))
+        check("A11 肌感の帯の予報に網が見える", pg.evaluate("[...document.querySelectorAll('.feel-bar i.forecast')].every(i => getComputedStyle(i).backgroundImage.includes('repeating-linear-gradient'))") and pg.locator(".feel-bar i.forecast").count() > 0)
     step("A", a)
 
     # B. every item chip
@@ -265,6 +270,21 @@ with sync_playwright() as p:
         check("C3 下へ弾くと低くなる", h2 < h1 - 50, f"{h1:.0f}→{h2:.0f}")
         pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
     step("C", c)
+
+    # TX. 質感 (design-system.md 4.1): values by the points, the 幅 view, rounded amount bars
+    def tx():
+        check("TX1 気温の値を点のそばに（対象日の最高・最低）", pg.locator(".sheet .chart-values text").count() >= 14, str(pg.locator(".sheet .chart-values text").count()))
+        check("TX2 線は区間ごとに1本（日ごとの線分にしない）", pg.evaluate("document.querySelectorAll('.sheet .chart svg line[stroke-dasharray]:not(.guide *)').length") == 0)
+        pg.locator(".chart-look button", has_text="幅").click(); calm()
+        check("TX3 幅：1日1本の丸い棒（対象・比較）", pg.locator(".sheet .range-bars rect").count() >= 14, str(pg.locator(".sheet .range-bars rect").count()))
+        check("TX4 幅：最高・最低のチップは出さない", pg.locator(".sheet .chip-row .chip", has_text="最高").count() == 0)
+        layout_ok("TX4b", "気温の幅")
+        pg.locator(".chart-look button", has_text="線").click(); calm()
+        check("TX5 線に戻せる", pg.locator(".sheet .range-bars").count() == 0 and pg.locator(".sheet .chip-row .chip", has_text="最高").count() == 1)
+        pg.click(".metrics .chip:nth-child(2)"); calm()
+        check("TX6 量の棒は上の角だけ丸い（path）", pg.locator(".sheet .chart svg path[d*='A']").count() > 0 and pg.locator(".sheet .chart svg rect[fill='#45c8d8']").count() == 0)
+        pg.click(".metrics .chip:nth-child(1)"); calm()
+    step("TX", tx)
 
     # D. daily -> hours -> back, every item
     def d():
@@ -314,7 +334,7 @@ with sync_playwright() as p:
     def e():
         pg.locator(".chart-hit").nth(8).click(force=True); calm()
         check("E1 予報の時間に網かけ", pg.locator(".day-chart .chart-forecast").count() >= 20, str(pg.locator(".day-chart .chart-forecast").count()))
-        check("E2 予報の線は実線のまま", pg.evaluate("[...document.querySelectorAll('.day-chart line[stroke-dasharray=\"2 4\"]')].length") == 0)
+        check("E2 予報の線は実線のまま", pg.evaluate("[...document.querySelectorAll('.day-chart :is(line,path)[stroke-dasharray=\"2 4\"]')].length") == 0)
         pg.locator(".day-chart > svg").scroll_into_view_if_needed(); wait(300)
         b = pg.locator(".day-chart > svg").bounding_box()
         pg.mouse.move(b["x"] + b["width"] * 0.6, b["y"] + 100); pg.mouse.down(); pg.mouse.move(b["x"] + b["width"] * 0.7, b["y"] + 100)

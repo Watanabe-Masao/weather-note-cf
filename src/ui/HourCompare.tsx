@@ -36,7 +36,7 @@ import {
   initialHour,
   signedDiff,
 } from "../dayDetail";
-import { barLook, type DataColor, DATA, LIGHT_LEVELS, LINE, type LineLook, lineLook } from "../design/tokens";
+import { barLook, barPath, type DataColor, DATA, LIGHT_LEVELS, LINE, type LineLook, lineLook } from "../design/tokens";
 import { type AverageWindow, AVERAGE_WINDOWS, daysBefore, meanByHour, nextWindow, WINDOW_LABEL } from "../hourAverage";
 import { Priority } from "../data/plan";
 import { axisWidth, dateLabel, niceTicks, shortDay, tickLabel } from "../design/format";
@@ -853,35 +853,38 @@ function HourChart({
   const scrub = useRef(false);
 
   // Lines and bars follow the design engine's rule (tokens.ts: lineLook / barLook).
-  const line = (points: HourPoint[], look: LineLook) =>
-    points.slice(1).map((p, i) => {
-      const a = points[i];
-      if (a.v == null || p.v == null) return null;
-      return (
-        <line
-          key={`${look.stroke}-${look.strokeDasharray ?? "solid"}-${i}`}
-          x1={xOf(a.hour)}
-          y1={yOf(a.v)}
-          x2={xOf(p.hour)}
-          y2={yOf(p.v)}
-          stroke={look.stroke}
-          strokeWidth={look.strokeWidth}
-          strokeDasharray={look.strokeDasharray}
-          strokeLinecap={look.strokeDasharray ? "butt" : "round"}
-          opacity={look.opacity}
-        />
-      );
-    });
+  // One path per unbroken run (a missing hour breaks it): round joins, and a dash runs on through the hours.
+  const line = (points: HourPoint[], look: LineLook) => {
+    const runs: HourPoint[][] = [];
+    let run: HourPoint[] = [];
+    for (const p of points) {
+      if (p.v == null) {
+        if (run.length > 1) runs.push(run);
+        run = [];
+      } else run.push(p);
+    }
+    if (run.length > 1) runs.push(run);
+    return runs.map((r) => (
+      <path
+        key={`${look.stroke}-${look.strokeDasharray ?? "solid"}-${r[0].hour}`}
+        d={r.map((p, i) => `${i ? "L" : "M"}${xOf(p.hour)},${yOf(p.v!)}`).join("")}
+        fill="none"
+        stroke={look.stroke}
+        strokeWidth={look.strokeWidth}
+        strokeDasharray={look.strokeDasharray}
+        strokeLinecap={look.strokeDasharray ? "butt" : "round"}
+        strokeLinejoin="round"
+        opacity={look.opacity}
+      />
+    ));
+  };
 
   const bars = (points: HourPoint[], color: string, other: boolean, dimmed = false) =>
     points.map((p) =>
       p.v == null || p.v <= 0 ? null : (
-        <rect
+        <path
           key={`${color}-${other}-${p.hour}`}
-          x={xOf(p.hour) - step + (other ? step * 0.5 : step * 0.08)}
-          y={yOf(p.v)}
-          width={step * 0.42}
-          height={Math.max(0, yOf(0) - yOf(p.v))}
+          d={barPath(xOf(p.hour) - step + (other ? step * 0.5 : step * 0.08), yOf(p.v), step * 0.42, Math.max(0, yOf(0) - yOf(p.v)))}
           {...barLook(other ? "compare" : "target", color, dimmed)}
         />
       ),
