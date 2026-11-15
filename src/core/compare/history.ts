@@ -1,12 +1,12 @@
-// 慣れ L1・L2 の違いの影響: the same days through the same boundary shift and the same seven-step
+// 長期の気温履歴 L1・L2 の違いの影響: the same days through the same boundary shift and the same seven-step
 // judge, with only the long baseline swapped (one change at a time). For each day: L1, L2, the two
 // shifts and their difference Δb = g(L2) − g(L1); for each hour given: the 肌感 and its step under
 // each. Days where either cannot be computed are kept with their reasons, and left out of the counts.
 
-import { ADAPT_EMA_STANDARD } from "../estimate/adapt-ema/params";
-import { adaptEma } from "../estimate/adapt-ema/formula";
-import { ADAPT_MEAN_SEASON } from "../estimate/adapt-mean/params";
-import { adaptMean } from "../estimate/adapt-mean/formula";
+import { HISTORY_EMA_STANDARD } from "../estimate/history-ema/params";
+import { historyEma } from "../estimate/history-ema/formula";
+import { HISTORY_MEAN_SEASON } from "../estimate/history-mean/params";
+import { historyMean } from "../estimate/history-mean/formula";
 import { type Estimate, evaluate, has, type ParamSet } from "../estimate/engine";
 import { level7 } from "../judge/level7/formula";
 import { seasonShift } from "../judge/season-shift/formula";
@@ -68,7 +68,7 @@ const why = (e: Estimate) => ("absent" in e ? e.absent : null);
  * `days` are consecutive, oldest first; each day's baselines read the days before it in the list.
  * The first days have little before them: they come out tooShort, as they should.
  */
-export function compareAdaptation(days: readonly ComparedDay[], site: Site, sets: ComparisonSets): Comparison {
+export function compareLongHistory(days: readonly ComparedDay[], site: Site, sets: ComparisonSets): Comparison {
   const shiftSet = sets.shift ?? SEASON_SHIFT_STANDARD;
   const out: DayOutcome[] = [];
   const leftOut: Record<string, number> = {};
@@ -82,10 +82,10 @@ export function compareAdaptation(days: readonly ComparedDay[], site: Site, sets
       .reverse()
       .map((b) => b.day);
     const history = { dayMeans: dayMeanSeries(before) };
-    const l1 = evaluate(adaptMean, ADAPT_MEAN_SEASON, history);
-    const l2 = evaluate(adaptEma, ADAPT_EMA_STANDARD, history);
-    const shift1 = evaluate(seasonShift, shiftSet, { adapt: l1 });
-    const shift2 = evaluate(seasonShift, shiftSet, { adapt: l2 });
+    const l1 = evaluate(historyMean, HISTORY_MEAN_SEASON, history);
+    const l2 = evaluate(historyEma, HISTORY_EMA_STANDARD, history);
+    const shift1 = evaluate(seasonShift, shiftSet, { history: l1 });
+    const shift2 = evaluate(seasonShift, shiftSet, { history: l2 });
     const s1 = value(shift1);
     const s2 = value(shift2);
     const delta = s1 != null && s2 != null ? s2 - s1 : null;

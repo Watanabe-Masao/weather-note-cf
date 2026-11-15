@@ -1,12 +1,12 @@
-// 慣れの比べ板（テスト） (Model Explorer の最初の比較, #189): the station's own days through the new
-// core, with only the long baseline swapped — 慣れ-L1 (30日の単純平均) or 慣れ-L2 (重み付きの平均) —
-// and the same boundary shift and seven-step judge on both (src/core/compare/adaptation.ts). Shows
+// 長期の気温履歴の比べ板（テスト） (Model Explorer の最初の比較, #189): the station's own days through
+// the new core, with only the summary of the long history swapped — L1 (30日の単純平均) or L2 (重み付きの平均) —
+// and the same boundary shift and seven-step judge on both (src/core/compare/history.ts). Shows
 // where the two part and how far the boundaries move apart; on a chosen day, the hours whose step
 // changes. Nothing here changes the app's 肌感 or the models.
 
 import { useContext, useEffect, useMemo, useState } from "react";
 import { addDays } from "../../shared/dates";
-import { type ComparedDay, compareAdaptation, dayOf, type Estimate, hourOf, LEVEL_NAMES, level7Settings, windPersonSettings } from "../core";
+import { type ComparedDay, compareLongHistory, dayOf, type Estimate, hourOf, LEVEL_NAMES, level7Settings, windPersonSettings } from "../core";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { DATA, LINE } from "../design/tokens";
@@ -32,7 +32,7 @@ const signed = (v: number | null) => (v == null ? "—" : `${v > 0 ? "+" : v < 0
 const REASON: Record<string, string> = { tooShort: "前の日が足りない", missingInput: "材料がない", outOfDomain: "範囲の外", noRow: "行がない" };
 const reasonText = (k: string) => k.replace(/\b(tooShort|missingInput|outOfDomain|noRow)\b/g, (m) => REASON[m] ?? m);
 
-export function AdaptCompareBoard({ store, station, today, onClose }: { store: WeatherStore | null; station: string; today: string; onClose: () => void }) {
+export function HistoryCompareBoard({ store, station, today, onClose }: { store: WeatherStore | null; station: string; today: string; onClose: () => void }) {
   const feel = useContext(FeelContext);
   const [period, setPeriod] = useState<Period>("91");
   const end = addDays(today, -1);
@@ -41,12 +41,12 @@ export function AdaptCompareBoard({ store, station, today, onClose }: { store: W
   const [chosen, setChosen] = useState(end);
 
   useEffect(() => {
-    store?.prefetch(station, dates, "adapt-compare", Priority.Visible);
-    return () => store?.prefetch(station, [], "adapt-compare");
+    store?.prefetch(station, dates, "history-compare", Priority.Visible);
+    return () => store?.prefetch(station, [], "history-compare");
   }, [store, station, dates]);
   useEffect(() => {
-    store?.wantHours(station, [chosen], Priority.Visible, "adapt-compare");
-    return () => store?.wantHours(station, [], Priority.Visible, "adapt-compare");
+    store?.wantHours(station, [chosen], Priority.Visible, "history-compare");
+    return () => store?.wantHours(station, [], Priority.Visible, "history-compare");
   }, [store, station, chosen]);
 
   const views = dates.map((d) => store?.getDay(station, d));
@@ -62,7 +62,7 @@ export function AdaptCompareBoard({ store, station, today, onClose }: { store: W
         hours: d === chosen ? hourRows.map((r) => hourOf(r, station)).filter((h) => h != null) : [],
       };
     });
-    return compareAdaptation(days, { anemometerHeight: feel.stationHeight }, { feel: { windPerson: windPersonSettings(feel.alpha) }, level: level7Settings(feel.thresholds) });
+    return compareLongHistory(days, { anemometerHeight: feel.stationHeight }, { feel: { windPerson: windPersonSettings(feel.alpha) }, level: level7Settings(feel.thresholds) });
     // `views` changes identity every render; its contents are keyed by `loaded`.
   }, [dates, loaded, chosen, hourRows, feel, station]);
 
@@ -136,16 +136,16 @@ export function AdaptCompareBoard({ store, station, today, onClose }: { store: W
   const L2C = DATA.feel;
 
   return (
-    <ModalSheet title="慣れの比べ方（テスト）" onClose={onClose} className="sun-test adapt-cmp">
+    <ModalSheet title="長期の気温履歴を比べる（テスト）" onClose={onClose} className="sun-test history-cmp">
       <div className="sun-test-body">
         <p className="set-lead">
-          慣れ-L1（30日の単純平均）と慣れ-L2（重み付きの平均）だけを入れ替えて、ほかは同じ計算（境目のずれ・7段の判定）にしたとき、どこで違うかを見ます。アプリの表示とモデルは変えません。
+          慣れのもとになると考えられる長期の気温履歴を、2つのまとめ方 L1（30日の単純平均）と L2（重み付きの平均）だけ入れ替え、ほかは同じ計算（境目のずれ・7段の判定）にしたとき、どこで違うかを見ます。アプリの表示とモデルは変えません。
         </p>
         <Segmented label="期間" value={period} options={PERIODS.map((p) => ({ id: p.id, label: p.label }))} onChange={setPeriod} />
         {loaded < dates.length && <p className="set-help">日別のデータを読み込んでいます…（{loaded}／{dates.length} 日）</p>}
 
-        <div className="ds-lead adapt-cmp-lead">
-          <p className="adapt-cmp-facts">
+        <div className="ds-lead history-cmp-lead">
+          <p className="history-cmp-facts">
             <span>
               比べた日 <b>{comparable.length}</b> 日{leftOut ? `（比べられない ${leftOut} 日）` : ""}
             </span>
@@ -158,8 +158,8 @@ export function AdaptCompareBoard({ store, station, today, onClose }: { store: W
           </p>
         </div>
 
-        <SectionHead title="気温と慣れ" />
-        <svg width="100%" viewBox={`0 0 ${W} ${T1 + H1 + 18}`} role="img" aria-label="日平均気温と、慣れ L1・L2 の推移" onPointerDown={pick}>
+        <SectionHead title="気温と長期の履歴" />
+        <svg width="100%" viewBox={`0 0 ${W} ${T1 + H1 + 18}`} role="img" aria-label="日平均気温と、長期の気温履歴 L1・L2 の推移" onPointerDown={pick}>
           {ticks1.map((v) => (
             <g key={v}>
               <line x1={X0} x2={X1} y1={y1(v)} y2={y1(v)} stroke="var(--line-soft)" />
@@ -180,8 +180,8 @@ export function AdaptCompareBoard({ store, station, today, onClose }: { store: W
         </svg>
         <p className="sun-test-legend">
           <Sample color={LINE.reference} opacity={LINE.referenceOpacity} width={1} label="日平均気温" />
-          <Sample color={L1C} label="慣れ-L1（30日の単純平均）" />
-          <Sample color={L2C} label="慣れ-L2（重み付きの平均、α 0.8）" />
+          <Sample color={L1C} label="L1（30日の単純平均）" />
+          <Sample color={L2C} label="L2（重み付きの平均、α 0.8）" />
         </p>
 
         <SectionHead title="境目の差（L2 − L1）" />
@@ -231,7 +231,7 @@ export function AdaptCompareBoard({ store, station, today, onClose }: { store: W
                   const a = valueOf(h.level1);
                   const b = valueOf(h.level2);
                   return (
-                    <tr key={h.hour} className={h.differs ? "adapt-cmp-diff" : undefined}>
+                    <tr key={h.hour} className={h.differs ? "history-cmp-diff" : undefined}>
                       <td>{h.hour}</td>
                       <td>{f1(valueOf(h.feel))}</td>
                       <td>{a == null ? "—" : LEVEL_NAMES[a]}</td>
@@ -247,7 +247,7 @@ export function AdaptCompareBoard({ store, station, today, onClose }: { store: W
         {reasons.size > 0 && (
           <>
             <SectionHead title="比べられない日" />
-            <ul className="adapt-cmp-reasons">
+            <ul className="history-cmp-reasons">
               {[...reasons].map(([k, n]) => (
                 <li key={k}>
                   {reasonText(k)}：{n} 日

@@ -1,4 +1,5 @@
-// adapt.long.mean (慣れ-L1): what one is used to, as the plain mean of the past days' mean
+// history.long.mean（長期の気温履歴 L1）: the days before summed up as the plain mean of their mean
+// temperatures. One summary of the long history, not 慣れ itself (principles 0b):
 // temperatures — every day in the window weighs the same.
 //   L1 = mean of the days that have a value among the last `days` (needs at least `minDays`)
 
@@ -6,11 +7,11 @@ import { defineFormula, type Run } from "../engine";
 
 const present = (run: Run, days: number) => run.slice(0, days).filter((v): v is number => v != null);
 
-export const adaptMean = defineFormula({
-  id: "adapt.long.mean",
+export const historyMean = defineFormula({
+  id: "history.long.mean",
   version: 1,
-  key: "adaptMean",
-  label: "慣れ（単純平均）",
+  key: "historyMean",
+  label: "長期の気温履歴（単純平均）",
   unit: "℃",
   needs: [],
   series: ["dayMeans"],

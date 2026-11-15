@@ -1,4 +1,4 @@
-// 慣れ L1・L2 の違いの影響: only the baseline is swapped; the boundary shift and the seven-step judge
+// 長期の気温履歴 L1・L2 の違いの影響: only the baseline is swapped; the boundary shift and the seven-step judge
 // are the same for both. Checked against 従来版 and by the properties of the difference.
 
 import fc from "fast-check";
@@ -6,10 +6,10 @@ import { describe, expect, it } from "vitest";
 import { DEFAULT_FEEL, levelOf } from "../../shared/feel";
 import { mean30, seasonShift as legacyShift } from "../../shared/season";
 import {
-  adaptationEma,
-  adaptationMean,
+  longHistoryEma,
+  longHistoryMean,
   type ComparedDay,
-  compareAdaptation,
+  compareLongHistory,
   type Estimate,
   evaluate,
   level7,
@@ -45,14 +45,14 @@ const sets = { feel: { windPerson: windPersonSettings(DEFAULT_FEEL.alpha) }, lev
 
 const temp = fc.double({ min: -10, max: 35, noNaN: true });
 
-describe("with 慣れ-L1, the shift and the steps are 従来版's", () => {
+describe("with 長期の気温履歴 L1, the shift and the steps are 従来版's", () => {
   it("the shift equals shared/season.ts for any 30 days", () => {
     fc.assert(
       fc.property(fc.array(fc.option(temp, { freq: 8 }), { minLength: 30, maxLength: 30 }), (t) => {
         const m = mean30(t);
-        const shift = evaluate(seasonShift, SEASON_SHIFT_STANDARD, { adapt: adaptationMean(t.map((v) => day("2026-11-01", v))) });
-        // Too few days: the shift says so at the place it started (adapt.dayMeans).
-        if (m == null) expect(shift).toMatchObject({ absent: "tooShort", input: "adapt.dayMeans" });
+        const shift = evaluate(seasonShift, SEASON_SHIFT_STANDARD, { history: longHistoryMean(t.map((v) => day("2026-11-01", v))) });
+        // Too few days: the shift says so at the place it started (history.dayMeans).
+        if (m == null) expect(shift).toMatchObject({ absent: "tooShort", input: "history.dayMeans" });
         else expect(valueOf(shift)!).toBeCloseTo(legacyShift(m), 9);
       }),
     );
@@ -69,7 +69,7 @@ describe("with 慣れ-L1, the shift and the steps are 従来版's", () => {
 });
 
 describe("the difference Δb = g(L2) − g(L1)", () => {
-  const g = (a: number) => valueOf(evaluate(seasonShift, SEASON_SHIFT_STANDARD, { adapt: { value: a } }))!;
+  const g = (a: number) => valueOf(evaluate(seasonShift, SEASON_SHIFT_STANDARD, { history: { value: a } }))!;
 
   it("is never more than slope × |L2 − L1|, and 0 when both are past the same end", () => {
     fc.assert(
@@ -81,14 +81,14 @@ describe("the difference Δb = g(L2) − g(L1)", () => {
   });
 });
 
-describe("compareAdaptation: the same days, only the baseline swapped", () => {
+describe("compareLongHistory: the same days, only the baseline swapped", () => {
   const dates = (n: number) => Array.from({ length: n }, (_, i) => new Date(Date.UTC(2026, 8, 1 + i)).toISOString().slice(0, 10));
 
   it("after a sudden warming, L2's boundaries move up first, and hours near a boundary change step", () => {
     // 60 days at 12℃, then 10 days at 22℃; hours at noon of the warm days.
     const ds = dates(70);
     const days: ComparedDay[] = ds.map((d, i) => ({ date: d, day: day(d, i < 60 ? 12 : 22), hours: i >= 60 ? [hour(d, 12, 15), hour(d, 14, 19)] : [] }));
-    const c = compareAdaptation(days, { anemometerHeight: 10 }, sets);
+    const c = compareLongHistory(days, { anemometerHeight: 10 }, sets);
     const warm = c.days.slice(61);
     for (const d of warm) expect(d.delta!).toBeGreaterThan(0);
     expect(c.largestDelta!).toBeGreaterThan(0);
@@ -101,7 +101,7 @@ describe("compareAdaptation: the same days, only the baseline swapped", () => {
 
   it("days with too little before them are kept, left out of the counts, with their reasons", () => {
     const ds = dates(40);
-    const c = compareAdaptation(
+    const c = compareLongHistory(
       ds.map((d) => ({ date: d, day: day(d, 15) })),
       { anemometerHeight: 10 },
       sets,
@@ -117,7 +117,7 @@ describe("compareAdaptation: the same days, only the baseline swapped", () => {
     fc.assert(
       fc.property(temp, (t) => {
         const ds = dates(65);
-        const c = compareAdaptation(
+        const c = compareLongHistory(
           ds.map((d, i) => ({ date: d, day: day(d, t), hours: i === 64 ? [hour(d, 12, t)] : [] })),
           { anemometerHeight: 10 },
           sets,
@@ -131,15 +131,15 @@ describe("compareAdaptation: the same days, only the baseline swapped", () => {
 
   it("each side's trace names its own baseline, and the same shift and judge", () => {
     const ds = dates(62);
-    const c = compareAdaptation(
+    const c = compareLongHistory(
       ds.map((d, i) => ({ date: d, day: day(d, 14), hours: i === 61 ? [hour(d, 12, 16)] : [] })),
       { anemometerHeight: 10 },
       sets,
     );
     const h = c.days[61].hours[0];
     const formulas = (e: { trace: { formula: string }[] }) => e.trace.map((s) => s.formula);
-    expect(formulas(h.level1)).toEqual(["wind.person@1", "feel.shade@1", "adapt.long.mean@1", "judge.shift.season@1", "judge.level7@1"]);
-    expect(formulas(h.level2)).toEqual(["wind.person@1", "feel.shade@1", "adapt.long.ema@1", "judge.shift.season@1", "judge.level7@1"]);
-    expect(valueOf(adaptationEma(ds.slice(0, 61).reverse().map((d) => day(d, 14))))!).toBeCloseTo(14, 9);
+    expect(formulas(h.level1)).toEqual(["wind.person@1", "feel.shade@1", "history.long.mean@1", "judge.shift.season@1", "judge.level7@1"]);
+    expect(formulas(h.level2)).toEqual(["wind.person@1", "feel.shade@1", "history.long.ema@1", "judge.shift.season@1", "judge.level7@1"]);
+    expect(valueOf(longHistoryEma(ds.slice(0, 61).reverse().map((d) => day(d, 14))))!).toBeCloseTo(14, 9);
   });
 });

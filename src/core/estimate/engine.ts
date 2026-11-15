@@ -56,7 +56,7 @@ export interface Formula<N extends string, P extends string, S extends string = 
   needs: readonly N[];
   /**
    * Needs that more than one formula can fill, and which (by key): the same shape, swapped by the
-   * caller (principles 8 LSP) — 慣れ-L1 or 慣れ-L2 into the same boundary shift. The map draws each.
+   * caller (principles 8 LSP) — 長期の気温履歴 L1 or L2 into the same boundary shift. The map draws each.
    */
   choices?: Partial<Record<N, readonly string[]>>;
   /**

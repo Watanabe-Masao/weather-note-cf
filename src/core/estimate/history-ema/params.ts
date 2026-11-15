@@ -1,10 +1,10 @@
-// adapt.long.ema の数. α is the one the learned version chooses from the answers; the plain version
+// history.long.ema の数. α is the one the learned version chooses from the answers; the plain version
 // uses the standard one until then (src/beta/adaptation.ts).
 
 import { defineParams } from "../engine";
-import { adaptEma } from "./formula";
+import { historyEma } from "./formula";
 
-export const ADAPT_EMA_STANDARD = defineParams(adaptEma, {
+export const HISTORY_EMA_STANDARD = defineParams(historyEma, {
   id: "standard",
   version: 1,
   values: {
