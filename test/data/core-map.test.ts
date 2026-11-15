@@ -15,8 +15,8 @@ describe("the map is the formulas'", () => {
     expect(readFileSync(DOC, "utf8")).toBe(coreMapDoc());
   });
 
-  it("every formula in src/core/estimate is on the map", () => {
-    const modules = import.meta.glob("../../src/core/estimate/*/formula.ts", { eager: true }) as Record<string, Record<string, unknown>>;
+  it("every formula in src/core/estimate and src/core/judge is on the map", () => {
+    const modules = import.meta.glob(["../../src/core/estimate/*/formula.ts", "../../src/core/judge/*/formula.ts"], { eager: true }) as Record<string, Record<string, unknown>>;
     const found = Object.values(modules).flatMap((m) => Object.values(m).filter((v): v is AnyFormula => typeof v === "object" && v != null && "compute" in v && "needs" in v));
     expect(found.length).toBeGreaterThan(0);
     for (const f of found) expect(FORMULAS, f.id).toContain(f);

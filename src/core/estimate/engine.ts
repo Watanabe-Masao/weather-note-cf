@@ -51,6 +51,11 @@ export interface Formula<N extends string, P extends string, S extends string = 
   unit: string;
   /** Material or other estimates it is computed from: the only way in. */
   needs: readonly N[];
+  /**
+   * Needs that more than one formula can fill, and which (by key): the same shape, swapped by the
+   * caller (principles 8 LSP) — 慣れ-L1 or 慣れ-L2 into the same boundary shift. The map draws each.
+   */
+  choices?: Partial<Record<N, readonly string[]>>;
   /** Runs of past values it is computed from (newest first). */
   series?: readonly S[];
   /** The names of the numbers it uses. */

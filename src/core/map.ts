@@ -7,10 +7,12 @@ import { adaptMean } from "./estimate/adapt-mean/formula";
 import type { AnyFormula } from "./estimate/engine";
 import { feelShade } from "./estimate/feel-shade/formula";
 import { windPerson } from "./estimate/wind-person/formula";
+import { level7 } from "./judge/level7/formula";
+import { seasonShift } from "./judge/season-shift/formula";
 import { DAY_FIELDS, HOUR_FIELDS } from "./material/fields";
 
 /** Every formula in the core (a test checks none is left out). */
-export const FORMULAS: readonly AnyFormula[] = [windPerson, feelShade, adaptMean, adaptEma];
+export const FORMULAS: readonly AnyFormula[] = [windPerson, feelShade, adaptMean, adaptEma, seasonShift, level7];
 
 /** The inputs that come from the material, by the name formulas use for them. */
 export const MATERIAL_INPUTS: Record<string, string> = {
@@ -22,16 +24,22 @@ export const MATERIAL_INPUTS: Record<string, string> = {
 export interface Edge {
   from: string;
   to: string;
-  series: boolean;
+  kind: "need" | "series" | "choice";
 }
 
-/** Every dependency: from a material input or a formula (by key) to the formula that needs it. */
+/** Every dependency: from a material input or a formula (by key) to the formula that needs it. A need
+ *  with choices comes from each formula that can fill it. */
 export function edges(formulas: readonly AnyFormula[] = FORMULAS): Edge[] {
   return formulas.flatMap((f) => [
-    ...f.needs.map((n: string) => ({ from: n, to: f.key, series: false })),
-    ...(f.series ?? []).map((n: string) => ({ from: n, to: f.key, series: true })),
+    ...f.needs.flatMap((n: string): Edge[] => {
+      const c: readonly string[] | undefined = f.choices?.[n];
+      return c ? c.map((from) => ({ from, to: f.key, kind: "choice" as const })) : [{ from: n, to: f.key, kind: "need" }];
+    }),
+    ...(f.series ?? []).map((n: string): Edge => ({ from: n, to: f.key, kind: "series" })),
   ]);
 }
+
+const ARROW: Record<Edge["kind"], string> = { need: "-->", series: "-. 前の日から .->", choice: "== どれか ==>" };
 
 const node = (k: string) => k.replace(/[^A-Za-z0-9]/g, "_");
 
@@ -40,10 +48,13 @@ export function mermaid(formulas: readonly AnyFormula[] = FORMULAS): string {
   const used = new Set(edges(formulas).map((e) => e.from));
   const lines = ["flowchart LR", "  subgraph 材料"];
   for (const [k, label] of Object.entries(MATERIAL_INPUTS)) if (used.has(k)) lines.push(`    ${node(k)}["${label}<br><code>${k}</code>"]`);
+  const judge = (f: AnyFormula) => f.id.startsWith("judge.");
   lines.push("  end", "  subgraph 推測値");
-  for (const f of formulas) lines.push(`    ${node(f.key)}["${f.label}<br><code>${f.id}@${f.version}</code> ${f.unit}<br><small>数：${f.params.join("・")}</small>"]`);
+  for (const f of formulas.filter((f) => !judge(f))) lines.push(`    ${node(f.key)}["${f.label}<br><code>${f.id}@${f.version}</code> ${f.unit}<br><small>数：${f.params.join("・")}</small>"]`);
+  lines.push("  end", "  subgraph 判定");
+  for (const f of formulas.filter(judge)) lines.push(`    ${node(f.key)}["${f.label}<br><code>${f.id}@${f.version}</code> ${f.unit}<br><small>数：${f.params.join("・")}</small>"]`);
   lines.push("  end");
-  for (const e of edges(formulas)) lines.push(`  ${node(e.from)} ${e.series ? "-. 前の日から .->" : "-->"} ${node(e.to)}`);
+  for (const e of edges(formulas)) lines.push(`  ${node(e.from)} ${ARROW[e.kind]} ${node(e.to)}`);
   return lines.join("\n");
 }
 
