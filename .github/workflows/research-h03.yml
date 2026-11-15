@@ -1,0 +1,37 @@
+name: research-h03
+
+# #208 (日射量を材料にするか): the forecast's radiation and the radiation from its sunshine, each
+# against what JMA measured (research/brightness/h03.ts). Manual only. Reads the station's hourly
+# tables from JMA one day a second and Open-Meteo's historical forecasts one month a request; the
+# records and the report are kept as this run's artifact, never committed.
+on:
+  workflow_dispatch:
+    inputs:
+      station:
+        description: "観測所（blockNo）"
+        default: "47893"
+      from:
+        description: "最初の日（YYYY-MM-DD）"
+        default: "2025-11-01"
+      to:
+        description: "最後の日（YYYY-MM-DD）"
+        default: "2026-10-31"
+
+jobs:
+  h03:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx --yes tsx@4.19.2 research/brightness/h03.ts --station "${{ inputs.station }}" --from "${{ inputs.from }}" --to "${{ inputs.to }}" --out research/brightness/out
+      - run: cat research/brightness/out/h03-report.md >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: h03-${{ inputs.station }}-${{ inputs.from }}-${{ inputs.to }}
+          path: research/brightness/out
