@@ -4479,3 +4479,9 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .month-filter-days .tone-saturday { color: var(--day-saturday); }
 .month-filter-days .tone-holiday { color: var(--day-holiday); }
 .week-detail-row, .day-type { cursor: default; }
+.month-filter-days-area { min-width: 0; touch-action: pan-x; }
+.month-filter-days-area .month-cal { touch-action: auto; }
+.month-fold { display: flex; justify-content: center; width: 100%; height: 18px; margin-top: -4px; padding: 0; border: none; background: none; touch-action: none; }
+.month-fold i { width: 36px; height: 4px; margin-top: 6px; border-radius: var(--radius-xs); background: var(--line-strong); opacity: 0.6; }
+.month-fold.open i { opacity: 0.9; }
+.month-filter-row.cal { grid-template-columns: 1fr; }

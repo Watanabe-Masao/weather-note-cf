@@ -185,6 +185,22 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   if (a.sun != null && b.sun != null && b.sun > 0) lean.push(a.sun / b.sun > 1.1 ? "日差しは多め" : a.sun / b.sun < 0.9 ? "日差しは少なめ" : "日差しは同じくらい");
   const [tab, setTab] = useState<"sum" | "days" | "feel">("sum");
   const [calOpen, setCalOpen] = useState(false);
+  // A vertical pull opens the calendar, a push folds it (the chips' row only opens: the open
+  // calendar scrolls with the sheet, so it folds from the grip).
+  // Followed on the window: the sheet's own drag may hold the pointer, so the lift is not always ours.
+  const foldGesture = (openOnly: boolean) => ({
+    onPointerDown: (e: React.PointerEvent) => {
+      const from = e.clientY;
+      const up = (u: PointerEvent) => {
+        window.removeEventListener("pointerup", up, true);
+        const dy = u.clientY - from;
+        if (dy > 28) setCalOpen(true);
+        else if (dy < -28 && !openOnly) setCalOpen(false);
+      };
+      window.addEventListener("pointerup", up, true);
+    },
+  });
+
   const [metric, setMetric] = useState<MonthMetricId>("temp");
   // The day the card reads: where the finger last was (at first the month's last day).
   const [focusDay, setFocusDay] = useState(days.length - 1);
@@ -213,35 +229,33 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
               ))}
             </div>
           </div>
-          <div className="month-filter-row">
-            <span className="month-filter-name">日</span>
-            <div className="chip-row month-filter-days" role="group" aria-label="日で絞る">
-              {/* While the calendar is open its own head (全・曜日) chooses: the chips step aside. */}
-              {!calOpen && (
-                <Chip size="sm" on={picked.size === 0} onClick={() => setPicked(new Set())}>
-                  全
-                </Chip>
-              )}
-              {!calOpen && WEEK.map((name, w) => {
-                const ds = days.filter((d) => dowOf(d) === w);
-                return (
-                  <Chip key={name} size="sm" on={ds.length > 0 && ds.every((d) => picked.has(d))} onClick={() => pickDays(ds)}>
-                    <span className={w === 5 ? "tone-saturday" : w === 6 ? "tone-holiday" : ""}>{name}</span>
+          {/* 日: the weekdays as chips; pull them down (or tap the grip) and they open into the month's
+              calendar, whose head chooses the same way; push the grip up to fold it again. No 日付/閉じる buttons. */}
+          <div className={`month-filter-row${calOpen ? " cal" : ""}`}>
+            {!calOpen && <span className="month-filter-name">日</span>}
+            <div className="month-filter-days-area" {...foldGesture(true)}>
+              {!calOpen ? (
+                <div className="chip-row month-filter-days" role="group" aria-label="日で絞る（下に引くとカレンダー）">
+                  <Chip size="sm" on={picked.size === 0} onClick={() => setPicked(new Set())}>
+                    全
                   </Chip>
-                );
-              })}
-              {/* One chip opens and closes the calendar: lit while open, no separate 閉じる. */}
-              <Chip size="sm" on={calOpen} onClick={() => setCalOpen(!calOpen)} aria-expanded={calOpen}>
-                日付
-              </Chip>
+                  {WEEK.map((name, w) => {
+                    const ds = days.filter((d) => dowOf(d) === w);
+                    return (
+                      <Chip key={name} size="sm" on={ds.length > 0 && ds.every((d) => picked.has(d))} onClick={() => pickDays(ds)}>
+                        <span className={w === 5 ? "tone-saturday" : w === 6 ? "tone-holiday" : ""}>{name}</span>
+                      </Chip>
+                    );
+                  })}
+                </div>
+              ) : (
+                <MonthCalendar store={store} station={station} days={days} rows={full.rows} marks={marks} picked={picked} onPick={pickDays} />
+              )}
             </div>
           </div>
-          {calOpen && (
-            <>
-              <MonthCalendar store={store} station={station} days={days} rows={full.rows} marks={marks} picked={picked} onPick={pickDays} />
-              <p className="month-cal-legend">日・週（左）・曜日（上）で選ぶ（複数可）。長押しでその日の詳細。</p>
-            </>
-          )}
+          <button className={`month-fold${calOpen ? " open" : ""}`} {...foldGesture(false)} onClick={() => setCalOpen(!calOpen)} aria-expanded={calOpen} aria-label={calOpen ? "カレンダーをたたむ" : "カレンダーを開く"}>
+            <i />
+          </button>
         </div>
         <div className="ds-lead month-head">
           <p className="month-lean">
