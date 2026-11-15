@@ -9,7 +9,7 @@ import { addDays } from "../../shared/dates";
 import { stationLatLon } from "../../shared/sunTimes";
 import { type Report, SCALE_VERSION } from "../beta/reports";
 import { useReports } from "../beta/useReports";
-import { type Case, type CaseInputs, caseInputs, compareScores, dayOf, hourOf, plainLevelPredictor, type Predictor, prequential, type ScoreComparison } from "../core";
+import { type Case, type CaseInputs, caseInputs, compareScores, dayOf, hourOf, plainLevelPredictor, type Predictor, prequential, type ScoreComparison, type Verdict, verdict } from "../core";
 import { climatologyPredictor, ordinalPredictor } from "../core/learned";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
@@ -29,6 +29,13 @@ function placeOf(r: Report): { date: string; hour: number } {
 
 const f3 = (v: number) => (Number.isFinite(v) ? v.toFixed(3) : "—");
 const signed3 = (v: number) => (Number.isFinite(v) ? `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(3)}` : "—");
+const VERDICT: Record<Verdict, string> = {
+  tooFew: "答えが2日分に満たないので、まだ言えません。",
+  noWeather: "まだ言えません：S1 は「答えの割合だけ」の予測に勝っていないので、天気から学べているとは言えません。",
+  helps: "効いた：S1 は base より外れが小さく、差の幅もすべて 0 より下です。",
+  hurts: "S1 の方が外れが大きい：短期の履歴の項は、この答えでは邪魔になっています。",
+  unclear: "効いたとは言えません：差の幅が 0 をまたいでいます。",
+};
 const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : "—");
 
 export function LearnedCompareBoard({ store, station, onClose }: { store: WeatherStore | null; station: string; onClose: () => void }) {
@@ -135,33 +142,17 @@ export function LearnedCompareBoard({ store, station, onClose }: { store: Weathe
         {run && s1VsBase && (
           <>
             <SectionHead title="短期の履歴は効いたか（S1 と base）" />
-            {(() => {
-              const weatherLearned = !!(s1VsShares?.interval && s1VsShares.interval[1] < 0);
-              const shortHelps = !!(s1VsBase.interval && s1VsBase.interval[1] < 0);
-              const head =
-                s1VsBase.interval == null
-                  ? "答えが2日分に満たないので、まだ言えません。"
-                  : !weatherLearned
-                    ? "まだ言えません：S1 は「答えの割合だけ」の予測に勝っていないので、天気から学べているとは言えません。"
-                    : shortHelps
-                      ? "効いた：S1 は base より外れが小さく、差の幅もすべて 0 より下です。"
-                      : s1VsBase.interval[0] > 0
-                        ? "S1 の方が外れが大きい：短期の履歴の項は、この答えでは邪魔になっています。"
-                        : "効いたとは言えません：差の幅が 0 をまたいでいます。";
-              return (
-                <p className={`learned-verdict${weatherLearned && shortHelps ? " yes" : ""}`}>
-                  {head}
-                  <small>
-                    S1 − base：{signed3(s1VsBase.diff)}（幅 {interval(s1VsBase)}）・{s1VsBase.n} 件・{s1VsBase.days} 日
-                  </small>
-                  {s1VsShares && (
-                    <small>
-                      S1 − 答えの割合だけ：{signed3(s1VsShares.diff)}（幅 {interval(s1VsShares)}）
-                    </small>
-                  )}
-                </p>
-              );
-            })()}
+            {s1VsShares && (
+              <p className={`learned-verdict${verdict(s1VsBase, s1VsShares) === "helps" ? " yes" : ""}`}>
+                {VERDICT[verdict(s1VsBase, s1VsShares)]}
+                <small>
+                  S1 − base：{signed3(s1VsBase.diff)}（幅 {interval(s1VsBase)}）・{s1VsBase.n} 件・{s1VsBase.days} 日
+                </small>
+                <small>
+                  S1 − 答えの割合だけ：{signed3(s1VsShares.diff)}（幅 {interval(s1VsShares)}）
+                </small>
+              </p>
+            )}
 
             <SectionHead title="予測ごとの点" />
             <div className="sun-test-table">
