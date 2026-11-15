@@ -34,3 +34,8 @@ export { hourStartOf } from "./material/inputs";
 export { type FeelSettingsLike, sunFeel, sunshineRadiation } from "./plain/feelSun";
 export { type Concept, CONCEPTS, type Hypothesis, HYPOTHESES } from "./hypotheses";
 export { hypothesisMermaid } from "./map";
+export { feelRate } from "./estimate/feel-rate/formula";
+export { FEEL_RATE_STANDARD } from "./estimate/feel-rate/params";
+export { historyShort } from "./estimate/history-short/formula";
+export { HISTORY_SHORT_STANDARD } from "./estimate/history-short/params";
+export { type Exposure, type HourHistory, shortHistories } from "./plain/shortHistory";

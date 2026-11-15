@@ -58,7 +58,7 @@ export interface Formula<N extends string, P extends string, S extends string = 
    * Needs that more than one formula can fill, and which (by key): the same shape, swapped by the
    * caller (principles 8 LSP) — 長期の気温履歴 L1 or L2 into the same boundary shift. The map draws each.
    */
-  choices?: Partial<Record<N, readonly string[]>>;
+  choices?: Partial<Record<N | NoInfer<S>, readonly string[]>>;
   /**
    * Needs that are not always needed: when one is not there, compute gets null for it — unless
    * `required` says that, with the others as they are, it is needed after all; then the result is

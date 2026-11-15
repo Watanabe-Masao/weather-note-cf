@@ -28,6 +28,8 @@ flowchart LR
     feelSun["肌感（日なた）<br><code>feel.sun@1</code> ℃<br><small>数：k・windOffset・absorb</small>"]
     historyMean["長期の気温履歴（単純平均）<br><code>history.long.mean@1</code> ℃<br><small>数：days・minDays</small>"]
     historyEma["長期の気温履歴（重み付きの平均）<br><code>history.long.ema@1</code> ℃<br><small>数：alpha・days・minCoverage</small>"]
+    historyShort["短期の履歴（肌感の重み付きの平均）<br><code>history.short.ema@1</code> ℃<br><small>数：alpha・hours・minCoverage</small>"]
+    feelRate["肌感の変化の速さ<br><code>feel.rate@1</code> ℃/h<br><small>数：lag</small>"]
   end
   subgraph 判定
     seasonShift["境目のずれ（季節）<br><code>judge.shift.season@1</code> ℃<br><small>数：slope・lo・hi・ref</small>"]
@@ -50,6 +52,12 @@ flowchart LR
   windTen --> feelSun
   dayMeans -. 前の日から .-> historyMean
   dayMeans -. 前の日から .-> historyEma
+  feelShade -. 前の日から .-> historyShort
+  feelSun -. 前の日から .-> historyShort
+  feelShade == どれか ==> feelRate
+  feelSun == どれか ==> feelRate
+  feelShade -. 前の日から .-> feelRate
+  feelSun -. 前の日から .-> feelRate
   historyMean == どれか ==> seasonShift
   historyEma == どれか ==> seasonShift
   feelShade == どれか ==> level7
@@ -65,15 +73,15 @@ flowchart LR
   historyMean["長期の気温履歴（単純平均）<br><code>historyMean</code>"]
   adaptation(["適応状態（慣れ）：直接は見えない状態"])
   historyEma["長期の気温履歴（重み付きの平均）<br><code>historyEma</code>"]
-  shortHistory(["短期の履歴（当日の数時間）：これから作る"])
-  rate(["肌感の変化の速さ：これから作る"])
+  historyShort["短期の履歴（肌感の重み付きの平均）<br><code>historyShort</code>"]
+  feelRate["肌感の変化の速さ<br><code>feelRate</code>"]
   intercept(["切片：同じ肌感でも感じ方がどちらへ偏るか"])
   slope(["傾き：肌感の変化にどれだけ強く反応するか"])
   timeOfDay(["時刻（朝・昼・夜）"])
   historyMean -. "仮説<br><code>hyp.long-history.adaptation</code>" .-> adaptation
   historyEma -. "仮説<br><code>hyp.long-history-ema.adaptation</code>" .-> adaptation
-  shortHistory -. "仮説<br><code>hyp.short-history.adaptation</code>" .-> adaptation
-  rate -. "仮説<br><code>hyp.rate.intercept</code>" .-> intercept
+  historyShort -. "仮説<br><code>hyp.short-history.adaptation</code>" .-> adaptation
+  feelRate -. "仮説<br><code>hyp.rate.intercept</code>" .-> intercept
   historyEma -. "仮説<br><code>hyp.long-history.intercept</code>" .-> intercept
   adaptation -. "仮説<br><code>hyp.adaptation.intercept</code>" .-> intercept
   adaptation -. "仮説<br><code>hyp.adaptation.slope</code>" .-> slope
