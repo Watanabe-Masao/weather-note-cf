@@ -104,6 +104,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   const f1 = (v: number | null, u = "") => (v == null ? "—" : `${v.toFixed(1)}${u}`);
   const d1 = (x: number | null, y: number | null, unit: string) => signedDiff(x, y, unit);
   const cnt = (n: number) => `${n}日`;
+  const monthDates = { a: `’${month.slice(2, 4)}/${+month.slice(5)}`, b: `’${before.slice(2, 4)}/${+before.slice(5)}` };
   const rows: ReadoutRow[] = [
     { key: "temp", label: "平均気温", unit: "℃", color: DATA.mean, a: f1(a.temp), b: f1(b.temp), diff: d1(a.temp, b.temp, "℃") },
     { key: "max", label: "最高の平均", unit: "℃", color: DATA.hot, a: f1(a.max), b: f1(b.max), diff: d1(a.max, b.max, "℃") },
@@ -112,6 +113,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
     { key: "rainDays", label: "雨の日（1mm以上）", text: true, unit: "", a: cnt(a.rainDays), b: cnt(b.rainDays), diff: `${a.rainDays - b.rainDays >= 0 ? "+" : "−"}${Math.abs(a.rainDays - b.rainDays)}` },
     { key: "sun", label: "日照の合計", unit: "h", color: DATA.sun, a: f1(a.sun), b: f1(b.sun), diff: d1(a.sun, b.sun, "h") },
     { key: "hot25", label: "夏日（25℃以上）", text: true, unit: "", a: cnt(a.hot25), b: cnt(b.hot25), diff: `${a.hot25 - b.hot25 >= 0 ? "+" : "−"}${Math.abs(a.hot25 - b.hot25)}` },
+    { key: "hot30", label: "真夏日（30℃以上）", text: true, unit: "", a: cnt(a.hot30), b: cnt(b.hot30), diff: `${a.hot30 - b.hot30 >= 0 ? "+" : "−"}${Math.abs(a.hot30 - b.hot30)}` },
   ];
   // The month in words: from the numbers above only.
   const words: string[] = [];
@@ -183,6 +185,14 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
             <Tile name="日照" value={a.sun} unit="時間" other={b.sun} digits={0} color={DATA.sun} />
           </div>
         </div>
+        {/* The rest of the month's numbers (the three above are not repeated), then each day's 最高〜最低. */}
+        <GraphReadout title={`月の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
+        <SectionHead title="日ごとの気温（最高〜最低）" />
+        <div className="ds-hours">
+          <MonthRange a={a.rows} b={b.rows} />
+          <RangeLegend now={label(month)} then={label(before)} />
+        </div>
+        <SectionHead title="カレンダー" />
         <MonthCalendar store={store} station={station} days={days} rows={a.rows} marks={marks} />
         <p className="month-cal-legend">数字は 最高／最低（℃）。帯は肌感（朝〜夜）、水色の数字は降水 mm（1mm以上の日）。色の枠は下の「目立った日」。</p>
         <SectionHead title="曜日ごと" />
@@ -235,7 +245,7 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
           ))}
         </p>
       </div>
-      <GraphReadout title="月の値" unit="" dates={{ a: label(month).replace(/^\d+年/, "’" + month.slice(2, 4) + "/").replace("月", ""), b: "’" + before.slice(2, 4) + "/" + +before.slice(5) }} rows={rows} />
+      <GraphReadout title="月の値" unit="" dates={monthDates} rows={rows} />
       <SectionHead title="日ごとの気温（最高〜最低）" />
       <div className="ds-hours">
         <MonthRange a={a.rows} b={b.rows} />
@@ -501,5 +511,24 @@ function Weekdays({ station, days, rows, daysB, rowsB }: { station: string; days
         小さい数字は前年の同じ月の同じ曜日との差（雨の日は前年の日数）。雨の日（1mm以上）：土日 {wet(now.end)}/{now.end.length}日・平日 {wet(now.mid)}/{now.mid.length}日（前年 土日 {wet(then.end)}/{then.end.length}日・平日 {wet(then.mid)}/{then.mid.length}日）。
       </p>
     </div>
+  );
+}
+
+function RangeLegend({ now, then }: { now: string; then: string }) {
+  return (
+    <p className="line-legend">
+      <span>
+        <svg className="line-sample" width="10" height="14" aria-hidden>
+          <rect x="2" y="1" width="6" height="12" rx="3" fill={DATA.hot} />
+        </svg>
+        {now}
+      </span>
+      <span>
+        <svg className="line-sample" width="10" height="14" aria-hidden>
+          <rect x="2" y="1" width="6" height="12" rx="3" fill="none" stroke={DATA.hot} strokeWidth={1.4} opacity={0.8} />
+        </svg>
+        {then}
+      </span>
+    </p>
   );
 }
