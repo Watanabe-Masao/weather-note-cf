@@ -144,6 +144,7 @@ with sync_playwright() as p:
     ctx.add_init_script("""{const T=Date.parse('2026-11-10T03:00:00Z');const RD=Date;const off=T-RD.now();
       class D extends RD{constructor(...a){super(...(a.length?a:[RD.now()+off]))} static now(){return RD.now()+off}}
       globalThis.Date=D;}""")
+    ctx.add_init_script(path=os.path.join(HERE, "calm.js"))
     FAIL = set()  # parts of a URL that answer 500 (a step makes a request fail on purpose)
     FAILED_ON_PURPOSE = []
     def handle(route):
@@ -162,7 +163,14 @@ with sync_playwright() as p:
     pg.wait_for_timeout(1500)
     pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
     cdp = ctx.new_cdp_session(pg)
+    # WN_SLOW=4 runs the page's CPU 4× slower: a slow CI runner, to find waits that only just suffice.
+    if os.environ.get("WN_SLOW"): cdp.send("Emulation.setCPUThrottlingRate", {"rate": float(os.environ["WN_SLOW"])})
     wait = pg.wait_for_timeout
+    # Until the page is at rest (e2e/calm.js), at most max_ms: for after a tap or a swipe (#182).
+    def calm(max_ms=3000):
+        t = pg.evaluate(f"__calm({int(max_ms)})")
+        if os.environ.get("WN_CALM"): print("CALM", t, sys._getframe(1).f_lineno)
+        return t
     txt = lambda sel: pg.locator(sel).first.inner_text()
     title = lambda: txt(".sheet-head-title")
     no_overflow = lambda: pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
@@ -222,48 +230,48 @@ with sync_playwright() as p:
     # B. every item chip
     def bb():
         for i, label in enumerate(["気温", "降水", "日差し", "日照", "湿度", "風速", "気圧"]):
-            pg.click(f".metrics .chip:nth-child({i+1})"); wait(500)
+            pg.click(f".metrics .chip:nth-child({i+1})"); calm()
             check(f"B{i+1} {label}: チップがオン", "on" in pg.locator(f".metrics .chip:nth-child({i+1})").get_attribute("class"))
             check(f"B{i+1} {label}: シート見出し", title().startswith(label), title())
             check(f"B{i+1} {label}: 読み取りカード", pg.locator(".sheet .readout-card").count() == 1)
             check(f"B{i+1} {label}: 凡例がグラフの下", pg.locator(".sheet .line-legend").count() >= 1)
             layout_ok(f"B{i+1}b", f"{label}の日別")
-        pg.click(".metrics .chip:nth-child(1)"); wait(400)
+        pg.click(".metrics .chip:nth-child(1)"); calm()
     step("B", bb)
 
     # C. sheet heights
     def c():
         h0 = sheet_h()
-        pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)
+        pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
         h1 = sheet_h()
         top = pg.evaluate("document.querySelector('.sheet').getBoundingClientRect().top")
         chips = pg.evaluate("document.querySelector('.metrics').getBoundingClientRect().bottom")
         check("C1 上へ弾くと高くなる", h1 > h0 + 50, f"{h0:.0f}→{h1:.0f}")
         check("C2 最大はチップの下で止まる", top >= chips - 1, f"top {top:.0f} chips {chips:.0f}")
         layout_ok("C2b", "シート最大")
-        pg.evaluate("__flick('.sheet-handle',600,120)"); wait(800)
+        pg.evaluate("__flick('.sheet-handle',600,120)"); calm()
         h2 = sheet_h()
         check("C3 下へ弾くと低くなる", h2 < h1 - 50, f"{h1:.0f}→{h2:.0f}")
-        pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)
+        pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
     step("C", c)
 
     # D. daily -> hours -> back, every item
     def d():
-        pg.locator(".chart-hit").nth(7).click(force=True); wait(700)
+        pg.locator(".chart-hit").nth(7).click(force=True); calm()
         check("D1 日をタップで時間帯", title().endswith("の時間帯"), title())
         check("D2 戻るボタン", pg.locator(".back-btn").count() == 1)
         for i, label in enumerate(["気温", "降水", "日差し", "日照と明るさ", "湿度", "風速", "気圧"]):
-            pg.click(f".metrics .chip:nth-child({i+1})"); wait(500)
+            pg.click(f".metrics .chip:nth-child({i+1})"); calm()
             check(f"D3 時間帯 {label}", title() == f"{label}の時間帯" and pg.locator(".day-chart > svg").count() == 1, title())
         pg.click(".metrics .chip:nth-child(1)"); wait(300)
-        pg.click(".back-btn"); wait(600)
+        pg.click(".back-btn"); calm()
         check("D4 ‹日別で戻る", title() == "気温の日別", title())
     step("D", d)
 
     # U. 日照の時間帯 › 空の色（模式）: なぞると1時間を拡大、テキスト選択・拡大鏡は出ない
     def uu():
-        pg.locator(".chart-hit").nth(7).click(force=True); wait(700)
-        pg.click(".metrics .chip:nth-child(4)"); wait(600)
+        pg.locator(".chart-hit").nth(7).click(force=True); calm()
+        pg.click(".metrics .chip:nth-child(4)"); calm()
         check("U1 明るさと空：1本の帯（切り替えなし）、マスに空の色と段の線", pg.locator(".light-strip .seg").count() == 0 and pg.locator(".light-cells.sky i b").count() >= 48 and pg.locator(".light-cells.sky i u").count() >= 24 and no_overflow(), str(pg.locator(".light-cells.sky i b").count()))
         check("U2 読み取りに空の行", "空（" in txt(".readout-card"), txt(".readout-card"))
         st = small_text(); check("U2b 11px より小さい文字がない（時間帯）", not st, str(st))
@@ -287,13 +295,13 @@ with sync_playwright() as p:
         check("U7 軽く押すとカードが残り×で閉じる", pg.locator(".sky-zoom-close").count() == 1)
         pg.click(".sky-zoom-close"); wait(200)
         check("U8 ×で閉じる", pg.locator(".sky-zoom").count() == 0)
-        pg.click(".metrics .chip:nth-child(1)"); wait(400)
-        pg.click(".back-btn"); wait(500)
+        pg.click(".metrics .chip:nth-child(1)"); calm()
+        pg.click(".back-btn"); calm()
     step("U", uu)
 
     # E. forecast hatch in hours (tomorrow)
     def e():
-        pg.locator(".chart-hit").nth(8).click(force=True); wait(800)
+        pg.locator(".chart-hit").nth(8).click(force=True); calm()
         check("E1 予報の時間に網かけ", pg.locator(".day-chart .chart-forecast").count() >= 20, str(pg.locator(".day-chart .chart-forecast").count()))
         check("E2 予報の線は実線のまま", pg.evaluate("[...document.querySelectorAll('.day-chart line[stroke-dasharray=\"2 4\"]')].length") == 0)
         pg.locator(".day-chart > svg").scroll_into_view_if_needed(); wait(300)
@@ -303,28 +311,28 @@ with sync_playwright() as p:
         check("E4 触っている間カードが光る", pg.locator(".readout-card.live").count() == 1)
         pg.mouse.up(); wait(200)
         check("E5 離すとカードは戻る", pg.locator(".readout-card.live").count() == 0)
-        pg.click(".back-btn"); wait(600)
+        pg.click(".back-btn"); calm()
     step("E", e)
 
     # F. long press on the daily graph (touch) scrubs, no day opens; a swipe moves days
     def f():
         b = pg.locator(".chart svg").first.bounding_box()
         x, y = b["x"] + b["width"] * 0.3, b["y"] + b["height"] * 0.4
-        touch("touchStart", x, y); wait(450)
+        touch("touchStart", x, y); wait(500)  # held on purpose: a long press, not a rest
         touch("touchMove", x + 40, y); wait(200)
         check("F1 長押しでカードが光る", pg.locator(".readout-card.live").count() == 1)
         check("F2 長押しで補助線", pg.locator(".chart .guide").count() == 1)
-        touch("touchEnd", x + 40, y); wait(700)
+        touch("touchEnd", x + 40, y); calm()
         check("F3 長押しの後に時間帯へ飛ばない", title().endswith("の日別"), title())
         before = txt(".side .date-button")
         sx = b["x"] + b["width"] * 0.7
         touch("touchStart", sx, y)
         for k in range(1, 9):
             touch("touchMove", sx - k * 22, y); wait(16)
-        touch("touchEnd", sx - 176, y); wait(900)
+        touch("touchEnd", sx - 176, y); calm()
         after = txt(".side .date-button")
         check("F4 横スワイプで日が動く", before != after, f"{before}→{after}")
-        pg.click(".today-chip") if pg.locator(".today-chip").count() else None; wait(600)
+        pg.click(".today-chip") if pg.locator(".today-chip").count() else None; calm()
     step("F", f)
 
     # G. compare presets and link
@@ -333,25 +341,25 @@ with sync_playwright() as p:
         opts = [o for o in sel.locator("option").evaluate_all("os => os.map(o => o.value)") if o != "__conditions"]
         seen = set()
         for o in opts:
-            sel.select_option(o); wait(500)
+            sel.select_option(o); calm()
             seen.add(txt(".side-compare .date-button"))
         check("G1 比較のプリセットで比較日が変わる", len(seen) >= len(opts) - 1, f"{len(opts)} 種類 → {len(seen)} 通り")
         hits = frame_hits(); check("G1b どの比較のしかたでも、中央の枠の線が操作に被らない", not hits, str(hits))
-        sel.select_option(opts[0]); wait(400)
-        pg.click(".link-toggle"); wait(400)
+        sel.select_option(opts[0]); calm()
+        pg.click(".link-toggle"); calm()
         check("G2 個別にすると帯が2つ", pg.locator(".center-band.apart").count() == 2)
-        pg.click(".link-toggle"); wait(400)
+        pg.click(".link-toggle"); calm()
         check("G3 連動に戻すと枠は実線の2つ", pg.locator(".center-band").count() == 2 and pg.locator(".center-band.apart").count() == 0)
     step("G", g)
 
     # H. date arrows and 今日
     def h():
         before = txt(".side .date-button")
-        pg.locator(".side .arrow").nth(1).click(); wait(500)
+        pg.locator(".side .arrow").nth(1).click(); calm()
         check("H1 ▶で次の日", txt(".side .date-button") != before)
         check("H2 今日へ戻るボタンが出る", pg.locator(".today-chip").count() == 1)
         moved = txt(".side .date-button")
-        pg.reload(); wait(2500); pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
+        pg.reload(); calm(7500); pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
         check("H2b 再読み込み（新しい版への切り替え）でも見ていた日のまま", txt(".side .date-button") == moved, txt(".side .date-button"))
         pg.click(".today-chip")
         # Waits for the strip to come back (a slow runner glides longer than a fixed 500 ms).
@@ -370,16 +378,16 @@ with sync_playwright() as p:
           t.click(); }""")
         wait(200)
         check("G2a 下げたタップのクリックは背面に届かない", pg.evaluate("window.__ghost") == 0 and pg.locator(".msheet").count() == n0)
-        wait(800)
+        calm()
         pg.evaluate("""() => { window.__ghost = 0; const t = document.querySelector('.chart-hit, .date-button');
           t.addEventListener('click', () => window.__ghost++, {once: true}); }""")
-        pg.locator(".side .arrow").nth(1).click(); wait(400)
-        pg.locator(".today-chip").click(); wait(400)
+        pg.locator(".side .arrow").nth(1).click(); calm()
+        pg.locator(".today-chip").click(); calm()
         check("G2b 少し後のタップは普通に届く", pg.locator(".today-chip").count() == 0)
         pg.evaluate("""() => { const h = document.querySelector('.sheet-handle');
           h.dispatchEvent(new PointerEvent('pointerdown', {bubbles: true, clientY: 300, pointerId: 9}));
           h.dispatchEvent(new PointerEvent('pointerup', {bubbles: true, clientY: 300, pointerId: 9})); }""")
-        wait(800)
+        calm()
     step("G2", ghost)
 
     # FS. 取得できなかったもの: the status bar's message opens what failed, when and for what
@@ -390,9 +398,9 @@ with sync_playwright() as p:
             pg.locator(".side .arrow").nth(0).click(); wait(250)
         for _ in range(20):
             if pg.locator(".status-bar.error").count(): break
-            wait(500)
+            calm()
         check("FS1 失敗がステータスに出る", pg.locator(".status-bar.error").count() == 1)
-        pg.locator(".status-detail").click(); wait(700)
+        pg.locator(".status-detail").click(); calm()
         items = pg.locator(".failure-item").count()
         body = txt(".failure-sheet") if pg.locator(".failure-sheet").count() else ""
         check("FS2 押すと何が取れなかったかのシート", items >= 1, str(items))
@@ -400,14 +408,14 @@ with sync_playwright() as p:
         pg.locator(".failure-all").scroll_into_view_if_needed(); wait(300)
         buttons_ok("FS3b", "取得できなかったもの", 1)
         FAIL.clear()
-        pg.locator(".failure-all").click(); wait(3000)
+        pg.locator(".failure-all").click(); calm(9000)
         check("FS4 すべて再試行で消える", pg.locator(".failure-item").count() == 0 and pg.locator(".status-bar.error").count() == 0, str(pg.locator(".failure-item").count()))
-        pg.click(".msheet .icon-btn.close"); wait(600)
-        pg.click(".today-chip"); wait(600)
+        pg.click(".msheet .icon-btn.close"); calm()
+        pg.click(".today-chip"); calm()
     step("FS", fs)
     # AV. 手前の平均 on the hour chart: rows in the readout, a legend that sets lines aside, the span
     def av():
-        pg.locator(".chart-hit").nth(7).click(force=True); wait(2500)
+        pg.locator(".chart-hit").nth(7).click(force=True); calm(7500)
         check("AV1 読み取りに手前の平均と手前1週との差", pg.locator(".readout-card .ro-label", has_text="手前1週の平均").count() == 1 and pg.locator(".readout-card .ro-label", has_text="手前1週との差").count() == 1)
         # The readout is set on a grid: each column's decimal points on one line, every row 24px high (#151).
         g = pg.evaluate("""() => {
@@ -438,7 +446,7 @@ with sync_playwright() as p:
           return a && b ? { text: m.textContent, apart: a.left >= b.right + 4, inside: a.right <= svg.right, casing: !!document.querySelector('.day-sun-casing') } : null; }""")
         check("HC4 太陽の帯に「空は模式」（南中と重ならない）、太陽の線に暗い縁", sm and sm["text"] == "空は模式" and sm["apart"] and sm["inside"] and sm["casing"], str(sm))
         # SS. 太陽: the sun strip opens the sheet; the three twilights in order; the slider reads 10-minute steps.
-        pg.locator(".day-sun-button").first.scroll_into_view_if_needed(); pg.locator(".day-sun-button").first.click(); wait(900)
+        pg.locator(".day-sun-button").first.scroll_into_view_if_needed(); pg.locator(".day-sun-button").first.click(); calm()
         times = pg.locator(".sun-times dd").all_inner_texts()
         check("SS1 太陽のシートが開き、薄明の時刻が9つと昼の長さ", pg.locator(".sun-sheet").count() == 1 and len(times) == 10, str(times))
         mins = [int(t.split(":")[0]) * 60 + int(t.split(":")[1]) for t in (x.split()[-1] for x in times[:9]) if ":" in t]
@@ -447,7 +455,7 @@ with sync_playwright() as p:
           set.call(r, '370'); r.dispatchEvent(new Event('input', { bubbles: true })); }"""); wait(300)
         check("SS3 スライダーで 6:10 に（10分ごと）", txt(".sun-now-time") == "6:10", txt(".sun-now"))
         layout_ok("SS4", "太陽のシート")
-        pg.click(".msheet .icon-btn.close"); wait(700)
+        pg.click(".msheet .icon-btn.close"); calm()
         check("SS5 閉じる", pg.locator(".sun-sheet").count() == 0)
         # TR. Text roles (tokens TEXT_ROLES): each role draws the same on the readout and the table.
         roles = pg.evaluate("""() => {
@@ -475,25 +483,25 @@ with sync_playwright() as p:
         pg.locator(".legend-line").nth(1).click(); wait(300)
         check("AV4 もう一度で戻る", pg.locator(".legend-line").nth(1).get_attribute("aria-pressed") == "true")
         ticks = lambda: pg.locator(".hour-compare .chart-tick").all_inner_texts()
-        wait(1500)
+        calm(4500)
         before_ticks = ticks()
-        pg.locator(".avg-window").click(); wait(1500)
+        pg.locator(".avg-window").click(); calm(4500)
         check("AV5 平均の期間が 2週 に", pg.locator(".readout-card .ro-label", has_text="手前2週の平均").count() == 1)
         check("AV5c 差の行の名前も 2週 に", pg.locator(".readout-card .ro-label", has_text="手前2週との差").count() == 1)
         check("AV5b 期間を変えても縦軸は同じ", ticks() == before_ticks, f"{before_ticks} → {ticks()}")
-        pg.locator(".avg-window").click(); wait(1200)
+        pg.locator(".avg-window").click(); calm(3600)
         pg.locator(".ro-grid").last.scroll_into_view_if_needed(); wait(300)
         check("AV5d 1か月 でも名前が列に収まる", pg.locator(".readout-card .ro-label", has_text="手前1か月との差").count() == 1)
         layout_ok("AV5e", "手前1か月の読み取り")
         pg.locator(".avg-window").click(); wait(300)
         check("AV6 1か月 を経て 1週 に戻る", pg.locator(".readout-card .ro-label", has_text="手前1週の平均").count() == 1)
-        pg.locator(".back-btn").first.click(); wait(600)
+        pg.locator(".back-btn").first.click(); calm()
     step("AV", av)
 
     # I. close rules on the calendar: Esc, backdrop, ×, drag; pick closes
     def i_():
         for how in ["Esc", "背景", "×", "つまみ"]:
-            pg.locator(".side .date-button").first.click(); wait(600)
+            pg.locator(".side .date-button").first.click(); calm()
             ok_open = pg.locator(".msheet.calendar").count() == 1
             if how == "Esc": pg.keyboard.press("Escape")
             elif how == "背景": pg.mouse.click(200, 30)
@@ -501,25 +509,25 @@ with sync_playwright() as p:
             else:
                 hb = pg.locator(".msheet .sheet-handle").bounding_box()
                 pg.mouse.move(hb["x"] + hb["width"]/2, hb["y"] + 8); pg.mouse.down(); pg.mouse.move(hb["x"] + hb["width"]/2, hb["y"] + 300, steps=6); pg.mouse.up()
-            wait(700)
+            calm()
             check(f"I 閉じ方（{how}）", ok_open and pg.locator(".msheet").count() == 0)
-        pg.locator(".side .date-button").first.click(); wait(600)
+        pg.locator(".side .date-button").first.click(); calm()
         check("I カレンダーは中身の高さ", "fit" in pg.locator(".msheet").get_attribute("class"))
         layout_ok("I0", "カレンダー")
         buttons_ok("I0b", "カレンダー", 1)
         check("I0c 日を選ぶまで［決定］は押せない", pg.locator(".calendar-foot .btn.primary").is_disabled())
-        pg.locator(".cal-day:not(:disabled)").nth(3).click(); wait(400)
+        pg.locator(".cal-day:not(:disabled)").nth(3).click(); calm()
         check("I 1回目のタップは仮（閉じない、上の組み合わせが変わる）", pg.locator(".msheet").count() == 1 and pg.locator(".cal-pair.changed").count() == 1)
-        pg.locator(".cal-day:not(:disabled)").nth(3).click(); wait(700)
+        pg.locator(".cal-day:not(:disabled)").nth(3).click(); calm()
         check("I 同じ日をもう一度で決まって閉じる", pg.locator(".msheet").count() == 0 and txt(".side .date-button") != "2026/11/10", txt(".side .date-button"))
         had = pg.locator(".today-chip").count()
-        pg.click(".today-chip") if had else None; wait(600)
+        pg.click(".today-chip") if had else None; calm()
         check("I 今日ボタンで今日に戻る", had and txt(".side .date-button") == "2026/11/10", f"chip {had} → {txt('.side .date-button')}")
     step("I", i_)
 
     # J. settings
     def j():
-        pg.click(".app-head .icon-btn"); wait(600)
+        pg.click(".app-head .icon-btn"); calm()
         check("J1 設定が開く", pg.locator(".msheet.settings").count() == 1)
         st = small_text(); check("J1b 11px より小さい文字がない（設定）", not st, str(st))
         layout_ok("J1c", "設定")
@@ -530,7 +538,7 @@ with sync_playwright() as p:
 
     # R. 記録: the save button stays in view and names what is missing (#151 操作の体系)
     def rr():
-        pg.click(".head-report"); wait(900)
+        pg.click(".head-report"); calm()
         check("R1 記録が開く", pg.locator(".msheet.report-sheet").count() == 1)
         vis = lambda: pg.evaluate("(() => { const r = document.querySelector('.report-save').getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight + 1; })()")
         check("R2 開いた時から［記録する］が見える（下に固定）", vis())
@@ -549,8 +557,8 @@ with sync_playwright() as p:
 
     # K. feel map
     def k():
-        pg.evaluate("__flick('.sheet-handle',600,120)"); wait(800)
-        pg.locator(".side-target .strip-col.is-center .cell-feel.tappable-feel").first.click(); wait(800)
+        pg.evaluate("__flick('.sheet-handle',600,120)"); calm()
+        pg.locator(".side-target .strip-col.is-center .cell-feel.tappable-feel").first.click(); calm()
         head = pg.evaluate("document.querySelector('.side-target .date-button').innerText")
         md = txt(".band-map-date.center").split()[0]
         check("K0 中央の日のマップ", head.endswith("/" + md.split("/")[0] + "/" + md.split("/")[1]), f"マップ {md} / 表 {head}")
@@ -565,9 +573,9 @@ with sync_playwright() as p:
         check("K3 1枚の比較マップ（見えるのは7日×5区分）", seen == 35, str(seen))
         check("K4 予報のマスに網かけ", pg.locator(".bm-a.forecast").count() >= 1)
         check("K5 凡例がマップの下", pg.evaluate("document.querySelector('.map-legend').getBoundingClientRect().top > document.querySelector('.band-map').getBoundingClientRect().bottom"))
-        pg.locator(".band-cell.center").nth(2).click(); wait(400)
+        pg.locator(".band-cell.center").nth(2).click(); calm()
         check("K6 マスで両日の詳細", pg.locator(".band-detail table").count() == 2)
-        pg.locator(".seg button", has_text="推移").click(); wait(500)
+        pg.locator(".seg button", has_text="推移").click(); calm()
         bx = pg.locator("svg.scrub").bounding_box()
         pg.mouse.move(bx["x"] + bx["width"] * 0.3, bx["y"] + 80); wait(200)
         check("K7 推移で補助線とタグ", pg.locator("svg.scrub .guide-tag").count() >= 1)
@@ -579,22 +587,22 @@ with sync_playwright() as p:
         touch("touchStart", x, y)
         for k in range(1, 9):
             touch("touchMove", x - k * 18, y); wait(16)
-        touch("touchEnd", x - 144, y); wait(900)
+        touch("touchEnd", x - 144, y); calm()
         after = txt(".band-trend .readout-card .ro-title")
         check("K7b 推移も横に動かすと日が進む（ドラム）", after != before, f"{before}→{after}")
         layout_ok("K7c", "肌感の推移（動かした後）")
         check("K8 時間区分の線にデータ色を使わない", pg.evaluate("![...document.querySelectorAll('svg.scrub line[stroke]')].some(l => ['#86b8ff','#f5c865','#c9a6f7','#f39a86','#8fd8c4'].includes(l.getAttribute('stroke')))"))
         check("K9 横にはみ出さない", no_overflow())
-        pg.click(".msheet .icon-btn.close"); wait(600)
+        pg.click(".msheet .icon-btn.close"); calm()
         check("K10 ×で閉じる", pg.locator(".msheet").count() == 0)
         # K7b moved the target day; back to today so the later steps start where they expect.
-        pg.click(".today-chip") if pg.locator(".today-chip").count() else None; wait(600)
+        pg.click(".today-chip") if pg.locator(".today-chip").count() else None; calm()
     step("K", k)
 
     # L. 条件から選ぶ
     def l():
         before = txt(".side-compare .date-button")
-        pg.locator(".side-compare select.mode").select_option("__conditions"); wait(1500)
+        pg.locator(".side-compare select.mode").select_option("__conditions"); calm(4500)
         check("L1 条件から選ぶが開く", pg.locator(".msheet.cond-sheet").count() == 1)
         check("L2 条件は4行", pg.locator(".cond-line").count() == 4)
         check("L3 最初は最高が開いて範囲（つまみ2つ）", pg.locator(".cond-line.open[data-cond=max] .slider input").count() == 2)
@@ -612,31 +620,31 @@ with sync_playwright() as p:
         check("L7 雨は時間帯で", "降らない" in txt(".cond-line[data-cond=rain] .cond-value") and "昼" not in txt(".cond-line[data-cond=rain] .cond-value"), txt(".cond-line[data-cond=rain] .cond-value"))
         for _ in range(30):
             if pg.locator(".cond-col.day").count() and pg.locator(".cond-count .loading").count() == 0: break
-            wait(500)
+            calm()
         n = pg.locator(".cond-col.day").count()
         check("L8 合う日の表", n >= 1, txt(".cond-count"))
-        pg.locator(".cond-col.day").nth(0).click(); wait(700)
+        pg.locator(".cond-col.day").nth(0).click(); calm()
         after = txt(".side-compare .date-button")
         check("L9 選ぶと比較日が変わり、シートは開いたまま", after != before and pg.locator(".msheet").count() == 1, after)
         check("L10 取り消せる", pg.locator(".cond-toast button").count() == 1)
-        pg.locator(".cond-toast button").click(); wait(700)
+        pg.locator(".cond-toast button").click(); calm()
         check("L11 取り消すと元の比較日", txt(".side-compare .date-button") == before, txt(".side-compare .date-button"))
-        pg.click(".msheet .icon-btn.close"); wait(600)
-        pg.locator(".side-compare select.mode").select_option(index=0); wait(500)
+        pg.click(".msheet .icon-btn.close"); calm()
+        pg.locator(".side-compare select.mode").select_option(index=0); calm()
     step("L", l)
 
     # M. summary minimise and 表に集中
     def m():
-        pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)
-        pg.locator(".chart-hit").nth(7).click(force=True); wait(700)
+        pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
+        pg.locator(".chart-hit").nth(7).click(force=True); calm()
         pg.click(".cs-toggle"); wait(300)
         check("M1 要約を畳む", pg.locator(".compare-summary.collapsed").count() >= 1)
         pg.click(".cs-toggle"); wait(300)
         check("M2 要約を広げる", pg.locator(".compare-summary.compact").count() == 1)
-        pg.click(".back-btn"); wait(500)
-        pg.locator(".side .icon-btn").first.click(); wait(500)
+        pg.click(".back-btn"); calm()
+        pg.locator(".side .icon-btn").first.click(); calm()
         check("M3 表に集中", pg.evaluate("document.querySelector('.app').classList.contains('full')"))
-        pg.locator(".side .icon-btn").first.click(); wait(500)
+        pg.locator(".side .icon-btn").first.click(); calm()
         check("M4 表示を戻す", not pg.evaluate("document.querySelector('.app').classList.contains('full')"))
     step("M", m)
 
@@ -650,12 +658,12 @@ with sync_playwright() as p:
     def ds():
         def hold(loc):
             loc.scroll_into_view_if_needed(); bx = loc.bounding_box()
-            pg.mouse.move(bx["x"] + bx["width"] / 2, bx["y"] + bx["height"] / 2); pg.mouse.down(); wait(700); pg.mouse.up(); wait(800)
+            pg.mouse.move(bx["x"] + bx["width"] / 2, bx["y"] + bx["height"] / 2); pg.mouse.down(); wait(700); pg.mouse.up(); calm()  # held on purpose: a long press
         pg.evaluate("window.scrollTo(0, 0)")
         # The day sheet lowered when it covers the table's pictures (raised again at the end).
         covered = pg.evaluate("""() => { const e = document.querySelector(".side-target .cell-icon[data-summary^='2026-11-08']"); const b = e.getBoundingClientRect();
           const t = document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2); return !(t && e.contains(t)); }""")
-        if covered: pg.evaluate("__flick('.sheet-handle',700,120)"); wait(800)
+        if covered: pg.evaluate("__flick('.sheet-handle',700,120)"); calm()
         sheets = pg.locator(".msheet").count()
         hold(pg.locator(".side-target .cell-icon[data-summary^='2026-11-08']").first)
         check("DS1 表の天気の絵を長押しで要約が開く（タップの動きは起きない）", pg.locator(".day-summary-sheet").count() == 1 and pg.locator(".msheet").count() == sheets + 1, str(pg.locator(".msheet").count()))
@@ -663,51 +671,51 @@ with sync_playwright() as p:
         check("DS3 強風の日は風の強さ（基準の目盛り）", pg.locator(".day-summary-sheet .ds-meter").count() == 2 and "強風" in txt(".day-summary-sheet .ro-title") and "強風" in txt(".day-summary-sheet .ds-comment"), txt(".day-summary-sheet .ro-title"))
         layout_ok("DS4", "要約")
         st = small_text(); check("DS5 11px より小さい文字がない（要約）", not st, str(st))
-        pg.click(".day-summary-sheet .icon-btn.close"); wait(700)
+        pg.click(".day-summary-sheet .icon-btn.close"); calm()
         hold(pg.locator(".side-target .cell-icon[data-summary^='2026-11-09']").first)
         check("DS6 ふつうの日は風の強さを出さない", pg.locator(".day-summary-sheet").count() == 1 and pg.locator(".day-summary-sheet .ds-meter").count() == 0)
-        pg.click(".day-summary-sheet .icon-btn.close"); wait(700)
-        pg.locator(".side-target .date-button").click(); wait(700)
+        pg.click(".day-summary-sheet .icon-btn.close"); calm()
+        pg.locator(".side-target .date-button").click(); calm()
         hold(pg.locator(".calendar-grid [data-summary^='2026-11-05']").first)
         check("DS7 カレンダーからも長押しで要約（カレンダーの上に重なる）", pg.locator(".day-summary-sheet").count() == 1 and pg.locator(".msheet.calendar").count() == 1)
-        pg.click(".day-summary-sheet .icon-btn.close"); wait(700)
+        pg.click(".day-summary-sheet .icon-btn.close"); calm()
         check("DS8 要約を閉じてもカレンダーはそのまま", pg.locator(".msheet.calendar").count() == 1 and pg.locator(".day-summary-sheet").count() == 0)
         # The table is not left held as moving by a release that landed on the sheet (Strip).
         check("DS9 長押しの後も表は動いていない扱いにならない", not pg.locator(".side-compare select.mode").is_disabled())
-        pg.click(".msheet.calendar .icon-btn.close"); wait(700)
-        if covered: pg.evaluate("__flick('.sheet-handle',-700,120)"); wait(800)
+        pg.click(".msheet.calendar .icon-btn.close"); calm()
+        if covered: pg.evaluate("__flick('.sheet-handle',-700,120)"); calm()
     step("DS", ds)
 
     # Q. calendar: presets and custom
     def q():
-        pg.locator(".side-compare .date-button").click(); wait(600)
+        pg.locator(".side-compare .date-button").click(); calm()
         check("Q1 比較日のカレンダーにプリセット", pg.locator(".cal-presets .chip").count() == 5)
         check("Q2 マスに天気と最高気温", pg.locator(".cal-day .cal-max").filter(has_text=re.compile(r"\d")).count() >= 20)
         pg.locator(".cal-presets .chip", has_text="前週").click(); wait(300)
         check("Q3 プリセットで組み合わせが前週に", "前週" in txt(".cal-pair-interval"), txt(".cal-pair-interval"))
-        pg.click(".calendar-foot .primary"); wait(700)
+        pg.click(".calendar-foot .primary"); calm()
         check("Q4 決定で前週になる", pg.locator(".side-compare select.mode").input_value() == "lastWeek" and txt(".side-compare .date-button") == "2026/11/3", txt(".side-compare .date-button"))
-        pg.locator(".side-compare .date-button").click(); wait(600)
+        pg.locator(".side-compare .date-button").click(); calm()
         pg.locator(".cal-day:not(:disabled)").nth(1).click(); wait(300)
         check("Q5 日を選ぶとカスタムと表示", "カスタム" in txt(".cal-pair-interval"), txt(".cal-pair-interval"))
-        pg.click(".calendar-foot .primary"); wait(700)
+        pg.click(".calendar-foot .primary"); calm()
         check("Q6 決定でカスタムになる", pg.locator(".side-compare select.mode").input_value() == "custom")
-        pg.locator(".side-compare select.mode").select_option("sameDate"); wait(500)
+        pg.locator(".side-compare select.mode").select_option("sameDate"); calm()
     step("Q", q)
 
     # P. the four decisions (all B)
     def pp():
         check("P1 比較の表に差の行", pg.locator(".side-compare .label-diff").count() >= 2 and pg.locator(".side-compare .cell-diff").count() > 0)
-        pg.locator(".side .icon-btn").first.click(); wait(600)
+        pg.locator(".side .icon-btn").first.click(); calm()
         wb = pg.locator(".side-target .strip-wrap").bounding_box()
         cols = pg.evaluate("[...document.querySelectorAll('.side-target .strip-col')].filter(c=>{const r=c.getBoundingClientRect();return r.left>=%f-1&&r.right<=%f+1}).length" % (wb["x"], wb["x"] + wb["width"]))
         check("P2 表に集中で9日", cols == 9, str(cols))
         check("P2b 横にはみ出さない", no_overflow())
         layout_ok("P2c", "表に集中")
-        pg.locator(".side .icon-btn").first.click(); wait(600)
-        pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)
-        pg.locator(".chart-hit").nth(7).click(force=True); wait(800)
-        pg.evaluate("document.querySelector('.sheet-body').scrollTo(0,260)"); wait(600)
+        pg.locator(".side .icon-btn").first.click(); calm()
+        pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
+        pg.locator(".chart-hit").nth(7).click(force=True); calm()
+        pg.evaluate("document.querySelector('.sheet-body').scrollTo(0,260)"); calm()
         dock = pg.locator(".sheet-dock .compare-summary.pinned").count()
         top = pg.evaluate("document.querySelector('.sheet-body').getBoundingClientRect().top")
         dbot = pg.evaluate("document.querySelector('.sheet-dock').getBoundingClientRect().bottom")
@@ -719,39 +727,39 @@ with sync_playwright() as p:
         touch("touchStart", x, y)
         for k in range(1, 9):
             touch("touchMove", x - k * 18, y); wait(16)
-        touch("touchEnd", x - 144, y); wait(900)
+        touch("touchEnd", x - 144, y); calm()
         check("P3c 固定の1行も横スワイプで日が動く", pg.locator(".sheet-dock .compare-summary.pinned").count() == 1 and dd() != before, f"{before}→{dd()}")
         touch("touchStart", x - 144, y)
         for k in range(1, 9):
             touch("touchMove", x - 144 + k * 18, y); wait(16)
-        touch("touchEnd", x, y); wait(900)
-        pg.locator(".sheet-dock .compare-summary.pinned").click(); wait(700)
+        touch("touchEnd", x, y); calm()
+        pg.locator(".sheet-dock .compare-summary.pinned").click(); calm()
         check("P3b 1行をタップで要約に戻る", pg.locator(".sheet-dock .compare-summary").count() == 0)
         # Folded (畳む) after being open: the folded line still moves days.
-        pg.locator(".cs-toggle").first.click(); wait(500)
+        pg.locator(".cs-toggle").first.click(); calm()
         ld = lambda: txt(".compare-summary.collapsed .cs-line-date")
         before = ld()
         lb = pg.locator(".compare-summary.collapsed").first.bounding_box(); y = lb["y"] + lb["height"] / 2; x = lb["x"] + lb["width"] * 0.7
         touch("touchStart", x, y)
         for k in range(1, 9):
             touch("touchMove", x - k * 18, y); wait(16)
-        touch("touchEnd", x - 144, y); wait(900)
+        touch("touchEnd", x - 144, y); calm()
         check("P3d 畳んだ要約も横スワイプで日が動く", ld() != before, f"{before}→{ld()}")
         touch("touchStart", x - 144, y)
         for k in range(1, 9):
             touch("touchMove", x - 144 + k * 18, y); wait(16)
-        touch("touchEnd", x, y); wait(900)
-        pg.locator(".cs-toggle").first.click(); wait(500)
-        pg.click(".back-btn"); wait(500)
-        pg.evaluate("__flick('.sheet-handle',600,120)"); wait(800)
-        pg.locator(".side-target .strip-col.is-center .cell-feel.tappable-feel").first.click(); wait(900)
+        touch("touchEnd", x, y); calm()
+        pg.locator(".cs-toggle").first.click(); calm()
+        pg.click(".back-btn"); calm()
+        pg.evaluate("__flick('.sheet-handle',600,120)"); calm()
+        pg.locator(".side-target .strip-col.is-center .cell-feel.tappable-feel").first.click(); calm()
         c = lambda: txt(".band-map-date.center").split()[0]
         before = c()
         bb = pg.locator(".band-map").bounding_box(); y = bb["y"] + 120; x = bb["x"] + bb["width"] * 0.75
         touch("touchStart", x, y)
         for k in range(1, 9):
             touch("touchMove", x - k * 18, y); wait(16)
-        touch("touchEnd", x - 144, y); wait(900)
+        touch("touchEnd", x - 144, y); calm()
         check("P4 肌感マップを横スワイプで日が進む（ドラム）", c() != before and pg.locator(".msheet").count() == 1, f"{before}→{c()}")
         # During a drag the days follow the finger (the drum), and a pressed cell stays in place.
         bb = pg.locator(".band-map").bounding_box(); y = bb["y"] + 120; x = bb["x"] + bb["width"] * 0.75
@@ -761,7 +769,7 @@ with sync_playwright() as p:
             touch("touchMove", x - k * 10, y); wait(16)
         x1 = pg.evaluate("document.querySelector('.band-cell.center').getBoundingClientRect().left")
         f0 = pg.evaluate("document.querySelector('.bm-center-frame').getBoundingClientRect().left")
-        touch("touchEnd", x - 30, y); wait(900)
+        touch("touchEnd", x - 30, y); calm()
         check("P4b 指を動かしている間、マスが指についてくる", x1 < x0 - 15, f"{x0:.0f}→{x1:.0f}")
         f1 = pg.evaluate("document.querySelector('.bm-center-frame').getBoundingClientRect().left")
         check("P4c 中心の枠は動かない（マスだけが下を通る）", abs(f1 - f0) < 1 and abs(f0 - x0) < 4, f"frame {f0:.0f}→{f1:.0f}, cell {x0:.0f}")
@@ -770,42 +778,42 @@ with sync_playwright() as p:
 
     # T. 日照 › 移り変わり (時刻で・明るさで, 1週間〜1年)
     def tt():
-        pg.click(".today-chip") if pg.locator(".today-chip").count() else None; wait(600)
-        pg.click(".metrics .chip:nth-child(4)"); wait(600)
+        pg.click(".today-chip") if pg.locator(".today-chip").count() else None; calm()
+        pg.click(".metrics .chip:nth-child(4)"); calm()
         check("T1 日照の日別に［移り変わり］", pg.locator(".trend-btn").count() == 1, title())
-        pg.click(".trend-btn"); wait(700)
+        pg.click(".trend-btn"); calm()
         check("T2 見出し", title() == "明るさの移り変わり", title())
         check("T3 時刻で：見出しが分で言う", "分" in txt(".lt-head-main"), txt(".lt-head-main"))
         check("T4 時刻で：グラフ", pg.locator(".light-trend svg.lt-chart").count() == 1)
         before = txt(".light-trend .readout-card .ro-title")
-        pg.evaluate("__flick('.sheet-handle',-600,120)"); wait(800)  # P left the sheet low; the graph must be on screen
+        pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()  # P left the sheet low; the graph must be on screen
         pg.locator(".light-trend .drum-pane svg").first.scroll_into_view_if_needed(); wait(300)
         bx = pg.locator(".light-trend .drum-pane svg").first.bounding_box(); y = bx["y"] + min(80, bx["height"] / 2); x = bx["x"] + bx["width"] * 0.75
         touch("touchStart", x, y)
         for k in range(1, 9):
             touch("touchMove", x - k * 18, y); wait(16)
-        touch("touchEnd", x - 144, y); wait(900)
+        touch("touchEnd", x - 144, y); calm()
         after = txt(".light-trend .readout-card .ro-title")
         check("T4c 1週間は横に動かすと日が進む（ドラム）", after != before, f"{before}→{after}")
         layout_ok("T4b", "明るさの移り変わり")
         for span in ["1か月", "1年", "1週間"]:
-            pg.locator(".lt-controls button", has_text=span).click(); wait(500)
+            pg.locator(".lt-controls button", has_text=span).click(); calm()
             check(f"T5 時刻で {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())
-        pg.locator(".lt-controls button", has_text="明るさで").click(); wait(600)
+        pg.locator(".lt-controls button", has_text="明るさで").click(); calm()
         check("T6 明るさで：読み取りに長さ", "長さ" in txt(".light-trend .readout-card"), txt(".light-trend .readout-card"))
         # Days run across here too (#151): the dates sit under the plot in a row, left to right.
         xs = pg.evaluate("[...document.querySelectorAll('.light-trend .lt-dates .lt-date:not(.sub)')].map(e => e.getBoundingClientRect()).filter(r => r.left >= 30 && r.right <= innerWidth).map(r => [Math.round(r.left), Math.round(r.top)])")
         check("T6b 明るさで：日は横に並ぶ", len(xs) == 7 and len({y for _, y in xs}) == 1 and [x for x, _ in xs] == sorted(x for x, _ in xs), str(xs))
         for span in ["1か月", "1年", "1週間"]:
-            pg.locator(".lt-controls button", has_text=span).click(); wait(700)
+            pg.locator(".lt-controls button", has_text=span).click(); calm()
             check(f"T7 明るさで {span}", pg.locator(".light-trend svg.lt-chart").count() == 1 and no_overflow())
             layout_ok(f"T7b", f"明るさで {span}")
-        pg.locator(".lt-controls button", has_text="時刻で").click(); wait(400)
-        pg.click(".back-btn"); wait(600)
+        pg.locator(".lt-controls button", has_text="時刻で").click(); calm()
+        pg.click(".back-btn"); calm()
         check("T8 ‹日別で戻る", title() == "日照の日別", title())
-        pg.click(".metrics .chip:nth-child(3)"); wait(500)
+        pg.click(".metrics .chip:nth-child(3)"); calm()
         check("T9 日差しには［移り変わり］がない", pg.locator(".trend-btn").count() == 0)
-        pg.click(".metrics .chip:nth-child(1)"); wait(400)
+        pg.click(".metrics .chip:nth-child(1)"); calm()
     step("T", tt)
 
     # The 500s step FS asks for on purpose are not errors of the app.
