@@ -2,7 +2,7 @@
 // records only: the month in words, its numbers, each day's 最高〜最低, 肌感 by time band, and the days
 // that stood out. Opened with ?month=YYYY-MM.
 
-import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { PARTS } from "../../shared/dayParts";
 import { SCALE_STEPS } from "../../shared/feel";
@@ -61,7 +61,7 @@ function statsOf(store: WeatherStore | null, station: string, days: string[]): M
   };
 }
 
-export function MonthReview({ store, station, month, onClose, layout = "list" }: { store: WeatherStore | null; station: string; month: string; onClose: () => void; layout?: "list" | "calendar" }) {
+export function MonthReview({ store, station, month, onClose, layout = "list" }: { store: WeatherStore | null; station: string; month: string; onClose: () => void; layout?: "list" | "calendar" | "combo" }) {
   const feel = useContext(FeelContext);
   const before = yearBefore(month);
   const days = daysOf(month);
@@ -126,6 +126,48 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
     { label: "雨がいちばん多い日", p: pick((r) => num(r.rain), "max"), fmt: (v: number) => `${v.toFixed(1)}mm`, color: DATA.rain },
   ];
 
+  if (layout === "combo") {
+    // The standouts marked on the calendar too: the day's colour round its square.
+    const marks = new Map<string, string>();
+    for (const s of standouts) if (s.p && !marks.has(s.p.date) && s.color !== DATA.mean) marks.set(s.p.date, s.color);
+    return (
+      <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
+        {/* 案C 組み合わせ: まとめ（文章＋3つの数字）→ カレンダー（目立った日に印）→ 曜日ごと → 肌感の月 → 目立った日 */}
+        <div className="ds-lead">
+          <p className="ds-comment">
+            {words.map((w) => (
+              <span key={w}>{w}</span>
+            ))}
+          </p>
+          <div className="month-tiles">
+            <Tile name="平均気温" value={a.temp} unit="℃" other={b.temp} digits={1} color={DATA.mean} />
+            <Tile name="雨" value={a.rain} unit="mm" other={b.rain} digits={0} color={DATA.rain} note={`${a.rainDays}日`} />
+            <Tile name="日照" value={a.sun} unit="時間" other={b.sun} digits={0} color={DATA.sun} />
+          </div>
+        </div>
+        <MonthCalendar store={store} station={station} days={days} rows={a.rows} marks={marks} />
+        <p className="month-cal-legend">数字は 最高／最低（℃）。帯は肌感（朝〜夜）、水色の数字は降水 mm（1mm以上の日）。色の枠は下の「目立った日」。</p>
+        <SectionHead title="曜日ごと" />
+        <div className="ds-hours">
+          <Weekdays station={station} days={days} rows={a.rows} />
+        </div>
+        <SectionHead title={`肌感（${feel.sun ? "日なた" : "日かげ"}）の月`} />
+        <div className="ds-hours">
+          <FeelMonth store={store} station={station} days={days} daysB={daysB} />
+        </div>
+        <SectionHead title="目立った日" />
+        <div className="ds-hours month-standouts">
+          {standouts.map((s) => (
+            <p key={s.label} className="month-standout">
+              <span>{s.label}</span>
+              <b>{s.p ? md(s.p.date) : "—"}</b>
+              <em style={{ color: s.color }}>{s.p ? s.fmt(s.p.v) : ""}</em>
+            </p>
+          ))}
+        </div>
+      </ModalSheet>
+    );
+  }
   if (layout === "calendar")
     return (
       <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
@@ -322,7 +364,7 @@ function Tile({ name, value, unit, other, digits, color, note }: { name: string;
 
 const WEEK = ["月", "火", "水", "木", "金", "土", "日"];
 /** The month as a calendar: each day its weather, 最高／最低, its 肌感 band and its rain. */
-function MonthCalendar({ store, station, days, rows }: { store: WeatherStore | null; station: string; days: string[]; rows: (WeatherRow | null)[] }) {
+function MonthCalendar({ store, station, days, rows, marks }: { store: WeatherStore | null; station: string; days: string[]; rows: (WeatherRow | null)[]; marks?: Map<string, string> }) {
   const lead = (new Date(`${days[0]}T00:00:00Z`).getUTCDay() + 6) % 7; // Monday first
   return (
     <div className="month-cal">
@@ -341,7 +383,7 @@ function MonthCalendar({ store, station, days, rows }: { store: WeatherStore | n
         const rain = num(r?.rain);
         const tone = dayTone(d);
         return (
-          <div key={d} className="month-cal-day">
+          <div key={d} className="month-cal-day" style={marks?.has(d) ? { boxShadow: `0 0 0 1.5px ${marks.get(d)} inset` } : undefined}>
             <span className={`month-cal-date tone-${tone}`}>{+d.slice(8)}</span>
             <span className="month-cal-icon">{r ? <DayWeatherIcon row={r} station={station} size={18} /> : null}</span>
             <span className="month-cal-temp">
@@ -355,6 +397,57 @@ function MonthCalendar({ store, station, days, rows }: { store: WeatherStore | n
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * The month by day of the week (月〜日): each date's weather in a row, the mean 最高／最低 and the rain
+ * days — for the questions a week asks (were the weekends wet?). A line at the foot sets 土日 against
+ * the weekdays.
+ */
+function Weekdays({ station, days, rows }: { station: string; days: string[]; rows: (WeatherRow | null)[] }) {
+  const dow = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
+  const groups = WEEK.map((_, w) => days.map((d, i) => ({ d, r: rows[i] })).filter((x) => dow(x.d) === w));
+  const f0 = (v: number | null) => (v == null ? "—" : v.toFixed(1));
+  const wet = (g: { r: WeatherRow | null }[]) => g.filter((x) => (num(x.r?.rain) ?? 0) >= 1).length;
+  const weekend = [...groups[5], ...groups[6]];
+  const weekday = groups.slice(0, 5).flat();
+  return (
+    <div className="month-week">
+      <span className="month-week-h" />
+      <span className="month-week-h">天気</span>
+      <span className="month-week-h">最高</span>
+      <span className="month-week-h">最低</span>
+      <span className="month-week-h">雨の日</span>
+      {groups.map((g, w) => {
+        const mx = mean(g.map((x) => num(x.r?.max)).filter((v): v is number => v != null));
+        const mn = mean(g.map((x) => num(x.r?.min)).filter((v): v is number => v != null));
+        return (
+          <Fragment key={WEEK[w]}>
+            <b className={`month-week-name${w === 5 ? " tone-saturday" : w === 6 ? " tone-holiday" : ""}`}>{WEEK[w]}</b>
+            <span className="month-week-icons">
+              {g.map((x) => (
+                <span key={x.d} title={x.d}>
+                  {x.r ? <DayWeatherIcon row={x.r} station={station} size={15} /> : "—"}
+                </span>
+              ))}
+            </span>
+            <span className="month-week-num" style={{ color: DATA.hot }}>
+              {f0(mx)}
+            </span>
+            <span className="month-week-num" style={{ color: DATA.cold }}>
+              {f0(mn)}
+            </span>
+            <span className="month-week-num">
+              {wet(g)}/{g.length}
+            </span>
+          </Fragment>
+        );
+      })}
+      <p className="month-week-foot">
+        雨の日（1mm以上）：土日 {wet(weekend)}/{weekend.length}日、平日 {wet(weekday)}/{weekday.length}日。
+      </p>
     </div>
   );
 }

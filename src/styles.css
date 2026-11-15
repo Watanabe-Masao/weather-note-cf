@@ -4353,3 +4353,15 @@ svg.scrub {
 .month-cal-feel .feel-bar { height: 5px; }
 .month-cal-rain { font-size: var(--size-xs); font-family: var(--font-numeric); color: var(--data-rain); height: 13px; line-height: 13px; }
 .month-cal-legend { font-size: var(--size-xs); color: var(--ink-tertiary); margin: var(--space-3) var(--space-2) var(--space-5); }
+
+/* 見本 案C */
+.month-review .ds-lead .month-tiles { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--line-soft); }
+.month-week { display: grid; grid-template-columns: 22px 1fr auto auto auto; gap: var(--space-3) var(--space-5); align-items: center; }
+.month-week-h { font-size: var(--size-xs); color: var(--ink-tertiary); text-align: right; }
+.month-week-h:nth-child(2) { text-align: left; }
+.month-week-name { font-size: var(--size-sm); color: var(--ink-secondary); font-weight: var(--weight-regular); }
+.month-week-name.tone-saturday { color: var(--day-saturday); }
+.month-week-name.tone-holiday { color: var(--day-holiday); }
+.month-week-icons { display: flex; gap: 4px; align-items: center; }
+.month-week-num { font-family: var(--font-numeric); font-size: var(--size-sm); text-align: right; font-variant-numeric: tabular-nums; }
+.month-week-foot { grid-column: 1 / -1; margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
