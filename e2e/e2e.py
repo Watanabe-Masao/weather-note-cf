@@ -106,6 +106,16 @@ srv = http.server.ThreadingHTTPServer(("127.0.0.1", 8799), functools.partial(H, 
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 
 
+def with_quality(o):
+    """The made-up rows say every number is a 正常値, as JMA's do: the new core takes no unmarked value."""
+    if isinstance(o, dict):
+        if "quality" in o and not o["quality"]:
+            o["quality"] = {k: "normal" for k, v in o.items() if isinstance(v, (int, float)) and not isinstance(v, bool) and k != "n"}
+        for v in o.values(): with_quality(v)
+    elif isinstance(o, list):
+        for v in o: with_quality(v)
+    return o
+
 results = []
 def check(name, cond, detail=""):
     results.append((bool(cond), name, detail))
@@ -154,7 +164,7 @@ with sync_playwright() as p:
             return route.fulfill(status=500, content_type="application/json", body=json.dumps({"error": "テスト用の失敗"}))
         u = urlparse(route.request.url)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
-        route.fulfill(status=200, content_type="application/json", body=json.dumps(api(u.path, q)))
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(with_quality(api(u.path, q))))
     ctx.route("**/api/**", handle)
     pg = ctx.new_page()
     pg.on("console", lambda m: m.type in ("error", "warning") and errors.append(m.text))
@@ -536,6 +546,29 @@ with sync_playwright() as p:
         check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
         esc()
     step("J", j)
+
+    # AC. 慣れの比べ方（テスト）: L1 and L2 through the new core, side by side (#189)
+    def ac():
+        pg.click(".app-head .icon-btn"); calm()
+        pg.locator(".msheet.settings button", has_text="慣れの計算を比べる").click(); calm()
+        check("AC1 慣れの比べ方が開く", pg.locator(".msheet.adapt-cmp").count() == 1)
+        settle(lambda: "比べた日" in txt(".adapt-cmp-facts") and pg.locator(".adapt-cmp tbody tr").count() == 24, 8)
+        t = txt(".adapt-cmp-facts")
+        check("AC2 要約に比べた日数・境目の差・段が違った時間", "比べた日" in t and "境目の差の最大" in t and "段が違った時間" in t, t)
+        check("AC3 選んだ日の24時間に、両方の段", pg.locator(".adapt-cmp tbody tr").count() == 24, str(pg.locator(".adapt-cmp tbody tr").count()))
+        before = txt(".adapt-cmp .section-head:has-text('の時間ごと') .section-title")
+        pg.locator(".adapt-cmp svg[aria-label*='境目の差']").first.scroll_into_view_if_needed(); calm()
+        g = pg.locator(".adapt-cmp svg[aria-label*='境目の差']").first.bounding_box()
+        pg.mouse.click(g["x"] + g["width"] * 0.3, g["y"] + g["height"] / 2); calm()
+        after = txt(".adapt-cmp .section-head:has-text('の時間ごと') .section-title")
+        check("AC4 境目の差のグラフをタップするとその日を選ぶ", before != after, f"{before} → {after}")
+        settle(lambda: pg.locator(".adapt-cmp tbody tr").count() == 24, 8)
+        t2 = txt(".adapt-cmp-facts"); m2 = re.search(r"段が違った時間 (\d+)", t2)
+        check("AC5 太字の行の数＝要約の「段が違った時間」", m2 and int(m2.group(1)) == pg.locator(".adapt-cmp tr.adapt-cmp-diff").count(), f"{t2} / {pg.locator('.adapt-cmp tr.adapt-cmp-diff').count()}")
+        st = small_text(); check("AC6 11px より小さい文字がない（慣れの比べ方）", not st, str(st))
+        layout_ok("AC7", "慣れの比べ方")
+        esc(); esc()
+    step("AC", ac)
 
     # R. 記録: the save button stays in view and names what is missing (#151 操作の体系)
     def rr():

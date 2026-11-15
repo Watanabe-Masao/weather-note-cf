@@ -150,6 +150,7 @@ shadeFeel(hour, { anemometerHeight: 10 }, { windPerson: windPersonSettings(alpha
 ### モデルを見る画面（Model Explorer）を作るとき
 - 見せるのは core に移ったものだけ。構造は計算式から、値は同じ `evaluate` で計算して取る。画面の側に式や依存を書かない
 - 旧実装（`shared/`・`src/beta/`）を読む仕組みは作らない（別に書き出すと二重管理になる）。旧実装は「未移行」とだけ示し、見たいものは先に core へ移す
+- 最初の比べ板：設定 →「慣れの計算を比べる（テスト）」（`src/ui/AdaptCompareBoard.tsx`）。その地点の記録で `compareAdaptation` を動かし、L1・L2・境目の差・選んだ日の段を出す。画面は値を計算しない
 
 ## 8. 設計の原則との対応
 
