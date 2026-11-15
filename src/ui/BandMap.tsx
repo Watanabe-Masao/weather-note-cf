@@ -14,7 +14,7 @@ import { feelOn } from "../feelSeason";
 import { BandTrend } from "./BandTrend";
 import { useDrumPan } from "./useDrumPan";
 import { CloseIcon } from "./icons";
-import { DayLabel, IconButton, Segmented } from "./kit";
+import { DayLabel, IconButton, SectionHead, Segmented } from "./kit";
 import { monthDay } from "../design/format";
 import { bandsFor, FeelContext, legendOf, levelColor, levelName } from "./FeelBar";
 
@@ -392,15 +392,18 @@ export function BandMap(props: Props) {
   return (
     <div className="band-face">
       <Summary {...props} />
-      <Segmented
-        label="表示"
-        value={view}
-        options={[
-          { id: "map", label: "マップ" },
-          { id: "trend", label: "推移" },
-        ]}
-        onChange={setView}
-      />
+      {/* The days and their parts under one head (#151: まとまりは見出しの線で区切る), the view's switch on its right. */}
+      <SectionHead title="時間区分ごとの肌感">
+        <Segmented
+          label="表示"
+          value={view}
+          options={[
+            { id: "map", label: "マップ" },
+            { id: "trend", label: "推移" },
+          ]}
+          onChange={setView}
+        />
+      </SectionHead>
       {view === "map" ? (
         <>
           <DrumArea onStep={onStep}>

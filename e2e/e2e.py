@@ -620,10 +620,11 @@ with sync_playwright() as p:
         pg.locator(".cond-line[data-cond=rain] .seg.multi button").nth(1).click(); wait(200)
         check("L7 雨は時間帯で", "降らない" in txt(".cond-line[data-cond=rain] .cond-value") and "昼" not in txt(".cond-line[data-cond=rain] .cond-value"), txt(".cond-line[data-cond=rain] .cond-value"))
         for _ in range(30):
-            if pg.locator(".cond-col.day").count() and pg.locator(".cond-count .loading").count() == 0: break
+            if pg.locator(".cond-col.day").count() and pg.locator(".cond-result .loading").count() == 0: break
             calm()
         n = pg.locator(".cond-col.day").count()
         check("L8 合う日の表", n >= 1, txt(".cond-count"))
+        check("L8b 合う日は見出し（SectionHead）", pg.locator(".cond-result .section-head .cond-count").count() == 1)
         pg.locator(".cond-col.day").nth(0).click(); calm()
         after = txt(".side-compare .date-button")
         check("L9 選ぶと比較日が変わり、シートは開いたまま", after != before and pg.locator(".msheet").count() == 1, after)
@@ -762,6 +763,7 @@ with sync_playwright() as p:
         for k in range(1, 9):
             touch("touchMove", x - k * 18, y); wait(16)
         touch("touchEnd", x - 144, y); calm()
+        check("P4a 肌感マップの見出しにマップ／推移の切り替え", pg.locator(".band-face .section-head .seg").count() == 1)
         check("P4 肌感マップを横スワイプで日が進む（ドラム）", c() != before and pg.locator(".msheet").count() == 1, f"{before}→{c()}")
         # During a drag the days follow the finger (the drum), and a pressed cell stays in place.
         bb = pg.locator(".band-map").bounding_box(); y = bb["y"] + 120; x = bb["x"] + bb["width"] * 0.75
