@@ -791,9 +791,10 @@ function DayCard({ m, date, dateB, a, b }: { m: MonthMetric | null; date: string
       : m.id === "daylight"
         ? [time("日の出", "rise", DATA.sun), time("日の入り", "set", DATA.sun), time("昼の長さ", "daylen", DATA.sun, true)]
         : [one(m.label, m.key, m.unit, DATA[m.tone])];
-  return <GraphReadout title={dateLabelOf(date)} unit="" dates={{ a: md(date), b: dateB ? `’${dateB.slice(2, 4)}/${md(dateB)}` : undefined }} rows={rows} />;
+  // The dates are in the columns; the title says the weekday only (a date there does not fit at 360).
+  return <GraphReadout title={`${dowName(date)}曜日`} unit="" dates={{ a: md(date), b: dateB ? `’${dateB.slice(2, 4)}/${md(dateB)}` : undefined }} rows={rows} />;
 }
-const dateLabelOf = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}（${WEEK[(new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7]}）`;
+const dowName = (d: string) => WEEK[(new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7];
 
 // ---- 月のレポート（まとめ） ---------------------------------------------------------------------------
 const THIRDS: [string, number, number][] = [
