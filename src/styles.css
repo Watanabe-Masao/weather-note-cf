@@ -4423,3 +4423,26 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .month-report-part b { font-size: var(--size-sm); color: var(--ink-secondary); font-weight: var(--weight-bold); }
 .month-report-part p { margin: 0; display: grid; gap: 3px; font-size: var(--size-sm); line-height: 1.55; color: var(--ink-primary); }
 .month-report-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+
+/* 見本 曜日の傾向（詳しく） */
+.week-detail { display: grid; gap: var(--space-4); }
+.week-detail-rows { display: grid; gap: 2px; }
+.week-detail-row { display: grid; grid-template-columns: 20px 1fr 64px 86px; gap: var(--space-4); align-items: center; padding: 5px 6px; border: none; border-radius: var(--radius-sm); background: none; font: inherit; color: var(--ink-secondary); text-align: left; }
+.week-detail-row.on { background: var(--accent-wash); box-shadow: 0 0 0 1px var(--accent-base) inset; }
+.week-detail-row > b { font-size: var(--size-sm); font-weight: var(--weight-regular); }
+.week-detail-row > b.tone-saturday { color: var(--day-saturday); }
+.week-detail-row > b.tone-holiday { color: var(--day-holiday); }
+.week-detail-bar { position: relative; height: 10px; border-radius: var(--radius-xs); background: var(--line-soft); }
+.week-detail-bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: var(--radius-xs); }
+.week-detail-bar em { position: absolute; top: -3px; bottom: -3px; width: 2px; border-left: 2px solid; margin-left: -1px; box-shadow: 0 0 0 1.5px var(--surface-inset); border-radius: 1px; }
+.week-detail-num { display: grid; justify-items: end; font-family: var(--font-numeric); line-height: 1.15; }
+.week-detail-num i { font-style: normal; font-size: var(--size-md); }
+.week-detail-num i small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.week-detail-num > small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.week-detail-icons { display: flex; gap: 2px; justify-content: flex-end; opacity: 0.85; }
+.week-detail-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1.6; }
+.week-detail-note b { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.week-detail-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+.week-detail-pair > span { display: grid; gap: 2px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface-raised); }
+.week-detail-pair small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.week-detail-pair b { font-family: var(--font-numeric); font-size: var(--size-lg); font-weight: var(--weight-regular); }
