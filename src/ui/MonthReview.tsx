@@ -4,7 +4,7 @@
 
 import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
-import { dayParts, hoursIn, PARTS, type PartId } from "../../shared/dayParts";
+import { dayEdges, dayParts, hoursIn, PARTS, type PartId } from "../../shared/dayParts";
 import { SCALE_STEPS } from "../../shared/feel";
 import { stormOfRow } from "../../shared/storm";
 import type { WeatherRow } from "../../shared/types";
@@ -190,6 +190,8 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
   const weekend = days.filter((d) => dowOf(d) >= 5);
   const weekdays = days.filter((d) => dowOf(d) < 5);
   /** Exactly these days chosen (a quick button), or the whole month again when they already are. */
+  const seriesA = metric === "daylight" ? days.map((d) => sunRow(d, station)) : full.rows;
+  const seriesB = metric === "daylight" ? daysB.map((d) => sunRow(d, station)) : fullB.rows;
   const pickOnly = (ds: string[]) => setPicked(picked.size === ds.length && ds.every((d) => picked.has(d)) ? new Set() : new Set(ds));
   if (layout === "tabs") {
     const marks = new Map<string, string>();
@@ -238,11 +240,11 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
         {tab === "sum" && (
           <>
             <GraphReadout title={`${picked.size ? `選んだ ${picked.size}日` : "月"}の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={picked.size ? { a: "", b: "前年同曜日" } : monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
-            <SectionHead title="月のレポート" />
-            <MonthReport store={store} station={station} days={days} rows={full.rows} rowsB={fullB.rows} picked={picked.size > 0} />
+            <SectionHead title={picked.size ? `選んだ ${picked.size}日のレポート` : "月のレポート"} />
+            <MonthReport store={store} station={station} days={sel} rows={a.rows} rowsB={b.rows} picked={picked.size > 0} />
             <SectionHead title="曜日の傾向" />
             <div className="ds-hours">
-              <WeekDetail store={store} station={station} days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} onPick={(ds) => pickOnly(ds)} />
+              <WeekDetail store={store} station={station} days={days} rows={full.rows} rowsB={fullB.rows} picked={picked} onPick={pickDays} />
             </div>
             <SectionHead title="目立った日" />
             <div className="ds-hours month-standouts">
@@ -266,11 +268,11 @@ export function MonthReview({ store, station, month, onClose, layout = "list" }:
                   </Chip>
                 ))}
               </div>
-              <DayCard m={metric === "temp" ? null : MONTH_METRICS.find((x) => x.id === metric)!} date={days[focusDay]} dateB={daysB[focusDay] ?? null} a={full.rows[focusDay]} b={fullB.rows[focusDay] ?? null} />
+              <DayCard m={metric === "temp" ? null : MONTH_METRICS.find((x) => x.id === metric)!} date={days[focusDay]} dateB={daysB[focusDay] ?? null} a={seriesA[focusDay]} b={seriesB[focusDay] ?? null} />
               {metric === "temp" ? (
                 <MonthRange a={full.rows} b={fullB.rows} picked={picked} days={days} focus={focusDay} onFocus={setFocusDay} />
               ) : (
-                <MonthSeries m={MONTH_METRICS.find((x) => x.id === metric)!} a={full.rows} b={fullB.rows} picked={picked} days={days} focus={focusDay} onFocus={setFocusDay} />
+                <MonthSeries m={MONTH_METRICS.find((x) => x.id === metric)!} a={seriesA} b={seriesB} picked={picked} days={days} focus={focusDay} onFocus={setFocusDay} />
               )}
               <MonthLegend kind={metric === "temp" ? "range" : MONTH_METRICS.find((x) => x.id === metric)!.kind} color={DATA[MONTH_METRICS.find((x) => x.id === metric)!.tone]} now={label(month)} then="前年同曜日" />
             </div>
@@ -742,7 +744,7 @@ function RangeLegend({ now, then }: { now: string; then: string }) {
 
 
 // ---- 日ごとのグラフ（項目を選ぶ） ------------------------------------------------------------------
-type MonthMetricId = "temp" | "rain" | "sun" | "humidity" | "wind" | "pressure";
+type MonthMetricId = "temp" | "rain" | "sun" | "humidity" | "wind" | "pressure" | "daylight";
 interface MonthMetric {
   id: MonthMetricId;
   label: string;
@@ -760,7 +762,19 @@ const MONTH_METRICS: MonthMetric[] = [
   { id: "humidity", label: "湿度", key: "humidity", unit: "%", tone: "humidity", kind: "line", zero: false },
   { id: "wind", label: "風速", key: "wind", unit: "m/s", tone: "wind", kind: "line", zero: true },
   { id: "pressure", label: "気圧", key: "pressure", unit: "hPa", tone: "pressure", kind: "line", zero: false },
+  // 日の出・日の入り: worked out from the date and the station (shared/dayParts), not recorded.
+  { id: "daylight", label: "昼の長さ", key: "daylen", unit: "h", tone: "sun", kind: "line", zero: false },
 ];
+
+/** 日の出・日の入り of a day (minutes JST) and the day's length (h), as rows the month's graphs read. */
+const sunRow = (d: string, station: string) => {
+  const e = dayEdges(d, station);
+  return { date: d, rise: e.rise, set: e.set, daylen: (e.set - e.rise) / 60 } as unknown as WeatherRow;
+};
+/** 6:05 from minutes. */
+const hm = (min: number | null) => (min == null ? "—" : `${Math.floor(Math.round(min) / 60)}:${String(Math.round(min) % 60).padStart(2, "0")}`);
+/** 11時間53分 from minutes. */
+const hLong = (min: number) => `${Math.floor(Math.round(min) / 60)}時間${String(Math.round(min) % 60).padStart(2, "0")}分`;
 
 /** The chosen days, a faint band behind each (what the numbers above are of). */
 function PickedBands({ picked, days, x, step, top, bottom }: { picked?: ReadonlySet<string>; days?: string[]; x: (i: number) => number; step: number; top: number; bottom: number }) {
@@ -927,10 +941,20 @@ function DayCard({ m, date, dateB, a, b }: { m: MonthMetric | null; date: string
     const d = unit === "%" || unit === "hPa" ? 0 : 1;
     return { key, label, unit, color, a: va == null ? "—" : va.toFixed(d), b: vb == null ? "—" : vb.toFixed(d), diff: signedDiff(va, vb, unit) };
   };
+  const time = (label: string, key: string, color: string, long = false): ReadoutRow => {
+    const va = num(a?.[key]);
+    const vb = num(b?.[key]);
+    // h:mm in the card (the long 11時間53分 does not fit beside its comparison).
+    const f = (v: number | null) => (v == null ? "—" : hm(long ? v * 60 : v));
+    const dm = va == null || vb == null ? null : Math.round((va - vb) * (long ? 60 : 1));
+    return { key, label, unit: "", color, a: f(va), b: f(vb), diff: dm == null ? "" : dm === 0 ? "±0分" : `${dm > 0 ? "+" : "−"}${Math.abs(dm)}分` };
+  };
   const rows =
     m == null
       ? [one("最高", "max", "℃", DATA.hot), one("最低", "min", "℃", DATA.cold)]
-      : [one(m.label, m.key, m.unit, DATA[m.tone])];
+      : m.id === "daylight"
+        ? [time("日の出", "rise", DATA.sun), time("日の入り", "set", DATA.sun), time("昼の長さ", "daylen", DATA.sun, true)]
+        : [one(m.label, m.key, m.unit, DATA[m.tone])];
   return <GraphReadout title={dateLabelOf(date)} unit="" dates={{ a: md(date), b: dateB ? `’${dateB.slice(2, 4)}/${md(dateB)}` : undefined }} rows={rows} />;
 }
 const dateLabelOf = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}（${WEEK[(new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7]}）`;
@@ -951,6 +975,8 @@ function longestRun(days: string[], rows: (WeatherRow | null)[], test: (r: Weath
   let from = "";
   days.forEach((d, i) => {
     const r = rows[i];
+    // A run is of following dates: a gap in the chosen days ends it.
+    if (n && addDays(days[i - 1], 1) !== d) n = 0;
     if (r && test(r)) {
       if (!n) from = d;
       n++;
@@ -968,7 +994,8 @@ function MonthReport({ store, station, days, rows, rowsB, picked }: { store: Wea
   const base = useContext(FeelContext);
   const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
   const vals = (rs: (WeatherRow | null)[], k: string) => rs.map((r) => num(r?.[k])).filter((v): v is number => v != null);
-  const third = (rs: (WeatherRow | null)[], lo: number, hi: number) => rs.filter((_, i) => i + 1 >= lo && i + 1 <= hi);
+  // By the day of the month (the days may be a choice, not the whole month).
+  const third = (rs: (WeatherRow | null)[], lo: number, hi: number) => rs.filter((_, i) => +days[i].slice(8) >= lo && +days[i].slice(8) <= hi);
   const thirds = THIRDS.map(([name, lo, hi]) => {
     const a = third(rows, lo, hi);
     const b = third(rowsB, lo, hi);
@@ -1002,8 +1029,25 @@ function MonthReport({ store, station, days, rows, rowsB, picked }: { store: Wea
   };
   const byDow = WEEK.map((name, w) => ({ name, ...wetOf(rows, (x) => x === w) }));
   const wettestDow = [...byDow].sort((x, y) => y.n / Math.max(1, y.of) - x.n / Math.max(1, x.of))[0];
-  const we = wetOf(rows, (w) => w >= 5);
-  const weB = wetOf(rowsB, (w) => w >= 5);
+
+  // 日の出・日の入り: from the first day to the last, and how far the light moved (worked out, not recorded).
+  const edges = days.map((d) => dayEdges(d, station));
+  const edgesB = days.map((d) => dayEdges(addDays(d, -PREV_SAME_WEEKDAY), station));
+  const sunLines: string[] = [];
+  if (edges.length) {
+    const e0 = edges[0];
+    const e1 = edges[edges.length - 1];
+    const len = (e: { rise: number; set: number }) => e.set - e.rise;
+    const dl = Math.round(len(e1) - len(e0));
+    const first = md(days[0]);
+    const lastD = md(days[days.length - 1]);
+    if (edges.length > 1) {
+      sunLines.push(`日の出は ${hm(e0.rise)}（${first}）→ ${hm(e1.rise)}（${lastD}）、日の入りは ${hm(e0.set)} → ${hm(e1.set)}。`);
+      sunLines.push(`昼の長さは ${hLong(len(e0))} → ${hLong(len(e1))}（${dl >= 0 ? "+" : "−"}${Math.abs(dl)}分）。`);
+    } else sunLines.push(`日の出 ${hm(e0.rise)}、日の入り ${hm(e0.set)}、昼の長さ ${hLong(len(e0))}（${first}）。`);
+    const shift = mean(edges.map((e, i) => len(e) - len(edgesB[i])));
+    if (shift != null) sunLines.push(`前年同曜日は暦が1日ずれるだけなので、昼の長さの差は平均 ${Math.abs(shift).toFixed(1)}分。日の出入りは計算値（記録ではない）。`);
+  }
 
   // 肌感: warm afternoons, cool mornings (the hourly bands, where they are in).
   const bandsOf = (i: number) => days.map((d) => bandsFor(store, station, d, feelOn(store, station, d, base))).map((f) => (f?.exact ? f.bands[i]?.level : null));
@@ -1032,8 +1076,11 @@ function MonthReport({ store, station, days, rows, rowsB, picked }: { store: Wea
       "曜日",
       [
         wettestDow.n ? `雨の日がいちばん多いのは${wettestDow.name}曜（${wettestDow.n}/${wettestDow.of}日）。` : "",
-        `土日の雨の日は ${we.n}/${we.of}日、前年同曜日は ${weB.n}/${weB.of}日。`,
       ],
+    ],
+    [
+      "日の出・日の入り",
+      sunLines,
     ],
     [
       "肌感",
@@ -1082,11 +1129,12 @@ function MonthReport({ store, station, days, rows, rowsB, picked }: { store: Wea
           </p>
         </div>
       ))}
-      {picked && <p className="month-report-note">レポートは月全体（選んだ日は上の数字と表に）。</p>}
+      {picked && <p className="month-report-note">選んだ日だけのレポート（前年同曜日も同じ曜日の日だけ）。続いた日数は日付が続く範囲で数える。</p>}
     </div>
   );
 }
 
+const GROUP_NAMES = ["ひとつめ", "ふたつめ"];
 // ---- 曜日の傾向（詳しく） -----------------------------------------------------------------------------
 type WeekMeasure = "max" | "min" | "rainDays" | "rain" | "sun" | "sunnyDays" | "warmNoon";
 const WEEK_MEASURES: { id: WeekMeasure; label: string; unit: string; tone: keyof typeof DATA; digits: number; count?: boolean }[] = [
@@ -1102,8 +1150,8 @@ const WEEK_MEASURES: { id: WeekMeasure; label: string; unit: string; tone: keyof
 /**
  * The weekdays in detail: one measure at a time (最高・最低・雨の日・降水量・日照・晴れの日・昼の肌感),
  * a bar per weekday (this month filled, 前年同曜日 as an outline mark), its value and the difference,
- * the dates' weather beside it, and a line naming the highest and lowest weekday. A tap on a row
- * chooses that weekday's days.
+ * the dates' weather beside it, two groups of weekdays the viewer puts together, and a line naming
+ * the highest and lowest weekday. A tap on a row adds (or drops) that weekday's days to the choice.
  */
 function WeekDetail({
   store,
@@ -1124,6 +1172,13 @@ function WeekDetail({
 }) {
   const base = useContext(FeelContext);
   const [measure, setMeasure] = useState<WeekMeasure>("max");
+  // Two groups of weekdays to set side by side, chosen freely (at first 月〜金 and 土日).
+  const [groups, setGroups] = useState<number[][]>([
+    [0, 1, 2, 3, 4],
+    [5, 6],
+  ]);
+  const toggleGroup = (gi: number, w: number) =>
+    setGroups(groups.map((ws, i) => (i !== gi ? ws : ws.includes(w) ? ws.filter((x) => x !== w) : [...ws, w].sort())));
   const m = WEEK_MEASURES.find((x) => x.id === measure)!;
   const dow = (d: string) => (new Date(`${d}T00:00:00Z`).getUTCDay() + 6) % 7;
   const noonLevel = (d: string) => {
@@ -1172,8 +1227,7 @@ function WeekDetail({
     const per = (v: number | null, n: number) => (v == null || !n ? null : m.count ? (v / n) * 100 : v);
     return { a: per(value(g, "a"), g.length), b: per(value(g, "b"), g.length) };
   };
-  const weekday = pooled([0, 1, 2, 3, 4]);
-  const weekend = pooled([5, 6]);
+  const groupVals = groups.map((ws) => pooled(ws));
   const show = (v: number | null) => (v == null ? "—" : m.count ? `${v.toFixed(0)}%` : `${v.toFixed(m.digits)}${m.unit}`);
   return (
     <div className="week-detail">
@@ -1210,16 +1264,27 @@ function WeekDetail({
           );
         })}
       </div>
-      <div className="week-detail-pair">
-        {[
-          { label: "平日", v: weekday },
-          { label: "土日", v: weekend },
-        ].map((x) => (
-          <span key={x.label}>
-            <small>{x.label}</small>
-            <b style={{ color }}>{show(x.v.a)}</b>
-            <small>前年同曜日 {show(x.v.b)}</small>
-          </span>
+      <div className="week-groups" role="group" aria-label="曜日をまとめて比べる">
+        {groups.map((ws, gi) => (
+          <div key={gi} className="week-group">
+            <span className="week-group-days">
+              {WEEK.map((name, w) => (
+                <button
+                  key={name}
+                  className={`week-group-day${ws.includes(w) ? " on" : ""}${w === 5 ? " tone-saturday" : w === 6 ? " tone-holiday" : ""}`}
+                  aria-pressed={ws.includes(w)}
+                  aria-label={`${GROUP_NAMES[gi]}に${name}曜日を${ws.includes(w) ? "入れない" : "入れる"}`}
+                  onClick={() => toggleGroup(gi, w)}
+                >
+                  {name}
+                </button>
+              ))}
+            </span>
+            <span className="week-group-val">
+              <b style={{ color }}>{ws.length ? show(groupVals[gi].a) : "—"}</b>
+              <small>前年 {ws.length ? show(groupVals[gi].b) : "—"}</small>
+            </span>
+          </div>
         ))}
       </div>
       <p className="week-detail-note">
@@ -1233,8 +1298,8 @@ function WeekDetail({
         棒はこの月、縦の印は前年同曜日。{m.id === "sun" ? "日照は1日あたりの平均。" : ""}
         {m.id === "sunnyDays" ? `晴れの日は日照 ${SUNNY_DAY_H}時間以上。` : ""}
         {m.id === "warmNoon" ? "昼の肌感が「暖かい」以上の日。" : ""}
-        {m.count ? "平日・土日は日数の割合。" : ""}
-        押すとその曜日を選ぶ。
+        {m.count ? "まとめた曜日は日数の割合。" : ""}
+        行を押すとその曜日の日を選ぶ（複数可・レポートも選んだ日に）。
       </p>
     </div>
   );

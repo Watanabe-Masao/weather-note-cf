@@ -4442,7 +4442,13 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .week-detail-icons { display: flex; gap: 2px; justify-content: flex-end; opacity: 0.85; }
 .week-detail-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1.6; }
 .week-detail-note b { color: var(--ink-primary); font-weight: var(--weight-bold); }
-.week-detail-pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
-.week-detail-pair > span { display: grid; gap: 2px; padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface-raised); }
-.week-detail-pair small { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.week-detail-pair b { font-family: var(--font-numeric); font-size: var(--size-lg); font-weight: var(--weight-regular); }
+.week-groups { display: grid; gap: var(--space-3); }
+.week-group { display: grid; grid-template-columns: 1fr auto; gap: var(--space-4); align-items: center; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface-raised); }
+.week-group-days { display: flex; gap: 3px; }
+.week-group-day { flex: 1; min-width: 0; height: 28px; padding: 0; border: 1px solid var(--line-soft); border-radius: var(--radius-xs); background: none; color: var(--ink-tertiary); font: inherit; font-size: var(--size-xs); }
+.week-group-day.tone-saturday { color: var(--day-saturday); }
+.week-group-day.tone-holiday { color: var(--day-holiday); }
+.week-group-day.on { background: var(--accent-wash); border-color: var(--accent-base); color: var(--ink-primary); }
+.week-group-val { display: grid; justify-items: end; min-width: 72px; line-height: 1.2; }
+.week-group-val b { font-family: var(--font-numeric); font-size: var(--size-lg); font-weight: var(--weight-regular); }
+.week-group-val small { font-size: var(--size-xs); color: var(--ink-tertiary); }
