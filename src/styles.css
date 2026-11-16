@@ -4491,3 +4491,75 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 /* 台風情報の取れなさ (#220, review 2026-11-16): a quiet line, never read as "no typhoon". */
 .typhoon-failed { margin: 0 0 var(--space-4); padding: 6px 10px; border-radius: var(--radius-md); font-size: var(--size-xs); color: var(--ink-tertiary); background: var(--surface-raised); box-shadow: 0 0 0 1px var(--line-soft) inset; }
 .typhoon-stale { margin: 0; font-size: var(--size-xs); color: var(--status-warning); }
+
+/* 台風の日 beside any day's picture (#220, TyphoonTag): on the shoulder in a calendar's cell; in the
+   line beside the picture in the summaries. */
+.cal-icon { position: relative; }
+.cal-icon .typhoon-tag { left: calc(50% - 25px); top: -4px; }
+.typhoon-tag.inline { position: static; flex: none; }
+
+/* その日の要約 → 台風の詳細 (#220): one raised line under the words, in the warning colour's edge. */
+.ds-typhoon {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  width: 100%; padding: 10px 14px; border: none; border-radius: var(--radius-md);
+  background: var(--surface-raised); box-shadow: 0 0 0 1px var(--status-warning) inset;
+  color: var(--ink-primary); font-size: var(--size-base); text-align: left;
+}
+.ds-typhoon span:first-child { display: grid; gap: 2px; }
+.ds-typhoon small { color: var(--ink-secondary); font-size: var(--size-xs); }
+.ds-typhoon-go { color: var(--status-warning); font-size: var(--size-lg); }
+
+/* 台風の詳細 (#220, TyphoonSheet): a map of its own, the chips under it, then the station's line. */
+.typhoon-sheet .seg { display: grid; width: 100%; }
+.ty-sub { margin: 0 2px; color: var(--ink-secondary); font-size: var(--size-sm); }
+.ty-map { position: relative; border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-inset); }
+.ty-map svg { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1.05; }
+.ty-land { fill: var(--surface-overlay); stroke: var(--line-strong); stroke-linejoin: round; }
+.ty-track { fill: none; stroke: var(--ink-primary); stroke-linejoin: round; stroke-linecap: round; }
+.ty-track.quiet { stroke: var(--ink-disabled); }
+.ty-forecast { fill: none; stroke: var(--status-forecast); stroke-linejoin: round; }
+.ty-gale { fill: color-mix(in srgb, var(--status-warning) 6%, transparent); stroke: var(--status-warning); }
+.ty-gale.thin { fill: none; opacity: 0.7; }
+.ty-storm { fill: color-mix(in srgb, var(--status-warning) 38%, transparent); stroke: none; }
+.ty-warning { fill: color-mix(in srgb, var(--status-warning) 5%, transparent); stroke: var(--status-warning); }
+.ty-prob { fill: none; stroke: var(--status-forecast); opacity: 0.8; }
+.ty-centre { fill: var(--surface-page); stroke: var(--ink-primary); }
+.ty-centre.at { stroke: var(--accent-base); }
+.ty-tick circle { fill: var(--ink-primary); }
+.ty-tick text { fill: var(--ink-secondary); font-family: var(--font-numeric); }
+.ty-tick.quiet circle { fill: var(--ink-disabled); }
+.ty-station { fill: var(--status-warning); stroke: var(--surface-page); }
+.ty-station-name { fill: var(--ink-primary); font-weight: var(--weight-bold); }
+.ty-zoom { position: absolute; right: 8px; top: 8px; display: grid; gap: 4px; }
+.ty-zoom button { width: 32px; height: 32px; border: none; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-base) 85%, transparent); box-shadow: 0 0 0 1px var(--line-strong) inset; color: var(--ink-primary); font-size: var(--size-md); }
+.ty-map-note { position: absolute; left: 10px; bottom: 8px; margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); }
+.ty-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 2px; font-size: var(--size-xs); color: var(--ink-secondary); }
+.ty-legend i { display: inline-block; vertical-align: middle; margin-right: 5px; }
+.ty-legend .tr { width: 16px; border-top: 2px solid var(--ink-primary); }
+.ty-legend .fc { width: 16px; border-top: 2px dashed var(--status-forecast); }
+.ty-legend .g { width: 10px; height: 10px; border: 1.5px solid var(--status-warning); border-radius: 50%; }
+.ty-legend .s { width: 10px; height: 10px; background: color-mix(in srgb, var(--status-warning) 45%, transparent); border-radius: 50%; }
+.ty-legend .p { width: 10px; height: 10px; border: 1.5px dashed var(--status-forecast); border-radius: 50%; }
+.ty-legend .w { width: 10px; height: 10px; border: 1.5px dashed var(--status-warning); border-radius: 50%; }
+.ty-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
+.ty-chips button { flex: none; display: grid; gap: 1px; padding: 6px 10px; border: none; border-radius: var(--radius-md); background: var(--surface-raised); color: var(--ink-secondary); font-size: var(--size-sm); font-family: var(--font-numeric); text-align: left; }
+.ty-chips button small { font-family: var(--font-family); font-size: var(--size-xs); color: var(--ink-tertiary); }
+.ty-chips button[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent-base); box-shadow: 0 0 0 1px var(--accent-base) inset; }
+.ty-say { margin: 0 2px; min-height: 3em; line-height: 1.6; color: var(--ink-secondary); font-size: var(--size-base); }
+.ty-say b { color: var(--ink-primary); }
+.ty-say strong.in { color: var(--status-warning); }
+.ty-band-title { margin: var(--space-2) 2px 0; font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
+.ty-rows { display: grid; }
+.ty-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; padding: 9px 2px; border-top: 1px solid var(--line-soft); align-items: baseline; font-size: var(--size-sm); color: var(--ink-primary); }
+.ty-row:first-child { border-top: 0; }
+.ty-row time { font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-secondary); }
+.ty-row.none div { color: var(--ink-secondary); }
+.ty-row.real { margin-top: 6px; padding: 9px 10px; border-top: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--status-warning) 12%, transparent); }
+.ty-row.real time { color: var(--status-warning); }
+.ty-bar { position: relative; height: 8px; margin-top: 5px; border-radius: var(--radius-xs); overflow: hidden; background: var(--surface-inset); }
+.ty-bar span { position: absolute; top: 0; bottom: 0; }
+.ty-bar .w { background: repeating-linear-gradient(90deg, var(--status-warning) 0 2px, transparent 2px 4px); }
+.ty-bar .g { background: color-mix(in srgb, var(--status-warning) 35%, transparent); }
+.ty-bar .s { background: var(--status-warning); }
+.ty-axis { display: flex; justify-content: space-between; margin-top: 3px; font-size: var(--size-xs); color: var(--ink-disabled); font-family: var(--font-numeric); }
+.ty-source { margin: 0 2px; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1.5; }

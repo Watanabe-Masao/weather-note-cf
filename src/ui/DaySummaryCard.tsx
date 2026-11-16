@@ -17,14 +17,23 @@ import { DATA } from "../design/tokens";
 import { Badge, BarSample, confidenceOfRow, GraphReadout, type Kind, LineSample, Num, type ReadoutRow, SectionHead } from "./kit";
 import { MiniDayChart } from "./MiniDayChart";
 import { PartsWeather } from "./PartsWeather";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ModalSheet } from "./ModalSheet";
 import { DayWeatherIcon, StormMark } from "./WeatherIcon";
+import { useTyphoonOn } from "../data/typhoonDays";
+import type { TyphoonInfo } from "../data/typhoonNow";
+import { TyphoonSheet } from "./TyphoonSheet";
+import { TyphoonTag } from "./TyphoonTag";
 
 export type { DaySummaryAsk };
 
-export function DaySummaryCard({ store, station, ask, onClose }: { store: WeatherStore | null; station: string; ask: DaySummaryAsk; onClose: () => void }) {
+export function DaySummaryCard({ store, station, ask, typhoons, onClose }: { store: WeatherStore | null; station: string; ask: DaySummaryAsk; typhoons: TyphoonInfo; onClose: () => void }) {
   const { date, other } = ask;
+  // 台風の日 (#220): the same 台 as on the table, said first in the words, and the way into the typhoon.
+  const typhoonOn = useTyphoonOn();
+  const ty = typhoonOn(date);
+  const typhoon = ty === "none" || ty === "unknown" ? null : ty;
+  const [tyOpen, setTyOpen] = useState(false);
   const dayA = store?.getDay(station, date);
   const dayB = other ? store?.getDay(station, other) : null;
   const a = dayA?.row ?? null;
@@ -51,7 +60,7 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
   const lowest = (day: string | null) => (day ? hourlyExtreme(store?.getHours(station, day).rows ?? null, "pressure", "min") : null);
   const otherName = other ? shortDay(other, date) : null;
   // The numbers in words (#176): two or three sentences, each from a value below.
-  const comment = dayComment({ row: a, other: b, otherName, hours: store?.getHours(station, date).rows });
+  const comment = dayComment({ row: a, other: b, otherName, hours: store?.getHours(station, date).rows, typhoon });
   const lowA = lowest(date);
   const lowB = lowest(other);
   const kind = kindLabel(store, station, date);
@@ -69,6 +78,7 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
         <div className="ds-lead">
           <div className="ds-head">
             <DayWeatherIcon row={a} station={station} size={30} />
+            <TyphoonTag date={date} inline />
             <b className="ds-word">{word(a)}</b>
             {kind && <Badge kind={kind as Kind} confidence={confidenceOfRow(a)} />}
           </div>
@@ -78,6 +88,15 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
                 <span key={c}>{c}</span>
               ))}
             </p>
+          )}
+          {typhoon && (
+            <button className="ds-typhoon" onClick={() => setTyOpen(true)}>
+              <span>
+                台風{typhoon.number}号の情報
+                <small>進路・{typhoon.area === "warning" ? "今の発表" : "当時の予報"}・地図</small>
+              </span>
+              <span aria-hidden className="ds-typhoon-go">›</span>
+            </button>
           )}
         </div>
       )}
@@ -141,6 +160,7 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
           </div>
         </>
       )}
+      {tyOpen && typhoon && <TyphoonSheet station={station} date={date} number={typhoon.number} info={typhoons} onClose={() => setTyOpen(false)} />}
     </ModalSheet>
   );
 }

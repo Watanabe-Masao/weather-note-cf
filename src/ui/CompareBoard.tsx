@@ -18,7 +18,7 @@ import { DateNav } from "./DateNav";
 import { FeelBar, FeelContext } from "./FeelBar";
 import { Strip, StripSync } from "./Strip";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
-import { useTyphoonOn } from "../data/typhoonDays";
+import { TyphoonTag } from "./TyphoonTag";
 
 interface Props {
   /** A drum is moving (finger down or settling): switches that change the days wait for it. */
@@ -109,7 +109,6 @@ function Column({
   summaryOther?: string | null;
 }) {
   const feel = useContext(FeelContext);
-  const typhoonOn = useTyphoonOn();
   // A long press on the day's weather picture: the day's summary beside its partner (#176).
   const press = useDaySummaryPress();
   if (!date)
@@ -135,7 +134,7 @@ function Column({
       </span>
       <span className="cell-icon" {...(state === "ready" ? { ...press, ...summaryAttr(date, summaryOther) } : {})}>
         {state === "ready" ? <DayWeatherIcon row={day?.row} station={station} /> : state === "empty" ? <span className="skeleton icon" /> : null}
-        {state === "ready" && <TyphoonTag on={typhoonOn(date)} />}
+        {state === "ready" && <TyphoonTag date={date} />}
       </span>
       <span className={state === "error" ? "cell-kind failed" : "cell-kind"}>
         {state === "outside" ? "範囲外" : state === "error" ? "取得失敗" : kindLabel(store, station, date)}
@@ -432,18 +431,3 @@ export function CompareBoard({
   );
 }
 
-/**
- * 台風の日 (#220): 台 on the picture's other shoulder — outlined inside the 強風域, filled inside the
- * 暴風域, dashed for the 暴風警戒域 ahead (JMA's forecast, as JMA draws it).
- */
-function TyphoonTag({ on }: { on: ReturnType<ReturnType<typeof useTyphoonOn>> }) {
-  // "none" draws nothing; "unknown" draws nothing in the cell either — the line at the top says what
-  // could not be read (台風情報を取得できませんでした / まだ記録にない), never "no typhoon".
-  if (on === "none" || on === "unknown") return null;
-  const label = `台風${on.number}号 ${on.area === "storm" ? "暴風域" : on.area === "gale" ? "強風域" : "暴風警戒域（予報）"}`;
-  return (
-    <span className={`typhoon-tag ${on.area}`} role="img" aria-label={label} title={label}>
-      台
-    </span>
-  );
-}

@@ -28,4 +28,12 @@ describe("dayComment (#176)", () => {
     expect(dayComment({ row: null, other: null, otherName: null })).toEqual([]);
     expect(windPeakHour([r({ n: 3, wind: 0 })])).toBeNull();
   });
+
+  it("says the typhoon first, as the 台 on the picture does (#220)", () => {
+    const row = r({ max: 28.3, min: 24.4, rain: 106.5, sun: 0 });
+    expect(dayComment({ row, other: null, otherName: null, typhoon: { number: 15, area: "gale" } })[0]).toBe("台風15号の強風域に入った日。");
+    expect(dayComment({ row, other: null, otherName: null, typhoon: { number: 15, area: "storm" } })[0]).toBe("台風15号の暴風域に入った日。");
+    expect(dayComment({ row, other: null, otherName: null, typhoon: { number: 30, area: "warning" } })[0]).toBe("台風30号の暴風警戒域に入る予報（気象庁）。");
+    expect(dayComment({ row, other: null, otherName: null })[0]).toBe("まとまった雨（106.5mm）。");
+  });
 });

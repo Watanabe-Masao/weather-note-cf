@@ -16,6 +16,7 @@ import { ChevronIcon } from "./icons";
 import { Button, Chip, confidenceOfRow, Glyph } from "./kit";
 import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { useSwipeDays } from "./useSwipeDays";
+import { TyphoonTag } from "./TyphoonTag";
 import { DayWeatherIcon } from "./WeatherIcon";
 import { STORM, stormOfRow } from "../../shared/storm";
 import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
@@ -258,6 +259,7 @@ function Body(p: Props) {
               <span className="cal-n">{+d.slice(8)}</span>
               <span className="cal-icon" aria-hidden {...(row ? summaryAttr(d, p.side === "target" ? p.partnerOf(d) : p.target) : {})}>
                 {row ? <DayWeatherIcon row={row} station={p.station} /> : status === "loading" ? <i className="cal-skel" /> : null}
+                {row && <TyphoonTag date={d} />}
               </span>
               <span className="cal-max" aria-hidden>
                 {status === "loading" ? <i className="cal-skel short" /> : status === "failed" || status === "none" ? <span className="cal-none">—</span> : (max ?? "")}
