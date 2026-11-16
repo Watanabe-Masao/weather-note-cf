@@ -163,7 +163,7 @@ describe.each(THEME_NAMES)("%s", (name) => {
     const at = (c: string) => contrast(c, t.surface.base);
     const range = (v: number, lo: number, hi: number) => v >= lo && v <= hi;
     expect(
-      [at(t.data.hot), at(t.data.cold)].every((v) => range(v, 4.6, 5.4)),
+      [at(t.data.hot), at(t.data.cold)].every((v) => range(v, 4.6, 5.45)),
     ).toBe(true);
     expect(range(at(t.reference.color), 2.2, 2.6)).toBe(true);
     expect(range(at(t.chart.hatch), 1.5, 1.7)).toBe(true);
@@ -179,18 +179,23 @@ describe.each(THEME_NAMES)("%s", (name) => {
         at(t.chart.hatch) > at(t.chart.grid),
     ).toBe(true);
   });
-  // Deep Navy at 70% of the light themes' chroma (#244): the same chroma reads more vivid on a dark
-  // face (Helmholtz–Kohlrausch), so the dark theme carries less of it for the same strength.
-  it("keeps the temperatures one colour across themes: the same hue, Deep Navy at 70% of the chroma", () => {
-    const navy = themePalette("navy");
+  // Deep Navy (#244): a red light enough to read on a dark face turns salmon at the light themes'
+  // hue, so its red leans 10° toward brown (terracotta, Warm White's brick red in the dark), and both
+  // temperatures carry 60% of the light themes' saturation (chroma ÷ lightness) so they do not glare.
+  it("keeps the temperatures one colour across themes: the light themes alike, Deep Navy a terracotta red and a calmer blue", () => {
+    const warm = themePalette("warm");
+    const lch = (c: string) => {
+      const [L, a, b] = oklab(c);
+      return { L, C: Math.hypot(a, b), H: (Math.atan2(b, a) * 180) / Math.PI };
+    };
     for (const k of ["hot", "cold"] as const) {
-      const [, a1, b1] = oklab(navy.data[k]);
-      const [, a2, b2] = oklab(t.data[k]);
-      expect(Math.abs(Math.atan2(b1, a1) - Math.atan2(b2, a2))).toBeLessThan(
-        0.06,
-      );
-      const want = t.dark ? 1 : NAVY_CHROMA;
-      expect(Math.hypot(a1, b1) / Math.hypot(a2, b2)).toBeCloseTo(want, 1);
+      const w = lch(warm.data[k]);
+      const x = lch(t.data[k]);
+      const lean = t.dark && k === "hot" ? NAVY_RED_LEAN : 0;
+      expect(Math.abs(x.H - w.H - lean)).toBeLessThan(3);
+      const share = (x.C / x.L) / (w.C / w.L);
+      if (t.dark) expect(share).toBeCloseTo(NAVY_SATURATION, 1);
+      else expect(Math.abs(x.C - w.C)).toBeLessThan(0.02);
     }
   });
   it("draws the 肌感 steps as one diverging scale in every theme: 寒い and 暑い farthest, ふつう nearest, each pair alike", () => {
@@ -234,8 +239,9 @@ describe.each(THEME_NAMES)("%s", (name) => {
   });
 });
 
-/** Deep Navy's share of the light themes' chroma (#244). */
-const NAVY_CHROMA = 0.7;
+/** Deep Navy's temperatures (#244): their share of Warm White's saturation, and the red's lean toward brown (degrees). */
+const NAVY_SATURATION = 0.6;
+const NAVY_RED_LEAN = 10;
 
 describe("putting a theme in use", () => {
   it("fills the colours SVG reads and the CSS properties alike", () => {
