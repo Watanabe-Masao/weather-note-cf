@@ -12,10 +12,10 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
-      - run: bash research/wxchart/fh02b.sh
+      - run: bash research/wxchart/fh03.sh
       - uses: actions/upload-artifact@v4
         with:
           name: wxchart-samples
