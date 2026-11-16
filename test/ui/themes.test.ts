@@ -181,7 +181,7 @@ describe.each(THEME_NAMES)("%s", (name) => {
   });
   // Deep Navy (#244): a red light enough to read on a dark face turns salmon at the light themes'
   // hue, so its red leans 10° toward brown (terracotta, Warm White's brick red in the dark), and both
-  // temperatures carry 60% of the light themes' saturation (chroma ÷ lightness) so they do not glare.
+  // temperatures carry 68% of the light themes' saturation (chroma ÷ lightness) so they do not glare.
   it("keeps the temperatures one colour across themes: the light themes alike, Deep Navy a terracotta red and a calmer blue", () => {
     const warm = themePalette("warm");
     const lch = (c: string) => {
@@ -240,7 +240,7 @@ describe.each(THEME_NAMES)("%s", (name) => {
 });
 
 /** Deep Navy's temperatures (#244): their share of Warm White's saturation, and the red's lean toward brown (degrees). */
-const NAVY_SATURATION = 0.6;
+const NAVY_SATURATION = 0.68;
 const NAVY_RED_LEAN = 10;
 
 describe("putting a theme in use", () => {
