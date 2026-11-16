@@ -18,7 +18,7 @@ import stations from "../../shared/stations.json";
 import { stormOfRow } from "../../shared/storm";
 import type { Station, WeatherRow } from "../../shared/types";
 import { fetchDailyMonth } from "../../worker/src/jma-tables";
-import { parseBestTrack, typhoonDays, type TyphoonDay } from "./track";
+import { parseBestTrack, typhoonDays, type TyphoonDay } from "../../shared/typhoon";
 
 const arg = (k: string, d: string) => {
   const i = process.argv.indexOf(`--${k}`);

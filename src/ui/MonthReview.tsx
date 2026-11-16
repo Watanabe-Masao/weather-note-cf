@@ -4,7 +4,7 @@
 // item a day, read by the finger), 曜日 (the weekdays side by side) and 肌感 (the bands over the month).
 // Opened from the calendar's month (CalendarModal). See docs/design-system.md「月の振り返り」.
 
-import { Fragment, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Fragment, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { dayEdges, dayParts, hoursIn, PARTS, type PartId } from "../../shared/dayParts";
 import { SCALE_STEPS } from "../../shared/feel";
@@ -21,6 +21,9 @@ import { BarSample, Chip, GraphReadout, LineSample, type ReadoutRow, SectionHead
 import { ModalSheet } from "./ModalSheet";
 import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
 import { feelOn } from "../feelSeason";
+import { stationLatLon } from "../../shared/sunTimes";
+import { typhoonDaysAt, type TyphoonDay } from "../../shared/typhoon";
+import { useTyphoonTracks } from "../data/typhoon";
 
 /** 前年同曜日: 52 weeks back. */
 const PREV_SAME_WEEKDAY = 364;
@@ -187,6 +190,14 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
   if (a.sun != null && b.sun != null && b.sun > 0) lean.push(a.sun / b.sun > 1.1 ? "日差しは多め" : a.sun / b.sun < 0.9 ? "日差しは少なめ" : "日差しは同じくらい");
   const [tab, setTab] = useState<"sum" | "days" | "trend" | "feel">("sum");
   const [calOpen, setCalOpen] = useState(false);
+  // 台風の日 (shared/typhoon.ts): this month's and 前年同曜日's, from the best track's compact copy.
+  const tracks = useTyphoonTracks();
+  const at = stationLatLon(station);
+  const [typhoons, typhoonsB] = useMemo(() => {
+    const of = (ds: string[]) => (tracks && at && ds.length ? typhoonDaysAt(tracks, at.lat, at.lon, ds[0], ds[ds.length - 1]) : new Map<string, TyphoonDay>());
+    return [of(days), of([...daysB].sort())];
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the month and the station set the days
+  }, [tracks, station, month, days.length]);
   // A vertical pull opens the calendar, a push folds it (the chips' row only opens: the open
   // calendar scrolls with the sheet, so it folds from the grip).
   // Followed on the window: the sheet's own drag may hold the pointer, so the lift is not always ours.
@@ -248,7 +259,7 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
                   })}
                 </div>
               ) : (
-                <MonthCalendar store={store} station={station} days={days} rows={full.rows} picked={picked} onPick={pickDays} />
+                <MonthCalendar store={store} station={station} days={days} rows={full.rows} picked={picked} onPick={pickDays} typhoons={typhoons} />
               )}
             </div>
           </div>
@@ -289,7 +300,7 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
           <>
             <GraphReadout title={`${picked.size ? `選んだ ${picked.size}日` : "月"}の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={picked.size ? { a: "", b: "前年同曜日" } : monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
             <SectionHead title={picked.size ? `選んだ ${picked.size}日のレポート` : "月のレポート"} />
-            <MonthReport station={station} days={sel} rows={a.rows} rowsB={b.rows} picked={picked.size > 0} standouts={standouts.map((x) => (x.p ? `${x.label}は ${md(x.p.date)}（${x.fmt(x.p.v)}）。` : ""))} />
+            <MonthReport station={station} days={sel} rows={a.rows} rowsB={b.rows} picked={picked.size > 0} typhoons={typhoons} typhoonsB={typhoonsB} standouts={standouts.map((x) => (x.p ? `${x.label}は ${md(x.p.date)}（${x.fmt(x.p.v)}）。` : ""))} />
           </>
         )}
         {tab === "days" && (
@@ -470,6 +481,7 @@ function MonthCalendar({
   rows,
   picked,
   onPick,
+  typhoons,
 }: {
   store: WeatherStore | null;
   station: string;
@@ -478,6 +490,8 @@ function MonthCalendar({
   /** Choosing days: the chosen ones, and a call with the days a tap chooses (a day, a week, a weekday). */
   picked?: ReadonlySet<string>;
   onPick?: (days: string[]) => void;
+  /** 台風の日: the days the station lay inside a typhoon's 強風域 / 暴風域. */
+  typhoons?: Map<string, TyphoonDay>;
 }) {
   const lead = (new Date(`${days[0]}T00:00:00Z`).getUTCDay() + 6) % 7; // Monday first
   const cells: (string | null)[] = [...Array.from({ length: lead }, () => null), ...days];
@@ -505,6 +519,12 @@ function MonthCalendar({
           <FeelBar store={store} station={station} date={d} />
         </span>
         <span className="month-cal-rain">{rain != null && rain >= 1 ? rain.toFixed(0) : ""}</span>
+        {typhoons?.get(d)?.gale && (
+          // 台風: outlined inside the 強風域, filled inside the 暴風域 (as the 強風／暴風 tag on the table).
+          <span className={`month-cal-ty${typhoons.get(d)!.violent ? " violent" : ""}`} title={`台風${typhoons.get(d)!.storm.number}号 ${typhoons.get(d)!.violent ? "暴風域" : "強風域"}`}>
+            台
+          </span>
+        )}
       </>
     );
     return pickable ? (
@@ -827,7 +847,26 @@ function longestRun(days: string[], rows: (WeatherRow | null)[], test: (r: Weath
  * The month as a report: the thirds of the month (上旬・中旬・下旬) beside 前年同曜日, then a few lines per
  * topic (気温, 雨と日差し, 目立った日, 日の出・日の入り). 曜日 and 肌感 have their own pages.
  */
-function MonthReport({ station, days, rows, rowsB, picked, standouts }: { station: string; days: string[]; rows: (WeatherRow | null)[]; rowsB: (WeatherRow | null)[]; picked: boolean; standouts: string[] }) {
+function MonthReport({
+  station,
+  days,
+  rows,
+  rowsB,
+  picked,
+  standouts,
+  typhoons,
+  typhoonsB,
+}: {
+  station: string;
+  days: string[];
+  rows: (WeatherRow | null)[];
+  rowsB: (WeatherRow | null)[];
+  picked: boolean;
+  standouts: string[];
+  /** 台風の日 of the month and of 前年同曜日, by date. */
+  typhoons: Map<string, TyphoonDay>;
+  typhoonsB: Map<string, TyphoonDay>;
+}) {
   const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
   const vals = (rs: (WeatherRow | null)[], k: string) => rs.map((r) => num(r?.[k])).filter((v): v is number => v != null);
   // By the day of the month (the days may be a choice, not the whole month).
@@ -860,6 +899,36 @@ function MonthReport({ station, days, rows, rowsB, picked, standouts }: { statio
   // 強風・暴風 (shared/storm.ts, the marks on the table): the days that reached them.
   const storms = rows.filter((r) => stormOfRow(r)).length;
   const stormsB = rowsB.filter((r) => stormOfRow(r)).length;
+
+  // 台風: each typhoon of the (chosen) days — its days inside the 強風域 / 暴風域, or only near (within
+  // 500 km), the nearest it came and its pressure then — and how many 強風・暴風 days were its.
+  const byStorm = (m: Map<string, TyphoonDay>, ds: string[]) => {
+    const by = new Map<string, TyphoonDay[]>();
+    for (const d of ds) {
+      const t = m.get(d);
+      if (t) by.set(t.storm.id, [...(by.get(t.storm.id) ?? []), t]);
+    }
+    return [...by.values()];
+  };
+  const span = (ts: TyphoonDay[]) => (ts.length > 1 ? `${md(ts[0].date)}〜${md(ts[ts.length - 1].date)}` : md(ts[0].date));
+  const areaOf = (ts: TyphoonDay[]) => (ts.some((t) => t.violent) ? "暴風域" : ts.some((t) => t.gale) ? "強風域" : null);
+  const tyLine = (ts: TyphoonDay[]) => {
+    const inside = ts.filter((t) => t.gale);
+    const near = ts.reduce((x, t) => (t.nearestKm < x.nearestKm ? t : x));
+    const area = areaOf(ts);
+    return `台風${ts[0].storm.number}号：${span(inside.length ? inside : ts)} ${area ? `${area}に入った` : "近づいた（域の外）"}（いちばん近く ${near.nearestKm.toFixed(0)}km${near.pressure ? `・${near.pressure.toFixed(0)}hPa` : ""}）。`;
+  };
+  const tys = byStorm(typhoons, days);
+  const tysB = byStorm(typhoonsB, days.map((d) => addDays(d, -PREV_SAME_WEEKDAY)));
+  const tyStorm = rows.filter((r, i) => stormOfRow(r) && typhoons.get(days[i])?.gale).length;
+  const tyLines =
+    tys.length || tysB.length
+      ? [
+          ...tys.map(tyLine),
+          tysB.length ? `前年同曜日は ${tysB.map((ts) => `台風${ts[0].storm.number}号（${areaOf(ts) ?? "近づいただけ"}）`).join("・")}。` : "前年同曜日は台風なし。",
+          "出典：気象庁（ベストトラック）。強風域・暴風域に入ったかは Weather Note の判定。",
+        ]
+      : [];
 
   // 日の出・日の入り: from the first day to the last, and how far the light moved (worked out, not recorded).
   const edges = days.map((d) => dayEdges(d, station));
@@ -894,7 +963,8 @@ function MonthReport({ station, days, rows, rowsB, picked, standouts }: { statio
         `日照 ${SUNNY_DAY_H}時間以上の晴れの日は ${sunnyDays}日（前年同曜日 ${sunnyDaysB}日）${sunny.n > 1 ? `、いちばん続いたのは ${sunny.n}日（${md(sunny.from)}〜${md(sunny.to)}）` : ""}。`,
       ],
     ],
-    ["目立った日", [...standouts, storms || stormsB ? `強風・暴風の日は ${storms}日（前年同曜日 ${stormsB}日）。` : ""]],
+    ["目立った日", [...standouts, storms || stormsB ? `強風・暴風の日は ${storms}日${tyStorm ? `（うち台風 ${tyStorm}日）` : ""}、前年同曜日は ${stormsB}日。` : ""]],
+    ["台風", tyLines],
     [
       "日の出・日の入り",
       sunLines,
@@ -930,7 +1000,7 @@ function MonthReport({ station, days, rows, rowsB, picked, standouts }: { statio
           </Fragment>
         ))}
       </div>
-      {lines.map(([head, ls]) => (
+      {lines.filter(([, ls]) => ls.some(Boolean)).map(([head, ls]) => (
         <div key={head} className="month-report-part">
           <b>{head}</b>
           <p>

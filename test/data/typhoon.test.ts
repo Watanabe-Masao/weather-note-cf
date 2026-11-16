@@ -1,7 +1,7 @@
-// TY-01 (#220, research/typhoon/track.ts): reading the best track and setting it against a station.
+// TY-01 (#220, shared/typhoon.ts): reading the best track and setting it against a station.
 
 import { describe, expect, it } from "vitest";
-import { destination, distanceBearing, hourly, inside, parseBestTrack, radiusToward, typhoonDays } from "../../research/typhoon/track";
+import { destination, distanceBearing, hourly, inside, parseBestTrack, radiusToward, typhoonDays } from "../../shared/typhoon";
 
 /** A line at its columns (1-indexed, inclusive), as the format sets them. */
 function at(fields: [number, string][]) {
@@ -86,5 +86,28 @@ describe("the best track", () => {
     expect(d30.gale && d30.violent).toBe(true);
     expect(d30.nearestKm).toBeLessThan(40);
     expect(d30.storm.number).toBe(10);
+  });
+});
+
+describe("the compact copy the app reads", () => {
+  it("keeps what the days need, and gives the same days back", async () => {
+    const { compactTracks, expandTracks, typhoonDaysAt } = await import("../../shared/typhoon");
+    const storms = parseBestTrack(text);
+    const c = compactTracks(storms, "2026-11-16T00:00:00Z");
+    expect(c.v).toBe(1);
+    expect(c.storms[0]).toMatchObject({ y: 2024, n: 10, name: "TESTER" });
+    const back = expandTracks(JSON.parse(JSON.stringify(c)));
+    const a = typhoonDays(storms[0], KOCHI.lat, KOCHI.lon).map((d) => [d.date, d.gale, d.violent]);
+    const b = typhoonDays(back[0], KOCHI.lat, KOCHI.lon).map((d) => [d.date, d.gale, d.violent]);
+    expect(b).toEqual(a);
+    const m = typhoonDaysAt(back, KOCHI.lat, KOCHI.lon, "2024-08-30", "2024-08-31");
+    expect([...m.keys()]).toEqual(["2024-08-30"]);
+    expect(m.get("2024-08-30")!.storm.number).toBe(10);
+  });
+
+  it("leaves out storms that never came near Japan", async () => {
+    const { compactTracks } = await import("../../shared/typhoon");
+    const far = parseBestTrack([header("2401", 2, "FAR"), data("24010100", 5, 10.0, 170.0, 990), data("24010106", 5, 11.0, 169.0, 990)].join("\n"));
+    expect(compactTracks(far, "x").storms).toHaveLength(0);
   });
 });

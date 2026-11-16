@@ -95,9 +95,22 @@ def api(path, q):
         return {"daily": row(datetime.date.fromisoformat(q["date"])), "rows": []}
     return {"error": "nope"}
 
+# 台風の進路 (shared/typhoon.ts, compact): one made-up typhoon (2026年 99号) crossing Kochi on 20 October
+# 2026 (UTC), its 強風域 300 km all round and its 暴風域 80 km.
+def _ty_hours(y, m, d, h): return int(datetime.datetime(y, m, d, h, tzinfo=datetime.timezone.utc).timestamp() // 3600)
+TYPHOON_TRACKS = {"v": 1, "source": "e2e", "built": "2026-11-01T00:00:00Z", "storms": [{"y": 2026, "n": 99, "name": "E2E", "p": [
+    [_ty_hours(2026, 10, 19, 18), 5, 310, 1335, 960, [300, 300, -1], [80, 80, -1]],
+    [_ty_hours(2026, 10, 20, 0), 5, 335, 1335, 965, [300, 300, -1], [80, 80, -1]],
+    [_ty_hours(2026, 10, 20, 6), 5, 360, 1340, 975, [250, 250, -1], []],
+]}]}
+
 class H(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
     def do_GET(self):
+        if self.path.split("?")[0] == "/data/typhoon-tracks.json":
+            body = json.dumps(TYPHOON_TRACKS).encode()
+            self.send_response(200); self.send_header("content-type", "application/json"); self.end_headers(); self.wfile.write(body)
+            return
         if not self.path.startswith("/api/") and not os.path.exists(DIST + self.path.split("?")[0]):
             self.path = "/index.html"
         return super().do_GET()
@@ -790,12 +803,14 @@ with sync_playwright() as p:
         pg.click(".cal-month-review"); calm()
         check("MR1 カレンダーの月の名前で月の振り返りが開く（カレンダーは閉じる）", pg.locator(".month-review").count() == 1 and pg.locator(".msheet.calendar").count() == 0)
         check("MR2 ページは4つ（まとめ・日ごと・曜日・肌感）", pg.locator(".month-tabs button").count() == 4, txt(".month-tabs"))
+        check("MR3b 台風の日：レポートに台風◯号と出典", "台風99号" in txt(".month-report") and "ベストトラック" in txt(".month-report"), txt(".month-report")[-200:])
         check("MR3 まとめに月の値とレポート（前年同曜日と比べる）", pg.locator(".month-review .readout-card").count() >= 1 and pg.locator(".month-report-part").count() >= 3 and "前年同曜日" in txt(".month-review"))
         pg.locator(".month-filter-days .chip").nth(6).click(); calm()  # 土
         check("MR4 曜日を選ぶと「選んだ N日」、レポートも選んだ日に", pg.locator(".month-picked").count() == 1 and "選んだ" in txt(".month-review .section-head") if pg.locator(".month-review .section-head").count() else False, txt(".month-picked") if pg.locator(".month-picked").count() else "")
         bx = pg.locator(".month-filter-days").bounding_box()
         pg.mouse.move(bx["x"] + bx["width"] / 2, bx["y"] + bx["height"] / 2); pg.mouse.down(); pg.mouse.move(bx["x"] + bx["width"] / 2, bx["y"] + bx["height"] / 2 + 60, steps=4); pg.mouse.up(); calm()
         check("MR5 曜日の並びを下に引くとカレンダー（曜日の並びは隠れる）", pg.locator(".month-filter .month-cal").count() == 1 and pg.locator(".month-filter-days").count() == 0)
+        check("MR5b カレンダーに台風の印（暴風域は塗り）", pg.locator(".month-cal-ty").count() >= 1 and pg.locator(".month-cal-ty.violent").count() >= 1, str(pg.locator(".month-cal-ty").count()))
         pg.click(".month-fold"); calm()
         check("MR6 つまみでたたむ", pg.locator(".month-filter .month-cal").count() == 0 and pg.locator(".month-filter-days").count() == 1)
         for i, name in enumerate(["日ごと", "曜日", "肌感"]):

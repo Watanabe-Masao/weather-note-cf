@@ -92,7 +92,8 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/icons/") || url.pathname === "/manifest.webmanifest") {
+  // Icons, the manifest and the data files (台風の進路): the copy at once, a fresh one behind it.
+  if (url.pathname.startsWith("/icons/") || url.pathname.startsWith("/data/") || url.pathname === "/manifest.webmanifest") {
     event.respondWith(
       caches.match(req).then((hit) => {
         const fresh = fetch(req)

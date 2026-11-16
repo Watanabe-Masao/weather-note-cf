@@ -1,0 +1,40 @@
+name: typhoon-tracks
+
+# 台風の日 (#220): rebuilds public/data/typhoon-tracks.json from JMA's RSMC Tokyo best track
+# (scripts/typhoon-tracks.ts) and pushes it to the branch data/typhoon-tracks, ready for a pull
+# request. By hand, and once a month (JMA adds the season's storms and revises past ones).
+# 出典：気象庁 RSMC Tokyo ベストトラック。
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 2 * *"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: best track
+        run: |
+          mkdir -p /tmp/bst
+          curl -fsSL -o /tmp/bst/bst_all.zip https://www.jma.go.jp/jma/jma-eng/jma-center/rsmc-hp-pub-eg/Besttracks/bst_all.zip
+          unzip -o -q /tmp/bst/bst_all.zip -d /tmp/bst
+      - run: npx --yes tsx@4.19.2 scripts/typhoon-tracks.ts "$(ls /tmp/bst/*.txt | head -1)" public/data/typhoon-tracks.json
+      - name: push to data/typhoon-tracks
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B data/typhoon-tracks
+          git add public/data/typhoon-tracks.json
+          if git diff --cached --quiet; then echo "no change"; exit 0; fi
+          git commit -m "台風の進路データを更新（気象庁 RSMC Tokyo ベストトラック）"
+          git push -f origin data/typhoon-tracks

@@ -4428,3 +4428,8 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .month-fold { display: flex; justify-content: center; width: 100%; height: 22px; margin-top: -6px; padding: 8px 0 0; border: none; background: none; touch-action: none; }
 .month-fold .grabber { width: 32px; height: 4px; margin: 0; opacity: 0.4; }
 .month-fold:active .grabber, .month-fold.open .grabber { width: 42px; opacity: 0.85; background: var(--ink-primary); }
+
+/* 台風の日 (#220): the corner of the day, as the 強風／暴風 tag — outlined inside the 強風域, filled inside the 暴風域. */
+.month-cal-day { position: relative; }
+.month-cal-ty { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: var(--size-xs); line-height: 1; color: var(--status-warning); box-shadow: 0 0 0 1px var(--status-warning) inset; }
+.month-cal-ty.violent { color: var(--surface-base); background: var(--status-warning); box-shadow: none; }
