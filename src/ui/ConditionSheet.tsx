@@ -1,4 +1,6 @@
-// 条件から選ぶ: a way of choosing the comparison day, so it opens from the compare menu.
+// 条件から選ぶ: a way of choosing the comparison day, so it opens from the compare menu. 雨 can ask
+// for a strength (the strongest hour, 強い雨〜), and 台風 for the days inside a typhoon's 強風域 or
+// all but them (shared/typhoon.ts, from the best track's copy).
 // Conditions start from the target day's values; each sits on one line and opens on a tap (one at
 // a time). The days that meet them are listed nearest first; a tap makes one the comparison day,
 // and the sheet stays open with a way to take it back.
@@ -10,6 +12,7 @@ import {
   candidateDays,
   PARTS,
   type Part,
+  RAIN_STRENGTHS,
   type RainMode,
   SPAN_CHOICES,
   SPAN_LABEL,
@@ -20,12 +23,17 @@ import {
   tempScale,
   type TempCondition,
   type TempMode,
+  TYPHOON_FILTERS,
+  type TyphoonFilter,
   WEEKDAY_FILTERS,
   type WeekdayFilter,
   YEAR_CHOICES,
   type Years,
 } from "../../shared/conditions";
 import { monthDay, num, weekdayOf, yearMark } from "../design/format";
+import { stationLatLon } from "../../shared/sunTimes";
+import { typhoonDaysAt } from "../../shared/typhoon";
+import { useTyphoonTracks } from "../data/typhoon";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { DayLabel, SectionHead, Segmented, Slider } from "./kit";
@@ -67,6 +75,8 @@ function rainText(c: Conditions["rain"]): string {
   if (c.mode === "any") return "問わない";
   const parts = PARTS.filter((p) => c.parts.includes(p.id));
   const where = parts.length === PARTS.length ? "一日中" : parts.map((p) => p.label).join("・") + "に";
+  const strength = c.mode === "wet" && c.strength ? RAIN_STRENGTHS.find((x) => x.mm === c.strength) : null;
+  if (strength) return `${parts.length === PARTS.length ? "" : where}${strength.label}`;
   return where + (c.mode === "dry" ? "降らない" : "降る");
 }
 
@@ -75,7 +85,7 @@ function periodText(c: Conditions): string {
   return `過去${c.years}年・${SPAN_LABEL[c.span]}${wd}`;
 }
 
-type Key = "max" | "min" | "rain" | "period";
+type Key = "max" | "min" | "rain" | "typhoon" | "period";
 
 /** One condition: a line with its value; tapping it opens the controls below. */
 function Line({
@@ -187,7 +197,22 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
     return () => store?.prefetch(station, [], "conditions");
   }, [store, station, candidates]);
 
+  // 台風の日 over the candidates' span (the 強風域 only), once the tracks are read.
+  const tracks = useTyphoonTracks();
+  const typhoonOn = (c.typhoon ?? "any") !== "any";
+  const typhoons = useMemo(() => {
+    const at = stationLatLon(station);
+    if (!Array.isArray(tracks) || !at || !candidates.length) return null;
+    return typhoonDaysAt(tracks, at.lat, at.lon, candidates[candidates.length - 1], candidates[0]);
+  }, [tracks, station, candidates]);
   const result = searchConditions(c, origin, candidates, {
+    typhoon: (d) => {
+      // No copy of the tracks: no day can be told a typhoon day; the line says so.
+      if (tracks === "none") return 0;
+      if (!typhoons) return typhoonOn ? null : 0;
+      const t = typhoons.get(d);
+      return t?.gale ? t.storm.number : 0;
+    },
     day: (d) => {
       const v = store?.getDay(station, d);
       return v?.state === "ready" ? v.row : v?.state === "error" ? null : undefined;
@@ -231,6 +256,24 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
         </Line>
         <Line id="rain" label="雨" tone="rain" value={rainText(c.rain)} off={c.rain.mode === "any"} open={open === "rain"} onToggle={() => toggle("rain")}>
           <Segmented label="雨" options={RAIN_MODES} value={c.rain.mode} onChange={(mode) => set({ rain: { ...c.rain, mode } })} />
+          {c.rain.mode === "wet" && (
+            <Segmented
+              label="強さ（いちばん強い1時間）"
+              options={RAIN_STRENGTHS.map((x) => ({
+                id: String(x.mm),
+                label: x.mm ? (
+                  <>
+                    {x.label.replace(/雨$/, "")}
+                    <small>{x.short}</small>
+                  </>
+                ) : (
+                  "問わない"
+                ),
+              }))}
+              value={String(c.rain.strength ?? 0)}
+              onChange={(v) => set({ rain: { ...c.rain, strength: Number(v) } })}
+            />
+          )}
           {c.rain.mode !== "any" && (
             <div className="seg multi" role="group" aria-label="時間帯（いくつでも）">
               {PARTS.map((p) => {
@@ -253,6 +296,22 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
               })}
             </div>
           )}
+        </Line>
+        <Line
+          id="typhoon"
+          label="台風"
+          tone="mean"
+          value={TYPHOON_FILTERS.find((f) => f.id === (c.typhoon ?? "any"))!.label}
+          off={!typhoonOn}
+          open={open === "typhoon"}
+          onToggle={() => toggle("typhoon")}
+        >
+          <Segmented<TyphoonFilter> label="台風" options={TYPHOON_FILTERS} value={c.typhoon ?? "any"} onChange={(typhoon) => set({ typhoon })} />
+          <p className="cond-help">
+            台風の日：その日、観測点が台風の強風域に入った日。出典：気象庁（ベストトラック）、判定は Weather Note。
+            {tracks === "loading" && typhoonOn ? " 台風の進路を読み込み中…" : ""}
+            {tracks === "none" ? " 台風の進路のデータが読めないため、いまは台風で絞り込めません。" : ""}
+          </p>
         </Line>
         <Line id="period" label="期間" tone="mean" value={periodText(c)} open={open === "period"} onToggle={() => toggle("period")}>
           <Segmented
@@ -302,6 +361,8 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
                   <span>最高</span>
                   <span>最低</span>
                   <span>雨</span>
+                  {(c.rain.strength ?? 0) > 0 && c.rain.mode === "wet" && <span>強さ</span>}
+                  {typhoonOn && <span>台風</span>}
                 </div>
                 <div className="cond-col origin">
                   <span className="head">
@@ -311,6 +372,8 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
                   <span className={origin.max == null ? "num tone-hot" : "num grid tone-hot"}>{origin.max == null ? "—" : t1(origin.max)}</span>
                   <span className={origin.min == null ? "num tone-cold" : "num grid tone-cold"}>{origin.min == null ? "—" : t1(origin.min)}</span>
                   <span className="num tone-rain">{rainCell(num(originRow?.rain) ?? 0, null)}</span>
+                  {(c.rain.strength ?? 0) > 0 && c.rain.mode === "wet" && <span className="num tone-rain">{num(originRow?.rainHour) == null ? "—" : num(originRow?.rainHour)!.toFixed(0)}</span>}
+                  {typhoonOn && <span className="num">—</span>}
                 </div>
               </div>
               {shown.map((m) => (
@@ -331,6 +394,8 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
                   <span className="num grid tone-hot">{t1(m.max)}</span>
                   <span className="num grid tone-cold">{t1(m.min)}</span>
                   <span className="num tone-rain">{rainCell(m.rain, m.wet)}</span>
+                  {(c.rain.strength ?? 0) > 0 && c.rain.mode === "wet" && <span className="num tone-rain">{m.top == null ? "—" : m.top.toFixed(0)}</span>}
+                  {typhoonOn && <span className="num cond-ty">{m.typhoon ? `${m.typhoon}号` : "—"}</span>}
                 </button>
               ))}
             </div>

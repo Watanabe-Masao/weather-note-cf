@@ -2679,6 +2679,14 @@ svg.scrub {
   color: var(--ink-tertiary);
 }
 
+/* 台風の行の説明（出典と判定）: the note's size, under the choice. */
+.cond-help {
+  margin: var(--space-3) 0 0;
+  font-size: var(--size-xs);
+  color: var(--ink-tertiary);
+  line-height: 1.6;
+}
+
 .cond-toast {
   position: sticky;
   bottom: var(--space-4);
@@ -4433,3 +4441,11 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .month-cal-day { position: relative; }
 .month-cal-ty { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: var(--size-xs); line-height: 1; color: var(--status-warning); box-shadow: 0 0 0 1px var(--status-warning) inset; }
 .month-cal-ty.violent { color: var(--surface-base); background: var(--status-warning); box-shadow: none; }
+
+/* 雨の強さ: the mm under each word (強い 20mm〜), small. */
+.cond-body .seg:not(.multi) small {
+  display: block;
+  font-size: var(--size-xs);
+  font-weight: var(--weight-regular);
+  opacity: 0.6;
+}

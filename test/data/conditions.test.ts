@@ -167,3 +167,44 @@ describe("weatherGroup (moved to dayWeather)", () => {
     expect(weatherGroup(null)).toBeNull();
   });
 });
+
+describe("conditions: 雨の強さ and 台風 (#220)", () => {
+  const all = ["morning", "day", "evening", "night"] as const;
+  const wetDay = (rainHour: number | null, total = 60) => ({ ...day("2025-09-04", 28, 24, total), rainHour }) as WeatherRow;
+
+  it("reads the strength from the day's own strongest hour when it is over the whole day", () => {
+    const c = { mode: "wet" as const, parts: all, strength: 30 };
+    expect(rainPasses(c, wetDay(35), null)).toBe(true);
+    expect(rainPasses(c, wetDay(22), null)).toBe(false);
+    // A day whose total is under the strength cannot reach it.
+    expect(rainPasses(c, wetDay(null, 12), null)).toBe(false);
+    // No strongest hour in the record: the hours decide.
+    expect(rainPasses(c, wetDay(null), null)).toBeNull();
+    expect(rainPasses(c, wetDay(null), hours("2025-09-04", { 14: 31, 15: 8 }))).toBe(true);
+  });
+
+  it("asks the hours for a strength in some parts of the day", () => {
+    const c = { mode: "wet" as const, parts: ["morning"] as const, strength: 20 };
+    expect(rainPasses(c, wetDay(40), null)).toBeNull();
+    expect(rainPasses(c, wetDay(40), hours("2025-09-04", { 8: 25 }))).toBe(true);
+    expect(rainPasses(c, wetDay(40), hours("2025-09-04", { 14: 40, 8: 3 }))).toBe(false);
+  });
+
+  it("keeps or leaves out the typhoon days, and waits while they are not known", () => {
+    const rows = new Map<string, WeatherRow | null>([
+      ["2025-09-04", day("2025-09-04", 28, 24, 60)],
+      ["2025-09-10", day("2025-09-10", 28, 23)],
+    ]);
+    const ty = new Map([["2025-09-04", 15]]);
+    const look = { day: (d: string) => rows.get(d), hours: () => null, typhoon: (d: string) => ty.get(d) ?? 0 };
+    const c: Conditions = { ...base, max: { mode: "any", lo: 0, hi: 0 } };
+    const origin = { date: "2026-09-05", max: 28, min: 24 };
+    const only = searchConditions({ ...c, typhoon: "only" }, origin, [...rows.keys()], look);
+    expect(only.matches.map((m) => [m.date, m.typhoon])).toEqual([["2025-09-04", 15]]);
+    const without = searchConditions({ ...c, typhoon: "exclude" }, origin, [...rows.keys()], look);
+    expect(without.matches.map((m) => m.date)).toEqual(["2025-09-10"]);
+    const waiting = searchConditions({ ...c, typhoon: "only" }, origin, [...rows.keys()], { ...look, typhoon: () => null });
+    expect(waiting.loaded).toBe(0);
+    expect(searchConditions({ ...c, typhoon: "only", max: { mode: "ge", lo: 40, hi: 0 } }, origin, [...rows.keys()], look).loosen?.key).toBe("max");
+  });
+});
