@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - run: bash research/wxchart/others.sh
+      - run: bash research/wxchart/fcfeed.sh
       - uses: actions/upload-artifact@v4
         with:
           name: wxchart-samples
