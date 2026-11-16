@@ -102,6 +102,10 @@ TYPHOON_TRACKS = {"v": 1, "source": "e2e", "built": "2026-11-01T00:00:00Z", "sto
     [_ty_hours(2026, 10, 19, 18), 5, 310, 1335, 960, [300, 300, -1], [80, 80, -1]],
     [_ty_hours(2026, 10, 20, 0), 5, 335, 1335, 965, [300, 300, -1], [80, 80, -1]],
     [_ty_hours(2026, 10, 20, 6), 5, 360, 1340, 975, [250, 250, -1], []],
+]}, {"y": 2025, "n": 98, "name": "E2E2", "p": [
+    [_ty_hours(2025, 11, 4, 18), 5, 310, 1335, 970, [300, 300, -1], []],
+    [_ty_hours(2025, 11, 5, 0), 5, 335, 1335, 975, [300, 300, -1], []],
+    [_ty_hours(2025, 11, 5, 6), 5, 360, 1340, 985, [250, 250, -1], []],
 ]}]}
 
 class H(http.server.SimpleHTTPRequestHandler):
@@ -712,7 +716,7 @@ with sync_playwright() as p:
         before = txt(".side-compare .date-button")
         pg.locator(".side-compare select.mode").select_option("__conditions"); calm(4500)
         check("L1 条件から選ぶが開く", pg.locator(".msheet.cond-sheet").count() == 1)
-        check("L2 条件は4行", pg.locator(".cond-line").count() == 4)
+        check("L2 条件は5行（最高・最低・雨・台風・期間）", pg.locator(".cond-line").count() == 5)
         check("L3 最初は最高が開いて範囲（つまみ2つ）", pg.locator(".cond-line.open[data-cond=max] .slider input").count() == 2)
         layout_ok("L3b", "条件から選ぶ")
         pg.locator(".cond-line[data-cond=max] .seg button", has_text="以上").click(); wait(300)
@@ -738,6 +742,20 @@ with sync_playwright() as p:
         check("L10 取り消せる", pg.locator(".cond-toast button").count() == 1)
         pg.locator(".cond-toast button").click(); calm()
         check("L11 取り消すと元の比較日", txt(".side-compare .date-button") == before, txt(".side-compare .date-button"))
+        # 雨の強さ・台風
+        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="降る").click(); wait(200)
+        check("L12 降るで強さが選べる", pg.locator(".cond-line[data-cond=rain] .seg button", has_text="激しい").count() >= 1)
+        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="激しい").first.click(); wait(200)
+        check("L13 値は「激しい雨」と読める", "激しい雨" in txt(".cond-line[data-cond=rain] .cond-value"), txt(".cond-line[data-cond=rain] .cond-value"))
+        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="問わない").first.click(); wait(200)
+        pg.locator(".cond-line[data-cond=typhoon] .cond-head").click(); wait(200)
+        pg.locator(".cond-line[data-cond=typhoon] .seg button", has_text="台風の日").first.click()
+        for _ in range(30):
+            if pg.locator(".cond-result .loading").count() == 0: break
+            calm()
+        check("L14 台風の日だけ：表に台風の号", pg.locator(".cond-col.day").count() >= 1 and "98号" in txt(".cond-table"), txt(".cond-count"))
+        check("L15 台風の行に出典", "ベストトラック" in txt(".cond-line[data-cond=typhoon]"))
+        layout_ok("L16", "条件から選ぶ 台風")
         pg.click(".msheet .icon-btn.close"); calm()
         pg.locator(".side-compare select.mode").select_option(index=0); calm()
     step("L", l)

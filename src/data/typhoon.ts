@@ -18,12 +18,12 @@ export function loadTyphoonTracks(): Promise<Storm[] | null> {
   return loading;
 }
 
-/** The storms, once read (null while reading, or when there is no copy). */
-export function useTyphoonTracks(): Storm[] | null {
-  const [storms, setStorms] = useState<Storm[] | null>(null);
+/** The storms once read; "loading" while reading, "none" when there is no copy (or it is broken). */
+export function useTyphoonTracks(): Storm[] | "loading" | "none" {
+  const [storms, setStorms] = useState<Storm[] | "loading" | "none">("loading");
   useEffect(() => {
     let live = true;
-    loadTyphoonTracks().then((s) => live && setStorms(s));
+    loadTyphoonTracks().then((s) => live && setStorms(s ?? "none"));
     return () => {
       live = false;
     };

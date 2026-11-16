@@ -194,7 +194,7 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
   const tracks = useTyphoonTracks();
   const at = stationLatLon(station);
   const [typhoons, typhoonsB] = useMemo(() => {
-    const of = (ds: string[]) => (tracks && at && ds.length ? typhoonDaysAt(tracks, at.lat, at.lon, ds[0], ds[ds.length - 1]) : new Map<string, TyphoonDay>());
+    const of = (ds: string[]) => (Array.isArray(tracks) && at && ds.length ? typhoonDaysAt(tracks, at.lat, at.lon, ds[0], ds[ds.length - 1]) : new Map<string, TyphoonDay>());
     return [of(days), of([...daysB].sort())];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the month and the station set the days
   }, [tracks, station, month, days.length]);
