@@ -1248,7 +1248,7 @@ button.label-feel:active { transform: scale(0.97); }
 /* Hatch in the 予報 grey (the label's colour): forecast is "not yet measured", so it has no hue of its own;
    the accent blue is kept for the chosen day (#151). */
 .hatch-bg { fill: color-mix(in srgb, var(--status-forecast) 4%, transparent); }
-.hatch-line { stroke: color-mix(in srgb, var(--status-forecast) 24%, transparent); stroke-width: 1.4; }
+.hatch-line { stroke: color-mix(in srgb, var(--status-forecast) var(--effect-hatch), transparent); stroke-width: 1.4; }
 
 .chart-forecast-label {
   fill: var(--status-forecast);

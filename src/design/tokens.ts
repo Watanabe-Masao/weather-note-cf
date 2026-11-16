@@ -36,7 +36,7 @@ interface Palette {
   feel3: string[];
   bands: string[];
   shadow: Record<"card" | "sheet" | "overlay" | "pinned" | "lift" | "float" | "edge", string>;
-  effect: Record<"scrim" | "backdrop" | "blur" | "gloss" | "glossStrong" | "sheen" | "quiet" | "estimated" | "estimatedQuiet", string>;
+  effect: Record<"scrim" | "backdrop" | "blur" | "gloss" | "glossStrong" | "sheen" | "quiet" | "estimated" | "estimatedQuiet" | "hatch", string>;
   /** Reference lines in graphs (the weeks before, the air behind 肌感): below the comparison day (P4 under P2). */
   reference: { color: string; opacity: number };
 }
@@ -71,6 +71,7 @@ const lightEffect = (tint: string, page: string) => ({
   gloss: "rgba(255, 255, 255, 0.35)",
   glossStrong: "rgba(255, 255, 255, 0.55)",
   sheen: "rgba(255, 255, 255, 0.3)",
+  hatch: "12%",
   quiet: "0.9",
   estimated: "0.8",
   estimatedQuiet: "0.7",
@@ -110,7 +111,7 @@ const THEMES: Record<ThemeName, Palette> = {
     feel3: ["#8fa9ee", "#a5d48f", "#f0b06a"],
     bands: ["#f4f7fb", "#cdd8e6", "#a9b8cb", "#8797ad", "#6a7a91"],
     shadow: DARK_SHADOW,
-    effect: { scrim: "rgba(3, 8, 14, 0.55)", backdrop: "rgba(3, 8, 14, 0.62)", blur: "10px", gloss: "rgba(255, 255, 255, 0.04)", glossStrong: "rgba(255, 255, 255, 0.06)", sheen: "rgba(255, 255, 255, 0.16)", quiet: "0.7", estimated: "0.6", estimatedQuiet: "0.4" },
+    effect: { scrim: "rgba(3, 8, 14, 0.55)", backdrop: "rgba(3, 8, 14, 0.62)", blur: "10px", gloss: "rgba(255, 255, 255, 0.04)", glossStrong: "rgba(255, 255, 255, 0.06)", sheen: "rgba(255, 255, 255, 0.16)", quiet: "0.7", estimated: "0.6", estimatedQuiet: "0.4", hatch: "24%" },
     // The primary ink at 60%: white enough to be told from every item's colour, under the comparison day (#151).
     reference: { color: "#d9d1c4", opacity: 0.6 },
   },

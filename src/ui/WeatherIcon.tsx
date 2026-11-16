@@ -22,16 +22,21 @@ export function skyOf(text: string | null | undefined): Sky {
   return "cloud";
 }
 
-const { sun: SUN, moon: MOON, cloud: CLOUD, rain: RAIN } = ICON;
+// Colours are named here and read from ICON when drawn, so a change of theme redraws them (#241).
+type Ink = keyof typeof ICON;
+const SUN: Ink = "sun";
+const MOON: Ink = "moon";
+const CLOUD: Ink = "cloud";
+const RAIN: Ink = "rain";
 
 /**
  * The sky drawn in Lucide's line (https://lucide.dev, ISC; licence in ./icons.tsx), one colour per
  * sky so a row of days reads by colour first: sun yellow, cloud grey, rain blue (#151). Rain with
  * sunny spells alone is two-tone: the sun (or moon) in its colour, the cloud and rain in rain's (#171).
  */
-type Part = { color: string; d: string };
+type Part = { color: Ink; d: string };
 const SUN_RAIN = { sun: "M12 2v2M4.93 4.93l1.41 1.41M20 12h2M19.07 4.93l-1.41 1.41M15.947 12.65a4 4 0 0 0-5.925-4.128", moon: "M18.376 14.512a6 6 0 0 0 3.461-4.127c.148-.625-.659-.97-1.248-.714a4 4 0 0 1-5.259-5.26c.255-.589-.09-1.395-.716-1.248a6 6 0 0 0-4.594 5.36", rain: "M3 20a5 5 0 1 1 8.9-4H13a3 3 0 0 1 2 5.24M11 20v2M7 19v2" };
-const SKY: Record<Exclude<Sky, "none">, { color: string; d: string; parts?: Part[] }> = {
+const SKY: Record<Exclude<Sky, "none">, { color: Ink; d: string; parts?: Part[] }> = {
   sun: { color: SUN, d: "M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" },
   sunCloud: { color: SUN, d: "M12 2v2M4.93 4.93l1.41 1.41M20 12h2M19.07 4.93l-1.41 1.41M15.947 12.65a4 4 0 0 0-5.925-4.128M13 22H7a5 5 0 1 1 4.9-6H13a3 3 0 0 1 0 6Z" },
   cloud: { color: CLOUD, d: "M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" },
@@ -44,7 +49,7 @@ const SKY: Record<Exclude<Sky, "none">, { color: string; d: string; parts?: Part
 };
 
 /** At night a clear sky is the moon, not the sun (#151: 0時・3時 drew a sun). */
-const NIGHT: Partial<Record<Sky, { color: string; d: string; parts?: Part[] }>> = {
+const NIGHT: Partial<Record<Sky, { color: Ink; d: string; parts?: Part[] }>> = {
   // Lucide cloud-moon-rain.
   sunRain: { color: RAIN, d: "", parts: [{ color: MOON, d: SUN_RAIN.moon }, { color: RAIN, d: SUN_RAIN.rain }] },
   sun: { color: MOON, d: "M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" },
@@ -57,8 +62,8 @@ export function WeatherIcon({ text, size = 26, night = false }: { text: string |
   const moon = night && !!NIGHT[sky];
   const { color, d, parts } = (moon && NIGHT[sky]) || SKY[sky];
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label={text ?? ""} data-sky={moon ? `${sky}-night` : sky} fill="none" stroke={color} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
-      {parts ? parts.map((p) => <path key={p.d} d={p.d} stroke={p.color} />) : <path d={d} />}
+    <svg width={size} height={size} viewBox="0 0 24 24" role="img" aria-label={text ?? ""} data-sky={moon ? `${sky}-night` : sky} fill="none" stroke={ICON[color]} strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round">
+      {parts ? parts.map((p) => <path key={p.d} d={p.d} stroke={ICON[p.color]} />) : <path d={d} />}
     </svg>
   );
 }
