@@ -16,6 +16,8 @@ print("files:", len(files), files[0], "…", files[-1])
 allk = []
 for f in files:
     d = pd.read_parquet(io.BytesIO(get(f"https://huggingface.co/datasets/jniimi/weather_forecast_japan/resolve/main/{f}")))
+    if "observatory_code" not in d:
+        print(f"{f}: 別の形 {list(d.columns)[:12]} rows {len(d)}"); continue
     k = d[d.observatory_code.astype(str) == "390000"].copy()
     allk.append(k)
     issues = k.groupby(["from_date", "from_hour"]).size()
