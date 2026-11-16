@@ -36,7 +36,9 @@ interface Palette {
   feel3: string[];
   bands: string[];
   shadow: Record<"card" | "sheet" | "overlay" | "pinned" | "lift" | "float" | "edge", string>;
-  effect: Record<"scrim" | "backdrop" | "blur" | "gloss" | "glossStrong" | "sheen", string>;
+  effect: Record<"scrim" | "backdrop" | "blur" | "gloss" | "glossStrong" | "sheen" | "quiet" | "estimated" | "estimatedQuiet", string>;
+  /** Reference lines in graphs (the weeks before, the air behind 肌感): below the comparison day (P4 under P2). */
+  reference: { color: string; opacity: number };
 }
 const DATA_KEYS = ["hot", "cold", "temp", "mean", "rain", "snow", "sun", "radiation", "humidity", "humidityLow", "wind", "gust", "pressure", "pressureHigh", "pressureLow", "feel"] as const;
 
@@ -59,13 +61,19 @@ const lightShadow = (tint: string) => ({
   float: `0 10px 26px rgba(${tint},0.22)`,
   edge: `8px 0 10px -8px rgba(${tint},0.3)`,
 });
-const lightEffect = (tint: string) => ({
-  scrim: `rgba(${tint},0.32)`,
-  backdrop: `rgba(${tint},0.40)`,
+// On a light face, what is behind a raised sheet recedes into the page's own light (a dark veil reads
+// as grime there); an overlay still dims, more lightly than on Deep Navy. A quiet or estimated picture
+// keeps more of itself: the same lowering of opacity takes far more contrast from a light face.
+const lightEffect = (tint: string, page: string) => ({
+  scrim: `rgba(${page},0.55)`,
+  backdrop: `rgba(${tint},0.30)`,
   blur: "10px",
   gloss: "rgba(255, 255, 255, 0.35)",
   glossStrong: "rgba(255, 255, 255, 0.55)",
   sheen: "rgba(255, 255, 255, 0.3)",
+  quiet: "0.9",
+  estimated: "0.8",
+  estimatedQuiet: "0.7",
 });
 
 const THEMES: Record<ThemeName, Palette> = {
@@ -102,7 +110,9 @@ const THEMES: Record<ThemeName, Palette> = {
     feel3: ["#8fa9ee", "#a5d48f", "#f0b06a"],
     bands: ["#f4f7fb", "#cdd8e6", "#a9b8cb", "#8797ad", "#6a7a91"],
     shadow: DARK_SHADOW,
-    effect: { scrim: "rgba(3, 8, 14, 0.55)", backdrop: "rgba(3, 8, 14, 0.62)", blur: "10px", gloss: "rgba(255, 255, 255, 0.04)", glossStrong: "rgba(255, 255, 255, 0.06)", sheen: "rgba(255, 255, 255, 0.16)" },
+    effect: { scrim: "rgba(3, 8, 14, 0.55)", backdrop: "rgba(3, 8, 14, 0.62)", blur: "10px", gloss: "rgba(255, 255, 255, 0.04)", glossStrong: "rgba(255, 255, 255, 0.06)", sheen: "rgba(255, 255, 255, 0.16)", quiet: "0.7", estimated: "0.6", estimatedQuiet: "0.4" },
+    // The primary ink at 60%: white enough to be told from every item's colour, under the comparison day (#151).
+    reference: { color: "#d9d1c4", opacity: 0.6 },
   },
   mist: {
     dark: false,
@@ -150,7 +160,8 @@ const THEMES: Record<ThemeName, Palette> = {
     feel3: ["#304892", "#3d6924", "#9b5603"],
     bands: ["#26382c", "#35483b", "#45584b", "#56695c", "#677b6d"],
     shadow: lightShadow("38, 56, 44"),
-    effect: lightEffect("30, 44, 36"),
+    effect: lightEffect("30, 44, 36", "196, 208, 193"),
+    reference: { color: "#475a4a", opacity: 0.5 },
   },
   warm: {
     dark: false,
@@ -198,7 +209,8 @@ const THEMES: Record<ThemeName, Palette> = {
     feel3: ["#304892", "#3d6924", "#9b5603"],
     bands: ["#243448", "#334459", "#43546a", "#53657b", "#64768d"],
     shadow: lightShadow("36, 52, 72"),
-    effect: lightEffect("36, 46, 60"),
+    effect: lightEffect("36, 46, 60", "247, 245, 240"),
+    reference: { color: "#616b73", opacity: 0.5 },
   },
 };
 export const themePalette = (t: ThemeName): Readonly<Palette> => THEMES[t];
@@ -495,7 +507,8 @@ export function applyTheme(name: ThemeName, root: HTMLElement = document.documen
   FEEL_SCALE_COLORS[5] = [...t.feel5];
   FEEL_SCALE_COLORS[3] = [...t.feel3];
   BAND_LINES.splice(0, BAND_LINES.length, ...t.bands);
-  LINE.reference = t.ink.primary;
+  LINE.reference = t.reference.color;
+  LINE.referenceOpacity = t.reference.opacity;
   LINE.dimmed = t.ink.disabled;
   for (const [k, v] of Object.entries(cssVariables())) root.style.setProperty(k, v);
   root.dataset.theme = name;

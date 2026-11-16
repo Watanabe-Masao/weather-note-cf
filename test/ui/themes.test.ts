@@ -114,6 +114,20 @@ describe.each(THEME_NAMES)("%s", (name) => {
         .map(([k]) => k),
     ).toEqual([]);
   });
+  // A colour drawn at an opacity is read as what it becomes on the face (再設計書 7.3).
+  const over = (c: string, a: number, bg: string) =>
+    "#" + [1, 3, 5].map((i) => Math.round(parseInt(c.slice(i, i + 2), 16) * a + parseInt(bg.slice(i, i + 2), 16) * (1 - a)).toString(16).padStart(2, "0")).join("");
+  it("keeps a reference line under the comparison day, yet seen (P4 under P2)", () => {
+    const ref = contrast(over(t.reference.color, t.reference.opacity, t.surface.base), t.surface.base);
+    const weakestCompare = Math.min(...(["hot", "cold", "rain", "sun", "wind", "pressure", "humidity"] as const).map((k) => contrast(over(t.data[k], 0.75, t.surface.base), t.surface.base)));
+    expect(ref).toBeGreaterThanOrEqual(1.8);
+    expect(ref).toBeLessThan(weakestCompare + 0.5);
+  });
+  it("keeps the partner day's and an estimated weather picture seen (2:1 even both at once)", () => {
+    const a = Number(t.effect.estimatedQuiet);
+    const pics = Object.entries(t.icon).filter(([k]) => k !== "glint");
+    expect(pics.filter(([, c]) => contrast(over(c, a, t.surface.base), t.surface.base) < 2).map(([k, c]) => `${k} ${contrast(over(c, a, t.surface.base), t.surface.base).toFixed(2)}`)).toEqual([]);
+  });
   it("draws the 肌感 steps in order: 3:1 on a light face, and their lightness rising from 寒い to 暑い there", () => {
     if (t.dark) return; // Deep Navy keeps the steps as they were (each 3:1 on its faces already)
     expect(

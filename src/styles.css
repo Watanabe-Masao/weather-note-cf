@@ -4044,7 +4044,7 @@ svg.scrub {
 .research-table tr.small { opacity: 0.55; }
 
 /* A day's weather estimated from sunshine and precipitation (JMA's summary not out yet). */
-.weather-estimated { display: inline-flex; opacity: 0.6; }
+.weather-estimated { display: inline-flex; opacity: var(--effect-estimated); }
 
 /* The weather of each band above the hourly graph: the day's icon, the partner day's smaller. */
 .band-wx { position: relative; height: 34px; margin-top: 0; }
@@ -4057,8 +4057,8 @@ svg.scrub {
 .band-wx-name.other { top: 21px; }
 .band-wx-cell { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; flex-direction: column; align-items: center; gap: 0; }
 .band-wx-main, .band-wx-other { display: inline-flex; }
-.band-wx-other { opacity: 0.7; }
-.band-wx-other.weather-estimated { opacity: 0.4; }
+.band-wx-other { opacity: var(--effect-quiet); }
+.band-wx-other.weather-estimated { opacity: var(--effect-estimated-quiet); }
 .band-wx .none { font-size: var(--size-sm); color: var(--ink-secondary); }
 
 /* Bands with few reports, and a notification to add for each (#62 B). */
