@@ -17,7 +17,8 @@ const arg = (k: string, d: string) => {
   const i = process.argv.indexOf(`--${k}`);
   return i > 0 ? process.argv[i + 1] : d;
 };
-const typhoons = arg("typhoons", "202607,202625").split(",");
+// agora's 2026 pages reached 台風6号 (2026-11-16): 7号・25号 were not there (404).
+const typhoons = arg("typhoons", "202606,202602").split(",");
 const out = arg("out", "research/typhoon/out2");
 mkdirSync(join(out, "raw"), { recursive: true });
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -41,6 +42,43 @@ async function get(url: string): Promise<{ status: number; text: string; type: s
 }
 const save = (name: string, text: string) => writeFileSync(join(out, "raw", name.replace(/[^\w.-]/g, "_")), text);
 
+/**
+ * What a telegram holds, briefly: its head (title, report time, target time, info kind), each
+ * MeteorologicalInfo's DateTime and type, and the element paths under it with how many there are and
+ * one value each — enough to see where the centre, pressure, wind, 強風域・暴風域, 予報円 and
+ * 暴風警戒域 are, without keeping the telegram.
+ */
+function outline(xml: string) {
+  const tag = (n: string) => new RegExp(`<${n}[^>]*>([^<]*)</${n}>`).exec(xml)?.[1] ?? "";
+  log(`    - 見出し：${tag("Title")}／発表 ${tag("ReportDateTime")}／対象 ${tag("TargetDateTime")}／種類 ${tag("InfoKind")} ${tag("InfoType")}／台風 ${tag("Number") || tag("Name")}`);
+  const infos = [...xml.matchAll(/<MeteorologicalInfo\b[^>]*>([\s\S]*?)<\/MeteorologicalInfo>/g)];
+  log(`    - MeteorologicalInfo：${infos.length}個`);
+  for (const [i, m] of infos.entries()) {
+    const body = m[1];
+    const dt = /<DateTime[^>]*type="([^"]*)"[^>]*>([^<]*)</.exec(body) ?? /<DateTime[^>]*>([^<]*)</.exec(body);
+    const kind = [...body.matchAll(/<Type>([^<]*)<\/Type>/g)].map((x) => x[1]);
+    log(`      - [${i}] ${dt ? dt.slice(1).join(" ") : "?"}：${[...new Set(kind)].join("・")}`);
+    if (i > 1) continue; // the paths of the first two (実況 and one forecast) are enough
+    const counts = new Map<string, { n: number; v: string }>();
+    const stack: string[] = [];
+    for (const t of body.matchAll(/<(\/?)([\w:]+)([^>]*?)(\/?)>([^<]*)/g)) {
+      const [, close, name, attrs, self, text] = t;
+      if (close) {
+        stack.pop();
+        continue;
+      }
+      stack.push(name.replace(/^jmx_eb:/, "eb:"));
+      const path = stack.join("/");
+      const c = counts.get(path) ?? { n: 0, v: "" };
+      c.n++;
+      if (!c.v && (text.trim() || attrs.trim())) c.v = `${attrs.trim().slice(0, 60)} ${text.trim().slice(0, 40)}`.trim();
+      counts.set(path, c);
+      if (self) stack.pop();
+    }
+    for (const [path, c] of [...counts].slice(0, 80)) log(`        - ${path} ×${c.n}${c.v ? `：${c.v}` : ""}`);
+  }
+}
+
 // ---- 1. JMA's XML feed -----------------------------------------------------------------------------
 log("# TY-02 過去の台風の発表をどこから読めるか", "");
 log("## 1. 気象庁 防災情報XML（PULL型）のフィード", "");
@@ -62,6 +100,7 @@ for (const feed of ["https://www.data.jma.go.jp/developer/xml/feed/extra_l.xml",
     const x = await get(link);
     log(`  - ${/<title>([^<]*)<\/title>/.exec(e)?.[1]}：${link}（HTTP ${x.status}、${x.text.length}字）`);
     save(link.split("/").pop()!, x.text);
+    if (/VPTW6/.test(link)) outline(x.text);
   }
 }
 

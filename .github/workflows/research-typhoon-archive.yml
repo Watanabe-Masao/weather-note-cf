@@ -9,7 +9,7 @@ on:
     inputs:
       typhoons:
         description: "台風（年＋号、カンマ区切り）"
-        default: "202607,202625"
+        default: "202606,202602"
 
 jobs:
   ty02:
