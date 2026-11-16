@@ -339,7 +339,7 @@ export function App() {
       {!full && (
         <TyphoonCard
           station={view.station}
-          typhoons={typhoons}
+          info={typhoons}
           onCompare={() => {
             setConditionsPreset(TYPHOON_PRESET);
             setConditions(true);

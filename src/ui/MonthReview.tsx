@@ -22,7 +22,7 @@ import { ModalSheet } from "./ModalSheet";
 import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
 import { feelOn } from "../feelSeason";
 import { stationLatLon } from "../../shared/sunTimes";
-import { typhoonDaysAt, type TyphoonDay } from "../../shared/typhoon";
+import { tracksEnd, typhoonDaysAt, type TyphoonDay } from "../../shared/typhoon";
 import { useTyphoonTracks } from "../data/typhoon";
 
 /** 前年同曜日: 52 weeks back. */
@@ -193,6 +193,8 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
   // 台風の日 (shared/typhoon.ts): this month's and 前年同曜日's, from the best track's compact copy.
   const tracks = useTyphoonTracks();
   const at = stationLatLon(station);
+  // What the best track can say: nothing when it could not be read, nothing yet after its last day.
+  const typhoonKnown = tracks === "loading" ? null : tracks === "none" ? { none: true, end: null } : { none: false, end: tracksEnd(tracks) };
   const [typhoons, typhoonsB] = useMemo(() => {
     const of = (ds: string[]) => (Array.isArray(tracks) && at && ds.length ? typhoonDaysAt(tracks, at.lat, at.lon, ds[0], ds[ds.length - 1]) : new Map<string, TyphoonDay>());
     return [of(days), of([...daysB].sort())];
@@ -300,7 +302,7 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
           <>
             <GraphReadout title={`${picked.size ? `選んだ ${picked.size}日` : "月"}の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={picked.size ? { a: "", b: "前年同曜日" } : monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
             <SectionHead title={picked.size ? `選んだ ${picked.size}日のレポート` : "月のレポート"} />
-            <MonthReport station={station} days={sel} rows={a.rows} rowsB={b.rows} picked={picked.size > 0} typhoons={typhoons} typhoonsB={typhoonsB} standouts={standouts.map((x) => (x.p ? `${x.label}は ${md(x.p.date)}（${x.fmt(x.p.v)}）。` : ""))} />
+            <MonthReport station={station} days={sel} rows={a.rows} rowsB={b.rows} picked={picked.size > 0} typhoons={typhoons} typhoonsB={typhoonsB} typhoonKnown={typhoonKnown} standouts={standouts.map((x) => (x.p ? `${x.label}は ${md(x.p.date)}（${x.fmt(x.p.v)}）。` : ""))} />
           </>
         )}
         {tab === "days" && (
@@ -856,6 +858,7 @@ function MonthReport({
   standouts,
   typhoons,
   typhoonsB,
+  typhoonKnown,
 }: {
   station: string;
   days: string[];
@@ -866,6 +869,8 @@ function MonthReport({
   /** 台風の日 of the month and of 前年同曜日, by date. */
   typhoons: Map<string, TyphoonDay>;
   typhoonsB: Map<string, TyphoonDay>;
+  /** Whether the best track could be read, and its last day (null while reading). */
+  typhoonKnown: { none: boolean; end: string | null } | null;
 }) {
   const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
   const vals = (rs: (WeatherRow | null)[], k: string) => rs.map((r) => num(r?.[k])).filter((v): v is number => v != null);
@@ -921,14 +926,24 @@ function MonthReport({
   const tys = byStorm(typhoons, days);
   const tysB = byStorm(typhoonsB, days.map((d) => addDays(d, -PREV_SAME_WEEKDAY)));
   const tyStorm = rows.filter((r, i) => stormOfRow(r) && typhoons.get(days[i])?.gale).length;
+  // Not read, or the month runs past the best track's last day: say so, not "no typhoon".
+  const lastDay = days[days.length - 1];
+  const tyUnknown = typhoonKnown?.none
+    ? "台風の進路データが読めないため、台風の日は出せません。"
+    : typhoonKnown?.end && lastDay > typhoonKnown.end
+      ? `${md(typhoonKnown.end)}より後の台風は、まだ記録（ベストトラック）に入っていません。`
+      : "";
   const tyLines =
     tys.length || tysB.length
       ? [
           ...tys.map(tyLine),
           tysB.length ? `前年同曜日は ${tysB.map((ts) => `台風${ts[0].storm.number}号（${areaOf(ts) ?? "近づいただけ"}）`).join("・")}。` : "前年同曜日は台風なし。",
+          tyUnknown,
           "出典：気象庁（ベストトラック）。強風域・暴風域に入ったかは Weather Note の判定。",
         ]
-      : [];
+      : tyUnknown
+        ? [tyUnknown]
+        : [];
 
   // 日の出・日の入り: from the first day to the last, and how far the light moved (worked out, not recorded).
   const edges = days.map((d) => dayEdges(d, station));
@@ -963,7 +978,7 @@ function MonthReport({
         `日照 ${SUNNY_DAY_H}時間以上の晴れの日は ${sunnyDays}日（前年同曜日 ${sunnyDaysB}日）${sunny.n > 1 ? `、いちばん続いたのは ${sunny.n}日（${md(sunny.from)}〜${md(sunny.to)}）` : ""}。`,
       ],
     ],
-    ["目立った日", [...standouts, storms || stormsB ? `強風・暴風の日は ${storms}日${tyStorm ? `（うち台風 ${tyStorm}日）` : ""}、前年同曜日は ${stormsB}日。` : ""]],
+    ["目立った日", [...standouts, storms || stormsB ? `強風・暴風（風の目安）の日は ${storms}日${tyStorm ? `（うち台風 ${tyStorm}日）` : ""}、前年同曜日は ${stormsB}日。` : ""]],
     ["台風", tyLines],
     [
       "日の出・日の入り",

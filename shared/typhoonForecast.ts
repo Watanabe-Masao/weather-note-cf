@@ -85,7 +85,10 @@ export function parseTyphoon(tc: string, forecast: unknown, spec: unknown): Typh
   const fNow = obj(f.find((e) => numOr(obj(e)?.advancedHours) === 0));
   const pos = latLon(obj(now?.position)?.deg) ?? latLon(fNow?.center);
   if (!title || !pos) return null;
+  // What a typhoon cannot be: a centre off the globe or a number outside 1–99 (the form has changed).
+  if (Math.abs(pos[0]) > 90 || Math.abs(pos[1]) > 180) return null;
   const number = Number(String(title.typhoonNumber ?? "").slice(-2));
+  if (!(number >= 1 && number <= 99)) return null;
   const gale = obj(fNow?.galeWarningArea);
   const galeCenter = latLon(gale?.center);
   const galeM = numOr(gale?.radius);

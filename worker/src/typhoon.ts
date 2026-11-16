@@ -40,7 +40,11 @@ export async function activeTyphoons(): Promise<TyphoonsResponse> {
       const [forecast, spec] = await Promise.all([get(`${BASE}${tc}/forecast.json`), get(`${BASE}${tc}/specifications.json`)]);
       const t = parseTyphoon(tc, forecast, spec);
       if (t) typhoons.push(t);
-      else console.error("weather-note: typhoon not understood", tc);
+      else {
+        // The JSON did not read as expected (its form may have changed): not "no typhoon".
+        ok = false;
+        console.error("weather-note: typhoon not understood", tc);
+      }
     } catch (e) {
       ok = false;
       console.error("weather-note: typhoon", tc, e);

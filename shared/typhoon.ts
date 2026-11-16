@@ -291,3 +291,14 @@ export function typhoonDaysAt(storms: Storm[], lat: number, lon: number, from: s
   }
   return out;
 }
+
+/**
+ * The last day (JST) the best track covers: its newest storm's last analysis. JMA adds a season's
+ * storms some months after (the copy of 28 October 2026 ends at 17号), so a later typhoon is not in
+ * it yet — "no typhoon day" after this date means "not known yet".
+ */
+export function tracksEnd(storms: Storm[]): string | null {
+  let t = -Infinity;
+  for (const s of storms) for (const p of s.points) if (p.t > t) t = p.t;
+  return Number.isFinite(t) ? new Date(t + 9 * 3_600_000).toISOString().slice(0, 10) : null;
+}

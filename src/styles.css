@@ -4487,3 +4487,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 
 /* 期間 in dates under its words (「'23/5/18〜'26/5/16」): small, quiet. */
 .cond-value .cond-sub { display: block; margin-top: 1px; font-size: var(--size-xs); color: var(--ink-tertiary); text-align: right; }
+
+/* 台風情報の取れなさ (#220, review 2026-11-16): a quiet line, never read as "no typhoon". */
+.typhoon-failed { margin: 0 0 var(--space-4); padding: 6px 10px; border-radius: var(--radius-md); font-size: var(--size-xs); color: var(--ink-tertiary); background: var(--surface-raised); box-shadow: 0 0 0 1px var(--line-soft) inset; }
+.typhoon-stale { margin: 0; font-size: var(--size-xs); color: var(--status-warning); }

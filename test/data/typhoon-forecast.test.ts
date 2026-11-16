@@ -45,5 +45,10 @@ describe("JMA's typhoon information", () => {
   it("reads nothing it does not understand as a typhoon", () => {
     expect(parseTyphoon("TC0000", null, null)).toBeNull();
     expect(parseTyphoon("TC0000", [{ part: "title" }], [])).toBeNull();
+    // A number or a centre a typhoon cannot have: the form has changed, not a typhoon.
+    const d = JSON.parse(readFileSync(new URL("../fixtures/typhoon-TC2608-20260627T0345Z.json", import.meta.url), "utf8"));
+    const odd = structuredClone(d.specifications);
+    odd[0].typhoonNumber = "26AB";
+    expect(parseTyphoon(d.tc, d.forecast, odd)).toBeNull();
   });
 });
