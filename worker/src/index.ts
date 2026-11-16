@@ -11,10 +11,11 @@ import { SourceError } from "./errors";
 import { fetchDailyMonth, fetchHourlyDay } from "./jma-tables";
 import { CACHE_VERSION, HOURLY_CONCURRENCY, MAX_HOURLY_DAYS, stations } from "./config";
 import { fetchForecast, fetchSunTimes } from "./open-meteo";
-import { type AccountsEnv, ensureSchema, handleAccounts, isAccountPath } from "./accounts";
+import { type AccountsEnv, type Db, ensureSchema, handleAccounts, isAccountPath } from "./accounts";
 import { runSchedule } from "./notify";
 import { activeTyphoons } from "./typhoon";
 import { collectTyphoons } from "./typhoonArchive";
+import { logTyphoonJson, watchTyphoonSources } from "./typhoonWatch";
 
 class BadRequest extends Error {}
 
@@ -48,7 +49,7 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
   return out;
 }
 
-async function handle(req: Request, ctx: ExecutionContext): Promise<Response> {
+async function handle(req: Request, ctx: ExecutionContext, db?: Db): Promise<Response> {
   const url = new URL(req.url);
   const q = url.searchParams;
   const today = jstToday();
@@ -127,7 +128,12 @@ async function handle(req: Request, ctx: ExecutionContext): Promise<Response> {
 
     case "/api/typhoon": {
       // 近づいている台風: JMA's information as it gives it, shared for 30 minutes (worker/src/typhoon.ts).
-      return cachedFor(url.origin, `${CACHE_VERSION}/typhoon`, TYPHOON_TTL, waitUntil, () => activeTyphoons());
+      // Each read of JMA (a cache miss) is logged, so a run of failures or a changed form is told (typhoonWatch.ts).
+      return cachedFor(url.origin, `${CACHE_VERSION}/typhoon`, TYPHOON_TTL, waitUntil, async () => {
+        const r = await activeTyphoons();
+        if (db) waitUntil(logTyphoonJson(db, { ok: r.ok, numbers: r.typhoons.map((t) => t.number) }).catch((e) => console.error("weather-note: typhoon json log", e)));
+        return r;
+      });
     }
 
     case "/api/sun": {
@@ -150,7 +156,7 @@ export default {
     if (isAccountPath(new URL(req.url).pathname)) return handleAccounts(req, env);
     if (req.method !== "GET") return jsonResponse({ error: "GET only" }, 405);
     try {
-      return await handle(req, ctx);
+      return await handle(req, ctx, env.DB);
     } catch (e) {
       if (e instanceof BadRequest) return jsonResponse({ error: e.message }, 400);
       return jsonResponse({ error: publicMessage(e) }, 502);
@@ -162,6 +168,12 @@ export default {
     const db = env.DB;
     ctx.waitUntil(ensureSchema(db).then(() => runSchedule(db)));
     // Apart from the notifications: a failure here never stops them (and is logged in its own table).
-    ctx.waitUntil(collectTyphoons(db).catch((e) => console.error("weather-note: typhoon archive", e)));
+    // Then the sources are watched, and the administrators told when one stops (typhoonWatch.ts).
+    ctx.waitUntil(
+      collectTyphoons(db)
+        .catch((e) => console.error("weather-note: typhoon archive", e))
+        .then(() => watchTyphoonSources(db))
+        .catch((e) => console.error("weather-note: typhoon watch", e)),
+    );
   },
 } satisfies ExportedHandler<AccountsEnv>;
