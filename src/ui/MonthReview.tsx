@@ -22,8 +22,9 @@ import { ModalSheet } from "./ModalSheet";
 import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
 import { feelOn } from "../feelSeason";
 import { stationLatLon } from "../../shared/sunTimes";
-import { tracksEnd, typhoonDaysAt, type TyphoonDay } from "../../shared/typhoon";
-import { useTyphoonTracks } from "../data/typhoon";
+import { typhoonDaysAt, type TyphoonDay } from "../../shared/typhoon";
+import { useTyphoonRecord } from "../data/typhoon";
+import { type TyphoonRecord, unknownStretches, usesTelegrams } from "../../shared/typhoonRecent";
 
 /** 前年同曜日: 52 weeks back. */
 const PREV_SAME_WEEKDAY = 364;
@@ -190,13 +191,15 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
   if (a.sun != null && b.sun != null && b.sun > 0) lean.push(a.sun / b.sun > 1.1 ? "日差しは多め" : a.sun / b.sun < 0.9 ? "日差しは少なめ" : "日差しは同じくらい");
   const [tab, setTab] = useState<"sum" | "days" | "trend" | "feel">("sum");
   const [calOpen, setCalOpen] = useState(false);
-  // 台風の日 (shared/typhoon.ts): this month's and 前年同曜日's, from the best track's compact copy.
-  const tracks = useTyphoonTracks();
+  // 台風の日 (shared/typhoon.ts): this month's and 前年同曜日's, from the best track's compact copy and,
+  // after its last day, the telegrams kept (shared/typhoonRecent.ts).
+  const record = useTyphoonRecord();
+  const tracks = typeof record === "object" ? record.storms : null;
   const at = stationLatLon(station);
-  // What the best track can say: nothing when it could not be read, nothing yet after its last day.
-  const typhoonKnown = tracks === "loading" ? null : tracks === "none" ? { none: true, end: null } : { none: false, end: tracksEnd(tracks) };
+  // What can be said: nothing when the best track could not be read; the days no source reaches yet.
+  const typhoonKnown = record === "loading" ? null : record === "none" ? { none: true, record: null } : { none: false, record };
   const [typhoons, typhoonsB] = useMemo(() => {
-    const of = (ds: string[]) => (Array.isArray(tracks) && at && ds.length ? typhoonDaysAt(tracks, at.lat, at.lon, ds[0], ds[ds.length - 1]) : new Map<string, TyphoonDay>());
+    const of = (ds: string[]) => (tracks && at && ds.length ? typhoonDaysAt(tracks, at.lat, at.lon, ds[0], ds[ds.length - 1]) : new Map<string, TyphoonDay>());
     return [of(days), of([...daysB].sort())];
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the month and the station set the days
   }, [tracks, station, month, days.length]);
@@ -869,8 +872,8 @@ function MonthReport({
   /** 台風の日 of the month and of 前年同曜日, by date. */
   typhoons: Map<string, TyphoonDay>;
   typhoonsB: Map<string, TyphoonDay>;
-  /** Whether the best track could be read, and its last day (null while reading). */
-  typhoonKnown: { none: boolean; end: string | null } | null;
+  /** Whether the best track could be read, and what is known (null while reading). */
+  typhoonKnown: { none: boolean; record: TyphoonRecord | null } | null;
 }) {
   const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
   const vals = (rs: (WeatherRow | null)[], k: string) => rs.map((r) => num(r?.[k])).filter((v): v is number => v != null);
@@ -926,20 +929,26 @@ function MonthReport({
   const tys = byStorm(typhoons, days);
   const tysB = byStorm(typhoonsB, days.map((d) => addDays(d, -PREV_SAME_WEEKDAY)));
   const tyStorm = rows.filter((r, i) => stormOfRow(r) && typhoons.get(days[i])?.gale).length;
-  // Not read, or the month runs past the best track's last day: say so, not "no typhoon".
-  const lastDay = days[days.length - 1];
+  // Not read, or days no source reaches yet (up to the last day with a record): say so, not "no typhoon".
+  const recorded = days.filter((_, i) => rows[i]);
+  const gaps = typhoonKnown?.record && recorded.length ? unknownStretches(typhoonKnown.record, recorded[0], recorded[recorded.length - 1]) : [];
   const tyUnknown = typhoonKnown?.none
     ? "台風の進路データが読めないため、台風の日は出せません。"
-    : typhoonKnown?.end && lastDay > typhoonKnown.end
-      ? `${md(typhoonKnown.end)}より後の台風は、まだ記録（ベストトラック）に入っていません。`
+    : gaps.length
+      ? `${gaps.map((g) => (g.from === g.to ? md(g.from) : `${md(g.from)}〜${md(g.to)}`)).join("・")}の台風は、まだ記録に入っていません。`
       : "";
+  const xmlRange = typhoonKnown?.record?.ranges.find((x) => x.source === "xml");
+  const tySource =
+    typhoonKnown?.record && recorded.length && xmlRange && usesTelegrams(typhoonKnown.record, recorded[0], recorded[recorded.length - 1])
+      ? `出典：気象庁（ベストトラック、${md(xmlRange.from)}からは当時の発表＝防災情報XML）。強風域・暴風域に入ったかは Weather Note の判定。`
+      : "出典：気象庁（ベストトラック）。強風域・暴風域に入ったかは Weather Note の判定。";
   const tyLines =
     tys.length || tysB.length
       ? [
           ...tys.map(tyLine),
           tysB.length ? `前年同曜日は ${tysB.map((ts) => `台風${ts[0].storm.number}号（${areaOf(ts) ?? "近づいただけ"}）`).join("・")}。` : "前年同曜日は台風なし。",
           tyUnknown,
-          "出典：気象庁（ベストトラック）。強風域・暴風域に入ったかは Weather Note の判定。",
+          tySource,
         ]
       : tyUnknown
         ? [tyUnknown]

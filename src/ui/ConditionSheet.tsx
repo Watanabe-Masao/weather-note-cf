@@ -33,8 +33,9 @@ import {
 } from "../../shared/conditions";
 import { monthDay, num, weekdayOf, yearMark } from "../design/format";
 import { stationLatLon } from "../../shared/sunTimes";
-import { tracksEnd, typhoonDaysAt } from "../../shared/typhoon";
-import { useTyphoonTracks } from "../data/typhoon";
+import { typhoonDaysAt } from "../../shared/typhoon";
+import { prevDay, unknownStretches } from "../../shared/typhoonRecent";
+import { useTyphoonRecord } from "../data/typhoon";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
 import { DayLabel, SectionHead, Segmented, Slider } from "./kit";
@@ -215,7 +216,9 @@ function Face({ store, station, target, compareDate, onPick, preset }: Omit<Prop
     [target, c.years, c.span, c.weekday, today],
   );
   // 台風の日 over the candidates' span (the 強風域 only), once the tracks are read.
-  const tracks = useTyphoonTracks();
+  // The best track and, after its last day, the telegrams kept (shared/typhoonRecent.ts).
+  const record = useTyphoonRecord();
+  const tracks = typeof record === "object" ? record.storms : record;
   const typhoonOn = (c.typhoon ?? "any") !== "any";
   const typhoons = useMemo(() => {
     const at = stationLatLon(station);
@@ -354,7 +357,11 @@ function Face({ store, station, target, compareDate, onPick, preset }: Omit<Prop
             台風の日：その日、観測点が台風の強風域に入った日。出典：気象庁（ベストトラック）、判定は Weather Note。
             {tracks === "loading" && typhoonOn ? " 台風の進路を読み込み中…" : ""}
             {tracks === "none" ? " 台風の進路のデータが読めないため、いまは台風で絞り込めません。" : ""}
-            {Array.isArray(tracks) && tracksEnd(tracks) ? ` 記録に入っている台風は ${ymdJa(tracksEnd(tracks)!)}まで（それより後の台風の日はまだ分かりません）。` : ""}
+            {typeof record === "object" && candidates.length
+              ? unknownStretches(record, candidates[candidates.length - 1], candidates[0] < prevDay(today) ? candidates[0] : prevDay(today))
+                  .map((g) => ` ${g.from === g.to ? ymdJa(g.from) : `${ymdJa(g.from)}〜${ymdJa(g.to)}`}の台風の日は、まだ記録に入っていません。`)
+                  .join("")
+              : ""}
           </p>
         </Line>
         <Line id="period" label="期間" tone="mean" value={periodText(c)} sub={periodDates(target, c, today)} open={open === "period"} onToggle={() => toggle("period")}>
