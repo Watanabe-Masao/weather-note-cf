@@ -4484,3 +4484,6 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .typhoon-tag { position: absolute; top: -3px; left: calc(50% - 31px); display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; font-size: var(--size-xs); line-height: 1; color: var(--status-warning); box-shadow: 0 0 0 1px var(--status-warning) inset; background: var(--surface-base); }
 .typhoon-tag.storm { color: var(--surface-base); background: var(--status-warning); box-shadow: none; }
 .typhoon-tag.warning { box-shadow: none; border: 1px dashed var(--status-warning); box-sizing: border-box; }
+
+/* 期間 in dates under its words (「'23/5/18〜'26/5/16」): small, quiet. */
+.cond-value .cond-sub { display: block; margin-top: 1px; font-size: var(--size-xs); color: var(--ink-tertiary); text-align: right; }
