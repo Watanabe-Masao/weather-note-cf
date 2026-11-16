@@ -45,6 +45,7 @@ import {
   vapidKeys,
 } from "./notify";
 import { archiveSummary } from "./typhoonArchive";
+import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
 import { alertSummary } from "./typhoonWatch";
 
 // ---- schema ----------------------------------------------------------------------------------
@@ -205,7 +206,7 @@ export function forResearch(report: Record<string, unknown>): Record<string, unk
 }
 
 const ready = new WeakMap<Db, Promise<void>>();
-const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA, ...RESEARCH_SCHEMA];
+const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA, ...TYPHOON_NOTIFY_SCHEMA, ...RESEARCH_SCHEMA];
 
 /** Creates the tables once per database (idempotent: safe on every cold start). */
 export function ensureSchema(db: Db): Promise<void> {
@@ -349,7 +350,7 @@ async function body(req: Request): Promise<Record<string, unknown>> {
 async function deleteAccount(db: Db, who: { id: string; research_id: string }, now: number) {
   await db.batch([
     db.prepare("INSERT INTO research_withdrawals (research_id, at, reason) VALUES (?, ?, 'account-deleted')").bind(who.research_id, now),
-    ...["reports", "sessions", "consents", "push_subscriptions", "notify_settings", "notify_log"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(who.id)),
+    ...["reports", "sessions", "consents", "push_subscriptions", "notify_settings", "notify_log", "typhoon_notify_settings", "typhoon_notify_log"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(who.id)),
     db.prepare("DELETE FROM users WHERE id = ?").bind(who.id),
   ]);
 }
@@ -693,6 +694,19 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       }
       const devices = (await db.prepare("SELECT COUNT(*) AS n FROM push_subscriptions WHERE user_id = ?").bind(u.id).first<{ n: number }>())?.n ?? 0;
       return json({ settings: await settingsOf(db, u.id), devices });
+    }
+    // 台風の目安 (#220): its own switch, the station to read, and the hours it may ring.
+    if (path === "/api/me/typhoon-notify") {
+      if (post) {
+        let settings;
+        try {
+          settings = checkTyphoonSettings(await body(req));
+        } catch (e) {
+          throw new Refused((e as Error).message);
+        }
+        await saveTyphoonSettings(db, u.id, settings, now);
+      }
+      return json({ settings: await typhoonSettingsOf(db, u.id) });
     }
     if (path === "/api/push/key" && !post) return json({ publicKey: (await vapidKeys(db)).publicKey });
     if (path === "/api/push/subscribe" && post) {

@@ -16,6 +16,7 @@ import { runSchedule } from "./notify";
 import { activeTyphoons } from "./typhoon";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
+import { runTyphoonNotify } from "./typhoonNotify";
 import { logTyphoonJson, watchTyphoonSources } from "./typhoonWatch";
 
 class BadRequest extends Error {}
@@ -188,7 +189,11 @@ export default {
       collectTyphoons(db)
         .catch((e) => console.error("weather-note: typhoon archive", e))
         .then(() => watchTyphoonSources(db))
-        .catch((e) => console.error("weather-note: typhoon watch", e)),
+        .catch((e) => console.error("weather-note: typhoon watch", e))
+        // 台風の目安: after the new telegrams are in (typhoonNotify.ts).
+        .then(() => ensureSchema(db))
+        .then(() => runTyphoonNotify(db))
+        .catch((e) => console.error("weather-note: typhoon notify", e)),
     );
   },
 } satisfies ExportedHandler<AccountsEnv>;

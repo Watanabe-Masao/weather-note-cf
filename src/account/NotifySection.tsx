@@ -6,7 +6,7 @@ import { nudgeBands } from "../flows/screenFlows";
 import { BetaContext } from "../beta/settings";
 import { BAND_ALARMS, bandAt } from "../../shared/dayParts";
 import { Segmented, Help } from "../ui/kit";
-import { type DeviceState, loadNotify, type NotifySettings, saveNotify, testNotify, turnOffDevice, turnOnDevice, deviceState } from "./push";
+import { type DeviceState, loadNotify, loadTyphoonNotify, type NotifySettings, saveNotify, saveTyphoonNotify, testNotify, turnOffDevice, turnOnDevice, deviceState, type TyphoonNotifySettings } from "./push";
 
 const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -54,6 +54,89 @@ const DEVICE_TEXT: Record<DeviceState, string> = {
 };
 
 export function NotifySection({ station }: { station: string }) {
+  return (
+    <>
+      <ReportNotify station={station} />
+      <TyphoonNotify station={station} />
+    </>
+  );
+}
+
+/**
+ * 台風の目安 (#220): when the station is first forecast inside a typhoon's 暴風警戒域, and when it is
+ * first inside its 強風域 — twice a typhoon at most, apart from the report notifications. It rings
+ * only inside 通知の時間帯; what comes at night waits for the morning (worker/src/typhoonNotify.ts).
+ */
+function TyphoonNotify({ station }: { station: string }) {
+  const [settings, setSettings] = useState<TyphoonNotifySettings | null>(null);
+  const [device, setDevice] = useState<DeviceState | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<{ text: string; warn?: boolean } | null>(null);
+  const save = async (next: TyphoonNotifySettings) => {
+    setBusy(true);
+    setMessage(null);
+    setSettings(next);
+    try {
+      setSettings((await saveTyphoonNotify(next)).settings);
+    } catch (e) {
+      setMessage({ text: (e as Error).message, warn: true });
+    } finally {
+      setBusy(false);
+      setDevice(await deviceState());
+    }
+  };
+  useEffect(() => {
+    loadTyphoonNotify()
+      .then((r) => setSettings(r.settings))
+      .catch((e) => setMessage({ text: (e as Error).message, warn: true }));
+    void deviceState().then(setDevice);
+  }, []);
+  // The station is read on the server: kept in step when it is changed on this device.
+  useEffect(() => {
+    if (settings?.enabled && settings.station !== station) void save({ ...settings, station });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings?.enabled, settings?.station, station]);
+  if (!settings) return message ? <p className="warn">{message.text}</p> : null;
+  return (
+    <div className="set-row notify">
+      <span className="set-label">
+        台風の目安
+        <Help text="設定の観測地点が、台風の暴風警戒域に入る予報になったときと、強風域（暴風域）に入ったときに知らせます。1つの台風で2回まで。気象庁の電文から Weather Note が判定する目安で、警報・注意報の代わりではありません。押すと台風の進路と予報が開きます。" />
+      </span>
+      <Segmented
+        label="台風の目安"
+        value={settings.enabled ? "on" : "off"}
+        options={[
+          { id: "on", label: "知らせる" },
+          { id: "off", label: "知らせない" },
+        ]}
+        onChange={(v) => void save({ ...settings, enabled: v === "on", station })}
+      />
+      {settings.enabled && (
+        <>
+          <div className="notify-hours" role="group" aria-label="通知の時間帯">
+            <span>通知の時間帯</span>
+            <input type="time" value={settings.from} disabled={busy} aria-label="から" onChange={(e) => e.target.value && e.target.value !== settings.to && void save({ ...settings, from: e.target.value })} />
+            <span>〜</span>
+            <input type="time" value={settings.to} disabled={busy} aria-label="まで" onChange={(e) => e.target.value && e.target.value !== settings.from && void save({ ...settings, to: e.target.value })} />
+          </div>
+          <small className="set-help">この時間帯の外に出た知らせは、時間帯が来てから送ります（そのときにもう当てはまらないものは送りません）。</small>
+          {device === "off" && (
+            <div className="actions tight">
+              <button disabled={busy} onClick={() => void (async () => (setBusy(true), await turnOnDevice().catch((e) => setMessage({ text: (e as Error).message, warn: true })), setBusy(false), setDevice(await deviceState())))()}>
+                この端末で受け取る
+              </button>
+            </div>
+          )}
+          {device && device !== "off" && device !== "on" ? <small className="set-help">{DEVICE_TEXT[device]}</small> : null}
+        </>
+      )}
+      {message ? <p className={message.warn ? "warn" : "set-help"}>{message.text}</p> : null}
+    </div>
+  );
+}
+
+function ReportNotify({ station }: { station: string }) {
   const [settings, setSettings] = useState<NotifySettings | null>(null);
   const [devices, setDevices] = useState(0);
   const [device, setDevice] = useState<DeviceState | null>(null);
