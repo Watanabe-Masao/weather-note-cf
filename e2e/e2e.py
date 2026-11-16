@@ -773,7 +773,7 @@ with sync_playwright() as p:
         for _ in range(30):
             if pg.locator(".cond-result .loading").count() == 0: break
             calm()
-        check("L13b 台風の日を選ぶと最高・最低・雨は問わない", all("問わない" in txt(f".cond-line[data-cond={k}] .cond-value") for k in ("max", "min", "rain")))
+        check("L13b 台風の日を選ぶと最高・最低・雨は問わない、期間は通年", all("問わない" in txt(f".cond-line[data-cond={k}] .cond-value") for k in ("max", "min", "rain")) and "通年" in txt(".cond-line[data-cond=period] .cond-value"))
         check("L14 台風の日だけ：表に台風の号", pg.locator(".cond-col.day").count() >= 1 and "98号" in txt(".cond-table"), txt(".cond-count"))
         check("L15 台風の行に出典", "ベストトラック" in txt(".cond-line[data-cond=typhoon]"))
         layout_ok("L16", "条件から選ぶ 台風")

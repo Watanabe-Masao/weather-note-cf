@@ -338,10 +338,11 @@ function Face({ store, station, target, compareDate, onPick, preset }: Omit<Prop
             options={TYPHOON_FILTERS}
             value={c.typhoon ?? "any"}
             onChange={(typhoon) =>
-              // 台風の日: few days, so the temperatures and rain step aside (問わない); they can be set again.
+              // 台風の日: few days, kept to their season, so the temperatures and rain step aside (問わない)
+              // and the period goes all year (通年); each can be set again.
               set(
                 typhoon === "only"
-                  ? { typhoon, max: { ...c.max, mode: "any" }, min: { ...c.min, mode: "any" }, rain: { ...c.rain, mode: "any" } }
+                  ? { typhoon, max: { ...c.max, mode: "any" }, min: { ...c.min, mode: "any" }, rain: { ...c.rain, mode: "any" }, span: "all" }
                   : { typhoon },
               )
             }
