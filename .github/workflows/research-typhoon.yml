@@ -1,0 +1,45 @@
+name: research-typhoon
+
+# #220 (台風の情報): the days a typhoon's 強風域 / 暴風域 covered the station, from JMA's RSMC Tokyo best
+# track, set against the records' 強風・暴風 days (research/typhoon/ty01.ts). Manual only. Downloads
+# bst_all.zip once and JMA's daily table one month a request; nothing is committed, the report and the
+# typhoon days are kept as this run's artifact. 出典：気象庁。
+on:
+  workflow_dispatch:
+    inputs:
+      station:
+        description: "観測所（blockNo）"
+        default: "47893"
+      from:
+        description: "最初の年"
+        default: "2015"
+      to:
+        description: "最後の年"
+        default: "2025"
+
+jobs:
+  ty01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: best track
+        run: |
+          mkdir -p research/typhoon/out/bst
+          curl -fsSL -o research/typhoon/out/bst/bst_all.zip https://www.jma.go.jp/jma/jma-eng/jma-center/rsmc-hp-pub-eg/Besttracks/bst_all.zip
+          unzip -o -q research/typhoon/out/bst/bst_all.zip -d research/typhoon/out/bst
+          ls -la research/typhoon/out/bst
+      - run: npx --yes tsx@4.19.2 research/typhoon/ty01.ts --station "${{ inputs.station }}" --bst "$(ls research/typhoon/out/bst/*.txt | head -1)" --from "${{ inputs.from }}" --to "${{ inputs.to }}" --out research/typhoon/out
+      - run: cat research/typhoon/out/ty01-report.md >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typhoon-${{ inputs.station }}-${{ inputs.from }}-${{ inputs.to }}
+          path: |
+            research/typhoon/out/ty01-report.md
+            research/typhoon/out/typhoon-days-*.json

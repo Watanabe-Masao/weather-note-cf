@@ -1,0 +1,182 @@
+// 台風の進路 (#220): JMA's RSMC Tokyo best track (bst_all.zip, the format of e_format_bst.html), read
+// and set against a station: on which days (日本時間) the station lay inside a typhoon's 強風域 (the
+// 30-knot wind, about 15 m/s) or 暴風域 (50 knots, about 25 m/s). The track is analysed every six
+// hours (sometimes three); between two analyses the centre and the radii are drawn straight, hour by hour.
+//
+// A radius is given as its longest (with a direction) and its shortest. A station's distance is set
+// against the radius toward it: the shortest on the side away from the longest, rising smoothly to the
+// longest on its side — r(θ) = short + (long − short)·(1 + cos(θ − θlong)) / 2 ("ellipse"). The plain
+// alternative (the longest all round, "circle") is kept to see how much the choice moves.
+//
+// Research only (#220): the app does not read this file. 出典：気象庁 RSMC Tokyo ベストトラック。
+
+export interface TrackPoint {
+  /** UTC, ms. */
+  t: number;
+  grade: number;
+  lat: number;
+  lon: number;
+  pressure: number | null;
+  /** knots */
+  wind: number | null;
+  /** 50 kt (暴風) and 30 kt (強風) radii, km; dir = bearing of the longest (null = all round). */
+  r50: Radius | null;
+  r30: Radius | null;
+  landfall: boolean;
+}
+export interface Radius {
+  long: number;
+  short: number;
+  dir: number | null;
+}
+export interface Storm {
+  /** International number yyNN: NN is the typhoon's number in Japan (台風◯号). */
+  id: string;
+  year: number;
+  number: number;
+  name: string;
+  points: TrackPoint[];
+}
+
+const NM_KM = 1.852;
+/** Direction codes 1–8 (NE…N) as bearings; 9 = all round; 0 = no radius. */
+const BEARING: Record<string, number | null> = { "1": 45, "2": 90, "3": 135, "4": 180, "5": 225, "6": 270, "7": 315, "8": 0, "9": null };
+
+const col = (line: string, from: number, to: number) => line.padEnd(80).slice(from - 1, to).trim();
+const intOr = (s: string) => (s === "" ? null : Number(s));
+
+function radius(dir: string, long: string, short: string): Radius | null {
+  const l = intOr(long);
+  if (dir === "" || dir === "0" || l == null || l === 0) return null;
+  const s = intOr(short) ?? l;
+  return { long: l * NM_KM, short: s * NM_KM, dir: BEARING[dir] ?? null };
+}
+
+/** The best track's text: header lines (66666) each followed by their data lines. */
+export function parseBestTrack(text: string): Storm[] {
+  const out: Storm[] = [];
+  let cur: Storm | null = null;
+  for (const raw of text.split(/\r?\n/)) {
+    if (!raw.trim()) continue;
+    if (raw.startsWith("66666")) {
+      const id = col(raw, 7, 10);
+      const yy = Number(id.slice(0, 2));
+      cur = { id, year: yy > 50 ? 1900 + yy : 2000 + yy, number: Number(id.slice(2)), name: col(raw, 31, 50), points: [] };
+      out.push(cur);
+      continue;
+    }
+    if (!cur) continue;
+    const time = col(raw, 1, 8);
+    const yy = Number(time.slice(0, 2));
+    const t = Date.UTC(yy > 50 ? 1900 + yy : 2000 + yy, Number(time.slice(2, 4)) - 1, Number(time.slice(4, 6)), Number(time.slice(6, 8)));
+    cur.points.push({
+      t,
+      grade: Number(col(raw, 14, 14)),
+      lat: Number(col(raw, 16, 18)) / 10,
+      lon: Number(col(raw, 20, 23)) / 10,
+      pressure: intOr(col(raw, 25, 28)),
+      wind: intOr(col(raw, 34, 36)),
+      r50: radius(col(raw, 42, 42), col(raw, 43, 46), col(raw, 48, 51)),
+      r30: radius(col(raw, 53, 53), col(raw, 54, 57), col(raw, 59, 62)),
+      landfall: col(raw, 72, 72) !== "",
+    });
+  }
+  return out;
+}
+
+const R_EARTH = 6371;
+const rad = (d: number) => (d * Math.PI) / 180;
+/** Great-circle distance (km) and the bearing from the first point to the second (degrees, 0 = N). */
+export function distanceBearing(lat1: number, lon1: number, lat2: number, lon2: number) {
+  const dLat = rad(lat2 - lat1);
+  const dLon = rad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(rad(lat1)) * Math.cos(rad(lat2)) * Math.sin(dLon / 2) ** 2;
+  const km = 2 * R_EARTH * Math.asin(Math.min(1, Math.sqrt(a)));
+  const y = Math.sin(dLon) * Math.cos(rad(lat2));
+  const x = Math.cos(rad(lat1)) * Math.sin(rad(lat2)) - Math.sin(rad(lat1)) * Math.cos(rad(lat2)) * Math.cos(dLon);
+  return { km, bearing: ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360 };
+}
+
+export type Shape = "ellipse" | "circle";
+/** The radius toward a bearing. */
+export function radiusToward(r: Radius, bearing: number, shape: Shape): number {
+  if (shape === "circle" || r.dir == null) return r.long;
+  return r.short + ((r.long - r.short) * (1 + Math.cos(rad(bearing - r.dir)))) / 2;
+}
+
+const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
+function lerpRadius(a: Radius | null, b: Radius | null, f: number): Radius | null {
+  if (!a && !b) return null;
+  // A radius that starts or ends between two analyses grows from (or shrinks to) nothing.
+  const z = { long: 0, short: 0, dir: (a ?? b)!.dir };
+  const p = a ?? z;
+  const q = b ?? z;
+  const long = lerp(p.long, q.long, f);
+  return long > 0 ? { long, short: lerp(p.short, q.short, f), dir: f < 0.5 ? p.dir : q.dir } : null;
+}
+
+/** The track hour by hour (UTC ms), straight between analyses. */
+export function hourly(points: TrackPoint[]): TrackPoint[] {
+  const out: TrackPoint[] = [];
+  const H = 3_600_000;
+  for (let i = 0; i < points.length - 1; i++) {
+    const a = points[i];
+    const b = points[i + 1];
+    const steps = Math.max(1, Math.round((b.t - a.t) / H));
+    for (let k = 0; k < steps; k++) {
+      const f = k / steps;
+      out.push({
+        t: a.t + k * H,
+        grade: f < 0.5 ? a.grade : b.grade,
+        lat: lerp(a.lat, b.lat, f),
+        lon: lerp(a.lon, b.lon, f),
+        pressure: a.pressure != null && b.pressure != null ? lerp(a.pressure, b.pressure, f) : (a.pressure ?? b.pressure),
+        wind: a.wind != null && b.wind != null ? lerp(a.wind, b.wind, f) : (a.wind ?? b.wind),
+        r50: lerpRadius(a.r50, b.r50, f),
+        r30: lerpRadius(a.r30, b.r30, f),
+        landfall: a.landfall && k === 0,
+      });
+    }
+  }
+  if (points.length) out.push(points[points.length - 1]);
+  return out;
+}
+
+export interface TyphoonDay {
+  /** 日本時間 YYYY-MM-DD */
+  date: string;
+  storm: Pick<Storm, "id" | "year" | "number" | "name">;
+  /** Inside the 強風域 / 暴風域 at some hour of the day. */
+  gale: boolean;
+  violent: boolean;
+  /** The nearest the centre came that day (km), and its pressure then (hPa). */
+  nearestKm: number;
+  pressure: number | null;
+}
+
+const jstDate = (t: number) => new Date(t + 9 * 3_600_000).toISOString().slice(0, 10);
+
+/**
+ * The days a storm came within `withinKm` of the station, with whether the station lay inside its
+ * 強風域 / 暴風域. Only tropical stages count (grades 2–5, 9): an extratropical low (6) is no typhoon.
+ */
+export function typhoonDays(storm: Storm, lat: number, lon: number, shape: Shape = "ellipse", withinKm = 500): TyphoonDay[] {
+  const days = new Map<string, TyphoonDay>();
+  for (const p of hourly(storm.points)) {
+    if (p.grade === 6) continue;
+    const { km, bearing } = distanceBearing(p.lat, p.lon, lat, lon);
+    const gale = p.r30 != null && km <= radiusToward(p.r30, bearing, shape);
+    const violent = p.r50 != null && km <= radiusToward(p.r50, bearing, shape);
+    if (km > withinKm && !gale) continue;
+    const date = jstDate(p.t);
+    const d = days.get(date) ?? { date, storm: { id: storm.id, year: storm.year, number: storm.number, name: storm.name }, gale: false, violent: false, nearestKm: Infinity, pressure: null };
+    d.gale ||= gale;
+    d.violent ||= violent;
+    if (km < d.nearestKm) {
+      d.nearestKm = km;
+      d.pressure = p.pressure;
+    }
+    days.set(date, d);
+  }
+  return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
