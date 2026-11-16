@@ -34,6 +34,8 @@ interface Props {
   bounds: { min: string; max: string };
   compareDate: string | null;
   metric: Metric;
+  /** 1日モード (#247): the target's week only; the comparison table is left out. */
+  single?: boolean;
   moveTarget: (date: string) => void;
   moveCompare: (date: string) => void;
   onToggleSun: () => void;
@@ -259,6 +261,7 @@ export function CompareBoard({
   bounds,
   compareDate,
   metric,
+  single = false,
   moveTarget,
   moveCompare,
   onToggleSun,
@@ -297,7 +300,8 @@ export function CompareBoard({
     if (!board) return;
     const measure = () => {
       const a = topWrap.current?.getBoundingClientRect();
-      const b = lowWrap.current?.getBoundingClientRect();
+      // 1日: no lower table, the frame is the upper one's alone.
+      const b = lowWrap.current?.getBoundingClientRect() ?? a;
       const o = board.getBoundingClientRect();
       if (!a || !b) return;
       const width = a.width / columnsRef.current;
@@ -315,7 +319,7 @@ export function CompareBoard({
     const ro = new ResizeObserver(measure);
     ro.observe(board);
     return () => ro.disconnect();
-  }, [columns]);
+  }, [columns, single]);
   const chip = view.target === today ? null : view.target > today ? "back" : "forward";
   const compareNav = (
         <DateNav
@@ -338,11 +342,13 @@ export function CompareBoard({
       {band && (
         <>
           <div className={view.linked ? "center-band" : "center-band apart"} style={{ left: band.left, width: band.width, top: band.top, height: band.split }} aria-hidden />
-          <div
-            className={view.linked ? "center-band" : "center-band apart"}
-            style={{ left: band.left, width: band.width, top: band.top + band.lowTop, height: band.height - band.lowTop }}
-            aria-hidden
-          />
+          {!single && (
+            <div
+              className={view.linked ? "center-band" : "center-band apart"}
+              style={{ left: band.left, width: band.width, top: band.top + band.lowTop, height: band.height - band.lowTop }}
+              aria-hidden
+            />
+          )}
         </>
       )}
       <div className="side side-target">
@@ -379,7 +385,7 @@ export function CompareBoard({
                   faded={d < bounds.min || d > bounds.max}
                   onOpenFeel={onOpenFeel}
                   onOpen={() => onOpenDay(d, view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d)), "target")}
-                  summaryOther={view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d))}
+                  summaryOther={single ? null : view.linked ? matchDate(d, view.mode, view.offset) : addDays(view.compare, diffDays(view.target, d))}
                 />
               )}
             />
@@ -387,6 +393,7 @@ export function CompareBoard({
         </div>
       </div>
 
+      {!single && (
       <div className="side side-compare">
         {compareNav}
         <div className="side-body">
@@ -426,6 +433,7 @@ export function CompareBoard({
           </div>
         </div>
       </div>
+      )}
 
     </section>
   );

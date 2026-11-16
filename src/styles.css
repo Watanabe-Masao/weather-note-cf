@@ -1469,6 +1469,8 @@ button.label-feel:active { transform: scale(0.97); }
   font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
 }
+/* One day alone (1日モード, #247): the value column only. */
+.ro-grid.ro-single { grid-template-columns: minmax(0, 1fr) var(--ro-col); }
 
 .ro-title {
   font-size: var(--size-base);
@@ -4572,3 +4574,63 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ty-bar .s { background: var(--status-warning); }
 .ty-axis { display: flex; justify-content: space-between; margin-top: 3px; font-size: var(--size-xs); color: var(--ink-disabled); font-family: var(--font-numeric); }
 .ty-source { margin: 0 2px; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1.5; }
+
+/* 1日モード (#247): the selected day told under the target's week (src/ui/DayDetail.tsx). */
+.app-head h1 { white-space: nowrap; }
+.app-head-actions .seg button { padding: 4px 8px; min-height: 26px; }
+@media (max-width: 374px) { .app-head-actions { gap: 6px; } }
+.day-detail {
+  margin-top: var(--space-4);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-base));
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-lg);
+  padding: var(--space-6) var(--space-6) var(--space-7);
+  display: grid;
+  gap: var(--space-3);
+}
+.dd-hero { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: var(--space-6); align-items: center; }
+.dd-pic { grid-row: span 2; display: inline-flex; }
+.dd-temps { font-size: var(--size-xl); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: var(--space-2); }
+.dd-temps small, .dd-slash { color: var(--ink-tertiary); font-size: var(--size-sm); font-weight: var(--weight-regular); }
+.dd-kind { color: var(--ink-secondary); font-size: var(--size-sm); display: inline-flex; gap: var(--space-2); align-items: center; }
+.dd-say { margin: 0; color: var(--ink-secondary); font-size: var(--size-base); line-height: 1.6; }
+.dd-sec .section-head { margin-top: var(--space-4); }
+.dd-hint { color: var(--ink-tertiary); font-size: var(--size-xs); }
+.dd-sun { margin: 0 0 var(--space-3); display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-6); color: var(--ink-secondary); font-size: var(--size-sm); }
+.dd-sun b { color: var(--ink-primary); font-variant-numeric: tabular-nums; font-weight: var(--weight-bold); }
+.dd-parts { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-2); }
+.dd-part {
+  display: grid; justify-items: center; gap: var(--space-1);
+  padding: var(--space-3) 0; border-radius: var(--radius-md);
+  background: var(--surface-inset); border: 1px solid transparent; color: var(--ink-primary);
+  font-variant-numeric: tabular-nums;
+}
+.dd-part small { color: var(--ink-secondary); font-size: var(--size-xs); }
+.dd-part b { font-size: var(--size-base); }
+.dd-part[aria-expanded="true"] { border-color: var(--accent-base); background: color-mix(in srgb, var(--accent-base) 14%, var(--surface-inset)); }
+.dd-prob { font-size: var(--size-xs); }
+.dd-hours { margin-top: var(--space-3); background: var(--surface-inset); border-radius: var(--radius-md); padding: var(--space-4) var(--space-5); display: grid; gap: var(--space-3); }
+.dd-hours-head { display: flex; justify-content: space-between; align-items: center; font-size: var(--size-base); }
+.dd-hours table { width: 100%; border-collapse: collapse; font-size: var(--size-base); font-variant-numeric: tabular-nums; }
+.dd-hours th { font-size: var(--size-xs); color: var(--ink-tertiary); font-weight: var(--weight-regular); text-align: right; padding: var(--space-1) var(--space-2); }
+.dd-hours td { text-align: right; padding: var(--space-2); border-top: 1px solid var(--line-soft); }
+.dd-hours td:nth-child(2) { text-align: center; }
+.dd-hours td.dd-h { text-align: left; color: var(--ink-secondary); white-space: nowrap; }
+.dd-hours th, .dd-hours td { white-space: nowrap; }
+.dd-hours td.dd-feel { text-align: left; font-size: var(--size-xs); }
+.dd-feel i, .dd-swatch { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-tick); margin-right: var(--space-2); vertical-align: -1px; }
+.dd-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.dd-value {
+  display: grid; gap: var(--space-1); text-align: left;
+  padding: var(--space-4) var(--space-5); border-radius: var(--radius-md);
+  background: var(--surface-inset); border: 1px solid transparent; color: var(--ink-primary); min-width: 0;
+}
+.dd-value[aria-pressed="true"] { border-color: var(--accent-base); }
+.dd-value-name { display: flex; justify-content: space-between; gap: var(--space-2); font-size: var(--size-xs); color: var(--ink-secondary); }
+.dd-value-name em { font-style: normal; color: var(--ink-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-value-num { font-size: var(--size-lg); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: var(--space-1); flex-wrap: wrap; }
+.dd-value-num small { font-size: var(--size-xs); color: var(--ink-tertiary); font-weight: var(--weight-regular); }
+.dd-value-note { font-size: var(--size-xs); color: var(--ink-secondary); }
+.dd-basis { margin: 0; display: flex; gap: var(--space-5); font-size: var(--size-base); align-items: baseline; }
+.dd-basis span:first-child { flex: 0 0 auto; min-width: 5.5em; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.dd-links { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-3); }

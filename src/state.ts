@@ -30,6 +30,11 @@ export interface ViewState {
   metric: MetricId;
   /** Feel in the sun (radiation counted) or in the shade. */
   sun: boolean;
+  /**
+   * 1日モード (#247): the comparison day is not shown — the target's week stays, and the selected day
+   * is told in detail under it. Only this switches; the comparison rule is kept for going back.
+   */
+  single: boolean;
 }
 
 const SAVED = "weather-note:view";
@@ -42,6 +47,7 @@ const DEFAULTS: Omit<ViewState, "target" | "compare"> = {
   offset: -364,
   metric: "temp",
   sun: true,
+  single: false,
 };
 
 function load(today: string): ViewState {
@@ -53,6 +59,7 @@ function load(today: string): ViewState {
   }
   const base = { ...DEFAULTS, ...saved };
   base.metric = knownMetric(base.metric);
+  base.single = base.single === true;
   try {
     const days = JSON.parse(sessionStorage.getItem(SESSION) ?? "null");
     // Only on the same day: the next morning starts from today again.
@@ -69,9 +76,9 @@ export function useViewState() {
   const [direction, setDirection] = useState<-1 | 0 | 1>(0);
 
   useEffect(() => {
-    const { station, linked, mode, offset, metric, sun } = view;
+    const { station, linked, mode, offset, metric, sun, single } = view;
     try {
-      localStorage.setItem(SAVED, JSON.stringify({ station, linked, mode, offset, metric, sun }));
+      localStorage.setItem(SAVED, JSON.stringify({ station, linked, mode, offset, metric, sun, single }));
       sessionStorage.setItem(SESSION, JSON.stringify({ today, target: view.target, compare: view.compare }));
     } catch {
       // Not saving preferences is harmless.
@@ -79,13 +86,15 @@ export function useViewState() {
   }, [view, today]);
 
   const last = lastDay(jstToday());
-  const bounds = view.linked ? targetBounds(view.mode, view.offset, last) : { min: FIRST_DAY, max: last };
-  const compareDate = view.linked ? matchDate(view.target, view.mode, view.offset) : view.compare;
+  // 1日モード: any day can be looked at (the comparison rule's reach does not bound it), and no
+  // comparison day is asked for.
+  const bounds = view.linked && !view.single ? targetBounds(view.mode, view.offset, last) : { min: FIRST_DAY, max: last };
+  const compareDate = view.single ? null : view.linked ? matchDate(view.target, view.mode, view.offset) : view.compare;
 
   const moveTarget = useCallback(
     (next: string) => {
       setView((v) => {
-        const b = v.linked ? targetBounds(v.mode, v.offset, lastDay(jstToday())) : { min: FIRST_DAY, max: lastDay(jstToday()) };
+        const b = v.linked && !v.single ? targetBounds(v.mode, v.offset, lastDay(jstToday())) : { min: FIRST_DAY, max: lastDay(jstToday()) };
         const t = clampDay(next, b.min, b.max);
         if (t !== v.target) setDirection(t < v.target ? -1 : 1);
         return v.linked ? { ...v, target: t } : named({ ...v, target: t });
@@ -147,5 +156,14 @@ export function useViewState() {
     setView((v) => ({ ...v, [key]: value }));
   }, []);
 
-  return { view, today, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set };
+  /** 比較｜1日 (#247). Back to the comparison: the day is pulled inside the rule's reach if it left it. */
+  const setSingle = useCallback((single: boolean) => {
+    setView((v) => {
+      if (single || !v.linked) return { ...v, single };
+      const b = targetBounds(v.mode, v.offset, lastDay(jstToday()));
+      return { ...v, single, target: clampDay(v.target, b.min, b.max) };
+    });
+  }, []);
+
+  return { view, today, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set, setSingle };
 }

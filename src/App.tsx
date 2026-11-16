@@ -32,7 +32,8 @@ import {
   ShrinkIcon,
 } from "./ui/icons";
 import { StatusBar } from "./ui/StatusBar";
-import { Button, CheckGlyph, IconButton } from "./ui/kit";
+import { Button, CheckGlyph, IconButton, Segmented } from "./ui/kit";
+import { DayDetail } from "./ui/DayDetail";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { MonthReview } from "./ui/MonthReview";
 import { Settings } from "./ui/Settings";
@@ -110,6 +111,7 @@ export function App(_: { theme?: string } = {}) {
     setLinked,
     setMode,
     pickCompare,
+    setSingle,
     set,
   } = useViewState();
   const today = store?.today ?? startToday;
@@ -204,6 +206,7 @@ export function App(_: { theme?: string } = {}) {
     other: string | null,
     side: "target" | "compare",
   ) => {
+    if (view.single) return moveTarget(date); // 1日: the day is told below the week, no sheet
     if (side === "target") moveTarget(date);
     else if (view.linked && other) moveTarget(other);
     else moveCompare(date);
@@ -266,10 +269,11 @@ export function App(_: { theme?: string } = {}) {
   // The 時間帯 face wants the two days' hours, first, while it can be seen.
   useEffect(() => {
     if (!store) return;
-    const open = face === "hours" && sheetDetent !== "min";
+    // 1日モード: the day told below the week wants its hours first, always.
+    const open = view.single || (face === "hours" && sheetDetent !== "min");
     const days = [view.target, compareDate].filter((d): d is string => !!d);
     store.wantHours(view.station, open ? days : [], 0, "sheet");
-  }, [store, face, sheetDetent, view.station, view.target, compareDate]);
+  }, [store, face, sheetDetent, view.station, view.target, compareDate, view.single]);
 
   // Keep the chosen item in view in the scrolling chip row (also after a reload).
   const metricsRef = useRef<HTMLDivElement>(null);
@@ -327,12 +331,22 @@ export function App(_: { theme?: string } = {}) {
     <TyphoonDaysContext.Provider value={typhoonOn}>
     <div
       className={full ? "app full wide" : "app"}
-      style={{ paddingBottom: heights[sheetDetent] + 12 }}
+      style={{ paddingBottom: view.single ? 24 : heights[sheetDetent] + 12 }}
     >
       {!full && (
         <header className="app-head">
           <h1>Weather Note</h1>
           <div className="app-head-actions">
+            {/* 比較｜1日 (#247): whether the comparison day is shown; the rest of the screen stays. */}
+            <Segmented
+              label="見かた"
+              value={view.single ? "single" : "compare"}
+              options={[
+                { id: "compare", label: "比較" },
+                { id: "single", label: "1日" },
+              ]}
+              onChange={(v) => setSingle(v === "single")}
+            />
             {account.me && (
               <Button size="sm" className="head-report" onClick={() => setReportFrom({})} aria-label="今の感じ方を記録する">
                 {reportSaved ? (
@@ -398,6 +412,7 @@ export function App(_: { theme?: string } = {}) {
               bounds={bounds}
               compareDate={compareDate}
               metric={metric}
+              single={view.single}
               moveTarget={moveTarget}
               moveCompare={moveCompare}
               onToggleSun={() => set("sun", !view.sun)}
@@ -441,6 +456,24 @@ export function App(_: { theme?: string } = {}) {
         </BetaContext.Provider>
       </div>
 
+      {view.single && (
+        <BetaContext.Provider value={beta}>
+          <FeelContext.Provider value={feelSettings}>
+            <DayDetail
+              store={store}
+              station={view.station}
+              date={view.target}
+              today={today}
+              metric={view.metric}
+              onMetric={(id) => set("metric", id)}
+              onOpenFeel={() => setFeelMap(true)}
+              onToggleSun={() => set("sun", !view.sun)}
+            />
+          </FeelContext.Provider>
+        </BetaContext.Provider>
+      )}
+
+      {!view.single && (
       <BetaContext.Provider value={beta}>
         <FeelContext.Provider value={feelSettings}>
           <GraphSheet
@@ -531,6 +564,7 @@ export function App(_: { theme?: string } = {}) {
           </GraphSheet>
         </FeelContext.Provider>
       </BetaContext.Provider>
+      )}
 
       {feelMap && (
         <BetaContext.Provider value={beta}>

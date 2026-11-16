@@ -637,6 +637,26 @@ with sync_playwright() as p:
         check("TH4 選んだテーマはこの端末に残る", pg.evaluate("localStorage.getItem('weather-note-theme')") == "navy")
     step("TH", th)
 
+    # SD. 1日モード (#247): the header switch hides the comparison table and the sheet, and tells the
+    # selected day under the week; its 時間帯 open their hours; back to 比較 brings the table back.
+    def sd():
+        shots = os.environ.get("WN_SHOT")
+        pg.locator(".app-head .seg button", has_text="1日").click(); calm()
+        check("SD1 1日：比較の表と下のシートが消え、1日の画面が出る", pg.locator(".side-compare").count() == 0 and pg.locator(".day-detail").count() == 1 and pg.locator("aside.sheet").count() == 0)
+        settle(lambda: pg.locator(".dd-part").count() == 5)
+        check("SD2 時間帯は5つ", pg.locator(".dd-part").count() == 5, pg.locator(".dd-part").count())
+        pg.locator(".dd-part").nth(2).click(); calm()
+        check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
+        check("SD4 この日の値：肌感＋7項目", pg.locator(".dd-value").count() == 8, pg.locator(".dd-value").count())
+        pg.locator(".dd-value", has_text="降水").first.click(); calm()
+        check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
+        if shots: pg.screenshot(path=f"{shots}-single.png", full_page=True)
+        pg.locator(".metrics button", has_text="気温").click(); calm()
+        pg.locator(".app-head .seg button", has_text="比較").click(); calm()
+        check("SD6 比較に戻すと比較の表が戻る", pg.locator(".side-compare").count() == 1 and pg.locator(".day-detail").count() == 0)
+        pg.evaluate("window.scrollTo(0, 0)")
+    step("SD", sd)
+
     # AC. 長期の気温履歴を比べる（テスト）: L1 and L2 through the new core, side by side (#189)
     def ac():
         pg.click(".app-head .icon-btn"); calm()
