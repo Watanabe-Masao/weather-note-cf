@@ -39,6 +39,9 @@ import { Settings } from "./ui/Settings";
 import { FeelSheet } from "./ui/FeelSheet";
 import { HourFace } from "./ui/HourFace";
 import { ConditionSheet } from "./ui/ConditionSheet";
+import { TyphoonCard } from "./ui/TyphoonCard";
+import { useActiveTyphoons } from "./data/typhoonNow";
+import type { Conditions } from "../shared/conditions";
 import { LightTrend } from "./ui/LightTrend";
 import { DaySummaryCard } from "./ui/DaySummaryCard";
 import { DaySummaryContext, type DaySummaryAsk } from "./ui/daySummaryPress";
@@ -46,6 +49,15 @@ import { DaySummaryContext, type DaySummaryAsk } from "./ui/daySummaryPress";
 const PREFETCH_IDLE_MS = 1_000;
 const PREFETCH_RADIUS = 14;
 const BY_CONDITIONS = "__conditions";
+/** 前の台風の日と比べる: the typhoon days of five years, all year round (typhoons keep to their season, so a month either side is often empty), any temperature or rain. */
+const TYPHOON_PRESET: Partial<Conditions> = {
+  typhoon: "only",
+  max: { mode: "any", lo: 10, hi: 20 },
+  min: { mode: "any", lo: 10, hi: 20 },
+  rain: { mode: "any", parts: ["morning", "day", "evening", "night"], strength: 0 },
+  years: 5,
+  span: "all",
+};
 
 /**
  * The 24-hour graph's height in the sheet: its height minus the tabs, the day line, readout and
@@ -143,6 +155,9 @@ export function App() {
   const [moving, setMoving] = useState(false);
   const [feelMap, setFeelMap] = useState(false);
   const [conditions, setConditions] = useState(false);
+  // 前の台風の日と比べる (TyphoonCard): 条件から選ぶ opened on the typhoon days, any temperature or rain.
+  const [conditionsPreset, setConditionsPreset] = useState<Partial<Conditions> | undefined>(undefined);
+  const typhoons = useActiveTyphoons();
 
   // How the comparison day is chosen: in the comparison header, and in the sheet head (which covers it when raised).
   const modeSelect = (
@@ -316,6 +331,17 @@ export function App() {
             </IconButton>
           </div>
         </header>
+      )}
+
+      {!full && (
+        <TyphoonCard
+          station={view.station}
+          typhoons={typhoons}
+          onCompare={() => {
+            setConditionsPreset(TYPHOON_PRESET);
+            setConditions(true);
+          }}
+        />
       )}
 
       <div className="metrics" role="tablist" ref={metricsRef}>
@@ -538,7 +564,11 @@ export function App() {
           target={view.target}
           compareDate={compareDate}
           onPick={pickCompare}
-          onClose={() => setConditions(false)}
+          preset={conditionsPreset}
+          onClose={() => {
+            setConditions(false);
+            setConditionsPreset(undefined);
+          }}
         />
       )}
 

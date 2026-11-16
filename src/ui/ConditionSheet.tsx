@@ -46,6 +46,8 @@ interface Props {
   compareDate: string | null;
   onPick: (date: string) => void;
   onClose: () => void;
+  /** Conditions laid over the start (前の台風の日と比べる: the typhoon days, any temperature). */
+  preset?: Partial<Conditions>;
 }
 
 const TEMP_MODES: { id: TempMode; label: string }[] = [
@@ -171,19 +173,19 @@ function TempControls({
   );
 }
 
-function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onClose">) {
+function Face({ store, station, target, compareDate, onPick, preset }: Omit<Props, "onClose">) {
   const originDay = store?.getDay(station, target);
   const originRow = originDay?.row;
   const origin = { date: target, max: num(originRow?.max), min: num(originRow?.min) };
   const [cond, setCond] = useState<Conditions | null>(null);
   // Start from the target's values once they are there.
   useEffect(() => {
-    if (!cond && originDay?.state === "ready") setCond(startConditions(originRow));
-  }, [cond, originDay?.state, originRow]);
-  const c = cond ?? startConditions(null);
+    if (!cond && originDay?.state === "ready") setCond({ ...startConditions(originRow), ...preset });
+  }, [cond, originDay?.state, originRow, preset]);
+  const c = cond ?? { ...startConditions(null), ...preset };
   const set = (patch: Partial<Conditions>) => setCond({ ...c, ...patch });
 
-  const [open, setOpen] = useState<Key | null>("max");
+  const [open, setOpen] = useState<Key | null>(preset?.typhoon && preset.typhoon !== "any" ? "typhoon" : "max");
   const toggle = (k: Key) => setOpen((o) => (o === k ? null : k));
 
   const today = store?.today ?? "9999-12-31";
@@ -191,12 +193,6 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
     () => candidateDays(target, { years: c.years, span: c.span, weekday: c.weekday }, today),
     [target, c.years, c.span, c.weekday, today],
   );
-  // Ask for the candidates' months while this sheet is open; withdraw when it closes.
-  useEffect(() => {
-    store?.prefetch(station, candidates, "conditions", Priority.Ahead);
-    return () => store?.prefetch(station, [], "conditions");
-  }, [store, station, candidates]);
-
   // 台風の日 over the candidates' span (the 強風域 only), once the tracks are read.
   const tracks = useTyphoonTracks();
   const typhoonOn = (c.typhoon ?? "any") !== "any";
@@ -205,7 +201,20 @@ function Face({ store, station, target, compareDate, onPick }: Omit<Props, "onCl
     if (!Array.isArray(tracks) || !at || !candidates.length) return null;
     return typhoonDaysAt(tracks, at.lat, at.lon, candidates[candidates.length - 1], candidates[0]);
   }, [tracks, station, candidates]);
-  const result = searchConditions(c, origin, candidates, {
+  // 台風の日だけ: only those days are looked at (and fetched), so 通年 does not fetch every month.
+  const looked = useMemo(
+    () => (c.typhoon === "only" && typhoons ? candidates.filter((d) => typhoons.get(d)?.gale) : candidates),
+    [c.typhoon, typhoons, candidates],
+  );
+  // Ask for the candidates' months while this sheet is open; withdraw when it closes.
+  // While the tracks are still coming for 台風の日だけ, nothing is fetched yet (they choose the days).
+  const waitTracks = c.typhoon === "only" && tracks === "loading";
+  useEffect(() => {
+    store?.prefetch(station, waitTracks ? [] : looked, "conditions", Priority.Ahead);
+    return () => store?.prefetch(station, [], "conditions");
+  }, [store, station, looked, waitTracks]);
+
+  const result = searchConditions(c, origin, looked, {
     typhoon: (d) => {
       // No copy of the tracks: no day can be told a typhoon day; the line says so.
       if (tracks === "none") return 0;

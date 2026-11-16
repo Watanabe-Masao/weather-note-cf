@@ -13,6 +13,7 @@ import { CACHE_VERSION, HOURLY_CONCURRENCY, MAX_HOURLY_DAYS, stations } from "./
 import { fetchForecast, fetchSunTimes } from "./open-meteo";
 import { type AccountsEnv, ensureSchema, handleAccounts, isAccountPath } from "./accounts";
 import { runSchedule } from "./notify";
+import { activeTyphoons } from "./typhoon";
 
 class BadRequest extends Error {}
 
@@ -24,6 +25,7 @@ function publicMessage(e: unknown): string {
 }
 
 const FORECAST_TTL = 30 * 60; // seconds
+const TYPHOON_TTL = 30 * 60;
 
 const findStation = (id: string | null): Station => {
   const s = stations.find((x) => x.blockNo === id);
@@ -120,6 +122,11 @@ async function handle(req: Request, ctx: ExecutionContext): Promise<Response> {
         ...(await fetchForecast(station)),
         fetchedAt: new Date().toISOString(),
       }));
+    }
+
+    case "/api/typhoon": {
+      // 近づいている台風: JMA's information as it gives it, shared for 30 minutes (worker/src/typhoon.ts).
+      return cachedFor(url.origin, `${CACHE_VERSION}/typhoon`, TYPHOON_TTL, waitUntil, () => activeTyphoons());
     }
 
     case "/api/sun": {

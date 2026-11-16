@@ -4449,3 +4449,31 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
   font-weight: var(--weight-regular);
   opacity: 0.6;
 }
+
+/* 近づいている台風 (#220, TyphoonCard): a raised line at the top as the status line, its edge in the
+   warning colour while the station is inside one of JMA's areas. The 台 mark is the calendar's. */
+.typhoon-cards { display: grid; gap: var(--space-3); margin: 0 0 var(--space-4); }
+.typhoon-card {
+  display: grid;
+  gap: 4px;
+  padding: 9px 12px 8px;
+  border-radius: var(--radius-md);
+  background: var(--surface-raised);
+  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  animation: fade-in var(--motion-base) var(--ease-standard);
+}
+.typhoon-card.gale,
+.typhoon-card.storm { box-shadow: 0 0 0 1.5px var(--status-warning) inset; }
+.typhoon-card header { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+.typhoon-card header b { font-size: var(--size-md); color: var(--ink-primary); }
+.typhoon-card header b small { margin-left: 6px; font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
+.typhoon-mark { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: var(--size-xs); color: var(--status-warning); box-shadow: 0 0 0 1px var(--status-warning) inset; }
+.typhoon-mark.violent { color: var(--surface-base); background: var(--status-warning); box-shadow: none; }
+.typhoon-pressure { font-size: var(--size-md); color: var(--ink-primary); }
+.typhoon-pressure small { margin-left: 2px; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.typhoon-where { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
+.typhoon-here { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
+.typhoon-here strong { color: var(--status-warning); font-weight: var(--weight-bold); }
+.typhoon-actions { display: flex; align-items: center; gap: var(--space-4); margin-top: 2px; flex-wrap: wrap; }
+.typhoon-link { font-size: var(--size-sm); color: var(--accent-base); text-decoration: none; }
+.typhoon-source { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1.5; }
