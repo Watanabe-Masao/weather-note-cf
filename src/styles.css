@@ -2780,8 +2780,15 @@ svg.scrub {
 .calendar-head strong {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  /* 年 and 月 are two things to press (年を選ぶ・月の振り返り): their dotted lines stay apart. */
+  gap: 10px;
   font-size: var(--size-md);
+}
+
+/* 月 (opens 月の振り返り): the same height and dotted line as 年 beside it, so the two lines sit level. */
+.calendar-head .cal-month-review {
+  padding: 0 2px;
+  line-height: inherit;
 }
 
 .icon-btn.flip svg {
