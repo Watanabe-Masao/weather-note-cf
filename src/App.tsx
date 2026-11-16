@@ -309,6 +309,8 @@ export function App() {
 
   return (
     <DaySummaryContext.Provider value={setSummary}>
+    {/* 台風の日 for every picture of a day: the table, the calendars, the summaries (#220). */}
+    <TyphoonDaysContext.Provider value={typhoonOn}>
     <div
       className={full ? "app full wide" : "app"}
       style={{ paddingBottom: heights[sheetDetent] + 12 }}
@@ -371,7 +373,6 @@ export function App() {
       <div ref={boardRef}>
         <BetaContext.Provider value={beta}>
           <FeelContext.Provider value={feelSettings}>
-            <TyphoonDaysContext.Provider value={typhoonOn}>
             <CompareBoard
               onMoving={setMoving}
               onOpenCalendar={setCalendar}
@@ -422,7 +423,6 @@ export function App() {
                 </>
               }
             />
-            </TyphoonDaysContext.Provider>
           </FeelContext.Provider>
         </BetaContext.Provider>
       </div>
@@ -613,8 +613,9 @@ export function App() {
       )}
 
       {/* その日の要約 (#176): over whatever it was opened from (the table, the calendar, the hours). */}
-      {summary && <DaySummaryCard store={store} station={view.station} ask={summary} onClose={() => setSummary(null)} />}
+      {summary && <DaySummaryCard store={store} station={view.station} ask={summary} typhoons={typhoons} onClose={() => setSummary(null)} />}
     </div>
+    </TyphoonDaysContext.Provider>
     </DaySummaryContext.Provider>
   );
 }

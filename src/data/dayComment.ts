@@ -1,5 +1,6 @@
 // その日の要約の一言 (#176): the day's values put into two or three short sentences, read beside the
-// numbers: how warm against the comparison day, rain, sunshine, and wind (with the hour it peaked).
+// numbers: the typhoon whose area held the station (#220), how warm against the comparison day, rain,
+// sunshine, and wind (with the hour it peaked).
 // Rules only, no model: every sentence comes from a value on the card, so the words never say more
 // than the numbers do.
 
@@ -24,12 +25,15 @@ export function dayComment({
   other,
   otherName,
   hours,
+  typhoon,
 }: {
   row: WeatherRow | null;
   other: WeatherRow | null;
   /** How the comparison day is named in the sentence ("'25/11/8"). */
   otherName: string | null;
   hours?: WeatherRow[] | null;
+  /** The day's typhoon (#220), the same as the 台 on its picture: its area held the station. */
+  typhoon?: { number: number; area: "storm" | "gale" | "warning" } | null;
 }): string[] {
   if (!row) return [];
   const out: string[] = [];
@@ -62,5 +66,11 @@ export function dayComment({
     const when = peak != null ? `${peak}時ごろ` : "";
     out.push(`${when}${when ? "に" : ""}${STORM[level].label}${gust != null ? `（最大瞬間${f1(gust)}m/s）` : ""}${forecast ? "の見込み" : ""}。`);
   }
-  return out.slice(0, 3);
+  // 0. The typhoon first (the 台 on the picture, in words): it explains the rest of the day.
+  const ty = typhoon
+    ? typhoon.area === "warning"
+      ? `台風${typhoon.number}号の暴風警戒域に入る予報（気象庁）。`
+      : `台風${typhoon.number}号の${typhoon.area === "storm" ? "暴風域" : "強風域"}に入った日。`
+    : null;
+  return ty ? [ty, ...out.slice(0, 3)] : out.slice(0, 3);
 }

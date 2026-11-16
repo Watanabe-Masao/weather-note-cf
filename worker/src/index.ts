@@ -15,7 +15,7 @@ import { type AccountsEnv, type Db, ensureSchema, handleAccounts, isAccountPath 
 import { runSchedule } from "./notify";
 import { activeTyphoons } from "./typhoon";
 import { collectTyphoons } from "./typhoonArchive";
-import { recentTracks } from "./typhoonRecent";
+import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { logTyphoonJson, watchTyphoonSources } from "./typhoonWatch";
 
 class BadRequest extends Error {}
@@ -133,6 +133,13 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db): Promise<Res
       if (!/^\d{4}-\d{2}-\d{2}$/.test(since)) throw new BadRequest("from=YYYY-MM-DD");
       if (!db) return jsonResponse({ v: 1, source: "", from: null, to: null, storms: [] });
       return cachedFor(url.origin, `${CACHE_VERSION}/typhoon-recent/${since}`, TYPHOON_TTL, waitUntil, () => recentTracks(db, since));
+    }
+    case "/api/typhoon-telegrams": {
+      // 当時の発表: one typhoon's announcements kept (yyNN), shared for 30 minutes.
+      const number = q.get("number") ?? "";
+      if (!/^\d{4}$/.test(number)) throw new BadRequest("number=yyNN");
+      if (!db) return jsonResponse({ v: 1, source: "", number, announcements: [] });
+      return cachedFor(url.origin, `${CACHE_VERSION}/typhoon-telegrams/${number}`, TYPHOON_TTL, waitUntil, () => typhoonTelegrams(db, number));
     }
     case "/api/typhoon": {
       // 近づいている台風: JMA's information as it gives it, shared for 30 minutes (worker/src/typhoon.ts).

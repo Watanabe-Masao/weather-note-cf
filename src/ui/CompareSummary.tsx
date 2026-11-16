@@ -21,6 +21,7 @@ import { Badge, Button, CheckGlyph, confidenceOfRow, DayLabel, Glyph, SwipeHint 
 import type { MetricId } from "../metrics";
 import { useSun } from "./HourCompare";
 import { useSwipeDays } from "./useSwipeDays";
+import { TyphoonTag } from "./TyphoonTag";
 import { DayWeatherIcon } from "./WeatherIcon";
 import { BetaContext } from "../beta/settings";
 import { baselineStateOf, driversOfDay, useBaselineHistory } from "../beta/useBaseline";
@@ -224,6 +225,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
           {rel && <Badge kind={rel} />}
           <span className="cs-date">{dateButton(side === "a" ? "target" : "compare", <DayLabel date={d} year={years && d === other} />)}</span>
           <DayWeatherIcon row={r} station={station} />
+          {d && <TyphoonTag date={d} inline />}
         </span>
         <span className="cs-head-state">{kind && <Badge kind={kind} confidence={confidenceOfRow(r)} />}</span>
       </span>
@@ -259,6 +261,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
           {relative(target, today) && <Badge kind={relative(target, today)!} />}
           {dateButton("target", <DayLabel date={target} />)}
           <DayWeatherIcon row={a} station={station} />
+          <TyphoonTag date={target} inline />
         </span>
         <span className="cs-line-date">
           <small className="cs-side">比較</small>
@@ -271,6 +274,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
               </span>,
             )}
           <DayWeatherIcon row={b} station={station} />
+          {other && <TyphoonTag date={other} inline />}
         </span>
       </span>
       <span className="cs-line cs-a">

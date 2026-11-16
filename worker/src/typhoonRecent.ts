@@ -82,3 +82,21 @@ export async function recentTracks(
   const telegrams = rows.map((r) => JSON.parse(r.parsed) as XmlTelegram);
   return { ...empty, from, to: cover.to, storms: stormsOfTelegrams(telegrams) };
 }
+
+/** One typhoon's announcements kept (yyNN), each with its times and JMA's circles, oldest first. */
+export async function typhoonTelegrams(db: Db, number: string) {
+  await ensureWatchSchema(db);
+  const rows = (await db.prepare("SELECT parsed FROM typhoon_telegrams WHERE number = ? AND parsed IS NOT NULL ORDER BY issued_at").bind(number).all<{ parsed: string }>()).results;
+  return {
+    v: 1,
+    source: "気象庁 防災情報XML（台風解析・予報情報）",
+    number,
+    announcements: rows.map((r) => {
+      const t = JSON.parse(r.parsed) as XmlTelegram;
+      return {
+        issuedAt: t.issuedAt,
+        times: t.times.map((x) => ({ part: x.part, validAt: x.validAt, hours: x.hours, lat: x.lat, lon: x.lon, storm: x.storm, gale: x.gale, warning: x.warning, probability: x.probability })),
+      };
+    }),
+  };
+}
