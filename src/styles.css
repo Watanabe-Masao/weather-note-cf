@@ -1020,9 +1020,8 @@ button.label-feel:active { transform: scale(0.97); }
 
 /* The grid steps back behind the values: finer dots, a little lighter (質感, design-system.md 4.1). */
 .chart-grid {
-  stroke: var(--line-strong);
+  stroke: var(--chart-grid);
   stroke-dasharray: 2 5;
-  stroke-opacity: 0.55;
 }
 
 /* The target day's values by its points: the item's colour, haloed in the face behind (a line
@@ -1248,7 +1247,7 @@ button.label-feel:active { transform: scale(0.97); }
 /* Hatch in the 予報 grey (the label's colour): forecast is "not yet measured", so it has no hue of its own;
    the accent blue is kept for the chosen day (#151). */
 .hatch-bg { fill: color-mix(in srgb, var(--status-forecast) 4%, transparent); }
-.hatch-line { stroke: color-mix(in srgb, var(--status-forecast) 24%, transparent); stroke-width: 1.4; }
+.hatch-line { stroke: var(--chart-hatch); stroke-width: 1.4; }
 
 .chart-forecast-label {
   fill: var(--status-forecast);
@@ -3999,7 +3998,7 @@ svg.scrub {
 .notify-add { display: inline-flex; gap: 6px; align-items: center; }
 .notify-add input {
   background: var(--surface-inset); border: 1px solid var(--line-strong); border-radius: var(--radius-md);
-  padding: 6px 8px; font-size: var(--size-input); color: var(--ink-primary); color-scheme: dark;
+  padding: 6px 8px; font-size: var(--size-input); color: var(--ink-primary);
 }
 .notify-add button, .notify-days button {
   min-height: 34px; padding: 0 12px; border-radius: var(--radius-md);
@@ -4044,7 +4043,9 @@ svg.scrub {
 .research-table tr.small { opacity: 0.55; }
 
 /* A day's weather estimated from sunshine and precipitation (JMA's summary not out yet). */
-.weather-estimated { display: inline-flex; opacity: 0.6; }
+.weather-estimated { display: inline-flex; opacity: var(--effect-estimated); }
+/* Estimated is told by a dotted line, never by fading (同じ強さ、形で区別, #241). */
+.weather-estimated svg[data-sky] path:not(.icon-veil) { stroke-dasharray: 2.2 2.6; }
 
 /* The weather of each band above the hourly graph: the day's icon, the partner day's smaller. */
 .band-wx { position: relative; height: 34px; margin-top: 0; }
@@ -4057,8 +4058,10 @@ svg.scrub {
 .band-wx-name.other { top: 21px; }
 .band-wx-cell { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; flex-direction: column; align-items: center; gap: 0; }
 .band-wx-main, .band-wx-other { display: inline-flex; }
-.band-wx-other { opacity: 0.7; }
-.band-wx-other.weather-estimated { opacity: 0.4; }
+.band-wx-other { opacity: var(--effect-quiet); }
+/* The comparison day's icon: the same picture in a finer line (the main day 1.9). */
+.band-wx-other svg[data-sky] { stroke-width: 1.65; }
+.band-wx-other.weather-estimated { opacity: var(--effect-estimated-quiet); }
 .band-wx .none { font-size: var(--size-sm); color: var(--ink-secondary); }
 
 /* Bands with few reports, and a notification to add for each (#62 B). */

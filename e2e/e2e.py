@@ -614,6 +614,29 @@ with sync_playwright() as p:
         esc()
     step("J", j)
 
+    # TH. テーマ (#241): chosen in settings, put in use at once (CSS and the SVG charts), kept on the device.
+    def th():
+        shots = os.environ.get("WN_SHOT")
+        for name, label in (("mist", "Mist"), ("warm", "White"), ("navy", "Navy")):
+            pg.click(".app-head .icon-btn"); calm()
+            pg.locator(".msheet.settings .seg button", has_text=label).click(); calm()
+            check(f"TH1 {label}：テーマが変わり、設定は開いたまま", pg.evaluate("document.documentElement.dataset.theme") == name and pg.locator(".msheet.settings").count() == 1)
+            esc()
+            bg = pg.evaluate("getComputedStyle(document.body).backgroundColor")
+            want = {"mist": "rgb(196, 208, 193)", "warm": "rgb(247, 245, 240)", "navy": "rgb(16, 27, 44)"}[name]
+            check(f"TH2 {label}：画面の地の色がそのテーマの page", bg == want, bg)
+            if shots:
+                pg.screenshot(path=f"{shots}-theme-{name}.png", full_page=False)
+                pg.evaluate("window.scrollTo(0, 0)")
+                pg.locator(".side-target .strip-col.is-center .cell-stack").first.dispatch_event("click"); calm(1500)
+                pg.evaluate("__flick('.sheet-handle',-700,120)"); calm(800)
+                pg.screenshot(path=f"{shots}-theme-{name}-hours.png", full_page=False)
+                pg.click(".back-btn") if pg.locator(".back-btn").count() else None; calm()
+                pg.evaluate("__flick('.sheet-handle',700,120)"); calm(800)
+            st = small_text(); check(f"TH3 {label}：11px より小さい文字がない", not st, str(st))
+        check("TH4 選んだテーマはこの端末に残る", pg.evaluate("localStorage.getItem('weather-note-theme')") == "navy")
+    step("TH", th)
+
     # AC. 長期の気温履歴を比べる（テスト）: L1 and L2 through the new core, side by side (#189)
     def ac():
         pg.click(".app-head .icon-btn"); calm()

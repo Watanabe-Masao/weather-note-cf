@@ -89,7 +89,8 @@ function chartHeight(
   );
 }
 
-export function App() {
+/** `theme`: only so a change of theme draws everything again (src/main.tsx). */
+export function App(_: { theme?: string } = {}) {
   const store = useWeatherStore();
   const [calendar, setCalendar] = useState<CalendarSide | null>(null);
   // 月の振り返り: opened from the calendar's month name; the calendar closes behind it.

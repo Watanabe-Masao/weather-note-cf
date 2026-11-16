@@ -2,6 +2,7 @@
 // temperature feels: the five levels drawn as the same coloured band as the 肌感 bar), 表示 (日なた /
 // 日かげ). Saved data (spec chapter 1), refresh and clear sit folded at the end.
 
+import { type ThemeChoice, useThemeChoice } from "../design/theme";
 import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { SunTestBoard } from "./SunTestBoard";
 import { HistoryCompareBoard } from "./HistoryCompareBoard";
@@ -318,6 +319,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
 
       <section className="set-group" aria-labelledby="set-view">
         <h3 id="set-view">表示</h3>
+        <ThemeRow />
         <div className="set-row">
           <span className="set-label">肌感の温度</span>
           <Segmented
@@ -487,5 +489,27 @@ export function Settings(props: Props) {
     <ModalSheet title="設定" onClose={props.onClose} className="settings">
       <SettingsBody {...props} />
     </ModalSheet>
+  );
+}
+
+/** テーマ (#241): the three, and System (the phone's light or dark). */
+function ThemeRow() {
+  const { choice, set } = useThemeChoice();
+  return (
+    <div className="set-row">
+      <span className="set-label">テーマ</span>
+      <Segmented<ThemeChoice>
+        label="テーマ"
+        value={choice}
+        options={[
+          { id: "navy", label: "Navy" },
+          { id: "mist", label: "Mist" },
+          { id: "warm", label: "White" },
+          { id: "system", label: "自動" },
+        ]}
+        onChange={set}
+      />
+      <Help text="Deep Navy（暗い）・Mist Green（穏やかな緑）・Warm White（明るい）。自動は iPhone の明るい／暗い設定に合わせて Warm White か Deep Navy。この端末に保存します。" />
+    </div>
   );
 }
