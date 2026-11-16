@@ -3,6 +3,8 @@
 //  C1 当たり     of the days inside a 暴風域, the records show 強風 or 暴風 on ≥ 50%
 //  C2 新しいこと of the records' 強風・暴風 days, ≥ 10% are tied to a typhoon (inside its 強風域)
 //  C3 決め方     the 強風域 days by "ellipse" and by "circle" (track.ts) differ on ≤ 20% of them
+//               — not met in the first run (28%): the shape is JMA's moved circle ("offset", decided
+//               2026-11-16), and how far the other two lie from it is reported, without a criterion.
 // Also written: every typhoon day (date, 台風◯号, inside or near, nearest distance, pressure, the
 // record's wind and rain), as a JSON for the month review's sample.
 //
@@ -58,23 +60,32 @@ for (let y = from; y <= to; y++) for (let m = 1; m <= 12; m++) for (const r of a
 
 // ---- the track -----------------------------------------------------------------------------------
 const storms = parseBestTrack(readFileSync(bst, "latin1")).filter((s) => s.year >= from && s.year <= to);
+const off: TyphoonDay[] = storms.flatMap((s) => typhoonDays(s, lat, lon, "offset"));
 const ell: TyphoonDay[] = storms.flatMap((s) => typhoonDays(s, lat, lon, "ellipse"));
 const cir: TyphoonDay[] = storms.flatMap((s) => typhoonDays(s, lat, lon, "circle"));
 const key = (d: TyphoonDay) => `${d.date}/${d.storm.id}`;
 
 // ---- the criteria --------------------------------------------------------------------------------
 const level = (date: string) => stormOfRow(byDate.get(date) as Record<string, unknown> | undefined);
-const violent = ell.filter((d) => d.violent);
+const violent = off.filter((d) => d.violent);
 const c1 = violent.filter((d) => level(d.date) != null).length;
 const stormDays = [...byDate.values()].filter((r) => stormOfRow(r as unknown as Record<string, unknown>));
-const galeDates = new Set(ell.filter((d) => d.gale).map((d) => d.date));
+const galeDates = new Set(off.filter((d) => d.gale).map((d) => d.date));
 const c2 = stormDays.filter((r) => galeDates.has(r.date)).length;
-const galeE = new Set(ell.filter((d) => d.gale).map(key));
-const galeC = new Set(cir.filter((d) => d.gale).map(key));
-const union = new Set([...galeE, ...galeC]);
-const differ = [...union].filter((k) => galeE.has(k) !== galeC.has(k)).length;
+const galeSet = (ds: TyphoonDay[]) => new Set(ds.filter((d) => d.gale).map(key));
+const galeO = galeSet(off);
+const galeE = galeSet(ell);
+const galeC = galeSet(cir);
+/** How many of the days either shape puts inside, the two shapes disagree on. */
+const apart = (a: Set<string>, b: Set<string>) => {
+  const u = new Set([...a, ...b]);
+  return { n: [...u].filter((k) => a.has(k) !== b.has(k)).length, of: u.size };
+};
+const ec = apart(galeE, galeC);
+const oe = apart(galeO, galeE);
+const oc = apart(galeO, galeC);
 // Inside a 強風域 but no 強風 in the records: how often the city's wind stayed under the marks.
-const galeQuiet = ell.filter((d) => d.gale && level(d.date) == null).length;
+const galeQuiet = off.filter((d) => d.gale && level(d.date) == null).length;
 
 const pct = (n: number, of: number) => (of ? `${((n / of) * 100).toFixed(0)}%` : "—");
 const verdict = (ok: boolean | null) => (ok == null ? "（数えられない）" : ok ? "満たす" : "**満たさない**");
@@ -83,12 +94,13 @@ lines.push(`# TY-01 台風の日（${blockNo}、${from}〜${to}年、台風 ${st
 lines.push("| 基準 | 結果 | 判定 |", "|---|---|---|");
 lines.push(`| C1 暴風域に入った日のうち記録が強風・暴風 ≥ 50% | ${c1}/${violent.length}（${pct(c1, violent.length)}） | ${verdict(violent.length ? c1 / violent.length >= 0.5 : null)} |`);
 lines.push(`| C2 記録の強風・暴風の日のうち台風の強風域 ≥ 10% | ${c2}/${stormDays.length}（${pct(c2, stormDays.length)}） | ${verdict(stormDays.length ? c2 / stormDays.length >= 0.1 : null)} |`);
-lines.push(`| C3 楕円と円で強風域の日が食い違う ≤ 20% | ${differ}/${union.size}（${pct(differ, union.size)}） | ${verdict(union.size ? differ / union.size <= 0.2 : null)} |`);
-lines.push("", `強風域に入ったが記録に強風の印がない日：${galeQuiet}/${galeE.size}（${pct(galeQuiet, galeE.size)}）`);
+lines.push(`| C3 楕円と円で強風域の日が食い違う ≤ 20% | ${ec.n}/${ec.of}（${pct(ec.n, ec.of)}） | ${verdict(ec.of ? ec.n / ec.of <= 0.2 : null)}（形は「ずらした円」に決定） |`);
+lines.push("", "形は気象庁の図と同じ「ずらした円」（C1・C2・一覧はこの形）。ほかの形との食い違い：", `- 楕円：${oe.n}/${oe.of}（${pct(oe.n, oe.of)}）`, `- 最長の円：${oc.n}/${oc.of}（${pct(oc.n, oc.of)}）`);
+lines.push("", `強風域に入ったが記録に強風の印がない日：${galeQuiet}/${galeO.size}（${pct(galeQuiet, galeO.size)}）`);
 if (failed.length) lines.push(`取れなかった月：${failed.join("、")}`);
 lines.push("", "## 台風の日（強風域に入った日、または中心が 500km 以内）", "", "| 日 | 台風 | 域 | 最接近 | 気圧 | 記録 | 最大風速／瞬間 | 雨 |", "|---|---|---|---|---|---|---|---|");
 const fmt = (v: unknown, d = 1) => (typeof v === "number" ? v.toFixed(d) : "—");
-for (const d of ell) {
+for (const d of off) {
   const r = byDate.get(d.date) as Record<string, unknown> | undefined;
   const lv = level(d.date);
   lines.push(
@@ -97,5 +109,5 @@ for (const d of ell) {
 }
 const report = lines.join("\n") + "\n";
 writeFileSync(join(out, "ty01-report.md"), report);
-writeFileSync(join(out, `typhoon-days-${blockNo}.json`), JSON.stringify(ell));
+writeFileSync(join(out, `typhoon-days-${blockNo}.json`), JSON.stringify(off));
 console.log(report);
