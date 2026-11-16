@@ -4,7 +4,8 @@
 //   npx --yes tsx@4.19.2 scripts/typhoon-tracks.ts bst_all.txt public/data/typhoon-tracks.json
 // 出典：気象庁 RSMC Tokyo ベストトラック。
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { FIRST_DAY } from "../shared/dates";
 import { compactTracks, parseBestTrack } from "../shared/typhoon";
 
@@ -15,5 +16,7 @@ const first = Number(FIRST_DAY.slice(0, 4)) - 1;
 const storms = parseBestTrack(readFileSync(src, "latin1")).filter((s) => s.year >= first);
 const out = compactTracks(storms, new Date().toISOString());
 const text = JSON.stringify(out);
+// The folder is not in the repository until the first copy is (an empty folder is not kept).
+mkdirSync(dirname(dst), { recursive: true });
 writeFileSync(dst, text);
 console.log(`${out.storms.length} storms (of ${storms.length} since ${first}), ${(text.length / 1024).toFixed(0)} kB`);
