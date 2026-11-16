@@ -3,10 +3,12 @@
 // 30-knot wind, about 15 m/s) or 暴風域 (50 knots, about 25 m/s). The track is analysed every six
 // hours (sometimes three); between two analyses the centre and the radii are drawn straight, hour by hour.
 //
-// A radius is given as its longest (with a direction) and its shortest. A station's distance is set
-// against the radius toward it: the shortest on the side away from the longest, rising smoothly to the
-// longest on its side — r(θ) = short + (long − short)·(1 + cos(θ − θlong)) / 2 ("ellipse"). The plain
-// alternative (the longest all round, "circle") is kept to see how much the choice moves.
+// A radius is given as its longest (with a direction) and its shortest. The area is the circle JMA
+// draws (2026-11-16, #220): when the wind leans to one side, JMA moves the circle's centre off the
+// typhoon's — its diameter the longest plus the shortest, its centre moved (longest − shortest) / 2
+// toward the longest ("offset", 気象庁「台風の大きさと強さ」). Two others are kept to see how much the
+// shape moves the days: the radius rising smoothly from the shortest to the longest ("ellipse"), and
+// the longest all round ("circle"). TY-01 found ellipse and circle 28% apart, so the shape was chosen.
 //
 // Research only (#220): the app does not read this file. 出典：気象庁 RSMC Tokyo ベストトラック。
 
@@ -97,11 +99,32 @@ export function distanceBearing(lat1: number, lon1: number, lat2: number, lon2: 
   return { km, bearing: ((Math.atan2(y, x) * 180) / Math.PI + 360) % 360 };
 }
 
-export type Shape = "ellipse" | "circle";
-/** The radius toward a bearing. */
-export function radiusToward(r: Radius, bearing: number, shape: Shape): number {
+export type Shape = "offset" | "ellipse" | "circle";
+/** The radius toward a bearing ("ellipse" and "circle"; "offset" is not a radius from the centre). */
+export function radiusToward(r: Radius, bearing: number, shape: Exclude<Shape, "offset">): number {
   if (shape === "circle" || r.dir == null) return r.long;
   return r.short + ((r.long - r.short) * (1 + Math.cos(rad(bearing - r.dir)))) / 2;
+}
+
+/** The point `km` from (lat, lon) toward `bearing` (degrees), on the sphere. */
+export function destination(lat: number, lon: number, bearing: number, km: number) {
+  const d = km / R_EARTH;
+  const b = rad(bearing);
+  const p1 = rad(lat);
+  const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(b));
+  const l2 = rad(lon) + Math.atan2(Math.sin(b) * Math.sin(d) * Math.cos(p1), Math.cos(d) - Math.sin(p1) * Math.sin(p2));
+  return { lat: (p2 * 180) / Math.PI, lon: (l2 * 180) / Math.PI };
+}
+
+/** Whether the station lies inside the area the radius gives, around a centre at (lat, lon). */
+export function inside(r: Radius, lat: number, lon: number, sLat: number, sLon: number, shape: Shape): boolean {
+  if (shape !== "offset") {
+    const { km, bearing } = distanceBearing(lat, lon, sLat, sLon);
+    return km <= radiusToward(r, bearing, shape);
+  }
+  if (r.dir == null) return distanceBearing(lat, lon, sLat, sLon).km <= r.long;
+  const c = destination(lat, lon, r.dir, (r.long - r.short) / 2);
+  return distanceBearing(c.lat, c.lon, sLat, sLon).km <= (r.long + r.short) / 2;
 }
 
 const lerp = (a: number, b: number, f: number) => a + (b - a) * f;
@@ -160,13 +183,13 @@ const jstDate = (t: number) => new Date(t + 9 * 3_600_000).toISOString().slice(0
  * The days a storm came within `withinKm` of the station, with whether the station lay inside its
  * 強風域 / 暴風域. Only tropical stages count (grades 2–5, 9): an extratropical low (6) is no typhoon.
  */
-export function typhoonDays(storm: Storm, lat: number, lon: number, shape: Shape = "ellipse", withinKm = 500): TyphoonDay[] {
+export function typhoonDays(storm: Storm, lat: number, lon: number, shape: Shape = "offset", withinKm = 500): TyphoonDay[] {
   const days = new Map<string, TyphoonDay>();
   for (const p of hourly(storm.points)) {
     if (p.grade === 6) continue;
-    const { km, bearing } = distanceBearing(p.lat, p.lon, lat, lon);
-    const gale = p.r30 != null && km <= radiusToward(p.r30, bearing, shape);
-    const violent = p.r50 != null && km <= radiusToward(p.r50, bearing, shape);
+    const { km } = distanceBearing(p.lat, p.lon, lat, lon);
+    const gale = p.r30 != null && inside(p.r30, p.lat, p.lon, lat, lon, shape);
+    const violent = p.r50 != null && inside(p.r50, p.lat, p.lon, lat, lon, shape);
     if (km > withinKm && !gale) continue;
     const date = jstDate(p.t);
     const d = days.get(date) ?? { date, storm: { id: storm.id, year: storm.year, number: storm.number, name: storm.name }, gale: false, violent: false, nearestKm: Infinity, pressure: null };

@@ -1,7 +1,7 @@
 // TY-01 (#220, research/typhoon/track.ts): reading the best track and setting it against a station.
 
 import { describe, expect, it } from "vitest";
-import { distanceBearing, hourly, parseBestTrack, radiusToward, typhoonDays } from "../../research/typhoon/track";
+import { destination, distanceBearing, hourly, inside, parseBestTrack, radiusToward, typhoonDays } from "../../research/typhoon/track";
 
 /** A line at its columns (1-indexed, inclusive), as the format sets them. */
 function at(fields: [number, string][]) {
@@ -62,6 +62,20 @@ describe("the best track", () => {
     expect(radiusToward(r, 270, "ellipse")).toBeCloseTo(100);
     expect(radiusToward(r, 0, "ellipse")).toBeCloseTo(150);
     expect(radiusToward(r, 270, "circle")).toBe(200);
+  });
+
+  it("draws JMA's moved circle: the diameter the longest plus the shortest, moved toward the longest", () => {
+    const r = { long: 300, short: 100, dir: 90 }; // longest to the east
+    const east = destination(33, 133, 90, 290);
+    const west = destination(33, 133, 270, 110);
+    const north = destination(33, 133, 0, 190);
+    expect(inside(r, 33, 133, east.lat, east.lon, "offset")).toBe(true);
+    expect(inside(r, 33, 133, west.lat, west.lon, "offset")).toBe(false);
+    // To the side: √(300·100) ≈ 173 km reach, less than the ellipse's 200 km.
+    expect(inside(r, 33, 133, north.lat, north.lon, "offset")).toBe(false);
+    expect(inside(r, 33, 133, north.lat, north.lon, "ellipse")).toBe(true);
+    // All round: a plain circle of the radius.
+    expect(inside({ long: 200, short: 200, dir: null }, 33, 133, north.lat, north.lon, "offset")).toBe(true);
   });
 
   it("finds the days (日本時間) inside the 強風域 and 暴風域, and not after it turned extratropical", () => {
