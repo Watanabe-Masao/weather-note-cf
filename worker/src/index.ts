@@ -14,6 +14,7 @@ import { fetchForecast, fetchSunTimes } from "./open-meteo";
 import { type AccountsEnv, type Db, ensureSchema, handleAccounts, isAccountPath } from "./accounts";
 import { runSchedule } from "./notify";
 import { activeTyphoons } from "./typhoon";
+import { collectForecasts } from "./forecastArchive";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { runTyphoonNotify } from "./typhoonNotify";
@@ -193,7 +194,10 @@ export default {
         // 台風の目安: after the new telegrams are in (typhoonNotify.ts).
         .then(() => ensureSchema(db))
         .then(() => runTyphoonNotify(db))
-        .catch((e) => console.error("weather-note: typhoon notify", e)),
+        .catch((e) => console.error("weather-note: typhoon notify", e))
+        // 予報の履歴 (#250): JMA's forecasts of the offices in use, kept as issued (forecastArchive.ts).
+        .then(() => collectForecasts(db))
+        .catch((e) => console.error("weather-note: forecast archive", e)),
     );
   },
 } satisfies ExportedHandler<AccountsEnv>;
