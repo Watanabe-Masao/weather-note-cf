@@ -139,6 +139,11 @@ self.addEventListener("notificationclick", (event) => {
         open.postMessage({ type: "report", n });
         return open.focus();
       }
+      // 台風の目安 (#220): the open app shows the typhoon's sheet.
+      if (open && url.searchParams.get("typhoon")) {
+        open.postMessage({ type: "typhoon", number: Number(url.searchParams.get("typhoon")) });
+        return open.focus();
+      }
       return self.clients.openWindow(url.href);
     }),
   );

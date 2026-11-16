@@ -40,6 +40,7 @@ import { FeelSheet } from "./ui/FeelSheet";
 import { HourFace } from "./ui/HourFace";
 import { ConditionSheet } from "./ui/ConditionSheet";
 import { TyphoonCard } from "./ui/TyphoonCard";
+import { TyphoonSheet } from "./ui/TyphoonSheet";
 import { useActiveTyphoons } from "./data/typhoonNow";
 import { TyphoonDaysContext, useTyphoonDays } from "./data/typhoonDays";
 import type { Conditions } from "../shared/conditions";
@@ -160,6 +161,18 @@ export function App(_: { theme?: string } = {}) {
   // 前の台風の日と比べる (TyphoonCard): 条件から選ぶ opened on the typhoon days, any temperature or rain.
   const [conditionsPreset, setConditionsPreset] = useState<Partial<Conditions> | undefined>(undefined);
   const typhoons = useActiveTyphoons();
+  // 台風の目安 (#220): opened from its notification (?typhoon=<number>, or a message while open).
+  const [typhoonAsked, setTyphoonAsked] = useState<number | null>(() => {
+    const n = Number(new URLSearchParams(location.search).get("typhoon"));
+    if (!n) return null;
+    history.replaceState(null, "", location.pathname);
+    return n;
+  });
+  useEffect(() => {
+    const onMessage = (e: MessageEvent<{ type?: string; number?: number }>) => e.data?.type === "typhoon" && e.data.number && setTyphoonAsked(e.data.number);
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
+  }, []);
   // 台風の日 for the table's 台 mark: past days from the best track, today and ahead from JMA's word now.
   const typhoonOn = useTyphoonDays(view.station, today, typhoons);
 
@@ -614,6 +627,7 @@ export function App(_: { theme?: string } = {}) {
       )}
 
       {/* その日の要約 (#176): over whatever it was opened from (the table, the calendar, the hours). */}
+      {typhoonAsked && <TyphoonSheet station={view.station} date={today} number={typhoonAsked} info={typhoons} onClose={() => setTyphoonAsked(null)} />}
       {summary && <DaySummaryCard store={store} station={view.station} ask={summary} typhoons={typhoons} onClose={() => setSummary(null)} />}
     </div>
     </TyphoonDaysContext.Provider>

@@ -60,4 +60,13 @@ export async function turnOffDevice(): Promise<void> {
 
 export const loadNotify = () => api<{ settings: NotifySettings; devices: number }>("/api/me/notify");
 export const saveNotify = (s: NotifySettings) => api<{ settings: NotifySettings; devices: number }>("/api/me/notify", s);
+/** 台風の目安 (#220): its own switch, the station it reads, and the hours it may ring (Japan time). */
+export interface TyphoonNotifySettings {
+  enabled: boolean;
+  station: string | null;
+  from: string;
+  to: string;
+}
+export const loadTyphoonNotify = () => api<{ settings: TyphoonNotifySettings }>("/api/me/typhoon-notify");
+export const saveTyphoonNotify = (s: TyphoonNotifySettings) => api<{ settings: TyphoonNotifySettings }>("/api/me/typhoon-notify", s);
 export const testNotify = () => api<{ devices: number }>("/api/push/test", {});
