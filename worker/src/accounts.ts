@@ -44,6 +44,7 @@ import {
   settingsOf,
   vapidKeys,
 } from "./notify";
+import { archiveSummary } from "./typhoonArchive";
 
 // ---- schema ----------------------------------------------------------------------------------
 
@@ -809,6 +810,7 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         const a = await db.prepare("SELECT expires_at FROM export_tokens WHERE revoked_at IS NULL AND expires_at > ? ORDER BY expires_at DESC LIMIT 1").bind(now).first<{ expires_at: number }>();
         return json({ active: a ? { expiresAt: a.expires_at } : null });
       }
+      if (path === "/api/admin/typhoon-archive" && !post) return json(await archiveSummary(db));
       if (path === "/api/admin/exports" && !post) {
         const log = (await db.prepare("SELECT e.at, e.path, e.first, e.rows, e.dataset, u.login_id AS admin FROM export_log e LEFT JOIN users u ON u.id = e.admin_id ORDER BY e.id DESC LIMIT 200").all()).results;
         return json({ log });
