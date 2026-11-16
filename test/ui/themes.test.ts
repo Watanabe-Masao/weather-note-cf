@@ -136,7 +136,10 @@ describe.each(THEME_NAMES)("%s", (name) => {
       ...(
         ["hot", "cold", "rain", "sun", "wind", "pressure", "humidity"] as const
       ).map((k) =>
-        contrast(over(t.data[k], 0.75, t.surface.base), t.surface.base),
+        contrast(
+          over(t.data[k], t.compareOpacity, t.surface.base),
+          t.surface.base,
+        ),
       ),
     );
     expect(ref).toBeGreaterThanOrEqual(1.8);
@@ -166,7 +169,7 @@ describe.each(THEME_NAMES)("%s", (name) => {
     expect(range(at(t.chart.hatch), 1.5, 1.7)).toBe(true);
     expect(range(at(t.chart.grid), 1.2, 1.4)).toBe(true);
     const compare = contrast(
-      over(t.data.hot, 0.75, t.surface.base),
+      over(t.data.hot, t.compareOpacity, t.surface.base),
       t.surface.base,
     );
     expect(
@@ -189,22 +192,44 @@ describe.each(THEME_NAMES)("%s", (name) => {
       );
     }
   });
-  it("draws the 肌感 steps in order: 3:1 on a light face, and their lightness rising from 寒い to 暑い there", () => {
-    if (t.dark) return; // Deep Navy keeps the steps as they were (each 3:1 on its faces already)
+  it("draws the 肌感 steps as one diverging scale in every theme: 寒い and 暑い farthest, ふつう nearest, each pair alike", () => {
+    // The distances from the base face, cold to hot (#242): the same in each theme, so a step reads
+    // as strongly on Deep Navy as on the light faces. Each still reads as a mark on the card.
+    const want = [4.4, 3.6, 2.9, 2.4, 2.9, 3.6, 4.4];
+    const at = t.feel.map((c) => contrast(c, t.surface.base));
     expect(
-      ok(
-        t.feel.flatMap(
-          (c, i) =>
-            [
-              [`feel${i + 1}/base`, c, t.surface.base],
-              [`feel${i + 1}/raised`, c, t.surface.raised],
-            ] as [string, string, string][],
-        ),
-        3,
+      at.flatMap((v, i) =>
+        Math.abs(v - want[i]) > 0.15 ? [`feel${i + 1} ${v.toFixed(2)}`] : [],
       ),
     ).toEqual([]);
-    const L = t.feel.map((c) => oklab(c)[0]);
-    expect(L.every((v, i) => i === 0 || v > L[i - 1])).toBe(true);
+    expect(
+      t.feel.flatMap((c, i) =>
+        contrast(c, t.surface.raised) < 2
+          ? [`feel${i + 1}/raised ${contrast(c, t.surface.raised).toFixed(2)}`]
+          : [],
+      ),
+    ).toEqual([]);
+    expect(t.feel5).toEqual([0, 2, 3, 4, 6].map((i) => t.feel[i]));
+    expect(t.feel3).toEqual([1, 3, 5].map((i) => t.feel[i]));
+  });
+  it("sets the faces one distance from the base in every theme (Warm White's: card ΔL 5.0)", () => {
+    const L = (c: string) => oklab(c)[0] * 100;
+    const b = L(t.surface.base);
+    expect(L(t.surface.raised) - b).toBeGreaterThan(4.7);
+    expect(L(t.surface.raised) - b).toBeLessThan(5.3);
+    expect(L(t.surface.overlay)).toBeGreaterThanOrEqual(L(t.surface.raised));
+    expect(b - L(t.surface.inset)).toBeGreaterThan(2.1);
+    expect(b - L(t.surface.inset)).toBeLessThan(2.9);
+  });
+  it("draws the comparison day at 80% of the main line's distance", () => {
+    const main = contrast(t.data.hot, t.surface.base) - 1;
+    const cmp =
+      contrast(
+        over(t.data.hot, t.compareOpacity, t.surface.base),
+        t.surface.base,
+      ) - 1;
+    expect(cmp / main).toBeGreaterThan(0.76);
+    expect(cmp / main).toBeLessThan(0.84);
   });
 });
 

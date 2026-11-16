@@ -57,13 +57,16 @@ interface Palette {
     | "sheen"
     | "quiet"
     | "estimated"
-    | "estimatedQuiet",
+    | "estimatedQuiet"
+    | "veil",
     string
   >;
   /** Reference lines in graphs (the weeks before, the air behind 肌感): below the comparison day (P4 under P2). */
   reference: { color: string; opacity: number };
   /** The graph's grid and its forecast hatch: opaque, each as far from the face in every theme. */
   chart: Record<"grid" | "hatch", string>;
+  /** The comparison day's line: its opacity puts it at 80% of the main line's distance from the face. */
+  compareOpacity: number;
 }
 const DATA_KEYS = [
   "hot",
@@ -107,7 +110,7 @@ const lightShadow = (tint: string) => ({
 // On a light face, what is behind a raised sheet recedes into the page's own light (a dark veil reads
 // as grime there); an overlay still dims, more lightly than on Deep Navy. A quiet or estimated picture
 // keeps more of itself: the same lowering of opacity takes far more contrast from a light face.
-const lightEffect = (tint: string, page: string) => ({
+const lightEffect = (tint: string, page: string, veil: string) => ({
   scrim: `rgba(${page},0.55)`,
   backdrop: `rgba(${tint},0.30)`,
   blur: "10px",
@@ -117,6 +120,7 @@ const lightEffect = (tint: string, page: string) => ({
   quiet: "1",
   estimated: "1",
   estimatedQuiet: "1",
+  veil,
 });
 
 const THEMES: Record<ThemeName, Palette> = {
@@ -125,9 +129,9 @@ const THEMES: Record<ThemeName, Palette> = {
     surface: {
       page: "#101b2c",
       base: "#172337",
-      raised: "#1e2c40",
-      overlay: "#24344a",
-      inset: "#131f31",
+      raised: "#223044",
+      overlay: "#233145",
+      inset: "#111d2f",
     },
     // tertiary as secondary: the 補足 comparison chose 3 (one quiet ink, size and place tell the rest).
     ink: {
@@ -152,9 +156,9 @@ const THEMES: Record<ThemeName, Palette> = {
       glow: "rgba(145, 180, 155, 0.24)",
     },
     data: {
-      hot: "#e1745d",
-      cold: "#4c99df",
-      temp: "#e1745d",
+      hot: "#e47760",
+      cold: "#4f9ce2",
+      temp: "#e47760",
       mean: "#8ea3b9",
       rain: "#45c8d8",
       snow: "#cdd9ff",
@@ -177,23 +181,23 @@ const THEMES: Record<ThemeName, Palette> = {
       error: "#ff8a80",
     },
     icon: {
-      sun: "#e8ac2b",
-      moon: "#cabf8b",
-      cloud: "#95a7ba",
-      rain: "#579ede",
+      sun: "#cf9504",
+      moon: "#aaa074",
+      cloud: "#92a1b3",
+      rain: "#61a5e3",
       glint: "#ffffff",
     },
     feel: [
-      "#5262d8",
-      "#7f9cea",
-      "#a9cbf2",
-      "#a5d48f",
-      "#f3d27a",
-      "#f0a463",
-      "#e5705c",
+      "#6d80e3",
+      "#5b76c0",
+      "#4d6c8f",
+      "#3e6827",
+      "#826604",
+      "#af6822",
+      "#d86451",
     ],
-    feel5: ["#6474e4", "#a9cbf2", "#a5d48f", "#f3d27a", "#ec8466"],
-    feel3: ["#8fa9ee", "#a5d48f", "#f0b06a"],
+    feel5: ["#6d80e3", "#4d6c8f", "#3e6827", "#826604", "#d86451"],
+    feel3: ["#5b76c0", "#3e6827", "#af6822"],
     bands: ["#f4f7fb", "#cdd8e6", "#a9b8cb", "#8797ad", "#6a7a91"],
     shadow: DARK_SHADOW,
     effect: {
@@ -206,18 +210,22 @@ const THEMES: Record<ThemeName, Palette> = {
       quiet: "1",
       estimated: "1",
       estimatedQuiet: "1",
+      // The icon's fill: no colour of its own, a veil over whatever face the icon sits on (its line is
+      // the colour), so the fill keeps one relation to the card, the sheet and the sunk face alike.
+      veil: "rgba(255, 255, 255, 0.05)",
     },
     reference: { color: "#555e68", opacity: 1 },
     chart: { grid: "#2e3740", hatch: "#3c444e" },
+    compareOpacity: 0.89,
   },
   mist: {
     dark: false,
     surface: {
       page: "#c4d0c1",
       base: "#d2dccf",
-      raised: "#f1f4ee",
-      overlay: "#f6f8f3",
-      inset: "#c6d2c3",
+      raised: "#e7eae4",
+      overlay: "#e9ece6",
+      inset: "#c9d5c6",
     },
     ink: {
       primary: "#26382c",
@@ -269,28 +277,29 @@ const THEMES: Record<ThemeName, Palette> = {
       error: "#a73a36",
     },
     icon: {
-      sun: "#876003",
-      moon: "#70673d",
-      cloud: "#5a6979",
-      rain: "#256ba5",
+      sun: "#7c5802",
+      moon: "#685e35",
+      cloud: "#515f6f",
+      rain: "#19619b",
       glint: "#ffffff",
     },
     feel: [
-      "#2e30aa",
-      "#304892",
-      "#37577a",
-      "#3d6924",
-      "#7a5f01",
-      "#9b5603",
-      "#bb4432",
+      "#4958b7",
+      "#526bb5",
+      "#6080a4",
+      "#6b9755",
+      "#997a18",
+      "#a35d12",
+      "#ab3b2a",
     ],
-    feel5: ["#2e30aa", "#37577a", "#3d6924", "#7a5f01", "#bb4432"],
-    feel3: ["#304892", "#3d6924", "#9b5603"],
+    feel5: ["#4958b7", "#6080a4", "#6b9755", "#997a18", "#ab3b2a"],
+    feel3: ["#526bb5", "#6b9755", "#a35d12"],
     bands: ["#26382c", "#35483b", "#45584b", "#56695c", "#677b6d"],
     shadow: lightShadow("38, 56, 44"),
-    effect: lightEffect("30, 44, 36", "196, 208, 193"),
+    effect: lightEffect("30, 44, 36", "196, 208, 193", "rgba(0, 0, 0, 0.07)"),
     reference: { color: "#838d98", opacity: 1 },
     chart: { grid: "#b6c1cc", hatch: "#a4aeb9" },
+    compareOpacity: 0.89,
   },
   warm: {
     dark: false,
@@ -351,28 +360,29 @@ const THEMES: Record<ThemeName, Palette> = {
       error: "#b54842",
     },
     icon: {
-      sun: "#986c02",
-      moon: "#7e744a",
-      cloud: "#677686",
-      rain: "#3478b3",
+      sun: "#8b6305",
+      moon: "#746b41",
+      cloud: "#5d6c7c",
+      rain: "#296ea9",
       glint: "#ffffff",
     },
     feel: [
-      "#2e30aa",
-      "#304892",
-      "#37577a",
-      "#3d6924",
-      "#7a5f01",
-      "#9b5603",
-      "#bb4432",
+      "#5565c6",
+      "#5e79c4",
+      "#6e8eb3",
+      "#79a663",
+      "#a7882b",
+      "#b16a25",
+      "#b94937",
     ],
-    feel5: ["#2e30aa", "#37577a", "#3d6924", "#7a5f01", "#bb4432"],
-    feel3: ["#304892", "#3d6924", "#9b5603"],
+    feel5: ["#5565c6", "#6e8eb3", "#79a663", "#a7882b", "#b94937"],
+    feel3: ["#5e79c4", "#79a663", "#b16a25"],
     bands: ["#243448", "#334459", "#43546a", "#53657b", "#64768d"],
     shadow: lightShadow("36, 52, 72"),
-    effect: lightEffect("36, 46, 60", "247, 245, 240"),
+    effect: lightEffect("36, 46, 60", "247, 245, 240", "rgba(0, 0, 0, 0.065)"),
     reference: { color: "#919ba6", opacity: 1 },
     chart: { grid: "#c8d3df", hatch: "#b4bfca" },
+    compareOpacity: 0.9,
   },
 };
 export const themePalette = (t: ThemeName): Readonly<Palette> => THEMES[t];
@@ -772,6 +782,7 @@ export function applyTheme(
   BAND_LINES.splice(0, BAND_LINES.length, ...t.bands);
   LINE.reference = t.reference.color;
   LINE.referenceOpacity = t.reference.opacity;
+  LINE.opacity.compare = t.compareOpacity;
   LINE.dimmed = t.ink.disabled;
   for (const [k, v] of Object.entries(cssVariables()))
     root.style.setProperty(k, v);
