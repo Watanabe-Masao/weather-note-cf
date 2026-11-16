@@ -1020,9 +1020,8 @@ button.label-feel:active { transform: scale(0.97); }
 
 /* The grid steps back behind the values: finer dots, a little lighter (質感, design-system.md 4.1). */
 .chart-grid {
-  stroke: var(--line-strong);
+  stroke: var(--chart-grid);
   stroke-dasharray: 2 5;
-  stroke-opacity: 0.55;
 }
 
 /* The target day's values by its points: the item's colour, haloed in the face behind (a line
@@ -1248,7 +1247,7 @@ button.label-feel:active { transform: scale(0.97); }
 /* Hatch in the 予報 grey (the label's colour): forecast is "not yet measured", so it has no hue of its own;
    the accent blue is kept for the chosen day (#151). */
 .hatch-bg { fill: color-mix(in srgb, var(--status-forecast) 4%, transparent); }
-.hatch-line { stroke: color-mix(in srgb, var(--status-forecast) var(--effect-hatch), transparent); stroke-width: 1.4; }
+.hatch-line { stroke: var(--chart-hatch); stroke-width: 1.4; }
 
 .chart-forecast-label {
   fill: var(--status-forecast);
@@ -4045,6 +4044,8 @@ svg.scrub {
 
 /* A day's weather estimated from sunshine and precipitation (JMA's summary not out yet). */
 .weather-estimated { display: inline-flex; opacity: var(--effect-estimated); }
+/* Estimated is told by a dotted line, never by fading (同じ強さ、形で区別, #241). */
+.weather-estimated svg path { stroke-dasharray: 2.2 2.6; }
 
 /* The weather of each band above the hourly graph: the day's icon, the partner day's smaller. */
 .band-wx { position: relative; height: 34px; margin-top: 0; }

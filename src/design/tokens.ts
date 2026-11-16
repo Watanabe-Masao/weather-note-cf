@@ -6,7 +6,6 @@
 
 // ---- colour ---------------------------------------------------------------------------------
 
-
 // ---- themes (#241) --------------------------------------------------------------------------------
 //
 // Three themes on one structure (知覚品質に基づくカラーシステム再設計書 v1.0, 2026-11-16): Deep Navy (the
@@ -19,13 +18,23 @@
 
 export type ThemeName = "navy" | "mist" | "warm";
 export const THEME_NAMES: ThemeName[] = ["navy", "mist", "warm"];
-export const THEME_LABEL: Record<ThemeName, string> = { navy: "Deep Navy", mist: "Mist Green", warm: "Warm White" };
+export const THEME_LABEL: Record<ThemeName, string> = {
+  navy: "Deep Navy",
+  mist: "Mist Green",
+  warm: "Warm White",
+};
 
 interface Palette {
   dark: boolean;
   surface: Record<"page" | "base" | "raised" | "overlay" | "inset", string>;
-  ink: Record<"primary" | "secondary" | "tertiary" | "disabled" | "onAccent", string>;
-  line: Record<"strong" | "soft" | "focus" | "swatch" | "highlight" | "shade", string>;
+  ink: Record<
+    "primary" | "secondary" | "tertiary" | "disabled" | "onAccent",
+    string
+  >;
+  line: Record<
+    "strong" | "soft" | "focus" | "swatch" | "highlight" | "shade",
+    string
+  >;
   accent: Record<"base" | "strong" | "wash" | "glow", string>;
   data: Record<(typeof DATA_KEYS)[number], string>;
   day: Record<"saturday" | "holiday", string>;
@@ -35,17 +44,51 @@ interface Palette {
   feel5: string[];
   feel3: string[];
   bands: string[];
-  shadow: Record<"card" | "sheet" | "overlay" | "pinned" | "lift" | "float" | "edge", string>;
-  effect: Record<"scrim" | "backdrop" | "blur" | "gloss" | "glossStrong" | "sheen" | "quiet" | "estimated" | "estimatedQuiet" | "hatch", string>;
+  shadow: Record<
+    "card" | "sheet" | "overlay" | "pinned" | "lift" | "float" | "edge",
+    string
+  >;
+  effect: Record<
+    | "scrim"
+    | "backdrop"
+    | "blur"
+    | "gloss"
+    | "glossStrong"
+    | "sheen"
+    | "quiet"
+    | "estimated"
+    | "estimatedQuiet",
+    string
+  >;
   /** Reference lines in graphs (the weeks before, the air behind 肌感): below the comparison day (P4 under P2). */
   reference: { color: string; opacity: number };
+  /** The graph's grid and its forecast hatch: opaque, each as far from the face in every theme. */
+  chart: Record<"grid" | "hatch", string>;
 }
-const DATA_KEYS = ["hot", "cold", "temp", "mean", "rain", "snow", "sun", "radiation", "humidity", "humidityLow", "wind", "gust", "pressure", "pressureHigh", "pressureLow", "feel"] as const;
+const DATA_KEYS = [
+  "hot",
+  "cold",
+  "temp",
+  "mean",
+  "rain",
+  "snow",
+  "sun",
+  "radiation",
+  "humidity",
+  "humidityLow",
+  "wind",
+  "gust",
+  "pressure",
+  "pressureHigh",
+  "pressureLow",
+  "feel",
+] as const;
 
 const DARK_SHADOW = {
   card: "0 1px 0 rgba(255,255,255,0.04) inset, 0 6px 18px rgba(0,0,0,0.22)",
   sheet: "0 -1px 0 rgba(255,255,255,0.06) inset, 0 -10px 30px rgba(0,0,0,0.36)",
-  overlay: "0 -1px 0 rgba(255,255,255,0.07) inset, 0 -16px 48px rgba(0,0,0,0.55)",
+  overlay:
+    "0 -1px 0 rgba(255,255,255,0.07) inset, 0 -16px 48px rgba(0,0,0,0.55)",
   pinned: "0 8px 20px rgba(0,0,0,0.38)",
   lift: "0 1px 3px rgba(0,0,0,0.32)", // a chosen segment, a cell or a slider thumb a hair above its face
   float: "0 10px 28px rgba(0,0,0,0.45)", // a card floating over content (zoom card, toast)
@@ -71,24 +114,47 @@ const lightEffect = (tint: string, page: string) => ({
   gloss: "rgba(255, 255, 255, 0.35)",
   glossStrong: "rgba(255, 255, 255, 0.55)",
   sheen: "rgba(255, 255, 255, 0.3)",
-  hatch: "12%",
-  quiet: "0.9",
-  estimated: "0.8",
-  estimatedQuiet: "0.7",
+  quiet: "1",
+  estimated: "1",
+  estimatedQuiet: "1",
 });
 
 const THEMES: Record<ThemeName, Palette> = {
   navy: {
     dark: true,
-    surface: { page: "#101b2c", base: "#172337", raised: "#1e2c40", overlay: "#24344a", inset: "#131f31" },
+    surface: {
+      page: "#101b2c",
+      base: "#172337",
+      raised: "#1e2c40",
+      overlay: "#24344a",
+      inset: "#131f31",
+    },
     // tertiary as secondary: the 補足 comparison chose 3 (one quiet ink, size and place tell the rest).
-    ink: { primary: "#d9d1c4", secondary: "#ada99f", tertiary: "#ada99f", disabled: "#6c727c", onAccent: "#101b2c" },
-    line: { strong: "#42536a", soft: "rgba(255, 255, 255, 0.06)", focus: "#91b49b", swatch: "rgba(255, 255, 255, 0.14)", highlight: "rgba(255, 255, 255, 0.35)", shade: "rgba(0, 0, 0, 0.25)" },
-    accent: { base: "#91b49b", strong: "#7da587", wash: "rgba(145, 180, 155, 0.12)", glow: "rgba(145, 180, 155, 0.24)" },
+    ink: {
+      primary: "#d9d1c4",
+      secondary: "#ada99f",
+      tertiary: "#ada99f",
+      disabled: "#6c727c",
+      onAccent: "#101b2c",
+    },
+    line: {
+      strong: "#42536a",
+      soft: "rgba(255, 255, 255, 0.06)",
+      focus: "#91b49b",
+      swatch: "rgba(255, 255, 255, 0.14)",
+      highlight: "rgba(255, 255, 255, 0.35)",
+      shade: "rgba(0, 0, 0, 0.25)",
+    },
+    accent: {
+      base: "#91b49b",
+      strong: "#7da587",
+      wash: "rgba(145, 180, 155, 0.12)",
+      glow: "rgba(145, 180, 155, 0.24)",
+    },
     data: {
-      hot: "#f39a86",
-      cold: "#74b6f5",
-      temp: "#f39a86",
+      hot: "#e1745d",
+      cold: "#4c99df",
+      temp: "#e1745d",
       mean: "#8ea3b9",
       rain: "#45c8d8",
       snow: "#cdd9ff",
@@ -104,27 +170,80 @@ const THEMES: Record<ThemeName, Palette> = {
       feel: "#c9a6f7",
     },
     day: { saturday: "#86b8ff", holiday: "#ff9a8f" },
-    status: { forecast: "#c6cfdb", provisional: "#d7b46a", warning: "#f0b45a", error: "#ff8a80" },
-    icon: { sun: "#f5b83d", moon: "#e6dcae", cloud: "#a9b9cb", rain: "#6fb3f2", glint: "#ffffff" },
-    feel: ["#5262d8", "#7f9cea", "#a9cbf2", "#a5d48f", "#f3d27a", "#f0a463", "#e5705c"],
+    status: {
+      forecast: "#c6cfdb",
+      provisional: "#d7b46a",
+      warning: "#f0b45a",
+      error: "#ff8a80",
+    },
+    icon: {
+      sun: "#e8ac2b",
+      moon: "#cabf8b",
+      cloud: "#95a7ba",
+      rain: "#579ede",
+      glint: "#ffffff",
+    },
+    feel: [
+      "#5262d8",
+      "#7f9cea",
+      "#a9cbf2",
+      "#a5d48f",
+      "#f3d27a",
+      "#f0a463",
+      "#e5705c",
+    ],
     feel5: ["#6474e4", "#a9cbf2", "#a5d48f", "#f3d27a", "#ec8466"],
     feel3: ["#8fa9ee", "#a5d48f", "#f0b06a"],
     bands: ["#f4f7fb", "#cdd8e6", "#a9b8cb", "#8797ad", "#6a7a91"],
     shadow: DARK_SHADOW,
-    effect: { scrim: "rgba(3, 8, 14, 0.55)", backdrop: "rgba(3, 8, 14, 0.62)", blur: "10px", gloss: "rgba(255, 255, 255, 0.04)", glossStrong: "rgba(255, 255, 255, 0.06)", sheen: "rgba(255, 255, 255, 0.16)", quiet: "0.7", estimated: "0.6", estimatedQuiet: "0.4", hatch: "24%" },
-    // The primary ink at 60%: white enough to be told from every item's colour, under the comparison day (#151).
-    reference: { color: "#d9d1c4", opacity: 0.6 },
+    effect: {
+      scrim: "rgba(3, 8, 14, 0.55)",
+      backdrop: "rgba(3, 8, 14, 0.62)",
+      blur: "10px",
+      gloss: "rgba(255, 255, 255, 0.04)",
+      glossStrong: "rgba(255, 255, 255, 0.06)",
+      sheen: "rgba(255, 255, 255, 0.16)",
+      quiet: "1",
+      estimated: "1",
+      estimatedQuiet: "1",
+    },
+    reference: { color: "#555e68", opacity: 1 },
+    chart: { grid: "#2e3740", hatch: "#3c444e" },
   },
   mist: {
     dark: false,
-    surface: { page: "#c4d0c1", base: "#d2dccf", raised: "#f1f4ee", overlay: "#f6f8f3", inset: "#c6d2c3" },
-    ink: { primary: "#26382c", secondary: "#465a4b", tertiary: "#475a4a", disabled: "#748678", onAccent: "#ffffff" },
-    line: { strong: "#9eaf9b", soft: "#c3d0c1", focus: "#28543f", swatch: "rgba(38, 56, 44, 0.18)", highlight: "rgba(255, 255, 255, 0.6)", shade: "rgba(38, 56, 44, 0.2)" },
-    accent: { base: "#356c53", strong: "#28543f", wash: "rgba(53, 108, 83, 0.12)", glow: "rgba(53, 108, 83, 0.22)" },
+    surface: {
+      page: "#c4d0c1",
+      base: "#d2dccf",
+      raised: "#f1f4ee",
+      overlay: "#f6f8f3",
+      inset: "#c6d2c3",
+    },
+    ink: {
+      primary: "#26382c",
+      secondary: "#465a4b",
+      tertiary: "#475a4a",
+      disabled: "#748678",
+      onAccent: "#ffffff",
+    },
+    line: {
+      strong: "#9eaf9b",
+      soft: "#c3d0c1",
+      focus: "#28543f",
+      swatch: "rgba(38, 56, 44, 0.18)",
+      highlight: "rgba(255, 255, 255, 0.6)",
+      shade: "rgba(38, 56, 44, 0.2)",
+    },
+    accent: {
+      base: "#356c53",
+      strong: "#28543f",
+      wash: "rgba(53, 108, 83, 0.12)",
+      glow: "rgba(53, 108, 83, 0.22)",
+    },
     data: {
-      hot: "#a33d2e",
-      cold: "#1f527f",
-      temp: "#a33d2e",
+      hot: "#9c3622",
+      cold: "#045b9a",
+      temp: "#9c3622",
       mean: "#4d6074",
       rain: "#075c70",
       snow: "#555e7f",
@@ -140,40 +259,73 @@ const THEMES: Record<ThemeName, Palette> = {
       feel: "#68458c",
     },
     day: {
-    saturday: "#325fa0",
-    holiday: "#9d423b",
-  },
+      saturday: "#325fa0",
+      holiday: "#9d423b",
+    },
     status: {
-    forecast: "#575f6a",
-    provisional: "#795900",
-    warning: "#a56f06",
-    error: "#a73a36",
-  },
+      forecast: "#575f6a",
+      provisional: "#795900",
+      warning: "#a56f06",
+      error: "#a73a36",
+    },
     icon: {
-    sun: "#a07307",
-    moon: "#847b50",
-    cloud: "#6d7c8c",
-    rain: "#3b7fba",
-    glint: "#ffffff",
-  },
-    feel: ["#2e30aa", "#304892", "#37577a", "#3d6924", "#7a5f01", "#9b5603", "#bb4432"],
+      sun: "#876003",
+      moon: "#70673d",
+      cloud: "#5a6979",
+      rain: "#256ba5",
+      glint: "#ffffff",
+    },
+    feel: [
+      "#2e30aa",
+      "#304892",
+      "#37577a",
+      "#3d6924",
+      "#7a5f01",
+      "#9b5603",
+      "#bb4432",
+    ],
     feel5: ["#2e30aa", "#37577a", "#3d6924", "#7a5f01", "#bb4432"],
     feel3: ["#304892", "#3d6924", "#9b5603"],
     bands: ["#26382c", "#35483b", "#45584b", "#56695c", "#677b6d"],
     shadow: lightShadow("38, 56, 44"),
     effect: lightEffect("30, 44, 36", "196, 208, 193"),
-    reference: { color: "#475a4a", opacity: 0.5 },
+    reference: { color: "#838d98", opacity: 1 },
+    chart: { grid: "#b6c1cc", hatch: "#a4aeb9" },
   },
   warm: {
     dark: false,
-    surface: { page: "#f7f5f0", base: "#f0ede6", raised: "#fffefb", overlay: "#ffffff", inset: "#e9e5dd" },
-    ink: { primary: "#243448", secondary: "#536274", tertiary: "#616b73", disabled: "#939a9e", onAccent: "#ffffff" },
-    line: { strong: "#d0cdc5", soft: "#e2ded6", focus: "#28543f", swatch: "rgba(36, 52, 72, 0.16)", highlight: "rgba(255, 255, 255, 0.7)", shade: "rgba(36, 52, 72, 0.18)" },
-    accent: { base: "#356c53", strong: "#28543f", wash: "rgba(53, 108, 83, 0.10)", glow: "rgba(53, 108, 83, 0.20)" },
+    surface: {
+      page: "#f7f5f0",
+      base: "#f0ede6",
+      raised: "#fffefb",
+      overlay: "#ffffff",
+      inset: "#e9e5dd",
+    },
+    ink: {
+      primary: "#243448",
+      secondary: "#536274",
+      tertiary: "#616b73",
+      disabled: "#939a9e",
+      onAccent: "#ffffff",
+    },
+    line: {
+      strong: "#d0cdc5",
+      soft: "#e2ded6",
+      focus: "#28543f",
+      swatch: "rgba(36, 52, 72, 0.16)",
+      highlight: "rgba(255, 255, 255, 0.7)",
+      shade: "rgba(36, 52, 72, 0.18)",
+    },
+    accent: {
+      base: "#356c53",
+      strong: "#28543f",
+      wash: "rgba(53, 108, 83, 0.10)",
+      glow: "rgba(53, 108, 83, 0.20)",
+    },
     data: {
-      hot: "#b04d3b",
-      cold: "#2e6fa1",
-      temp: "#b04d3b",
+      hot: "#ab442f",
+      cold: "#1268ab",
+      temp: "#ab442f",
       mean: "#596d81",
       rain: "#017587",
       snow: "#616b8c",
@@ -189,29 +341,38 @@ const THEMES: Record<ThemeName, Palette> = {
       feel: "#7955a2",
     },
     day: {
-    saturday: "#3e6cae",
-    holiday: "#ac4f47",
-  },
+      saturday: "#3e6cae",
+      holiday: "#ac4f47",
+    },
     status: {
-    forecast: "#646c76",
-    provisional: "#866614",
-    warning: "#b67d16",
-    error: "#b54842",
-  },
+      forecast: "#646c76",
+      provisional: "#866614",
+      warning: "#b67d16",
+      error: "#b54842",
+    },
     icon: {
-    sun: "#b28007",
-    moon: "#92895e",
-    cloud: "#7b8a9b",
-    rain: "#4a8dca",
-    glint: "#ffffff",
-  },
-    feel: ["#2e30aa", "#304892", "#37577a", "#3d6924", "#7a5f01", "#9b5603", "#bb4432"],
+      sun: "#986c02",
+      moon: "#7e744a",
+      cloud: "#677686",
+      rain: "#3478b3",
+      glint: "#ffffff",
+    },
+    feel: [
+      "#2e30aa",
+      "#304892",
+      "#37577a",
+      "#3d6924",
+      "#7a5f01",
+      "#9b5603",
+      "#bb4432",
+    ],
     feel5: ["#2e30aa", "#37577a", "#3d6924", "#7a5f01", "#bb4432"],
     feel3: ["#304892", "#3d6924", "#9b5603"],
     bands: ["#243448", "#334459", "#43546a", "#53657b", "#64768d"],
     shadow: lightShadow("36, 52, 72"),
     effect: lightEffect("36, 46, 60", "247, 245, 240"),
-    reference: { color: "#616b73", opacity: 0.5 },
+    reference: { color: "#919ba6", opacity: 1 },
+    chart: { grid: "#c8d3df", hatch: "#b4bfca" },
   },
 };
 export const themePalette = (t: ThemeName): Readonly<Palette> => THEMES[t];
@@ -226,6 +387,7 @@ const surface = { ...THEMES.navy.surface };
 const ink = { ...THEMES.navy.ink };
 const line = { ...THEMES.navy.line };
 const accent = { ...THEMES.navy.accent };
+const chart = { ...THEMES.navy.chart };
 
 /**
  * Data colours. Each colour means one kind of value everywhere (table, graphs, summary, lists).
@@ -236,7 +398,9 @@ const accent = { ...THEMES.navy.accent };
  * One colour per item, so switching items changes the picture (気圧 used to look like 気温, 日差し like
  * 日照). An item with a high and a low uses one hue: the high light, the low deep (#151).
  */
-export const DATA: Record<(typeof DATA_KEYS)[number], string> = { ...THEMES.navy.data };
+export const DATA: Record<(typeof DATA_KEYS)[number], string> = {
+  ...THEMES.navy.data,
+};
 
 // ---- lines in graphs ---------------------------------------------------------------------------
 //
@@ -255,15 +419,18 @@ export type LineWeight = "main" | "minor";
 
 export const LINE = {
   dash: { target: undefined, compare: "6 4" },
-  width: { main: { target: 2.4, compare: 1.6 }, minor: { target: 1.4, compare: 1 } },
+  width: {
+    main: { target: 2.4, compare: 1.6 },
+    minor: { target: 1.4, compare: 1 },
+  },
   opacity: { target: 1, compare: 0.75 },
   /** References are this much of a value line's width. */
   referenceScale: 0.7,
   // From the ink palette, not new colours: references in the primary ink (white: no item's colour is
   // near it — the quiet ink was, 風速's #a9c6de), drawn at 60% so a reference never outshines the
   // comparison day it is read against (#151); set-aside lines in the disabled one.
-  reference: ink.primary,
-  referenceOpacity: 0.6,
+  reference: THEMES.navy.reference.color as string,
+  referenceOpacity: THEMES.navy.reference.opacity as number,
   dimmed: ink.disabled,
   dimmedScale: 0.7,
   // 0.55 (#173): at 0.8 a set-aside reference line hardly changed (ΔE 15.6 from its own look).
@@ -281,23 +448,41 @@ export interface LineLook {
 export function lineLook(
   day: LineDay,
   color: string,
-  { kind = "value", weight = "main", dimmed = false }: { kind?: LineKind; weight?: LineWeight; dimmed?: boolean } = {},
+  {
+    kind = "value",
+    weight = "main",
+    dimmed = false,
+  }: { kind?: LineKind; weight?: LineWeight; dimmed?: boolean } = {},
 ): LineLook {
   let width: number = LINE.width[weight][day];
   if (kind === "reference") width *= LINE.referenceScale;
   if (dimmed) width = Math.max(1, width * LINE.dimmedScale);
   return {
-    stroke: dimmed ? LINE.dimmed : kind === "reference" ? LINE.reference : color,
+    stroke: dimmed
+      ? LINE.dimmed
+      : kind === "reference"
+        ? LINE.reference
+        : color,
     strokeWidth: Math.round(width * 10) / 10,
     strokeDasharray: LINE.dash[day],
-    opacity: dimmed ? LINE.dimmedOpacity : kind === "reference" ? LINE.opacity[day] * LINE.referenceOpacity : LINE.opacity[day],
+    opacity: dimmed
+      ? LINE.dimmedOpacity
+      : kind === "reference"
+        ? LINE.opacity[day] * LINE.referenceOpacity
+        : LINE.opacity[day],
   };
 }
 
 /** Bars by the same rule: the target filled, the comparison outlined. */
-export function barLook(day: LineDay, color: string, dimmed = false): { fill: string; stroke: string; opacity: number } {
+export function barLook(
+  day: LineDay,
+  color: string,
+  dimmed = false,
+): { fill: string; stroke: string; opacity: number } {
   const c = dimmed ? LINE.dimmed : color;
-  return day === "target" ? { fill: c, stroke: "none", opacity: dimmed ? LINE.dimmedOpacity : 1 } : { fill: "none", stroke: c, opacity: dimmed ? LINE.dimmedOpacity : 0.8 };
+  return day === "target"
+    ? { fill: c, stroke: "none", opacity: dimmed ? LINE.dimmedOpacity : 1 }
+    : { fill: "none", stroke: c, opacity: dimmed ? LINE.dimmedOpacity : 0.8 };
 }
 
 // ---- shapes in graphs (質感) -----------------------------------------------------------------------
@@ -315,7 +500,14 @@ export function barLook(day: LineDay, color: string, dimmed = false): { fill: st
 export const SHAPE = {
   bar: { radius: 3, widthShare: 0.25 },
   /** 幅 bars: width (a share of a day, at most maxWidth), the centres `offset` widths either side of the day's. */
-  range: { maxWidth: 12, share: 0.24, offset: 0.62, compareStroke: 1.4, meanOverhang: 2, meanWidth: 2.4 },
+  range: {
+    maxWidth: 12,
+    share: 0.24,
+    offset: 0.62,
+    compareStroke: 1.4,
+    meanOverhang: 2,
+    meanWidth: 2.4,
+  },
   /** Distance (px) from a point to its label's baseline: above, and below (the digits' height added). */
   valueLabel: { above: 7, below: 15, halo: 3 },
 } as const;
@@ -324,7 +516,13 @@ export const SHAPE = {
  * An amount bar from the 0 line up to y, its top corners rounded (SHAPE.bar). `h` is the bar's
  * height; the foot (y + h) stays square.
  */
-export function barPath(x: number, y: number, w: number, h: number, r: number = SHAPE.bar.radius): string {
+export function barPath(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number = SHAPE.bar.radius,
+): string {
   // A narrow bar (時間帯: 24 to a row) gets a smaller round, so it stays a bar with soft corners
   // and never turns into a pill: at most a quarter of its width.
   const k = Math.max(0, Math.min(r, w * SHAPE.bar.widthShare, h));
@@ -340,14 +538,25 @@ export function barPath(x: number, y: number, w: number, h: number, r: number = 
 export const ICON: Palette["icon"] = { ...THEMES.navy.icon }; // cloud: as quiet as the secondary ink, now that clouds are drawn in line
 
 /** The six 明るさ levels (shared/brightness.ts), dark to light: night navy to pale daylight. */
-export const LIGHT_LEVELS = ["#0b1220", "#26305e", "#4f5b80", "#8d9bb3", "#d6dbe0", "#fff1bf"] as const;
+export const LIGHT_LEVELS = [
+  "#0b1220",
+  "#26305e",
+  "#4f5b80",
+  "#8d9bb3",
+  "#d6dbe0",
+  "#fff1bf",
+] as const;
 export type DataColor = keyof typeof DATA;
 
 /** The five 肌感 levels, cold to hot. The ends are kept apart from the 最低/最高 data colours. */
 /** The seven 肌感 steps, cold to hot (fills only). Five and three use these, by the step they gather. */
 export const FEEL_LEVELS: string[] = [...THEMES.navy.feel];
 /** Colour of each step of the 5 and 3 scales (from the seven: the step's own colour). */
-export const FEEL_SCALE_COLORS: Record<7 | 5 | 3, string[]> = { 7: FEEL_LEVELS, 5: [...THEMES.navy.feel5], 3: [...THEMES.navy.feel3] };
+export const FEEL_SCALE_COLORS: Record<7 | 5 | 3, string[]> = {
+  7: FEEL_LEVELS,
+  5: [...THEMES.navy.feel5],
+  3: [...THEMES.navy.feel3],
+};
 
 /** Lines for the five 時間区分 in the trend graph (朝・日中・昼・夕方・夜): distinct from the level colours. */
 /**
@@ -356,7 +565,13 @@ export const FEEL_SCALE_COLORS: Record<7 | 5 | 3, string[]> = { 7: FEEL_LEVELS, 
  * level colour, which the graph shows behind them.
  */
 export const BAND_LINES: string[] = [...THEMES.navy.bands];
-export const BAND_MARKS = ["circle", "square", "triangle", "diamond", "ring"] as const;
+export const BAND_MARKS = [
+  "circle",
+  "square",
+  "triangle",
+  "diamond",
+  "ring",
+] as const;
 export type BandMark = (typeof BAND_MARKS)[number];
 
 /** Day tones for dates: only the date and weekday text carry them. */
@@ -367,8 +582,10 @@ const status = { ...THEMES.navy.status };
 // ---- type, space, shape, depth ------------------------------------------------------------------
 
 const font = {
-  family: 'system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif',
-  numeric: 'ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Hiragino Sans", sans-serif',
+  family:
+    'system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif',
+  numeric:
+    'ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Hiragino Sans", sans-serif',
   mono: 'ui-monospace, "SF Mono", Menlo, monospace', // codes and clock times to read out character by character
 } as const;
 
@@ -384,7 +601,15 @@ const font = {
  */
 // The steps are iOS's text styles at the standard setting (#151): xs = Caption 2 (11, the smallest
 // iOS uses), sm = Caption 1, base = Footnote, md = Subheadline, lg = Headline/Body, xl = Title 3.
-const size = { xs: 11, sm: 12, base: 13, md: 15, lg: 17, xl: 20, input: 16 } as const;
+const size = {
+  xs: 11,
+  sm: 12,
+  base: 13,
+  md: 15,
+  lg: 17,
+  xl: 20,
+  input: 16,
+} as const;
 
 /**
  * Text roles on the data faces (読み取り・日別の表・比較サマリー; #151). Each role is one size,
@@ -408,9 +633,27 @@ export const TEXT_ROLES = {
 // the figures heavier; 600 is the one weight both faces draw.
 const weight = { regular: 400, medium: 500, bold: 600 } as const;
 
-const space = { 1: 2, 2: 4, 3: 6, 4: 8, 5: 10, 6: 12, 7: 16, 8: 20, 9: 24 } as const;
+const space = {
+  1: 2,
+  2: 4,
+  3: 6,
+  4: 8,
+  5: 10,
+  6: 12,
+  7: 16,
+  8: 20,
+  9: 24,
+} as const;
 /** Corners. `tick` is for small marks (swatches, bars, badges); circles use 50%. */
-const radius = { tick: 2, xs: 4, sm: 6, md: 10, lg: 14, xl: 20, pill: 999 } as const;
+const radius = {
+  tick: 2,
+  xs: 4,
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 20,
+  pill: 999,
+} as const;
 
 /**
  * The table's 肌感 band (FeelBar): one strip with soft corners (`radius.xs`), the time bands' colours
@@ -461,13 +704,19 @@ const kebab = (s: string) => s.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 /** All tokens as CSS custom properties: --surface-base, --data-hot, --space-4, --motion-enter … */
 export function cssVariables(): Record<string, string> {
   const out: Record<string, string> = {};
-  const put = (group: string, values: Record<string, string | number>, unit = "") => {
-    for (const [k, v] of Object.entries(values)) out[`--${group}-${kebab(k)}`] = typeof v === "number" ? `${v}${unit}` : v;
+  const put = (
+    group: string,
+    values: Record<string, string | number>,
+    unit = "",
+  ) => {
+    for (const [k, v] of Object.entries(values))
+      out[`--${group}-${kebab(k)}`] = typeof v === "number" ? `${v}${unit}` : v;
   };
   put("surface", surface);
   put("ink", ink);
   put("line", line);
   put("accent", accent);
+  put("chart", chart);
   put("data", DATA);
   put("day", day);
   put("status", status);
@@ -480,7 +729,16 @@ export function cssVariables(): Record<string, string> {
   put("feel-band", { divider: FEEL_BAND.divider, ring: FEEL_BAND.ring }, "px");
   put("shadow", shadow);
   put("layer", LAYER);
-  put("motion", { quick: MOTION.quick, base: MOTION.base, enter: MOTION.enter, exit: MOTION.exit }, "ms");
+  put(
+    "motion",
+    {
+      quick: MOTION.quick,
+      base: MOTION.base,
+      enter: MOTION.enter,
+      exit: MOTION.exit,
+    },
+    "ms",
+  );
   put("ease", MOTION.ease);
   put("effect", effect);
   return out;
@@ -491,13 +749,17 @@ export function cssVariables(): Record<string, string> {
  * Puts a theme in use: the colour objects SVG reads are filled in place, and every token is written
  * as a CSS custom property on the root, with the page's color-scheme and the browser's theme colour.
  */
-export function applyTheme(name: ThemeName, root: HTMLElement = document.documentElement) {
+export function applyTheme(
+  name: ThemeName,
+  root: HTMLElement = document.documentElement,
+) {
   const t = THEMES[name];
   current = name;
   Object.assign(surface, t.surface);
   Object.assign(ink, t.ink);
   Object.assign(line, t.line);
   Object.assign(accent, t.accent);
+  Object.assign(chart, t.chart);
   Object.assign(DATA, t.data);
   Object.assign(day, t.day);
   Object.assign(status, t.status);
@@ -511,10 +773,14 @@ export function applyTheme(name: ThemeName, root: HTMLElement = document.documen
   LINE.reference = t.reference.color;
   LINE.referenceOpacity = t.reference.opacity;
   LINE.dimmed = t.ink.disabled;
-  for (const [k, v] of Object.entries(cssVariables())) root.style.setProperty(k, v);
+  for (const [k, v] of Object.entries(cssVariables()))
+    root.style.setProperty(k, v);
   root.dataset.theme = name;
   root.style.colorScheme = t.dark ? "dark" : "light";
-  if (typeof document !== "undefined") document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t.surface.page);
+  if (typeof document !== "undefined")
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute("content", t.surface.page);
 }
 
 /** The tokens of the theme in use (Deep Navy until another is chosen). */

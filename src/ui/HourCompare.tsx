@@ -247,7 +247,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                 {
                   key: "avg",
                   label: `手前${WINDOW_LABEL[avgWindow]}の平均`,
-                  color: LINE.reference,
+                  // Read as numbers: in the secondary ink (the reference line's own colour is drawn faint, #241).
+                  color: "var(--ink-secondary)",
                   a: avgMain ? formatDetail(at(avgMain), metric) : "—",
                   b: avgOther ? formatDetail(at(avgOther), metric) : "—",
                   diff: avgMain && avgOther ? signedDiff(at(avgMain), at(avgOther), metric.unit) : "",

@@ -156,6 +156,39 @@ describe.each(THEME_NAMES)("%s", (name) => {
         ),
     ).toEqual([]);
   });
+  it("puts each graph role as far from the face in every theme (役割ごとの距離, #243): main > comparison > reference > hatch > grid", () => {
+    const at = (c: string) => contrast(c, t.surface.base);
+    const range = (v: number, lo: number, hi: number) => v >= lo && v <= hi;
+    expect(
+      [at(t.data.hot), at(t.data.cold)].every((v) => range(v, 4.6, 5.4)),
+    ).toBe(true);
+    expect(range(at(t.reference.color), 2.2, 2.6)).toBe(true);
+    expect(range(at(t.chart.hatch), 1.5, 1.7)).toBe(true);
+    expect(range(at(t.chart.grid), 1.2, 1.4)).toBe(true);
+    const compare = contrast(
+      over(t.data.hot, 0.75, t.surface.base),
+      t.surface.base,
+    );
+    expect(
+      at(t.data.hot) > compare &&
+        compare > at(t.reference.color) &&
+        at(t.reference.color) > at(t.chart.hatch) &&
+        at(t.chart.hatch) > at(t.chart.grid),
+    ).toBe(true);
+  });
+  it("keeps the temperatures one colour across themes: the same hue and chroma (only the lightness differs)", () => {
+    const navy = themePalette("navy");
+    for (const k of ["hot", "cold"] as const) {
+      const [, a1, b1] = oklab(navy.data[k]);
+      const [, a2, b2] = oklab(t.data[k]);
+      expect(Math.abs(Math.atan2(b1, a1) - Math.atan2(b2, a2))).toBeLessThan(
+        0.06,
+      );
+      expect(Math.abs(Math.hypot(a1, b1) - Math.hypot(a2, b2))).toBeLessThan(
+        0.02,
+      );
+    }
+  });
   it("draws the 肌感 steps in order: 3:1 on a light face, and their lightness rising from 寒い to 暑い there", () => {
     if (t.dark) return; // Deep Navy keeps the steps as they were (each 3:1 on its faces already)
     expect(
