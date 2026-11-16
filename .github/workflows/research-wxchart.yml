@@ -1,0 +1,23 @@
+name: research-wxchart
+
+# #249 天気図の調査 (WX-01): which weather charts JMA serves, how far back, in which form
+# (research/wxchart/probe.sh). Runs on a push to research/wxchart only; nothing is committed, the
+# report is the job summary and a few samples are this run's artifact. 出典：気象庁ホームページ。
+on:
+  push:
+    branches: [research/wxchart]
+    paths: [research/wxchart/**, .github/workflows/research-wxchart.yml]
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash research/wxchart/probe.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wxchart-samples
+          path: samples/
+          retention-days: 7
