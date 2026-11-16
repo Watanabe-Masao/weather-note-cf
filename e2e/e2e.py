@@ -3,6 +3,7 @@
 #
 # Run:  npx vite build && python3 e2e/e2e.py [width]
 #       WN_CHROME=/path/to/chrome to use a given browser; exits 1 when a check fails (CI).
+import re
 import time
 import json, re, sys, datetime, random, threading, http.server, functools, os
 from playwright.sync_api import sync_playwright
@@ -200,6 +201,9 @@ with sync_playwright() as p:
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         route.fulfill(status=200, content_type="application/json", body=json.dumps(with_quality(api(u.path, q))))
     ctx.route("**/api/**", handle)
+    # 天気図 (#249): JMA's pictures stand in as a 1px PNG (no network in the test).
+    PNG1 = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000" "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
+    ctx.route(re.compile(r"https://www\.(data\.)?jma\.go\.jp/.*\.png$"), lambda r: r.fulfill(status=200, content_type="image/png", body=PNG1))
     pg = ctx.new_page()
     pg.on("console", lambda m: m.type in ("error", "warning") and errors.append(m.text))
     pg.on("pageerror", lambda e: errors.append("PAGEERROR " + str(e)))
@@ -648,6 +652,7 @@ with sync_playwright() as p:
         pg.locator(".dd-part").nth(2).click(); calm()
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
         check("SD4 この日の値：肌感＋7項目", pg.locator(".dd-value").count() == 8, pg.locator(".dd-value").count())
+        check("SD4b 天気図（③の一番上）：時刻を選べる", pg.locator(".wx-chart").count() == 1 and (pg.locator(".wx-hours button").count() == 7 or pg.locator(".wx-chart b", has_text="予想天気図").count() == 1))
         pg.locator(".dd-value", has_text="降水").first.click(); calm()
         check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
         if shots: pg.screenshot(path=f"{shots}-single.png", full_page=True)

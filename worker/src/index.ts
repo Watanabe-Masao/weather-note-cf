@@ -16,6 +16,7 @@ import { runSchedule } from "./notify";
 import { activeTyphoons } from "./typhoon";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
+import { forecastCharts } from "../../shared/wxchart";
 import { runTyphoonNotify } from "./typhoonNotify";
 import { logTyphoonJson, watchTyphoonSources } from "./typhoonWatch";
 
@@ -128,6 +129,14 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db): Promise<Res
       }));
     }
 
+    case "/api/wxchart-forecast": {
+      // 予想天気図 (#249): JMA's latest 24・48時間 charts, as its weather map page lists them, shared for 30 minutes.
+      return cachedFor(url.origin, `${CACHE_VERSION}/wxchart-forecast`, TYPHOON_TTL, waitUntil, async () => {
+        const r = await fetch("https://www.jma.go.jp/bosai/weather_map/data/list.json");
+        if (!r.ok) throw new Error(`weather_map list ${r.status}`);
+        return { v: 1, source: "気象庁ホームページ", charts: forecastCharts(await r.json()) };
+      });
+    }
     case "/api/typhoon-recent": {
       // 当時の発表で埋める: the typhoons of the telegrams kept, from a day (the best track's next), shared for 30 minutes.
       const since = q.get("from") ?? "";

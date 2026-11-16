@@ -26,6 +26,7 @@ import { HourFace } from "./HourFace";
 import { useSun } from "./HourCompare";
 import { Conf, confidenceOfRow, SectionHead } from "./kit";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
+import { WxChart } from "./WxChart";
 
 interface Props {
   store: WeatherStore | null;
@@ -135,6 +136,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
 
       <div className="dd-sec">
         <SectionHead title="根拠と記録" as="h3" />
+        <WxChart date={date} today={today} />
         <p className="dd-basis">
           <span>出どころ</span>
           {row?.type === "forecast" ? `気象庁の予報${conf ? `（信頼度 ${conf}）` : ""}` : `気象庁の観測（${kindLabel(store, station, date) || "—"}）`}
