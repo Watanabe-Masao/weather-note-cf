@@ -10,7 +10,9 @@
 // shape moves the days: the radius rising smoothly from the shortest to the longest ("ellipse"), and
 // the longest all round ("circle"). TY-01 found ellipse and circle 28% apart, so the shape was chosen.
 //
-// Research only (#220): the app does not read this file. 出典：気象庁 RSMC Tokyo ベストトラック。
+// Used by the month review (台風の日, from a compact copy of the track: public/data/typhoon-tracks.json,
+// built by scripts/typhoon-tracks.ts) and by the check that chose the shape (research/typhoon, TY-01).
+// 出典：気象庁 RSMC Tokyo ベストトラック。強風域・暴風域に入ったかの判定は Weather Note による。
 
 export interface TrackPoint {
   /** UTC, ms. */
@@ -202,4 +204,90 @@ export function typhoonDays(storm: Storm, lat: number, lon: number, shape: Shape
     days.set(date, d);
   }
   return [...days.values()].sort((a, b) => a.date.localeCompare(b.date));
+}
+
+// ---- the compact copy the app reads (public/data/typhoon-tracks.json) ------------------------------
+
+/**
+ * One analysis as numbers: hours since 1970 (UTC), grade, lat×10, lon×10, pressure (0 = none), and
+ * the 30-kt and 50-kt radii as [longest km, shortest km, bearing (−1 = all round)] (empty = none).
+ */
+export type CompactPoint = [number, number, number, number, number, number[], number[]];
+export interface CompactStorm {
+  /** year, number (台風◯号), name */
+  y: number;
+  n: number;
+  name: string;
+  p: CompactPoint[];
+}
+export interface CompactTracks {
+  v: 1;
+  /** 出典 and when it was built (UTC ISO). */
+  source: string;
+  built: string;
+  storms: CompactStorm[];
+}
+
+const H = 3_600_000;
+const packRadius = (r: Radius | null) => (r ? [Math.round(r.long), Math.round(r.short), r.dir ?? -1] : []);
+const unpackRadius = (a: number[]): Radius | null => (a.length ? { long: a[0], short: a[1], dir: a[2] < 0 ? null : a[2] } : null);
+
+/**
+ * The storms the app needs, small: tropical stages only kept where they matter (a storm is kept
+ * whole when any of its points comes within `nearKm` of the box around Japan, so its hours can be filled).
+ */
+export function compactTracks(storms: Storm[], built: string, box = { lat: [20, 50], lon: [120, 155] }): CompactTracks {
+  const near = (p: TrackPoint) => p.lat >= box.lat[0] && p.lat <= box.lat[1] && p.lon >= box.lon[0] && p.lon <= box.lon[1];
+  return {
+    v: 1,
+    source: "気象庁 RSMC Tokyo ベストトラック",
+    built,
+    storms: storms
+      .filter((s) => s.points.some((p) => p.grade !== 6 && near(p)))
+      .map((s) => ({
+        y: s.year,
+        n: s.number,
+        name: s.name,
+        p: s.points.map((p): CompactPoint => [Math.round(p.t / H), p.grade, Math.round(p.lat * 10), Math.round(p.lon * 10), p.pressure ?? 0, packRadius(p.r30), packRadius(p.r50)]),
+      })),
+  };
+}
+
+/** The compact copy back as storms (wind and landfall are not kept). */
+export function expandTracks(c: CompactTracks): Storm[] {
+  return c.storms.map((s) => ({
+    id: `${String(s.y % 100).padStart(2, "0")}${String(s.n).padStart(2, "0")}`,
+    year: s.y,
+    number: s.n,
+    name: s.name,
+    points: s.p.map(([t, grade, lat, lon, pressure, r30, r50]) => ({
+      t: t * H,
+      grade,
+      lat: lat / 10,
+      lon: lon / 10,
+      pressure: pressure || null,
+      wind: null,
+      r30: unpackRadius(r30),
+      r50: unpackRadius(r50),
+      landfall: false,
+    })),
+  }));
+}
+
+/** Every typhoon day of the storms at a station, by date (日本時間), one storm a day (the nearer). */
+export function typhoonDaysAt(storms: Storm[], lat: number, lon: number, from: string, to: string): Map<string, TyphoonDay> {
+  const out = new Map<string, TyphoonDay>();
+  const y0 = Number(from.slice(0, 4));
+  const y1 = Number(to.slice(0, 4));
+  for (const s of storms) {
+    if (s.year < y0 - 1 || s.year > y1) continue;
+    for (const d of typhoonDays(s, lat, lon)) {
+      if (d.date < from || d.date > to) continue;
+      const had = out.get(d.date);
+      // Two storms on one day: the one whose area held the station, else the nearer.
+      const rank = (x: TyphoonDay) => (x.violent ? 2 : x.gale ? 1 : 0);
+      if (!had || rank(d) > rank(had) || (rank(d) === rank(had) && d.nearestKm < had.nearestKm)) out.set(d.date, d);
+    }
+  }
+  return out;
 }

@@ -12,3 +12,6 @@
 /manifest.webmanifest
   Cache-Control: no-cache
   Content-Type: application/manifest+json
+# 台風の進路（scripts/typhoon-tracks.ts）: rebuilt about once a month; a day at the edge and in the browser.
+/data/*
+  Cache-Control: public, max-age=86400
