@@ -12,9 +12,9 @@
 // dark one), Mist Green and Warm White. A colour keeps its meaning in every theme (the same hue for an
 // item); its lightness is set per theme so it reads as strongly on that face: text 4.5:1 and graph
 // lines 3:1 against the faces it sits on, checked by test/ui/themes.test.ts. The accent is green in all
-// three (操作だけ, never data); 湿度 moved to teal so it stays apart from it (ΔE ≥ 12).
-// The light themes' 肌感 steps are darkened to 3:1 on their faces, their lightness still rising from
-// 寒い to 暑い so the order is not told by hue alone. Values: issue #241.
+// three (操作だけ, never data); 湿度 moved to teal so it stays apart from it (ΔE ≥ 10). Each graph role
+// sits as far from the face in every theme (#243), the 肌感 steps as one diverging scale (4.4 … 2.4 … 4.4),
+// and Deep Navy's temperatures and 肌感 are matched by impression, not chroma (#244). Values: #241, #242.
 
 export type ThemeName = "navy" | "mist" | "warm";
 export const THEME_NAMES: ThemeName[] = ["navy", "mist", "warm"];
@@ -433,12 +433,11 @@ export const LINE = {
     main: { target: 2.4, compare: 1.6 },
     minor: { target: 1.4, compare: 1 },
   },
-  opacity: { target: 1, compare: 0.75 },
+  opacity: { target: 1, compare: THEMES.navy.compareOpacity },
   /** References are this much of a value line's width. */
   referenceScale: 0.7,
-  // From the ink palette, not new colours: references in the primary ink (white: no item's colour is
-  // near it — the quiet ink was, 風速's #a9c6de), drawn at 60% so a reference never outshines the
-  // comparison day it is read against (#151); set-aside lines in the disabled one.
+  // References in each theme's own opaque grey, 2.4 from the face: under the comparison day it is read
+  // against (#151, #243); set-aside lines in the disabled ink.
   reference: THEMES.navy.reference.color as string,
   referenceOpacity: THEMES.navy.reference.opacity as number,
   dimmed: ink.disabled,

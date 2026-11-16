@@ -1,14 +1,19 @@
 // テーマ (#241): the three themes on one structure, each checked where it is read — text 4.5:1 on the
-// faces it sits on, data colours 4.5:1 (they are read as numbers), state marks 3:1, the 肌感 steps
-// 3:1 with their order in lightness too, and the accent kept apart from every data colour.
+// faces it sits on, data colours 4.5:1 (they are read as numbers), state marks 3:1, each graph role
+// as far from the face in every theme, the 肌感 steps one diverging scale, the faces one distance apart,
+// and the accent kept apart from every data colour.
 
 import { describe, expect, it } from "vitest";
 import { contrast, deltaE, oklab } from "../../src/design/contrast";
 import {
   applyTheme,
+  BAND_LINES,
   cssVariables,
   DATA,
   FEEL_LEVELS,
+  FEEL_SCALE_COLORS,
+  ICON,
+  LINE,
   THEME_NAMES,
   themePalette,
 } from "../../src/design/tokens";
@@ -127,36 +132,15 @@ describe.each(THEME_NAMES)("%s", (name) => {
           .padStart(2, "0"),
       )
       .join("");
-  it("keeps a reference line under the comparison day, yet seen (P4 under P2)", () => {
-    const ref = contrast(
-      over(t.reference.color, t.reference.opacity, t.surface.base),
-      t.surface.base,
-    );
-    const weakestCompare = Math.min(
-      ...(
-        ["hot", "cold", "rain", "sun", "wind", "pressure", "humidity"] as const
-      ).map((k) =>
-        contrast(
-          over(t.data[k], t.compareOpacity, t.surface.base),
-          t.surface.base,
-        ),
-      ),
-    );
-    expect(ref).toBeGreaterThanOrEqual(1.8);
-    expect(ref).toBeLessThan(weakestCompare + 0.5);
-  });
-  it("keeps the partner day's and an estimated weather picture seen (2:1 even both at once)", () => {
-    const a = Number(t.effect.estimatedQuiet);
+  it("never fades a weather picture: the partner day's and an estimate keep the full line (thinner, dotted instead)", () => {
+    expect([t.effect.quiet, t.effect.estimated, t.effect.estimatedQuiet]).toEqual(["1", "1", "1"]);
+    const want = t.dark ? 6.0 : 4.6;
     const pics = Object.entries(t.icon).filter(([k]) => k !== "glint");
     expect(
-      pics
-        .filter(
-          ([, c]) => contrast(over(c, a, t.surface.base), t.surface.base) < 2,
-        )
-        .map(
-          ([k, c]) =>
-            `${k} ${contrast(over(c, a, t.surface.base), t.surface.base).toFixed(2)}`,
-        ),
+      pics.flatMap(([k, c]) => {
+        const v = contrast(c, t.surface.base);
+        return Math.abs(v - want) > 0.15 ? [`${k} ${v.toFixed(2)}`] : [];
+      }),
     ).toEqual([]);
   });
   it("puts each graph role as far from the face in every theme (役割ごとの距離, #243): main > comparison > reference > hatch > grid", () => {
@@ -244,20 +228,24 @@ const NAVY_SATURATION = 0.68;
 const NAVY_RED_LEAN = 10;
 
 describe("putting a theme in use", () => {
-  it("fills the colours SVG reads and the CSS properties alike", () => {
-    applyTheme("warm", {
-      style: { setProperty() {} },
-      dataset: {},
-    } as unknown as HTMLElement);
-    expect(DATA.hot).toBe(themePalette("warm").data.hot);
-    expect(FEEL_LEVELS[0]).toBe(themePalette("warm").feel[0]);
-    expect(cssVariables()["--surface-page"]).toBe(
-      themePalette("warm").surface.page,
-    );
-    applyTheme("navy", {
-      style: { setProperty() {} },
-      dataset: {},
-    } as unknown as HTMLElement);
-    expect(DATA.hot).toBe(themePalette("navy").data.hot);
+  const el = () =>
+    ({ style: { setProperty() {} }, dataset: {} }) as unknown as HTMLElement;
+  it("fills every colour SVG reads and the CSS properties, with nothing left from the theme before", () => {
+    for (const name of ["navy", "mist", "warm", "navy"] as const) {
+      applyTheme(name, el());
+      const t = themePalette(name);
+      expect(DATA).toEqual(t.data);
+      expect(ICON).toEqual(t.icon);
+      expect(FEEL_LEVELS).toEqual(t.feel);
+      expect(FEEL_SCALE_COLORS[5]).toEqual(t.feel5);
+      expect(FEEL_SCALE_COLORS[3]).toEqual(t.feel3);
+      expect(BAND_LINES).toEqual(t.bands);
+      expect(LINE.reference).toBe(t.reference.color);
+      expect(LINE.referenceOpacity).toBe(t.reference.opacity);
+      expect(LINE.opacity.compare).toBe(t.compareOpacity);
+      expect(LINE.dimmed).toBe(t.ink.disabled);
+      expect(cssVariables()["--surface-page"]).toBe(t.surface.page);
+      expect(cssVariables()["--effect-veil"]).toBe(t.effect.veil);
+    }
   });
 });

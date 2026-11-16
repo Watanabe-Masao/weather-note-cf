@@ -1002,7 +1002,7 @@ function HourChart({
             <rect x={xOf(0)} width={xOf(24) - xOf(0)} y={(stripTop + stripBottom) / 2} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-horizon)`} />
           </>
         )}
-        {/* Over the sky, the white line rides on a dark edge (#173: on a clear noon sky white alone
+        {/* Over the sky, the sun's line (the primary ink) rides on a dark edge (#173: on a clear noon sky white alone
             stood only 1.5–2.8 : 1 from it; with the edge it reads on every sky). */}
         {sunPath && skyStops && <path d={sunPath} className="day-sun-casing" />}
         {sunPath && <path d={sunPath} className={skyStops ? "day-sun over-sky" : "day-sun"} />}

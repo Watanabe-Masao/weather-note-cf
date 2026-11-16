@@ -4045,7 +4045,7 @@ svg.scrub {
 /* A day's weather estimated from sunshine and precipitation (JMA's summary not out yet). */
 .weather-estimated { display: inline-flex; opacity: var(--effect-estimated); }
 /* Estimated is told by a dotted line, never by fading (同じ強さ、形で区別, #241). */
-.weather-estimated svg path:not(.icon-veil) { stroke-dasharray: 2.2 2.6; }
+.weather-estimated svg[data-sky] path:not(.icon-veil) { stroke-dasharray: 2.2 2.6; }
 
 /* The weather of each band above the hourly graph: the day's icon, the partner day's smaller. */
 .band-wx { position: relative; height: 34px; margin-top: 0; }
@@ -4060,7 +4060,7 @@ svg.scrub {
 .band-wx-main, .band-wx-other { display: inline-flex; }
 .band-wx-other { opacity: var(--effect-quiet); }
 /* The comparison day's icon: the same picture in a finer line (the main day 1.9). */
-.band-wx-other svg { stroke-width: 1.65; }
+.band-wx-other svg[data-sky] { stroke-width: 1.65; }
 .band-wx-other.weather-estimated { opacity: var(--effect-estimated-quiet); }
 .band-wx .none { font-size: var(--size-sm); color: var(--ink-secondary); }
 

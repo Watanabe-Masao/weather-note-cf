@@ -30,6 +30,7 @@ function Root() {
     if (choice !== "system" || typeof matchMedia !== "function") return;
     const m = matchMedia("(prefers-color-scheme: dark)");
     const on = () => setDark(m.matches);
+    on(); // the phone may have changed while another theme was chosen
     m.addEventListener("change", on);
     return () => m.removeEventListener("change", on);
   }, [choice]);
