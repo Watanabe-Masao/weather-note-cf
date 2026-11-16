@@ -111,3 +111,11 @@ describe("the compact copy the app reads", () => {
     expect(compactTracks(far, "x").storms).toHaveLength(0);
   });
 });
+
+describe("how far the best track reaches", () => {
+  it("is its newest storm's last analysis, in JST", async () => {
+    const { tracksEnd } = await import("../../shared/typhoon");
+    expect(tracksEnd(parseBestTrack(text))).toBe("2024-08-30");
+    expect(tracksEnd([])).toBeNull();
+  });
+});

@@ -33,7 +33,7 @@ import {
 } from "../../shared/conditions";
 import { monthDay, num, weekdayOf, yearMark } from "../design/format";
 import { stationLatLon } from "../../shared/sunTimes";
-import { typhoonDaysAt } from "../../shared/typhoon";
+import { tracksEnd, typhoonDaysAt } from "../../shared/typhoon";
 import { useTyphoonTracks } from "../data/typhoon";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
@@ -66,6 +66,9 @@ const RAIN_MODES: { id: RainMode; label: string }[] = [
 const SHOWN = 60;
 
 const t1 = (v: number) => v.toFixed(1);
+
+/** 2026年10月8日 */
+const ymdJa = (d: string) => `${+d.slice(0, 4)}年${+d.slice(5, 7)}月${+d.slice(8)}日`;
 
 function tempText(c: TempCondition): string {
   if (c.mode === "ge") return `${t1(c.lo)}℃ 以上`;
@@ -351,6 +354,7 @@ function Face({ store, station, target, compareDate, onPick, preset }: Omit<Prop
             台風の日：その日、観測点が台風の強風域に入った日。出典：気象庁（ベストトラック）、判定は Weather Note。
             {tracks === "loading" && typhoonOn ? " 台風の進路を読み込み中…" : ""}
             {tracks === "none" ? " 台風の進路のデータが読めないため、いまは台風で絞り込めません。" : ""}
+            {Array.isArray(tracks) && tracksEnd(tracks) ? ` 記録に入っている台風は ${ymdJa(tracksEnd(tracks)!)}まで（それより後の台風の日はまだ分かりません）。` : ""}
           </p>
         </Line>
         <Line id="period" label="期間" tone="mean" value={periodText(c)} sub={periodDates(target, c, today)} open={open === "period"} onToggle={() => toggle("period")}>

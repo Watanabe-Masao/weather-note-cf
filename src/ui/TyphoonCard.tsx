@@ -7,6 +7,7 @@
 import stations from "../../shared/stations.json";
 import { stationLatLon } from "../../shared/sunTimes";
 import { stationOnTyphoon, typhoonConcerns, type TyphoonNow } from "../../shared/typhoonForecast";
+import type { TyphoonInfo } from "../data/typhoonNow";
 import { Button } from "./kit";
 
 export const JMA_TYPHOON_PAGE = "https://www.jma.go.jp/bosai/map.html#contents=typhoon";
@@ -14,11 +15,25 @@ export const JMA_TYPHOON_PAGE = "https://www.jma.go.jp/bosai/map.html#contents=t
 /** 17日 9時 from JST ISO. */
 const when = (iso: string) => (iso ? `${+iso.slice(8, 10)}日 ${+iso.slice(11, 13)}時` : "");
 
-export function TyphoonCard({ station, typhoons, onCompare }: { station: string; typhoons: TyphoonNow[]; onCompare: () => void }) {
+/** 10:30 from ISO (JST). */
+const hm = (iso: string) => {
+  const d = new Date(Date.parse(iso) + 9 * 3_600_000);
+  return `${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+};
+
+export function TyphoonCard({ station, info, onCompare }: { station: string; info: TyphoonInfo; onCompare: () => void }) {
+  const typhoons: TyphoonNow[] = info.typhoons;
   const at = stationLatLon(station);
   const stationName = (stations as { blockNo: string; name: string }[]).find((x) => x.blockNo === station)?.name ?? "観測点";
   if (!at) return null;
   const shown = typhoons.map((t) => ({ t, s: stationOnTyphoon(t, at.lat, at.lon) })).filter(({ s }) => typhoonConcerns(s));
+  // Could not read and nothing to show: say so (not the same as "no typhoon").
+  if (info.state === "failed")
+    return (
+      <p className="typhoon-failed" role="status">
+        台風情報を取得できませんでした。台風があっても、いまは出ていないことがあります。
+      </p>
+    );
   if (!shown.length) return null;
   return (
     <section className="typhoon-cards" aria-label="近づいている台風">
@@ -49,7 +64,7 @@ export function TyphoonCard({ station, typhoons, onCompare }: { station: string;
             </p>
             <p className="typhoon-here">
               {stationName}は{" "}
-              {where ? <strong>{where}</strong> : <span>中心から約 {Math.round(s.km / 10) * 10}km</span>}
+              {where ? <strong>{where}</strong> : <span>域の外（中心から約 {Math.round(s.km / 10) * 10}km）</span>}
             </p>
             <div className="typhoon-actions">
               <Button size="sm" onClick={onCompare}>
@@ -59,6 +74,11 @@ export function TyphoonCard({ station, typhoons, onCompare }: { station: string;
                 気象庁の台風情報 ↗
               </a>
             </div>
+            {info.state === "stale" && info.at && (
+              <p className="typhoon-stale" role="status">
+                {hm(info.at)} の情報です（そのあと更新できていません）。
+              </p>
+            )}
             <p className="typhoon-source">出典：気象庁「台風情報」（{when(t.issued)}発表）。域に入っているかは気象庁の円で Weather Note が判定。</p>
           </article>
         );

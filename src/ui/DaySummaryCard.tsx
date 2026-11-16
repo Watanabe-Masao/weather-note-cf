@@ -132,11 +132,11 @@ export function DaySummaryCard({ store, station, ask, onClose }: { store: Weathe
               </p>
             )}
             <p className="ds-note">
-              基準：気象庁 高知市の強風注意報・暴風警報（平均 <span className="nowrap">{STORM.strong.mean}・{STORM.storm.mean} m/s</span>、瞬間{" "}
+              目安：平均 <span className="nowrap">{STORM.strong.mean}・{STORM.storm.mean} m/s</span> は気象庁 高知市の強風注意報・暴風警報の基準、瞬間{" "}
               <span className="nowrap">
                 {STORM.strong.gust}・{STORM.storm.gust} m/s
-              </span>
-              ）。実績と予報で同じ基準です。
+              </span>{" "}
+              は Weather Note の目安。注意報・警報が出たという意味ではありません。実績と予報で同じ目安です。
             </p>
           </div>
         </>

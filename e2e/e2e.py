@@ -49,7 +49,8 @@ TYPHOON_NOW = {"ok": True, "fetchedAt": "2026-11-10T00:00:00Z", "typhoons": [{
 TYPHOON_ON = {"on": False}  # the TY step turns the made-up typhoon on, then off again
 def api(path, q):
     if path == "/api/typhoon":
-        return TYPHOON_NOW if TYPHOON_ON["on"] else {"ok": True, "fetchedAt": "x", "typhoons": []}
+        if TYPHOON_ON.get("fail"): return {"ok": False, "fetchedAt": "2026-11-10T03:00:00Z", "typhoons": []}
+        return TYPHOON_NOW if TYPHOON_ON["on"] else {"ok": True, "fetchedAt": "2026-11-10T03:00:00Z", "typhoons": []}
     if path == "/api/auth/me":
         return {"user": ME if LOGGED_IN else None, "setup": False}
     if path == "/api/me/notify":
@@ -1034,7 +1035,12 @@ with sync_playwright() as p:
         check("TY4 条件から選ぶが台風の日で開く（気温・雨は問わない、通年）", pg.locator(".msheet.cond-sheet").count() == 1 and "台風の日" in txt(".cond-line[data-cond=typhoon] .cond-value") and "問わない" in txt(".cond-line[data-cond=max] .cond-value") and "通年" in txt(".cond-line[data-cond=period] .cond-value"))
         pg.click(".msheet .icon-btn.close"); calm()
         TYPHOON_ON["on"] = False
+        TYPHOON_ON["fail"] = True
         reload()
+        check("TY5 取得に失敗したら「取得できませんでした」（台風なしと区別）", pg.locator(".typhoon-failed").count() == 1 and pg.locator(".typhoon-card").count() == 0)
+        TYPHOON_ON["fail"] = False
+        reload()
+        check("TY6 取れて台風なしなら何も出ない", pg.locator(".typhoon-failed").count() == 0 and pg.locator(".typhoon-card").count() == 0)
     step("TY", ty)
 
     # The 500s step FS asks for on purpose are not errors of the app.
