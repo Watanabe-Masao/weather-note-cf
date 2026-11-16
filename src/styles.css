@@ -3999,7 +3999,7 @@ svg.scrub {
 .notify-add { display: inline-flex; gap: 6px; align-items: center; }
 .notify-add input {
   background: var(--surface-inset); border: 1px solid var(--line-strong); border-radius: var(--radius-md);
-  padding: 6px 8px; font-size: var(--size-input); color: var(--ink-primary); color-scheme: dark;
+  padding: 6px 8px; font-size: var(--size-input); color: var(--ink-primary);
 }
 .notify-add button, .notify-days button {
   min-height: 34px; padding: 0 12px; border-radius: var(--radius-md);

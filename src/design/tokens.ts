@@ -6,39 +6,213 @@
 
 // ---- colour ---------------------------------------------------------------------------------
 
-/** Surfaces, from the page up. Depth is shown by light, not by borders alone. */
-const surface = {
-  page: "#0a1420",
-  base: "#101c2b",
-  raised: "#15243a",
-  overlay: "#1a2c44",
-  inset: "#0d1826",
-} as const;
 
-const ink = {
-  primary: "#eaf0f7",
-  secondary: "#a9b9cb",
-  tertiary: "#a9b9cb", // same as secondary since the 補足 comparison (chosen: 3); kept as its own role
-  disabled: "#56677b",
-  onAccent: "#07121e",
-} as const;
+// ---- themes (#241) --------------------------------------------------------------------------------
+//
+// Three themes on one structure (知覚品質に基づくカラーシステム再設計書 v1.0, 2026-11-16): Deep Navy (the
+// dark one), Mist Green and Warm White. A colour keeps its meaning in every theme (the same hue for an
+// item); its lightness is set per theme so it reads as strongly on that face: text 4.5:1 and graph
+// lines 3:1 against the faces it sits on, checked by test/ui/themes.test.ts. The accent is green in all
+// three (操作だけ, never data); 湿度 moved to teal so it stays apart from it (ΔE ≥ 12).
+// The light themes' 肌感 steps are darkened to 3:1 on their faces, their lightness still rising from
+// 寒い to 暑い so the order is not told by hue alone. Values: issue #241.
 
-const line = {
-  strong: "#2a3f58",
-  soft: "rgba(255, 255, 255, 0.06)",
-  focus: "#7cc4ff",
-  swatch: "rgba(255, 255, 255, 0.14)", // the light edge round a colour swatch, so neighbours separate
-  highlight: "rgba(255, 255, 255, 0.35)", // the lit top edge of a filled button
-  shade: "rgba(0, 0, 0, 0.25)", // the dark edge round a strip of colours on a face
-} as const;
+export type ThemeName = "navy" | "mist" | "warm";
+export const THEME_NAMES: ThemeName[] = ["navy", "mist", "warm"];
+export const THEME_LABEL: Record<ThemeName, string> = { navy: "Deep Navy", mist: "Mist Green", warm: "Warm White" };
 
-/** Interaction: selection, links, the centre band. Never used for data. */
-const accent = {
-  base: "#7cc4ff",
-  strong: "#4fa9f5",
-  wash: "rgba(124, 196, 255, 0.10)",
-  glow: "rgba(124, 196, 255, 0.22)",
-} as const;
+interface Palette {
+  dark: boolean;
+  surface: Record<"page" | "base" | "raised" | "overlay" | "inset", string>;
+  ink: Record<"primary" | "secondary" | "tertiary" | "disabled" | "onAccent", string>;
+  line: Record<"strong" | "soft" | "focus" | "swatch" | "highlight" | "shade", string>;
+  accent: Record<"base" | "strong" | "wash" | "glow", string>;
+  data: Record<(typeof DATA_KEYS)[number], string>;
+  day: Record<"saturday" | "holiday", string>;
+  status: Record<"forecast" | "provisional" | "warning" | "error", string>;
+  icon: Record<"sun" | "moon" | "cloud" | "rain" | "glint", string>;
+  feel: string[];
+  feel5: string[];
+  feel3: string[];
+  bands: string[];
+  shadow: Record<"card" | "sheet" | "overlay" | "pinned" | "lift" | "float" | "edge", string>;
+  effect: Record<"scrim" | "backdrop" | "blur" | "gloss" | "glossStrong" | "sheen", string>;
+}
+const DATA_KEYS = ["hot", "cold", "temp", "mean", "rain", "snow", "sun", "radiation", "humidity", "humidityLow", "wind", "gust", "pressure", "pressureHigh", "pressureLow", "feel"] as const;
+
+const DARK_SHADOW = {
+  card: "0 1px 0 rgba(255,255,255,0.04) inset, 0 6px 18px rgba(0,0,0,0.22)",
+  sheet: "0 -1px 0 rgba(255,255,255,0.06) inset, 0 -10px 30px rgba(0,0,0,0.36)",
+  overlay: "0 -1px 0 rgba(255,255,255,0.07) inset, 0 -16px 48px rgba(0,0,0,0.55)",
+  pinned: "0 8px 20px rgba(0,0,0,0.38)",
+  lift: "0 1px 3px rgba(0,0,0,0.32)", // a chosen segment, a cell or a slider thumb a hair above its face
+  float: "0 10px 28px rgba(0,0,0,0.45)", // a card floating over content (zoom card, toast)
+  edge: "8px 0 10px -8px rgba(0,0,0,0.7)", // the edge of a pinned column that content scrolls under
+};
+// On a light face a shadow is a soft shade, and the lit edge is white.
+const lightShadow = (tint: string) => ({
+  card: `0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 14px rgba(${tint},0.10)`,
+  sheet: `0 -1px 0 rgba(255,255,255,0.7) inset, 0 -8px 26px rgba(${tint},0.16)`,
+  overlay: `0 -1px 0 rgba(255,255,255,0.8) inset, 0 -14px 40px rgba(${tint},0.24)`,
+  pinned: `0 6px 16px rgba(${tint},0.16)`,
+  lift: `0 1px 3px rgba(${tint},0.18)`,
+  float: `0 10px 26px rgba(${tint},0.22)`,
+  edge: `8px 0 10px -8px rgba(${tint},0.3)`,
+});
+const lightEffect = (tint: string) => ({
+  scrim: `rgba(${tint},0.32)`,
+  backdrop: `rgba(${tint},0.40)`,
+  blur: "10px",
+  gloss: "rgba(255, 255, 255, 0.35)",
+  glossStrong: "rgba(255, 255, 255, 0.55)",
+  sheen: "rgba(255, 255, 255, 0.3)",
+});
+
+const THEMES: Record<ThemeName, Palette> = {
+  navy: {
+    dark: true,
+    surface: { page: "#101b2c", base: "#172337", raised: "#1e2c40", overlay: "#24344a", inset: "#131f31" },
+    // tertiary as secondary: the 補足 comparison chose 3 (one quiet ink, size and place tell the rest).
+    ink: { primary: "#d9d1c4", secondary: "#ada99f", tertiary: "#ada99f", disabled: "#6c727c", onAccent: "#101b2c" },
+    line: { strong: "#42536a", soft: "rgba(255, 255, 255, 0.06)", focus: "#91b49b", swatch: "rgba(255, 255, 255, 0.14)", highlight: "rgba(255, 255, 255, 0.35)", shade: "rgba(0, 0, 0, 0.25)" },
+    accent: { base: "#91b49b", strong: "#7da587", wash: "rgba(145, 180, 155, 0.12)", glow: "rgba(145, 180, 155, 0.24)" },
+    data: {
+      hot: "#f39a86",
+      cold: "#74b6f5",
+      temp: "#f39a86",
+      mean: "#8ea3b9",
+      rain: "#45c8d8",
+      snow: "#cdd9ff",
+      sun: "#f5c865",
+      radiation: "#f2a15c",
+      humidity: "#8ee0cf",
+      humidityLow: "#1ba7a0",
+      wind: "#a9c6de",
+      gust: "#d6e6f4",
+      pressure: "#d8b48d",
+      pressureHigh: "#e9c896",
+      pressureLow: "#b48a5c",
+      feel: "#c9a6f7",
+    },
+    day: { saturday: "#86b8ff", holiday: "#ff9a8f" },
+    status: { forecast: "#c6cfdb", provisional: "#d7b46a", warning: "#f0b45a", error: "#ff8a80" },
+    icon: { sun: "#f5b83d", moon: "#e6dcae", cloud: "#a9b9cb", rain: "#6fb3f2", glint: "#ffffff" },
+    feel: ["#5262d8", "#7f9cea", "#a9cbf2", "#a5d48f", "#f3d27a", "#f0a463", "#e5705c"],
+    feel5: ["#6474e4", "#a9cbf2", "#a5d48f", "#f3d27a", "#ec8466"],
+    feel3: ["#8fa9ee", "#a5d48f", "#f0b06a"],
+    bands: ["#f4f7fb", "#cdd8e6", "#a9b8cb", "#8797ad", "#6a7a91"],
+    shadow: DARK_SHADOW,
+    effect: { scrim: "rgba(3, 8, 14, 0.55)", backdrop: "rgba(3, 8, 14, 0.62)", blur: "10px", gloss: "rgba(255, 255, 255, 0.04)", glossStrong: "rgba(255, 255, 255, 0.06)", sheen: "rgba(255, 255, 255, 0.16)" },
+  },
+  mist: {
+    dark: false,
+    surface: { page: "#c4d0c1", base: "#d2dccf", raised: "#f1f4ee", overlay: "#f6f8f3", inset: "#c6d2c3" },
+    ink: { primary: "#26382c", secondary: "#465a4b", tertiary: "#475a4a", disabled: "#748678", onAccent: "#ffffff" },
+    line: { strong: "#9eaf9b", soft: "#c3d0c1", focus: "#28543f", swatch: "rgba(38, 56, 44, 0.18)", highlight: "rgba(255, 255, 255, 0.6)", shade: "rgba(38, 56, 44, 0.2)" },
+    accent: { base: "#356c53", strong: "#28543f", wash: "rgba(53, 108, 83, 0.12)", glow: "rgba(53, 108, 83, 0.22)" },
+    data: {
+      hot: "#a33d2e",
+      cold: "#1f527f",
+      temp: "#a33d2e",
+      mean: "#4d6074",
+      rain: "#075c70",
+      snow: "#555e7f",
+      sun: "#765000",
+      radiation: "#934b12",
+      humidity: "#054a42",
+      humidityLow: "#214741",
+      wind: "#38556e",
+      gust: "#53616d",
+      pressure: "#765235",
+      pressureHigh: "#76592a",
+      pressureLow: "#7d5629",
+      feel: "#68458c",
+    },
+    day: {
+    saturday: "#325fa0",
+    holiday: "#9d423b",
+  },
+    status: {
+    forecast: "#575f6a",
+    provisional: "#795900",
+    warning: "#a56f06",
+    error: "#a73a36",
+  },
+    icon: {
+    sun: "#a07307",
+    moon: "#847b50",
+    cloud: "#6d7c8c",
+    rain: "#3b7fba",
+    glint: "#ffffff",
+  },
+    feel: ["#2e30aa", "#304892", "#37577a", "#3d6924", "#7a5f01", "#9b5603", "#bb4432"],
+    feel5: ["#2e30aa", "#37577a", "#3d6924", "#7a5f01", "#bb4432"],
+    feel3: ["#304892", "#3d6924", "#9b5603"],
+    bands: ["#26382c", "#35483b", "#45584b", "#56695c", "#677b6d"],
+    shadow: lightShadow("38, 56, 44"),
+    effect: lightEffect("30, 44, 36"),
+  },
+  warm: {
+    dark: false,
+    surface: { page: "#f7f5f0", base: "#f0ede6", raised: "#fffefb", overlay: "#ffffff", inset: "#e9e5dd" },
+    ink: { primary: "#243448", secondary: "#536274", tertiary: "#616b73", disabled: "#939a9e", onAccent: "#ffffff" },
+    line: { strong: "#d0cdc5", soft: "#e2ded6", focus: "#28543f", swatch: "rgba(36, 52, 72, 0.16)", highlight: "rgba(255, 255, 255, 0.7)", shade: "rgba(36, 52, 72, 0.18)" },
+    accent: { base: "#356c53", strong: "#28543f", wash: "rgba(53, 108, 83, 0.10)", glow: "rgba(53, 108, 83, 0.20)" },
+    data: {
+      hot: "#b04d3b",
+      cold: "#2e6fa1",
+      temp: "#b04d3b",
+      mean: "#596d81",
+      rain: "#017587",
+      snow: "#616b8c",
+      sun: "#8a6503",
+      radiation: "#a5560e",
+      humidity: "#074a48",
+      humidityLow: "#224746",
+      wind: "#526f88",
+      gust: "#5e6c79",
+      pressure: "#88613e",
+      pressureHigh: "#846636",
+      pressureLow: "#8b6335",
+      feel: "#7955a2",
+    },
+    day: {
+    saturday: "#3e6cae",
+    holiday: "#ac4f47",
+  },
+    status: {
+    forecast: "#646c76",
+    provisional: "#866614",
+    warning: "#b67d16",
+    error: "#b54842",
+  },
+    icon: {
+    sun: "#b28007",
+    moon: "#92895e",
+    cloud: "#7b8a9b",
+    rain: "#4a8dca",
+    glint: "#ffffff",
+  },
+    feel: ["#2e30aa", "#304892", "#37577a", "#3d6924", "#7a5f01", "#9b5603", "#bb4432"],
+    feel5: ["#2e30aa", "#37577a", "#3d6924", "#7a5f01", "#bb4432"],
+    feel3: ["#304892", "#3d6924", "#9b5603"],
+    bands: ["#243448", "#334459", "#43546a", "#53657b", "#64768d"],
+    shadow: lightShadow("36, 52, 72"),
+    effect: lightEffect("36, 46, 60"),
+  },
+};
+export const themePalette = (t: ThemeName): Readonly<Palette> => THEMES[t];
+
+let current: ThemeName = "navy";
+export const currentTheme = () => current;
+
+// The colours of the theme in use. CSS reads them through custom properties (applyTheme); SVG charts
+// read these objects, which applyTheme fills in place, so a theme change redraws them (the app is
+// mounted again on a change, src/main.tsx).
+const surface = { ...THEMES.navy.surface };
+const ink = { ...THEMES.navy.ink };
+const line = { ...THEMES.navy.line };
+const accent = { ...THEMES.navy.accent };
 
 /**
  * Data colours. Each colour means one kind of value everywhere (table, graphs, summary, lists).
@@ -49,24 +223,7 @@ const accent = {
  * One colour per item, so switching items changes the picture (気圧 used to look like 気温, 日差し like
  * 日照). An item with a high and a low uses one hue: the high light, the low deep (#151).
  */
-export const DATA = {
-  hot: "#f39a86", // 最高気温
-  cold: "#74b6f5", // 最低気温
-  temp: "#f39a86", // temperature over the hours (the same family as 最高)
-  mean: "#8ea3b9", // means and references (平均, the air temperature behind 肌感（日なた）)
-  rain: "#45c8d8", // rain amounts and chances
-  snow: "#cdd9ff",
-  sun: "#f5c865", // 日照
-  radiation: "#f2a15c", // 日差し（日射量）: orange, apart from 日照's yellow
-  humidity: "#8fd8c4",
-  humidityLow: "#5fae98", // 湿度の最小
-  wind: "#a9c6de",
-  gust: "#d6e6f4", // 最大瞬間（風速の強い方）
-  pressure: "#d8b48d",
-  pressureHigh: "#e9c896", // 気圧最高
-  pressureLow: "#b48a5c", // 気圧最低
-  feel: "#c9a6f7", // 肌感（日なた） / 肌感（日かげ） as a value
-} as const;
+export const DATA: Record<(typeof DATA_KEYS)[number], string> = { ...THEMES.navy.data };
 
 // ---- lines in graphs ---------------------------------------------------------------------------
 //
@@ -98,7 +255,7 @@ export const LINE = {
   dimmedScale: 0.7,
   // 0.55 (#173): at 0.8 a set-aside reference line hardly changed (ΔE 15.6 from its own look).
   dimmedOpacity: 0.55,
-} as const;
+};
 
 export interface LineLook {
   stroke: string;
@@ -167,7 +324,7 @@ export function barPath(x: number, y: number, w: number, h: number, r: number = 
  * Weather icons (晴 / 曇 / 雨 …). Pictures, not data: the sun is a warmer yellow than DATA.sun so an
  * icon never reads as a 日照 value; glint is the white of a raindrop's highlight.
  */
-export const ICON = { sun: "#f5b83d", moon: "#e6dcae", cloud: "#a9b9cb", rain: "#6fb3f2", glint: "#ffffff" } as const; // cloud: as quiet as the secondary ink, now that clouds are drawn in line
+export const ICON: Palette["icon"] = { ...THEMES.navy.icon }; // cloud: as quiet as the secondary ink, now that clouds are drawn in line
 
 /** The six 明るさ levels (shared/brightness.ts), dark to light: night navy to pale daylight. */
 export const LIGHT_LEVELS = ["#0b1220", "#26305e", "#4f5b80", "#8d9bb3", "#d6dbe0", "#fff1bf"] as const;
@@ -175,13 +332,9 @@ export type DataColor = keyof typeof DATA;
 
 /** The five 肌感 levels, cold to hot. The ends are kept apart from the 最低/最高 data colours. */
 /** The seven 肌感 steps, cold to hot (fills only). Five and three use these, by the step they gather. */
-export const FEEL_LEVELS = ["#5262d8", "#7f9cea", "#a9cbf2", "#a5d48f", "#f3d27a", "#f0a463", "#e5705c"] as const;
+export const FEEL_LEVELS: string[] = [...THEMES.navy.feel];
 /** Colour of each step of the 5 and 3 scales (from the seven: the step's own colour). */
-export const FEEL_SCALE_COLORS = {
-  7: FEEL_LEVELS,
-  5: ["#6474e4", "#a9cbf2", "#a5d48f", "#f3d27a", "#ec8466"],
-  3: ["#8fa9ee", "#a5d48f", "#f0b06a"],
-} as const;
+export const FEEL_SCALE_COLORS: Record<7 | 5 | 3, string[]> = { 7: FEEL_LEVELS, 5: [...THEMES.navy.feel5], 3: [...THEMES.navy.feel3] };
 
 /** Lines for the five 時間区分 in the trend graph (朝・日中・昼・夕方・夜): distinct from the level colours. */
 /**
@@ -189,22 +342,14 @@ export const FEEL_SCALE_COLORS = {
  * lightness and marker shape — never a data colour (blue is 最低, yellow 日差し, …) and never a feel
  * level colour, which the graph shows behind them.
  */
-export const BAND_LINES = ["#f4f7fb", "#cdd8e6", "#a9b8cb", "#8797ad", "#6a7a91"] as const;
+export const BAND_LINES: string[] = [...THEMES.navy.bands];
 export const BAND_MARKS = ["circle", "square", "triangle", "diamond", "ring"] as const;
 export type BandMark = (typeof BAND_MARKS)[number];
 
 /** Day tones for dates: only the date and weekday text carry them. */
-const day = {
-  saturday: "#86b8ff",
-  holiday: "#ff9a8f",
-} as const;
+const day = { ...THEMES.navy.day };
 
-const status = {
-  forecast: "#c6cfdb", // 予報: a neutral grey (not yet measured). Blue is kept for "chosen" (#151)
-  provisional: "#d7b46a",
-  warning: "#f0b45a",
-  error: "#ff8a80",
-} as const;
+const status = { ...THEMES.navy.status };
 
 // ---- type, space, shape, depth ------------------------------------------------------------------
 
@@ -262,15 +407,7 @@ const radius = { tick: 2, xs: 4, sm: 6, md: 10, lg: 14, xl: 20, pill: 999 } as c
 export const FEEL_BAND = { divider: 1.5, blur: 0.22, ring: 1.5 } as const;
 
 /** Elevation: what sits above what. Shadows deepen with height. */
-const shadow = {
-  card: "0 1px 0 rgba(255,255,255,0.04) inset, 0 6px 18px rgba(0,0,0,0.22)",
-  sheet: "0 -1px 0 rgba(255,255,255,0.06) inset, 0 -10px 30px rgba(0,0,0,0.36)",
-  overlay: "0 -1px 0 rgba(255,255,255,0.07) inset, 0 -16px 48px rgba(0,0,0,0.55)",
-  pinned: "0 8px 20px rgba(0,0,0,0.38)",
-  lift: "0 1px 3px rgba(0,0,0,0.32)", // a chosen segment, a cell or a slider thumb a hair above its face
-  float: "0 10px 28px rgba(0,0,0,0.45)", // a card floating over content (zoom card, toast)
-  edge: "8px 0 10px -8px rgba(0,0,0,0.7)", // the edge of a pinned column that content scrolls under
-} as const;
+const shadow = { ...THEMES.navy.shadow };
 
 /** Stacking order (z-index). Only these values are used. */
 export const LAYER = {
@@ -302,14 +439,7 @@ export const MOTION = {
 } as const;
 
 /** Effects: dimming, frosted glass, the light from above, and night on a time axis. */
-const effect = {
-  scrim: "rgba(3, 8, 14, 0.55)",
-  backdrop: "rgba(3, 8, 14, 0.62)",
-  blur: "10px",
-  gloss: "rgba(255, 255, 255, 0.04)", // the faint light on a face's top edge (controls, cards, sheets)
-  glossStrong: "rgba(255, 255, 255, 0.06)", // the same on a chosen control
-  sheen: "rgba(255, 255, 255, 0.16)", // the light on the upper half of a filled button
-} as const;
+const effect = { ...THEMES.navy.effect };
 
 // ---- output -------------------------------------------------------------------------------------
 
@@ -344,6 +474,36 @@ export function cssVariables(): Record<string, string> {
 }
 
 /** Write the tokens onto :root (once, before the first render). */
-export function applyTokens(root: HTMLElement = document.documentElement) {
+/**
+ * Puts a theme in use: the colour objects SVG reads are filled in place, and every token is written
+ * as a CSS custom property on the root, with the page's color-scheme and the browser's theme colour.
+ */
+export function applyTheme(name: ThemeName, root: HTMLElement = document.documentElement) {
+  const t = THEMES[name];
+  current = name;
+  Object.assign(surface, t.surface);
+  Object.assign(ink, t.ink);
+  Object.assign(line, t.line);
+  Object.assign(accent, t.accent);
+  Object.assign(DATA, t.data);
+  Object.assign(day, t.day);
+  Object.assign(status, t.status);
+  Object.assign(ICON, t.icon);
+  Object.assign(shadow, t.shadow);
+  Object.assign(effect, t.effect);
+  FEEL_LEVELS.splice(0, FEEL_LEVELS.length, ...t.feel);
+  FEEL_SCALE_COLORS[5] = [...t.feel5];
+  FEEL_SCALE_COLORS[3] = [...t.feel3];
+  BAND_LINES.splice(0, BAND_LINES.length, ...t.bands);
+  LINE.reference = t.ink.primary;
+  LINE.dimmed = t.ink.disabled;
   for (const [k, v] of Object.entries(cssVariables())) root.style.setProperty(k, v);
+  root.dataset.theme = name;
+  root.style.colorScheme = t.dark ? "dark" : "light";
+  if (typeof document !== "undefined") document.querySelector('meta[name="theme-color"]')?.setAttribute("content", t.surface.page);
+}
+
+/** The tokens of the theme in use (Deep Navy until another is chosen). */
+export function applyTokens(root: HTMLElement = document.documentElement) {
+  applyTheme(current, root);
 }
