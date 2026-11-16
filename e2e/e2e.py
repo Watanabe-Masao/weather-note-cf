@@ -3,6 +3,7 @@
 #
 # Run:  npx vite build && python3 e2e/e2e.py [width]
 #       WN_CHROME=/path/to/chrome to use a given browser; exits 1 when a check fails (CI).
+import re
 import time
 import json, re, sys, datetime, random, threading, http.server, functools, os
 from playwright.sync_api import sync_playwright
@@ -200,6 +201,9 @@ with sync_playwright() as p:
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         route.fulfill(status=200, content_type="application/json", body=json.dumps(with_quality(api(u.path, q))))
     ctx.route("**/api/**", handle)
+    # 天気図 (#249): JMA's pictures stand in as a 1px PNG (no network in the test).
+    PNG1 = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000" "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
+    ctx.route(re.compile(r"https://www\.(data\.)?jma\.go\.jp/.*\.png$"), lambda r: r.fulfill(status=200, content_type="image/png", body=PNG1))
     pg = ctx.new_page()
     pg.on("console", lambda m: m.type in ("error", "warning") and errors.append(m.text))
     pg.on("pageerror", lambda e: errors.append("PAGEERROR " + str(e)))
@@ -636,6 +640,27 @@ with sync_playwright() as p:
             st = small_text(); check(f"TH3 {label}：11px より小さい文字がない", not st, str(st))
         check("TH4 選んだテーマはこの端末に残る", pg.evaluate("localStorage.getItem('weather-note-theme')") == "navy")
     step("TH", th)
+
+    # SD. 1日モード (#247): the header switch hides the comparison table and the sheet, and tells the
+    # selected day under the week; its 時間帯 open their hours; back to 比較 brings the table back.
+    def sd():
+        shots = os.environ.get("WN_SHOT")
+        pg.locator(".app-head .seg button", has_text="1日").click(); calm()
+        check("SD1 1日：比較の表と下のシートが消え、1日の画面が出る", pg.locator(".side-compare").count() == 0 and pg.locator(".day-detail").count() == 1 and pg.locator("aside.sheet").count() == 0)
+        settle(lambda: pg.locator(".dd-part").count() == 5)
+        check("SD2 時間帯は5つ", pg.locator(".dd-part").count() == 5, pg.locator(".dd-part").count())
+        pg.locator(".dd-part").nth(2).click(); calm()
+        check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
+        check("SD4 この日の値：肌感＋7項目", pg.locator(".dd-value").count() == 8, pg.locator(".dd-value").count())
+        check("SD4b 天気図（③の一番上）：時刻を選べる", pg.locator(".wx-chart").count() == 1 and (pg.locator(".wx-hours button").count() == 7 or pg.locator(".wx-chart b", has_text="予想天気図").count() == 1))
+        pg.locator(".dd-value", has_text="降水").first.click(); calm()
+        check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
+        if shots: pg.screenshot(path=f"{shots}-single.png", full_page=True)
+        pg.locator(".metrics button", has_text="気温").click(); calm()
+        pg.locator(".app-head .seg button", has_text="比較").click(); calm()
+        check("SD6 比較に戻すと比較の表が戻る", pg.locator(".side-compare").count() == 1 and pg.locator(".day-detail").count() == 0)
+        pg.evaluate("window.scrollTo(0, 0)")
+    step("SD", sd)
 
     # AC. 長期の気温履歴を比べる（テスト）: L1 and L2 through the new core, side by side (#189)
     def ac():

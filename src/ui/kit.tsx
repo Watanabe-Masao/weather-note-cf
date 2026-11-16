@@ -423,7 +423,10 @@ export function GraphReadout({
   dates,
   bare = false,
   footer,
+  single = false,
 }: {
+  /** One day alone (1日モード, #247): the 比較 and 差 columns are left out. */
+  single?: boolean;
   title: ReactNode;
   rows: ReadoutRow[];
   unit: string;
@@ -436,15 +439,18 @@ export function GraphReadout({
 }) {
   return (
     <div className={bare ? "readout-bare" : live ? "readout-card live" : "readout-card"} aria-live={bare ? undefined : "polite"}>
-      <div className="ro-grid">
+      <div className={single ? "ro-grid ro-single" : "ro-grid"}>
         <b className="ro-title">{title}</b>
         <small className="ro-col">
-          対象{dates?.a && <em>{dates.a}</em>}
+          {single ? "" : "対象"}
+          {dates?.a && <em>{dates.a}</em>}
         </small>
-        <small className="ro-col">
-          比較{dates?.b && <em>{dates.b}</em>}
-        </small>
-        <small className="ro-col">差</small>
+        {!single && (
+          <small className="ro-col">
+            比較{dates?.b && <em>{dates.b}</em>}
+          </small>
+        )}
+        {!single && <small className="ro-col">差</small>}
         {rows.map((r) => {
           // Words break before their last word (日差しの｜明るさ, とても｜明るい, 日の出前後の｜空), never
           // mid-word; at most two lines (.ro-words).
@@ -464,10 +470,12 @@ export function GraphReadout({
               <span className={`ro-v${r.text ? " ro-text" : ""}${kind(r.a)}`} style={r.mark ? undefined : { color: r.color }}>
                 {words(r.a)}
               </span>
-              <span className={`ro-v ro-b${r.text ? " ro-text" : ""}${kind(r.b ?? "—")}`} style={r.mark ? undefined : { color: r.color }}>
-                {words(r.b ?? "—")}
-              </span>
-              <span className="ro-v ro-diff">{r.diff || "—"}</span>
+              {!single && (
+                <span className={`ro-v ro-b${r.text ? " ro-text" : ""}${kind(r.b ?? "—")}`} style={r.mark ? undefined : { color: r.color }}>
+                  {words(r.b ?? "—")}
+                </span>
+              )}
+              {!single && <span className="ro-v ro-diff">{r.diff || "—"}</span>}
             </Fragment>
           );
         })}
