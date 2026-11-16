@@ -208,3 +208,17 @@ describe("conditions: 雨の強さ and 台風 (#220)", () => {
     expect(searchConditions({ ...c, typhoon: "only", max: { mode: "ge", lo: 40, hi: 0 } }, origin, [...rows.keys()], look).loosen?.key).toBe("max");
   });
 });
+
+describe("the period in dates", () => {
+  it("a stretch a year, or one stretch when they touch (通年), never reaching today", async () => {
+    const { periodStretches } = await import("../../shared/conditions");
+    expect(periodStretches("2026-11-16", { years: 3, span: 15 }, "2026-11-16")).toEqual([
+      { from: "2023-11-01", to: "2023-12-01" },
+      { from: "2024-11-01", to: "2024-12-01" },
+      { from: "2025-11-01", to: "2025-12-01" },
+    ]);
+    expect(periodStretches("2026-11-16", { years: 3, span: "all" }, "2026-11-16")).toEqual([{ from: "2023-05-17", to: "2026-05-18" }]);
+    // A target in the past: the last stretch stops before today.
+    expect(periodStretches("2026-11-16", { years: 1, span: "all" }, "2026-02-01").at(-1)!.to).toBe("2026-01-31");
+  });
+});

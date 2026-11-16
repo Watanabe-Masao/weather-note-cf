@@ -120,6 +120,9 @@ export function startConditions(origin: WeatherRow | null | undefined): Conditio
 
 // ---- where to look ----------------------------------------------------------------------------
 
+/** 通年: half a year and a day either side, so the years join without a gap (a leap year's day too). */
+const ALL_YEAR = 183;
+
 /** The same month and day `years` earlier; 29 February falls back to the 28th. */
 export function sameDateBack(day: string, years: number): string {
   const [y, m, d] = day.split("-").map(Number);
@@ -139,7 +142,7 @@ function weekdayPasses(day: string, origin: string, filter: WeekdayFilter): bool
 
 /** Past days to look in, before `today` and not the target, by period and weekday. Newest first. */
 export function candidateDays(origin: string, c: Pick<Conditions, "years" | "span" | "weekday">, today: string): string[] {
-  const radius = c.span === "all" ? 182 : c.span;
+  const radius = c.span === "all" ? ALL_YEAR : c.span;
   const out = new Set<string>();
   for (let y = 1; y <= c.years; y++) {
     const center = sameDateBack(origin, y);
@@ -147,6 +150,26 @@ export function candidateDays(origin: string, c: Pick<Conditions, "years" | "spa
       if (d < today && d !== origin && weekdayPasses(d, origin, c.weekday)) out.add(d);
   }
   return [...out].sort().reverse();
+}
+
+/**
+ * The stretches of days the period covers (before today), oldest first: one per year back, or —
+ * when they touch, as 通年 does — one stretch. For saying in dates what 「過去3年・前後2週」 means.
+ */
+export function periodStretches(origin: string, c: Pick<Conditions, "years" | "span">, today: string): { from: string; to: string }[] {
+  const radius = c.span === "all" ? ALL_YEAR : c.span;
+  const out: { from: string; to: string }[] = [];
+  for (let y = c.years; y >= 1; y--) {
+    const center = sameDateBack(origin, y);
+    const from = addDays(center, -radius);
+    let to = addDays(center, radius);
+    if (to >= today) to = addDays(today, -1);
+    if (from > to) continue;
+    const last = out[out.length - 1];
+    if (last && from <= addDays(last.to, 1)) last.to = to > last.to ? to : last.to;
+    else out.push({ from, to });
+  }
+  return out;
 }
 
 // ---- tests ------------------------------------------------------------------------------------

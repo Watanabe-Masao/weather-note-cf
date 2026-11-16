@@ -11,6 +11,7 @@ import {
   type Conditions,
   candidateDays,
   PARTS,
+  periodStretches,
   type Part,
   RAIN_STRENGTHS,
   type RainMode,
@@ -82,6 +83,17 @@ function rainText(c: Conditions["rain"]): string {
   return where + (c.mode === "dry" ? "降らない" : "降る");
 }
 
+/** The period in dates: 「'23/5/18〜'26/5/16」, or 「11/2〜11/30（'23・'24・'25）」 when it is a stretch a year. */
+function periodDates(origin: string, c: Conditions, today: string): string {
+  const st = periodStretches(origin, c, today);
+  if (!st.length) return "";
+  const ymd = (d: string) => `'${d.slice(2, 4)}/${+d.slice(5, 7)}/${+d.slice(8)}`;
+  const md = (d: string) => `${+d.slice(5, 7)}/${+d.slice(8)}`;
+  if (st.length === 1) return `${ymd(st[0].from)}〜${ymd(st[0].to)}`;
+  // The same stretch each year (it may cross the year's end): its dates once, then the years.
+  return `${md(st[0].from)}〜${md(st[0].to)}（${st.map((x) => `'${x.from.slice(2, 4)}`).join("・")}）`;
+}
+
 function periodText(c: Conditions): string {
   const wd = c.weekday === "any" ? "" : "・" + WEEKDAY_FILTERS.find((f) => f.id === c.weekday)!.label;
   return `過去${c.years}年・${SPAN_LABEL[c.span]}${wd}`;
@@ -95,6 +107,7 @@ function Line({
   label,
   tone,
   value,
+  sub,
   off,
   open,
   onToggle,
@@ -104,6 +117,8 @@ function Line({
   label: string;
   tone: string;
   value: string;
+  /** A smaller second line under the value (the period in dates). */
+  sub?: string;
   off?: boolean;
   open: boolean;
   onToggle: () => void;
@@ -114,7 +129,10 @@ function Line({
       <button className="cond-head" onClick={onToggle} aria-expanded={open}>
         <i className={`cond-bar tone-${tone}`} aria-hidden />
         <span className="cond-label">{label}</span>
-        <span className={`cond-value num${off ? " off" : ""}`}>{value}</span>
+        <span className={`cond-value num${off ? " off" : ""}`}>
+          {value}
+          {sub && <small className="cond-sub">{sub}</small>}
+        </span>
         <span className="cond-caret" aria-hidden>
           ›
         </span>
@@ -315,14 +333,27 @@ function Face({ store, station, target, compareDate, onPick, preset }: Omit<Prop
           open={open === "typhoon"}
           onToggle={() => toggle("typhoon")}
         >
-          <Segmented<TyphoonFilter> label="台風" options={TYPHOON_FILTERS} value={c.typhoon ?? "any"} onChange={(typhoon) => set({ typhoon })} />
+          <Segmented<TyphoonFilter>
+            label="台風"
+            options={TYPHOON_FILTERS}
+            value={c.typhoon ?? "any"}
+            onChange={(typhoon) =>
+              // 台風の日: few days, kept to their season, so the temperatures and rain step aside (問わない)
+              // and the period goes all year (通年); each can be set again.
+              set(
+                typhoon === "only"
+                  ? { typhoon, max: { ...c.max, mode: "any" }, min: { ...c.min, mode: "any" }, rain: { ...c.rain, mode: "any" }, span: "all" }
+                  : { typhoon },
+              )
+            }
+          />
           <p className="cond-help">
             台風の日：その日、観測点が台風の強風域に入った日。出典：気象庁（ベストトラック）、判定は Weather Note。
             {tracks === "loading" && typhoonOn ? " 台風の進路を読み込み中…" : ""}
             {tracks === "none" ? " 台風の進路のデータが読めないため、いまは台風で絞り込めません。" : ""}
           </p>
         </Line>
-        <Line id="period" label="期間" tone="mean" value={periodText(c)} open={open === "period"} onToggle={() => toggle("period")}>
+        <Line id="period" label="期間" tone="mean" value={periodText(c)} sub={periodDates(target, c, today)} open={open === "period"} onToggle={() => toggle("period")}>
           <Segmented
             label="何年分"
             options={YEAR_CHOICES.map((y) => ({ id: String(y), label: `過去${y}年` }))}
