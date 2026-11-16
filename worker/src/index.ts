@@ -14,6 +14,7 @@ import { fetchForecast, fetchSunTimes } from "./open-meteo";
 import { type AccountsEnv, ensureSchema, handleAccounts, isAccountPath } from "./accounts";
 import { runSchedule } from "./notify";
 import { activeTyphoons } from "./typhoon";
+import { collectTyphoons } from "./typhoonArchive";
 
 class BadRequest extends Error {}
 
@@ -155,10 +156,12 @@ export default {
       return jsonResponse({ error: publicMessage(e) }, 502);
     }
   },
-  /** Every 5 minutes (wrangler.jsonc): the report notifications that are due. */
+  /** Every 5 minutes (wrangler.jsonc): the report notifications that are due, and JMA's new typhoon telegrams (#220). */
   async scheduled(_event: ScheduledController, env: AccountsEnv, ctx: ExecutionContext): Promise<void> {
     if (!env.DB) return;
     const db = env.DB;
     ctx.waitUntil(ensureSchema(db).then(() => runSchedule(db)));
+    // Apart from the notifications: a failure here never stops them (and is logged in its own table).
+    ctx.waitUntil(collectTyphoons(db).catch((e) => console.error("weather-note: typhoon archive", e)));
   },
 } satisfies ExportedHandler<AccountsEnv>;
