@@ -34,7 +34,21 @@ def row0(d, kind="actual"):
 
 ME = {"id": "u1", "loginId": "masao", "name": "渡辺", "role": "admin", "research": {"granted": False, "version": None, "at": None}, "consentVersion": 1}
 LOGGED_IN = os.environ.get("WN_LOGGED_OUT") != "1"
+
+# 近づいている台風 (/api/typhoon): one made-up typhoon (台風14号 テスト) south of Kochi, its 強風域 holding
+# the station and its 暴風警戒域 ahead over it.
+TYPHOON_NOW = {"ok": True, "fetchedAt": "2026-11-10T00:00:00Z", "typhoons": [{
+    "tc": "TC2699", "number": 14, "name": "テスト", "category": "台風", "scale": "大型", "intensity": "強い",
+    "issued": "2026-11-10T09:45:00+09:00",
+    "at": {"lat": 31.8, "lon": 133.4, "location": "足摺岬の南東約120km", "course": "北北東", "speedKmh": 25},
+    "pressure": 960, "wind": 40, "gust": 55,
+    "gale": {"lat": 31.9, "lon": 133.5, "km": 400}, "storm": {"lat": 31.8, "lon": 133.4, "km": 150},
+    "warning": [{"lat": 31.9, "lon": 133.5, "km": 180}, {"lat": 34.0, "lon": 134.5, "km": 220}],
+    "ahead": [{"validtime": "2026-11-10T21:00:00+09:00", "hours": 12, "center": [33.5, 134.0], "circleKm": 60}]}]}
+TYPHOON_ON = {"on": False}  # the TY step turns the made-up typhoon on, then off again
 def api(path, q):
+    if path == "/api/typhoon":
+        return TYPHOON_NOW if TYPHOON_ON["on"] else {"ok": True, "fetchedAt": "x", "typhoons": []}
     if path == "/api/auth/me":
         return {"user": ME if LOGGED_IN else None, "setup": False}
     if path == "/api/me/notify":
@@ -192,6 +206,11 @@ with sync_playwright() as p:
     cdp = ctx.new_cdp_session(pg)
     # WN_SLOW=4 runs the page's CPU 4× slower: a slow CI runner, to find waits that only just suffice.
     if os.environ.get("WN_SLOW"): cdp.send("Emulation.setCPUThrottlingRate", {"rate": float(os.environ["WN_SLOW"])})
+    # After a reload the helpers and the wide font go back on the page.
+    def reload():
+        pg.reload(); pg.wait_for_timeout(1500)
+        pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
+        calm()
     wait = pg.wait_for_timeout
     # Until the page is at rest (e2e/calm.js), at most max_ms: for after a tap or a swipe (#182).
     def calm(max_ms=3000):
@@ -760,6 +779,7 @@ with sync_playwright() as p:
         pg.locator(".side-compare select.mode").select_option(index=0); calm()
     step("L", l)
 
+
     # M. summary minimise and 表に集中
     def m():
         pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
@@ -998,6 +1018,21 @@ with sync_playwright() as p:
             check("GR2 比較の要約が開いている", False, "no .compare-summary")
         pg.click(".back-btn"); calm()
     step("GR", gr)
+
+    # TY. 近づいている台風: a card at the top while a typhoon concerns the station; from it, the past typhoon days.
+    def ty():
+        check("TY0 台風がないときカードは出ない", pg.locator(".typhoon-card").count() == 0)
+        TYPHOON_ON["on"] = True
+        reload()
+        check("TY1 台風のカード：号・気圧・強風域", pg.locator(".typhoon-card").count() == 1 and "台風14号" in txt(".typhoon-card") and "960" in txt(".typhoon-card") and "強風域に入っています" in txt(".typhoon-card"), txt(".typhoon-card") if pg.locator(".typhoon-card").count() else "")
+        check("TY2 出典と気象庁へのリンク", "気象庁" in txt(".typhoon-source") and pg.locator(".typhoon-link[target=_blank]").count() == 1)
+        layout_ok("TY3", "台風のカード")
+        pg.get_by_text("前の台風の日と比べる").click(); calm(4500)
+        check("TY4 条件から選ぶが台風の日で開く（気温・雨は問わない、通年）", pg.locator(".msheet.cond-sheet").count() == 1 and "台風の日" in txt(".cond-line[data-cond=typhoon] .cond-value") and "問わない" in txt(".cond-line[data-cond=max] .cond-value") and "通年" in txt(".cond-line[data-cond=period] .cond-value"))
+        pg.click(".msheet .icon-btn.close"); calm()
+        TYPHOON_ON["on"] = False
+        reload()
+    step("TY", ty)
 
     # The 500s step FS asks for on purpose are not errors of the app.
     errors = [e for e in errors if not (FAILED_ON_PURPOSE and "status of 500" in e)]
