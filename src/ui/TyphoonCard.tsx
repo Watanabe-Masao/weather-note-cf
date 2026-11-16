@@ -34,7 +34,13 @@ export function TyphoonCard({ station, info, onCompare }: { station: string; inf
         台風情報を取得できませんでした。台風があっても、いまは出ていないことがあります。
       </p>
     );
-  if (!shown.length) return null;
+  // Nothing to show from a reading that is old: say the reading is old (it may have missed a typhoon).
+  if (!shown.length)
+    return info.state === "stale" && info.at ? (
+      <p className="typhoon-failed" role="status">
+        台風情報は {hm(info.at)} のものです（そのあと更新できていません）。台風があっても、いまは出ていないことがあります。
+      </p>
+    ) : null;
   return (
     <section className="typhoon-cards" aria-label="近づいている台風">
       {shown.map(({ t, s }) => {

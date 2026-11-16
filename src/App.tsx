@@ -160,7 +160,7 @@ export function App() {
   const [conditionsPreset, setConditionsPreset] = useState<Partial<Conditions> | undefined>(undefined);
   const typhoons = useActiveTyphoons();
   // 台風の日 for the table's 台 mark: past days from the best track, today and ahead from JMA's word now.
-  const typhoonOn = useTyphoonDays(view.station, today, typhoons.typhoons);
+  const typhoonOn = useTyphoonDays(view.station, today, typhoons);
 
   // How the comparison day is chosen: in the comparison header, and in the sheet head (which covers it when raised).
   const modeSelect = (

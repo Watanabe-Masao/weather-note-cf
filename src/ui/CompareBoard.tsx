@@ -437,7 +437,9 @@ export function CompareBoard({
  * 暴風域, dashed for the 暴風警戒域 ahead (JMA's forecast, as JMA draws it).
  */
 function TyphoonTag({ on }: { on: ReturnType<ReturnType<typeof useTyphoonOn>> }) {
-  if (!on) return null;
+  // "none" draws nothing; "unknown" draws nothing in the cell either — the line at the top says what
+  // could not be read (台風情報を取得できませんでした / まだ記録にない), never "no typhoon".
+  if (on === "none" || on === "unknown") return null;
   const label = `台風${on.number}号 ${on.area === "storm" ? "暴風域" : on.area === "gale" ? "強風域" : "暴風警戒域（予報）"}`;
   return (
     <span className={`typhoon-tag ${on.area}`} role="img" aria-label={label} title={label}>

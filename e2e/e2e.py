@@ -50,6 +50,7 @@ TYPHOON_ON = {"on": False}  # the TY step turns the made-up typhoon on, then off
 def api(path, q):
     if path == "/api/typhoon":
         if TYPHOON_ON.get("fail"): return {"ok": False, "fetchedAt": "2026-11-10T03:00:00Z", "typhoons": []}
+        if TYPHOON_ON.get("old"): return {"ok": True, "fetchedAt": "2026-11-10T00:00:00Z", "typhoons": []}
         return TYPHOON_NOW if TYPHOON_ON["on"] else {"ok": True, "fetchedAt": "2026-11-10T03:00:00Z", "typhoons": []}
     if path == "/api/auth/me":
         return {"user": ME if LOGGED_IN else None, "setup": False}
@@ -1041,6 +1042,11 @@ with sync_playwright() as p:
         TYPHOON_ON["fail"] = False
         reload()
         check("TY6 取れて台風なしなら何も出ない", pg.locator(".typhoon-failed").count() == 0 and pg.locator(".typhoon-card").count() == 0)
+        TYPHOON_ON["old"] = True
+        reload()
+        check("TY7 古い情報で台風なしでも「更新できていません」（カードの有無と別）", pg.locator(".typhoon-failed").count() == 1 and "更新できていません" in txt(".typhoon-failed"))
+        TYPHOON_ON["old"] = False
+        reload()
     step("TY", ty)
 
     # The 500s step FS asks for on purpose are not errors of the app.
