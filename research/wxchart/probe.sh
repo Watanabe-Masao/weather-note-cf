@@ -2,7 +2,7 @@
 # #249 天気図の調査 (WX-01): what JMA serves, from where, how far back, in which form. Read-only;
 # nothing is kept beyond this run's artifact (a few sample files). 出典：気象庁ホームページ。
 set -u
-out=${GITHUB_STEP_SUMMARY:-/dev/stdout}
+out=report.md; : > "$out"
 mkdir -p samples
 head_of() { curl -s -o /dev/null -L -w '%{http_code} %{content_type} %{size_download}' --max-time 30 "$1"; }
 row() { echo "| \`$1\` | $(head_of "$1") |" >> "$out"; }
@@ -54,3 +54,12 @@ for f in "$Q/$M/SPAS_COLOR_${D}090000.png" "$Q2/$M/SPAS_COLOR_${D}090000.png" "$
 done
 curl -s -L --max-time 60 -o samples/Js_2026070100.pdf "https://www.data.jma.go.jp/yoho/data/wxchart/archive/2026_07/PDFDATA/JSMAP/Js_2026070100.pdf"
 ls -la samples >> "$out"
+file samples/* >> "$out"
+python3 - <<'PY' >> "$out"
+import glob,struct
+for f in glob.glob("samples/*.png"):
+    b=open(f,"rb").read(24)
+    if b[:8]==b"\x89PNG\r\n\x1a\n": print(f, "PNG", struct.unpack(">II", b[16:24]))
+PY
+cat "$out"
+[ -n "${GITHUB_STEP_SUMMARY:-}" ] && cat "$out" >> "$GITHUB_STEP_SUMMARY"
