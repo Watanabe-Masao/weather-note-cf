@@ -7,7 +7,7 @@ import { typhoonLookup, type TyphoonSources } from "../../src/data/typhoonDays";
 const mark = (number: number, area: "storm" | "gale" | "warning" = "gale") => ({ number, area });
 const base: TyphoonSources = {
   past: new Map([["2026-06-27", mark(7)]]),
-  pastEnd: "2026-08-24",
+  pastKnown: (d) => d <= "2026-08-24",
   ahead: new Map([["2026-11-17", mark(30, "warning")]]),
   aheadState: "ok",
   today: "2026-11-16",
@@ -38,8 +38,14 @@ describe("typhoonLookup", () => {
     expect(typhoonLookup({ ...base, aheadState: "stale" })("2026-11-17")).toEqual(mark(30, "warning"));
   });
 
+  it("knows the days the kept telegrams cover, and not the gap before them", () => {
+    const on = typhoonLookup({ ...base, pastKnown: (d) => d <= "2026-08-24" || (d >= "2026-11-09" && d <= "2026-11-15") });
+    expect(on("2026-09-20")).toBe("unknown");
+    expect(on("2026-11-10")).toBe("none");
+  });
+
   it("knows nothing of the past while the best track is being read or could not be read", () => {
-    expect(typhoonLookup({ ...base, past: new Map(), pastEnd: null })("2026-07-01")).toBe("unknown");
-    expect(typhoonLookup({ ...base, past: new Map(), pastEnd: "none" })("2026-07-01")).toBe("unknown");
+    expect(typhoonLookup({ ...base, past: new Map(), pastKnown: null })("2026-07-01")).toBe("unknown");
+    expect(typhoonLookup({ ...base, past: new Map(), pastKnown: "none" })("2026-07-01")).toBe("unknown");
   });
 });
