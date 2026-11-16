@@ -54,3 +54,13 @@ python3 research/bayes_index.py --simulate 240        # 前日の湿度と週の
 ```sh
 npx --yes tsx@4.19.2 research/types/t01.ts --station 47893 --from 2024-11 --to 2026-10 --out research/types/out
 ```
+
+## typhoon/（台風の日、#220）
+
+気象庁 RSMC Tokyo のベストトラックから、高知が台風の強風域（30kt）・暴風域（50kt）に入った日を出し、記録の強風・暴風の日と突き合わせます。アプリはこのファイルを読みません。
+
+- `track.ts`：ベストトラックの読み取り、1時間ごとの補い（解析の間は直線）、観測所に向かう半径（最長と最短の間をなめらかに＝楕円、比べ用に最長の円）
+- `ty01.ts`：先に決めた基準 C1〜C3（#220）で判定し、台風の日の一覧（JSON）を書く
+- 手動のワークフロー `research-typhoon`（bst_all.zip を1回、日ごとの表を1か月1回ずつ読む）
+
+出典：気象庁。強風域・暴風域に入ったかの判定は Weather Note による。
