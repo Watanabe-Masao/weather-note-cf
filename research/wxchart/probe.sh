@@ -77,3 +77,23 @@ for f in glob.glob("samples/*.png"):
 PY
 cat "$out"
 [ -n "${GITHUB_STEP_SUMMARY:-}" ] && cat "$out" >> "$GITHUB_STEP_SUMMARY"
+# WX-01c: the reach (first.txt / latest), the 12-digit UTC names month by month, and one chart to look at.
+{
+echo "## 6. quick の範囲と12桁（UTC）の名前"
+echo "- first.txt: $(curl -s --max-time 30 $Q2/first.txt | head -c 40)"
+echo "- spas_latest.txt: $(curl -s --max-time 30 $Q2/spas_latest.txt | head -c 40)"
+echo "- asas_latest.txt: $(curl -s --max-time 30 $Q2/asas_latest.txt | head -c 40)"
+echo "| URL | status type bytes |"; echo "|---|---|"
+} >> "$out"
+for k in 0 1 2 3 4 5 6; do
+  d=$(TZ=UTC date -d "$(date +%Y-%m-01) -$k month" +%Y%m%d)
+  row "$Q2/${d:0:6}/SPAS_COLOR_${d}0000.png"
+done
+for ext in png svgz pdf; do row "$Q2/$M/SPAS_COLOR_${D}0000.$ext"; done
+row "$Q2/$M/ASAS_COLOR_${D}0000.png"
+F24=$(python3 -c "import json;print(json.load(open('samples/list.json'))['near']['ft24'][0])")
+row "https://www.jma.go.jp/bosai/weather_map/data/png/$F24"
+cat "$out"
+echo "=== B64 SPAS ${D}0000 ==="
+curl -s --max-time 30 "$Q2/$M/SPAS_COLOR_${D}0000.png" | base64 -w0; echo
+echo "=== END ==="
