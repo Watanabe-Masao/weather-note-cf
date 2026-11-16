@@ -1,0 +1,31 @@
+name: research-typhoon-archive
+
+# #220 TY-02: where JMA's past typhoon announcements can be read (JMA's XML feed; the archive of
+# JMA's XML at the National Institute of Informatics), before deciding how to keep them. Manual only;
+# a request at a time with pauses; nothing is committed — the report and what was read are this
+# run's artifact. 出典：気象庁、国立情報学研究所（CC BY 4.0）。
+on:
+  workflow_dispatch:
+    inputs:
+      typhoons:
+        description: "台風（年＋号、カンマ区切り）"
+        default: "202607,202625"
+
+jobs:
+  ty02:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx --yes tsx@4.19.2 research/typhoon/ty02.ts --typhoons "${{ inputs.typhoons }}" --out research/typhoon/out2
+      - run: cat research/typhoon/out2/ty02-report.md >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: typhoon-archive-${{ github.run_id }}
+          path: research/typhoon/out2
