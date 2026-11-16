@@ -41,6 +41,7 @@ import { HourFace } from "./ui/HourFace";
 import { ConditionSheet } from "./ui/ConditionSheet";
 import { TyphoonCard } from "./ui/TyphoonCard";
 import { useActiveTyphoons } from "./data/typhoonNow";
+import { TyphoonDaysContext, useTyphoonDays } from "./data/typhoonDays";
 import type { Conditions } from "../shared/conditions";
 import { LightTrend } from "./ui/LightTrend";
 import { DaySummaryCard } from "./ui/DaySummaryCard";
@@ -158,6 +159,8 @@ export function App() {
   // 前の台風の日と比べる (TyphoonCard): 条件から選ぶ opened on the typhoon days, any temperature or rain.
   const [conditionsPreset, setConditionsPreset] = useState<Partial<Conditions> | undefined>(undefined);
   const typhoons = useActiveTyphoons();
+  // 台風の日 for the table's 台 mark: past days from the best track, today and ahead from JMA's word now.
+  const typhoonOn = useTyphoonDays(view.station, today, typhoons);
 
   // How the comparison day is chosen: in the comparison header, and in the sheet head (which covers it when raised).
   const modeSelect = (
@@ -368,6 +371,7 @@ export function App() {
       <div ref={boardRef}>
         <BetaContext.Provider value={beta}>
           <FeelContext.Provider value={feelSettings}>
+            <TyphoonDaysContext.Provider value={typhoonOn}>
             <CompareBoard
               onMoving={setMoving}
               onOpenCalendar={setCalendar}
@@ -418,6 +422,7 @@ export function App() {
                 </>
               }
             />
+            </TyphoonDaysContext.Provider>
           </FeelContext.Provider>
         </BetaContext.Provider>
       </div>

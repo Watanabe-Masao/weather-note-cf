@@ -40,6 +40,12 @@ export interface TyphoonNow {
    * area with every forecast time (the same arcs each time), so it is one area, not one per time.
    */
   warning: Circle[];
+  /**
+   * The times of the 暴風警戒域's circles (JST ISO), one each, in order: JMA gives the 暴風域 radius at
+   * the analysis and at the forecast times that have one, and draws a circle for each of them. Empty
+   * when the two do not pair up (then no day is marked).
+   */
+  warningTimes: string[];
   /** The forecast times: the 予報円's centre and radius (km), as JMA gives them. */
   ahead: { validtime: string; hours: number; center: [number, number] | null; circleKm: number | null }[];
 }
@@ -93,6 +99,13 @@ export function parseTyphoon(tc: string, forecast: unknown, spec: unknown): Typh
     return { validtime: str(obj(e.validtime)?.JST) ?? "", hours: numOr(e.advancedHours) ?? 0, center: latLon(e.center), circleKm: r == null ? null : r / 1000 };
   });
   const wind = obj(now?.maximumWind);
+  const stormTimes = s
+    .map(obj)
+    .filter((e): e is J => !!e && arr(e.stormWarning).length > 0 && numOr(e.advancedHours) != null)
+    .sort((a, b) => (numOr(a.advancedHours) ?? 0) - (numOr(b.advancedHours) ?? 0))
+    .map((e) => str(obj(e.validtime)?.JST) ?? "");
+  // The analysis's own 暴風域 circle may lead the 暴風警戒域's circles or not: pair from the end.
+  const warningTimes = stormTimes.length >= warning.length && warning.length ? stormTimes.slice(stormTimes.length - warning.length) : [];
   return {
     tc,
     number: Number.isFinite(number) ? number : 0,
@@ -108,6 +121,7 @@ export function parseTyphoon(tc: string, forecast: unknown, spec: unknown): Typh
     gale: galeCenter && galeM != null ? { lat: galeCenter[0], lon: galeCenter[1], km: galeM / 1000 } : null,
     storm: stormNow[0] ?? null,
     warning,
+    warningTimes: warningTimes.every(Boolean) ? warningTimes : [],
     ahead,
   };
 }
@@ -152,3 +166,43 @@ export function stationOnTyphoon(t: TyphoonNow, lat: number, lon: number): Stati
 
 /** Whether a typhoon is worth a card at the station: in an area now or ahead, or its centre within 1000 km. */
 export const typhoonConcerns = (s: StationOnTyphoon) => s.gale || s.storm || s.warning || s.km <= 1000;
+
+export interface TyphoonDayMark {
+  number: number;
+  /** storm: inside the 暴風域 now · gale: inside the 強風域 now · warning: inside the 暴風警戒域 ahead. */
+  area: "storm" | "gale" | "warning";
+}
+
+const jstDay = (iso: string) => iso.slice(0, 10);
+function* daysFrom(a: string, b: string) {
+  for (let t = Date.parse(`${a}T00:00:00Z`); t <= Date.parse(`${b}T00:00:00Z`); t += 86_400_000) yield new Date(t).toISOString().slice(0, 10);
+}
+
+/**
+ * The days (JST) a typhoon's areas hold the station, as JMA draws them: today when inside the 強風域
+ * or 暴風域 now; the days of a 暴風警戒域 circle that holds it, and every day between two circles when
+ * the band between them does. Read off JMA's own circles and their times; nothing is forecast here.
+ */
+export function typhoonForecastDays(t: TyphoonNow, lat: number, lon: number): Map<string, TyphoonDayMark> {
+  const out = new Map<string, TyphoonDayMark>();
+  const put = (d: string, area: TyphoonDayMark["area"]) => {
+    const rank = { warning: 0, gale: 1, storm: 2 };
+    const had = out.get(d);
+    if (!had || rank[area] > rank[had.area]) out.set(d, { number: t.number, area });
+  };
+  const nowDay = jstDay(t.issued);
+  if (nowDay) {
+    if (t.storm && inCircle(t.storm, lat, lon)) put(nowDay, "storm");
+    else if (t.gale && inCircle(t.gale, lat, lon)) put(nowDay, "gale");
+  }
+  const cs = t.warning ?? [];
+  // A reading kept from before the times were read has none: no day is marked from it.
+  const ts = t.warningTimes ?? [];
+  if (ts.length === cs.length) {
+    cs.forEach((c, i) => {
+      if (inCircle(c, lat, lon)) put(jstDay(ts[i]), "warning");
+      if (i > 0 && inHull(cs[i - 1], c, lat, lon)) for (const d of daysFrom(jstDay(ts[i - 1]), jstDay(ts[i]))) put(d, "warning");
+    });
+  }
+  return out;
+}

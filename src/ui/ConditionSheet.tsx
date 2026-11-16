@@ -315,7 +315,19 @@ function Face({ store, station, target, compareDate, onPick, preset }: Omit<Prop
           open={open === "typhoon"}
           onToggle={() => toggle("typhoon")}
         >
-          <Segmented<TyphoonFilter> label="台風" options={TYPHOON_FILTERS} value={c.typhoon ?? "any"} onChange={(typhoon) => set({ typhoon })} />
+          <Segmented<TyphoonFilter>
+            label="台風"
+            options={TYPHOON_FILTERS}
+            value={c.typhoon ?? "any"}
+            onChange={(typhoon) =>
+              // 台風の日: few days, so the temperatures and rain step aside (問わない); they can be set again.
+              set(
+                typhoon === "only"
+                  ? { typhoon, max: { ...c.max, mode: "any" }, min: { ...c.min, mode: "any" }, rain: { ...c.rain, mode: "any" } }
+                  : { typhoon },
+              )
+            }
+          />
           <p className="cond-help">
             台風の日：その日、観測点が台風の強風域に入った日。出典：気象庁（ベストトラック）、判定は Weather Note。
             {tracks === "loading" && typhoonOn ? " 台風の進路を読み込み中…" : ""}

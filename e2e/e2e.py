@@ -44,6 +44,7 @@ TYPHOON_NOW = {"ok": True, "fetchedAt": "2026-11-10T00:00:00Z", "typhoons": [{
     "pressure": 960, "wind": 40, "gust": 55,
     "gale": {"lat": 31.9, "lon": 133.5, "km": 400}, "storm": {"lat": 31.8, "lon": 133.4, "km": 150},
     "warning": [{"lat": 31.9, "lon": 133.5, "km": 180}, {"lat": 34.0, "lon": 134.5, "km": 220}],
+    "warningTimes": ["2026-11-10T09:00:00+09:00", "2026-11-11T21:00:00+09:00"],
     "ahead": [{"validtime": "2026-11-10T21:00:00+09:00", "hours": 12, "center": [33.5, 134.0], "circleKm": 60}]}]}
 TYPHOON_ON = {"on": False}  # the TY step turns the made-up typhoon on, then off again
 def api(path, q):
@@ -772,6 +773,7 @@ with sync_playwright() as p:
         for _ in range(30):
             if pg.locator(".cond-result .loading").count() == 0: break
             calm()
+        check("L13b 台風の日を選ぶと最高・最低・雨は問わない", all("問わない" in txt(f".cond-line[data-cond={k}] .cond-value") for k in ("max", "min", "rain")))
         check("L14 台風の日だけ：表に台風の号", pg.locator(".cond-col.day").count() >= 1 and "98号" in txt(".cond-table"), txt(".cond-count"))
         check("L15 台風の行に出典", "ベストトラック" in txt(".cond-line[data-cond=typhoon]"))
         layout_ok("L16", "条件から選ぶ 台風")
@@ -1027,6 +1029,7 @@ with sync_playwright() as p:
         check("TY1 台風のカード：号・気圧・強風域", pg.locator(".typhoon-card").count() == 1 and "台風14号" in txt(".typhoon-card") and "960" in txt(".typhoon-card") and "強風域に入っています" in txt(".typhoon-card"), txt(".typhoon-card") if pg.locator(".typhoon-card").count() else "")
         check("TY2 出典と気象庁へのリンク", "気象庁" in txt(".typhoon-source") and pg.locator(".typhoon-link[target=_blank]").count() == 1)
         layout_ok("TY3", "台風のカード")
+        check("TY3b 表の今日に台（強風域）、明日に破線の台（暴風警戒域）", pg.locator(".side-target .typhoon-tag.gale").count() >= 1 and pg.locator(".side-target .typhoon-tag.warning").count() >= 1, str(pg.locator(".side-target .typhoon-tag").count()))
         pg.get_by_text("前の台風の日と比べる").click(); calm(4500)
         check("TY4 条件から選ぶが台風の日で開く（気温・雨は問わない、通年）", pg.locator(".msheet.cond-sheet").count() == 1 and "台風の日" in txt(".cond-line[data-cond=typhoon] .cond-value") and "問わない" in txt(".cond-line[data-cond=max] .cond-value") and "通年" in txt(".cond-line[data-cond=period] .cond-value"))
         pg.click(".msheet .icon-btn.close"); calm()
