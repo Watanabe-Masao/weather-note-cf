@@ -3,7 +3,8 @@
 //   ① 1日の流れ: everything that has a time, on one clock (日の出・日の入り, the five 時間帯 — a tap
 //      opens their hours —, and the chosen item over 24 hours, the same graph as the 時間帯 sheet);
 //   ② この日の値: the values that have no time, every item at once (a tap shows it in ①);
-//   ③ 根拠と記録: where it comes from, and the person's own reports of that day.
+//   ③ 根拠と記録: where it comes from — how the forecasts of the day moved (予報の履歴, R6), the weather
+//      chart —, and the person's own reports of that day.
 // Nothing here is computed anew: the values, hours, parts and words are the ones the comparison
 // screens already use (chartMetrics, dayDetail, dayParts, dayComment).
 
@@ -27,6 +28,7 @@ import { useSun } from "./HourCompare";
 import { Conf, confidenceOfRow, SectionHead } from "./kit";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
 import { WxChart } from "./WxChart";
+import { ForecastHistoryPanel } from "./forecastHistory/ForecastHistory";
 
 interface Props {
   store: WeatherStore | null;
@@ -136,6 +138,8 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
 
       <div className="dd-sec">
         <SectionHead title="根拠と記録" as="h3" />
+        <h4 className="dd-sub">この日の予報の移り変わり</h4>
+        <ForecastHistoryPanel store={store} station={station} date={date} />
         <WxChart date={date} today={today} />
         <p className="dd-basis">
           <span>出どころ</span>

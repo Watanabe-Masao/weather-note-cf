@@ -1,6 +1,6 @@
 {
   "余白・段にない値": {
-    "1px": 18,
+    "1px": 20,
     "1.5px": 1,
     "3px": 34,
     "5px": 12,
@@ -21,7 +21,7 @@
     "36px": 1
   },
   "余白・段の値": {
-    "2px": 75,
+    "2px": 77,
     "4px": 72,
     "6px": 78,
     "8px": 45,
@@ -47,7 +47,7 @@
   "時間・操作": {
     "0ms": 1,
     "140ms": 1,
-    "280ms": 2,
+    "280ms": 3,
     "350ms": 1,
     "400ms": 1,
     "450ms": 1,
@@ -71,30 +71,31 @@
     "260ms": 1
   },
   "線の太さ": {
-    "1px": 114,
+    "0.8px": 2,
+    "1px": 134,
     "1.1px": 1,
-    "1.2px": 6,
-    "1.4px": 7,
-    "1.5px": 20,
+    "1.2px": 7,
+    "1.4px": 8,
+    "1.5px": 23,
     "1.6px": 1,
     "1.65px": 1,
     "1.9px": 1,
-    "2px": 20,
+    "2px": 23,
     "2.2px": 4,
     "2.4px": 1,
     "2.5px": 2,
-    "3px": 3,
+    "3px": 4,
     "3.2px": 1,
     "5px": 1,
     "7px": 1
   },
   "角の丸み": {
-    "2": 2,
-    "3": 3,
-    "4": 1,
+    "2": 4,
+    "3": 5,
+    "4": 3,
     "8": 4,
     "0.6": 1,
-    "1.5": 1
+    "1.5": 2
   },
   "透かし・不透明度": {
     "0": 5,
@@ -121,28 +122,38 @@
     "0.95": 1
   },
   "透かし・混ぜる割合": {
+    "accent-base 12%": 1,
     "accent-base 14%": 2,
     "accent-base 22%": 3,
     "accent-base 3%": 1,
     "accent-base 45%": 1,
     "accent-base 50%": 1,
+    "accent-base 6%": 1,
     "accent-base 60%": 3,
     "accent-base 8%": 1,
     "accent-base 86%": 1,
+    "accent-base 9%": 1,
     "chip-tone 13%": 1,
     "chip-tone 18%": 1,
     "chip-tone 55%": 1,
+    "data-cold 16%": 1,
     "data-hot 11%": 1,
+    "data-hot 16%": 1,
+    "data-hot 22%": 1,
     "data-hot 40%": 1,
     "data-sun 28%": 2,
     "ink-secondary 22%": 1,
     "ink-secondary 35%": 1,
+    "ink-tertiary 12%": 1,
+    "ink-tertiary 14%": 2,
     "ink-tertiary 30%": 1,
+    "line-soft 60%": 1,
     "line-strong 55%": 1,
     "line-strong 70%": 1,
     "status-error 12%": 1,
     "status-error 45%": 1,
     "status-error 50%": 2,
+    "status-error 60%": 1,
     "status-forecast 16%": 1,
     "status-forecast 4%": 1,
     "status-forecast 50%": 1,
@@ -154,7 +165,7 @@
     "status-warning 38%": 1,
     "status-warning 45%": 1,
     "status-warning 5%": 1,
-    "status-warning 55%": 2,
+    "status-warning 55%": 3,
     "status-warning 6%": 1,
     "surface-base 40%": 1,
     "surface-base 72%": 1,
@@ -167,6 +178,7 @@
     "surface-page 65%": 1,
     "surface-page 70%": 1,
     "surface-page 75%": 1,
-    "surface-page 85%": 1
+    "surface-page 85%": 1,
+    "surface-raised 70%": 1
   }
 }
