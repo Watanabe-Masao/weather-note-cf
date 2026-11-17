@@ -50,3 +50,8 @@ body { background: var(--surface-base); color: var(--ink-primary); }
 .rn-scale i { font-style: normal; white-space: nowrap; }
 .rn-scale > span { overflow: hidden; }
 .rn-scale > span.hourly { justify-content: flex-end; }
+.rn-when > span { font-size: var(--size-sm); }
+.rn-playnote { position: absolute; left: 50%; bottom: var(--space-3); transform: translateX(-50%); padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill); background: var(--surface-base); color: var(--ink-primary); font-size: var(--size-sm); white-space: nowrap; box-shadow: 0 0 0 1px var(--line-strong) inset; }
+.rn-when { flex-direction: column; align-items: flex-start; gap: 0; border-radius: var(--radius-md); max-width: calc(100% - 72px); }
+.rn-when > span { font-size: var(--size-xs); color: var(--ink-secondary); }
+.rn-playnote { left: var(--space-2); transform: none; bottom: var(--space-2); }

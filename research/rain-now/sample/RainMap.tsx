@@ -1,12 +1,12 @@
 // 地図：地点のまわりの雨の強さ（mm/h、気象庁の色の段）。＋−で段階8（四国全体）〜10（高知市のまわり）まで寄せる。
 // 予測のこまは「予測」の札と灰の枠（色味のある色は「選んでいる」印だけ、design-system 1章）。
 import { useEffect, useRef } from "react";
-import { colorOf, frameLabel, HERE, isAmount, isForecast, KOCHI, valueAt, viewOf, ZOOMS, type Zoom } from "./data";
+import { colorOf, frameLabel, HERE, isAmount, isForecast, KOCHI, relLabel, valueAt, viewOf, ZOOMS, type Zoom } from "./data";
 
 type Coast = { rings: number[][] };
 const COS = Math.cos((33.5 * Math.PI) / 180);
 
-export function RainMap({ m, coast, zoom, onZoom }: { m: number; coast: Coast | null; zoom: Zoom; onZoom: (z: Zoom) => void }) {
+export function RainMap({ m, coast, zoom, onZoom, note }: { m: number; coast: Coast | null; zoom: Zoom; onZoom: (z: Zoom) => void; note?: string | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const forecast = isForecast(m);
   const v = viewOf(zoom);
@@ -104,8 +104,11 @@ export function RainMap({ m, coast, zoom, onZoom }: { m: number; coast: Coast | 
       <canvas ref={ref} className="rn-canvas" role="img" aria-label={`${frameLabel(m)}の${isAmount(m) ? "1時間の降水量" : "雨の強さ"}（${forecast ? "予測" : "実況"}）`} />
       <span className={`rn-when${forecast ? " forecast" : ""}`}>
         <b>{frameLabel(m)}</b>
-        {isAmount(m) ? "予測・1時間の量" : forecast ? "予測・強さ" : m === 0 ? "実況（今）" : "実況"}
+        <span>
+          {relLabel(m)}・{isAmount(m) ? "予測（1時間の量）" : forecast ? "予測" : "実況"}
+        </span>
       </span>
+      {note && <span className="rn-playnote">{note}</span>}
       <span className="rn-zoom">
         <button aria-label="寄せる" disabled={i === ZOOMS.length - 1} onClick={() => onZoom(ZOOMS[i + 1])}>
           ＋

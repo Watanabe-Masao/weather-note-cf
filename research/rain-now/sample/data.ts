@@ -79,6 +79,23 @@ export function amount(x: number, y: number, mEnd: number): number {
 export const valueAt = (x: number, y: number, m: number) => (isAmount(m) ? amount(x, y, m) : intensity(x, y, m));
 export const frameLabel = (m: number) => (isAmount(m) ? `${minuteLabel(m - 60)}〜${minuteLabel(m)}` : minuteLabel(m));
 
+/** 今からの隔たり（「40分前」「1時間20分後」「2〜3時間後」）。 */
+const span = (min: number) => {
+  const h = Math.floor(min / 60);
+  const r = min % 60;
+  return h && r ? `${h}時間${r}分` : h ? `${h}時間` : `${r}分`;
+};
+export const relLabel = (m: number) =>
+  m === 0 ? "今" : isAmount(m) ? `${(m - 60) / 60}〜${m / 60}時間後` : m < 0 ? `${span(-m)}前` : `${span(m)}後`;
+
+/**
+ * 再生の速さ（1こまを出す時間、ミリ秒）。こまの刻みが違っても、見た目の動きの速さが大きく食い違わないように
+ * 長い刻みのこまは長く出す（5分＝0.3秒、1時間＝1.2秒）。それでも1時間ごとは5分ごとの3倍の速さで時間が進むので、
+ * そのあいだは「3倍速」と出す。刻みが変わる所では一度止めて知らせる。
+ */
+export const STEP_MS = { five: 300, hour: 1200 };
+export const SPEED_UP = (60 / STEP_MS.hour) / (5 / STEP_MS.five); // 1時間ごとのときの、時間の進み方の倍率
+
 /** 高知の地点の強さ（5分ごと、mm/h）。 */
 export const pointSeries = NOWCAST.map((m) => ({ m, v: intensity(KOCHI.lon, KOCHI.lat, m) }));
 

@@ -4,7 +4,7 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "../../../src/styles.css";
 import { applyTheme } from "../../../src/design/tokens";
-import { aheadItems, frameLabel, FRAMES, HOURLY_FRAMES, isAmount, NOWCAST, SCALE, type Zoom } from "./data";
+import { aheadItems, frameLabel, FRAMES, HOURLY_FRAMES, isAmount, NOWCAST, SCALE, SPEED_UP, STEP_MS, type Zoom } from "./data";
 import { type Span, SPANS, TimeGraph } from "./TimeGraph";
 import { Segmented } from "../../../src/ui/kit";
 import { RainMap } from "./RainMap";
@@ -24,11 +24,18 @@ function App() {
       .then(setCoast)
       .catch(() => setCoast(null));
   }, []);
+  // 再生：こまの刻みに合わせて出す時間を変える（data.ts の STEP_MS）。刻みが変わる所（1時間後）で一度止めて知らせる。
+  const [note, setNote] = useState<string | null>(null);
   useEffect(() => {
-    if (!play) return;
-    const t = window.setInterval(() => setM((x) => FRAMES[(FRAMES.indexOf(x) + 1) % FRAMES.length] ?? 0), 450);
-    return () => window.clearInterval(t);
-  }, [play]);
+    if (!play) return setNote(null);
+    const next = FRAMES[(FRAMES.indexOf(m) + 1) % FRAMES.length];
+    const crossing = !isAmount(m) && isAmount(next);
+    setNote(isAmount(m) ? `1時間ごと・${SPEED_UP}倍速` : null);
+    const wait = crossing ? 1400 : isAmount(m) ? STEP_MS.hour : STEP_MS.five;
+    if (crossing) setNote("ここから1時間ごと（今後の雨）");
+    const t = window.setTimeout(() => setM(next === FRAMES[0] ? -60 : next), wait);
+    return () => window.clearTimeout(t);
+  }, [play, m]);
   const i = FRAMES.indexOf(m);
   const go = (x: number) => {
     setPlay(false);
@@ -50,7 +57,7 @@ function App() {
             </div>
           ))}
         </div>
-        <RainMap m={m} coast={coast} zoom={zoom} onZoom={setZoom} />
+        <RainMap m={m} coast={coast} zoom={zoom} onZoom={setZoom} note={play ? note : null} />
         {/* 時刻を動かす：地図のすぐ下に、つまみと操作を1列に */}
         <input
           type="range"
@@ -67,10 +74,10 @@ function App() {
           <span style={{ flex: NOWCAST.length - 1 }}>
             <i>3時間前</i>
             <i>今</i>
-            <i>1時間先</i>
+            <i>1時間後</i>
           </span>
           <span style={{ flex: HOURLY_FRAMES.length }} className="hourly">
-            <i>15時間先</i>
+            <i>15時間後</i>
           </span>
         </div>
         <div className="rn-ctl">
