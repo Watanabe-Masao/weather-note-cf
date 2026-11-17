@@ -172,6 +172,12 @@ async function main() {
       "| --- | --- | --- | --- | --- |",
       ...r.cron.stages.map((s) => `| ${s.stage} | ${s.runs} | ${s.failed} | ${s.avg_ms}ms | ${s.max_ms}ms |`),
       "",
+      // 警報・注意報の電文 (warningArchive.ts): shown only, not judged (no problem or note is made of it yet).
+      "## 警報・注意報の電文（高知県）",
+      !h.state.warnings
+        ? "- /api/health に警報・注意報の数がありません（アプリが古いかもしれません）。"
+        : `- 保存 ${h.state.warnings.telegrams}通・最新 ${Object.entries(h.state.warnings.latest).map(([k, v]) => `${k} ${v}`).join("・") || "なし"}・R2 に写していない ${h.state.warnings.notCopiedToR2}通・最後に取れた ${h.state.warnings.lastOk ?? "記録なし"}・取得の失敗（24時間） ${h.state.warnings.fetchFailuresLastDay}回`,
+      "",
       "## 過去の記録の取り込み",
       !importReady
         ? "- /api/health に取り込みの月がありません（アプリが古いかもしれません）。"
