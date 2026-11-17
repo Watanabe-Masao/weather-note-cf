@@ -32,6 +32,7 @@ import "./sample.css";
 import { TransitionChart, TransitionRows, TransitionSteps } from "./Transition";
 import { FocusSay, OneChart } from "./OneChart";
 import { StepChart } from "./StepChart";
+import { type ActualDay, ActualBlock } from "./Actual";
 
 type Sc = Scenario & {
   telegrams?: {
@@ -222,7 +223,13 @@ function Provenance({
   );
 }
 
-function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
+function App({
+  SCENARIOS,
+  ACTUALS,
+}: {
+  SCENARIOS: Sc[];
+  ACTUALS: Record<string, ActualDay>;
+}) {
   const [theme, setTheme] = useState<ThemeName>("navy");
   const [scId, setScId] = useState("oct");
   const sc = SCENARIOS.find((s) => s.id === scId)!;
@@ -324,6 +331,36 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
             ]}
           />
         </div>
+        <div className="fh-ctl">
+          <Segmented
+            label="案"
+            value={plan}
+            onChange={setPlan}
+            options={[
+              { id: "step", label: "案G 階段・マス" },
+              { id: "oneTone", label: "1枚・色" },
+              { id: "oneDash", label: "1枚・線" },
+              { id: "combo", label: "案D 組合せ" },
+              { id: "table", label: "案B 行" },
+              { id: "chart", label: "案A 線" },
+              { id: "steps", label: "案C 変化" },
+            ]}
+          />
+          {one && (
+            <Segmented
+              label="指を離したら"
+              value={release}
+              onChange={(v) => {
+                setRelease(v);
+                setScrub(null);
+              }}
+              options={[
+                { id: "keep", label: "その発表を残す" },
+                { id: "back", label: "最新に戻す" },
+              ]}
+            />
+          )}
+        </div>
         <p className="fh-note">{SC_NOTE[scId]}</p>
       </header>
 
@@ -362,7 +399,10 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
               <small className="dd-hint">③ 根拠と記録</small>
             </SectionHead>
             {focusSlot ? (
-              <FocusSay s={focusSlot} slots={slots} />
+              <>
+                <FocusSay s={focusSlot} slots={slots} />
+                <ActualBlock day={day} a={ACTUALS[day]} />
+              </>
             ) : lines.length ? (
               <ul className="fh-say">
                 {lines.map((l) => (
@@ -374,40 +414,14 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
                 発表のあいだで、天気・降水確率・気温は変わらなかった。
               </p>
             )}
-            <p className="fh-count">
-              {slots.length}回の発表のうち {counts.ok ?? 0}回
-              {Object.entries(counts)
-                .filter(([k]) => k !== "ok")
-                .map(([k, n]) => `・${STATE_TEXT[k as Slot["state"]]} ${n}回`)
-                .join("")}
-            </p>
-            <Segmented
-              label="案"
-              value={plan}
-              onChange={setPlan}
-              options={[
-                { id: "step", label: "案G 階段・マス" },
-                { id: "oneTone", label: "1枚・色" },
-                { id: "oneDash", label: "1枚・線" },
-                { id: "combo", label: "案D 組合せ" },
-                { id: "table", label: "案B 行" },
-                { id: "chart", label: "案A 線" },
-                { id: "steps", label: "案C 変化" },
-              ]}
-            />
-            {one && (
-              <Segmented
-                label="指を離したら"
-                value={release}
-                onChange={(v) => {
-                  setRelease(v);
-                  setScrub(null);
-                }}
-                options={[
-                  { id: "keep", label: "その発表を残す" },
-                  { id: "back", label: "最新に戻す" },
-                ]}
-              />
+            {!one && (
+              <p className="fh-count">
+                {slots.length}回の発表のうち {counts.ok ?? 0}回
+                {Object.entries(counts)
+                  .filter(([k]) => k !== "ok")
+                  .map(([k, n]) => `・${STATE_TEXT[k as Slot["state"]]} ${n}回`)
+                  .join("")}
+              </p>
             )}
             <div className="fh-plan">
               {one && (
@@ -618,12 +632,22 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
 }
 
 // データは build-data.ts が書く sample-data.json（ページと同じ場所）。
-fetch("./sample-data.json")
-  .then((r) => r.json() as Promise<{ scenarios: Sc[] }>)
-  .then(({ scenarios }) =>
-    createRoot(document.getElementById("root")!).render(
-      <StrictMode>
-        <App SCENARIOS={scenarios} />
-      </StrictMode>,
-    ),
-  );
+// 実績（actuals.json）は無くても動く（無ければ「まだ」の形）。
+Promise.all([
+  fetch("./sample-data.json").then(
+    (r) => r.json() as Promise<{ scenarios: Sc[] }>,
+  ),
+  fetch("./actuals.json")
+    .then((r) =>
+      r.ok
+        ? (r.json() as Promise<{ days: Record<string, ActualDay> }>)
+        : { days: {} },
+    )
+    .catch(() => ({ days: {} })),
+]).then(([{ scenarios }, act]) =>
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <App SCENARIOS={scenarios} ACTUALS={act.days} />
+    </StrictMode>,
+  ),
+);

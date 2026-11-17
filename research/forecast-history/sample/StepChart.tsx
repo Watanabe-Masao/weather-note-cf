@@ -334,17 +334,18 @@ export function StepChart({
             </g>
           );
         })}
-        {/* いちばん新しい発表の列を枠で示す（マスの濃さは確率なので、新しさは濃さでなく枠で） */}
-        {recent && (
-          <rect
-            x={xi(times[times.length - 1]) + 0.5}
-            y={CELL_TOP - 3}
-            width={step - 1}
-            height={AX - CELL_TOP + 1}
-            rx={3}
-            className="fh-step-latest"
-          />
-        )}
+        {/* 当日の発表（対象日に出た発表）をまとめて枠で囲む：どこからが当日か */}
+        {(() => {
+          const today = times.filter((t) => t.slice(0, 10) === day);
+          if (!today.length) return null;
+          const x0 = xi(today[0]) + 0.5;
+          const x1 = xEnd(today[today.length - 1]) - 0.5;
+          return (
+            <g className="fh-step-today">
+              <rect x={x0} y={2} width={x1 - x0} height={AX - 2} rx={4} />
+            </g>
+          );
+        })()}
         {/* 気温の軸 */}
         {[lo, hi].map((v) => (
           <g key={v}>
