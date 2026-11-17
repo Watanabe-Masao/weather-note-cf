@@ -16,9 +16,12 @@
 // 取り込める月 (#262): told once when the record has the month to take next (its row, `import:YYYY-MM`,
 // is kept closed, so it is never told again and is never an open alert). The issue on GitHub stays.
 //
+// 毎朝の点検 (dailyDigest.ts, 2026-11-18): the first look after 7:00 JST also sends the day's summary, once.
+//
 // Each look is kept in health_checks (counts and times only), and /api/health gives the last one.
 
 import { checkImport, judgeHealth, type Finding, type ImportReady } from "../../shared/healthJudge";
+import { claimDigest, digestLines, digestMessage } from "./dailyDigest";
 import type { Db } from "./accounts";
 import { health } from "./health";
 import type { Message } from "./notify";
@@ -96,6 +99,8 @@ export interface HealthWatchResult {
   opened: string[];
   closed: string[];
   importTold: string | null;
+  /** 毎朝の点検を送った日（`daily:YYYY-MM-DD`）。 */
+  digest: string | null;
   sent: number;
 }
 
@@ -174,10 +179,21 @@ export async function watchHealth(
     }
   }
 
+  // 毎朝の点検 (dailyDigest.ts)：朝7時より後の最初の見張りで、この24時間のまとめを1通だけ。
+  let digest: string | null = null;
+  const day = await claimDigest(db, now);
+  if (day) {
+    const m = digestMessage(await digestLines(db, now), judged.problems, judged.notes);
+    const n = await tellAdmins(db, m, now, send);
+    sent += n;
+    digest = day;
+    await db.prepare("UPDATE health_alerts SET detail = ?, sent = ? WHERE key = ?").bind(m.body, n, day).run();
+  }
+
   await db
     .prepare("UPDATE health_checks SET done_at = ?, problems = ?, notes = ?, opened = ?, closed = ?, sent = ? WHERE at = ?")
     .bind(new Date().toISOString(), judged.problems.length, judged.notes.length, newly.length, over.length, sent, at)
     .run();
   await db.prepare("DELETE FROM health_checks WHERE at < ?").bind(new Date(now - KEEP_DAYS * 86_400_000).toISOString()).run();
-  return { problems: judged.problems.length, notes: judged.notes.length, opened: newly.map((f) => f.key), closed: over.map((f) => f.key), importTold, sent };
+  return { problems: judged.problems.length, notes: judged.notes.length, opened: newly.map((f) => f.key), closed: over.map((f) => f.key), importTold, digest, sent };
 }

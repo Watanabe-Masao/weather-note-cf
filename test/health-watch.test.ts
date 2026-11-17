@@ -195,3 +195,44 @@ describe("監視の判断 (shared/healthJudge.ts)", () => {
     expect(judgeHealth(h, T0).problems.map((p) => p.key).sort()).toEqual(["forecastStale", "typhoonStale"]);
   });
 });
+
+describe("毎朝の点検（dailyDigest.ts）", () => {
+  const T7 = Date.parse("2026-11-18T07:10:00+09:00");
+  it("7時より後の最初の見張りで1通だけ。この24時間の回数と、異常・気づいたことを書く", async () => {
+    const s = await setup();
+    // 前の日の24時間：予報・台風は5分ごとにうまくいった（1回だけ失敗）
+    for (let t = T7 - 24 * H + 5 * MIN; t < T7; t += 5 * MIN) s.fetched(t);
+    s.db.raw.prepare("UPDATE forecast_fetch_log SET ok = 0 WHERE at = ?").run(new Date(T7 - 60 * MIN).toISOString());
+    s.db.raw.prepare("UPDATE forecast_fetch_log SET added = 3 WHERE at = ?").run(new Date(T7 - 30 * MIN).toISOString());
+    const r = await s.look(T7);
+    expect(r.digest).toBe("daily:2026-11-18");
+    const d = s.told.filter((t) => t.title.startsWith("毎朝の点検"));
+    expect(d.map((t) => t.to)).toEqual(["https://push.test/admin"]);
+    expect(d[0].title).toBe("毎朝の点検：うまくいかなかった回があります");
+    expect(d[0].body).toContain("・予報の電文：287回中286回うまくいった（新しく3通）");
+    expect(d[0].body).toContain("・台風の電文：287回中287回うまくいった（新しく0通）");
+    expect(d[0].body).toContain("・毎時の見張り：");
+    // 同じ日の次の見張りでは送らない
+    expect((await s.look(T7 + 61 * MIN)).digest).toBeNull();
+    expect(s.told.filter((t) => t.title.startsWith("毎朝の点検"))).toHaveLength(1);
+  });
+  it("7時より前・10時より後は送らない（昼に遅れて届かないように）", async () => {
+    const s = await setup();
+    for (let t = T0 - 2 * H; t <= T0 + 2 * H; t += 5 * MIN) s.fetched(t);
+    expect((await s.look(Date.parse("2026-11-18T06:55:00+09:00"))).digest).toBeNull();
+    expect((await s.look(Date.parse("2026-11-18T10:05:00+09:00"))).digest).toBeNull();
+  });
+});
+
+describe("毎朝の点検の題", () => {
+  it("異常・うまくいかなかった回・気づいたこと・問題なしで変える。動いていない取得はそう書く", async () => {
+    const { digestMessage } = await import("../worker/src/dailyDigest");
+    const ok = [{ name: "予報の電文", runs: 288, ok: 288, added: 20, unit: "通" }];
+    expect(digestMessage(ok, [], []).title).toBe("毎朝の点検：問題なし");
+    expect(digestMessage(ok, [], [{ key: "x", text: "R2 が8割" }]).title).toBe("毎朝の点検：問題なし（気づいたこと1件）");
+    expect(digestMessage(ok, [{ key: "y", text: "止まっている" }], []).title).toBe("毎朝の点検：異常が1件あります");
+    const idle = digestMessage([{ name: "天気図", runs: 0, ok: 0, added: 0, unit: "枚" }], [], []);
+    expect(idle.title).toBe("毎朝の点検：うまくいかなかった回があります");
+    expect(idle.body).toBe("・天気図：この24時間に1回も動いていません");
+  });
+});
