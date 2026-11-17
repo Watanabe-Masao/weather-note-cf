@@ -51,12 +51,13 @@ async function setup() {
     return id;
   };
   /** A run of the collector, logged at `t`. */
-  const run = (t: number, ok: boolean, error: string | null = null) =>
+  /** A run of the collector, logged at `t`; `entries`: the feed's entries it read (0 when the feed did not read). */
+  const run = (t: number, ok: boolean, error: string | null = null, entries = 0) =>
     db.raw
       .prepare(
-        "INSERT INTO forecast_fetch_log (at, feed, ok, entries, wanted, added, left_over, error) VALUES (?, 'short', ?, 0, 0, 0, 0, ?)",
+        "INSERT INTO forecast_fetch_log (at, feed, ok, entries, wanted, added, left_over, error) VALUES (?, 'short', ?, ?, 0, 0, 0, ?)",
       )
-      .run(new Date(t).toISOString(), ok ? 1 : 0, error);
+      .run(new Date(t).toISOString(), ok ? 1 : 0, entries, error);
   const watch = (t: number) => watchForecastArchive(db, t, send);
   return { db, told, telegram, run, watch };
 }
@@ -155,6 +156,14 @@ describe("watching the forecast archive", () => {
     run(T0 + 20 * MIN, true);
     expect((await watch(T0 + 20 * MIN)).closed).toEqual(["fetch"]);
     expect(told[1].title).toBe("予報の保存：復旧しました");
+  });
+
+  it("a telegram that failed while the feed read is not a stop of the feed: no `fetch`, and `missing` is still judged", async () => {
+    const { told, telegram, run, watch } = await setup();
+    telegram("VPFD51", at("11-16T17:00"));
+    for (const t of [at("11-17T05:50"), at("11-17T05:55"), at("11-17T06:00")]) run(t, false, "Error: 20261116194148_0_VPFD51_390000: HTTP 404", 120);
+    expect((await watch(at("11-17T06:01"))).opened).toEqual(["missing:VPFD51"]);
+    expect(told[0].body).toMatch(/HTTP 404/);
   });
 
   it("does not also tell `missing` while the fetch is failing (the cause is the fetch)", async () => {

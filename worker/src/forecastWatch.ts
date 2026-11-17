@@ -153,15 +153,19 @@ async function lookNow(db: Db, now: number): Promise<Look> {
       "SELECT at, error FROM forecast_fetch_log WHERE ok = 0 ORDER BY at DESC LIMIT 1",
     )
     .first<Failure>();
+  // A run whose feed did not read logs no entries; a run that read the feed but missed a telegram
+  // (one 404 …) logs its entries and ok = 0, and is not a stop of the feed: that telegram is tried
+  // again by the next run, and the stop it may make is told by `missing`.
   const runs = (
     await db
-      .prepare("SELECT at, ok FROM forecast_fetch_log ORDER BY at DESC LIMIT ?")
+      .prepare("SELECT at, ok, entries FROM forecast_fetch_log ORDER BY at DESC LIMIT ?")
       .bind(FORECAST_FETCH_FAILS)
-      .all<{ at: string; ok: number }>()
+      .all<{ at: string; ok: number; entries: number }>()
   ).results;
+  const feedRead = (r: { ok: number; entries: number }) => r.ok === 1 || r.entries > 0;
 
   // fetch: told even before any telegram was kept.
-  if (runs.length === FORECAST_FETCH_FAILS && runs.every((r) => !r.ok)) {
+  if (runs.length === FORECAST_FETCH_FAILS && runs.every((r) => !feedRead(r))) {
     found.push({
       key: "fetch",
       kind: "fetch",
@@ -179,7 +183,7 @@ async function lookNow(db: Db, now: number): Promise<Look> {
 
   // missing: only while the feed reads (the latest run did not fail; see the header) and only once the
   // archive has run and kept a telegram of the kind.
-  if (runs.length && runs[0].ok) {
+  if (runs.length && feedRead(runs[0])) {
     for (const k of WATCHED_KINDS) {
       const key = `missing:${k}`;
       watched.add(key);
@@ -268,12 +272,14 @@ export async function watchForecastArchive(
   for (const [key, openedAt] of open) {
     if (!look.watched.has(key) || still.has(key)) continue;
     // Over: closed, and its key freed (renamed with when it opened) so a later stop is told again.
-    await db
+    const done = await db
       .prepare(
-        "UPDATE forecast_alerts SET closed_at = ?, key = ? WHERE key = ?",
+        "UPDATE forecast_alerts SET closed_at = ?, key = ? WHERE key = ? AND closed_at IS NULL",
       )
       .bind(at, `${key}@${openedAt}`, key)
       .run();
+    // Two runs at one moment: only the one that closed it tells (no 「復旧」 twice).
+    if (!done.meta.changes) continue;
     closed.push(key);
     await tellAdmins(db, closeMessage(key, look), now, send);
   }
