@@ -237,3 +237,4 @@
 .fh-step-band.min { fill: color-mix(in srgb, var(--data-cold) 16%, transparent); }
 .fh-step-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
 .fh-step-swatch.band { background: color-mix(in srgb, var(--data-hot) 22%, transparent); }
+.fh-step-latest { fill: none; stroke: var(--accent-base); stroke-width: 1; stroke-dasharray: 3 2; }
