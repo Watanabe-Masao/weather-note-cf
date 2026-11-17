@@ -57,12 +57,30 @@ export function intensity(x: number, y: number, m: number): number {
   return v < 0.4 ? 0 : Math.round(v * 10) / 10;
 }
 
-/** 地図のこま：3時間前〜今は実況（5分ごと）、今〜1時間先は予測（5分ごと）。 */
-export const FRAMES = Array.from({ length: 49 }, (_, i) => -180 + i * 5);
+/**
+ * 地図のこま：3時間前〜今は実況（5分ごと）、今〜1時間先は雨雲の動きの予測（5分ごと、強さ mm/h）、
+ * その先15時間先までは今後の雨（1時間ごと、その1時間の量 mm）。1時間先を境に、地図が表すものが変わる。
+ */
+export const NOWCAST = Array.from({ length: 49 }, (_, i) => -180 + i * 5);
+export const HOURLY_FRAMES = Array.from({ length: 14 }, (_, i) => 120 + i * 60);
+export const FRAMES = [...NOWCAST, ...HOURLY_FRAMES];
 export const isForecast = (m: number) => m > 0;
+/** 1時間の量のこま（今後の雨）。m は1時間の終わり：m=120 は 16:00〜17:00 の量。 */
+export const isAmount = (m: number) => m > 60;
+
+/** 1時間の量（mm）：その1時間の強さの平均（見本）。先の時間ほどぼかす。 */
+export function amount(x: number, y: number, mEnd: number): number {
+  let sum = 0;
+  for (let k = 0; k < 6; k++) sum += intensity(x, y, mEnd - 60 + k * 10 + 5) / 6;
+  const v = sum * (mEnd > 6 * 60 ? 0.6 : 1);
+  return v < 0.4 ? 0 : Math.round(v * 10) / 10;
+}
+/** こま m の地図の値：1時間先までは強さ（mm/h）、その先は1時間の量（mm）。 */
+export const valueAt = (x: number, y: number, m: number) => (isAmount(m) ? amount(x, y, m) : intensity(x, y, m));
+export const frameLabel = (m: number) => (isAmount(m) ? `${minuteLabel(m - 60)}〜${minuteLabel(m)}` : minuteLabel(m));
 
 /** 高知の地点の強さ（5分ごと、mm/h）。 */
-export const pointSeries = FRAMES.map((m) => ({ m, v: intensity(KOCHI.lon, KOCHI.lat, m) }));
+export const pointSeries = NOWCAST.map((m) => ({ m, v: intensity(KOCHI.lon, KOCHI.lat, m) }));
 
 /** 1時間ごとの量（mm）：過去6時間はアメダスの実績、この先15時間は「今後の雨」の予測。 */
 export const hourly = Array.from({ length: 21 }, (_, i) => {
@@ -101,6 +119,11 @@ export function aheadItems(): { label: string; value: string; sub?: string }[] {
   out.push({ label: "いちばん強い", value: `${minuteLabel(peak.m)}ごろ`, sub: `${Math.round(peak.v)}mm/h・${STRENGTH(peak.v)}` });
   const stop = ahead.find((p, i) => i > 0 && p.v < 1 && ahead[i - 1].v >= 1);
   out.push(stop ? { label: "やむ", value: `${minuteLabel(stop.m)}ごろ`, sub: `${stop.m}分後` } : { label: "その後", value: `${minuteLabel(60)}以降も`, sub: "降り続く見込み" });
+  // この先15時間（今後の雨）：合計と、いちばん多い1時間
+  const next = hourly.filter((p) => p.forecast);
+  const total = Math.round(next.reduce((t, p) => t + p.mm, 0) * 10) / 10;
+  const most = next.reduce((a, b) => (b.mm > a.mm ? b : a), next[0]);
+  out.push(total > 0 ? { label: "15時間の合計", value: `${total}mm`, sub: `多いのは${minuteLabel((most.h - 1) * 60)}〜 ${most.mm}mm` } : { label: "15時間の合計", value: "0mm" });
   return out;
 }
 

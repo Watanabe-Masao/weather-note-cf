@@ -4,7 +4,7 @@
 // データの無い所（5分ごとは3時間前〜1時間先だけ、1時間ごとの予測は15時間先まで）は空けて、「なし」と書く。
 import { useRef, type PointerEvent as RPE } from "react";
 import { ForecastHatch } from "../../../src/ui/kit";
-import { colorOf, FRAMES, hourly, minuteLabel, pointSeries } from "./data";
+import { colorOf, FRAMES, hourly, isAmount, minuteLabel, NOWCAST, pointSeries } from "./data";
 
 const W = 330;
 const PAD_L = 26;
@@ -29,15 +29,15 @@ export function TimeGraph({ m, span, onPick }: { m: number; span: Span; onPick: 
     const r = ref.current!.getBoundingClientRect();
     const px = ((e.clientX - r.left) / r.width) * W;
     const t = from + ((px - PAD_L) / (W - PAD_L - PAD_R)) * (to - from);
-    // 地図のこま（5分ごと、3時間前〜1時間先）に寄せる
-    const snapped = Math.max(FRAMES[0], Math.min(FRAMES.at(-1)!, Math.round(t / 5) * 5));
+    // 地図のこまに寄せる：1時間先までは5分ごと、その先は1時間ごと（その1時間の終わり）
+    const snapped = t > 60 ? Math.min(FRAMES.at(-1)!, Math.ceil(t / 60) * 60) : Math.max(FRAMES[0], Math.round(t / 5) * 5);
     onPick(snapped);
   };
   const selH = Math.ceil(m / 60);
   const ticks: number[] = [];
   for (let t = Math.ceil(from / tick) * tick; t <= to; t += tick) ticks.push(t);
-  const fiveFrom = FRAMES[0];
-  const fiveTo = FRAMES.at(-1)! + 5;
+  const fiveFrom = NOWCAST[0];
+  const fiveTo = NOWCAST.at(-1)! + 5;
   const hourTo = 15 * 60;
   return (
     <svg
@@ -103,7 +103,7 @@ export function TimeGraph({ m, span, onPick }: { m: number; span: Span; onPick: 
         <text x={(cx(hourTo) + cx(to)) / 2} y={(R2.top + R2.base) / 2 + 4} textAnchor="middle" className="rn-none">なし</text>
       )}
       {/* 選んだ時刻：上はそのこま、下はその時刻を含む1時間 */}
-      {inView(m, m + 5) && <rect x={cx(m)} y={R1.top} width={Math.max(2, cx(m + 5) - cx(m))} height={R1.base - R1.top} className="rn-sel" />}
+      {!isAmount(m) && inView(m, m + 5) && <rect x={cx(m)} y={R1.top} width={Math.max(2, cx(m + 5) - cx(m))} height={R1.base - R1.top} className="rn-sel" />}
       {inView((selH - 1) * 60, selH * 60) && <rect x={cx((selH - 1) * 60)} y={R2.top} width={cx(selH * 60) - cx((selH - 1) * 60)} height={R2.base - R2.top} className="rn-sel" />}
       {/* 今：上下を通して1本 */}
       <line x1={x(0)} x2={x(0)} y1={R1.top - 2} y2={R2.base + 2} className="rn-now" />

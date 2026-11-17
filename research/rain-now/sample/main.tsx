@@ -4,8 +4,8 @@ import { StrictMode, useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "../../../src/styles.css";
 import { applyTheme } from "../../../src/design/tokens";
-import { aheadItems, FRAMES, minuteLabel, SCALE, type Zoom } from "./data";
-import { type Span, TimeGraph } from "./TimeGraph";
+import { aheadItems, frameLabel, FRAMES, HOURLY_FRAMES, isAmount, NOWCAST, SCALE, type Zoom } from "./data";
+import { type Span, SPANS, TimeGraph } from "./TimeGraph";
 import { Segmented } from "../../../src/ui/kit";
 import { RainMap } from "./RainMap";
 import "./sample.css";
@@ -26,11 +26,16 @@ function App() {
   }, []);
   useEffect(() => {
     if (!play) return;
-    const t = window.setInterval(() => setM((x) => (x >= 60 ? -60 : x + 5)), 500);
+    const t = window.setInterval(() => setM((x) => FRAMES[(FRAMES.indexOf(x) + 1) % FRAMES.length] ?? 0), 450);
     return () => window.clearInterval(t);
   }, [play]);
   const i = FRAMES.indexOf(m);
-  const go = (x: number) => (setPlay(false), setM(x));
+  const go = (x: number) => {
+    setPlay(false);
+    setM(x);
+    // 選んだ時刻がグラフの幅の外なら、入る幅に広げる（上下は同じ幅のまま）
+    if (x > SPANS[span].to) setSpan(x > SPANS["12"].to ? "24" : "12");
+  };
   return (
     <main className="rn-page">
       <h1 className="rn-title">雨の見込み</h1>
@@ -55,9 +60,19 @@ function App() {
           value={i}
           onChange={(e) => go(FRAMES[Number(e.target.value)])}
           aria-label="地図の時刻"
-          aria-valuetext={`${minuteLabel(m)}${m > 0 ? " 予測" : " 実況"}`}
-          style={{ ["--now" as string]: `${(FRAMES.indexOf(0) / (FRAMES.length - 1)) * 100}%` }}
+          aria-valuetext={`${frameLabel(m)}${isAmount(m) ? " 1時間の量の予測" : m > 0 ? " 予測" : " 実況"}`}
         />
+        {/* つまみの下：どこまでが5分ごとの強さで、どこからが1時間ごとの量か */}
+        <div className="rn-scale">
+          <span style={{ flex: NOWCAST.length - 1 }}>
+            <i>3時間前</i>
+            <i>今</i>
+            <i>1時間先</i>
+          </span>
+          <span style={{ flex: HOURLY_FRAMES.length }} className="hourly">
+            <i>15時間先</i>
+          </span>
+        </div>
         <div className="rn-ctl">
           <button className="rn-btn" aria-label="5分前" onClick={() => go(FRAMES[Math.max(0, i - 1)])}>
             ◀
@@ -79,7 +94,7 @@ function App() {
               {sc.label}
             </span>
           ))}
-          <small>mm/h</small>
+          <small>{isAmount(m) ? "mm（1時間の量）" : "mm/h（強さ）"}</small>
           <span className="rn-here">＋ 現在地（見本は仮の位置）</span>
         </div>
         <div className="rn-span">

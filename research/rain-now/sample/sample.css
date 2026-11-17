@@ -43,3 +43,10 @@ body { background: var(--surface-base); color: var(--ink-primary); }
 .rn-none { font-size: 11px; fill: var(--ink-tertiary); }
 .rn-span .seg { width: 100%; }
 .rn-here { margin-left: auto; color: var(--ink-secondary); }
+.rn-say { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.rn-scale { display: flex; gap: 2px; margin-top: calc(-1 * var(--space-2)); font-size: var(--size-xs); color: var(--ink-tertiary); }
+.rn-scale > span { display: flex; justify-content: space-between; border-top: 2px solid var(--line-strong); padding-top: 2px; min-width: 0; }
+.rn-scale > span.hourly { border-top-style: dashed; }
+.rn-scale i { font-style: normal; white-space: nowrap; }
+.rn-scale > span { overflow: hidden; }
+.rn-scale > span.hourly { justify-content: flex-end; }

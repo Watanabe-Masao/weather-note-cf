@@ -1,7 +1,7 @@
 // 地図：地点のまわりの雨の強さ（mm/h、気象庁の色の段）。＋−で段階8（四国全体）〜10（高知市のまわり）まで寄せる。
 // 予測のこまは「予測」の札と灰の枠（色味のある色は「選んでいる」印だけ、design-system 1章）。
 import { useEffect, useRef } from "react";
-import { colorOf, HERE, intensity, isForecast, KOCHI, minuteLabel, viewOf, ZOOMS, type Zoom } from "./data";
+import { colorOf, frameLabel, HERE, isAmount, isForecast, KOCHI, valueAt, viewOf, ZOOMS, type Zoom } from "./data";
 
 type Coast = { rings: number[][] };
 const COS = Math.cos((33.5 * Math.PI) / 180);
@@ -46,7 +46,7 @@ export function RainMap({ m, coast, zoom, onZoom }: { m: number; coast: Coast | 
     ctx.globalAlpha = 0.85;
     for (let lon = v.w; lon < v.e; lon += v.cell)
       for (let lat = v.s; lat < v.n; lat += v.cell) {
-        const col = colorOf(intensity(lon + v.cell / 2, lat + v.cell / 2, m));
+        const col = colorOf(valueAt(lon + v.cell / 2, lat + v.cell / 2, m));
         if (!col) continue;
         ctx.fillStyle = col;
         ctx.fillRect(X(lon), Y(lat + v.cell), cw + 0.6, ch + 0.6);
@@ -71,11 +71,12 @@ export function RainMap({ m, coast, zoom, onZoom }: { m: number; coast: Coast | 
     ctx.fillStyle = tok("--surface-base");
     ctx.globalAlpha = 0.85;
     ctx.beginPath();
-    ctx.roundRect(kx + 9, ky - 22, tw + 10, 20, 6);
+    // 名前は地点の左上に（現在地の「＋」と重なりにくいように）
+    ctx.roundRect(kx - tw - 19, ky - 24, tw + 10, 20, 6);
     ctx.fill();
     ctx.globalAlpha = 1;
     ctx.fillStyle = tok("--ink-primary");
-    ctx.fillText(KOCHI.name, kx + 14, ky - 7);
+    ctx.fillText(KOCHI.name, kx - tw - 14, ky - 9);
     // 現在地：「＋」の印だけ（値は出さない）。縁取りをして雨の色の上でも見えるように
     const hx = X(HERE.lon);
     const hy = Y(HERE.lat);
@@ -100,10 +101,10 @@ export function RainMap({ m, coast, zoom, onZoom }: { m: number; coast: Coast | 
   const i = ZOOMS.indexOf(zoom);
   return (
     <figure className={`rn-map${forecast ? " forecast" : ""}`}>
-      <canvas ref={ref} className="rn-canvas" role="img" aria-label={`${minuteLabel(m)}の雨の強さ（${forecast ? "予測" : "実況"}）`} />
+      <canvas ref={ref} className="rn-canvas" role="img" aria-label={`${frameLabel(m)}の${isAmount(m) ? "1時間の降水量" : "雨の強さ"}（${forecast ? "予測" : "実況"}）`} />
       <span className={`rn-when${forecast ? " forecast" : ""}`}>
-        <b>{minuteLabel(m)}</b>
-        {forecast ? "予測" : m === 0 ? "実況（今）" : "実況"}
+        <b>{frameLabel(m)}</b>
+        {isAmount(m) ? "予測・1時間の量" : forecast ? "予測・強さ" : m === 0 ? "実況（今）" : "実況"}
       </span>
       <span className="rn-zoom">
         <button aria-label="寄せる" disabled={i === ZOOMS.length - 1} onClick={() => onZoom(ZOOMS[i + 1])}>
