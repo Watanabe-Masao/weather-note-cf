@@ -245,8 +245,8 @@ async function lookNow(
   return { found, watched };
 }
 
-/** To every administrator's devices. Returns how many got it. */
-async function tellAdmins(
+/** To every administrator's devices. Returns how many got it. (Also used by forecastWatch.ts.) */
+export async function tellAdmins(
   db: Db,
   m: Message,
   now: number,
