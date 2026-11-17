@@ -33,6 +33,7 @@ export function StepChart({
   axis = "date",
   pop = "detail",
   onTogglePop,
+  hint = false,
 }: {
   slots: Slot[];
   day: string;
@@ -45,6 +46,8 @@ export function StepChart({
   pop?: "detail" | "simple";
   /** 降水確率の欄（帯とマス）を短くタップしたとき。 */
   onTogglePop?: () => void;
+  /** 降水確率の欄が切り替えられることの目印（⇅ の絵）を左に出す（AB テスト）。 */
+  hint?: boolean;
   onScrub: (key: string | null, phase: "move" | "end") => void;
   onSelect: (key: string) => void;
 }) {
@@ -576,6 +579,17 @@ export function StepChart({
             </g>
           );
         })}
+        {/* 目印：上下の矢印（押すと表示が入れ替わる）。文字は使わない */}
+        {hint && onTogglePop && (
+          <g
+            className="fh-pop-hint"
+            transform={`translate(${PAD_L / 2 - 6}, ${BAND_Y - 17})`}
+            aria-hidden="true"
+          >
+            <rect x={-2} y={-2} width={16} height={16} rx={4} />
+            <path d="M3.5,10.5 V2 M1,4.5 L3.5,2 L6,4.5 M8.5,1.5 V10 M6,7.5 L8.5,10 L11,7.5" />
+          </g>
+        )}
         {/* キーボード用：降水確率の欄を切り替えるボタン（指の操作は下の当たり判定で受ける） */}
         {onTogglePop && (
           <rect

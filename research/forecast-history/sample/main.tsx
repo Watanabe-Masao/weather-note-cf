@@ -251,6 +251,7 @@ function App({
   const [axis, setAxis] = useState<"date" | "clock">("date");
   // 「11月 仮」は10月の予報を31日ずらしたものなので、実績も同じだけずらした日を見せる。
   const actualOf = (d: string) => ACTUALS[scId === "acc" ? addDays(d, -31) : d];
+  const [popHint, setPopHint] = useState(false);
   const [popView, setPopView] = useState<"detail" | "simple">("simple");
   const [head, setHead] = useState<"split" | "stack">("split");
   const [onlyChanged, setOnlyChanged] = useState(false);
@@ -459,6 +460,7 @@ function App({
                     <>
                       <StepChart
                         pop={popView}
+                        hint={popHint}
                         onTogglePop={() =>
                           setPopView((v) =>
                             v === "simple" ? "detail" : "simple",
@@ -471,6 +473,15 @@ function App({
                         onSelect={setSel}
                         recent={recent}
                         axis={axis}
+                      />
+                      <Segmented
+                        label="切り替えの目印"
+                        value={popHint ? "on" : "off"}
+                        onChange={(v) => setPopHint(v === "on")}
+                        options={[
+                          { id: "off", label: "A なし" },
+                          { id: "on", label: "B 矢印" },
+                        ]}
                       />
                       <Segmented
                         label="新しい発表"

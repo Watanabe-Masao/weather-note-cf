@@ -325,3 +325,7 @@
 .fh-ctab .dayw .pops > span { text-align: center; }
 .fh-ctab .dayw .pops > .ch { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .fh-ctab .dayw .pops > .past { align-self: stretch; background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--ink-tertiary) 14%, transparent) 4px 5px); }
+
+/* 降水確率の欄の切り替えの目印（AB の B）：左の余白に上下の矢印 */
+.fh-pop-hint rect { fill: var(--surface-inset); stroke: var(--line-strong); stroke-width: 0.8; }
+.fh-pop-hint path { fill: none; stroke: var(--ink-secondary); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
