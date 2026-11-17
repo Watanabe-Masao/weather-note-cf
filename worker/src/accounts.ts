@@ -209,12 +209,26 @@ export function forResearch(report: Record<string, unknown>): Record<string, unk
 const ready = new WeakMap<Db, Promise<void>>();
 const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA, ...TYPHOON_NOTIFY_SCHEMA, ...RESEARCH_SCHEMA];
 
+/** An error as one line: its name, message and cause (what the log of a failure needs). */
+export function describe(e: unknown): string {
+  if (!(e instanceof Error)) return String(e);
+  const cause = e.cause instanceof Error ? ` (cause: ${e.cause.name}: ${e.cause.message})` : e.cause ? ` (cause: ${String(e.cause)})` : "";
+  return `${e.name}: ${e.message}${cause}`.slice(0, 500);
+}
+
 /** Creates the tables once per database (idempotent: safe on every cold start). */
 export function ensureSchema(db: Db): Promise<void> {
   let p = ready.get(db);
   if (!p) {
     p = (async () => {
-      for (const q of ALL_SCHEMA) await db.prepare(q).run();
+      for (const q of ALL_SCHEMA)
+        await db
+          .prepare(q)
+          .run()
+          .catch((e: unknown) => {
+            // Which statement failed, so a failure here can be read in the log (it stops every account request).
+            throw new Error(`schema: ${q.replace(/\s+/g, " ").slice(0, 80)} — ${describe(e)}`, { cause: e });
+          });
       const row = await db.prepare("SELECT v FROM schema_version").first<{ v: number }>();
       if (!row) await db.prepare("INSERT INTO schema_version (v) VALUES (?)").bind(SCHEMA_VERSION).run();
     })();
@@ -845,7 +859,8 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
     throw new Refused("見つかりません。", 404);
   } catch (e) {
     if (e instanceof Refused) return json({ error: e.message }, e.status);
-    console.error("weather-note: accounts failure", e);
+    // The message, not only the stack: the log keeps one line, and D1's errors say what failed only in it.
+    console.error(`weather-note: accounts failure ${new URL(req.url).pathname}: ${describe(e)}`);
     return json({ error: "処理に失敗しました。時間をおいて再試行してください。" }, 500);
   }
 }
