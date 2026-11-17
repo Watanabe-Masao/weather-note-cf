@@ -44,6 +44,7 @@ import {
   settingsOf,
   vapidKeys,
 } from "./notify";
+import { importShiromatzMonth, importSummary } from "./forecastImport";
 import { archiveSummary } from "./typhoonArchive";
 import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
 import { alertSummary } from "./typhoonWatch";
@@ -826,6 +827,16 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         return json({ active: a ? { expiresAt: a.expires_at } : null });
       }
       if (path === "/api/admin/typhoon-archive" && !post) return json({ ...(await archiveSummary(db)), ...(await alertSummary(db)) });
+      // 予報の履歴 (#250, R2): the record of JMA's forecasts, taken a month at a time by hand.
+      if (path === "/api/admin/forecast-import" && !post) return json(await importSummary(db));
+      if (path === "/api/admin/forecast-import" && post) {
+        const b = await body(req);
+        try {
+          return json(await importShiromatzMonth(db, typeof b.month === "string" ? b.month : "", now));
+        } catch (e) {
+          throw new Refused(e instanceof Error ? e.message : String(e), 400);
+        }
+      }
       if (path === "/api/admin/exports" && !post) {
         const log = (await db.prepare("SELECT e.at, e.path, e.first, e.rows, e.dataset, u.login_id AS admin FROM export_log e LEFT JOIN users u ON u.id = e.admin_id ORDER BY e.id DESC LIMIT 200").all()).results;
         return json({ log });
