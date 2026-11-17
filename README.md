@@ -4,7 +4,7 @@
 「今日は去年の同じ日より暖かいか」「先週の売り出しの日と比べて雨はどうだったか」を、表・グラフ・時間帯で比べられます。
 [weather-note](https://github.com/Watanabe-Masao/weather-note) を参考に、Cloudflare Workers で作り直したものです。
 
-この README は、アプリの仕組みと計算の考え方を、コードを読まなくても追えるようにまとめた技術仕様です。画面の見た目と操作の決まりは [docs/design-system.md](docs/design-system.md) にあります。
+この README は、アプリの仕組みと計算の考え方を、コードを読まなくても追えるようにまとめた技術仕様です。画面の見た目と操作の決まりは [docs/design-system.md](docs/design-system.md)、外から取るデータと自前で貯めるデータの一覧と有効区間は [docs/data-map.md](docs/data-map.md)、作業の進め方は [docs/thread-rules.md](docs/thread-rules.md) にあります。
 
 **目次**
 
@@ -38,18 +38,23 @@ flowchart LR
   end
   subgraph CF[Cloudflare Worker]
     API[/api/*/] <--> Edge[(エッジのキャッシュ)]
-    API <--> D1[(D1<br/>アカウント・記録・同意)]
+    API <--> D1[(D1<br/>アカウント・記録・同意<br/>予報・台風・警報の電文と読んだ値<br/>処理の記録)]
+    Cron[定時の処理<br/>5分ごと] --> D1
+    Cron --> R2[(R2<br/>電文の写し・天気図<br/>雨雲・解析雨量)]
+    API --> R2
   end
   Reports <-. ログインした人だけ .-> API
   Store -- 足りない日だけ --> API
-  API --> JMA[気象庁<br/>過去の気象データ・アメダス]
+  API --> JMA[気象庁<br/>過去の気象データ・アメダス<br/>天気図・台風]
   API --> OM[Open-Meteo<br/>予報・アンサンブル・日の出]
+  Cron --> XML[気象庁<br/>防災情報XML・雨雲の動き・解析雨量・天気図]
 ```
 
 - **1つの Worker** が画面のファイルと API の両方を配ります。`/api/*` だけが Worker のコードを通り、それ以外は静的ファイルです。
 - **API（Worker）** は気象庁と Open-Meteo からデータを取り、同じ形（`WeatherRow`）に揃えて返します。もう変わらないデータはエッジに長く保存し、同じ要求で外部サイトを何度も叩かないようにします。
 - **アプリ** は受け取ったデータを端末（IndexedDB）に保存し、同じ日を二度取りに行きません。画面はいつも端末のデータを読むので、通信が遅くても切れても、あるものはすぐ表示されます。
 - **`shared/`** の決まり（日付、確定の判定、肌感の式、信頼度、似た日）は、API とアプリが同じコードを使います。両者で判断が食い違うことはありません。
+- **定時の処理（5分ごと）** は、後からでは取れない気象庁のデータ（予報・台風・警報の電文、天気図、雨雲の画像、解析雨量）を D1・R2 に貯め、1時間に1回、全体の様子（`/api/health`）を見て、異常が始まったときと直ったときに管理者へ知らせます。
 
 ## 2. データの出どころ
 
@@ -63,6 +68,19 @@ flowchart LR
 | 信頼度 | Open-Meteo のアンサンブル予報（ECMWF IFS の51通り） | 予報のばらつき |
 
 1977年1月1日以降の日を見られます（気象庁のデータの範囲）。
+
+**自前で貯めているもの**（後からでは取れないもの。くわしくは [docs/data-map.md](docs/data-map.md)）：
+
+| データ | いつから | 置き場所 | 使い道 |
+| --- | --- | --- | --- |
+| 予報の電文（府県天気予報・週間・概況）と読んだ値 | 2026-11-10 | D1（原文は R2 にも） | 1日モード③「この日の予報の移り変わり」 |
+| 予報の記録（shiromatz、気象庁の予報 JSON の記録） | 2025-01〜（1か月ずつ取り込み） | D1 | 自前の電文より前の日の予報の移り変わり |
+| 台風の電文 | 2026-11-09 ごろ | D1・R2 | 台風の「当時の発表」 |
+| 警報・注意報と気象防災速報の電文（高知県） | 2026-11-10 ごろ | D1・R2 | その日に何が出ていたか |
+| 天気図（実況・予想） | 2026-11-17 | R2 | 予想天気図をあとから見る |
+| 雨雲レーダー（強さ mm/h）・解析雨量（量 mm） | 2026-11-17 | R2 | 雨の記録（画面はこれから） |
+
+予報の移り変わりは、地点ごとの読む場所（予報の区域・気温の地点）が `shared/stationPlaces.ts` にある地点だけで出ます（今は高知）。
 
 ## 3. データの扱い：確定・変わりうる・再確認・訂正
 
@@ -654,6 +672,11 @@ Service Worker（`public/sw.js`）は、画面のファイルだけを扱いま�
 | `GET /api/current?station=47893` | 今日の観測（アメダス） |
 | `GET /api/forecast?station=47893` | 16日間の予報（今日＋15日）と信頼度（Open-Meteo）。エッジに30分保存 |
 | `GET /api/sun?station=47893&date=2026-11-10` | 日の出・日の入り（今日＋15日まで） |
+| `GET /api/forecast-history?station=47893&date=2026-11-18` | 予報の履歴：その日を予報した発表（8日前〜その日）と値・取得の記録（D1 の行のまま）。表にない地点は `supported: false`。エッジに10分 |
+| `GET /api/wxchart-forecast` | 予想天気図（最新の24・48時間後）。エッジに30分 |
+| `GET /api/typhoon` | 近づいている台風（気象庁の台風情報）。エッジに30分 |
+| `GET /api/typhoon-recent?from=YYYY-MM-DD` ・ `GET /api/typhoon-telegrams?number=yyNN` | 保存した台風の電文から：その日からの台風／1つの台風の当時の発表 |
+| `GET /api/health` | 監視と管理：使用量と余裕、保存の量、取れた・取れなかった時刻、毎時の見張りの最後の結果（件数と時刻だけ）。エッジに1分 |
 | `GET /api/auth/me` | ログイン中の人（いなければ `null`）と、初期設定ができるか |
 | `POST /api/auth/login` | `{ loginId, password }` でログイン（Cookie が付く） |
 | `POST /api/auth/logout` | ログアウト |
@@ -675,6 +698,9 @@ Service Worker（`public/sw.js`）は、画面のファイルだけを扱いま�
 | `GET/POST /api/admin/export-token` | 管理者：取り出し用のトークンの状態／作り直す（24時間・1回だけ表示。15分以内のパスワードの再入力が必要）・`{ revoke: true }` で無効に（再入力は不要） |
 | `GET /api/admin/exports` | 管理者：研究用データの書き出しの記録（直近200回） |
 | `POST /api/admin/users/delete` | 管理者：`{ id, confirm }`（confirm はログインID）でアカウントとその人の記録をすべて消す。研究用の写しから外すため、撤回として記録する |
+| `GET/POST /api/admin/forecast-import` | 管理者：予報の記録（shiromatz）の取り込みの状態／`{ month }` で1か月取り込む |
+| `GET /api/admin/archive` ・ `GET /api/admin/typhoon-archive` | 管理者：R2 への写しの進み具合／台風の電文の保存の状態 |
+| `GET/POST /api/me/typhoon-notify` | 台風の目安の通知の設定 |
 
 エラーは `{ "error": "日本語の文言" }` で返します（入力の誤りは 400、取得の失敗は 502。アカウントでは、ログインが必要 401、権限がない 403、ロック中 429、データベースの準備がない 503）。
 
@@ -690,12 +716,15 @@ Service Worker（`public/sw.js`）は、画面のファイルだけを扱いま�
 | `src/research/` | アプリの中の研究用の分析（`analysis.ts`：人ごとに均等な集計、5人未満を出さない決まり、モデルの比較） |
 | `src/beta/` | β版：最近の基準（`adaptation.ts`）、肌感の中心とちょうどよい範囲のモデル（`engine/`：正本の項目ごとのファイル。入口は `comfort.ts`）、感じ方の記録（`reports.ts`）、記録の同期（`sync.ts`・`useSync.ts`）、根拠の画面 |
 | `src/account/` | アカウント：ログイン中の人（`account.ts`）、設定のアカウント欄、ユーザー管理の画面 |
-| `worker/src/` | API（Cloudflare Worker）：気象庁・Open-Meteo からの取得と変換、エッジのキャッシュ、アカウントと記録の保存（`accounts.ts`、D1） |
+| `worker/src/` | API（Cloudflare Worker）：気象庁・Open-Meteo からの取得と変換、エッジのキャッシュ、アカウントと記録の保存（`accounts.ts`、D1）。定時の処理：予報の電文（`forecastArchive.ts`・読む `forecastParse.ts`・見張り `forecastWatch.ts`・記録の取り込み `forecastImport.ts`）、台風（`typhoonArchive.ts`）、警報（`warningArchive.ts`）、R2（`r2Archive.ts` 電文の写しと天気図、`radarArchive.ts` 雨雲と解析雨量）、監視（`health.ts`・`healthWatch.ts`）。予報の履歴の API（`forecastHistory.ts`） |
 | `shared/` | 画面と API で共有：型、日付、確定の判定、訂正台帳、版数、肌感の式、信頼度、似た日、祝日、太陽の計算（`sunTimes.ts`）、太陽で分けた一日（`dayParts.ts`）、天気の推定（`dayWeather.ts`）、明るさ（`brightness.ts`）と移り変わり（`lightShift.ts`）、観測地点（`stations.json`） |
 | `public/` | そのまま配るファイル：PWA（manifest・アイコン・Service Worker）、キャッシュの指定（`_headers`） |
 | `research/` | 分析と検証。`comfort-model/`（モデルの数理の正本 `mathematical-contract.md`、合成データでの検証、採用の記録 `experiments/`）、`sun/`（太陽の計算を国立天文台の値と比べる）、`brightness/`（明るさの計算の見直し）、`data/`（研究用データの取り出しと DuckDB での集計：`build.ts`・`check.ts`・`run-models.ts`、作ったデータ `fixture.ts`）、CSV を使う分析（Python） |
 | `e2e/` | ブラウザでの操作テスト（Playwright・Python、13章） |
 | `docs/design-system.md` | 画面の決まり（色・数値・部品・操作・β の表示） |
+| `docs/data-map.md` | 外から取るデータと自前で貯めるデータの一覧・有効区間の地図 |
+| `docs/thread-rules.md` | 作業の進め方（スレッドの役割、PR とコメントでの報告） |
+| `src/ui/forecastHistory/` | 1日モード③「この日の予報の移り変わり」（上の枠・グラフ・発表した日ごとの一覧）。何を出すかは `shared/forecastHistoryModel.ts` |
 | `test/` | 単体テスト（気象庁・Open-Meteo の実データを `fixtures/` に保存） |
 
 ## 13. テストと確認
@@ -743,7 +772,7 @@ npm run check     # 型チェック、テスト、ビルド
 npm run e2e       # ブラウザでの操作テスト（Python の Playwright が要る）
 ```
 
-**公開**：Cloudflare Workers Builds で、main へのマージごとに自動で公開されます。プルリクエストごとにプレビューの URL も作られます。
+**公開**：Cloudflare Workers Builds で、main へのマージごとに自動で公開されます。プルリクエストごとのプレビューは作りません（2026-11-17 に止めた。プレビューの URL が PR のコメントに出るのを避けるため）。
 
 1. Cloudflare のダッシュボードで「Workers & Pages」→「作成」→ リポジトリをインポートし、このリポジトリを選ぶ。
 2. ビルドコマンド `npm run build`、デプロイコマンド `npx wrangler deploy` を指定する。
@@ -754,5 +783,8 @@ npm run e2e       # ブラウザでの操作テスト（Python の Playwright �
 
 - 実績：[気象庁ホームページ](https://www.jma.go.jp/)（過去の気象データ、アメダス）のデータを加工して表示しています。
 - 予報・アンサンブル・日の出日の入り：[Open-Meteo](https://open-meteo.com/)（CC BY 4.0）。
+- 予報・台風・警報・気象防災速報の電文：気象庁（防災情報XML）。天気図・雨雲の動き・解析雨量・台風情報：気象庁ホームページ（公共データ利用規約 第1.0版。切り抜き・重ね合わせたものは「加工して作成」と書く）。台風の実際の進路：気象庁 RSMC Tokyo ベストトラック。
+- 予報の記録：[shiromatz/Japan-Meteorological-Agency-Weather-Forecast](https://github.com/shiromatz/Japan-Meteorological-Agency-Weather-Forecast)（気象庁の予報 JSON の記録、CC BY-SA 4.0）。
+- 祝日：内閣府「国民の祝日」。
 - 移動平均による慣れの基準：EN 16798-1（屋外気温の移動平均 θrm）。
 - 感じ方の7段階：ASHRAE 55 の温冷感尺度。
