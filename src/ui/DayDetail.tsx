@@ -11,6 +11,7 @@
 import { useContext, useMemo, useState } from "react";
 import { clockOf, dayEdges, dayParts, hoursIn } from "../../shared/dayParts";
 import { hoursWeather } from "../../shared/dayWeather";
+import { provisionalNote } from "../../shared/provisionalNote";
 import { levelOf } from "../../shared/feel";
 import { SENSATIONS, EXPOSURES } from "../beta/reports";
 import { useReports } from "../beta/useReports";
@@ -60,6 +61,8 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   const conf = confidenceOfRow(row);
   const max = num(row?.max);
   const min = num(row?.min);
+  // 暫定の日：いまの値の出どころ・待っているもの・確定の見込み（shared/provisionalNote.ts）
+  const prov = day?.state === "ready" ? provisionalNote(row, date, today, day.kind === "fixed") : null;
 
   return (
     <section className="day-detail" aria-label="1日の詳しい様子">
@@ -77,6 +80,19 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
         </span>
       </div>
       {comment.length > 0 && <p className="dd-say">{comment.join("")}</p>}
+      {prov && (
+        <div className="dd-prov">
+          <p className="dd-prov-lead">暫定：まだ確定していない値です</p>
+          <dl>
+            <dt>いまの値</dt>
+            <dd>{prov.source}</dd>
+            <dt>待っているもの</dt>
+            <dd>{prov.waiting.join("、")}</dd>
+            <dt>確定の見込み</dt>
+            <dd>{prov.when}</dd>
+          </dl>
+        </div>
+      )}
 
       <div className="dd-sec">
         <SectionHead title="1日の流れ" as="h3" />

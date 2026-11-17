@@ -763,6 +763,15 @@ with sync_playwright() as p:
         pg.locator(".dd-value", has_text="降水").first.click(); calm()
         check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
         if shots: pg.screenshot(path=f"{shots}-single.png", full_page=True)
+        # 暫定の説明 (2026-11-18)：昨日（暫定）にすると、出どころ・待っているもの・確定の見込みが出る。予報の今日には出ない。
+        check("SD7a 予報の日には暫定の説明がない", pg.locator(".dd-prov").count() == 0)
+        pg.locator("button[aria-label$='1日前へ']").first.click(); calm()
+        settle(lambda: pg.locator(".dd-prov").count() == 1, 5)
+        t = pg.locator(".dd-prov").inner_text() if pg.locator(".dd-prov").count() else ""
+        check("SD7b 暫定の日：いまの値・待っているもの・確定の見込み（11/12 以降）", all(w in t for w in ("いまの値", "待っているもの", "確定の見込み", "11/12以降")), t[:160])
+        layout_ok("SD7c", "暫定の説明")
+        if shots: pg.locator(".dd-hero").screenshot(path=f"{shots}-prov-hero.png"); pg.locator(".dd-prov").screenshot(path=f"{shots}-prov.png")
+        pg.locator("button[aria-label$='1日後へ']").first.click(); calm()
         pg.locator(".metrics button", has_text="気温").click(); calm()
         pg.locator(".app-head .seg button", has_text="比較").click(); calm()
         check("SD6 比較に戻すと比較の表が戻る", pg.locator(".side-compare").count() == 1 and pg.locator(".day-detail").count() == 0)
