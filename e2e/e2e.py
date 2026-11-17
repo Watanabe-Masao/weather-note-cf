@@ -65,6 +65,12 @@ def api(path, q):
         return {"users": [{"id": "u1", "login_id": "masao", "name": "渡辺", "role": "admin", "created_at": 1762800000000, "last_login": 1762800000000, "disabled_at": None, "reports": 0, "research": None}, {"id": "u2", "login_id": "tanaka", "name": None, "role": "user", "created_at": 1762800000000, "last_login": None, "disabled_at": None, "reports": 3, "research": 1}]}
     if path == "/api/admin/forecast-import":
         return {"first": "2025-01", "last": "2026-11", "next": {"month": "2025-02", "expected": "2025-03-02", "available": False}, "parser": {"telegram": 1, "record": 1}, "months": [{"office": "390000", "month": "2025-01", "commit_sha": "abc", "fetched_at": "2026-11-17T03:00:00Z", "rows": 4791, "issues": 186, "empty_days": [], "overlaps": 0, "differ": 0, "license": "CC BY-SA 4.0"}]}
+    if path == "/api/forecast-history":
+        # 予報の履歴 (R6): made-up — 2026-10 の記録（shiromatz）を日付だけずらした、TODAY を対象日にした1日分。
+        if q.get("date") == TODAY.isoformat():
+            with open(os.path.join(HERE, "forecast-history.json"), encoding="utf-8") as f:
+                return json.load(f)
+        return {"v": 1, "station": "47893", "date": q.get("date"), "supported": True, "places": {"office": "390000", "area": "390010", "point": "74182"}, "issues": [], "entries": [], "fetchLog": []}
     if path == "/api/stations":
         return [{"precNo": 74, "blockNo": "47893", "name": "高知", "prefecture": "高知県", "lat": [33, 33.8], "lon": [133, 33.1]}]
     if path == "/api/daily":
@@ -685,6 +691,18 @@ with sync_playwright() as p:
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
         check("SD4 この日の値：肌感＋7項目", pg.locator(".dd-value").count() == 8, pg.locator(".dd-value").count())
         check("SD4b 天気図（③の一番上）：時刻を選べる", pg.locator(".wx-chart").count() == 1 and (pg.locator(".wx-hours button").count() == 7 or pg.locator(".wx-chart b", has_text="予想天気図").count() == 1))
+        # 予報の移り変わり (R6): 選んだ発表と実績・グラフ・発表した日ごとの一覧。降水確率の欄を押すと 1マス⇄6時間ごと。
+        settle(lambda: pg.locator(".fh-split").count() == 1)
+        check("SD4d 予報の移り変わり：上の枠・グラフ・日ごとの一覧", pg.locator(".fh-split").count() == 1 and pg.locator(".fh-step > svg").count() == 1 and pg.locator(".fh-dgroup").count() >= 5, (pg.locator(".fh-split").count(), pg.locator(".fh-dgroup").count()))
+        n0 = pg.locator(".fh-step .fh-step-cell").count()
+        pg.locator(".fh-step > svg").scroll_into_view_if_needed(); calm()
+        b = pg.locator(".fh-step .fh-step-cell").first.bounding_box()
+        pg.mouse.click(b["x"] + b["width"] / 2, b["y"] + b["height"] / 2); calm()
+        n1 = pg.locator(".fh-step .fh-step-cell").count()
+        check("SD4e 降水確率の欄を押すと6時間ごと（マスが増える）", n1 > n0, (n0, n1))
+        pg.mouse.click(b["x"] + b["width"] / 2, b["y"] + 4); calm()
+        wide = pg.evaluate("[...document.querySelectorAll('.fh, .fh *')].filter(e => e.getBoundingClientRect().right > innerWidth + 1).map(e => e.className).slice(0, 3)")
+        check("SD4f 予報の移り変わりが画面からはみ出さない", not wide, str(wide))
         st = small_text(); check("SD4c 11px より小さい文字がない（1日モード・天気図）", not st, str(st))
         pg.locator(".dd-value", has_text="降水").first.click(); calm()
         check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
