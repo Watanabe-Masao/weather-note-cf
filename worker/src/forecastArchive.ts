@@ -158,6 +158,8 @@ export async function collectForecasts(db: Db, now = Date.now(), get: Fetcher = 
       const r = await get(e.url);
       if (!r.ok) throw new Error(`${id}: HTTP ${r.status}`);
       const xml = await r.text();
+      // A page that is not a telegram (an error page answered 200 …) is not kept: a failure, tried again next run.
+      if (!xml.includes("<Report")) throw new Error(`${id}: not a telegram`);
       await db
         .prepare("INSERT OR IGNORE INTO forecast_telegrams (id, kind, office, url, issued_at, fetched_at, hash, xml) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
         .bind(id, kindOf(e.url), officeOfUrl(e.url), e.url, issuedOf(xml), at, await sha256(xml), xml)

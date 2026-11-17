@@ -87,7 +87,7 @@ const T1 =
 const W1 =
   "https://www.data.jma.go.jp/developer/xml/data/20260920004000_0_VPWW54_010000.xml";
 
-function fakeFetch(feeds: Record<string, string>, fail = false) {
+function fakeFetch(feeds: Record<string, string>, fail = false, page = XML) {
   const asked: string[] = [];
   const get = async (url: string) => {
     asked.push(url);
@@ -95,7 +95,7 @@ function fakeFetch(feeds: Record<string, string>, fail = false) {
     const body =
       url.endsWith("extra.xml") || url.endsWith("extra_l.xml")
         ? feeds[url.endsWith("extra_l.xml") ? "long" : "short"]
-        : XML;
+        : page;
     return { ok: true, status: 200, text: async () => body };
   };
   return { get, asked };
@@ -189,6 +189,26 @@ describe("the collector", () => {
         last: "2026-09-20T09:45:00+09:00",
       },
     ]);
+  });
+
+  it("does not keep a page that is not a telegram (an error page answered 200): a failure, taken next run", async () => {
+    const db = d1();
+    const r = await collectTyphoons(
+      db,
+      Date.parse("2026-09-20T01:00:00Z"),
+      fakeFetch({ long: feed([T1]), short: feed([T1]) }, false, "<html>maintenance</html>").get,
+    );
+    expect(r).toMatchObject({ ok: false, added: 0 });
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM typhoon_telegrams").get()).toEqual({ n: 0 });
+    expect(db.raw.prepare("SELECT ok, error FROM typhoon_fetch_log").all()).toEqual([
+      { ok: 0, error: "Error: 20260920004500_0_VPTW60_010000: not a telegram" },
+    ]);
+    const next = await collectTyphoons(
+      db,
+      Date.parse("2026-09-20T01:05:00Z"),
+      fakeFetch({ long: feed([T1]), short: feed([T1]) }).get,
+    );
+    expect(next).toMatchObject({ ok: true, added: 1 });
   });
 
   it("an empty feed is not read as「台風なし」: it is a gap", async () => {

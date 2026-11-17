@@ -12,11 +12,13 @@ const entry = (name: string, title: string, updated: string) =>
 const feed = (entries: string[]) => `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">${entries.join("")}</feed>`;
 const xml = (issued: string) => `<Report><Head><ReportDateTime>${issued}</ReportDateTime></Head></Report>`;
 
-function server(entries: string[]) {
+function server(entries: string[], pages: Record<string, string> = {}) {
   const asked: string[] = [];
   const get = async (url: string) => {
     asked.push(url);
     if (url.endsWith("regular.xml") || url.endsWith("regular_l.xml")) return { ok: true, status: 200, text: async () => feed(entries) };
+    const page = Object.entries(pages).find(([n]) => url.endsWith(`${n}.xml`))?.[1];
+    if (page !== undefined) return { ok: true, status: 200, text: async () => page };
     const name = /data\/(\d{14})_/.exec(url)?.[1] ?? "";
     const iso = `${name.slice(0, 4)}-${name.slice(4, 6)}-${name.slice(6, 8)}T${name.slice(8, 10)}:${name.slice(10, 12)}:00+09:00`;
     return { ok: true, status: 200, text: async () => xml(iso) };
@@ -61,6 +63,18 @@ describe("予報の履歴：集める", () => {
     const second = await collectForecasts(db, Date.parse("2026-11-17T06:05:00+09:00"), s.get);
     expect(second.feed).toMatch(/regular_l\.xml$/); // still owed: the long feed again
     expect(second).toMatchObject({ added: 15, leftOver: 0 });
+  });
+
+  it("does not keep a page that is not a telegram (an error page answered 200): a failure, taken next run", async () => {
+    const db = d1();
+    const name = "20261117050000_0_VPFD51_390000";
+    const entries = [entry(name, "府県天気予報（Ｒ１）", "2026-11-16T20:00:00Z")];
+    const r = await collectForecasts(db, Date.parse("2026-11-17T06:00:00+09:00"), server(entries, { [name]: "<html>maintenance</html>" }).get);
+    expect(r).toMatchObject({ ok: false, added: 0 });
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM forecast_telegrams").get()).toEqual({ n: 0 });
+    expect(db.raw.prepare("SELECT ok, error FROM forecast_fetch_log").all()).toEqual([{ ok: 0, error: `Error: ${name}: not a telegram` }]);
+    const next = await collectForecasts(db, Date.parse("2026-11-17T06:05:00+09:00"), server(entries).get);
+    expect(next).toMatchObject({ ok: true, added: 1 });
   });
 
   it("logs a run that could not read the feed as a gap", async () => {
