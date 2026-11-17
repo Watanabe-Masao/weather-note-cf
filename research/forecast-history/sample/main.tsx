@@ -428,6 +428,7 @@ function App({
                   slots={slots}
                   day={day}
                   a={actualOf(day)}
+                  aPrev={actualOf(addDays(day, -1))}
                 />
               ) : (
                 <>

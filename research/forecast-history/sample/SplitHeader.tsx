@@ -57,11 +57,14 @@ export function SplitHeader({
   slots,
   day,
   a,
+  aPrev,
 }: {
   s: Slot;
   slots: Slot[];
   day: string;
   a: ActualDay | null | undefined;
+  /** 前の日の実績（朝の最低 0〜9時 の 0時の値＝前の日の24時の値のため） */
+  aPrev?: ActualDay | null;
 }) {
   const ok = s.state === "ok" && !!s.values;
   const v = s.values;
@@ -82,6 +85,22 @@ export function SplitHeader({
       : null;
   const hours = a?.hours ?? [];
   const done = hours.length >= 24;
+  // 予報と同じ範囲の実績（要件 R4「気温の範囲」）：府県天気予報は 日中 9〜18時の最高・朝 0〜9時の最低を
+  // 1時間ごとの値（毎正時）から数え直す。週間は 0〜24時（日最高・日最低）のまま。
+  const tempsAt = (from: number, to: number) => {
+    const t = [
+      ...(from === 0 ? (aPrev?.hours ?? []).filter((x) => x.h === 24) : []),
+      ...hours.filter((x) => x.h >= Math.max(from, 1) && x.h <= to),
+    ]
+      .map((x) => x.temp)
+      .filter((v): v is number => v != null);
+    return t.length === to - from + 1 ? t : null;
+  };
+  const ranged = s.kind === "VPFD51";
+  const day9 = ranged ? tempsAt(9, 18) : null;
+  const morn = ranged ? tempsAt(0, 9) : null;
+  const aMax = ranged ? (day9 ? Math.max(...day9) : null) : (a?.max ?? null);
+  const aMin = ranged ? (morn ? Math.min(...morn) : null) : (a?.min ?? null);
 
   return (
     <div className="fh-split">
@@ -136,11 +155,12 @@ export function SplitHeader({
               )}
             </span>
             <span className="fh-split-temps">
-              {a && done ? (
+              {/* 左の予報と同じ範囲の値（府県：日中・朝、週間：1日） */}
+              {a && (aMax != null || aMin != null) ? (
                 <>
-                  <span className="tone-hot">{fmt(a.max)}</span>
+                  <span className="tone-hot">{fmt(aMax)}</span>
                   <span className="dd-slash">/</span>
-                  <span className="tone-cold">{fmt(a.min)}</span>
+                  <span className="tone-cold">{fmt(aMin)}</span>
                 </>
               ) : null}
             </span>
@@ -148,6 +168,7 @@ export function SplitHeader({
           <div className="fh-split-meta">
             <span className="fh-kchip actual">実績</span>
             <span>{md(day)}</span>
+            {ranged && <span className="fh-lead">日中・朝</span>}
             {!done && (
               <span className="fh-lead">
                 {hours.length ? `${hours[hours.length - 1].h}時まで` : "まだ"}
@@ -156,13 +177,15 @@ export function SplitHeader({
           </div>
           {/* 予報との差（実績 − 選んだ発表の予報）。▲▼（前の発表からの変化）と取り違えないよう、符号つきの数字と「差」の札で */}
           <div className="fh-gap">
-            {done && a && (mx != null || mn != null) ? (
+            {a &&
+            (mx != null || mn != null) &&
+            (aMax != null || aMin != null) ? (
               <>
-                <span className="fh-gap-l">最高</span>
-                <Gap actual={a.max} fc={mx} tone="hot" />
+                <span className="fh-gap-l">{ranged ? "日中" : "最高"}</span>
+                <Gap actual={aMax} fc={mx} tone="hot" />
                 <span className="dd-slash">/</span>
-                <span className="fh-gap-l">最低</span>
-                <Gap actual={a.min} fc={mn} tone="cold" />
+                <span className="fh-gap-l">{ranged ? "朝" : "最低"}</span>
+                <Gap actual={aMin} fc={mn} tone="cold" />
               </>
             ) : null}
           </div>
