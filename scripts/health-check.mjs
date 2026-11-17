@@ -13,29 +13,13 @@
 
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+// 監視の判断 (shared/healthJudge.ts): the same judgment as the Worker's hourly look (worker/src/healthWatch.ts),
+// in one place. Node runs the .ts as it is (only types to strip).
+import { checkImport as checkRecord, importTitle, judgeHealth, RECORD_REPO, recordZipUrl } from "../shared/healthJudge.ts";
 
-export const RECORD_REPO = "shiromatz/Japan-Meteorological-Agency-Weather-Forecast";
-/** The month's zip on the record's main (raw, as the app takes it: forecast/forecast_YYYYMM.zip). */
-export const recordZipUrl = (month) => `https://raw.githubusercontent.com/${RECORD_REPO}/refs/heads/main/forecast/forecast_${month.replace("-", "")}.zip`;
-export const importTitle = (month) => `取り込める月があります：${month}`;
-
-/**
- * Whether the record has the month to take next. `available` is true or false only when the record
- * answered (404 is false); null, with the reason, when it could not be asked.
- */
-export async function checkImport(position, get = fetch) {
-  const lastTaken = position?.lastTaken ?? null;
-  const next = position?.next ?? null;
-  if (!next) return { lastTaken, next, available: null };
-  try {
-    const r = await get(recordZipUrl(next), { method: "HEAD", signal: AbortSignal.timeout(20_000), headers: { "User-Agent": "weather-note health (GitHub Actions)" } });
-    if (r.status === 404) return { lastTaken, next, available: false };
-    if (r.ok) return { lastTaken, next, available: true };
-    return { lastTaken, next, available: null, reason: `HTTP ${r.status}` };
-  } catch (e) {
-    return { lastTaken, next, available: null, reason: e.message };
-  }
-}
+export { importTitle, RECORD_REPO, recordZipUrl };
+/** Whether the record has the month to take next (shared/healthJudge.ts), asked as GitHub Actions. */
+export const checkImport = (position, get = fetch) => checkRecord(position, get, "weather-note health (GitHub Actions)");
 
 /**
  * What to do with the "import-ready" issues: open one when the next month is in the record and none is
@@ -77,7 +61,6 @@ if (isMain && process.argv[2] === "--import-issue") {
 async function main() {
   const url = process.env.HEALTH_URL;
   const now = Date.now();
-  const H = 3_600_000;
   const problems = [];
   const notes = [];
   let h = null;
@@ -93,50 +76,13 @@ async function main() {
     }
   }
 
-  const ago = (iso) => (iso ? (now - Date.parse(iso)) / H : Infinity);
-  const hours = (x) => (x === Infinity ? "記録なし" : `${x.toFixed(1)}時間前`);
   const mb = (b) => `${(b / 1e6).toFixed(1)}MB`;
 
-  if (h) {
-    const s = h.state, room = h.room, waste = h.waste;
-    // 状態
-    if (ago(s.forecastLastOk) > 0.5) problems.push(`予報の電文を最後に取れたのは ${hours(ago(s.forecastLastOk))}（5分ごとのはず）。`);
-    if (ago(s.typhoonLastOk) > 0.5) problems.push(`台風の電文を最後に取れたのは ${hours(ago(s.typhoonLastOk))}。`);
-    if (s.chartsLastOk !== undefined && ago(s.chartsLastOk) > 1) notes.push(`天気図の保存が最後にうまくいったのは ${hours(ago(s.chartsLastOk))}。`);
-    for (const a of s.openAlerts) problems.push(`アプリの警告が開いたまま：${a.key}（${a.since} から）。`);
-    const errs = s.accountErrorsLastDay.reduce((n, e) => n + e.n, 0);
-    if (errs >= 3) problems.push(`アカウントの処理の失敗が24時間で ${errs} 回（${s.accountErrorsLastDay.map((e) => `${e.place} ${e.n}`).join("・")}）。`);
-    else if (errs) notes.push(`アカウントの処理の失敗が24時間で ${errs} 回。`);
-    for (const st of room.cron.stages) if (st.failed >= 3) problems.push(`定時処理「${st.stage}」が24時間で ${st.failed} 回失敗。`);
-    if (room.cron.runsLastDay < 250) notes.push(`定時処理が24時間で ${room.cron.runsLastDay} 回（288回のはず）。`);
-    // 余裕
-    if (room.d1Size && room.d1Size.percent >= 50) notes.push(`データベースの大きさが上限の ${room.d1Size.percent}%。`);
-    if (room.d1WritesMonth.percent >= 50) notes.push(`データベースの書き込み（月の見込み）が込みの量の ${room.d1WritesMonth.percent}%。`);
-    if (room.r2.percentOfFree >= 70) notes.push(`R2 が無料枠の ${room.r2.percentOfFree}%。`);
-    for (const st of room.cron.stages) if (st.max_ms >= 60_000) notes.push(`定時処理「${st.stage}」が長い（最長 ${Math.round(st.max_ms / 1000)}秒、待ち時間を含む）。`);
-    if (typeof h.usage?.workers?.cpuP99PercentOfRun === "number" && h.usage.workers.cpuP99PercentOfRun >= 30) notes.push(`計算時間の長い回（99%）が1回の上限の ${h.usage.workers.cpuP99PercentOfRun}%。`);
-    // 実際の使用量（Cloudflare の集計）
-    const u = h.usage ?? {};
-    if (u.error) notes.push(`実際の使用量が読めません（${u.error}）。`);
-    for (const [name, part] of Object.entries({ Workers: u.workers, D1: u.d1, R2: u.r2 }))
-      if (part && part.error) notes.push(`実際の使用量（${name}）が読めません：${part.error}`);
-    const high = [
-      ["リクエスト", u.workers?.requestsPercent],
-      ["計算時間（目安）", u.workers?.cpuPercentEstimate],
-      ["データベースの書き込み", u.d1?.rowsWrittenPercent],
-      ["R2 の保存", u.r2?.bytesPercentOfFree],
-      ["R2 の書き込み", u.r2?.classAPercentOfFree],
-    ].filter(([, p]) => typeof p === "number" && p >= 50);
-    for (const [name, p] of high) notes.push(`今月の${name}が込みの量（無料枠）の ${p}%。`);
-    // 無駄
-    if (waste.unparsed > 50) problems.push(`読めていない電文が ${waste.unparsed} 通たまっています。`);
-    if (waste.parseFailed > 0) notes.push(`読めなかった電文が ${waste.parseFailed} 通（解析器の見直しが要るかも）。`);
-    if (waste.fetchFailuresLastDay > 12) notes.push(`予報の取得の失敗が24時間で ${waste.fetchFailuresLastDay} 回。`);
-  }
-
-  // 過去の記録の取り込み: not a problem; a note only when the record could not be asked.
+  // 過去の記録の取り込み: not a problem; a note only when the record could not be asked (judgeHealth).
   const importReady = h?.state?.forecastImport ? await checkImport(h.state.forecastImport) : null;
-  if (importReady?.next && importReady.available === null) notes.push(`記録に ${importReady.next} があるか確かめられませんでした（${importReady.reason}）。`);
+  const judged = judgeHealth(h, now, importReady);
+  problems.push(...judged.problems.map((f) => f.text));
+  notes.push(...judged.notes.map((f) => f.text));
 
   const lines = [`# Weather Note の状態（${new Date(now).toISOString()}）`, ""];
   lines.push(problems.length ? `## 異常 ${problems.length}件` : "## 異常なし", ...problems.map((p) => `- ${p}`), "");

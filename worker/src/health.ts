@@ -1,6 +1,7 @@
 // 監視と管理 (2026-11-17): how the app stands, as numbers — how much room is left under the plan's
-// limits (余裕) and what is kept or done for nothing (無駄) — read by GitHub Actions every hour
-// (.github/workflows/health.yml) and by the daily check. Public and read-only: counts and times only,
+// limits (余裕) and what is kept or done for nothing (無駄) — judged once an hour by the Worker's own
+// scheduled run (healthWatch.ts), and read by GitHub Actions (.github/workflows/health.yml) and by the
+// daily check. Public and read-only: counts and times only,
 // nothing of a person (no ids, no reports, no error texts).
 //
 // Also kept here, for it to read:
@@ -130,6 +131,8 @@ const TABLES: [string, string | null][] = [
   ["wxchart_saved", "fetched_at"],
   ["wxchart_fetch_log", "at"],
   ["cron_runs", "at"],
+  ["health_checks", "at"],
+  ["health_alerts", "opened_at"],
   ["reports", null],
   ["users", null],
 ];
@@ -228,6 +231,11 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
   // 過去の記録の取り込み (#250): the months only — the last taken and the one to take next — for the
   // hourly check to ask the record whether that month is there yet (health-check.mjs, import-ready).
   const imported = await all<{ month: string }>(db, "SELECT DISTINCT month FROM forecast_imports WHERE source = ?", SHIROMATZ_SOURCE);
+  // 毎時の見張り (healthWatch.ts): the last look — its time and counts only (finished: false when it did not end).
+  const look = await one<{ at: string; done_at: string | null; problems: number | null; notes: number | null; opened: number | null; closed: number | null; sent: number | null }>(
+    db,
+    "SELECT at, done_at, problems, notes, opened, closed, sent FROM health_checks ORDER BY at DESC LIMIT 1",
+  );
   const openAlerts = [
     ...(await all<{ key: string; opened_at: string }>(db, "SELECT key, opened_at FROM forecast_alerts WHERE closed_at IS NULL")),
     ...(await all<{ key: string; opened_at: string }>(db, "SELECT key, opened_at FROM typhoon_alerts WHERE closed_at IS NULL")),
@@ -298,6 +306,9 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       openAlerts: openAlerts.map((a) => ({ key: a.key, since: a.opened_at })),
       accountErrorsLastDay: errors.map((e) => ({ place: e.place, n: e.n, last: e.last })),
       forecastImport: importPosition(imported.map((r) => r.month)),
+      watch: look
+        ? { at: look.at, finished: look.done_at != null, problems: look.problems, notes: look.notes, opened: look.opened, closed: look.closed, sent: look.sent }
+        : null,
     },
     tables,
   };

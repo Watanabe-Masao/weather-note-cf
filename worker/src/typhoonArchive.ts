@@ -164,6 +164,8 @@ export async function collectTyphoons(
       const r = await get(e.url);
       if (!r.ok) throw new Error(`${id}: HTTP ${r.status}`);
       const xml = await r.text();
+      // A page that is not a telegram (an error page answered 200 …) is not kept: a failure, tried again next run.
+      if (!xml.includes("<Report")) throw new Error(`${id}: not a telegram`);
       const t = parseTyphoonXml(xml, telegramKind(e.url));
       await db
         .prepare(

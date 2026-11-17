@@ -20,6 +20,7 @@ import { parseForecasts } from "./forecastParse";
 import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { health, timed } from "./health";
+import { claimHealthWatch, watchHealth } from "./healthWatch";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { forecastCharts } from "../../shared/wxchart";
@@ -198,7 +199,7 @@ export default {
       return jsonResponse({ error: publicMessage(e) }, 502);
     }
   },
-  /** Every 5 minutes (wrangler.jsonc): the report notifications that are due, and JMA's new typhoon telegrams (#220). */
+  /** Every 5 minutes (wrangler.jsonc): the report notifications that are due, JMA's new telegrams (#220), and once an hour the health look. */
   async scheduled(event: ScheduledController, env: AccountsEnv, ctx: ExecutionContext): Promise<void> {
     if (!env.DB) return;
     const db = env.DB;
@@ -222,6 +223,13 @@ export default {
         .then(stage("warning archive", () => collectWarnings(db)))
         // Then read what was kept: values with their times, for the history (forecastParse.ts).
         .then(stage("forecast parse", () => parseForecasts(db))),
+    );
+    // 毎時の見張り (healthWatch.ts), apart from the rest: once an hour (most runs only find it is not due,
+    // one statement), /api/health judged and the administrators told when a problem starts or is over.
+    ctx.waitUntil(
+      claimHealthWatch(db, event.scheduledTime)
+        .then((due) => (due ? stage("health watch", () => watchHealth(db, event.scheduledTime, env))() : undefined))
+        .catch((e) => console.error("weather-note: health watch", e)),
     );
     // Files kept in R2 (r2Archive.ts), apart from the rest: the day's weather charts, and the telegrams copied as files.
     const bucket = env.ARCHIVE;
