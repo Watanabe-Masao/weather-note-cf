@@ -182,7 +182,7 @@ p {
 
 .chip.sm {
   min-height: 28px;
-  padding: 3px 10px;
+  padding: 3px var(--space-5);
   font-size: var(--size-sm);
 }
 
@@ -206,7 +206,7 @@ p {
 
 select.chip {
   appearance: none;
-  padding-right: 24px;
+  padding-right: var(--space-9);
   background-image:
     linear-gradient(45deg, transparent 50%, var(--ink-tertiary) 50%),
     linear-gradient(135deg, var(--ink-tertiary) 50%, transparent 50%),
@@ -240,7 +240,7 @@ select.chip {
   display: inline-grid;
   grid-auto-flow: column;
   grid-auto-columns: 1fr;
-  gap: 2px;
+  gap: var(--space-1);
   padding: 3px;
   border-radius: var(--radius-md);
   background: var(--surface-inset);
@@ -252,7 +252,7 @@ select.chip {
   border: none;
   background: none;
   border-radius: var(--radius-sm);
-  padding: 5px 12px;
+  padding: 5px var(--space-6);
   min-height: 28px;
   font-size: var(--size-sm);
   color: var(--ink-tertiary);
@@ -307,7 +307,7 @@ select.chip {
   display: inline-flex;
   align-items: center;
   height: 17px;
-  padding: 0 6px;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-sm);
   font-size: var(--size-xs);
   font-weight: var(--weight-medium);
@@ -355,7 +355,7 @@ select.chip {
   background: none;
   color: var(--accent-base);
   font-size: var(--size-base);
-  padding: 6px 4px 6px 0;
+  padding: var(--space-3) var(--space-2) var(--space-3) 0;
   min-height: 32px;
   white-space: nowrap;
   flex-shrink: 0;
@@ -366,8 +366,8 @@ select.chip {
 .app {
   max-width: 600px;
   margin: 0 auto;
-  padding: 12px 12px 0;
-  padding-top: max(12px, env(safe-area-inset-top));
+  padding: var(--space-6) var(--space-6) 0;
+  padding-top: max(var(--space-6), env(safe-area-inset-top));
 }
 
 .app-head {
@@ -381,7 +381,7 @@ select.chip {
   font-size: var(--size-lg);
   font-weight: var(--weight-bold);
   letter-spacing: 0.01em;
-  margin: 0 2px;
+  margin: 0 var(--space-1);
   background: linear-gradient(90deg, var(--ink-primary), color-mix(in srgb, var(--accent-base) 45%, var(--ink-primary)));
   -webkit-background-clip: text;
   background-clip: text;
@@ -399,7 +399,7 @@ select.chip {
 .metrics .chip {
   justify-content: center;
   border-radius: var(--radius-md);
-  padding: 6px 0;
+  padding: var(--space-3) 0;
   font-size: var(--size-base);
   white-space: nowrap;
   letter-spacing: -0.02em;
@@ -432,14 +432,14 @@ select.chip {
   grid-template-columns: auto auto auto minmax(0, 1fr) auto;
   align-items: center;
   justify-content: start;
-  padding: 2px 8px 2px 2px;
+  padding: var(--space-1) var(--space-4) var(--space-1) var(--space-1);
   border-bottom: 1px solid var(--line-soft);
 }
 
 .date-nav-extra {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .today-slot {
@@ -447,7 +447,7 @@ select.chip {
   display: flex;
   justify-content: flex-end;
   overflow: hidden;
-  padding-right: 4px;
+  padding-right: var(--space-2);
 }
 
 .today-chip {
@@ -458,7 +458,7 @@ select.chip {
   border: 1px solid color-mix(in srgb, var(--accent-base) 60%, transparent);
   color: var(--accent-base);
   border-radius: var(--radius-pill);
-  padding: 2px 9px;
+  padding: var(--space-1) 9px;
   font-size: var(--size-sm);
   white-space: nowrap;
   animation: fade-in var(--motion-base) var(--ease-standard);
@@ -494,13 +494,13 @@ select.chip {
 .week-preview { color: var(--accent-base); }
 .week-badge {
   position: absolute;
-  right: 8px;
+  right: var(--space-4);
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding: 4px 10px;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-5);
   border-radius: var(--radius-pill);
   background: var(--accent-base);
   color: var(--ink-on-accent);
@@ -521,7 +521,7 @@ select.chip {
   font-size: var(--size-md);
   font-weight: var(--weight-bold);
   letter-spacing: 0.02em;
-  padding: 2px 2px;
+  padding: var(--space-1) var(--space-1);
 }
 
 .side-compare .chip.sm {
@@ -721,7 +721,7 @@ button.label-feel:active { transform: scale(0.97); }
 .strip-col .cell-value {
   justify-self: stretch;
   text-align: right;
-  padding-right: max(2px, calc((var(--col) - 34px) / 2));
+  padding-right: max(var(--space-1), calc((var(--col) - 34px) / 2));
   font-variant-numeric: tabular-nums;
 }
 .strip-col .cell-value:has(> .grid-none),
@@ -744,7 +744,7 @@ button.label-feel:active { transform: scale(0.97); }
 
 .cell-feel {
   width: 100%;
-  padding: 0 4px;
+  padding: 0 var(--space-2);
 }
 
 .cell-feel.tappable-feel {
@@ -912,7 +912,7 @@ button.label-feel:active { transform: scale(0.97); }
 
 .sheet-handle {
   touch-action: none;
-  padding: 9px 16px 5px;
+  padding: 9px var(--space-7) 5px;
   cursor: grab;
 }
 
@@ -923,7 +923,7 @@ button.label-feel:active { transform: scale(0.97); }
   border-radius: var(--radius-pill);
   background: var(--ink-tertiary);
   opacity: 0.55;
-  margin: 0 auto 6px;
+  margin: 0 auto var(--space-3);
   transition:
     width var(--motion-base) var(--ease-standard),
     opacity var(--motion-base) var(--ease-standard),
@@ -954,7 +954,7 @@ button.label-feel:active { transform: scale(0.97); }
   align-items: center;
   gap: var(--space-4);
   min-height: 36px;
-  padding: 0 12px 8px;
+  padding: 0 var(--space-6) var(--space-4);
   border-bottom: 1px solid var(--line-soft);
 }
 
@@ -1002,7 +1002,7 @@ button.label-feel:active { transform: scale(0.97); }
   overflow: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
-  padding: 10px 8px 12px;
+  padding: var(--space-5) var(--space-4) var(--space-6);
 }
 
 /* ---- daily graph ---------------------------------------------------------------------------- */
@@ -1125,7 +1125,7 @@ button.label-feel:active { transform: scale(0.97); }
   place-items: center;
   width: 32px;
   height: 28px;
-  margin: -6px -6px -6px 0;
+  margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) calc(-1 * var(--space-3)) 0;
   border: none;
   background: none;
   color: var(--ink-tertiary);
@@ -1134,8 +1134,8 @@ button.label-feel:active { transform: scale(0.97); }
 }
 
 .info-note .info-more {
-  margin-top: 4px;
-  padding: 8px 10px;
+  margin-top: var(--space-2);
+  padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-sm);
   background: var(--surface-inset);
 }
@@ -1156,7 +1156,7 @@ button.label-feel:active { transform: scale(0.97); }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 14px;
+  gap: var(--space-2) 14px;
   font-size: var(--size-xs);
   color: var(--ink-tertiary);
   margin: var(--space-3) var(--space-3) 0;
@@ -1181,8 +1181,8 @@ button.label-feel:active { transform: scale(0.97); }
   align-items: center;
   gap: 5px;
   min-height: 32px;
-  margin: -6px -6px;
-  padding: 0 6px;
+  margin: calc(-1 * var(--space-3)) calc(-1 * var(--space-3));
+  padding: 0 var(--space-3);
   border: none;
   border-radius: var(--radius-pill);
   background: none;
@@ -1205,7 +1205,7 @@ button.label-feel:active { transform: scale(0.97); }
   align-items: center;
   gap: 5px;
   min-height: 32px;
-  padding: 0 10px;
+  padding: 0 var(--space-5);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-pill);
   background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
@@ -1268,7 +1268,7 @@ button.label-feel:active { transform: scale(0.97); }
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 3px 10px;
+  gap: 3px var(--space-5);
   font-size: var(--size-xs);
   color: var(--ink-tertiary);
 }
@@ -1276,7 +1276,7 @@ button.label-feel:active { transform: scale(0.97); }
 .feel-legend span {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 .feel-legend i.dashed {
@@ -1331,21 +1331,21 @@ button.label-feel:active { transform: scale(0.97); }
 /* 明るさ under the 日差し graph: 24 cells per day, aligned with the plot (its left edge is --plot-left,
    set by the graph from its own axis column; right 10px). */
 .hour-compare { --plot-left: 34px; }
-.light-strip { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.light-strip { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-3); }
 .light-title { font-size: var(--size-sm); color: var(--ink-secondary); }
 /* 「昼は いつもの…倍」: xs (a bare <small> is the browser's "smaller", 10px under 12px). */
 .light-title small { font-size: var(--size-xs); }
 .light-row { display: flex; align-items: center; }
 .light-row-label { width: var(--plot-left); font-size: var(--size-sm); color: var(--ink-tertiary); }
-.light-cells { flex: 1; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 1px; margin-right: 10px; }
+.light-cells { flex: 1; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 1px; margin-right: var(--space-5); }
 .light-cells i { height: 18px; border-radius: var(--radius-tick); }
 .light-cells i.on { outline: 1.5px solid var(--ink-primary); outline-offset: -1px; }
-.light-note { margin: 2px 0 0 var(--plot-left); }
-.light-legend { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 2px 0 0 var(--plot-left); font-size: var(--size-xs); color: var(--ink-tertiary); }
+.light-note { margin: var(--space-1) 0 0 var(--plot-left); }
+.light-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: var(--space-1) 0 0 var(--plot-left); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .light-legend span { display: inline-flex; align-items: center; gap: 3px; }
 .light-legend i { width: 10px; height: 10px; border-radius: var(--radius-tick); border: 1px solid var(--line-soft); }
 /* 明るさと空: each hour as its six 10-minute sky colours (zenith above horizon) over a thin line of the light's levels. */
-.light-rows { position: relative; display: flex; flex-direction: column; gap: 4px; }
+.light-rows { position: relative; display: flex; flex-direction: column; gap: var(--space-2); }
 .light-cells.sky i { height: 30px; display: flex; flex-direction: column; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line-swatch); }
 .light-cells.sky i.none { box-shadow: none; }
 .light-cells.sky i b { display: block; }
@@ -1357,7 +1357,7 @@ button.label-feel:active { transform: scale(0.97); }
 .light-trace.on {
   display: block;
   position: absolute;
-  inset: 0 10px 0 var(--plot-left);
+  inset: 0 var(--space-5) 0 var(--plot-left);
   z-index: 1;
   cursor: ew-resize;
   touch-action: pan-y;
@@ -1367,14 +1367,14 @@ button.label-feel:active { transform: scale(0.97); }
 }
 .sky-zoom {
   position: absolute;
-  bottom: calc(100% + 10px);
+  bottom: calc(100% + var(--space-5));
   z-index: 3;
   width: 264px;
   box-sizing: border-box;
-  padding: 10px 12px 12px;
+  padding: var(--space-5) var(--space-6) var(--space-6);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--space-4);
   border-radius: var(--radius-lg);
   background: var(--surface-overlay);
   border: 1px solid var(--line-strong);
@@ -1387,7 +1387,7 @@ button.label-feel:active { transform: scale(0.97); }
 }
 @keyframes sky-zoom-in { from { opacity: 0; transform: translateY(8px) scale(0.92); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .sky-zoom { animation: none; } }
-.sky-zoom-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: var(--size-sm); }
+.sky-zoom-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); font-size: var(--size-sm); }
 .sky-zoom-head small, .sky-zoom-now small { font-size: var(--size-xs); color: var(--ink-secondary); }
 .sky-zoom-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; align-items: end; }
 .sky-zoom-steps span { display: flex; flex-direction: column; gap: 3px; }
@@ -1395,18 +1395,18 @@ button.label-feel:active { transform: scale(0.97); }
 .sky-zoom-steps span.on i { height: 70px; outline: 2px solid var(--ink-primary); outline-offset: 1px; }
 .sky-zoom-steps small { font-size: var(--size-xs); text-align: center; color: var(--ink-secondary); }
 .sky-zoom-steps u { display: block; height: 4px; border-radius: var(--radius-tick); }
-.sky-zoom-light { font-size: var(--size-sm); color: var(--ink-secondary); margin-top: -2px; }
+.sky-zoom-light { font-size: var(--size-sm); color: var(--ink-secondary); margin-top: calc(-1 * var(--space-1)); }
 .sky-zoom-steps span.on small { color: var(--ink-primary); font-weight: var(--weight-bold); }
-.sky-zoom-day { display: flex; flex-direction: column; gap: 6px; }
-.sky-zoom-day + .sky-zoom-day { padding-top: 8px; border-top: 1px solid var(--line-soft); }
+.sky-zoom-day { display: flex; flex-direction: column; gap: var(--space-3); }
+.sky-zoom-day + .sky-zoom-day { padding-top: var(--space-4); border-top: 1px solid var(--line-soft); }
 .sky-zoom-day:not(:only-of-type) .sky-zoom-steps i { height: 36px; }
 .sky-zoom-day:not(:only-of-type) .sky-zoom-steps span.on i { height: 44px; }
-.sky-zoom-now em { font-style: normal; font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); margin-right: 6px; }
+.sky-zoom-now em { font-style: normal; font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); margin-right: var(--space-3); }
 .sky-zoom-now { display: flex; justify-content: space-between; align-items: baseline; font-size: var(--size-md); }
 .sky-zoom-close {
   position: absolute;
-  top: -12px;
-  right: -12px;
+  top: calc(-1 * var(--space-6));
+  right: calc(-1 * var(--space-6));
   width: 32px;
   height: 32px;
   border-radius: var(--radius-pill);
@@ -1447,7 +1447,7 @@ button.label-feel:active { transform: scale(0.97); }
 /* The values at the touched (or selected) position: one card above every graph.
    Columns: what · 対象 · 比較 · 差. Fixed row heights so the graph below never jumps. */
 .readout-card {
-  margin: 0 2px var(--space-3);
+  margin: 0 var(--space-1) var(--space-3);
   transition: box-shadow var(--motion-quick) var(--ease-standard);
 }
 
@@ -1634,7 +1634,7 @@ svg.scrub {
 .cs-pin {
   position: sticky;
   /* Up through the sheet body's top padding, so nothing peeks out above the line. */
-  top: -10px;
+  top: calc(-1 * var(--space-5));
   height: 0;
   z-index: var(--layer-pinned);
 }
@@ -1645,8 +1645,8 @@ svg.scrub {
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: start;
   column-gap: var(--space-4);
-  margin: 0 2px var(--space-3);
-  padding: 8px 10px 6px;
+  margin: 0 var(--space-1) var(--space-3);
+  padding: var(--space-4) var(--space-5) var(--space-3);
 }
 
 .cs-heads {
@@ -1656,14 +1656,14 @@ svg.scrub {
   align-items: center;
   column-gap: var(--space-4);
   padding: 0 26px var(--space-3) 0;
-  margin-bottom: 2px;
+  margin-bottom: var(--space-1);
   border-bottom: 1px solid var(--line-soft);
 }
 
 .cs-head {
   display: grid;
   justify-items: start;
-  row-gap: 2px;
+  row-gap: var(--space-1);
   min-width: 0;
 }
 
@@ -1713,7 +1713,7 @@ svg.scrub {
 .cs-val {
   font-size: var(--size-md);
   line-height: 1.2;
-  padding: 2px 0;
+  padding: var(--space-1) 0;
 }
 
 .cs-a {
@@ -1741,7 +1741,7 @@ svg.scrub {
   /* 気圧最高 hPa / +1.0: the longest name with its unit, and a difference. */
   grid-template-columns: 66px 40px; /* −10.7 */
   justify-content: center;
-  column-gap: 4px;
+  column-gap: var(--space-2);
   min-width: 0;
 }
 .cs-grid .cs-label { white-space: nowrap; }
@@ -1754,7 +1754,7 @@ svg.scrub {
   align-items: baseline;
   gap: 5px;
   min-width: 84px;
-  padding: 2px 6px;
+  padding: var(--space-1) var(--space-3);
   border-left: 1px solid var(--line-soft);
   border-right: 1px solid var(--line-soft);
 }
@@ -1790,8 +1790,8 @@ svg.scrub {
 }
 
 /* Every row the same inset (the chosen one too), so the numbers keep one line (#151 grid). */
-.cs-row > .cs-a { padding-right: 4px; }
-.cs-row > .cs-b { padding-left: 4px; }
+.cs-row > .cs-a { padding-right: var(--space-2); }
+.cs-row > .cs-b { padding-left: var(--space-2); }
 
 .cs-sun .cs-val {
   white-space: nowrap;
@@ -1822,14 +1822,14 @@ svg.scrub {
 
 /* Minimised: the chosen item in one line, with both dates above it. */
 .compare-summary.collapsed {
-  padding: 6px 36px 6px 10px;
+  padding: var(--space-3) 36px var(--space-3) var(--space-5);
   row-gap: 0;
 }
 
 .cs-line-date {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   font-size: var(--size-xs);
   color: var(--ink-tertiary);
   white-space: nowrap;
@@ -1843,7 +1843,7 @@ svg.scrub {
   grid-column: 1 / -1;
   display: flex;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-4);
   min-width: 0;
 }
 
@@ -1868,7 +1868,7 @@ svg.scrub {
   font-size: var(--size-xs);
   font-weight: var(--weight-bold);
   color: var(--ink-secondary);
-  padding: 0 4px;
+  padding: 0 var(--space-2);
   border-radius: var(--radius-xs);
   background: var(--surface-inset);
   box-shadow: 0 0 0 1px var(--line-soft) inset;
@@ -1877,7 +1877,7 @@ svg.scrub {
 .cs-line {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--space-2);
   font-size: var(--size-md);
   min-width: 0;
 }
@@ -1903,7 +1903,7 @@ svg.scrub {
 }
 
 .cs-line-mid {
-  gap: 4px;
+  gap: var(--space-2);
 }
 
 /* In one line the middle stacks (name over difference), so the two sides keep their room. */
@@ -1912,7 +1912,7 @@ svg.scrub {
   align-items: center;
   gap: 0;
   min-width: 64px;
-  padding: 0 4px;
+  padding: 0 var(--space-2);
   line-height: 1.25;
 }
 
@@ -1922,7 +1922,7 @@ svg.scrub {
 
 /* Pinned, the line has no minimise button: its right side needs no room for one. */
 .compare-summary.collapsed.pinned {
-  padding-right: 10px;
+  padding-right: var(--space-5);
 }
 
 .cs-pin > .compare-summary.pinned {
@@ -1930,7 +1930,7 @@ svg.scrub {
   left: 0;
   right: 0;
   top: 0;
-  margin: 0 2px;
+  margin: 0 var(--space-1);
   cursor: pointer;
   background: color-mix(in srgb, var(--surface-overlay) 88%, transparent);
   -webkit-backdrop-filter: blur(var(--effect-blur));
@@ -1993,7 +1993,7 @@ svg.scrub {
   top: 0;
   z-index: 2;
   margin: 0 -14px;
-  padding: 10px 16px 4px;
+  padding: var(--space-5) var(--space-7) var(--space-2);
   background: linear-gradient(180deg, var(--surface-overlay) 70%, transparent);
 }
 
@@ -2022,14 +2022,14 @@ svg.scrub {
 /* ---- feel map & trend ---------------------------------------------------------------------- */
 
 .feel-legend.sheet-legend {
-  margin: 0 2px var(--space-5);
+  margin: 0 var(--space-1) var(--space-5);
 }
 
 .band-face {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  padding: 0 2px var(--space-6);
+  padding: 0 var(--space-1) var(--space-6);
 }
 
 .band-face > .seg {
@@ -2071,7 +2071,7 @@ svg.scrub {
 }
 
 .band-most b {
-  margin-left: 6px;
+  margin-left: var(--space-3);
   font-size: var(--size-md);
 }
 
@@ -2079,7 +2079,7 @@ svg.scrub {
 .band-diff {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 10px;
+  gap: var(--space-1) var(--space-5);
   font-size: var(--size-sm);
   font-variant-numeric: tabular-nums;
 }
@@ -2136,7 +2136,7 @@ svg.scrub {
   text-align: center;
   font-size: var(--size-sm);
   line-height: 1.15;
-  padding: 2px 0;
+  padding: var(--space-1) 0;
   font-family: var(--font-numeric);
   border-radius: var(--radius-sm);
 }
@@ -2159,7 +2159,7 @@ svg.scrub {
   z-index: 2;
   top: 0;
   bottom: 0;
-  left: calc(var(--bm-label) + var(--bm-gap) + 3 * var(--bm-step) - 2px);
+  left: calc(var(--bm-label) + var(--bm-gap) + 3 * var(--bm-step) - var(--space-1));
   width: calc(var(--bm-step) - var(--bm-gap) + 4px);
   border: 1.5px solid var(--accent-base);
   border-radius: var(--radius-md);
@@ -2288,7 +2288,7 @@ svg.scrub {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 4px 10px;
+  gap: var(--space-2) var(--space-5);
   font-size: var(--size-xs);
   color: var(--ink-tertiary);
 }
@@ -2320,7 +2320,7 @@ svg.scrub {
 }
 
 .band-detail-day {
-  margin: var(--space-4) 0 2px !important;
+  margin: var(--space-4) 0 var(--space-1) !important;
   font-size: var(--size-sm) !important;
   font-weight: var(--weight-bold);
   color: var(--ink-secondary);
@@ -2329,7 +2329,7 @@ svg.scrub {
 .band-detail {
   background: var(--surface-inset);
   border-radius: var(--radius-md);
-  padding: 8px 10px;
+  padding: var(--space-4) var(--space-5);
   font-size: var(--size-sm);
 }
 
@@ -2337,7 +2337,7 @@ svg.scrub {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 4px;
+  margin-bottom: var(--space-2);
 }
 /* The time span by the band's name: xs (a bare <small> is the browser's "smaller", 10px here). */
 .band-detail header small { font-size: var(--size-xs); }
@@ -2351,7 +2351,7 @@ svg.scrub {
 .band-detail th,
 .band-detail td {
   text-align: right;
-  padding: 3px 2px;
+  padding: 3px var(--space-1);
   border-bottom: 1px solid var(--line-soft);
 }
 
@@ -2361,7 +2361,7 @@ svg.scrub {
 }
 
 .band-detail p {
-  margin: 4px 0 0;
+  margin: var(--space-2) 0 0;
   font-size: var(--size-xs);
 }
 
@@ -2376,7 +2376,7 @@ svg.scrub {
 .trend-note {
   font-size: var(--size-xs);
   color: var(--ink-tertiary);
-  margin-top: 2px;
+  margin-top: var(--space-1);
 }
 
 /* ---- 条件から選ぶ ------------------------------------------------------------------------------- */
@@ -2385,7 +2385,7 @@ svg.scrub {
   display: flex;
   flex-direction: column;
   gap: var(--space-7);
-  padding: 0 2px var(--space-7);
+  padding: 0 var(--space-1) var(--space-7);
 }
 
 .cond-origin {
@@ -2469,7 +2469,7 @@ svg.scrub {
 }
 
 .cond-body .seg button {
-  padding: 4px 6px;
+  padding: var(--space-2) var(--space-3);
   min-height: 30px;
 }
 
@@ -2493,7 +2493,7 @@ svg.scrub {
 .slider {
   position: relative;
   height: 32px;
-  margin: 2px 10px 0;
+  margin: var(--space-1) var(--space-5) 0;
 }
 
 .slider .track,
@@ -2524,9 +2524,9 @@ svg.scrub {
 
 .slider input {
   position: absolute;
-  left: -10px;
-  right: -10px;
-  top: 6px;
+  left: calc(-1 * var(--space-5));
+  right: calc(-1 * var(--space-5));
+  top: var(--space-3);
   width: calc(100% + 20px);
   height: 20px;
   margin: 0;
@@ -2636,7 +2636,7 @@ svg.scrub {
 
 .cond-col.labels > span {
   justify-content: flex-start;
-  padding-left: 12px;
+  padding-left: var(--space-6);
   font-size: var(--size-sm);
   color: var(--ink-tertiary);
 }
@@ -2679,7 +2679,7 @@ svg.scrub {
 }
 
 .cond-note {
-  padding: 0 4px;
+  padding: 0 var(--space-2);
   font-size: var(--size-xs);
   color: var(--ink-tertiary);
 }
@@ -2699,7 +2699,7 @@ svg.scrub {
   align-items: center;
   gap: var(--space-5);
   min-height: 44px;
-  padding: 0 6px 0 14px;
+  padding: 0 var(--space-3) 0 14px;
   border-radius: var(--radius-md);
   background: var(--surface-overlay);
   box-shadow: var(--shadow-float), 0 0 0 1px var(--line-soft) inset;
@@ -2713,7 +2713,7 @@ svg.scrub {
 .cond-toast button {
   border: none;
   background: none;
-  padding: 10px;
+  padding: var(--space-5);
   color: var(--accent-base);
   font-weight: var(--weight-bold);
 }
@@ -2725,8 +2725,8 @@ svg.scrub {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  column-gap: 8px;
-  row-gap: 2px;
+  column-gap: var(--space-4);
+  row-gap: var(--space-1);
   margin-bottom: var(--space-4);
   transition: box-shadow var(--motion-base) var(--ease-standard);
 }
@@ -2794,13 +2794,13 @@ svg.scrub {
   display: inline-flex;
   align-items: center;
   /* 年 and 月 are two things to press (年を選ぶ・月の振り返り): their dotted lines stay apart. */
-  gap: 10px;
+  gap: var(--space-5);
   font-size: var(--size-md);
 }
 
 /* 月 (opens 月の振り返り): the same height and dotted line as 年 beside it, so the two lines sit level. */
 .calendar-head .cal-month-review {
-  padding: 0 2px;
+  padding: 0 var(--space-1);
   line-height: inherit;
 }
 
@@ -2820,13 +2820,13 @@ svg.scrub {
   background: none;
   color: var(--ink-primary);
   font: inherit;
-  padding: 0 2px;
+  padding: 0 var(--space-1);
 }
 
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 4px;
+  gap: var(--space-2);
   text-align: center;
   touch-action: pan-y;
 }
@@ -2892,8 +2892,8 @@ svg.scrub {
   top: 50%;
   transform: translateY(-50%);
   font-style: normal;
-  margin-left: 2px;
-  padding: 0 2px;
+  margin-left: var(--space-1);
+  padding: 0 var(--space-1);
   border-radius: var(--radius-tick);
   font-size: var(--size-xs);
   font-weight: var(--weight-bold);
@@ -2933,13 +2933,13 @@ svg.scrub {
 .cal-note {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px 10px;
+  gap: var(--space-2) var(--space-5);
   align-items: center;
-  margin: 6px 2px 0;
+  margin: var(--space-3) var(--space-1) 0;
   font-size: var(--size-sm);
   color: var(--ink-secondary);
 }
-.cal-note span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-note span { display: inline-flex; align-items: center; gap: var(--space-3); }
 
 /* Forecast days hatched, as in the graphs. */
 .cal-day.forecast {
@@ -2973,7 +2973,7 @@ svg.scrub {
   top: -5px;
   left: 50%;
   transform: translateX(-50%);
-  padding: 0 4px;
+  padding: 0 var(--space-2);
   border-radius: var(--radius-xs);
   background: var(--surface-overlay);
   box-shadow: 0 0 0 1px var(--line-strong);
@@ -3173,7 +3173,7 @@ svg.scrub {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-3);
   font-size: var(--size-base);
   color: var(--ink-secondary);
   margin-bottom: var(--space-5);
@@ -3186,7 +3186,7 @@ svg.scrub {
   background: var(--surface-raised);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
-  padding: 10px;
+  padding: var(--space-5);
   font-size: var(--size-md);
   color: var(--ink-primary);
 }
@@ -3194,14 +3194,14 @@ svg.scrub {
 .threshold-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: var(--space-3);
   align-items: end;
 }
 
 .threshold {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-2);
   font-size: var(--size-sm);
   color: var(--ink-tertiary);
   position: relative;
@@ -3215,10 +3215,10 @@ svg.scrub {
   margin-bottom: var(--space-5);
 }
 .set-group h3 { margin: 0; font-size: var(--size-md); color: var(--ink-primary); }
-.set-lead { margin: -6px 0 0; font-size: var(--size-base); color: var(--ink-secondary); line-height: 1.55; }
-.set-row { display: grid; gap: 6px; min-width: 0; }
+.set-lead { margin: calc(-1 * var(--space-3)) 0 0; font-size: var(--size-base); color: var(--ink-secondary); line-height: 1.55; }
+.set-row { display: grid; gap: var(--space-3); min-width: 0; }
 .set-row.inline { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); }
-.set-label { display: grid; gap: 2px; font-size: var(--size-base); color: var(--ink-secondary); }
+.set-label { display: grid; gap: var(--space-1); font-size: var(--size-base); color: var(--ink-secondary); }
 .set-help { font-size: var(--size-sm); color: var(--ink-tertiary); line-height: 1.5; }
 /* Help: the first sentence, and the rest under ⓘ (#151). */
 .help { display: grid; gap: var(--space-2); }
@@ -3228,17 +3228,17 @@ svg.scrub {
   background: var(--surface-inset);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
-  padding: 10px;
+  padding: var(--space-5);
   font-size: var(--size-md);
   color: var(--ink-primary);
 }
-.set-number { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-secondary); }
+.set-number { display: inline-flex; align-items: center; gap: var(--space-3); color: var(--ink-secondary); }
 .set-number input {
   width: 72px;
   background: var(--surface-inset);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
-  padding: 8px;
+  padding: var(--space-4);
   font-size: var(--size-md);
   text-align: right;
   color: var(--ink-primary);
@@ -3246,10 +3246,10 @@ svg.scrub {
 }
 /* Segmented switches fill the row, so four choices fit a phone. */
 .set-row .seg { display: grid; width: 100%; }
-.set-row .seg button { padding: 6px 4px; min-height: 36px; white-space: normal; line-height: 1.25; }
+.set-row .seg button { padding: var(--space-3) var(--space-2); min-height: 36px; white-space: normal; line-height: 1.25; }
 
 /* The five levels as one band (the 肌感 bar's colours), boundaries as handles. */
-.level-set { display: grid; gap: 6px; }
+.level-set { display: grid; gap: var(--space-3); }
 .level-band {
   position: relative;
   height: 40px;
@@ -3274,13 +3274,13 @@ svg.scrub {
 }
 .level-seg:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
 .level-seg:nth-child(5) { border-radius: 0 var(--radius-md) var(--radius-md) 0; }
-.level-seg span { white-space: nowrap; padding: 0 2px; }
+.level-seg span { white-space: nowrap; padding: 0 var(--space-1); }
 .level-handle {
   position: absolute;
-  top: -4px;
-  bottom: -4px;
+  top: calc(-1 * var(--space-2));
+  bottom: calc(-1 * var(--space-2));
   width: 4px;
-  margin-left: -2px;
+  margin-left: calc(-1 * var(--space-1));
   border-radius: var(--radius-tick);
   background: var(--ink-primary);
   box-shadow: 0 0 0 1.5px var(--surface-raised);
@@ -3288,7 +3288,7 @@ svg.scrub {
 }
 .level-handle b {
   position: absolute;
-  bottom: calc(100% + 2px);
+  bottom: calc(100% + var(--space-1));
   left: 50%;
   transform: translateX(-50%);
   font-size: var(--size-sm);
@@ -3300,15 +3300,15 @@ svg.scrub {
 .level-scale span { position: absolute; transform: translateX(-50%); }
 .level-scale span:first-child { transform: none; }
 .level-scale span:last-child { transform: translateX(-100%); }
-.level-steppers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.level-steppers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); margin-top: var(--space-2); }
 .level-stepper {
   display: grid;
-  gap: 4px;
-  padding: 8px;
+  gap: var(--space-2);
+  padding: var(--space-4);
   border-radius: var(--radius-md);
   background: var(--surface-inset);
 }
-.level-stepper small { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.3; }
+.level-stepper small { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.3; }
 .level-stepper small i { width: 8px; height: 8px; border-radius: var(--radius-tick); flex: none; }
 .level-stepper div { display: grid; grid-template-columns: 36px 1fr 36px; align-items: center; }
 .level-stepper button {
@@ -3324,7 +3324,7 @@ svg.scrub {
 }
 .level-stepper output { text-align: center; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-md); }
 
-.set-data summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; list-style: none; cursor: pointer; }
+.set-data summary { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-4); list-style: none; cursor: pointer; }
 .set-data summary::-webkit-details-marker { display: none; }
 .set-data summary small { font-size: var(--size-sm); color: var(--ink-tertiary); }
 .set-data summary::after {
@@ -3339,7 +3339,7 @@ svg.scrub {
 .report {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 6px 12px;
+  gap: var(--space-3) var(--space-6);
   font-size: var(--size-base);
   margin: 0;
 }
@@ -3467,12 +3467,12 @@ svg.scrub {
 }
 
 .sheet-dock {
-  padding: 6px 8px 0;
+  padding: var(--space-3) var(--space-4) 0;
   border-bottom: 1px solid var(--line-soft);
 }
 
 .cs-dock > .compare-summary.pinned {
-  margin: 0 0 6px;
+  margin: 0 0 var(--space-3);
   cursor: pointer;
   animation: pin-in var(--motion-base) var(--ease-standard);
 }
@@ -3512,9 +3512,9 @@ svg.scrub {
 .swipe-hint-inner {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  margin: 0 4px;
-  padding: 6px 10px;
+  gap: var(--space-2);
+  margin: 0 var(--space-2);
+  padding: var(--space-3) var(--space-5);
   border-radius: var(--radius-pill);
   background: color-mix(in srgb, var(--surface-overlay) 92%, transparent);
   -webkit-backdrop-filter: blur(var(--effect-blur));
@@ -3566,7 +3566,7 @@ svg.scrub {
   align-items: center;
   border: none;
   background: none;
-  padding: 2px 0;
+  padding: var(--space-1) 0;
   color: inherit;
   font: inherit;
   border-bottom: 1px dashed var(--ink-tertiary);
@@ -3582,9 +3582,9 @@ svg.scrub {
 .status-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: -2px 0 var(--space-4);
-  padding: 7px 10px;
+  gap: var(--space-4);
+  margin: calc(-1 * var(--space-1)) 0 var(--space-4);
+  padding: 7px var(--space-5);
   border-radius: var(--radius-md);
   font-size: var(--size-sm);
   color: var(--ink-secondary);
@@ -3604,7 +3604,7 @@ svg.scrub {
 .status-detail {
   flex: 1;
   min-width: 0;
-  padding: 6px 0;
+  padding: var(--space-3) 0;
   border: none;
   background: none;
   color: inherit;
@@ -3613,7 +3613,7 @@ svg.scrub {
 }
 
 .status-detail u {
-  margin-left: 6px;
+  margin-left: var(--space-3);
   color: var(--accent-base);
   text-decoration: none;
   white-space: nowrap;
@@ -3624,7 +3624,7 @@ svg.scrub {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  padding: 0 2px var(--space-7);
+  padding: 0 var(--space-1) var(--space-7);
 }
 
 .failure-list {
@@ -3662,7 +3662,7 @@ svg.scrub {
 .failure-facts {
   display: grid;
   grid-template-columns: 4.5em minmax(0, 1fr);
-  gap: 4px var(--space-4);
+  gap: var(--space-2) var(--space-4);
   margin: var(--space-4) 0 0;
   font-size: var(--size-sm);
 }
@@ -3724,12 +3724,12 @@ svg.scrub {
 
 .state-overlay {
   position: absolute;
-  inset: 18px 10px 26px var(--plot-left);
+  inset: 18px var(--space-5) 26px var(--plot-left);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-3);
   text-align: center;
   border-radius: var(--radius-md);
   background: color-mix(in srgb, var(--surface-base) 72%, transparent);
@@ -3817,7 +3817,7 @@ svg.scrub {
   place-items: center;
   min-width: 18px;
   height: 16px;
-  padding: 0 4px;
+  padding: 0 var(--space-2);
   border-radius: var(--radius-xs);
   font-size: var(--size-xs);
   font-weight: var(--weight-bold);
@@ -3835,8 +3835,8 @@ svg.scrub {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: 4px 8px;
-  margin: 0 0 4px;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-2);
   font-size: var(--size-base);
   color: var(--ink-secondary);
 }
@@ -3845,7 +3845,7 @@ svg.scrub {
 .cs-beta-fold {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   min-height: 36px;
   padding: 0;
   border: none;
@@ -3866,7 +3866,7 @@ svg.scrub {
 .report-scale { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; }
 .report-pick {
   min-height: 52px;
-  padding: 4px 1px;
+  padding: var(--space-2) 1px;
   font-size: var(--size-sm);
   white-space: pre-line;
   line-height: 1.25;
@@ -3884,7 +3884,7 @@ svg.scrub {
   font-weight: var(--weight-bold);
 }
 .actions.tight { margin-top: 0; }
-.beta-alpha { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px; align-items: baseline; font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.55; }
+.beta-alpha { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: var(--space-5); align-items: baseline; font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.55; }
 .beta-alpha b { font-family: var(--font-numeric); font-size: var(--size-lg); color: var(--ink-primary); font-variant-numeric: tabular-nums; }
 .beta-alpha b small { display: block; font-family: var(--font-family); font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); white-space: nowrap; }
 
@@ -3892,31 +3892,31 @@ svg.scrub {
 .cs-beta-actions { margin-left: auto; display: inline-flex; align-items: center; gap: var(--space-4); }
 .basis { display: grid; gap: var(--space-5); padding-bottom: var(--space-6); }
 .basis .seg { display: grid; width: 100%; }
-.basis-sec { display: grid; gap: 6px; padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-raised); min-width: 0; }
-.basis-sec h4 { margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: var(--size-base); color: var(--ink-secondary); }
+.basis-sec { display: grid; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-raised); min-width: 0; }
+.basis-sec h4 { margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); font-size: var(--size-base); color: var(--ink-secondary); }
 .basis-sec h4 b { font-family: var(--font-numeric); font-size: var(--size-md); color: var(--ink-primary); font-variant-numeric: tabular-nums; }
-.basis-formula { margin: 0; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface-inset); font-family: var(--font-numeric); font-size: var(--size-base); color: var(--ink-primary); overflow-x: auto; }
+.basis-formula { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); background: var(--surface-inset); font-family: var(--font-numeric); font-size: var(--size-base); color: var(--ink-primary); overflow-x: auto; }
 .basis-note { margin: 0; font-size: var(--size-sm); line-height: 1.6; color: var(--ink-secondary); }
 .basis-note.lead { font-size: var(--size-sm); }
-.after-answer { position: fixed; left: max(12px, env(safe-area-inset-left, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: var(--layer-popover); max-width: 480px; margin: 0 auto; background: var(--surface-raised); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); padding: 10px 12px; box-shadow: var(--shadow-float); font-size: var(--size-base); }
-.after-answer-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.after-answer ul { margin: 6px 0 0; padding-left: 1.1em; display: grid; gap: 2px; }
-.after-answer p { margin: 6px 0 0; color: var(--ink-secondary); }
-.outlook { display: grid; gap: 6px; padding: 0 var(--space-2); }
-.outlook-rows { display: grid; gap: 4px; }
-.outlook-row { display: grid; grid-template-columns: 3em minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: var(--size-base); }
+.after-answer { position: fixed; left: max(var(--space-6), env(safe-area-inset-left, 0px)); right: max(var(--space-6), env(safe-area-inset-right, 0px)); bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); z-index: var(--layer-popover); max-width: 480px; margin: 0 auto; background: var(--surface-raised); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6); box-shadow: var(--shadow-float); font-size: var(--size-base); }
+.after-answer-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
+.after-answer ul { margin: var(--space-3) 0 0; padding-left: 1.1em; display: grid; gap: var(--space-1); }
+.after-answer p { margin: var(--space-3) 0 0; color: var(--ink-secondary); }
+.outlook { display: grid; gap: var(--space-3); padding: 0 var(--space-2); }
+.outlook-rows { display: grid; gap: var(--space-2); }
+.outlook-row { display: grid; grid-template-columns: 3em minmax(0, 1fr) auto; gap: var(--space-4); align-items: center; font-size: var(--size-base); }
 .outlook-part { color: var(--ink-secondary); }
-.outlook-word { display: flex; align-items: center; gap: 6px; font-weight: var(--weight-bold); }
+.outlook-word { display: flex; align-items: center; gap: var(--space-3); font-weight: var(--weight-bold); }
 .outlook-word i { width: 10px; height: 10px; border-radius: var(--radius-tick); flex: none; }
 .outlook-word small { font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .outlook-why { margin: 0; font-size: var(--size-sm); line-height: 1.6; }
-.outlook-why b { margin-right: 4px; color: var(--ink-secondary); }
+.outlook-why b { margin-right: var(--space-2); color: var(--ink-secondary); }
 .outlook-sure, .outlook-none { font-size: var(--size-sm); color: var(--ink-secondary); }
 .outlook-sure { display: inline-flex; align-items: center; gap: var(--space-1); }
-.hour-bands { display: grid; gap: 6px; margin-top: 6px; }
+.hour-bands { display: grid; gap: var(--space-3); margin-top: var(--space-3); }
 .chart-guide-shared { stroke: var(--ink-primary); stroke-opacity: 0.55; stroke-width: 1.4; stroke-dasharray: 1.5 3.5; stroke-linecap: round; }
-.try-it { display: grid; gap: 8px; }
-.try-wind { display: grid; gap: 4px; font-size: var(--size-base); }
+.try-it { display: grid; gap: var(--space-4); }
+.try-wind { display: grid; gap: var(--space-2); font-size: var(--size-base); }
 .try-wind input { width: 100%; }
 .basis-cusum { width: 100%; max-width: 320px; height: 84px; }
 .basis-cusum path { fill: none; stroke: var(--accent-base); stroke-width: 2; }
@@ -3924,26 +3924,26 @@ svg.scrub {
 .basis-pit rect { fill: var(--accent-base); opacity: 0.75; }
 .basis-pit-even { stroke: var(--ink-secondary); stroke-dasharray: 3 3; }
 .basis-table td.warn, .basis-table tr.warn td { color: var(--status-warning); }
-.beta-fc.inline { display: inline; margin-left: 6px; }
+.beta-fc.inline { display: inline; margin-left: var(--space-3); }
 .basis-table { width: 100%; border-collapse: collapse; font-size: var(--size-sm); font-variant-numeric: tabular-nums; }
-.basis-table th { text-align: left; font-weight: var(--weight-regular); color: var(--ink-tertiary); padding: 2px 4px; border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
-.basis-table td { padding: 3px 4px; border-bottom: 1px solid var(--line-soft); color: var(--ink-primary); white-space: nowrap; }
+.basis-table th { text-align: left; font-weight: var(--weight-regular); color: var(--ink-tertiary); padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
+.basis-table td { padding: 3px var(--space-2); border-bottom: 1px solid var(--line-soft); color: var(--ink-primary); white-space: nowrap; }
 .basis-table td small { color: var(--ink-tertiary); font-size: var(--size-xs); }
 .basis-table td.num { text-align: right; position: relative; }
 .basis-table tr.missing td { color: var(--ink-disabled); }
 .basis-table tr.rest td { color: var(--ink-secondary); border-bottom: none; }
 .basis-table tr.best td { color: var(--accent-base); font-weight: var(--weight-bold); }
 .basis-bar { position: absolute; left: 0; top: 50%; height: 6px; margin-top: -3px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--ink-secondary) 22%, transparent); }
-.basis-list { margin: 0; padding-left: 1.1em; display: grid; gap: 4px; font-size: var(--size-sm); line-height: 1.55; color: var(--ink-secondary); }
+.basis-list { margin: 0; padding-left: 1.1em; display: grid; gap: var(--space-2); font-size: var(--size-sm); line-height: 1.55; color: var(--ink-secondary); }
 .basis-list b { color: var(--ink-primary); font-weight: var(--weight-bold); }
-.basis-scroll { overflow-x: auto; margin: 0 -4px; padding: 0 4px; }
-.predict-card { margin: 0; display: grid; gap: 2px; }
+.basis-scroll { overflow-x: auto; margin: 0 calc(-1 * var(--space-2)); padding: 0 var(--space-2); }
+.predict-card { margin: 0; display: grid; gap: var(--space-1); }
 .predict-card p { margin: 0; font-size: var(--size-base); color: var(--ink-primary); }
 .predict-card b { font-size: var(--size-md); }
 .predict-card .predict-num { font-family: var(--font-numeric); color: var(--ink-secondary); }
 .predict-card .predict-sub { font-size: var(--size-sm); color: var(--ink-tertiary); line-height: 1.5; }
 .predict-card.waiting { font-size: var(--size-sm); color: var(--ink-tertiary); box-shadow: none; }
-.predict-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; align-items: end; height: 54px; margin: 4px 0 2px; }
+.predict-bars { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; align-items: end; height: 54px; margin: var(--space-2) 0 var(--space-1); }
 .predict-bars span { display: grid; grid-template-rows: 1fr auto; height: 100%; align-items: end; justify-items: center; border-radius: var(--radius-xs); }
 .predict-bars i { width: 70%; border-radius: var(--radius-tick) var(--radius-tick) 0 0; background: color-mix(in srgb, var(--ink-secondary) 35%, transparent); }
 .predict-bars .mode i { background: var(--accent-base); }
@@ -3956,14 +3956,14 @@ svg.scrub {
 .beta-range { font-size: var(--size-sm); white-space: nowrap; }
 
 /* Accounts (settings) and the administrator's screen. */
-.login-form { display: grid; gap: 10px; }
-.login-form label { display: grid; gap: 4px; font-size: var(--size-base); color: var(--ink-secondary); }
+.login-form { display: grid; gap: var(--space-5); }
+.login-form label { display: grid; gap: var(--space-2); font-size: var(--size-base); color: var(--ink-secondary); }
 .login-form input {
   width: 100%;
   background: var(--surface-inset);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
-  padding: 10px;
+  padding: var(--space-5);
   font-size: var(--size-input); /* 16px keeps iPhone from zooming in */
   color: var(--ink-primary);
 }
@@ -3973,85 +3973,85 @@ svg.scrub {
   background: var(--surface-raised);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-md);
-  padding: 8px 12px;
+  padding: var(--space-4) var(--space-6);
   font-size: var(--size-base);
   color: var(--ink-primary);
   white-space: nowrap;
 }
-.once-secret { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--accent-base); border-radius: var(--radius-md); background: var(--surface-inset); }
+.once-secret { display: grid; gap: var(--space-3); padding: var(--space-6); border: 1px solid var(--accent-base); border-radius: var(--radius-md); background: var(--surface-inset); }
 .once-secret code { font-family: var(--font-mono); font-size: var(--size-lg); font-weight: var(--weight-bold); line-height: 1.3; letter-spacing: 0.06em; color: var(--ink-primary); user-select: all; overflow-wrap: anywhere; }
 .once-secret small { color: var(--ink-secondary); font-size: var(--size-sm); }
 .admin { display: grid; gap: var(--space-5); }
-.admin-users { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-.admin-users li { display: grid; gap: 4px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
+.admin-users { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-5); }
+.admin-users li { display: grid; gap: var(--space-2); padding: var(--space-5) 0; border-top: 1px solid var(--line-soft); }
 .admin-users li.off { opacity: 0.6; }
-.admin-users li > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px; }
+.admin-users li > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-4); }
 .admin-users li small { color: var(--ink-tertiary); font-size: var(--size-sm); }
-.admin-tag { font-size: var(--size-sm); padding: 1px 6px; border-radius: var(--radius-pill); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
+.admin-tag { font-size: var(--size-sm); padding: 1px var(--space-3); border-radius: var(--radius-pill); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
 .admin-tag.off { color: var(--status-error); border-color: color-mix(in srgb, var(--status-error) 50%, transparent); }
 
 /* The header's 記録 button (logged in): reporting at any time, not only from a notification. */
-.app-head-actions { display: flex; align-items: center; gap: 8px; }
+.app-head-actions { display: flex; align-items: center; gap: var(--space-4); }
 /* Settings › 記録の通知 */
-.notify-times { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.notify-times { display: flex; flex-wrap: wrap; gap: var(--space-4); align-items: center; }
 .notify-time {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 4px 4px 4px 12px; border-radius: var(--radius-pill);
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-6); border-radius: var(--radius-pill);
   background: var(--surface-inset); border: 1px solid var(--line-strong);
   font-family: var(--font-mono); font-size: var(--size-base); font-weight: var(--weight-bold); line-height: 1; color: var(--ink-primary);
 }
 .notify-time button { width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; color: var(--ink-secondary); font-size: var(--size-md); }
-.notify-add { display: inline-flex; gap: 6px; align-items: center; }
+.notify-add { display: inline-flex; gap: var(--space-3); align-items: center; }
 .notify-add input {
   background: var(--surface-inset); border: 1px solid var(--line-strong); border-radius: var(--radius-md);
-  padding: 6px 8px; font-size: var(--size-input); color: var(--ink-primary);
+  padding: var(--space-3) var(--space-4); font-size: var(--size-input); color: var(--ink-primary);
 }
 .notify-add button, .notify-days button {
-  min-height: 34px; padding: 0 12px; border-radius: var(--radius-md);
+  min-height: 34px; padding: 0 var(--space-6); border-radius: var(--radius-md);
   border: 1px solid var(--line-strong); background: var(--surface-raised); color: var(--ink-primary); font-size: var(--size-base);
 }
-.notify-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.notify-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-3); }
 /* 台風の目安: 通知の時間帯 (from 〜 to). */
-.notify-hours { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: var(--size-base); color: var(--ink-secondary); }
+.notify-hours { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; font-size: var(--size-base); color: var(--ink-secondary); }
 .notify-hours input {
   background: var(--surface-inset); border: 1px solid var(--line-strong); border-radius: var(--radius-md);
-  padding: 6px 8px; font-size: var(--size-input); color: var(--ink-primary);
+  padding: var(--space-3) var(--space-4); font-size: var(--size-input); color: var(--ink-primary);
 }
 .notify-days button { padding: 0; }
 .notify-days button.on { background: color-mix(in srgb, var(--accent-base) 22%, var(--surface-raised)); border-color: var(--accent-base); font-weight: var(--weight-bold); }
 .notify .actions { flex-wrap: wrap; }
-.notify-bands { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.notify-bands { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); }
 .notify-bands button {
-  display: grid; gap: 2px; justify-items: center; padding: 6px 0;
+  display: grid; gap: var(--space-1); justify-items: center; padding: var(--space-3) 0;
   border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--surface-raised); color: var(--ink-secondary);
 }
 .notify-bands button b { font-size: var(--size-base); color: var(--ink-primary); }
 .notify-bands button small { font-family: var(--font-mono); font-size: var(--size-sm); font-weight: var(--weight-bold); line-height: 1; }
 .notify-bands button.on { background: color-mix(in srgb, var(--accent-base) 22%, var(--surface-raised)); border-color: var(--accent-base); }
 .notify-bands button.on b { font-weight: var(--weight-bold); }
-.notify-time em { font-style: normal; font-family: var(--font-family); font-size: var(--size-sm); color: var(--ink-secondary); margin-right: 2px; }
+.notify-time em { font-style: normal; font-family: var(--font-family); font-size: var(--size-sm); color: var(--ink-secondary); margin-right: var(--space-1); }
 
 /* β: how far the learning has got (comfort.ts: learningOf). */
-.learn-tag { display: inline-block; width: fit-content; justify-self: start; margin-right: 6px; padding: 1px 8px; border-radius: var(--radius-pill); font-size: var(--size-sm); font-weight: var(--weight-bold); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
+.learn-tag { display: inline-block; width: fit-content; justify-self: start; margin-right: var(--space-3); padding: 1px var(--space-4); border-radius: var(--radius-pill); font-size: var(--size-sm); font-weight: var(--weight-bold); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
 .learn-tag.provisional { border-color: color-mix(in srgb, var(--accent-base) 50%, transparent); color: var(--ink-primary); }
 .learn-tag.testable, .learn-tag.verified { border-color: var(--accent-base); color: var(--ink-primary); }
 .predict-state { font-size: var(--size-base); color: var(--ink-secondary); }
 .predict-sides { font-size: var(--size-base); color: var(--ink-secondary); }
 .predict-sides b { color: var(--ink-primary); }
 .report-quality { margin: 0; font-size: var(--size-base); }
-.admin-delete { display: grid; gap: 6px; padding: 8px 0; }
-.admin-delete input { background: var(--surface-inset); border: 1px solid var(--line-strong); border-radius: var(--radius-md); padding: 8px; font-size: var(--size-input); color: var(--ink-primary); }
+.admin-delete { display: grid; gap: var(--space-3); padding: var(--space-4) 0; }
+.admin-delete input { background: var(--surface-inset); border: 1px solid var(--line-strong); border-radius: var(--radius-md); padding: var(--space-4); font-size: var(--size-input); color: var(--ink-primary); }
 .admin-exports { font-size: var(--size-base); color: var(--ink-secondary); }
-.admin-exports ul { margin: 6px 0 0; padding-left: 18px; }
-.admin-imports { margin: 0; padding-left: 18px; font-size: var(--size-base); color: var(--ink-secondary); display: grid; gap: 6px; }
+.admin-exports ul { margin: var(--space-3) 0 0; padding-left: 18px; }
+.admin-imports { margin: 0; padding-left: 18px; font-size: var(--size-base); color: var(--ink-secondary); display: grid; gap: var(--space-3); }
 .admin-imports li { overflow-wrap: anywhere; }
 
 /* The research analysis (#55, in the app): aggregates as small tables. */
 .research { display: grid; gap: var(--space-4); }
 .research-table { overflow-x: auto; }
-.research-table h3 { margin: 0 0 6px; }
+.research-table h3 { margin: 0 0 var(--space-3); }
 .research-table table { width: 100%; border-collapse: collapse; font-size: var(--size-base); font-variant-numeric: tabular-nums; }
-.research-table th, .research-table td { padding: 6px 4px; border-top: 1px solid var(--line-soft); text-align: right; vertical-align: top; }
+.research-table th, .research-table td { padding: var(--space-3) var(--space-2); border-top: 1px solid var(--line-soft); text-align: right; vertical-align: top; }
 .research-table thead th { border-top: 0; font-weight: var(--weight-bold); color: var(--ink-secondary); font-size: var(--size-sm); }
 .research-table tbody th { text-align: left; font-weight: var(--weight-medium); }
 .research-table tr.small { opacity: 0.55; }
@@ -4065,10 +4065,10 @@ svg.scrub {
 .band-wx { position: relative; height: 34px; margin-top: 0; }
 /* The loading / error cover stays on the plot, above the axis and the weather row. */
 .hour-chart-wrap:has(.band-wx) .state-overlay { bottom: calc(26px + 22px + 34px); }
-.ro-wx { display: inline-flex; align-items: center; gap: 4px; }
+.ro-wx { display: inline-flex; align-items: center; gap: var(--space-2); }
 .ro-wx small { font-size: var(--size-sm); color: var(--ink-secondary); }
 .band-wx-name { position: absolute; left: 0; text-align: right; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1; }
-.band-wx-name.main { top: 4px; }
+.band-wx-name.main { top: var(--space-2); }
 .band-wx-name.other { top: 21px; }
 .band-wx-cell { position: absolute; top: 0; transform: translateX(-50%); display: inline-flex; flex-direction: column; align-items: center; gap: 0; }
 .band-wx-main, .band-wx-other { display: inline-flex; }
@@ -4079,20 +4079,20 @@ svg.scrub {
 .band-wx .none { font-size: var(--size-sm); color: var(--ink-secondary); }
 
 /* Bands with few reports, and a notification to add for each (#62 B). */
-.notify-nudge { display: grid; gap: 6px; padding: 8px 10px; border-radius: var(--radius-md); background: color-mix(in srgb, var(--status-warning) 12%, transparent); }
+.notify-nudge { display: grid; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-radius: var(--radius-md); background: color-mix(in srgb, var(--status-warning) 12%, transparent); }
 
 /* 移り変わり (LightTrend): 日照's third face. Line rules as everywhere: target solid, comparison dashed, 晴れなら pale and wide. */
 .trend-btn { flex-shrink: 0; }
-.light-trend { display: flex; flex-direction: column; gap: var(--space-3); padding: 4px 0 12px; }
-.lt-controls { display: flex; gap: 8px; flex-wrap: wrap; }
+.light-trend { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-2) 0 var(--space-6); }
+.lt-controls { display: flex; gap: var(--space-4); flex-wrap: wrap; }
 .lt-controls .seg { flex: 1 1 140px; }
-.lt-chips { display: flex; gap: 6px; flex-wrap: wrap; }
-.lt-head { display: flex; flex-direction: column; gap: 6px; }
+.lt-chips { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.lt-head { display: flex; flex-direction: column; gap: var(--space-3); }
 .lt-head p { margin: 0; }
 .lt-head-main { font-size: var(--size-md); line-height: 1.45; }
-.lt-head-main b { font-size: var(--size-xl); color: var(--accent-base); margin: 0 2px; }
-.lt-parts { display: flex; flex-wrap: wrap; gap: 6px; }
-.lt-parts span { font-size: var(--size-sm); padding: 2px 8px; border-radius: var(--radius-md); background: var(--surface-inset); color: var(--ink-secondary); }
+.lt-head-main b { font-size: var(--size-xl); color: var(--accent-base); margin: 0 var(--space-1); }
+.lt-parts { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.lt-parts span { font-size: var(--size-sm); padding: var(--space-1) var(--space-4); border-radius: var(--radius-md); background: var(--surface-inset); color: var(--ink-secondary); }
 .lt-season { font-size: var(--size-sm); color: var(--ink-tertiary); line-height: 1.5; }
 .lt-chart { display: block; overflow: visible; }
 .lt-panel { fill: var(--ink-secondary); font-size: var(--size-xs); }
@@ -4103,21 +4103,21 @@ svg.scrub {
 .lt-len.on { fill: var(--accent-base); font-weight: var(--weight-bold); }
 .lt-len.sub { fill: var(--ink-tertiary); font-size: var(--size-xs); }
 .lt-clear-line { fill: none; stroke: color-mix(in srgb, var(--data-sun) 28%, transparent); stroke-width: 7; stroke-linecap: round; stroke-linejoin: round; }
-.lt-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0; font-size: var(--size-sm); color: var(--ink-tertiary); }
+.lt-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) 14px; margin: 0; font-size: var(--size-sm); color: var(--ink-tertiary); }
 .lt-legend span { display: inline-flex; align-items: center; gap: 5px; }
 .lt-legend i { display: inline-block; width: 18px; }
 .lt-clear { height: 6px; border-radius: var(--radius-pill); background: color-mix(in srgb, var(--data-sun) 28%, transparent); }
 
 
 /* テスト板 (#96): 日なたの計算の比較. */
-.sun-test-body { display: flex; flex-direction: column; gap: var(--space-3); padding-bottom: 24px; }
-.sun-test-nav { display: flex; align-items: center; gap: 8px; }
+.sun-test-body { display: flex; flex-direction: column; gap: var(--space-3); padding-bottom: var(--space-9); }
+.sun-test-nav { display: flex; align-items: center; gap: var(--space-4); }
 .sun-test-legend { display: flex; flex-direction: column; gap: 3px; margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
-.sun-test-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.sun-test-legend span { display: inline-flex; align-items: center; gap: var(--space-3); }
 .sun-test-table { overflow-x: auto; }
 .sun-test-table table { border-collapse: collapse; font-size: var(--size-sm); font-variant-numeric: tabular-nums; width: 100%; letter-spacing: -0.02em; }
-.sun-test-table th, .sun-test-table td { padding: 3px 2px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
-.sun-test-table th:nth-last-child(-n + 4), .sun-test-table td:nth-last-child(-n + 4) { color: var(--ink-primary); padding-left: 4px; }
+.sun-test-table th, .sun-test-table td { padding: 3px var(--space-1); text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
+.sun-test-table th:nth-last-child(-n + 4), .sun-test-table td:nth-last-child(-n + 4) { color: var(--ink-primary); padding-left: var(--space-2); }
 .sun-test-table th { color: var(--ink-tertiary); font-weight: var(--weight-regular); }
 .sun-test-table tr.fc td { color: var(--ink-tertiary); }
 
@@ -4135,7 +4135,7 @@ svg.scrub {
   padding: var(--space-6) 14px max(18px, env(safe-area-inset-bottom));
   background: linear-gradient(180deg, transparent, var(--surface-overlay) 22px);
 }
-.report-missing { display: grid; gap: 2px; line-height: 1.25; }
+.report-missing { display: grid; gap: var(--space-1); line-height: 1.25; }
 .report-missing small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .report-save:disabled { border: 1px dashed var(--line-strong); }
 .report-lead p { font-size: var(--size-base); color: var(--ink-secondary); }
@@ -4204,7 +4204,7 @@ svg.scrub {
 /* The tag's own picture keeps its size wherever weather pictures are sized (.cell-icon svg …). */
 .wx-with-storm .storm-mark svg { width: 10px; height: 10px; }
 /* Under the comparison day's smaller picture, the tag a size smaller too. */
-.band-wx-other .storm-mark { transform: scale(0.8); top: -6px; right: -10px; }
+.band-wx-other .storm-mark { transform: scale(0.8); top: calc(-1 * var(--space-3)); right: calc(-1 * var(--space-5)); }
 
 /* その日の要約 (#176): opened by a long press on a day's weather picture. まとめ (a raised face: the
    picture, weather, status and the day in words), then the readout (a sunk face), and on a 強風／暴風
@@ -4212,7 +4212,7 @@ svg.scrub {
 /* Where a long press opens a summary: no text selection, callout or magnifier on the way. */
 .band-wx,
 .calendar-grid [data-summary] { -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
-.ds-lead { display: grid; gap: var(--space-4); margin: 0 2px var(--space-3); }
+.ds-lead { display: grid; gap: var(--space-4); margin: 0 var(--space-1) var(--space-3); }
 .ds-head { display: flex; align-items: center; gap: var(--space-4); }
 .ds-head svg { width: 30px; height: 30px; }
 .ds-head .wx-with-storm { margin-right: var(--space-4); }
@@ -4228,7 +4228,7 @@ svg.scrub {
 .ds-meter-label { display: flex; justify-content: space-between; align-items: baseline; }
 .ds-meter-label .num,
 .ds-line > .num { font-size: var(--size-md); }
-.ds-meter-bar { position: relative; height: 8px; margin-bottom: 16px; border-radius: var(--radius-xs); background: var(--line-soft); }
+.ds-meter-bar { position: relative; height: 8px; margin-bottom: var(--space-7); border-radius: var(--radius-xs); background: var(--line-soft); }
 .ds-meter-fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-xs); }
 .ds-meter-fill.fill-wind { background: var(--data-wind); }
 .ds-meter-fill.fill-gust { background: var(--data-gust); }
@@ -4293,7 +4293,7 @@ svg.scrub {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-1);
   min-width: 0;
 }
 .parts-wx-cell small {
@@ -4338,7 +4338,7 @@ svg.scrub {
   flex-wrap: nowrap;
   overflow-x: auto;
   scrollbar-width: none;
-  padding-bottom: 2px;
+  padding-bottom: var(--space-1);
   /* the last chip fades at the edge, so more to the right reads as more */
   mask-image: linear-gradient(90deg, var(--ink-primary) calc(100% - 24px), transparent);
 }
@@ -4363,19 +4363,19 @@ svg.scrub {
 .month-review .chart-key-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
 
 .month-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }
-.month-tile { display: grid; gap: 2px; justify-items: start; }
+.month-tile { display: grid; gap: var(--space-1); justify-items: start; }
 .month-tile small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .month-tile b { font-family: var(--font-numeric); font-size: var(--size-xl); font-weight: var(--weight-regular); }
-.month-tile b .unit { font-size: var(--size-xs); color: var(--ink-tertiary); margin-left: 2px; }
+.month-tile b .unit { font-size: var(--size-xs); color: var(--ink-tertiary); margin-left: var(--space-1); }
 .month-tile em { font-style: normal; font-size: var(--size-xs); color: var(--ink-secondary); font-family: var(--font-numeric); }
 .month-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 3px; margin-top: var(--space-5); }
-.month-cal-head { text-align: center; font-size: var(--size-xs); color: var(--ink-tertiary); padding-bottom: 2px; }
+.month-cal-head { text-align: center; font-size: var(--size-xs); color: var(--ink-tertiary); padding-bottom: var(--space-1); }
 .month-cal-head.tone-saturday { color: var(--day-saturday); }
 .month-cal-head.tone-holiday { color: var(--day-holiday); }
-.month-cal-day { display: grid; justify-items: center; gap: 1px; padding: 4px 2px 3px; border-radius: var(--radius-sm); background: var(--surface-inset); box-shadow: 0 0 0 1px var(--line-soft) inset; min-width: 0; }
+.month-cal-day { display: grid; justify-items: center; gap: 1px; padding: var(--space-2) var(--space-1) 3px; border-radius: var(--radius-sm); background: var(--surface-inset); box-shadow: 0 0 0 1px var(--line-soft) inset; min-width: 0; }
 .month-cal-date { font-size: var(--size-xs); font-family: var(--font-numeric); color: var(--ink-secondary); justify-self: start; padding-left: 3px; line-height: 1; }
 .month-cal-icon { height: 18px; }
-.month-cal-temp { display: flex; gap: 4px; font-family: var(--font-numeric); font-size: var(--size-xs); }
+.month-cal-temp { display: flex; gap: var(--space-2); font-family: var(--font-numeric); font-size: var(--size-xs); }
 .month-cal-temp i { font-style: normal; }
 .month-cal-feel { width: 100%; padding: 0 3px; }
 .month-cal-feel .feel-bar { height: 5px; }
@@ -4390,14 +4390,14 @@ svg.scrub {
 .month-tabs .seg { width: 100%; }
 
 .month-cal.pickable { grid-template-columns: 26px repeat(7, minmax(0, 1fr)); }
-.month-cal-pick { border: none; background: none; padding: 4px 0; border-radius: var(--radius-sm); color: var(--ink-tertiary); font: inherit; font-size: var(--size-xs); }
+.month-cal-pick { border: none; background: none; padding: var(--space-2) 0; border-radius: var(--radius-sm); color: var(--ink-tertiary); font: inherit; font-size: var(--size-xs); }
 .month-cal-pick.week { display: grid; place-items: center; align-self: stretch; font-family: var(--font-numeric); font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.1; }
 .month-cal-pick.week small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .month-cal-pick.on { background: var(--accent-wash); color: var(--accent-base); box-shadow: 0 0 0 1px var(--accent-base) inset; }
 .month-cal-pick.corner { font-size: var(--size-xs); }
 button.month-cal-day { border: none; font: inherit; color: inherit; cursor: pointer; }
 .month-cal-day.picked { background: var(--accent-wash); box-shadow: 0 0 0 1.5px var(--accent-base) inset !important; }
-.month-picked { margin-right: var(--space-3); border: none; border-radius: var(--radius-pill); padding: 2px 10px; background: var(--accent-wash); color: var(--accent-base); font: inherit; font-size: var(--size-xs); box-shadow: 0 0 0 1px var(--accent-base) inset; vertical-align: middle; }
+.month-picked { margin-right: var(--space-3); border: none; border-radius: var(--radius-pill); padding: var(--space-1) var(--space-5); background: var(--accent-wash); color: var(--accent-base); font: inherit; font-size: var(--size-xs); box-shadow: 0 0 0 1px var(--accent-base) inset; vertical-align: middle; }
 
 .month-metric { margin-bottom: var(--space-3); }
 .month-picked-bands rect { fill: var(--accent-wash); }
@@ -4423,7 +4423,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .week-detail-num i { font-style: normal; font-size: var(--size-md); }
 .week-detail-num i small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .week-detail-num > small { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.week-detail-icons { display: flex; gap: 2px; justify-content: flex-end; opacity: 0.85; }
+.week-detail-icons { display: flex; gap: var(--space-1); justify-content: flex-end; opacity: 0.85; }
 .week-detail-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1.6; }
 .week-detail-note b { color: var(--ink-primary); font-weight: var(--weight-bold); }
 
@@ -4435,7 +4435,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .month-filter-days-area .month-cal { touch-action: auto; }
 .month-filter-row.cal { grid-template-columns: 1fr; }
 
-.week-detail-row { display: grid; grid-template-columns: 20px 1fr 64px 86px; gap: var(--space-4); align-items: center; padding: 6px 6px; border-radius: var(--radius-sm); box-shadow: 0 0 0 1px transparent inset; transition: box-shadow var(--motion-base) var(--ease-standard); }
+.week-detail-row { display: grid; grid-template-columns: 20px 1fr 64px 86px; gap: var(--space-4); align-items: center; padding: var(--space-3) var(--space-3); border-radius: var(--radius-sm); box-shadow: 0 0 0 1px transparent inset; transition: box-shadow var(--motion-base) var(--ease-standard); }
 .week-detail-row.on { box-shadow: 0 0 0 1.5px var(--accent-base) inset; }
 .week-detail-row > b { font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .week-detail-row > b.tone-saturday { color: var(--day-saturday); }
@@ -4445,19 +4445,19 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .week-detail-bar i { height: 8px; }
 .week-detail-bar em { height: 6px; border: 1.5px solid; border-left-width: 0; box-sizing: border-box; opacity: 0.8; }
 .week-groups { display: grid; border-top: 1px solid var(--line-soft); }
-.week-group { display: grid; grid-template-columns: 1fr auto; gap: var(--space-4); align-items: center; padding: var(--space-4) 2px; border-bottom: 1px solid var(--line-soft); }
-.week-group-days { flex-wrap: nowrap; gap: 4px; min-width: 0; }
+.week-group { display: grid; grid-template-columns: 1fr auto; gap: var(--space-4); align-items: center; padding: var(--space-4) var(--space-1); border-bottom: 1px solid var(--line-soft); }
+.week-group-days { flex-wrap: nowrap; gap: var(--space-2); min-width: 0; }
 .week-group-days .chip { flex: 1 1 0; min-width: 0; justify-content: center; padding-inline: 0; }
 .week-group-val { display: grid; justify-items: end; min-width: 76px; line-height: 1.25; }
 .week-group-val b { font-family: var(--font-numeric); font-size: var(--size-lg); font-weight: var(--weight-regular); }
 .week-group-val small { font-size: var(--size-xs); color: var(--ink-tertiary); white-space: nowrap; }
-.month-fold { display: flex; justify-content: center; width: 100%; height: 22px; margin-top: -6px; padding: 8px 0 0; border: none; background: none; touch-action: none; }
+.month-fold { display: flex; justify-content: center; width: 100%; height: 22px; margin-top: calc(-1 * var(--space-3)); padding: var(--space-4) 0 0; border: none; background: none; touch-action: none; }
 .month-fold .grabber { width: 32px; height: 4px; margin: 0; opacity: 0.4; }
 .month-fold:active .grabber, .month-fold.open .grabber { width: 42px; opacity: 0.85; background: var(--ink-primary); }
 
 /* 台風の日 (#220): the corner of the day, as the 強風／暴風 tag — outlined inside the 強風域, filled inside the 暴風域. */
 .month-cal-day { position: relative; }
-.month-cal-ty { position: absolute; top: 2px; right: 2px; display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: var(--size-xs); line-height: 1; color: var(--status-warning); box-shadow: 0 0 0 1px var(--status-warning) inset; }
+.month-cal-ty { position: absolute; top: var(--space-1); right: var(--space-1); display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: var(--size-xs); line-height: 1; color: var(--status-warning); box-shadow: 0 0 0 1px var(--status-warning) inset; }
 .month-cal-ty.violent { color: var(--surface-base); background: var(--status-warning); box-shadow: none; }
 
 /* 雨の強さ: the mm under each word (強い 20mm〜), small. */
@@ -4473,8 +4473,8 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .typhoon-cards { display: grid; gap: var(--space-3); margin: 0 0 var(--space-4); }
 .typhoon-card {
   display: grid;
-  gap: 4px;
-  padding: 9px 12px 8px;
+  gap: var(--space-2);
+  padding: 9px var(--space-6) var(--space-4);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
   box-shadow: 0 0 0 1px var(--line-soft) inset;
@@ -4482,17 +4482,17 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 }
 .typhoon-card.gale,
 .typhoon-card.storm { box-shadow: 0 0 0 1.5px var(--status-warning) inset; }
-.typhoon-card header { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: center; }
+.typhoon-card header { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-4); align-items: center; }
 .typhoon-card header b { font-size: var(--size-md); color: var(--ink-primary); }
-.typhoon-card header b small { margin-left: 6px; font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
+.typhoon-card header b small { margin-left: var(--space-3); font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .typhoon-mark { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: var(--size-xs); color: var(--status-warning); box-shadow: 0 0 0 1px var(--status-warning) inset; }
 .typhoon-mark.violent { color: var(--surface-base); background: var(--status-warning); box-shadow: none; }
 .typhoon-pressure { font-size: var(--size-md); color: var(--ink-primary); }
-.typhoon-pressure small { margin-left: 2px; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.typhoon-pressure small { margin-left: var(--space-1); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .typhoon-where { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
 .typhoon-here { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
 .typhoon-here strong { color: var(--status-warning); font-weight: var(--weight-bold); }
-.typhoon-actions { display: flex; align-items: center; gap: var(--space-4); margin-top: 2px; flex-wrap: wrap; }
+.typhoon-actions { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-1); flex-wrap: wrap; }
 .typhoon-link { font-size: var(--size-sm); color: var(--accent-base); text-decoration: none; }
 .typhoon-source { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1.5; }
 
@@ -4507,29 +4507,29 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .cond-value .cond-sub { display: block; margin-top: 1px; font-size: var(--size-xs); color: var(--ink-tertiary); text-align: right; }
 
 /* 台風情報の取れなさ (#220, review 2026-11-16): a quiet line, never read as "no typhoon". */
-.typhoon-failed { margin: 0 0 var(--space-4); padding: 6px 10px; border-radius: var(--radius-md); font-size: var(--size-xs); color: var(--ink-tertiary); background: var(--surface-raised); box-shadow: 0 0 0 1px var(--line-soft) inset; }
+.typhoon-failed { margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-5); border-radius: var(--radius-md); font-size: var(--size-xs); color: var(--ink-tertiary); background: var(--surface-raised); box-shadow: 0 0 0 1px var(--line-soft) inset; }
 .typhoon-stale { margin: 0; font-size: var(--size-xs); color: var(--status-warning); }
 
 /* 台風の日 beside any day's picture (#220, TyphoonTag): on the shoulder in a calendar's cell; in the
    line beside the picture in the summaries. */
 .cal-icon { position: relative; }
-.cal-icon .typhoon-tag { left: calc(50% - 25px); top: -4px; }
+.cal-icon .typhoon-tag { left: calc(50% - 25px); top: calc(-1 * var(--space-2)); }
 .typhoon-tag.inline { position: static; flex: none; }
 
 /* その日の要約 → 台風の詳細 (#220): one raised line under the words, in the warning colour's edge. */
 .ds-typhoon {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
-  width: 100%; padding: 10px 14px; border: none; border-radius: var(--radius-md);
+  width: 100%; padding: var(--space-5) 14px; border: none; border-radius: var(--radius-md);
   background: var(--surface-raised); box-shadow: 0 0 0 1px var(--status-warning) inset;
   color: var(--ink-primary); font-size: var(--size-base); text-align: left;
 }
-.ds-typhoon span:first-child { display: grid; gap: 2px; }
+.ds-typhoon span:first-child { display: grid; gap: var(--space-1); }
 .ds-typhoon small { color: var(--ink-secondary); font-size: var(--size-xs); }
 .ds-typhoon-go { color: var(--status-warning); font-size: var(--size-lg); }
 
 /* 台風の詳細 (#220, TyphoonSheet): a map of its own, the chips under it, then the station's line. */
 .typhoon-sheet .seg { display: grid; width: 100%; }
-.ty-sub { margin: 0 2px; color: var(--ink-secondary); font-size: var(--size-sm); }
+.ty-sub { margin: 0 var(--space-1); color: var(--ink-secondary); font-size: var(--size-sm); }
 .ty-map { position: relative; border-radius: var(--radius-lg); overflow: hidden; background: var(--surface-inset); }
 .ty-map svg { display: block; width: 100%; height: auto; aspect-ratio: 1 / 1.05; }
 .ty-land { fill: var(--surface-overlay); stroke: var(--line-strong); stroke-linejoin: round; }
@@ -4548,10 +4548,10 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ty-tick.quiet circle { fill: var(--ink-disabled); }
 .ty-station { fill: var(--status-warning); stroke: var(--surface-page); }
 .ty-station-name { fill: var(--ink-primary); font-weight: var(--weight-bold); }
-.ty-zoom { position: absolute; right: 8px; top: 8px; display: grid; gap: 4px; }
+.ty-zoom { position: absolute; right: var(--space-4); top: var(--space-4); display: grid; gap: var(--space-2); }
 .ty-zoom button { width: 32px; height: 32px; border: none; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-base) 85%, transparent); box-shadow: 0 0 0 1px var(--line-strong) inset; color: var(--ink-primary); font-size: var(--size-md); }
-.ty-map-note { position: absolute; left: 10px; bottom: 8px; margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); }
-.ty-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 0 2px; font-size: var(--size-xs); color: var(--ink-secondary); }
+.ty-map-note { position: absolute; left: var(--space-5); bottom: var(--space-4); margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); }
+.ty-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) 14px; margin: 0 var(--space-1); font-size: var(--size-xs); color: var(--ink-secondary); }
 .ty-legend i { display: inline-block; vertical-align: middle; margin-right: 5px; }
 .ty-legend .tr { width: 16px; border-top: 2px solid var(--ink-primary); }
 .ty-legend .fc { width: 16px; border-top: 2px dashed var(--status-forecast); }
@@ -4559,20 +4559,20 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ty-legend .s { width: 10px; height: 10px; background: color-mix(in srgb, var(--status-warning) 45%, transparent); border-radius: 50%; }
 .ty-legend .p { width: 10px; height: 10px; border: 1.5px dashed var(--status-forecast); border-radius: 50%; }
 .ty-legend .w { width: 10px; height: 10px; border: 1.5px dashed var(--status-warning); border-radius: 50%; }
-.ty-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; scrollbar-width: none; }
-.ty-chips button { flex: none; display: grid; gap: 1px; padding: 6px 10px; border: none; border-radius: var(--radius-md); background: var(--surface-raised); color: var(--ink-secondary); font-size: var(--size-sm); font-family: var(--font-numeric); text-align: left; }
+.ty-chips { display: flex; gap: var(--space-3); overflow-x: auto; padding-bottom: var(--space-1); scrollbar-width: none; }
+.ty-chips button { flex: none; display: grid; gap: 1px; padding: var(--space-3) var(--space-5); border: none; border-radius: var(--radius-md); background: var(--surface-raised); color: var(--ink-secondary); font-size: var(--size-sm); font-family: var(--font-numeric); text-align: left; }
 .ty-chips button small { font-family: var(--font-family); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .ty-chips button[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent-base); box-shadow: 0 0 0 1px var(--accent-base) inset; }
-.ty-say { margin: 0 2px; min-height: 3em; line-height: 1.6; color: var(--ink-secondary); font-size: var(--size-base); }
+.ty-say { margin: 0 var(--space-1); min-height: 3em; line-height: 1.6; color: var(--ink-secondary); font-size: var(--size-base); }
 .ty-say b { color: var(--ink-primary); }
 .ty-say strong.in { color: var(--status-warning); }
-.ty-band-title { margin: var(--space-2) 2px 0; font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
+.ty-band-title { margin: var(--space-2) var(--space-1) 0; font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .ty-rows { display: grid; }
-.ty-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; padding: 9px 2px; border-top: 1px solid var(--line-soft); align-items: baseline; font-size: var(--size-sm); color: var(--ink-primary); }
+.ty-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: var(--space-5); padding: 9px var(--space-1); border-top: 1px solid var(--line-soft); align-items: baseline; font-size: var(--size-sm); color: var(--ink-primary); }
 .ty-row:first-child { border-top: 0; }
 .ty-row time { font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-secondary); }
 .ty-row.none div { color: var(--ink-secondary); }
-.ty-row.real { margin-top: 6px; padding: 9px 10px; border-top: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--status-warning) 12%, transparent); }
+.ty-row.real { margin-top: var(--space-3); padding: 9px var(--space-5); border-top: 0; border-radius: var(--radius-md); background: color-mix(in srgb, var(--status-warning) 12%, transparent); }
 .ty-row.real time { color: var(--status-warning); }
 .ty-bar { position: relative; height: 8px; margin-top: 5px; border-radius: var(--radius-xs); overflow: hidden; background: var(--surface-inset); }
 .ty-bar span { position: absolute; top: 0; bottom: 0; }
@@ -4580,12 +4580,12 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ty-bar .g { background: color-mix(in srgb, var(--status-warning) 35%, transparent); }
 .ty-bar .s { background: var(--status-warning); }
 .ty-axis { display: flex; justify-content: space-between; margin-top: 3px; font-size: var(--size-xs); color: var(--ink-disabled); font-family: var(--font-numeric); }
-.ty-source { margin: 0 2px; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1.5; }
+.ty-source { margin: 0 var(--space-1); font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1.5; }
 
 /* 1日モード (#247): the selected day told under the target's week (src/ui/DayDetail.tsx). */
 .app-head h1 { white-space: nowrap; }
-.app-head-actions .seg button { padding: 4px 8px; min-height: 26px; }
-@media (max-width: 374px) { .app-head-actions { gap: 6px; } }
+.app-head-actions .seg button { padding: var(--space-2) var(--space-4); min-height: 26px; }
+@media (max-width: 374px) { .app-head-actions { gap: var(--space-3); } }
 .day-detail {
   margin-top: var(--space-4);
   background: linear-gradient(180deg, var(--surface-raised), var(--surface-base));
