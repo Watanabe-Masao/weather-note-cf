@@ -652,6 +652,29 @@ export function FocusSay({ s, slots }: { s: Slot; slots: Slot[] }) {
         {pop}
         {rel}。{change}
       </p>
+      {(() => {
+        // 同じ時刻にもう一方の種類（週間／府県天気予報）の発表もあるときは、それも1行で（両方ある時刻）。
+        const o = slots.find(
+          (z) =>
+            z.at === s.at && z.kind !== s.kind && z.state === "ok" && z.values,
+        );
+        if (!o || !o.values) return null;
+        const ov = o.values;
+        const pp =
+          o.kind === "VPFW50"
+            ? `降水確率 ${n(ov.popDay)}%`
+            : `降水確率 ${ov.pop6!.map((p) => n(p)).join("・")}%`;
+        const name =
+          ov.weather.s === "value"
+            ? ((ov.weather as { name?: string }).name ?? "—")
+            : "—";
+        return (
+          <p className="dd-say fh-focus-both">
+            同じ時刻の{KIND_SHORT[o.kind]}：{name}、{pp}、{n(ov.max)}／
+            {n(ov.min)}℃
+          </p>
+        );
+      })()}
     </div>
   );
 }

@@ -231,10 +231,15 @@
 .fh-step-cell { stroke: none; }
 .fh-step-none { fill: transparent; stroke: var(--line-soft); stroke-dasharray: 2 2; }
 .fh-step-gap { fill: color-mix(in srgb, var(--ink-tertiary) 12%, transparent); }
-.fh-step-val { font-size: var(--size-xs); font-family: var(--font-numeric); fill: var(--ink-secondary); }
-.fh-step-val.on { fill: var(--ink-primary); font-weight: var(--weight-bold); }
+
+
 .fh-step-band.max { fill: color-mix(in srgb, var(--data-hot) 16%, transparent); }
 .fh-step-band.min { fill: color-mix(in srgb, var(--data-cold) 16%, transparent); }
 .fh-step-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
 .fh-step-swatch.band { background: color-mix(in srgb, var(--data-hot) 22%, transparent); }
 .fh-step-latest { fill: none; stroke: var(--accent-base); stroke-width: 1; stroke-dasharray: 3 2; }
+.fh-step-val { fill: var(--ink-primary); font-family: var(--font-numeric); font-weight: var(--weight-bold); paint-order: stroke; stroke: color-mix(in srgb, var(--surface-raised) 70%, transparent); stroke-width: 2px; letter-spacing: -0.3px; }
+.fh-step-day { fill: var(--ink-secondary); }
+.fh-step-both rect { fill: color-mix(in srgb, var(--accent-base) 8%, transparent); stroke: color-mix(in srgb, var(--accent-base) 45%, transparent); stroke-width: 1; stroke-dasharray: 3 2; }
+.fh-step-both-text { fill: var(--accent-base); font-weight: var(--weight-bold); }
+.fh-focus-both { color: var(--accent-base); font-size: var(--size-sm); }

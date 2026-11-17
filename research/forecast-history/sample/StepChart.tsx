@@ -8,6 +8,7 @@
 //   （「最高」と「日中の最高」は別の値）。
 
 import { useRef, type PointerEvent as RPointerEvent } from "react";
+import { svgTextSize, useDrawnWidth } from "../../../src/ui/useDrawnWidth";
 import { DATA, lineLook } from "../../../src/design/tokens";
 import { hourOf, leadLabel, md, type Slot, type V } from "./model";
 import { vNum, Wx } from "./Transition";
@@ -42,6 +43,9 @@ export function StepChart({
   const scrubbing = useRef(false);
   const lastKey = useRef<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const drawn = useDrawnWidth(svgRef);
+  // 数字は画面の上で xs（11px）になる大きさ（SVG の中は描く幅の単位なので、測って直す）。
+  const fs = svgTextSize("xs", 300, drawn, 330);
   if (!slots.length) return null;
 
   const times = [...new Set(slots.map((z) => z.at))].sort(
@@ -68,8 +72,10 @@ export function StepChart({
   const lo = temps.length ? Math.floor(Math.min(...temps) / 5) * 5 : 0;
   const hi = temps.length ? Math.ceil(Math.max(...temps) / 5) * 5 : 30;
   const ICON_Y = 14;
-  const CELL_TOP = 28;
-  const CELL_H = 40;
+  const NOTE_Y = 30; // 「両方ある」の札
+  const CELL_TOP = 36;
+  const ROW = Math.ceil(fs + 4); // 6時間の1マスの高さ（数字が入る）
+  const CELL_H = ROW * 4;
   const T_TOP = CELL_TOP + CELL_H + 16;
   const T_H = 96;
   const AX = T_TOP + T_H + 4;
@@ -233,19 +239,74 @@ export function StepChart({
             </foreignObject>
           ) : null,
         )}
-        {/* 降水確率のマス */}
+        {/* 週間と府県天気予報が両方出ている時刻：背景を塗り、札を付ける（グラフはそこでどちらかを描くので） */}
+        {(() => {
+          const both = times.filter(
+            (t) =>
+              slots.some((z) => z.at === t && z.kind === "VPFW50") &&
+              slots.some((z) => z.at === t && z.kind === "VPFD51"),
+          );
+          if (!both.length) return null;
+          const x0 = xi(both[0]);
+          const x1 = xEnd(both[both.length - 1]);
+          return (
+            <g className="fh-step-both">
+              <rect
+                x={x0}
+                y={NOTE_Y - fs + 1}
+                width={x1 - x0}
+                height={AX - (NOTE_Y - fs + 1)}
+                rx={3}
+              />
+              <text
+                x={(x0 + x1) / 2}
+                y={NOTE_Y}
+                textAnchor="middle"
+                fontSize={fs}
+                className="fh-step-both-text"
+              >
+                週間と府県が両方
+              </text>
+            </g>
+          );
+        })()}
+        {/* 降水確率のマス：左に時間帯（府県天気予報の4マスは上から 0〜6・6〜12・12〜18・18〜24時） */}
+        {["0-6", "6-12", "12-18", "18-24"].map((n, i) => (
+          <text
+            key={n}
+            x={PAD_L - 3}
+            y={CELL_TOP + i * ROW + ROW / 2 + fs * 0.35}
+            textAnchor="end"
+            fontSize={fs * 0.92 < 11 ? fs : fs * 0.92}
+            className="fh-tick"
+          >
+            {n.split("-")[0]}
+          </text>
+        ))}
         <text
-          x={PAD_L - 4}
-          y={CELL_TOP + CELL_H / 2 + 3.5}
-          className="fh-tick"
+          x={PAD_L - 3}
+          y={CELL_TOP - 2}
           textAnchor="end"
+          fontSize={fs}
+          className="fh-tick quiet"
         >
-          %
+          時
         </text>
         {times.map((t) => {
           const s = popAt.get(t);
-          const gx = xi(t) + 1.5;
-          const gw = step - 3;
+          const gx = xi(t) + 1;
+          const gw = step - 2;
+          const num = (p: number, cy: number) => (
+            <text
+              x={gx + gw / 2}
+              y={cy + fs * 0.35}
+              textAnchor="middle"
+              fontSize={fs}
+              className="fh-step-val"
+            >
+              {p}
+            </text>
+          );
           if (!s) {
             const gap = slots.find((z) => z.at === t);
             return (
@@ -273,35 +334,37 @@ export function StepChart({
                   style={{ fill: p == null ? "transparent" : cell(p) }}
                   className={p == null ? "fh-step-none" : "fh-step-cell"}
                 />
-                {p != null && gw >= 14 && (
-                  <text
-                    x={gx + gw / 2}
-                    y={CELL_TOP + CELL_H / 2 + 3.5}
-                    textAnchor="middle"
-                    className={`fh-step-val${p >= 60 ? " on" : ""}`}
-                  >
-                    {p}
-                  </text>
-                )}
+                {p != null && num(p, CELL_TOP + CELL_H / 2)}
+                <text
+                  x={gx + gw / 2}
+                  y={CELL_TOP + CELL_H - 3}
+                  textAnchor="middle"
+                  fontSize={fs}
+                  className="fh-step-day"
+                >
+                  日
+                </text>
               </g>
             );
           }
-          const h = CELL_H / 4;
           return (
             <g key={`c${t}`}>
               {(s.values?.pop6 ?? []).map((q, i) => {
                 const p = vNum(q);
+                const y = CELL_TOP + i * ROW;
                 return (
-                  <rect
-                    key={i}
-                    x={gx}
-                    y={CELL_TOP + i * h + 0.5}
-                    width={gw}
-                    height={h - 1}
-                    rx={1.5}
-                    style={{ fill: p == null ? "transparent" : cell(p) }}
-                    className={p == null ? "fh-step-none" : "fh-step-cell"}
-                  />
+                  <g key={i}>
+                    <rect
+                      x={gx}
+                      y={y + 0.5}
+                      width={gw}
+                      height={ROW - 1}
+                      rx={1.5}
+                      style={{ fill: p == null ? "transparent" : cell(p) }}
+                      className={p == null ? "fh-step-none" : "fh-step-cell"}
+                    />
+                    {p != null && num(p, y + ROW / 2)}
+                  </g>
                 );
               })}
             </g>
