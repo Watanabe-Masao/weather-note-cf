@@ -6,9 +6,17 @@
 // 1日と6時間で区切りが違い、気温も「最高・最低」と「日中の最高・朝の最低」で別の値のため）。長押し（0.28秒）で補助線を出し、そのまま横になぞると、
 // 指の下の発表が上の文に出る（アプリの日別グラフと同じ操作。ただのスワイプは日送りに使うため）。
 
-import { useRef, type PointerEvent as RPointerEvent } from "react";
+import { useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import { lineLook, DATA } from "../../../src/design/tokens";
-import { hourOf, KIND_SHORT, type Kind, leadLabel, md, type Slot, STATE_TEXT } from "./model";
+import {
+  hourOf,
+  KIND_SHORT,
+  type Kind,
+  leadLabel,
+  md,
+  type Slot,
+  STATE_TEXT,
+} from "./model";
 import { vNum, Wx } from "./Transition";
 
 export type OneMode = "tone" | "dash";
@@ -20,7 +28,8 @@ const POP6_NAME = ["0〜6時", "6〜12時", "12〜18時", "18〜24時"];
 const HOLD_MS = 280;
 
 /** 週間の線の色（tone のとき）：同じ色相で一段落ち着かせる。透明度ではなく面の色と混ぜる（見本だけの仮の値）。 */
-const quiet = (c: string) => `color-mix(in srgb, var(--data-${c}) 55%, var(--surface-raised))`;
+const quiet = (c: string) =>
+  `color-mix(in srgb, var(--data-${c}) 55%, var(--surface-raised))`;
 
 export function OneChart({
   slots,
@@ -39,13 +48,48 @@ export function OneChart({
 }) {
   const timer = useRef<number | null>(null);
   const scrubbing = useRef(false);
+  // なぞっている間に最後に指の下にあった発表（離したときはこれを残す：離す瞬間に広がりが戻って位置がずれるため）
+  const lastKey = useRef<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  // 指でなぞっている所（横の位置、0〜1）。そこを中心にグラフを広げる。
+  const [center, setCenter] = useState<number | null>(null);
   if (!slots.length) return null;
   const t0 = Date.parse(slots[0].at);
   // 範囲は最初の発表から最後の発表まで（その先の空きは描かない）。最後の発表の絵が欠けないよう右に少し余白。
   const t1 = Math.max(Date.parse(slots[slots.length - 1].at), t0 + 3_600_000);
-  const x = (iso: string) => PAD_L + ((Date.parse(iso) - t0) / (t1 - t0)) * (W - PAD_L - PAD_R - 10);
-  const temps = slots.flatMap((s) => [vNum(s.values?.max), vNum(s.values?.min)]).filter((v): v is number => v != null);
+  const SPAN = W - PAD_L - PAD_R - 10;
+  const baseU = (iso: string) => (Date.parse(iso) - t0) / (t1 - t0);
+  // 動的に広げる：指の下（なぞっていなければ選んだ発表）を中心に、近くほど広く、遠くほど詰めて描く
+  // （魚眼。中心の位置は動かないので、指の下の発表がずれない）。中心のあたりは約 (K+1) 倍（2.6 倍）に広がる。
+  const K = 1.6;
+  const focusSlot0 = slots.find((s) => s.key === focus) ?? null;
+  const c = center ?? (focusSlot0 ? baseU(focusSlot0.at) : null);
+  const warp = (u: number) => {
+    if (c == null) return u;
+    if (u >= c) {
+      const r = 1 - c || 1;
+      const d = (u - c) / r;
+      return c + (((K + 1) * d) / (K * d + 1)) * r;
+    }
+    const r = c || 1;
+    const d = (c - u) / r;
+    return c - (((K + 1) * d) / (K * d + 1)) * r;
+  };
+  const unwarp = (w: number) => {
+    if (c == null) return w;
+    if (w >= c) {
+      const r = 1 - c || 1;
+      const g = (w - c) / r;
+      return c + (g / (K + 1 - K * g)) * r;
+    }
+    const r = c || 1;
+    const g = (c - w) / r;
+    return c - (g / (K + 1 - K * g)) * r;
+  };
+  const x = (iso: string) => PAD_L + warp(baseU(iso)) * SPAN;
+  const temps = slots
+    .flatMap((s) => [vNum(s.values?.max), vNum(s.values?.min)])
+    .filter((v): v is number => v != null);
   const lo = temps.length ? Math.floor(Math.min(...temps) / 5) * 5 : 0;
   const hi = temps.length ? Math.ceil(Math.max(...temps) / 5) * 5 : 30;
   const ICON_Y = 22;
@@ -58,19 +102,33 @@ export function OneChart({
   const ty = (v: number) => T_TOP + T_H - ((v - lo) / (hi - lo || 1)) * T_H;
   const py = (v: number) => POP_TOP + POP_H - (v / 100) * POP_H;
   const days: string[] = [];
-  for (let t = t0; t <= t1; t += 86_400_000) days.push(new Date(t + 9 * 3_600_000).toISOString().slice(0, 10));
-  const width = (c: "hot" | "cold" | "rain") => lineLook("target", DATA[c], c === "rain" ? { weight: "minor" } : {}).strokeWidth;
+  for (let t = t0; t <= t1; t += 86_400_000)
+    days.push(new Date(t + 9 * 3_600_000).toISOString().slice(0, 10));
+  const width = (c: "hot" | "cold" | "rain") =>
+    lineLook("target", DATA[c], c === "rain" ? { weight: "minor" } : {})
+      .strokeWidth;
   const firstFd = slots.find((s) => s.kind === "VPFD51");
 
   // 1本につなぐ：府県天気予報が始まるまでは週間、そこからは府県天気予報。週間のうち、府県天気予報が始まった
   // あとの回は、線にせず ○ だけ置く（同じ時刻に2つの値があると線が行き来するため）。
   // 切り替える所は値ごとに決める：府県天気予報で、その値が最初に出た回（明後日の分は降水確率・気温がない）。
   type Pt = { x: number; y: number; s: Slot; v: number };
-  const lineOf = (get: (s: Slot) => number | null, y: (v: number) => number) => {
-    const firstFdValue = slots.find((s) => s.kind === "VPFD51" && s.state === "ok" && get(s) != null);
+  const lineOf = (
+    get: (s: Slot) => number | null,
+    y: (v: number) => number,
+  ) => {
+    const firstFdValue = slots.find(
+      (s) => s.kind === "VPFD51" && s.state === "ok" && get(s) != null,
+    );
     const switchAt = firstFdValue ? Date.parse(firstFdValue.at) : Infinity;
-    const used = slots.filter((s) => (s.kind === "VPFW50" ? Date.parse(s.at) < switchAt : Date.parse(s.at) >= switchAt));
-    const late = slots.filter((s) => s.kind === "VPFW50" && Date.parse(s.at) >= switchAt);
+    const used = slots.filter((s) =>
+      s.kind === "VPFW50"
+        ? Date.parse(s.at) < switchAt
+        : Date.parse(s.at) >= switchAt,
+    );
+    const late = slots.filter(
+      (s) => s.kind === "VPFW50" && Date.parse(s.at) >= switchAt,
+    );
     const runs: Pt[][] = [];
     let cur: Pt[] = [];
     for (const s of used) {
@@ -91,21 +149,61 @@ export function OneChart({
   };
   // 府県天気予報の降水確率は、選ばずに1本にする：その発表の6時間ごとの値のうち最も高いもの。
   // 低い方までの幅は、その発表の位置に細い縦の線で添える（4つの値のばらつき）。
-  const pop6s = (s: Slot) => (s.values?.pop6 ?? []).map((p) => vNum(p)).filter((v): v is number => v != null);
-  const popOf = (s: Slot) => (s.kind === "VPFW50" ? vNum(s.values?.popDay) : pop6s(s).length ? Math.max(...pop6s(s)) : null);
+  const pop6s = (s: Slot) =>
+    (s.values?.pop6 ?? [])
+      .map((p) => vNum(p))
+      .filter((v): v is number => v != null);
+  const popOf = (s: Slot) =>
+    s.kind === "VPFW50"
+      ? vNum(s.values?.popDay)
+      : pop6s(s).length
+        ? Math.max(...pop6s(s))
+        : null;
   const lines = [
-    { key: "pop", c: "rain" as const, ...lineOf(popOf, py), changedKey: (s: Slot) => (s.kind === "VPFW50" ? "pop" : [0, 1, 2, 3].some((i) => s.changed.has(`pop6-${i}`)) ? `pop6-${[0, 1, 2, 3].find((i) => s.changed.has(`pop6-${i}`))}` : "pop6-none"), above: true },
-    { key: "max", c: "hot" as const, ...lineOf((s) => vNum(s.values?.max), ty), changedKey: () => "max", above: true },
-    { key: "min", c: "cold" as const, ...lineOf((s) => vNum(s.values?.min), ty), changedKey: () => "min", above: false },
+    {
+      key: "pop",
+      c: "rain" as const,
+      ...lineOf(popOf, py),
+      changedKey: (s: Slot) =>
+        s.kind === "VPFW50"
+          ? "pop"
+          : [0, 1, 2, 3].some((i) => s.changed.has(`pop6-${i}`))
+            ? `pop6-${[0, 1, 2, 3].find((i) => s.changed.has(`pop6-${i}`))}`
+            : "pop6-none",
+      above: true,
+    },
+    {
+      key: "max",
+      c: "hot" as const,
+      ...lineOf((s) => vNum(s.values?.max), ty),
+      changedKey: () => "max",
+      above: true,
+    },
+    {
+      key: "min",
+      c: "cold" as const,
+      ...lineOf((s) => vNum(s.values?.min), ty),
+      changedKey: () => "min",
+      above: false,
+    },
   ];
-  const strokeOf = (kind: Kind, c: string) => (kind === "VPFW50" && mode === "tone" ? quiet(c) : `var(--data-${c})`);
-  const seg = (a: Pt, b: Pt) => `M${a.x.toFixed(1)},${a.y.toFixed(1)}L${b.x.toFixed(1)},${b.y.toFixed(1)}`;
+  const strokeOf = (kind: Kind, c: string) =>
+    kind === "VPFW50" && mode === "tone" ? quiet(c) : `var(--data-${c})`;
+  const seg = (a: Pt, b: Pt) =>
+    `M${a.x.toFixed(1)},${a.y.toFixed(1)}L${b.x.toFixed(1)},${b.y.toFixed(1)}`;
 
   const nearest = (clientX: number) => {
     const m = svgRef.current?.getScreenCTM();
     if (!m) return null;
     const px = (clientX - m.e) / m.a;
-    return slots.reduce((a, b) => (Math.abs(x(b.at) - px) < Math.abs(x(a.at) - px) ? b : a));
+    const u = Math.min(
+      1,
+      Math.max(0, unwarp(Math.min(1, Math.max(0, (px - PAD_L) / SPAN)))),
+    );
+    // 同じ時刻に週間と府県天気予報があるときは、線に乗っている府県天気予報を選ぶ。
+    const score = (z: Slot) =>
+      Math.abs(baseU(z.at) - u) + (z.kind === "VPFD51" ? 0 : 1e-9);
+    return { u, s: slots.reduce((a, b) => (score(b) < score(a) ? b : a)) };
   };
   const clear = () => {
     if (timer.current != null) window.clearTimeout(timer.current);
@@ -123,28 +221,33 @@ export function OneChart({
       } catch {
         /* ポインタがもう離れている */
       }
-      const s = nearest(cx);
-      if (s) onScrub(s.key, "move");
+      const n = nearest(cx);
+      if (n) {
+        setCenter(n.u);
+        lastKey.current = n.s.key;
+        onScrub(n.s.key, "move");
+      }
     }, HOLD_MS);
   };
   const move = (ev: RPointerEvent<SVGRectElement>) => {
     if (!scrubbing.current) return;
     ev.preventDefault();
-    const s = nearest(ev.clientX);
-    if (s) onScrub(s.key, "move");
+    const n = nearest(ev.clientX);
+    if (n) {
+      setCenter(n.u);
+      lastKey.current = n.s.key;
+      onScrub(n.s.key, "move");
+    }
   };
   const up = (ev: RPointerEvent<SVGRectElement>) => {
     const wasScrub = scrubbing.current;
     clear();
     scrubbing.current = false;
-    if (wasScrub) {
-      const s = nearest(ev.clientX);
-      onScrub(s?.key ?? null, "end");
-    } else {
-      // 短く押しただけ：その発表を選ぶ（出どころが下に出る）。
-      const s = nearest(ev.clientX);
-      if (s) onSelect(s.key);
-    }
+    const n = nearest(ev.clientX);
+    setCenter(null);
+    if (wasScrub) onScrub(lastKey.current ?? n?.s.key ?? null, "end");
+    // 短く押しただけ：その発表を選ぶ（出どころが下に出る）。
+    else if (n) onSelect(n.s.key);
   };
   const focusSlot = slots.find((s) => s.key === focus) ?? null;
 
@@ -162,20 +265,47 @@ export function OneChart({
         {/* 軸 */}
         {[lo, hi].map((v) => (
           <g key={v}>
-            <line x1={PAD_L} x2={W - PAD_R} y1={ty(v)} y2={ty(v)} className="fh-grid" />
-            <text x={PAD_L - 4} y={ty(v) + 3.5} className="fh-tick" textAnchor="end">
+            <line
+              x1={PAD_L}
+              x2={W - PAD_R}
+              y1={ty(v)}
+              y2={ty(v)}
+              className="fh-grid"
+            />
+            <text
+              x={PAD_L - 4}
+              y={ty(v) + 3.5}
+              className="fh-tick"
+              textAnchor="end"
+            >
               {v}
             </text>
           </g>
         ))}
-        <line x1={PAD_L} x2={W - PAD_R} y1={POP_TOP + POP_H} y2={POP_TOP + POP_H} className="fh-grid" />
-        <text x={PAD_L - 4} y={POP_TOP + POP_H} className="fh-tick" textAnchor="end">
+        <line
+          x1={PAD_L}
+          x2={W - PAD_R}
+          y1={POP_TOP + POP_H}
+          y2={POP_TOP + POP_H}
+          className="fh-grid"
+        />
+        <text
+          x={PAD_L - 4}
+          y={POP_TOP + POP_H}
+          className="fh-tick"
+          textAnchor="end"
+        >
           %
         </text>
         {/* 週間 → 府県天気予報 の切り替わり */}
         {firstFd && (
           <g className="fh-one-switch">
-            <line x1={x(firstFd.at) - 6} x2={x(firstFd.at) - 6} y1={4} y2={height - H_AXIS + 4} />
+            <line
+              x1={x(firstFd.at) - 6}
+              x2={x(firstFd.at) - 6}
+              y1={4}
+              y2={height - H_AXIS + 4}
+            />
             <text x={x(firstFd.at) - 3} y={10} className="fh-tick">
               府県
             </text>
@@ -185,24 +315,89 @@ export function OneChart({
         {slots
           .filter((s) => s.state !== "ok")
           .map((s) => (
-            <rect key={`g${s.key}`} x={x(s.at) - 4} y={POP_TOP - 4} width={8} height={T_TOP + T_H - POP_TOP + 8} rx={2} className={`fh-one-gap ${s.state}`} />
+            <rect
+              key={`g${s.key}`}
+              x={x(s.at) - 4}
+              y={POP_TOP - 4}
+              width={8}
+              height={T_TOP + T_H - POP_TOP + 8}
+              rx={2}
+              className={`fh-one-gap ${s.state}`}
+            />
           ))}
         {/* 指の下の発表 */}
-        {focusSlot && <line x1={x(focusSlot.at)} x2={x(focusSlot.at)} y1={8} y2={T_TOP + T_H + 4} className="fh-one-cursor" />}
+        {focusSlot && (
+          <line
+            x1={x(focusSlot.at)}
+            x2={x(focusSlot.at)}
+            y1={8}
+            y2={T_TOP + T_H + 4}
+            className="fh-one-cursor"
+          />
+        )}
         {/* 天気の絵（線で結ばない） */}
         {slots.map((s) =>
           s.state === "ok" && s.values ? (
-            <foreignObject key={`w${s.key}`} x={x(s.at) - 7} y={ICON_Y - 7} width={14} height={14} className={s.kind === "VPFW50" ? "fh-one-wk" : ""}>
+            <foreignObject
+              key={`w${s.key}`}
+              x={x(s.at) - 7}
+              y={ICON_Y - 7}
+              width={14}
+              height={14}
+              className={s.kind === "VPFW50" ? "fh-one-wk" : ""}
+            >
               <Wx s={s} size={14} />
             </foreignObject>
           ) : null,
         )}
         {/* 府県天気予報の6時間の降水確率：低い値から高い値までの幅 */}
         {slots
-          .filter((s) => s.kind === "VPFD51" && s.state === "ok" && pop6s(s).length > 1)
+          .filter(
+            (s) =>
+              s.kind === "VPFD51" && s.state === "ok" && pop6s(s).length > 1,
+          )
           .map((s) => (
-            <line key={`r${s.key}`} x1={x(s.at)} x2={x(s.at)} y1={py(Math.min(...pop6s(s)))} y2={py(Math.max(...pop6s(s)))} className="fh-one-range" />
+            <line
+              key={`r${s.key}`}
+              x1={x(s.at)}
+              x2={x(s.at)}
+              y1={py(Math.min(...pop6s(s)))}
+              y2={py(Math.max(...pop6s(s)))}
+              className="fh-one-range"
+            />
           ))}
+        {/* 広げた所の府県天気予報：6時間ごとの降水確率を4本の棒で（0〜6・6〜12・12〜18・18〜24時） */}
+        {focusSlot0 &&
+          focusSlot0.kind === "VPFD51" &&
+          focusSlot0.state === "ok" &&
+          focusSlot0.values?.pop6 && (
+            <g className="fh-one-bars">
+              {focusSlot0.values.pop6.map((p, i) => {
+                const v = vNum(p);
+                const bx = x(focusSlot0.at) + (i - 1.5) * 7 - 2.5;
+                return v == null ? (
+                  <rect
+                    key={i}
+                    x={bx}
+                    y={POP_TOP + POP_H - 1}
+                    width={5}
+                    height={1}
+                    className="fh-one-bar none"
+                  />
+                ) : (
+                  <rect
+                    key={i}
+                    x={bx}
+                    y={py(v)}
+                    width={5}
+                    height={Math.max(1, POP_TOP + POP_H - py(v))}
+                    rx={1}
+                    className="fh-one-bar"
+                  />
+                );
+              })}
+            </g>
+          )}
         {/* 値の線：1本につなぐ。週間の区間・府県天気予報の区間で描き分け、つなぎ目（週間→府県）は細い点線。 */}
         {lines.map((l) => (
           <g key={l.key}>
@@ -218,7 +413,13 @@ export function OneChart({
                     fill="none"
                     stroke={strokeOf(kind, l.c)}
                     strokeWidth={bridge ? 1.2 : width(l.c)}
-                    strokeDasharray={bridge ? "1 3" : p.s.kind === "VPFW50" && mode === "dash" ? "4 3" : undefined}
+                    strokeDasharray={
+                      bridge
+                        ? "1 3"
+                        : p.s.kind === "VPFW50" && mode === "dash"
+                          ? "4 3"
+                          : undefined
+                    }
                     strokeLinecap="round"
                     className={bridge ? "fh-one-bridge" : undefined}
                   />
@@ -231,13 +432,28 @@ export function OneChart({
               const stroke = isLate ? quiet(l.c) : strokeOf(p.s.kind, l.c);
               const fx = focusSlot ? x(focusSlot.at) : null;
               // 指の下の発表の数字と重なる近くの数字は出さない
-              const changed = !isLate && p.s.changed.has(l.changedKey(p.s)) && (fx == null || focus === p.s.key || Math.abs(p.x - fx) > 14);
+              const changed =
+                !isLate &&
+                p.s.changed.has(l.changedKey(p.s)) &&
+                (fx == null || focus === p.s.key || Math.abs(p.x - fx) > 14);
               const on = focus === p.s.key;
               return (
                 <g key={`${l.key}${p.s.key}`}>
-                  <circle cx={p.x} cy={p.y} r={on ? 3.4 : changed ? 2.8 : isLate ? 1.8 : 2} fill={weekly ? "var(--surface-raised)" : stroke} stroke={stroke} strokeWidth={weekly ? 1.2 : 0} />
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={on ? 3.4 : changed ? 2.8 : isLate ? 1.8 : 2}
+                    fill={weekly ? "var(--surface-raised)" : stroke}
+                    stroke={stroke}
+                    strokeWidth={weekly ? 1.2 : 0}
+                  />
                   {(changed || on) && (
-                    <text x={p.x} y={l.above ? p.y - 5 : p.y + 11} textAnchor="middle" className={`fh-vlabel tone-${l.c}`}>
+                    <text
+                      x={p.x}
+                      y={l.above ? p.y - 5 : p.y + 11}
+                      textAnchor="middle"
+                      className={`fh-vlabel tone-${l.c}`}
+                    >
                       {p.v}
                     </text>
                   )}
@@ -250,16 +466,42 @@ export function OneChart({
         {days.map((d) => {
           const xd = x(`${d}T00:00:00+09:00`);
           if (xd < PAD_L - 1) return null;
-          const lead = Math.round((Date.parse(`${day}T00:00:00Z`) - Date.parse(`${d}T00:00:00Z`)) / 86_400_000);
+          const lead = Math.round(
+            (Date.parse(`${day}T00:00:00Z`) - Date.parse(`${d}T00:00:00Z`)) /
+              86_400_000,
+          );
+          // 詰まった所の日付は書かない（次の日までの幅が文字より狭いとき）。対象日はいつも書く。
+          const next = x(
+            `${new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)}T00:00:00+09:00`,
+          );
+          const crowded = d !== day && next - xd < 26;
           return (
             <g key={d}>
-              <line x1={xd} x2={xd} y1={T_TOP + T_H + 4} y2={height - H_AXIS + 4} className="fh-dayline" />
-              <text x={Math.min(xd + 2, W - 30)} y={height - H_AXIS + 14} className="fh-tick">
-                {md(d)}
-              </text>
-              <text x={Math.min(xd + 2, W - 30)} y={height - H_AXIS + 26} className="fh-tick quiet">
-                {leadLabel(lead)}
-              </text>
+              <line
+                x1={xd}
+                x2={xd}
+                y1={T_TOP + T_H + 4}
+                y2={height - H_AXIS + 4}
+                className="fh-dayline"
+              />
+              {!crowded && (
+                <>
+                  <text
+                    x={Math.min(xd + 2, W - 30)}
+                    y={height - H_AXIS + 14}
+                    className="fh-tick"
+                  >
+                    {md(d)}
+                  </text>
+                  <text
+                    x={Math.min(xd + 2, W - 30)}
+                    y={height - H_AXIS + 26}
+                    className="fh-tick quiet"
+                  >
+                    {leadLabel(lead)}
+                  </text>
+                </>
+              )}
             </g>
           );
         })}
@@ -276,6 +518,7 @@ export function OneChart({
           onPointerCancel={() => {
             clear();
             if (scrubbing.current) onScrub(null, "end");
+            setCenter(null);
             scrubbing.current = false;
           }}
         />
@@ -283,20 +526,44 @@ export function OneChart({
       <div className="fh-one-legend">
         <span>
           <svg width="26" height="10" aria-hidden="true">
-            <line x1="1" x2="25" y1="5" y2="5" stroke={mode === "tone" ? quiet("hot") : "var(--data-hot)"} strokeWidth="2" strokeDasharray={mode === "dash" ? "4 3" : undefined} />
-            <circle cx="13" cy="5" r="2.6" fill="var(--surface-raised)" stroke={mode === "tone" ? quiet("hot") : "var(--data-hot)"} strokeWidth="1.2" />
+            <line
+              x1="1"
+              x2="25"
+              y1="5"
+              y2="5"
+              stroke={mode === "tone" ? quiet("hot") : "var(--data-hot)"}
+              strokeWidth="2"
+              strokeDasharray={mode === "dash" ? "4 3" : undefined}
+            />
+            <circle
+              cx="13"
+              cy="5"
+              r="2.6"
+              fill="var(--surface-raised)"
+              stroke={mode === "tone" ? quiet("hot") : "var(--data-hot)"}
+              strokeWidth="1.2"
+            />
           </svg>
           週間（降水は1日）
         </span>
         <span>
           <svg width="26" height="10" aria-hidden="true">
-            <line x1="1" x2="25" y1="5" y2="5" stroke="var(--data-hot)" strokeWidth="2" />
+            <line
+              x1="1"
+              x2="25"
+              y1="5"
+              y2="5"
+              stroke="var(--data-hot)"
+              strokeWidth="2"
+            />
             <circle cx="13" cy="5" r="2.6" fill="var(--data-hot)" />
           </svg>
           府県天気予報（降水は6時間ごとの最も高い値。縦の線は低い値まで）
         </span>
       </div>
-      <p className="fh-note">押すと、その発表を選びます。長押しして横になぞると、指の下の発表が上の文に出ます。</p>
+      <p className="fh-note">
+        押すと、その発表を選びます。長押しして横になぞると、指の下の発表が上の文に出ます。
+      </p>
     </div>
   );
 }
@@ -322,15 +589,39 @@ export function FocusSay({ s, slots }: { s: Slot; slots: Slot[] }) {
     );
   }
   const v = s.values;
-  const n = (x: { s: string; v?: unknown } | null | undefined) => (x && x.s === "value" ? String(x.v) : "—");
+  const n = (x: { s: string; v?: unknown } | null | undefined) =>
+    x && x.s === "value" ? String(x.v) : "—";
   const pop =
     s.kind === "VPFW50"
       ? `降水確率 ${n(v.popDay)}%`
-      : `降水確率 ${v.pop6!.map((p, i) => (p === null ? null : `${POP6_NAME[i].replace("時", "")} ${n(p)}`)).filter(Boolean).join("・")}%`;
-  const rel = s.kind === "VPFW50" && v.reliability?.s === "value" ? `、信頼度${v.reliability.v}` : "";
+      : `降水確率 ${v
+          .pop6!.map((p, i) =>
+            p === null ? null : `${POP6_NAME[i].replace("時", "")} ${n(p)}`,
+          )
+          .filter(Boolean)
+          .join("・")}%`;
+  const rel =
+    s.kind === "VPFW50" && v.reliability?.s === "value"
+      ? `、信頼度${v.reliability.v}`
+      : "";
   const i = slots.indexOf(s);
-  const prev = slots.slice(0, i).reverse().find((p) => p.kind === s.kind && p.state === "ok");
-  const names = [...new Set([...s.changed].map((k) => (k === "weather" ? "天気" : k === "max" ? "最高" : k === "min" ? "最低" : "降水確率")))];
+  const prev = slots
+    .slice(0, i)
+    .reverse()
+    .find((p) => p.kind === s.kind && p.state === "ok");
+  const names = [
+    ...new Set(
+      [...s.changed].map((k) =>
+        k === "weather"
+          ? "天気"
+          : k === "max"
+            ? "最高"
+            : k === "min"
+              ? "最低"
+              : "降水確率",
+      ),
+    ),
+  ];
   const change =
     s.lead === 0
       ? "当日の発表は途中からの値なので、前の発表とは比べない。"
