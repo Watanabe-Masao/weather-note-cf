@@ -1,0 +1,24 @@
+name: research-keep
+
+# KC-03 (research/keep-candidates/kc03.py): a browser opens the 天気分布予報 time-series page for 高知 and
+# logs what it reads (URL, size, time); nothing is saved. Push to research/keep-candidates only; no
+# schedule. To be removed once the result is written down. 出典：気象庁ホームページ。
+on:
+  push:
+    branches: [research/keep-candidates]
+    paths:
+      - research/keep-candidates/kc03.py
+      - .github/workflows/research-keep.yml
+
+jobs:
+  kc03:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # The same Playwright as the e2e check (check.yml).
+      - run: pip install playwright==1.49.1 && python -m playwright install --with-deps chromium
+      - run: python research/keep-candidates/kc03.py
