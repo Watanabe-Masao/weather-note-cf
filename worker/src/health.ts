@@ -9,6 +9,7 @@
 //   app_errors — failures of the account requests (the log keeps them only 3–7 days, the count here 30).
 
 import type { Db } from "./accounts";
+import { monthUsage, type UsageEnv } from "./usage";
 
 export const HEALTH_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS cron_runs (
@@ -35,6 +36,9 @@ export const PLAN = {
   r2FreeBytes: 10e9, // R2's free tier (Standard)
   r2WritesMonthFree: 1e6, // Class A
   cronCpuMs: 30_000,
+  requestsMonth: 10e6, // Workers requests, included
+  cpuMsMonth: 30e6, // Workers CPU time, included
+  r2ReadsMonthFree: 10e6, // Class B
 };
 
 const KEEP_DAYS = 30;
@@ -128,7 +132,7 @@ const TABLES: [string, string | null][] = [
 
 const pct = (part: number, whole: number) => Math.round((part / whole) * 1000) / 10;
 
-export async function health(db: Db, now = Date.now()) {
+export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usageFetch?: Parameters<typeof monthUsage>[2]) {
   await ensureHealthSchema(db);
   const iso = (ms: number) => new Date(ms).toISOString();
   const dayAgo = iso(now - 86_400_000);
@@ -216,10 +220,35 @@ export async function health(db: Db, now = Date.now()) {
     ...(await all<{ key: string; opened_at: string }>(db, "SELECT key, opened_at FROM typhoon_alerts WHERE closed_at IS NULL")),
   ];
 
+  // The month's real use, as Cloudflare counts it (usage.ts); each part says itself when it could not be read.
+  const u = await monthUsage(env, now, usageFetch);
+  const measured = u.ok
+    ? {
+        from: u.from,
+        workers: u.workers.ok
+          ? {
+              ...u.workers.value,
+              requestsPercent: pct(u.workers.value.requests, PLAN.requestsMonth),
+              // CPU for the month, roughly: requests × the median CPU time (Cloudflare bills the sum).
+              cpuMsEstimate: Math.round((u.workers.value.requests * u.workers.value.cpuP50Us) / 1000),
+              cpuPercentEstimate: pct((u.workers.value.requests * u.workers.value.cpuP50Us) / 1000, PLAN.cpuMsMonth),
+            }
+          : { error: u.workers.error },
+        d1: u.d1.ok
+          ? { ...u.d1.value, rowsWrittenPercent: pct(u.d1.value.rowsWritten, PLAN.d1WritesMonth), rowsReadPercent: pct(u.d1.value.rowsRead, PLAN.d1ReadsMonth) }
+          : { error: u.d1.error },
+        r2: u.r2.ok
+          ? { ...u.r2.value, bytesPercentOfFree: pct(u.r2.value.bytes, PLAN.r2FreeBytes), classAPercentOfFree: pct(u.r2.value.classA, PLAN.r2WritesMonthFree), classBPercentOfFree: pct(u.r2.value.classB, PLAN.r2ReadsMonthFree) }
+          : { error: u.r2.error },
+      }
+    : { error: u.error };
+
   return {
     v: 1,
     at: iso(now),
     plan: PLAN,
+    // 実際の使用量（今月、Cloudflare の集計）: the measure; `room` below is the app's own count beside it.
+    usage: measured,
     // 余裕: each use against its limit (percent), with what it rests on.
     room: {
       d1Size: d1Bytes == null ? null : { bytes: d1Bytes, percent: pct(d1Bytes, PLAN.d1Bytes) },

@@ -44,6 +44,19 @@ if (h) {
   if (room.d1WritesMonth.percent >= 50) notes.push(`データベースの書き込み（月の見込み）が込みの量の ${room.d1WritesMonth.percent}%。`);
   if (room.r2.percentOfFree >= 70) notes.push(`R2 が無料枠の ${room.r2.percentOfFree}%。`);
   if (room.cron.percentOfCpu >= 30) notes.push(`定時処理の最長が ${room.cron.maxMs}ms（上限30秒の ${room.cron.percentOfCpu}%）。`);
+  // 実際の使用量（Cloudflare の集計）
+  const u = h.usage ?? {};
+  if (u.error) notes.push(`実際の使用量が読めません（${u.error}）。`);
+  for (const [name, part] of Object.entries({ Workers: u.workers, D1: u.d1, R2: u.r2 }))
+    if (part && part.error) notes.push(`実際の使用量（${name}）が読めません：${part.error}`);
+  const high = [
+    ["リクエスト", u.workers?.requestsPercent],
+    ["計算時間（目安）", u.workers?.cpuPercentEstimate],
+    ["データベースの書き込み", u.d1?.rowsWrittenPercent],
+    ["R2 の保存", u.r2?.bytesPercentOfFree],
+    ["R2 の書き込み", u.r2?.classAPercentOfFree],
+  ].filter(([, p]) => typeof p === "number" && p >= 50);
+  for (const [name, p] of high) notes.push(`今月の${name}が込みの量（無料枠）の ${p}%。`);
   // 無駄
   if (waste.unparsed > 50) problems.push(`読めていない電文が ${waste.unparsed} 通たまっています。`);
   if (waste.parseFailed > 0) notes.push(`読めなかった電文が ${waste.parseFailed} 通（解析器の見直しが要るかも）。`);
@@ -56,6 +69,15 @@ if (notes.length) lines.push("## 気づいたこと", ...notes.map((p) => `- ${p
 if (h) {
   const r = h.room, w = h.waste;
   lines.push(
+    "## 実際の使用量（今月、Cloudflare の集計）",
+    ...(h.usage?.error
+      ? [`- 読めません：${h.usage.error}`]
+      : [
+          h.usage.workers?.error ? `- Workers：読めません（${h.usage.workers.error}）` : `- リクエスト ${h.usage.workers.requests.toLocaleString()}回（${h.usage.workers.requestsPercent}%／1,000万）・計算時間の目安 ${Math.round(h.usage.workers.cpuMsEstimate / 1000).toLocaleString()}秒（${h.usage.workers.cpuPercentEstimate}%／3万秒）・エラー ${h.usage.workers.errors}回`,
+          h.usage.d1?.error ? `- D1：読めません（${h.usage.d1.error}）` : `- データベース：書き込み ${h.usage.d1.rowsWritten.toLocaleString()}行（${h.usage.d1.rowsWrittenPercent}%／5,000万）・読み取り ${h.usage.d1.rowsRead.toLocaleString()}行（${h.usage.d1.rowsReadPercent}%）・大きさ ${h.usage.d1.sizeBytes == null ? "—" : mb(h.usage.d1.sizeBytes)}`,
+          h.usage.r2?.error ? `- R2：読めません（${h.usage.r2.error}）` : `- R2：保存 ${mb(h.usage.r2.bytes)}（${h.usage.r2.bytesPercentOfFree}%／10GB）・${h.usage.r2.objects}個・書き込み ${h.usage.r2.classA}回（${h.usage.r2.classAPercentOfFree}%）・読み出し ${h.usage.r2.classB}回`,
+        ]),
+    "",
     "## 余裕（上限に対して）",
     "| 項目 | 今 | 上限との割合 |",
     "| --- | --- | --- |",

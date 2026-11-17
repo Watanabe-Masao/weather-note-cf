@@ -57,7 +57,7 @@ async function mapLimit<T, R>(items: T[], limit: number, fn: (item: T) => Promis
   return out;
 }
 
-async function handle(req: Request, ctx: ExecutionContext, db?: Db): Promise<Response> {
+async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: AccountsEnv = {}): Promise<Response> {
   const url = new URL(req.url);
   const q = url.searchParams;
   const today = jstToday();
@@ -137,7 +137,7 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db): Promise<Res
     case "/api/health": {
       // 監視と管理 (health.ts): room left under the plan, what is kept for nothing, and whether it works. A minute at the edge.
       if (!db) return jsonResponse({ v: 1, error: "no database" }, 503);
-      return cachedFor(url.origin, `${CACHE_VERSION}/health`, 60, waitUntil, () => health(db));
+      return cachedFor(url.origin, `${CACHE_VERSION}/health`, 60, waitUntil, () => health(db, Date.now(), env));
     }
     case "/api/wxchart-forecast": {
       // 予想天気図 (#249): JMA's latest 24・48時間 charts, as its weather map page lists them, shared for 30 minutes.
@@ -191,7 +191,7 @@ export default {
     if (isAccountPath(new URL(req.url).pathname)) return handleAccounts(req, env);
     if (req.method !== "GET") return jsonResponse({ error: "GET only" }, 405);
     try {
-      return await handle(req, ctx, env.DB);
+      return await handle(req, ctx, env.DB, env);
     } catch (e) {
       if (e instanceof BadRequest) return jsonResponse({ error: e.message }, 400);
       return jsonResponse({ error: publicMessage(e) }, 502);
