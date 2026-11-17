@@ -28,6 +28,7 @@ const KOCHI = [
   "20261116191823_0_VPWW53_390000",
   "20261117010534_0_VPWW58_390000",
   "20261117010549_0_VPWW53_390000",
+  "20261117044257_0_VPHW50_390000",
   "20261117044910_0_VPWW61_390000",
   "20261117044919_0_VPWW53_390000",
 ];
@@ -52,7 +53,7 @@ const T0 = Date.parse("2026-11-17T14:00:00+09:00");
 const MIN = 60_000;
 
 describe("警報・注意報の電文：集める", () => {
-  it("keeps 高知県's VPWW53 and VPWW55〜61 as issued, once each; not VPWW54, 早期注意, 竜巻, other prefectures", async () => {
+  it("keeps 高知県's VPWW53, VPWW55〜61 and the 竜巻注意 news (VPHW50) as issued, once each; not VPWW54, 早期注意, other prefectures", async () => {
     expect(NAMES).toHaveLength(14); // the samples of #267: also VPWW54, VPFD60・61, VPFW60, VPHW50, and 大阪's VPWW55
     const db = d1();
     const s = server(NAMES);
@@ -65,7 +66,7 @@ describe("警報・注意報の電文：集める", () => {
       expect(k.xml).toBe(xml); // whole, as JMA issued it
       expect(k.hash).toBe(sha(xml));
       expect(k.office).toBe("390000");
-      expect(k.kind).toBe(/_(VPWW\d\d)_/.exec(String(k.id))![1]);
+      expect(k.kind).toBe(/_(VP[A-Z]{2}\d\d)_/.exec(String(k.id))![1]);
       expect(k.url).toBe(`${BASE}/${k.id}.xml`);
       expect(k.issued_at).toMatch(/^2026-11-\d\dT\d\d:\d\d:00\+09:00$/); // JMA's 発表時刻, JST
       expect(k.fetched_at).toBe(new Date(T0).toISOString()); // UTC
@@ -175,7 +176,7 @@ describe("警報・注意報の電文：R2 の写しと health", () => {
     const h = await health(db, T0 + 10 * MIN);
     expect(h.state.warnings).toEqual({
       telegrams: KOCHI.length,
-      latest: { VPWW53: "2026-11-17T13:49:00+09:00", VPWW58: "2026-11-17T10:05:00+09:00", VPWW59: "2026-11-11T04:29:00+09:00", VPWW61: "2026-11-17T13:49:00+09:00" },
+      latest: { VPHW50: "2026-11-17T13:42:00+09:00", VPWW53: "2026-11-17T13:49:00+09:00", VPWW58: "2026-11-17T10:05:00+09:00", VPWW59: "2026-11-11T04:29:00+09:00", VPWW61: "2026-11-17T13:49:00+09:00" },
       notCopiedToR2: KOCHI.length - 2,
       lastOk: new Date(T0).toISOString(),
       fetchFailuresLastDay: 1,
