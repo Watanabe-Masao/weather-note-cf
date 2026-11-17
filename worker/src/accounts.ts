@@ -29,6 +29,8 @@ export interface Db {
 export interface AccountsEnv {
   DB?: Db;
   SETUP_CODE?: string;
+  /** R2 (weather-note-archive): telegrams and weather charts as files (r2Archive.ts). */
+  ARCHIVE?: Bucket;
 }
 
 import {
@@ -45,6 +47,7 @@ import {
   vapidKeys,
 } from "./notify";
 import { importShiromatzMonth, importSummary } from "./forecastImport";
+import { type Bucket, r2Summary } from "./r2Archive";
 import { archiveSummary } from "./typhoonArchive";
 import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
 import { alertSummary } from "./typhoonWatch";
@@ -843,6 +846,7 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       if (path === "/api/admin/typhoon-archive" && !post) return json({ ...(await archiveSummary(db)), ...(await alertSummary(db)) });
       // 予報の履歴 (#250, R2): the record of JMA's forecasts, taken a month at a time by hand.
       if (path === "/api/admin/forecast-import" && !post) return json(await importSummary(db));
+      if (path === "/api/admin/archive" && !post) return json(await r2Summary(db));
       if (path === "/api/admin/forecast-import" && post) {
         const b = await body(req);
         try {
