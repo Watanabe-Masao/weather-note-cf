@@ -14,6 +14,9 @@
   // The report notifications that are due are sent every 5 minutes (worker/src/notify.ts).
   "triggers": { "crons": ["*/5 * * * *"] },
   "d1_databases": [{ "binding": "DB", "database_name": "weather-note" }],
+  // Files kept beside the database (worker/src/r2Archive.ts): the telegrams as issued (gzipped) and the
+  // daily weather charts. Made by hand in the dashboard (Standard, not public), 2026-11-17.
+  "r2_buckets": [{ "binding": "ARCHIVE", "bucket_name": "weather-note-archive" }],
   // Needed by `wrangler preview`, which Workers Builds runs for pull requests.
   "previews": {}
 }

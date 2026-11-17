@@ -17,6 +17,7 @@ import { activeTyphoons } from "./typhoon";
 import { collectForecasts } from "./forecastArchive";
 import { parseForecasts } from "./forecastParse";
 import { watchForecastArchive } from "./forecastWatch";
+import { copyTelegrams, saveCharts } from "./r2Archive";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { forecastCharts } from "../../shared/wxchart";
@@ -217,5 +218,14 @@ export default {
         .then(() => parseForecasts(db))
         .catch((e) => console.error("weather-note: forecast parse", e)),
     );
+    // Files kept in R2 (r2Archive.ts), apart from the rest: the day's weather charts, and the telegrams copied as files.
+    const bucket = env.ARCHIVE;
+    if (bucket)
+      ctx.waitUntil(
+        saveCharts(db, bucket)
+          .catch((e) => console.error("weather-note: wxchart save", e))
+          .then(() => copyTelegrams(db, bucket))
+          .catch((e) => console.error("weather-note: archive copy", e)),
+      );
   },
 } satisfies ExportedHandler<AccountsEnv>;
