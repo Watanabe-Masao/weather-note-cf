@@ -29,10 +29,11 @@ describe("buildFrames", () => {
     const kinds = (k: string) => frames.filter((f) => f.kind === k).map((f) => f.m);
     expect(kinds("obs")).toEqual(Array.from({ length: 37 }, (_, i) => -180 + i * 5));
     expect(kinds("nowcast")).toEqual(Array.from({ length: 12 }, (_, i) => 5 + i * 5));
-    // 発表 14:30 から1時間ずつ（:30 で区切る）。予測（16:00 まで）との重なりは30分まで：15:30〜16:30 から
-    expect(kinds("hourly")).toEqual(Array.from({ length: 14 }, (_, i) => 90 + i * 60));
+    // 時刻ごとにいちばん新しい発表。正時を優先して1時間ずつ（14:00 発表の正時が 14:30 発表の :30 より先）。
+    // 予測（16:00 まで）との重なりは30分まで：16:00〜17:00 から。15時間先の手前（14:00 発表は 2:00 まで）まで
+    expect(kinds("hourly")).toEqual(Array.from({ length: 13 }, (_, i) => 120 + i * 60));
     // グラフの1時間の量：解析の毎正時（6時間前〜今）と、今後の雨の全部（予測と重なる 14:30〜15:30 も）
-    expect(hours.map((f) => f.m)).toEqual([-360, -300, -240, -180, -120, -60, 0, ...Array.from({ length: 15 }, (_, i) => 30 + i * 60)]);
+    expect(hours.map((f) => f.m)).toEqual([-360, -300, -240, -180, -120, -60, 0, ...Array.from({ length: 14 }, (_, i) => 60 + i * 60)]);
   });
   it("今後の雨：発表が正時なら正時で区切り、予測の1時間の先から15時間先まで。30分ごとの一覧でも1時間ずつ", () => {
     const hourly: JmaListItem[] = Array.from({ length: 32 }, (_, i) => ({ basetime: t(0), validtime: t(30 + i * 30), member: "none" }));
@@ -42,6 +43,18 @@ describe("buildFrames", () => {
   });
   it("実況が無ければ何も組まない（今が分からない）", () => {
     expect(buildFrames([], nowcast, rasrf)).toEqual({ now: null, frames: [], hours: [] });
+  });
+  it("発表が重なっている（新しい発表は数時間先まで）：時刻ごとにいちばん新しい発表を使い、15時間先まで続ける", () => {
+    // 15:00 の発表は 10分ごとに5時間先まで、14:30 の発表は1時間ごとに15時間先まで（:30）
+    const xs: JmaListItem[] = [
+      ...Array.from({ length: 30 }, (_, i) => ({ basetime: t(0), validtime: t(10 + i * 10), member: "none" })),
+      ...Array.from({ length: 15 }, (_, i) => ({ basetime: t(-30), validtime: t(30 + i * 60), member: "none" })),
+    ];
+    const hourly = buildFrames(obs, nowcast, xs).frames.filter((f) => f.kind === "hourly");
+    // 5時間先までは 15:00 発表の正時、その先は 14:30 発表の :30（前の終わりから60分以上あと）
+    expect(hourly.map((f) => f.m)).toEqual([120, 180, 240, 300, 390, 450, 510, 570, 630, 690, 750, 810, 870]);
+    expect(hourly.slice(0, 4).every((f) => f.basetime === t(0))).toBe(true);
+    expect(hourly.slice(4).every((f) => f.basetime === t(-30))).toBe(true);
   });
   it("同じ時刻の member は none を先に", () => {
     const xs: JmaListItem[] = [

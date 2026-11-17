@@ -68,6 +68,8 @@ export interface ListState {
   count: number;
   /** 発表（basetime）のいちばん新しい時刻（UTC の名前）。 */
   latest: string | null;
+  /** 今後の雨だけ：一覧の予報の発表ごとの行の数と、時刻の最初・最後（新しい順に4つまで。確認用）。 */
+  bases?: { basetime: string; count: number; first: string; last: string }[];
   error?: string;
 }
 
@@ -99,10 +101,26 @@ export const HOURLY_AHEAD_MIN = 15 * 60;
 export const PAST_HOURS_MIN = 6 * 60;
 
 /**
+ * 1時間の量を重ならないように1時間ずつ選ぶ：最初の1時間は始まりが `from` 分以降、次は前の終わりから60分以上あと。
+ * 60分の幅の中に正時（日本時間の :00）があればそれを、無ければいちばん早いものを。
+ */
+export function hourlyChain<T extends { m: number; i: JmaListItem }>(cands: T[], from: number): T[] {
+  const out: T[] = [];
+  let need = from + 60;
+  for (;;) {
+    const win = cands.filter((c) => c.m >= need && c.m < need + 60);
+    const pick = win.find((c) => onHour(c.i.validtime)) ?? win[0] ?? cands.find((c) => c.m >= need);
+    if (!pick) return out;
+    out.push(pick);
+    need = pick.m + 60;
+  }
+}
+
+/**
  * 一覧から地図のこまを組む（純粋な関数、テストあり）。
  * - 実況：N1 の basetime = validtime、3時間前まで、5分ごと。いちばん新しいものが「今」。
  * - 雨雲の動きの予測：N2 のいちばん新しい basetime の、今より先、1時間先まで。
- * - 今後の雨：いちばん新しい basetime から1時間ずつ、雨雲の動きの予測の先（重なりは30分まで）、15時間先まで（1時間の量）。
+ * - 今後の雨：時刻ごとにそれを含むいちばん新しい発表を使い、正時を優先して1時間ずつ。雨雲の動きの予測の先（重なりは30分まで）、15時間先まで（1時間の量）。
  * - グラフの1時間の量：解析（basetime = validtime）の毎正時、6時間前〜今と、今後の雨の15時間先まで全部。
  * 同じ時刻が2つあるときは member の名前の順で最初のもの（none があれば none）。
  */
@@ -136,18 +154,21 @@ export function buildFrames(obs: JmaListItem[], nowcast: JmaListItem[], rasrf: J
       if (!by.has(i.validtime)) by.set(i.validtime, i);
     return [...by.values()].sort((a, b) => (a.validtime < b.validtime ? -1 : 1));
   };
-  const rb = latest(rr.filter((i) => i.validtime > i.basetime));
-  if (rb) {
-    // 発表から1時間ずつ（発表が :30 なら :30 で区切る）。一覧が30分ごとでも、1時間の量が重ならないように。
-    for (const i of pick(rr.filter((i) => i.basetime === rb && i.validtime > rb && minutesBetween(rb, i.validtime) % 60 === 0))) {
-      const m = minutesBetween(now, i.validtime);
-      const f: RainFrame = { m, kind: "hourly", product: "rasrf", basetime: rb, validtime: i.validtime, member: i.member ?? "none" };
-      if (m > 0 && m <= HOURLY_AHEAD_MIN) hours.push(f);
-      // 1時間の量は「終わり」の時刻で呼ぶ。雨雲の動きの予測と重なるのは30分まで（その1時間の始まりが予測の終わりの30分前以降）。
-      if (m - 60 >= Math.max(0, nowcastEnd - 30) && m <= HOURLY_AHEAD_MIN)
-        frames.push(f);
-    }
+  // 今後の雨は発表が重なっている（2026-11-18 本番：いちばん新しい発表は数時間先までしか無く、15時間先までは
+  // 少し前の発表にある）。時刻ごとに、それを含むいちばん新しい発表を使い、1時間ずつ（正時を優先）に並べる。
+  const newest = new Map<string, JmaListItem>();
+  for (const i of rr.filter((i) => i.validtime > i.basetime)) {
+    const had = newest.get(i.validtime);
+    if (!had || i.basetime > had.basetime || (i.basetime === had.basetime && (i.member ?? "none") === "none")) newest.set(i.validtime, i);
   }
+  const cands = [...newest.values()]
+    .map((i) => ({ i, m: minutesBetween(now, i.validtime) }))
+    .filter((c) => c.m > 0 && c.m <= HOURLY_AHEAD_MIN)
+    .sort((a, b) => a.m - b.m);
+  const toFrame = (c: { i: JmaListItem; m: number }): RainFrame => ({ m: c.m, kind: "hourly", product: "rasrf", basetime: c.i.basetime, validtime: c.i.validtime, member: c.i.member ?? "none" });
+  // 地図：雨雲の動きの予測と重なるのは30分まで。グラフ：今からの1時間ずつ全部。
+  for (const c of hourlyChain(cands, Math.max(0, nowcastEnd - 30))) frames.push(toFrame(c));
+  for (const c of hourlyChain(cands, 0)) hours.push(toFrame(c));
   for (const i of pick(rr.filter((i) => i.basetime === i.validtime && onHour(i.validtime)))) {
     const m = minutesBetween(now, i.validtime);
     if (m <= 0 && m >= -PAST_HOURS_MIN) hours.push({ m, kind: "hourly", product: "rasrf", basetime: i.basetime, validtime: i.validtime, member: i.member ?? "none" });
