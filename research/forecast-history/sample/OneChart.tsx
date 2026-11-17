@@ -2,8 +2,8 @@
 // 2つの描き分け（AB）：
 //   tone … 週間を一段落ち着いた色、府県天気予報をはっきりした色。点は 週間 ○／府県 ●
 //   dash … 週間を破線、府県天気予報を実線。点は同じ
-// どちらも、週間と府県の線は結ばない（降水確率は1日と6時間で区切りが違う。気温も「最高・最低」と
-// 「日中の最高・朝の最低」で別の値）。長押し（0.28秒）で補助線を出し、そのまま横になぞると、
+// 1本につなぐ（渡辺さん、2026-11-17）。ただし週間→府県天気予報のつなぎ目は細い点線にする（降水確率は
+// 1日と6時間で区切りが違い、気温も「最高・最低」と「日中の最高・朝の最低」で別の値のため）。長押し（0.28秒）で補助線を出し、そのまま横になぞると、
 // 指の下の発表が上の文に出る（アプリの日別グラフと同じ操作。ただのスワイプは日送りに使うため）。
 
 import { useRef, useState, type PointerEvent as RPointerEvent } from "react";
@@ -63,30 +63,41 @@ export function OneChart({
   const width = (c: "hot" | "cold" | "rain") => lineLook("target", DATA[c], c === "rain" ? { weight: "minor" } : {}).strokeWidth;
   const firstFd = slots.find((s) => s.kind === "VPFD51");
 
-  const series = (kind: Kind) => {
-    const ss = slots.filter((s) => s.kind === kind);
-    const runs = (get: (s: Slot) => number | null, y: (v: number) => number) => {
-      const out: { x: number; y: number; s: Slot; v: number }[][] = [];
-      let cur: { x: number; y: number; s: Slot; v: number }[] = [];
-      for (const s of ss) {
-        const v = s.state === "ok" ? get(s) : null;
-        if (v == null) {
-          if (cur.length) out.push(cur);
-          cur = [];
-          continue;
-        }
-        cur.push({ x: x(s.at), y: y(v), s, v });
+  // 1本につなぐ：府県天気予報が始まるまでは週間、そこからは府県天気予報。週間のうち、府県天気予報が始まった
+  // あとの回は、線にせず ○ だけ置く（同じ時刻に2つの値があると線が行き来するため）。
+  // 切り替える所は値ごとに決める：府県天気予報で、その値が最初に出た回（明後日の分は降水確率・気温がない）。
+  type Pt = { x: number; y: number; s: Slot; v: number };
+  const lineOf = (get: (s: Slot) => number | null, y: (v: number) => number) => {
+    const firstFdValue = slots.find((s) => s.kind === "VPFD51" && s.state === "ok" && get(s) != null);
+    const switchAt = firstFdValue ? Date.parse(firstFdValue.at) : Infinity;
+    const used = slots.filter((s) => (s.kind === "VPFW50" ? Date.parse(s.at) < switchAt : Date.parse(s.at) >= switchAt));
+    const late = slots.filter((s) => s.kind === "VPFW50" && Date.parse(s.at) >= switchAt);
+    const runs: Pt[][] = [];
+    let cur: Pt[] = [];
+    for (const s of used) {
+      const v = s.state === "ok" ? get(s) : null;
+      if (v == null) {
+        if (cur.length) runs.push(cur);
+        cur = [];
+        continue;
       }
-      if (cur.length) out.push(cur);
-      return out;
-    };
-    const popOf = (s: Slot) => (kind === "VPFW50" ? vNum(s.values?.popDay) : vNum(s.values?.pop6?.[pop6]));
-    return [
-      { key: "pop", c: "rain" as const, runs: runs(popOf, py), changedKey: kind === "VPFW50" ? "pop" : `pop6-${pop6}`, above: true },
-      { key: "max", c: "hot" as const, runs: runs((s) => vNum(s.values?.max), ty), changedKey: "max", above: true },
-      { key: "min", c: "cold" as const, runs: runs((s) => vNum(s.values?.min), ty), changedKey: "min", above: false },
-    ];
+      cur.push({ x: x(s.at), y: y(v), s, v });
+    }
+    if (cur.length) runs.push(cur);
+    const dots = late.flatMap((s) => {
+      const v = s.state === "ok" ? get(s) : null;
+      return v == null ? [] : [{ x: x(s.at), y: y(v), s, v }];
+    });
+    return { runs, dots };
   };
+  const popOf = (s: Slot) => (s.kind === "VPFW50" ? vNum(s.values?.popDay) : vNum(s.values?.pop6?.[pop6]));
+  const lines = [
+    { key: "pop", c: "rain" as const, ...lineOf(popOf, py), changedKey: (s: Slot) => (s.kind === "VPFW50" ? "pop" : `pop6-${pop6}`), above: true },
+    { key: "max", c: "hot" as const, ...lineOf((s) => vNum(s.values?.max), ty), changedKey: () => "max", above: true },
+    { key: "min", c: "cold" as const, ...lineOf((s) => vNum(s.values?.min), ty), changedKey: () => "min", above: false },
+  ];
+  const strokeOf = (kind: Kind, c: string) => (kind === "VPFW50" && mode === "tone" ? quiet(c) : `var(--data-${c})`);
+  const seg = (a: Pt, b: Pt) => `M${a.x.toFixed(1)},${a.y.toFixed(1)}L${b.x.toFixed(1)},${b.y.toFixed(1)}`;
 
   const nearest = (clientX: number) => {
     const m = svgRef.current?.getScreenCTM();
@@ -183,49 +194,47 @@ export function OneChart({
             </foreignObject>
           ) : null,
         )}
-        {/* 値の線：種類ごとに別の線（結ばない） */}
-        {(["VPFW50", "VPFD51"] as Kind[]).map((kind) =>
-          series(kind).map((l) =>
-            l.runs.map((r, i) => {
-              const weekly = kind === "VPFW50";
-              const stroke = weekly && mode === "tone" ? quiet(l.c) : `var(--data-${l.c})`;
-              return (
-                <g key={`${kind}${l.key}${i}`}>
+        {/* 値の線：1本につなぐ。週間の区間・府県天気予報の区間で描き分け、つなぎ目（週間→府県）は細い点線。 */}
+        {lines.map((l) => (
+          <g key={l.key}>
+            {l.runs.map((r, i) =>
+              r.slice(1).map((p, j) => {
+                const a = r[j];
+                const bridge = a.s.kind !== p.s.kind;
+                const kind = bridge ? "VPFD51" : p.s.kind;
+                return (
                   <path
-                    d={r.map((p, j) => `${j ? "L" : "M"}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join("")}
+                    key={`${i}-${j}`}
+                    d={seg(a, p)}
                     fill="none"
-                    stroke={stroke}
-                    strokeWidth={width(l.c)}
-                    strokeDasharray={weekly && mode === "dash" ? "4 3" : undefined}
-                    strokeLinejoin="round"
+                    stroke={strokeOf(kind, l.c)}
+                    strokeWidth={bridge ? 1.2 : width(l.c)}
+                    strokeDasharray={bridge ? "1 3" : p.s.kind === "VPFW50" && mode === "dash" ? "4 3" : undefined}
                     strokeLinecap="round"
+                    className={bridge ? "fh-one-bridge" : undefined}
                   />
-                  {r.map((p) => {
-                    const changed = p.s.changed.has(l.changedKey);
-                    const on = focus === p.s.key;
-                    return (
-                      <g key={p.s.key}>
-                        <circle
-                          cx={p.x}
-                          cy={p.y}
-                          r={on ? 3.4 : changed ? 2.8 : 2}
-                          fill={weekly ? "var(--surface-raised)" : stroke}
-                          stroke={stroke}
-                          strokeWidth={weekly ? 1.2 : 0}
-                        />
-                        {(changed || on) && (
-                          <text x={p.x} y={l.above ? p.y - 5 : p.y + 11} textAnchor="middle" className={`fh-vlabel tone-${l.c}`}>
-                            {p.v}
-                          </text>
-                        )}
-                      </g>
-                    );
-                  })}
+                );
+              }),
+            )}
+            {[...l.runs.flat(), ...l.dots].map((p) => {
+              const weekly = p.s.kind === "VPFW50";
+              const isLate = l.dots.includes(p);
+              const stroke = isLate ? quiet(l.c) : strokeOf(p.s.kind, l.c);
+              const changed = !isLate && p.s.changed.has(l.changedKey(p.s));
+              const on = focus === p.s.key;
+              return (
+                <g key={`${l.key}${p.s.key}`}>
+                  <circle cx={p.x} cy={p.y} r={on ? 3.4 : changed ? 2.8 : isLate ? 1.8 : 2} fill={weekly ? "var(--surface-raised)" : stroke} stroke={stroke} strokeWidth={weekly ? 1.2 : 0} />
+                  {(changed || on) && (
+                    <text x={p.x} y={l.above ? p.y - 5 : p.y + 11} textAnchor="middle" className={`fh-vlabel tone-${l.c}`}>
+                      {p.v}
+                    </text>
+                  )}
                 </g>
               );
-            }),
-          ),
-        )}
+            })}
+          </g>
+        ))}
         {/* 日付 */}
         {days.map((d) => {
           const xd = x(`${d}T00:00:00+09:00`);
