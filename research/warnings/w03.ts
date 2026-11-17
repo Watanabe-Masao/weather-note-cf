@@ -1,8 +1,7 @@
 // WN-03（WN-01・02 の続き）:
 //  1. 高知地方気象台's monthly tables (2025-01 〜): the issues counted as distinct 発表日時 (the layout since
 //     2026-06 prints the time on every row), and the 高知市 column read character by character.
-//  2. agora (NII): its robots.txt, the list for 高知市 (area code 3920100) and how the list pages, one
-//     telegram's page (report_each), and whether a JMA telegram of 2025 is still served by JMA.
+//  (2, agora, ran once on 2026-11-17 and is taken out: see below.)
 // Run by the "research-warnings" workflow; output goes to the log and the run's artifact.
 //   npx --yes tsx@4.19.2 research/warnings/w03.ts --out research/warnings/out3
 // 出典：気象庁（高知地方気象台「警報・注意報発表状況」、防災情報XML）、国立情報学研究所。
@@ -40,19 +39,6 @@ async function get(url: string, pause = 1000): Promise<Got> {
     return { status: 0, bytes: Buffer.alloc(0), text: "", type: "", error: String(e) };
   }
 }
-const kb = (n: number) => `${(n / 1024).toFixed(1)}KB`;
-const textOf = (html: string) =>
-  html
-    .replace(/<script[\s\S]*?<\/script>/g, "")
-    .replace(/<style[\s\S]*?<\/style>/g, "")
-    .replace(/<br\s*\/?>|<\/(p|div|li|tr|h\d)>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/[ \t]+/g, " ")
-    .replace(/\n\s*\n+/g, "\n")
-    .trim();
-const linksOf = (html: string) => [...new Set([...html.matchAll(/href="([^"]+)"/g)].map((m) => (m[1] ?? "").replace(/&amp;/g, "&")))];
 const count = <T>(xs: T[]) => {
   const m = new Map<T, number>();
   for (const x of xs) m.set(x, (m.get(x) ?? 0) + 1);
@@ -134,45 +120,7 @@ for (const ym of months) {
 writeFileSync(join(out, "pdf-summary.json"), JSON.stringify(summary, null, 1));
 log("");
 
-// ---- 2. agora -----------------------------------------------------------------------------------
-log("## 2. agora（国立情報学研究所）", "");
-const AG = "https://agora.ex.nii.ac.jp";
-const show = async (path: string, n = 40, re?: RegExp) => {
-  const r = await get(AG + path, 3000);
-  writeFileSync(join(out, "raw", path.replace(/[^\w.-]/g, "_").slice(0, 120)), r.bytes);
-  log(`### ${path}：HTTP ${r.status}、${kb(r.bytes.length)}`, "```", ...textOf(r.text).split("\n").slice(0, n).map((l) => l.slice(0, 220)), "```");
-  const ls = linksOf(r.text).filter((l) => !/twitter|creativecommons|^#|\.css$/.test(l));
-  log(`- リンク（抜粋）：${(re ? ls.filter((l) => re.test(l)) : ls).slice(0, 40).join(" ")}`, "");
-  return r;
-};
-await show("/robots.txt", 40);
-const list = await show("/cgi-bin/cps/warning_list.pl?acode=3920100", 40, /warning_list|page|start|offset|report_each/);
-// The list's own paging links, and the oldest entries reached by the last page link.
-const pageLinks = linksOf(list.text).filter((l) => /warning_list\.pl/.test(l) && /(page|start|offset|from|p)=/.test(l));
-log(`- ページのリンク：${pageLinks.slice(0, 10).join(" ")}`);
-const last = pageLinks[pageLinks.length - 1];
-let oldIds: string[] = [];
-if (last) {
-  const r = await show(last.startsWith("/") ? last : `/cgi-bin/cps/${last}`, 30, /report_each/);
-  oldIds = linksOf(r.text).filter((l) => /report_each/.test(l)).map((l) => /id=([^&]+)/.exec(l)?.[1] ?? "");
-}
-// A 2025 entry: the 高知県 list, searched by a period if the page offers it (else the paging of the 県 list).
-const ken = await show("/cgi-bin/cps/warning_list.pl?acode=390000", 5, /warning_list/);
-const kenPages = linksOf(ken.text).filter((l) => /warning_list\.pl/.test(l) && /(page|start|offset|from|p)=/.test(l));
-log(`- 高知県のページのリンク：${kenPages.slice(0, 12).join(" ")}`, "");
-for (const l of kenPages.slice(-1)) {
-  const r = await show(l.startsWith("/") ? l : `/cgi-bin/cps/${l}`, 30, /report_each/);
-  oldIds.push(...linksOf(r.text).filter((x) => /report_each/.test(x)).map((x) => /id=([^&]+)/.exec(x)?.[1] ?? ""));
-}
-const jmaIds = [...new Set(oldIds.filter((x) => /^\d{14}_\d_V/.test(x)))].sort();
-log(`- report_each の電文 ID：${jmaIds.length}件（古い順に ${jmaIds.slice(0, 3).join("、")} …）`, "");
-if (jmaIds[0]) await show(`/cgi-bin/cps/report_each.pl?id=${jmaIds[0]}`, 40, /xml|download|raw/i);
-await show("/cgi-bin/cps/report_each.pl?id=20261117044919_0_VPWW53_390000", 25, /xml|download|raw/i);
-// Whether JMA still serves those old telegrams.
-log("### 古い電文を気象庁から読めるか", "");
-for (const id of [...jmaIds.slice(0, 2), ...jmaIds.slice(-1)]) {
-  const r = await get(`https://www.data.jma.go.jp/developer/xml/data/${id}.xml`, 1000);
-  log(`- ${id}.xml：HTTP ${r.status}、${kb(r.bytes.length)}`);
-}
-log("");
+// (The agora part that was here ran once, 2026-11-17, run 44030264906. agora's /cgi-bin/ is Disallowed by
+// its robots.txt, so it is taken out and is not run again — docs/thread-rules.md.)
+
 writeFileSync(join(out, "w03-report.md"), lines.join("\n") + "\n");
