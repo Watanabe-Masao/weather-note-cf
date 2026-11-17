@@ -261,3 +261,7 @@
 .fh-ptab.one .h, .fh-ptab.one .v { border-left: 0; }
 .fh-ptab .v.ch { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .fh-ptab .v.past { background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--ink-tertiary) 14%, transparent) 4px 5px); }
+.fh-ptab .w { display: flex; justify-content: center; gap: var(--space-1); padding: var(--space-1) 0; border-left: 1px solid var(--line-soft); border-top: 1px solid var(--line-soft); }
+.fh-ptab .w-none { width: 20px; height: 20px; }
+.fh-ptab > :nth-child(4n + 1) { border-left: 0; }
+.fh-ptab.one > * { border-left: 0; }

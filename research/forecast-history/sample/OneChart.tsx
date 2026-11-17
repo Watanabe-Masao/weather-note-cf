@@ -15,10 +15,12 @@ import {
   hasNumbers,
   leadLabel,
   md,
+  skyText,
   type Slot,
   STATE_TEXT,
 } from "./model";
 import { vNum, Wx } from "./Transition";
+import { WeatherIcon } from "../../../src/ui/WeatherIcon";
 
 export type OneMode = "tone" | "dash";
 
@@ -613,6 +615,24 @@ function PopTable({ s, prev }: { s: Slot; prev: Slot | null }) {
           {n}
         </span>
       ))}
+      {/* 時間帯ごとの天気（3時間ごとの天気を2つずつ）。自前の電文にだけあるので、ないときは行ごと出さない。 */}
+      {v.wx3 &&
+        [0, 1, 2, 3].map((c) => (
+          <span key={`w${c}`} className="w">
+            {[v.wx3![c * 2], v.wx3![c * 2 + 1]].map((t, k) =>
+              t ? (
+                <WeatherIcon
+                  key={k}
+                  text={skyText(t)}
+                  size={20}
+                  night={(c * 2 + k) * 3 < 6 || (c * 2 + k) * 3 >= 18}
+                />
+              ) : (
+                <span key={k} className="w-none" />
+              ),
+            )}
+          </span>
+        ))}
       {v.pop6!.map((q, i) => {
         const p = numOf(q);
         // 当日の発表で、始まりが発表の時刻より前の時間帯は「過ぎた（過ぎつつある）」時間帯：値がなくても当然。

@@ -119,8 +119,12 @@ export interface DayValues {
         name?: string | null;
         sentence?: string | null;
         partial?: string | null;
+        /** 府県：3時間ごとの天気（0・3・…・21時から、「３時間内卓越天気」）。自前の電文だけにあり、外部の記録にはない（null）。 */
+        wx3?: (string | null)[] | null;
       })
     | V;
+  /** 府県：3時間ごとの天気（0・3・…・21時から、「３時間内卓越天気」）。自前の電文だけにあり、外部の記録にはない（null）。 */
+  wx3?: (string | null)[] | null;
   /** 週間：日降水確率。 */
   popDay: V | null;
   /** 府県：6時間降水確率（00・06・12・18時から）。発表より前の区切りは null（対象期間外）。 */
@@ -250,8 +254,15 @@ export class Data {
         ? ({ s: "none", entry: e } as V)
         : ({ s: "value", v: Number(e.value), entry: e } as V);
     });
+    const w3 = es.filter((x) => x.element === "weather_3h");
+    const wx3 = w3.length
+      ? [0, 3, 6, 9, 12, 15, 18, 21].map(
+          (h) => w3.find((x) => hourOf(x.valid_from) === h)?.value ?? null,
+        )
+      : null;
     return {
       weather,
+      wx3,
       popDay: null,
       pop6,
       max: pick("temp_max", "日中の最高気温"),

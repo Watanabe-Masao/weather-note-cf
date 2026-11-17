@@ -47,7 +47,7 @@ function dump(db: Db, label: string, extra: { id: string } & Record<string, unkn
     .prepare(
       `SELECT e.issue_id, place, place_name, place_type, element, valid_from, valid_to, period, label, value, unit, lower, upper, jma_type, condition
        FROM forecast_entries e JOIN forecast_issues i USING (issue_id)
-       WHERE place IN (SELECT value FROM json_each(?)) AND element IN ('weather','weather_text','weather_code','pop','temp_max','temp_min','reliability')
+       WHERE place IN (SELECT value FROM json_each(?)) AND element IN ('weather','weather_text','weather_code','weather_3h','pop','temp_max','temp_min','reliability')
        ORDER BY e.issue_id, element, valid_from`,
     )
     .all(JSON.stringify(PLACES));
