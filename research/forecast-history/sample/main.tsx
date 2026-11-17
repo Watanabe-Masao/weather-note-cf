@@ -35,6 +35,7 @@ import { FocusSay, OneChart } from "./OneChart";
 import { StepChart } from "./StepChart";
 import { SplitHeader } from "./SplitHeader";
 import { type ActualDay, ActualBlock } from "./Actual";
+import { DayRows } from "./DayRows";
 
 type Sc = Scenario & {
   telegrams?: {
@@ -255,6 +256,7 @@ function App({
   const [popView, setPopView] = useState<"detail" | "simple">("simple");
   const [head, setHead] = useState<"split" | "stack">("split");
   const [onlyChanged, setOnlyChanged] = useState(false);
+  const [listBy, setListBy] = useState<"day" | "issue">("day");
   const [cell, setCell] = useState<{ key: string; day: string } | null>(null);
   const [sel, setSel] = useState<string | null>(null);
   const [layout, setLayout] = useState<Layout>("all");
@@ -521,13 +523,36 @@ function App({
                       { id: "changed", label: "変わった発表だけ" },
                     ]}
                   />
-                  <TransitionRows
-                    slots={slots}
-                    selected={sel}
-                    onSelect={setSel}
-                    actual={<Actual day={day} />}
-                    onlyChanged={onlyChanged}
+                  <Segmented
+                    label="一覧の形"
+                    value={listBy}
+                    onChange={setListBy}
+                    options={[
+                      { id: "day", label: "A 日付ごと" },
+                      { id: "issue", label: "B 発表ごと" },
+                    ]}
                   />
+                  {listBy === "day" ? (
+                    <>
+                      <DayRows
+                        slots={slots}
+                        all={allSlots}
+                        day={day}
+                        selected={sel}
+                        onSelect={setSel}
+                        onlyChanged={onlyChanged}
+                      />
+                      <Actual day={day} />
+                    </>
+                  ) : (
+                    <TransitionRows
+                      slots={slots}
+                      selected={sel}
+                      onSelect={setSel}
+                      actual={<Actual day={day} />}
+                      onlyChanged={onlyChanged}
+                    />
+                  )}
                 </>
               )}
               {plan === "combo" && (
