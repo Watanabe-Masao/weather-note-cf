@@ -102,31 +102,47 @@ interface ImportMonth {
   differ: number;
 }
 
-/** The months after `m` (YYYY-MM) up to `last`. */
-const nextMonth = (m: string) => {
-  const [y, mo] = m.split("-").map(Number);
-  return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
+/** Whether the record has the month to take next (worker/src/forecastImport.ts: checkMonth). */
+interface NextMonth {
+  month: string;
+  expected: string;
+  available: boolean | null;
+  reason?: string;
+}
+
+interface ImportState {
+  first: string;
+  last: string;
+  next?: NextMonth | null;
+  months: ImportMonth[];
+}
+
+/** 2026-12-02 → 2026年12月2日 */
+const dayJa = (d: string) => {
+  const [y, m, dd] = d.split("-").map(Number);
+  return `${y}年${m}月${dd}日`;
 };
 
 /**
  * 予報の履歴 (#250, R2): JMA's forecasts of 2025-01 … taken from the record shiromatz keeps
  * (CC BY-SA 4.0), a month at a time — the first month as a trial, then the rest once it reads well.
+ * The month to take next is the server's, with whether the record has it yet: not there → the button
+ * waits, with the day it is expected; not known → the button stays, with that said.
  */
 function ForecastImport() {
-  const [state, setState] = useState<{ first: string; last: string; months: ImportMonth[] } | null>(null);
+  const [state, setState] = useState<ImportState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const load = useCallback(() => {
-    api<{ first: string; last: string; months: ImportMonth[] }>("/api/admin/forecast-import")
+    api<ImportState>("/api/admin/forecast-import")
       .then(setState)
       .catch((e) => setError((e as Error).message));
   }, []);
   useEffect(load, [load]);
   if (!state) return error ? <p className="warn">{error}</p> : null;
   const kochi = state.months.filter((m) => m.office === "390000");
-  const taken = new Set(kochi.map((m) => m.month));
-  let next: string | null = state.first;
-  while (next && taken.has(next)) next = next < state.last ? nextMonth(next) : null;
+  const next = state.next ?? null;
+  const notYet = next?.available === false;
   const take = (month: string) => {
     setBusy(true);
     setError(null);
@@ -156,12 +172,14 @@ function ForecastImport() {
       )}
       {next ? (
         <div className="actions tight">
-          <button className="primary" disabled={busy} onClick={() => take(next!)}>
-            {busy ? "取り込んでいます…" : `${next} を取り込む`}
+          <button className="primary" disabled={busy || notYet} onClick={() => take(next.month)}>
+            {busy ? "取り込んでいます…" : `${next.month} を取り込む`}
           </button>
         </div>
       ) : null}
-      <small className="set-help">2026-11 は、記録に追加されてから（12月はじめの見込み）取り込みます。出典：気象庁の予報（shiromatz/Japan-Meteorological-Agency-Weather-Forecast の記録、CC BY-SA 4.0）。</small>
+      {notYet ? <small className="set-help admin-import-wait">{next.month} が記録に入るのは {dayJa(next.expected)}の夜の見込みです。入ったら押せるようになります。</small> : null}
+      {next?.available === null ? <small className="set-help admin-import-wait">{next.month} が記録にあるか確かめられませんでした{next.reason ? `（${next.reason.replace(/。$/, "")}）` : ""}。押して取り込めるか試せます。</small> : null}
+      <small className="set-help">出典：気象庁の予報（shiromatz/Japan-Meteorological-Agency-Weather-Forecast の記録、CC BY-SA 4.0）。</small>
       {error ? <p className="warn">{error}</p> : null}
     </>
   );

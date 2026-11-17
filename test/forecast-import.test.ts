@@ -7,7 +7,7 @@ import { readFileSync } from "node:fs";
 import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { ensureForecastSchema } from "../worker/src/forecastArchive";
-import { importShiromatzMonth, importSummary, unzip } from "../worker/src/forecastImport";
+import { checkMonth, ensureForecastImportSchema, IMPORT_LAST, importPosition, importShiromatzMonth, importSummary, unzip } from "../worker/src/forecastImport";
 import { parseForecasts } from "../worker/src/forecastParse";
 import { d1 } from "./d1";
 import { flatten } from "./forecastFlatten";
@@ -105,7 +105,7 @@ describe("予報の履歴：記録を取り込む", () => {
     await importShiromatzMonth(db, "2025-01", Date.parse("2026-11-17T13:00:00+09:00"), g.get);
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM forecast_entries").get()).toEqual(values);
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM forecast_issues").get()).toEqual({ n: 11 });
-    expect((await importSummary(db)).months.map((m) => [m.month, m.issues, m.empty_days.length])).toEqual([["2025-01", 11, 29]]);
+    expect((await importSummary(db, g.get)).months.map((m) => [m.month, m.issues, m.empty_days.length])).toEqual([["2025-01", 11, 29]]);
   });
 
   it("keeps the record's copy of an issue our telegram has beside ours, not preferred, and compares the two", async () => {
@@ -177,5 +177,67 @@ describe("予報の履歴：記録を取り込む", () => {
     await expect(importShiromatzMonth(db, "2024-12", Date.now(), g.get)).rejects.toThrow(/2025-01 から 2026-11/);
     await expect(importShiromatzMonth(db, "2026-11", Date.now(), g.get)).rejects.toThrow(/2026-11 の記録はまだありません/);
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM forecast_imports").get()).toEqual({ n: 0 });
+  });
+});
+
+describe("予報の履歴：次に取り込む月が記録にあるか", () => {
+  const answer = (status: number) => ({ ok: status >= 200 && status < 300, status, text: async () => "", arrayBuffer: async () => new ArrayBuffer(0) });
+
+  it("takes the first month not taken, and none after 2026-11", () => {
+    expect(importPosition([])).toEqual({ lastTaken: null, next: "2025-01" });
+    expect(importPosition(["2025-01", "2025-02"])).toEqual({ lastTaken: "2025-02", next: "2025-03" });
+    expect(importPosition(["2025-11", "2025-12"].concat(["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10"]))).toEqual({
+      lastTaken: "2025-12",
+      next: "2026-01",
+    });
+    const all: string[] = [];
+    for (let m = "2025-01"; m <= IMPORT_LAST; ) {
+      all.push(m);
+      const [y, mo] = m.split("-").map(Number);
+      m = mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
+    }
+    expect(importPosition(all)).toEqual({ lastTaken: IMPORT_LAST, next: null });
+  });
+
+  it("available: true when the month's zip is at the head of main, asked with HEAD at that commit", async () => {
+    const g = github({ "202611": { "forecast_202611_390000.csv": "x" } });
+    const asked: { url: string; method?: string }[] = [];
+    const r = await checkMonth("2026-11", async (url, init) => (asked.push({ url, method: init?.method }), g.get(url)));
+    expect(r).toEqual({ month: "2026-11", expected: "2026-12-02", available: true });
+    expect(asked[1]).toEqual({ url: `https://raw.githubusercontent.com/shiromatz/Japan-Meteorological-Agency-Weather-Forecast/${MAIN}/forecast/forecast_202611.zip`, method: "HEAD" });
+  });
+
+  it("available: false when the record answers 404, with the day it is expected (the 2nd of the month after)", async () => {
+    expect(await checkMonth("2026-11", github({}).get)).toEqual({ month: "2026-11", expected: "2026-12-02", available: false });
+    expect((await checkMonth("2025-12", github({}).get)).expected).toBe("2026-01-02");
+  });
+
+  it("available: null with the reason when the record could not be asked — never shown as false", async () => {
+    const refsDown = await checkMonth("2026-11", async () => answer(503));
+    expect(refsDown).toEqual({ month: "2026-11", expected: "2026-12-02", available: null, reason: "記録のコミットが分かりません（HTTP 503）。" });
+    const g = github({});
+    const rawDown = await checkMonth("2026-11", async (url) => (url.includes("/info/refs") ? g.get(url) : answer(500)));
+    expect(rawDown).toMatchObject({ available: null, reason: "記録に問い合わせられませんでした（HTTP 500）。" });
+    const thrown = await checkMonth("2026-11", async () => {
+      throw new Error("The operation was aborted due to timeout");
+    });
+    expect(thrown).toMatchObject({ available: null, reason: "The operation was aborted due to timeout" });
+  });
+
+  it("the summary says the next month and whether the record has it; nothing is asked when all are taken", async () => {
+    const db = await setup();
+    await ensureForecastImportSchema(db);
+    const put = (month: string) =>
+      db.raw
+        .prepare("INSERT INTO forecast_imports VALUES ('shiromatz', '390000', ?, 'c', 'u', 'h', 'f', 1, 1, '[]', 0, 0, '{}', 'CC BY-SA 4.0', 1)")
+        .run(month);
+    for (let m = 1; m <= 12; m++) put(`2025-${String(m).padStart(2, "0")}`);
+    for (let m = 1; m <= 10; m++) put(`2026-${String(m).padStart(2, "0")}`);
+    expect((await importSummary(db, github({}).get)).next).toEqual({ month: "2026-11", expected: "2026-12-02", available: false });
+    expect((await importSummary(db, github({ "202611": { a: "b" } }).get)).next).toMatchObject({ month: "2026-11", available: true });
+    put("2026-11");
+    let asked = 0;
+    expect((await importSummary(db, async (url) => (asked++, github({}).get(url)))).next).toBeNull();
+    expect(asked).toBe(0);
   });
 });
