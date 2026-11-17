@@ -48,6 +48,7 @@ import {
 } from "./notify";
 import { importShiromatzMonth, importSummary } from "./forecastImport";
 import { type Bucket, r2Summary } from "./r2Archive";
+import { keepError } from "./health";
 import { archiveSummary } from "./typhoonArchive";
 import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
 import { alertSummary } from "./typhoonWatch";
@@ -865,6 +866,8 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
     if (e instanceof Refused) return json({ error: e.message }, e.status);
     // The message, not only the stack: the log keeps one line, and D1's errors say what failed only in it.
     console.error(`weather-note: accounts failure ${new URL(req.url).pathname}: ${describe(e)}`);
+    // Counted for the health check (health.ts), so a run of failures is seen without the dashboard's log.
+    if (env.DB) await keepError(env.DB, new URL(req.url).pathname, describe(e), now);
     return json({ error: "処理に失敗しました。時間をおいて再試行してください。" }, 500);
   }
 }

@@ -1,0 +1,250 @@
+// 監視と管理 (2026-11-17): how the app stands, as numbers — how much room is left under the plan's
+// limits (余裕) and what is kept or done for nothing (無駄) — read by GitHub Actions every hour
+// (.github/workflows/health.yml) and by the daily check. Public and read-only: counts and times only,
+// nothing of a person (no ids, no reports, no error texts).
+//
+// Also kept here, for it to read:
+//   cron_runs  — each scheduled stage's time and whether it ended well (the plan allows 30 s of CPU a
+//                run; wall time is what can be measured from inside, and bounds it);
+//   app_errors — failures of the account requests (the log keeps them only 3–7 days, the count here 30).
+
+import type { Db } from "./accounts";
+
+export const HEALTH_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS cron_runs (
+    at TEXT NOT NULL,
+    stage TEXT NOT NULL,
+    ms INTEGER NOT NULL,
+    ok INTEGER NOT NULL,
+    PRIMARY KEY (at, stage)
+  )`,
+  `CREATE TABLE IF NOT EXISTS app_errors (
+    at TEXT NOT NULL,
+    place TEXT NOT NULL,
+    message TEXT NOT NULL
+  )`,
+  "CREATE INDEX IF NOT EXISTS app_errors_at ON app_errors (at)",
+];
+
+/** Workers Paid (2026-11-17, Cloudflare's published limits): what the room is measured against. */
+export const PLAN = {
+  name: "Workers Paid",
+  d1Bytes: 10e9, // one database
+  d1WritesMonth: 50e6, // rows written, included
+  d1ReadsMonth: 25e9,
+  r2FreeBytes: 10e9, // R2's free tier (Standard)
+  r2WritesMonthFree: 1e6, // Class A
+  cronCpuMs: 30_000,
+};
+
+const KEEP_DAYS = 30;
+
+const ready = new WeakMap<Db, Promise<void>>();
+export function ensureHealthSchema(db: Db): Promise<void> {
+  let p = ready.get(db);
+  if (!p) {
+    p = (async () => {
+      for (const q of HEALTH_SCHEMA) await db.prepare(q).run();
+    })().catch((e) => {
+      ready.delete(db);
+      throw e;
+    });
+    ready.set(db, p);
+  }
+  return p;
+}
+
+/** Runs one scheduled stage and keeps its time and outcome (never throws: a stage's failure is logged and kept). */
+export async function timed(db: Db, at: string, stage: string, fn: () => Promise<unknown>): Promise<void> {
+  const t = Date.now();
+  let ok = 1;
+  try {
+    await fn();
+  } catch (e) {
+    ok = 0;
+    console.error(`weather-note: ${stage}`, e);
+  }
+  try {
+    await ensureHealthSchema(db);
+    await db.prepare("INSERT OR REPLACE INTO cron_runs (at, stage, ms, ok) VALUES (?, ?, ?, ?)").bind(at, stage, Date.now() - t, ok).run();
+  } catch (e) {
+    console.error("weather-note: cron_runs", e);
+  }
+}
+
+/** A failure of an account request, kept for counting (the place and the error's first line). */
+export async function keepError(db: Db, place: string, message: string, now = Date.now()) {
+  try {
+    await ensureHealthSchema(db);
+    await db.batch([
+      db.prepare("INSERT INTO app_errors (at, place, message) VALUES (?, ?, ?)").bind(new Date(now).toISOString(), place.slice(0, 80), message.slice(0, 300)),
+      db.prepare("DELETE FROM app_errors WHERE at < ?").bind(new Date(now - KEEP_DAYS * 86_400_000).toISOString()),
+    ]);
+  } catch {
+    // Counting must not make a failure worse.
+  }
+}
+
+async function one<T>(db: Db, q: string, ...v: unknown[]): Promise<T | null> {
+  try {
+    return await db
+      .prepare(q)
+      .bind(...v)
+      .first<T>();
+  } catch {
+    return null; // a table not made yet
+  }
+}
+async function all<T>(db: Db, q: string, ...v: unknown[]): Promise<T[]> {
+  try {
+    return (
+      await db
+        .prepare(q)
+        .bind(...v)
+        .all<T>()
+    ).results;
+  } catch {
+    return [];
+  }
+}
+
+/** The tables counted, and for each the column that says when a row came (for the rows written a day). */
+const TABLES: [string, string | null][] = [
+  ["forecast_telegrams", "fetched_at"],
+  ["forecast_issues", null],
+  ["forecast_entries", null],
+  ["forecast_fetch_log", "at"],
+  ["forecast_imports", "fetched_at"],
+  ["forecast_alerts", "opened_at"],
+  ["typhoon_telegrams", "fetched_at"],
+  ["typhoon_fetch_log", "at"],
+  ["archive_copies", "copied_at"],
+  ["wxchart_saved", "fetched_at"],
+  ["wxchart_fetch_log", "at"],
+  ["cron_runs", "at"],
+  ["reports", null],
+  ["users", null],
+];
+
+const pct = (part: number, whole: number) => Math.round((part / whole) * 1000) / 10;
+
+export async function health(db: Db, now = Date.now()) {
+  await ensureHealthSchema(db);
+  const iso = (ms: number) => new Date(ms).toISOString();
+  const dayAgo = iso(now - 86_400_000);
+
+  // The database's size, as D1 reports it after a statement (meta.size_after); absent in the tests.
+  let d1Bytes: number | null = null;
+  try {
+    const r = (await db.prepare("SELECT 1").run()) as { meta?: { size_after?: number } };
+    d1Bytes = r.meta?.size_after ?? null;
+  } catch {
+    d1Bytes = null;
+  }
+  const tables: Record<string, { rows: number; lastDay: number | null }> = {};
+  for (const [t, when] of TABLES) {
+    const n = await one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM ${t}`);
+    if (!n) continue;
+    const d = when ? await one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM ${t} WHERE ${when} >= ?`, dayAgo) : null;
+    tables[t] = { rows: n.n, lastDay: d?.n ?? null };
+  }
+  // Values written in the last day: those of the issues of the telegrams fetched in it.
+  const entriesDay = await one<{ n: number }>(
+    db,
+    "SELECT COUNT(*) AS n FROM forecast_entries e JOIN forecast_telegrams t ON t.id = e.issue_id WHERE t.fetched_at >= ?",
+    dayAgo,
+  );
+  if (tables.forecast_entries) tables.forecast_entries.lastDay = entriesDay?.n ?? null;
+  // Rows written a day, roughly: the rows that came (each with its indexes, about 3 writes a row).
+  const rowsDay = Object.values(tables).reduce((s, t) => s + (t.lastDay ?? 0), 0);
+  const writesMonth = rowsDay * 3 * 30;
+
+  // The XML kept in the database, and the part of it already in R2 (kept twice until it is taken out).
+  const xml = {
+    forecast: await one<{ bytes: number | null; copied: number | null }>(
+      db,
+      "SELECT SUM(LENGTH(xml)) AS bytes, SUM(CASE WHEN EXISTS (SELECT 1 FROM archive_copies c WHERE c.source = 'forecast' AND c.id = t.id) THEN LENGTH(xml) ELSE 0 END) AS copied FROM forecast_telegrams t",
+    ),
+    typhoon: await one<{ bytes: number | null; copied: number | null }>(
+      db,
+      "SELECT SUM(LENGTH(xml)) AS bytes, SUM(CASE WHEN EXISTS (SELECT 1 FROM archive_copies c WHERE c.source = 'typhoon' AND c.id = t.id) THEN LENGTH(xml) ELSE 0 END) AS copied FROM typhoon_telegrams t",
+    ),
+  };
+  const xmlBytes = (xml.forecast?.bytes ?? 0) + (xml.typhoon?.bytes ?? 0);
+  const xmlTwice = (xml.forecast?.copied ?? 0) + (xml.typhoon?.copied ?? 0);
+
+  const r2 = {
+    telegrams: await one<{ n: number; bytes: number | null }>(db, "SELECT COUNT(*) AS n, SUM(bytes) AS bytes FROM archive_copies"),
+    charts: await one<{ n: number; bytes: number | null }>(db, "SELECT COUNT(*) AS n, SUM(bytes) AS bytes FROM wxchart_saved"),
+    chartsDay: await one<{ n: number; bytes: number | null }>(db, "SELECT COUNT(*) AS n, SUM(bytes) AS bytes FROM wxchart_saved WHERE fetched_at >= ?", dayAgo),
+  };
+  const r2Bytes = (r2.telegrams?.bytes ?? 0) + (r2.charts?.bytes ?? 0);
+
+  const lastOk = async (t: string) => (await one<{ at: string }>(db, `SELECT MAX(at) AS at FROM ${t} WHERE ok = 1`))?.at ?? null;
+  const latest = await all<{ kind: string; issued_at: string }>(
+    db,
+    "SELECT kind, MAX(issued_at) AS issued_at FROM forecast_telegrams WHERE office = '390000' GROUP BY kind",
+  );
+  const stages = await all<{ stage: string; runs: number; failed: number; avg_ms: number; max_ms: number; last: string }>(
+    db,
+    "SELECT stage, COUNT(*) AS runs, SUM(1 - ok) AS failed, CAST(AVG(ms) AS INTEGER) AS avg_ms, MAX(ms) AS max_ms, MAX(at) AS last FROM cron_runs WHERE at >= ? GROUP BY stage ORDER BY stage",
+    dayAgo,
+  );
+  const runTotals = await one<{ max_ms: number; runs: number }>(
+    db,
+    "SELECT MAX(total) AS max_ms, COUNT(*) AS runs FROM (SELECT at, SUM(ms) AS total FROM cron_runs WHERE at >= ? GROUP BY at)",
+    dayAgo,
+  );
+  const errors = await all<{ place: string; n: number; last: string }>(
+    db,
+    "SELECT place, COUNT(*) AS n, MAX(at) AS last FROM app_errors WHERE at >= ? GROUP BY place ORDER BY n DESC",
+    dayAgo,
+  );
+  const unparsed = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM forecast_telegrams WHERE parser = 0");
+  const parseFailed = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM forecast_telegrams WHERE parsed LIKE '{\"error\"%'");
+  const notCopied = await one<{ n: number }>(
+    db,
+    "SELECT (SELECT COUNT(*) FROM forecast_telegrams) + (SELECT COUNT(*) FROM typhoon_telegrams) - (SELECT COUNT(*) FROM archive_copies) AS n",
+  );
+  const notPreferred = await one<{ issues: number; entries: number }>(
+    db,
+    "SELECT COUNT(*) AS issues, SUM(entries) AS entries FROM forecast_issues WHERE preferred = 0",
+  );
+  const failingFetch = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM forecast_fetch_log WHERE ok = 0 AND at >= ?", dayAgo);
+  const openAlerts = [
+    ...(await all<{ key: string; opened_at: string }>(db, "SELECT key, opened_at FROM forecast_alerts WHERE closed_at IS NULL")),
+    ...(await all<{ key: string; opened_at: string }>(db, "SELECT key, opened_at FROM typhoon_alerts WHERE closed_at IS NULL")),
+  ];
+
+  return {
+    v: 1,
+    at: iso(now),
+    plan: PLAN,
+    // 余裕: each use against its limit (percent), with what it rests on.
+    room: {
+      d1Size: d1Bytes == null ? null : { bytes: d1Bytes, percent: pct(d1Bytes, PLAN.d1Bytes) },
+      d1WritesMonth: { estimate: writesMonth, percent: pct(writesMonth, PLAN.d1WritesMonth), rowsLastDay: rowsDay },
+      r2: { bytes: r2Bytes, percentOfFree: pct(r2Bytes, PLAN.r2FreeBytes), chartsLastDay: r2.chartsDay?.n ?? 0, chartBytesLastDay: r2.chartsDay?.bytes ?? 0 },
+      cron: { runsLastDay: runTotals?.runs ?? 0, maxMs: runTotals?.max_ms ?? 0, percentOfCpu: pct(runTotals?.max_ms ?? 0, PLAN.cronCpuMs), stages },
+    },
+    // 無駄: what is kept or done for nothing, or not done.
+    waste: {
+      xmlInDatabase: { bytes: xmlBytes, alsoInR2: xmlTwice },
+      notCopiedToR2: notCopied?.n ?? 0,
+      unparsed: unparsed?.n ?? 0,
+      parseFailed: parseFailed?.n ?? 0,
+      recordCopiesNotShown: { issues: notPreferred?.issues ?? 0, entries: notPreferred?.entries ?? 0 },
+      fetchFailuresLastDay: failingFetch?.n ?? 0,
+    },
+    // 状態: whether it works.
+    state: {
+      forecastLastOk: await lastOk("forecast_fetch_log"),
+      typhoonLastOk: await lastOk("typhoon_fetch_log"),
+      chartsLastOk: await lastOk("wxchart_fetch_log"),
+      kochiLatest: Object.fromEntries(latest.map((l) => [l.kind, l.issued_at])),
+      openAlerts: openAlerts.map((a) => ({ key: a.key, since: a.opened_at })),
+      accountErrorsLastDay: errors.map((e) => ({ place: e.place, n: e.n, last: e.last })),
+    },
+    tables,
+  };
+}

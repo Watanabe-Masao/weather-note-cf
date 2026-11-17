@@ -18,6 +18,7 @@ import { collectForecasts } from "./forecastArchive";
 import { parseForecasts } from "./forecastParse";
 import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
+import { health, timed } from "./health";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { forecastCharts } from "../../shared/wxchart";
@@ -133,6 +134,11 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db): Promise<Res
       }));
     }
 
+    case "/api/health": {
+      // 監視と管理 (health.ts): room left under the plan, what is kept for nothing, and whether it works. A minute at the edge.
+      if (!db) return jsonResponse({ v: 1, error: "no database" }, 503);
+      return cachedFor(url.origin, `${CACHE_VERSION}/health`, 60, waitUntil, () => health(db));
+    }
     case "/api/wxchart-forecast": {
       // 予想天気図 (#249): JMA's latest 24・48時間 charts, as its weather map page lists them, shared for 30 minutes.
       return cachedFor(url.origin, `${CACHE_VERSION}/wxchart-forecast`, TYPHOON_TTL, waitUntil, async () => {
@@ -192,40 +198,33 @@ export default {
     }
   },
   /** Every 5 minutes (wrangler.jsonc): the report notifications that are due, and JMA's new typhoon telegrams (#220). */
-  async scheduled(_event: ScheduledController, env: AccountsEnv, ctx: ExecutionContext): Promise<void> {
+  async scheduled(event: ScheduledController, env: AccountsEnv, ctx: ExecutionContext): Promise<void> {
     if (!env.DB) return;
     const db = env.DB;
-    ctx.waitUntil(ensureSchema(db).then(() => runSchedule(db)));
+    // Each stage's time and outcome is kept (health.ts: cron_runs), so the room left and a slow stage can be seen.
+    const at = new Date(event.scheduledTime).toISOString();
+    const stage = (name: string, fn: () => Promise<unknown>) => () => timed(db, at, name, fn);
+    ctx.waitUntil(stage("notify", () => ensureSchema(db).then(() => runSchedule(db)))());
     // Apart from the notifications: a failure here never stops them (and is logged in its own table).
     // Then the sources are watched, and the administrators told when one stops (typhoonWatch.ts).
     ctx.waitUntil(
-      collectTyphoons(db)
-        .catch((e) => console.error("weather-note: typhoon archive", e))
-        .then(() => watchTyphoonSources(db))
-        .catch((e) => console.error("weather-note: typhoon watch", e))
+      stage("typhoon archive", () => collectTyphoons(db))()
+        .then(stage("typhoon watch", () => watchTyphoonSources(db)))
         // 台風の目安: after the new telegrams are in (typhoonNotify.ts).
-        .then(() => ensureSchema(db))
-        .then(() => runTyphoonNotify(db))
-        .catch((e) => console.error("weather-note: typhoon notify", e))
+        .then(stage("typhoon notify", () => ensureSchema(db).then(() => runTyphoonNotify(db))))
         // 予報の履歴 (#250): JMA's forecasts of the offices in use, kept as issued (forecastArchive.ts).
-        .then(() => collectForecasts(db))
-        .catch((e) => console.error("weather-note: forecast archive", e))
+        .then(stage("forecast archive", () => collectForecasts(db)))
         // R5-3: the administrators told when the forecast archive stops (forecastWatch.ts) — before the
         // reading, which is heavier: a watch that must not wait on it, nor be cut by its limits.
-        .then(() => watchForecastArchive(db))
-        .catch((e) => console.error("weather-note: forecast watch", e))
+        .then(stage("forecast watch", () => watchForecastArchive(db)))
         // Then read what was kept: values with their times, for the history (forecastParse.ts).
-        .then(() => parseForecasts(db))
-        .catch((e) => console.error("weather-note: forecast parse", e)),
+        .then(stage("forecast parse", () => parseForecasts(db))),
     );
     // Files kept in R2 (r2Archive.ts), apart from the rest: the day's weather charts, and the telegrams copied as files.
     const bucket = env.ARCHIVE;
     if (bucket)
       ctx.waitUntil(
-        saveCharts(db, bucket)
-          .catch((e) => console.error("weather-note: wxchart save", e))
-          .then(() => copyTelegrams(db, bucket))
-          .catch((e) => console.error("weather-note: archive copy", e)),
+        stage("wxchart save", () => saveCharts(db, bucket))().then(stage("archive copy", () => copyTelegrams(db, bucket))),
       );
   },
 } satisfies ExportedHandler<AccountsEnv>;
