@@ -26,8 +26,10 @@ jobs:
         run: npx --yes tsx@4.19.2 research/warnings/w01.ts --out research/warnings/out
       - if: contains(github.event.head_commit.message, '[w02]')
         run: npx --yes tsx@4.19.2 research/warnings/w02.ts --out research/warnings/out2
+      - if: contains(github.event.head_commit.message, '[w03]')
+        run: npx --yes tsx@4.19.2 research/warnings/w03.ts --out research/warnings/out3
       - if: always()
-        run: cat research/warnings/out/w01-report.md research/warnings/out2/w02-report.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+        run: cat research/warnings/out/w01-report.md research/warnings/out2/w02-report.md research/warnings/out3/w03-report.md >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
       - if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -35,3 +37,4 @@ jobs:
           path: |
             research/warnings/out
             research/warnings/out2
+            research/warnings/out3
