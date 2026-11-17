@@ -158,6 +158,10 @@ export async function parseForecasts(db: Db, limit = PARSE_PER_RUN): Promise<{ r
     const revisionOf = await correctedIssue(db, r.id, t);
     await db.batch([
       ...issueStatements(db, r.id, "jma-xml", t, revisionOf),
+      // The same issue taken from the record (R2) stays, but ours is shown (R2-6).
+      db
+        .prepare("UPDATE forecast_issues SET preferred = 0 WHERE source = 'shiromatz' AND office = ? AND kind = ? AND issued_at = ? AND preferred = 1")
+        .bind(t.office, t.kind, t.issuedAt),
       // A 訂正 read before the issue it corrects (newest first) is tied to it now.
       ...(t.infoType === "発表"
         ? [

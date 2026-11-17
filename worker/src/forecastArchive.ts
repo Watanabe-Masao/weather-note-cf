@@ -76,7 +76,7 @@ export function officeOf(blockNo: string): string | null {
 const DEFAULT_STATIONS = ["47893"];
 
 /** The offices of the stations in use: the default, the ones people report from (60 days) and are told about. */
-async function officesInUse(db: Db, now: number): Promise<Set<string>> {
+export async function officesInUse(db: Db, now: number): Promise<Set<string>> {
   const stations = new Set(DEFAULT_STATIONS);
   const since = new Date(now - 60 * 86_400_000).toISOString();
   for (const q of [

@@ -92,6 +92,76 @@ function ExportLog() {
   );
 }
 
+interface ImportMonth {
+  office: string;
+  month: string;
+  fetched_at: string;
+  issues: number;
+  empty_days: string[];
+  overlaps: number;
+  differ: number;
+}
+
+/** The months after `m` (YYYY-MM) up to `last`. */
+const nextMonth = (m: string) => {
+  const [y, mo] = m.split("-").map(Number);
+  return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
+};
+
+/**
+ * 予報の履歴 (#250, R2): JMA's forecasts of 2025-01 … taken from the record shiromatz keeps
+ * (CC BY-SA 4.0), a month at a time — the first month as a trial, then the rest once it reads well.
+ */
+function ForecastImport() {
+  const [state, setState] = useState<{ first: string; last: string; months: ImportMonth[] } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    api<{ first: string; last: string; months: ImportMonth[] }>("/api/admin/forecast-import")
+      .then(setState)
+      .catch((e) => setError((e as Error).message));
+  }, []);
+  useEffect(load, [load]);
+  if (!state) return error ? <p className="warn">{error}</p> : null;
+  const kochi = state.months.filter((m) => m.office === "390000");
+  const taken = new Set(kochi.map((m) => m.month));
+  let next: string | null = state.first;
+  while (next && taken.has(next)) next = next < state.last ? nextMonth(next) : null;
+  const take = (month: string) => {
+    setBusy(true);
+    setError(null);
+    api("/api/admin/forecast-import", { month })
+      .then(load)
+      .catch((e) => setError((e as Error).message))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <>
+      {kochi.length ? (
+        <ul className="admin-imports">
+          {kochi.map((m) => (
+            <li key={m.month}>
+              {m.month}：発表 {m.issues}件・発表のない日 {m.empty_days.length}日
+              {m.overlaps ? `・自前の電文と重なる ${m.overlaps}件（違い ${m.differ}件）` : ""}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <small className="set-help">まだ取り込んでいません。最初の1か月を試しに取り込み、中身を確かめてから続けます。</small>
+      )}
+      {next ? (
+        <div className="actions tight">
+          <button className="primary" disabled={busy} onClick={() => take(next!)}>
+            {busy ? "取り込んでいます…" : `${next} を取り込む`}
+          </button>
+        </div>
+      ) : null}
+      <small className="set-help">2026-11 は、記録に追加されてから（12月はじめの見込み）取り込みます。出典：気象庁の予報（shiromatz/Japan-Meteorological-Agency-Weather-Forecast の記録、CC BY-SA 4.0）。</small>
+      {error ? <p className="warn">{error}</p> : null}
+    </>
+  );
+}
+
 function Body() {
   const [users, setUsers] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -248,6 +318,12 @@ function Body() {
           <ExportToken />
         </details>
         <ExportLog />
+      </section>
+
+      <section className="set-group" aria-labelledby="admin-forecast-import">
+        <h3 id="admin-forecast-import">予報の履歴：過去の記録の取り込み</h3>
+        <p className="set-lead">2025年1月から、気象庁が発表した予報（高知）を外部の記録から1か月ずつ取り込みます。2026年11月10日からはアプリが自分で保存した電文を使い、重なる分は突き合わせに使います。</p>
+        <ForecastImport />
       </section>
     </div>
   );
