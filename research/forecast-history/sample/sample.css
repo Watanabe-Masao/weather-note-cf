@@ -313,3 +313,7 @@
 .fh-box { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid var(--ink-secondary); }
 .fh-box.four { background: repeating-linear-gradient(180deg, transparent 0 2.5px, var(--ink-secondary) 2.5px 3.5px); background-clip: content-box; }
 .fh-gap-l { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-secondary); font-family: var(--font-body, inherit); }
+
+/* 降水確率の欄：タップで「6時間ごと」と「かんたん」を切り替える。見た目は変えず、キーボードで選んだときだけ枠 */
+.fh-pop-toggle { fill: transparent; pointer-events: none; outline: none; }
+.fh-pop-toggle:focus-visible { stroke: var(--accent); stroke-width: 1.5; }

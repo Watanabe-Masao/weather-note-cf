@@ -450,17 +450,13 @@ function App({
                 <>
                   {plan === "step" ? (
                     <>
-                      <Segmented
-                        label="降水確率"
-                        value={popView}
-                        onChange={setPopView}
-                        options={[
-                          { id: "detail", label: "6時間ごと" },
-                          { id: "simple", label: "かんたん" },
-                        ]}
-                      />
                       <StepChart
                         pop={popView}
+                        onTogglePop={() =>
+                          setPopView((v) =>
+                            v === "simple" ? "detail" : "simple",
+                          )
+                        }
                         slots={slots}
                         day={day}
                         focus={focusKey}

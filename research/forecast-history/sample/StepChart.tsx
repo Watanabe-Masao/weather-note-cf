@@ -32,6 +32,7 @@ export function StepChart({
   recent = false,
   axis = "date",
   pop = "detail",
+  onTogglePop,
 }: {
   slots: Slot[];
   day: string;
@@ -42,6 +43,8 @@ export function StepChart({
   axis?: "date" | "clock";
   /** 降水確率：detail＝府県天気予報は6時間ごとの4マス、simple＝どの発表も1マス（府県天気予報は残っている時間帯の最大）。 */
   pop?: "detail" | "simple";
+  /** 降水確率の欄（帯とマス）を短くタップしたとき。 */
+  onTogglePop?: () => void;
   onScrub: (key: string | null, phase: "move" | "end") => void;
   onSelect: (key: string) => void;
 }) {
@@ -147,6 +150,13 @@ export function StepChart({
       )
       .join("");
 
+  // 降水確率の欄（帯の札からマスの下まで）か。
+  const inPop = (clientY: number) => {
+    const m = svgRef.current?.getScreenCTM();
+    if (!m) return false;
+    const py = (clientY - m.f) / m.d;
+    return py >= BAND_Y - 12 && py <= CELL_TOP + CELL_H + 2;
+  };
   const nearest = (clientX: number) => {
     const m = svgRef.current?.getScreenCTM();
     if (!m) return null;
@@ -195,6 +205,7 @@ export function StepChart({
     clear();
     scrubbing.current = false;
     if (was) onScrub(lastKey.current, "end");
+    else if (onTogglePop && inPop(ev.clientY)) onTogglePop();
     else {
       const s = nearest(ev.clientX);
       if (s) onSelect(s.key);
@@ -565,6 +576,30 @@ export function StepChart({
             </g>
           );
         })}
+        {/* キーボード用：降水確率の欄を切り替えるボタン（指の操作は下の当たり判定で受ける） */}
+        {onTogglePop && (
+          <rect
+            x={PAD_L}
+            y={BAND_Y - 12}
+            width={SPAN}
+            height={CELL_H + (CELL_TOP - BAND_Y) + 14}
+            rx={3}
+            className="fh-pop-toggle"
+            role="button"
+            tabIndex={0}
+            aria-label={
+              simple
+                ? "降水確率を6時間ごとに表示する"
+                : "降水確率をかんたん表示にする"
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onTogglePop();
+              }
+            }}
+          />
+        )}
         <rect
           x={PAD_L}
           y={0}
