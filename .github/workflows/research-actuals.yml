@@ -1,0 +1,15 @@
+name: research-actuals
+# 見本の「実績」用の観測を気象庁の過去の気象データから読む（research/actuals）。research/actuals ブランチの push だけで動く。定期実行なし。
+on:
+  push:
+    branches: [research/actuals]
+    paths: ["research/actuals/**", ".github/workflows/research-actuals.yml"]
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: research/actuals
+      - run: pip install beautifulsoup4 lxml
+      - run: python research/actuals/fetch.py
