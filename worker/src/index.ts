@@ -1,6 +1,7 @@
 // Weather Note API. Static files (the app) are served by Workers static assets;
 // only /api/* reaches this code (see wrangler.jsonc).
 
+import { rainNow, rainTile } from "./rainNow";
 import { addDays, daysBetween, FIRST_DAY, FORECAST_DAYS, isDay, isMonth, jstToday, lastDayOfMonth, monthOf } from "../../shared/dates";
 import { correctionRev } from "../../shared/corrections";
 import { inRevalidation, isFixedHourlyDay, isFixedMonth } from "../../shared/fixed";
@@ -69,7 +70,15 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
   const today = jstToday();
   const waitUntil = (p: Promise<unknown>) => ctx.waitUntil(p);
 
+  // 雨の見込み（確認用）：気象庁のタイルを地点のまわりだけ中継する（worker/src/rainNow.ts）。
+  if (url.pathname.startsWith("/api/rain-tile/")) return rainTile(url.pathname, url.origin, waitUntil);
+
   switch (url.pathname) {
+    case "/api/rain-now": {
+      // 雨の見込み（確認用）：気象庁の一覧から組んだ地図のこま。一覧は1分ごとに変わるので、端に1分だけ置く。
+      const station = findStation(q.get("station"));
+      return cachedFor(url.origin, `${CACHE_VERSION}/rain-now/${station.blockNo}`, 60, waitUntil, () => rainNow(station.blockNo));
+    }
     case "/api/stations":
       return jsonResponse(stations);
 
