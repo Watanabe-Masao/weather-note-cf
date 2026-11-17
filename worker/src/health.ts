@@ -9,6 +9,7 @@
 //   app_errors — failures of the account requests (the log keeps them only 3–7 days, the count here 30).
 
 import type { Db } from "./accounts";
+import { monthUsage, type UsageEnv } from "./usage";
 
 export const HEALTH_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS cron_runs (
@@ -35,6 +36,9 @@ export const PLAN = {
   r2FreeBytes: 10e9, // R2's free tier (Standard)
   r2WritesMonthFree: 1e6, // Class A
   cronCpuMs: 30_000,
+  requestsMonth: 10e6, // Workers requests, included
+  cpuMsMonth: 30e6, // Workers CPU time, included
+  r2ReadsMonthFree: 10e6, // Class B
 };
 
 const KEEP_DAYS = 30;
@@ -128,7 +132,7 @@ const TABLES: [string, string | null][] = [
 
 const pct = (part: number, whole: number) => Math.round((part / whole) * 1000) / 10;
 
-export async function health(db: Db, now = Date.now()) {
+export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usageFetch?: Parameters<typeof monthUsage>[2]) {
   await ensureHealthSchema(db);
   const iso = (ms: number) => new Date(ms).toISOString();
   const dayAgo = iso(now - 86_400_000);
@@ -190,11 +194,7 @@ export async function health(db: Db, now = Date.now()) {
     "SELECT stage, COUNT(*) AS runs, SUM(1 - ok) AS failed, CAST(AVG(ms) AS INTEGER) AS avg_ms, MAX(ms) AS max_ms, MAX(at) AS last FROM cron_runs WHERE at >= ? GROUP BY stage ORDER BY stage",
     dayAgo,
   );
-  const runTotals = await one<{ max_ms: number; runs: number }>(
-    db,
-    "SELECT MAX(total) AS max_ms, COUNT(*) AS runs FROM (SELECT at, SUM(ms) AS total FROM cron_runs WHERE at >= ? GROUP BY at)",
-    dayAgo,
-  );
+  const runTotals = await one<{ runs: number }>(db, "SELECT COUNT(DISTINCT at) AS runs FROM cron_runs WHERE at >= ?", dayAgo);
   const errors = await all<{ place: string; n: number; last: string }>(
     db,
     "SELECT place, COUNT(*) AS n, MAX(at) AS last FROM app_errors WHERE at >= ? GROUP BY place ORDER BY n DESC",
@@ -216,16 +216,45 @@ export async function health(db: Db, now = Date.now()) {
     ...(await all<{ key: string; opened_at: string }>(db, "SELECT key, opened_at FROM typhoon_alerts WHERE closed_at IS NULL")),
   ];
 
+  // The month's real use, as Cloudflare counts it (usage.ts); each part says itself when it could not be read.
+  const u = await monthUsage(env, now, usageFetch);
+  const measured = u.ok
+    ? {
+        from: u.from,
+        workers: u.workers.ok
+          ? {
+              ...u.workers.value,
+              requestsPercent: pct(u.workers.value.requests, PLAN.requestsMonth),
+              // CPU for the month, roughly: requests × the median CPU time (Cloudflare bills the sum).
+              cpuMsEstimate: Math.round((u.workers.value.requests * u.workers.value.cpuP50Us) / 1000),
+              cpuPercentEstimate: pct((u.workers.value.requests * u.workers.value.cpuP50Us) / 1000, PLAN.cpuMsMonth),
+              // The slowest invocations' CPU (99th percentile) against the limit of one run (30 s).
+              cpuP99PercentOfRun: pct(u.workers.value.cpuP99Us / 1000, PLAN.cronCpuMs),
+            }
+          : { error: u.workers.error },
+        d1: u.d1.ok
+          ? { ...u.d1.value, rowsWrittenPercent: pct(u.d1.value.rowsWritten, PLAN.d1WritesMonth), rowsReadPercent: pct(u.d1.value.rowsRead, PLAN.d1ReadsMonth) }
+          : { error: u.d1.error },
+        r2: u.r2.ok
+          ? { ...u.r2.value, bytesPercentOfFree: pct(u.r2.value.bytes, PLAN.r2FreeBytes), classAPercentOfFree: pct(u.r2.value.classA, PLAN.r2WritesMonthFree), classBPercentOfFree: pct(u.r2.value.classB, PLAN.r2ReadsMonthFree) }
+          : { error: u.r2.error },
+      }
+    : { error: u.error };
+
   return {
     v: 1,
     at: iso(now),
     plan: PLAN,
+    // 実際の使用量（今月、Cloudflare の集計）: the measure; `room` below is the app's own count beside it.
+    usage: measured,
     // 余裕: each use against its limit (percent), with what it rests on.
     room: {
       d1Size: d1Bytes == null ? null : { bytes: d1Bytes, percent: pct(d1Bytes, PLAN.d1Bytes) },
       d1WritesMonth: { estimate: writesMonth, percent: pct(writesMonth, PLAN.d1WritesMonth), rowsLastDay: rowsDay },
       r2: { bytes: r2Bytes, percentOfFree: pct(r2Bytes, PLAN.r2FreeBytes), chartsLastDay: r2.chartsDay?.n ?? 0, chartBytesLastDay: r2.chartsDay?.bytes ?? 0 },
-      cron: { runsLastDay: runTotals?.runs ?? 0, maxMs: runTotals?.max_ms ?? 0, percentOfCpu: pct(runTotals?.max_ms ?? 0, PLAN.cronCpuMs), stages },
+      // Wall time (waiting on JMA, D1 and R2 included), not CPU: the stages run in two lines at once,
+      // so their sum is no run's length. CPU against its limit is in `usage` (Cloudflare's count).
+      cron: { runsLastDay: runTotals?.runs ?? 0, longestStageMs: Math.max(0, ...stages.map((s) => s.max_ms)), stages },
     },
     // 無駄: what is kept or done for nothing, or not done.
     waste: {

@@ -31,6 +31,9 @@ export interface AccountsEnv {
   SETUP_CODE?: string;
   /** R2 (weather-note-archive): telegrams and weather charts as files (r2Archive.ts). */
   ARCHIVE?: Bucket;
+  /** Cloudflare's own count of the month's use (usage.ts): a read-only token (secret) and the account. */
+  CF_ANALYTICS_TOKEN?: string;
+  CF_ACCOUNT_ID?: string;
 }
 
 import {

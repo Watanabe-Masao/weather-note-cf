@@ -17,6 +17,9 @@
   // Files kept beside the database (worker/src/r2Archive.ts): the telegrams as issued (gzipped) and the
   // daily weather charts. Made by hand in the dashboard (Standard, not public), 2026-11-17.
   "r2_buckets": [{ "binding": "ARCHIVE", "bucket_name": "weather-note-archive" }],
+  // The account, for reading its month's use (worker/src/usage.ts, with the secret CF_ANALYTICS_TOKEN,
+  // a read-only token set in the dashboard). An account id is not a secret.
+  "vars": { "CF_ACCOUNT_ID": "92f4251b54fe77f08c1658592121327e" },
   // Needed by `wrangler preview`, which Workers Builds runs for pull requests.
   "previews": {}
 }
