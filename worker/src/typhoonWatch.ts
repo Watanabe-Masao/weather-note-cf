@@ -245,8 +245,8 @@ async function lookNow(
   return { found, watched };
 }
 
-/** To every administrator's devices. Returns how many got it. */
-async function tellAdmins(
+/** To every administrator's devices. Returns how many got it. (Also used by forecastWatch.ts.) */
+export async function tellAdmins(
   db: Db,
   m: Message,
   now: number,
@@ -304,10 +304,12 @@ export async function watchTyphoonSources(
   for (const [key, openedAt] of open) {
     if (!watched.has(key) || now_.has(key)) continue;
     // Over: closed, and its key freed (renamed with when it opened) so a later stop is told again.
-    await db
-      .prepare("UPDATE typhoon_alerts SET closed_at = ?, key = ? WHERE key = ?")
+    const done = await db
+      .prepare("UPDATE typhoon_alerts SET closed_at = ?, key = ? WHERE key = ? AND closed_at IS NULL")
       .bind(at, `${key}@${openedAt}`, key)
       .run();
+    // Two runs at one moment: only the one that closed it tells (no 「復旧」 twice).
+    if (!done.meta.changes) continue;
     closed.push(key);
     const closeMsg = closers[key]?.(openedAt, now);
     if (closeMsg) await tellAdmins(db, closeMsg, now, send);

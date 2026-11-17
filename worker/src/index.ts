@@ -16,6 +16,7 @@ import { runSchedule } from "./notify";
 import { activeTyphoons } from "./typhoon";
 import { collectForecasts } from "./forecastArchive";
 import { parseForecasts } from "./forecastParse";
+import { watchForecastArchive } from "./forecastWatch";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { forecastCharts } from "../../shared/wxchart";
@@ -208,6 +209,10 @@ export default {
         // 予報の履歴 (#250): JMA's forecasts of the offices in use, kept as issued (forecastArchive.ts).
         .then(() => collectForecasts(db))
         .catch((e) => console.error("weather-note: forecast archive", e))
+        // R5-3: the administrators told when the forecast archive stops (forecastWatch.ts) — before the
+        // reading, which is heavier: a watch that must not wait on it, nor be cut by its limits.
+        .then(() => watchForecastArchive(db))
+        .catch((e) => console.error("weather-note: forecast watch", e))
         // Then read what was kept: values with their times, for the history (forecastParse.ts).
         .then(() => parseForecasts(db))
         .catch((e) => console.error("weather-note: forecast parse", e)),
