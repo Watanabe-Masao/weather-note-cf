@@ -7,8 +7,8 @@ import { dateLabel, hoursMinutes } from "../design/format";
 import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
 import { SectionHead, Slider } from "./kit";
-import { ICON } from "../design/tokens";
-import { useMemo, useRef, useState, type PointerEvent } from "react";
+import { ICON, TYPE_SIZE } from "../design/tokens";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 
 const W = 340;
 const H = 230;
@@ -67,6 +67,18 @@ export function SunSheet({
   const part = dayParts(date, station).find((p) => p.id !== "night" && at >= p.from && at < p.to)?.label ?? "夜";
   const skyNow = skies[Math.min(skies.length - 1, Math.round(at / 10))];
   const svg = useRef<SVGSVGElement>(null);
+  // The drawing is W wide and shown at the card's width: the tick labels are set so they are xs on screen
+  // (in the drawing's own units a CSS size shrinks with it, under 11px on a phone).
+  const [tick, setTick] = useState<number>(TYPE_SIZE.xs);
+  useEffect(() => {
+    const el = svg.current;
+    if (!el) return;
+    const fit = () => el.clientWidth && setTick((TYPE_SIZE.xs * W) / el.clientWidth);
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const scrubbing = useRef(false);
   const moved = useRef(false);
   const pick = (ev: PointerEvent) => {
@@ -133,12 +145,12 @@ export function SunSheet({
         {[0, ...TWILIGHTS.map((tw) => tw.deg)].map((d) => (
           <g key={d}>
             <line x1={PAD.left} x2={W - PAD.right} y1={y(d)} y2={y(d)} className={d === 0 ? "sun-horizon" : "sun-depth"} />
-            <text x={PAD.left - 4} y={y(d) + 3.5} textAnchor="end" className="sun-tick">
+            <text x={PAD.left - 4} y={y(d) + 3.5} textAnchor="end" className="sun-tick" fontSize={tick}>
               {d === 0 ? "0°" : `−${-d}°`}
             </text>
           </g>
         ))}
-        <text x={PAD.left - 4} y={y(high) + 8} textAnchor="end" className="sun-tick">
+        <text x={PAD.left - 4} y={y(high) + 8} textAnchor="end" className="sun-tick" fontSize={tick}>
           {high}°
         </text>
         <path d={path} className="sun-curve" />
@@ -152,7 +164,7 @@ export function SunSheet({
         <circle cx={x(at)} cy={y(altAt)} r={5} className={altAt >= 0 ? "sun-dot day" : "sun-dot"} />
         {/* Hours as on the hour graph: bare numbers every 3 hours. */}
         {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
-          <text key={h} x={x(h * 60)} y={H - 5} textAnchor={h === 24 ? "end" : "middle"} className="sun-tick">
+          <text key={h} x={x(h * 60)} y={H - 5} textAnchor={h === 24 ? "end" : "middle"} className="sun-tick" fontSize={tick}>
             {h}
           </text>
         ))}

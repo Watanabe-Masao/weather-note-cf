@@ -9,7 +9,7 @@
 // station, and at the end what happened. Anything not read is said, never drawn as nothing.
 // 出典：気象庁（ベストトラック／防災情報XML／台風情報）、地図：Natural Earth。判定は Weather Note。
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import stations from "../../shared/stations.json";
 import { stationLatLon } from "../../shared/sunTimes";
 import { type Storm } from "../../shared/typhoon";
@@ -27,6 +27,7 @@ import {
 } from "../../shared/typhoonMap";
 import { useTyphoonRecord } from "../data/typhoon";
 import type { TyphoonInfo } from "../data/typhoonNow";
+import { TYPE_SIZE } from "../design/tokens";
 import { Glyph, Segmented } from "./kit";
 import { ModalSheet } from "./ModalSheet";
 
@@ -140,6 +141,18 @@ export function TyphoonSheet({
   const [pick, setPick] = useState<number | null>(null);
   const [ann, setAnn] = useState<number | null>(null);
   const [zoom, setZoom] = useState(1);
+  // The width the map is drawn at, so a label is a given size on screen (sw below).
+  const mapRef = useRef<HTMLDivElement>(null);
+  const [mapPx, setMapPx] = useState(0);
+  const hasMap = at != null;
+  useEffect(() => {
+    const el = mapRef.current;
+    if (!el) return;
+    setMapPx(el.clientWidth);
+    const ro = new ResizeObserver(() => setMapPx(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasMap]);
   const chosenKey =
     pick ?? keys.find((k) => k.why === "いちばん近い")?.t ?? keys[0]?.t ?? null;
   const hour = hours.find((h) => h.t === chosenKey) ?? null;
@@ -150,7 +163,9 @@ export function TyphoonSheet({
   const half = HALF / zoom;
   const box = { x: -half, y: -half * 1.05, w: half * 2, h: half * 2.1 };
   const px = (lat: number, lon: number) => project(lat, lon);
-  const sw = (n: number) => (n * half) / 180; // a stroke of n screen px (the map is about 360 px wide)
+  // n screen px in the map's own units, by the width the map is drawn at (measured; 360 until it is). The
+  // labels are the type scale's xs on screen: assuming 360 drew them at about 10px on a 360-wide phone.
+  const sw = (n: number) => (n * box.w) / (mapPx || 360);
 
   // The station's days with the typhoon (within 500 km), for the band's axis.
   const near = hours.filter((h) => h.km <= 500 || h.level > 0);
@@ -188,7 +203,7 @@ export function TyphoonSheet({
           { id: "now", label: "今" },
         ]}
       />
-      <div className="ty-map">
+      <div className="ty-map" ref={mapRef}>
         <svg
           viewBox={`${box.x} ${box.y} ${box.w} ${box.h}`}
           role="img"
@@ -218,7 +233,7 @@ export function TyphoonSheet({
                   className={view === "real" ? "ty-tick" : "ty-tick quiet"}
                 >
                   <circle cx={x} cy={y} r={sw(2.5)} />
-                  <text x={x + sw(7)} y={y + sw(4)} fontSize={sw(10)}>
+                  <text x={x + sw(7)} y={y + sw(4)} fontSize={sw(TYPE_SIZE.xs)}>
                     {md(h.t)} 9時
                   </text>
                 </g>
@@ -235,7 +250,7 @@ export function TyphoonSheet({
             className="ty-station-name"
             x={-sw(8)}
             y={sw(4)}
-            fontSize={sw(11)}
+            fontSize={sw(TYPE_SIZE.xs)}
             textAnchor="end"
           >
             {name}
