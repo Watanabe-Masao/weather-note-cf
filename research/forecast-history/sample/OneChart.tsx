@@ -220,7 +220,9 @@ export function OneChart({
               const weekly = p.s.kind === "VPFW50";
               const isLate = l.dots.includes(p);
               const stroke = isLate ? quiet(l.c) : strokeOf(p.s.kind, l.c);
-              const changed = !isLate && p.s.changed.has(l.changedKey(p.s));
+              const fx = focusSlot ? x(focusSlot.at) : null;
+              // 指の下の発表の数字と重なる近くの数字は出さない
+              const changed = !isLate && p.s.changed.has(l.changedKey(p.s)) && (fx == null || focus === p.s.key || Math.abs(p.x - fx) > 14);
               const on = focus === p.s.key;
               return (
                 <g key={`${l.key}${p.s.key}`}>
@@ -298,42 +300,62 @@ export function OneChart({
   );
 }
 
-/** 上の文（赤の枠）：指の下・選んだ発表の中身と、1つ前の同じ種類の発表からの変化。 */
+/**
+ * 上の文（赤の枠）：指の下・選んだ発表を、アプリの1日モードの頭（dd-hero）と同じ形で出す。天気は絵、
+ * 最高／最低は大きな数字、下に「何の発表か」と、1つ前の同じ種類の発表からの変化を1行で。
+ * 週間の信頼度 A/B/C は、アプリ独自の信頼度の札と取り違えないよう、札にせず言葉で書く。
+ */
 export function FocusSay({ s, slots }: { s: Slot; slots: Slot[] }) {
-  const head = `${leadLabel(s.lead)}（${md(s.at.slice(0, 10))} ${hourOf(s.at)}時の${KIND_SHORT[s.kind]}）`;
+  const what = `${leadLabel(s.lead)}・${md(s.at.slice(0, 10))} ${hourOf(s.at)}時の${KIND_SHORT[s.kind]}`;
   if (s.state !== "ok" || !s.values) {
     return (
       <div className="fh-focus">
-        <p className="fh-focus-head">{head}</p>
-        <p>{STATE_TEXT[s.state]}</p>
+        <div className="dd-hero">
+          <span className="dd-pic fh-focus-nopic" aria-hidden="true" />
+          <span className="dd-temps">
+            <span className="fh-focus-state">{STATE_TEXT[s.state]}</span>
+          </span>
+          <span className="dd-kind">{what}</span>
+        </div>
       </div>
     );
   }
   const v = s.values;
-  const num = (x: { s: string; v?: unknown } | null | undefined, unit: string) => (x && x.s === "value" ? `${x.v}${unit}` : "—");
-  const name = v.weather.s === "value" ? ((v.weather as { name?: string }).name ?? "—") : "—";
+  const n = (x: { s: string; v?: unknown } | null | undefined) => (x && x.s === "value" ? String(x.v) : "—");
   const pop =
     s.kind === "VPFW50"
-      ? `降水確率 ${num(v.popDay, "%")}`
-      : `降水確率 ${v.pop6!.map((p, i) => (p === null ? null : `${POP6_NAME[i]} ${num(p, "%")}`)).filter(Boolean).join("・")}`;
-  const temp = s.kind === "VPFW50" ? `最高 ${num(v.max, "℃")}・最低 ${num(v.min, "℃")}` : `日中の最高 ${num(v.max, "℃")}・朝の最低 ${num(v.min, "℃")}`;
+      ? `降水確率 ${n(v.popDay)}%`
+      : `降水確率 ${v.pop6!.map((p, i) => (p === null ? null : `${POP6_NAME[i].replace("時", "")} ${n(p)}`)).filter(Boolean).join("・")}%`;
+  const rel = s.kind === "VPFW50" && v.reliability?.s === "value" ? `、信頼度${v.reliability.v}` : "";
   const i = slots.indexOf(s);
   const prev = slots.slice(0, i).reverse().find((p) => p.kind === s.kind && p.state === "ok");
+  const names = [...new Set([...s.changed].map((k) => (k === "weather" ? "天気" : k === "max" ? "最高" : k === "min" ? "最低" : "降水確率")))];
   const change =
     s.lead === 0
-      ? "当日の発表は途中からの値なので、前の発表とは比べない"
+      ? "当日の発表は途中からの値なので、前の発表とは比べない。"
       : !prev
-        ? "この日を予報した最初の発表"
-        : s.changed.size === 0
-          ? `前の発表（${md(prev.at.slice(0, 10))} ${hourOf(prev.at)}時）から変わらなかった`
-          : `前の発表（${md(prev.at.slice(0, 10))} ${hourOf(prev.at)}時）から変わった：${[...s.changed].map((k) => (k === "weather" ? "天気" : k === "max" ? "最高" : k === "min" ? "最低" : "降水確率")).filter((x, j, a) => a.indexOf(x) === j).join("・")}`;
+        ? "この日を予報した最初の発表。"
+        : names.length === 0
+          ? `前の発表（${md(prev.at.slice(0, 10))} ${hourOf(prev.at)}時）から変わらなかった。`
+          : `前の発表（${md(prev.at.slice(0, 10))} ${hourOf(prev.at)}時）から ${names.join("・")} が変わった。`;
   return (
     <div className="fh-focus">
-      <p className="fh-focus-head">{head}</p>
-      <p>
-        <b>{name}</b>、{pop}、{temp}
+      <div className="dd-hero">
+        <span className="dd-pic">
+          <Wx s={s} size={52} />
+        </span>
+        <span className="dd-temps">
+          <span className="tone-hot">{n(v.max)}</span>
+          <span className="dd-slash">/</span>
+          <span className="tone-cold">{n(v.min)}</span>
+          <small>℃</small>
+        </span>
+        <span className="dd-kind">{what}</span>
+      </div>
+      <p className="dd-say">
+        {pop}
+        {rel}。{change}
       </p>
-      <p className="fh-focus-change">{change}</p>
     </div>
   );
 }
