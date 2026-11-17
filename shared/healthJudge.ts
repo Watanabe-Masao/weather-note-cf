@@ -45,6 +45,7 @@ export interface HealthView {
     forecastLastOk: string | null;
     typhoonLastOk: string | null;
     chartsLastOk?: string | null;
+    radarLastOk?: string | null;
     openAlerts: { key: string; since: string }[];
     accountErrorsLastDay: { place: string; n: number }[];
     forecastImport?: { lastTaken: string | null; next: string | null };
@@ -87,6 +88,11 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
     if (ago(s.forecastLastOk) > 0.5) problem("forecastStale", `予報の電文を最後に取れたのは ${hours(ago(s.forecastLastOk))}（5分ごとのはず）。`);
     if (ago(s.typhoonLastOk) > 0.5) problem("typhoonStale", `台風の電文を最後に取れたのは ${hours(ago(s.typhoonLastOk))}。`);
     if (s.chartsLastOk !== undefined && ago(s.chartsLastOk) > 1) note("chartsStale", `天気図の保存が最後にうまくいったのは ${hours(ago(s.chartsLastOk))}。`);
+    // 雨雲レーダー：気象庁の一覧は約3時間分。2時間止まると、取り直せない時刻が出はじめる。
+    if (s.radarLastOk !== undefined) {
+      if (ago(s.radarLastOk) > 2) problem("radarStale", `雨雲レーダーの保存が最後にうまくいったのは ${hours(ago(s.radarLastOk))}（約3時間を過ぎた分は取り直せない）。`);
+      else if (ago(s.radarLastOk) > 1) note("radarStale", `雨雲レーダーの保存が最後にうまくいったのは ${hours(ago(s.radarLastOk))}。`);
+    }
     for (const a of s.openAlerts) problem(`alert:${a.key}`, `アプリの警告が開いたまま：${a.key}（${a.since} から）。`);
     const errs = s.accountErrorsLastDay.reduce((n, e) => n + e.n, 0);
     if (errs >= 3) problem("accountErrors", `アカウントの処理の失敗が24時間で ${errs} 回（${s.accountErrorsLastDay.map((e) => `${e.place} ${e.n}`).join("・")}）。`);
