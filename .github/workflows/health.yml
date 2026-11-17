@@ -1,0 +1,55 @@
+name: health
+
+# 監視と管理 (2026-11-17): every hour, the app's /api/health is read and judged (scripts/health-check.mjs).
+# Something wrong opens an issue labelled "health" (or adds to the open one); when it is all right
+# again, the issue is closed. The numbers are on the job page and in its log for the daily check.
+# Free on a public repository (GitHub-hosted standard runners).
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: health
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: read /api/health
+        env:
+          HEALTH_URL: ${{ secrets.HEALTH_URL }}
+        run: node scripts/health-check.mjs
+      - name: open, add to or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          problems=$(node -e 'console.log(require("./health-result.json").problems.length)')
+          open=$(gh issue list --label health --state open --json number --jq '.[0].number // empty')
+          if [ "$problems" -gt 0 ]; then
+            if [ -z "$open" ]; then
+              gh label create health --color B60205 --description "監視（health.yml）" 2>/dev/null || true
+              gh issue create --title "監視：Weather Note に異常があります" --label health --body-file health-report.md
+            else
+              # One comment a day at most while it stays wrong: the first run after midnight UTC, or when it changes.
+              last=$(gh issue view "$open" --json comments --jq '.comments[-1].body // ""' | head -c 4000)
+              now=$(sed -n '3,40p' health-report.md | grep '^- ' || true)
+              if ! printf '%s' "$last" | grep -qF "$(printf '%s' "$now" | head -1)" || [ "$(date -u +%H)" = "00" ]; then
+                gh issue comment "$open" --body-file health-report.md
+              fi
+            fi
+          elif [ -n "$open" ]; then
+            gh issue close "$open" --comment "復旧しました（$(date -u +%Y-%m-%dT%H:%MZ)）。"
+          fi
