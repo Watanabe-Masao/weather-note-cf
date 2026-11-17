@@ -306,3 +306,10 @@
 .fh-gap { display: flex; align-items: baseline; gap: var(--space-1); height: 1.6em; font-family: var(--font-numeric); font-weight: var(--weight-bold); font-size: var(--size-sm); }
 .fh-gap-tag { font-size: var(--size-xs); font-weight: var(--weight-bold); padding: 0 var(--space-1); border-radius: var(--radius-sm); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
 .fh-split-col.actual .fh-split-meta { height: auto; min-height: 0; }
+.fh-band line { stroke: var(--ink-tertiary); stroke-width: 0.8; }
+.fh-band text { fill: var(--ink-secondary); }
+.fh-band-arrow { fill: var(--ink-tertiary); }
+.fh-band-split { stroke: var(--ink-tertiary); stroke-width: 1; stroke-dasharray: 3 3; }
+.fh-box { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid var(--ink-secondary); }
+.fh-box.four { background: repeating-linear-gradient(180deg, transparent 0 2.5px, var(--ink-secondary) 2.5px 3.5px); background-clip: content-box; }
+.fh-gap-l { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-secondary); font-family: var(--font-body, inherit); }

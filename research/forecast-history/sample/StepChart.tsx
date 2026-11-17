@@ -74,8 +74,9 @@ export function StepChart({
   });
   const lo = temps.length ? Math.floor(Math.min(...temps) / 5) * 5 : 0;
   const hi = temps.length ? Math.ceil(Math.max(...temps) / 5) * 5 : 30;
-  const ICON_Y = 14;
-  const CELL_TOP = 28;
+  const ICON_Y = 11;
+  const BAND_Y = 38; // 「1日ごと（週間）」「6時間ごと（府県）」の帯
+  const CELL_TOP = 46;
   const ROW = Math.ceil(fs + 4); // 6時間の1マスの高さ（数字が入る）
   const CELL_H = ROW * 4;
   const T_TOP = CELL_TOP + CELL_H + 16;
@@ -237,6 +238,71 @@ export function StepChart({
             </foreignObject>
           ) : null,
         )}
+        {/* 帯：ここまでは1日ごと（週間）、ここからは6時間ごと（府県天気予報）。境目に点線 */}
+        {(() => {
+          const fd = times.find((t) => popAt.get(t)?.kind === "VPFD51");
+          const xs = fd ? xi(fd) : null;
+          const band = (x0: number, x1: number, label: string) =>
+            x1 - x0 > 20 ? (
+              <g className="fh-band">
+                <line
+                  x1={x0 + 2}
+                  x2={x1 - 2}
+                  y1={BAND_Y}
+                  y2={BAND_Y}
+                  markerStart="url(#fh-arr-l)"
+                  markerEnd="url(#fh-arr-r)"
+                />
+                <text
+                  x={(x0 + x1) / 2}
+                  y={BAND_Y - 3}
+                  textAnchor="middle"
+                  fontSize={fs}
+                >
+                  {label}
+                </text>
+              </g>
+            ) : null;
+          return (
+            <g>
+              <defs>
+                <marker
+                  id="fh-arr-r"
+                  viewBox="0 0 6 6"
+                  refX="5"
+                  refY="3"
+                  markerWidth="5"
+                  markerHeight="5"
+                  orient="auto"
+                >
+                  <path d="M0,0 L6,3 L0,6" className="fh-band-arrow" />
+                </marker>
+                <marker
+                  id="fh-arr-l"
+                  viewBox="0 0 6 6"
+                  refX="1"
+                  refY="3"
+                  markerWidth="5"
+                  markerHeight="5"
+                  orient="auto"
+                >
+                  <path d="M6,0 L0,3 L6,6" className="fh-band-arrow" />
+                </marker>
+              </defs>
+              {band(PAD_L, xs ?? W - PAD_R, "1日ごと（週間）")}
+              {xs != null && band(xs, W - PAD_R, "6時間ごと（府県）")}
+              {xs != null && (
+                <line
+                  x1={xs}
+                  x2={xs}
+                  y1={BAND_Y - 10}
+                  y2={CELL_TOP + CELL_H + 2}
+                  className="fh-band-split"
+                />
+              )}
+            </g>
+          );
+        })()}
         {/* 降水確率のマス：左に時間帯（府県天気予報の4マスは上から 0〜6・6〜12・12〜18・18〜24時） */}
         {["0-6", "6-12", "12-18", "18-24"].map((n, i) => (
           <text
@@ -302,15 +368,6 @@ export function StepChart({
                   className={p == null ? "fh-step-none" : "fh-step-cell"}
                 />
                 {p != null && num(p, CELL_TOP + CELL_H / 2)}
-                <text
-                  x={gx + gw / 2}
-                  y={CELL_TOP + CELL_H - 3}
-                  textAnchor="middle"
-                  fontSize={fs}
-                  className="fh-step-day"
-                >
-                  日
-                </text>
               </g>
             );
           }
@@ -507,6 +564,14 @@ export function StepChart({
           <i className="fh-step-swatch" style={{ background: cell(50) }} />
           <i className="fh-step-swatch" style={{ background: cell(90) }} />
           降水確率
+        </span>
+        <span>
+          <i className="fh-box one" />
+          1日全体（週間）
+        </span>
+        <span>
+          <i className="fh-box four" />
+          6時間ごと（府県）
         </span>
         <span>
           <i className="fh-step-swatch band" />

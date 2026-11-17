@@ -33,7 +33,7 @@ function Delta({ now, before }: { now: number | null; before: number | null }) {
 
 const SLOTS = ["00-06", "06-12", "12-18", "18-24"];
 
-/** 実績と予報の差（実績 − 予報）。0.5 未満はほぼ当たり（±0）。 */
+/** 実績と予報の差（実績 − 予報）。0.05 未満は ±0°。 */
 function Gap({
   actual,
   fc,
@@ -46,7 +46,9 @@ function Gap({
   if (actual == null || fc == null) return <span className="fh-gap-v">—</span>;
   const d = Math.round((actual - fc) * 10) / 10;
   const txt =
-    Math.abs(d) < 0.5 ? "±0" : `${d > 0 ? "+" : "−"}${Math.abs(d).toFixed(1)}`;
+    Math.abs(d) < 0.05
+      ? "±0°"
+      : `${d > 0 ? "+" : "−"}${Math.abs(d).toFixed(1)}°`;
   return <span className={`fh-gap-v tone-${tone}`}>{txt}</span>;
 }
 
@@ -156,9 +158,10 @@ export function SplitHeader({
           <div className="fh-gap">
             {done && a && (mx != null || mn != null) ? (
               <>
-                <span className="fh-gap-tag">差</span>
+                <span className="fh-gap-l">最高</span>
                 <Gap actual={a.max} fc={mx} tone="hot" />
                 <span className="dd-slash">/</span>
+                <span className="fh-gap-l">最低</span>
                 <Gap actual={a.min} fc={mn} tone="cold" />
               </>
             ) : null}
@@ -179,7 +182,7 @@ export function SplitHeader({
         <span className="rh fc">予報</span>
         {ok && s.kind === "VPFW50" ? (
           <span className="c span4">
-            <small>1日</small>{" "}
+            <small>日降水確率</small>{" "}
             {numOf(v!.popDay) == null ? "---" : `${numOf(v!.popDay)}%`}
             <Delta
               now={numOf(v!.popDay)}
