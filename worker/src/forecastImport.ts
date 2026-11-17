@@ -18,7 +18,7 @@ import { FORECAST_XML_PARSER, type ForecastIssue } from "../../shared/forecastXm
 import { compareWithTelegram, parseShiromatzCsv, SHIROMATZ_PARSER, SHIROMATZ_REPO, SHIROMATZ_SOURCE, shiromatzIssueId } from "../../shared/forecastShiromatz";
 import type { Db } from "./accounts";
 import { officesInUse } from "./forecastArchive";
-import { ensureForecastParseSchema } from "./forecastParse";
+import { choosePreferred, ensureForecastParseSchema } from "./forecastParse";
 
 export const FORECAST_IMPORT_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS forecast_imports (
@@ -73,7 +73,7 @@ async function sha256(s: string): Promise<string> {
 }
 
 /** The named files of a zip (stored or deflated), read from its central directory. */
-export async function unzip(buf: ArrayBuffer, want: (name: string) => boolean): Promise<Map<string, string>> {
+export async function unzip(buf: ArrayBuffer, want: (name: string) => boolean, seen: string[] = []): Promise<Map<string, string>> {
   const v = new DataView(buf);
   let eocd = -1;
   for (let i = buf.byteLength - 22; i >= Math.max(0, buf.byteLength - 65_557); i--)
@@ -96,6 +96,7 @@ export async function unzip(buf: ArrayBuffer, want: (name: string) => boolean): 
     const local = v.getUint32(p + 42, true);
     const name = dec.decode(new Uint8Array(buf, p + 46, nameLen));
     p += 46 + nameLen + extraLen + commentLen;
+    seen.push(name);
     if (!want(name)) continue;
     const start = local + 30 + v.getUint16(local + 26, true) + v.getUint16(local + 28, true);
     const data = new Uint8Array(buf, start, size);
@@ -108,8 +109,12 @@ export async function unzip(buf: ArrayBuffer, want: (name: string) => boolean): 
   return out;
 }
 
-/** The days of `month` (YYYY-MM, JST) with no 府県天気予報 among `issues`, and how many each day had. */
-function daysOf(month: string, issues: ForecastIssue[]) {
+/**
+ * The days of `month` (YYYY-MM, JST) the record has no 府県天気予報 for — not taken by it (未取得), not
+ * 「発表がない」 — leaving out the days still to come and the days our own telegrams hold; and how many
+ * each day had.
+ */
+function daysOf(month: string, issues: ForecastIssue[], ours: Set<string>, today: string) {
   const per = new Map<string, number>();
   for (const t of issues) if (t.kind === "VPFD51" && t.issuedAt.startsWith(month)) per.set(t.issuedAt.slice(0, 10), (per.get(t.issuedAt.slice(0, 10)) ?? 0) + 1);
   const [y, m] = month.split("-").map(Number);
@@ -117,7 +122,7 @@ function daysOf(month: string, issues: ForecastIssue[]) {
   const empty: string[] = [];
   for (let d = 1; d <= days; d++) {
     const k = `${month}-${String(d).padStart(2, "0")}`;
-    if (!per.has(k)) empty.push(k);
+    if (!per.has(k) && !ours.has(k) && k < today) empty.push(k);
   }
   return { empty, perDay: Object.fromEntries(per) };
 }
@@ -149,7 +154,11 @@ export async function importShiromatzMonth(db: Db, month: string, now = Date.now
   const z = await get(url);
   if (!z.ok) throw new Error(`記録を取れませんでした（HTTP ${z.status}）。`);
   const offices = [...(await officesInUse(db, now))].sort();
-  const files = await unzip(await z.arrayBuffer(), (n) => offices.some((o) => n.endsWith(`_${ym}_${o}.csv`) || n.endsWith(`forecast_${ym}_${o}.csv`)));
+  // The record names them forecast_YYYYMM_<office>.csv (FH-04: 57 offices, 高知 forecast_202501_390000.csv).
+  const names: string[] = [];
+  const files = await unzip(await z.arrayBuffer(), (n) => offices.some((o) => n.endsWith(`forecast_${ym}_${o}.csv`)), names);
+  if (!files.size)
+    throw new Error(`記録の zip に、使っている予報区（${offices.join("・")}）の CSV が見つかりません（中のファイル ${names.length}個、例：${names.slice(0, 2).join("・") || "なし"}）。`);
   const fetchedAt = new Date(now).toISOString();
   const result: ImportResult = { month, commit, offices: [] };
   for (const office of offices) {
@@ -189,19 +198,24 @@ export async function importShiromatzMonth(db: Db, month: string, now = Date.now
       for (const d of [...cmp.differ, ...cmp.missing.map((m) => `${m}: 電文にない`)]) differences.push(`${t.kind} ${t.issuedAt} ${d}`);
     }
     const overlaps = theirs.length;
-    const preferred = new Map(issues.map((t) => [shiromatzIssueId(t), !ourIssue.has(`${t.kind}|${t.issuedAt}`)]));
     const ids = issues.map(shiromatzIssueId);
     const rows = issues.map((t) => ({
       issue_id: shiromatzIssueId(t),
       kind: t.kind,
       issued_at: t.issuedAt,
       info_type: t.infoType,
-      preferred: preferred.get(shiromatzIssueId(t)) ? 1 : 0,
       entries: t.entries.length,
       problems: t.problems.length ? t.problems.join("／") : null,
     }));
     const values = issues.flatMap((t) => t.entries.map((e) => ({ ...e, issueId: shiromatzIssueId(t) })));
-    const { empty, perDay } = daysOf(month, issues);
+    const ourDays = (
+      await db
+        .prepare("SELECT DISTINCT substr(issued_at, 1, 10) AS day FROM forecast_issues WHERE source = 'jma-xml' AND office = ? AND kind = 'VPFD51' AND issued_at LIKE ?")
+        .bind(office, `${month}-%`)
+        .all<{ day: string }>()
+    ).results;
+    const today = new Date(now + 9 * 3_600_000).toISOString().slice(0, 10);
+    const { empty, perDay } = daysOf(month, issues, new Set(ourDays.map((d) => d.day)), today);
     // One batch, one transaction: the month is in whole, or not at all.
     const statements = [
       db.prepare("DELETE FROM forecast_entries WHERE issue_id IN (SELECT value FROM json_each(?))").bind(JSON.stringify(ids)),
@@ -209,7 +223,7 @@ export async function importShiromatzMonth(db: Db, month: string, now = Date.now
         .prepare(
           `INSERT OR REPLACE INTO forecast_issues (issue_id, source, office, kind, issued_at, target_at, info_type, title, headline, revision_of, preferred, parser, entries, problems)
            SELECT json_extract(j.value, '$.issue_id'), ?, ?, json_extract(j.value, '$.kind'), json_extract(j.value, '$.issued_at'), NULL,
-                  json_extract(j.value, '$.info_type'), NULL, NULL, NULL, json_extract(j.value, '$.preferred'), ?, json_extract(j.value, '$.entries'), json_extract(j.value, '$.problems')
+                  json_extract(j.value, '$.info_type'), NULL, NULL, NULL, 0, ?, json_extract(j.value, '$.entries'), json_extract(j.value, '$.problems')
            FROM json_each(?) j`,
         )
         .bind(SHIROMATZ_SOURCE, office, SHIROMATZ_PARSER, JSON.stringify(rows)),
@@ -228,6 +242,8 @@ export async function importShiromatzMonth(db: Db, month: string, now = Date.now
           )
           .bind(JSON.stringify(values.slice(i, i + ENTRIES_PER_STATEMENT))),
       );
+    // Which copy is shown, decided again in the same transaction (an issue our telegram has is ours).
+    if (span.length) statements.push(choosePreferred(db, office, span[0], span[span.length - 1]));
     statements.push(
       db
         .prepare(

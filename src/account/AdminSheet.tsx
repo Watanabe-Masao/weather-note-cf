@@ -130,8 +130,13 @@ function ForecastImport() {
   const take = (month: string) => {
     setBusy(true);
     setError(null);
-    api("/api/admin/forecast-import", { month })
-      .then(load)
+    api<{ offices: { office: string; missing?: true }[] }>("/api/admin/forecast-import", { month })
+      .then((r) => {
+        // A part of the offices in use the record does not have is said, not passed over.
+        const missing = r.offices.filter((o) => o.missing).map((o) => o.office);
+        if (missing.length) setError(`${month}：記録に無い予報区があります（${missing.join("・")}）。`);
+        load();
+      })
       .catch((e) => setError((e as Error).message))
       .finally(() => setBusy(false));
   };
@@ -141,7 +146,7 @@ function ForecastImport() {
         <ul className="admin-imports">
           {kochi.map((m) => (
             <li key={m.month}>
-              {m.month}：発表 {m.issues}件・発表のない日 {m.empty_days.length}日
+              {m.month}：発表 {m.issues}件・記録に無い日（未取得） {m.empty_days.length}日
               {m.overlaps ? `・自前の電文と重なる ${m.overlaps}件（違い ${m.differ}件）` : ""}
             </li>
           ))}

@@ -150,6 +150,24 @@ describe("予報の履歴：記録を取り込む", () => {
     ]);
   });
 
+  it("counts as 未取得 only the past days neither the record nor our telegrams have", async () => {
+    const db = await setup();
+    db.raw
+      .prepare("INSERT INTO forecast_telegrams (id, kind, office, url, issued_at, fetched_at, hash, xml) VALUES ('d', 'VPFD51', '390000', 'u', '2026-11-17T11:00:00+09:00', 'f', 'h', ?)")
+      .run(fixture("vpfd51-390000-1100.xml").replace(/2026-11-17T11:00:00\+09:00<\/ReportDateTime>/, "2026-11-18T11:00:00+09:00</ReportDateTime>"));
+    await parseForecasts(db);
+    const g = github({ "202611": { "forecast_202611_390000.csv": flatten(JSON.parse(fixture("bosai-390000-1100.json"))) } });
+    const r = await importShiromatzMonth(db, "2026-11", Date.parse("2026-11-20T12:00:00+09:00"), g.get);
+    // 1–19 past; the record has the 17th, our telegram the 18th; the 20th onwards are still to come.
+    expect(r.offices[0].emptyDays).toEqual(Array.from({ length: 19 }, (_, i) => `2026-11-${String(i + 1).padStart(2, "0")}`).filter((d) => d !== "2026-11-17" && d !== "2026-11-18"));
+  });
+
+  it("says it when the month's zip has no CSV of the offices in use, instead of taking nothing quietly", async () => {
+    const db = await setup();
+    const g = github({ "202501": { "forecast_202501_130000.csv": "x" } });
+    await expect(importShiromatzMonth(db, "2025-01", Date.now(), g.get)).rejects.toThrow(/CSV が見つかりません（中のファイル 1個、例：forecast_202501_130000.csv）/);
+  });
+
   it("refuses a month outside 2025-01 … 2026-11, and says when the record has no such month yet", async () => {
     const db = await setup();
     const g = github({});
