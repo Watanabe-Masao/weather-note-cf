@@ -25,6 +25,7 @@ import {
   STATE_NOTE,
   STATE_TEXT,
   summarize,
+  oneSource,
   weekday,
 } from "./model";
 import "./sample.css";
@@ -244,12 +245,22 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
   const [kind, setKind] = useState<KindFilter>("VPFW50");
   const [row, setRow] = useState<string | null>(null);
   const [width, setWidth] = useState<"390" | "360" | "full">("390");
-  const slots = useMemo(() => data.slots(day), [data, day]);
+  const allSlots = useMemo(() => data.slots(day), [data, day]);
+  const one = plan === "oneTone" || plan === "oneDash" || plan === "step";
+  // 1枚のグラフの案では、同じ時刻は数値を持つ方だけ（表示の決まり、model.ts の oneSource）。
+  const slots = useMemo(
+    () => (one ? oneSource(allSlots) : allSlots),
+    [one, allSlots],
+  );
   const lines = useMemo(() => summarize(slots), [slots]);
   const selected = slots.find((s) => s.key === sel) ?? null;
-  const one = plan === "oneTone" || plan === "oneDash" || plan === "step";
   // 上の文に出す発表：なぞっている間は指の下、離したら「残す」なら選んだ発表、「戻す」なら要約。
-  const focusKey = one ? (scrub ?? (release === "keep" ? sel : null)) : null;
+  // 何も選んでいないときは、いちばん新しい発表（数値を持つもの）を上に出す（文の要約は出さない）。
+  const latest =
+    [...slots].reverse().find((z) => z.state === "ok" && z.values)?.key ?? null;
+  const focusKey = one
+    ? (scrub ?? (release === "keep" ? (sel ?? latest) : latest))
+    : null;
   const focusSlot = slots.find((s) => s.key === focusKey) ?? null;
   const onScrub = (k: string | null, phase: "move" | "end") => {
     if (phase === "move") return setScrub(k);
@@ -394,7 +405,7 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
                 }}
                 options={[
                   { id: "keep", label: "その発表を残す" },
-                  { id: "back", label: "要約に戻す" },
+                  { id: "back", label: "最新に戻す" },
                 ]}
               />
             )}

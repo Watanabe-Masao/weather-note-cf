@@ -49,13 +49,25 @@ export interface Scenario {
   issues: IssueRow[];
   entries: EntryRow[];
   fetchLog: FetchLogRow[];
-  source?: { repo: string; commit: string; path: string; zipSha256: string; license: string };
+  source?: {
+    repo: string;
+    commit: string;
+    path: string;
+    zipSha256: string;
+    license: string;
+  };
   synthetic?: string[];
 }
 
 export type Kind = "VPFW50" | "VPFD51";
-export const KIND_NAME: Record<Kind, string> = { VPFW50: "週間天気予報", VPFD51: "府県天気予報" };
-export const KIND_SHORT: Record<Kind, string> = { VPFW50: "週間", VPFD51: "府県" };
+export const KIND_NAME: Record<Kind, string> = {
+  VPFW50: "週間天気予報",
+  VPFD51: "府県天気予報",
+};
+export const KIND_SHORT: Record<Kind, string> = {
+  VPFW50: "週間",
+  VPFD51: "府県",
+};
 
 /** 自前の電文が正本になった日（R1）。これより前の空きは shiromatz の記録にない＝未取得（R2-10）。 */
 export const OWN_FROM = "2026-11-10";
@@ -64,27 +76,51 @@ export const OWN_FROM = "2026-11-10";
  * 天気の名前は shared/weatherCode.ts の weatherCodeLabel（気象庁の表、画面用の書き方）。表にない番号は推測せず「番号 N」と出す。
  */
 /** WeatherIcon（skyOf）は漢字の 晴・曇・雨 で読むので、名前をその形にして渡す。 */
-export const skyText = (name: string | null) => (name ? name.replace(/くもり/g, "曇").replace(/晴れ/g, "晴") : null);
+export const skyText = (name: string | null) =>
+  name ? name.replace(/くもり/g, "曇").replace(/晴れ/g, "晴") : null;
 
 const H = 3_600_000;
-export const jstDate = (iso: string) => new Date(Date.parse(iso) + 9 * H).toISOString().slice(0, 10);
-export const addDays = (date: string, n: number) => new Date(Date.parse(`${date}T00:00:00Z`) + n * 24 * H).toISOString().slice(0, 10);
-const dayDiff = (a: string, b: string) => Math.round((Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / (24 * H));
+export const jstDate = (iso: string) =>
+  new Date(Date.parse(iso) + 9 * H).toISOString().slice(0, 10);
+export const addDays = (date: string, n: number) =>
+  new Date(Date.parse(`${date}T00:00:00Z`) + n * 24 * H)
+    .toISOString()
+    .slice(0, 10);
+const dayDiff = (a: string, b: string) =>
+  Math.round(
+    (Date.parse(`${a}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / (24 * H),
+  );
 export const hourOf = (iso: string) => Number(iso.slice(11, 13));
 const WD = ["日", "月", "火", "水", "木", "金", "土"];
-export const weekday = (date: string) => WD[new Date(`${date}T00:00:00Z`).getUTCDay()];
-export const md = (date: string) => `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
-export const issueLabel = (iso: string) => `${md(jstDate(iso))} ${hourOf(iso)}時`;
-export const leadLabel = (n: number) => (n === 0 ? "当日" : n === 1 ? "前日" : `${n}日前`);
+export const weekday = (date: string) =>
+  WD[new Date(`${date}T00:00:00Z`).getUTCDay()];
+export const md = (date: string) =>
+  `${Number(date.slice(5, 7))}/${Number(date.slice(8, 10))}`;
+export const issueLabel = (iso: string) =>
+  `${md(jstDate(iso))} ${hourOf(iso)}時`;
+export const leadLabel = (n: number) =>
+  n === 0 ? "当日" : n === 1 ? "前日" : `${n}日前`;
 
 /** 1つの値の状態：値／気象庁が値を出していない（値なし）／発表にその項目がない（項目なし）。 */
 export type V =
-  | { s: "value"; v: number | string; lower?: number | null; upper?: number | null; entry: EntryRow }
+  | {
+      s: "value";
+      v: number | string;
+      lower?: number | null;
+      upper?: number | null;
+      entry: EntryRow;
+    }
   | { s: "none"; entry: EntryRow } // 値なし（項目はあり、値がない）
   | { s: "absent" }; // 項目なし（この発表にない）
 
 export interface DayValues {
-  weather: (V & { name?: string | null; sentence?: string | null; partial?: string | null }) | V;
+  weather:
+    | (V & {
+        name?: string | null;
+        sentence?: string | null;
+        partial?: string | null;
+      })
+    | V;
   /** 週間：日降水確率。 */
   popDay: V | null;
   /** 府県：6時間降水確率（00・06・12・18時から）。発表より前の区切りは null（対象期間外）。 */
@@ -122,7 +158,8 @@ export const STATE_NOTE: Record<SlotState, string> = {
   cancelled: "気象庁がこの発表を取り消した（取消の電文がある）",
   missing: "この回の取得の記録も発表もない（未取得）",
   failed: "この時間帯の取得に失敗が残り、後の取得でも補えていない（取得失敗）",
-  notIssued: "取得は成功しているのに、この回の発表がない：気象庁から出ていない（R5-3 の「届かない」と同じ扱い）",
+  notIssued:
+    "取得は成功しているのに、この回の発表がない：気象庁から出ていない（R5-3 の「届かない」と同じ扱い）",
 };
 
 export class Data {
@@ -143,51 +180,113 @@ export class Data {
   /** 見本で選べる対象日（その日を予報した発表が1つでもある日）。 */
   days(): string[] {
     const set = new Set<string>();
-    for (const e of this.sc.entries) if (e.element === "weather_code") set.add(jstDate(e.valid_from));
+    for (const e of this.sc.entries)
+      if (e.element === "weather_code") set.add(jstDate(e.valid_from));
     const issued = this.sc.issues.map((i) => jstDate(i.issued_at)).sort();
     return [...set].filter((d) => d >= issued[0]).sort();
   }
 
   /** 対象日 `day` の値を、1つの発表から読む。 */
   valuesFor(issue: IssueRow, day: string): DayValues | null {
-    const es = (this.byIssue.get(issue.issue_id) ?? []).filter((e) => jstDate(e.valid_from) === day);
+    const es = (this.byIssue.get(issue.issue_id) ?? []).filter(
+      (e) => jstDate(e.valid_from) === day,
+    );
     if (!es.length) return null;
     const pick = (el: string, jma?: string): V => {
-      const e = es.find((x) => x.element === el && (!jma || x.jma_type === jma));
+      const e = es.find(
+        (x) => x.element === el && (!jma || x.jma_type === jma),
+      );
       if (!e) return { s: "absent" };
       if (e.value == null) return { s: "none", entry: e };
       const n = Number(e.value);
-      return { s: "value", v: Number.isFinite(n) && el !== "reliability" && el !== "weather_code" ? n : e.value, lower: e.lower, upper: e.upper, entry: e };
+      return {
+        s: "value",
+        v:
+          Number.isFinite(n) && el !== "reliability" && el !== "weather_code"
+            ? n
+            : e.value,
+        lower: e.lower,
+        upper: e.upper,
+        entry: e,
+      };
     };
     const code = pick("weather_code");
-    const sentence = es.find((x) => x.element === "weather_text")?.value ?? null;
+    const sentence =
+      es.find((x) => x.element === "weather_text")?.value ?? null;
     const codeEntry = code.s !== "absent" ? code.entry : null;
-    const partial = codeEntry && codeEntry.period !== "P1D" ? `${hourOf(codeEntry.valid_from)}時から` : null;
-    const weather = code.s === "value" ? { ...code, name: weatherCodeLabel(String(code.v)) ?? `番号 ${code.v}`, sentence, partial } : code;
+    const partial =
+      codeEntry && codeEntry.period !== "P1D"
+        ? `${hourOf(codeEntry.valid_from)}時から`
+        : null;
+    const weather =
+      code.s === "value"
+        ? {
+            ...code,
+            name: weatherCodeLabel(String(code.v)) ?? `番号 ${code.v}`,
+            sentence,
+            partial,
+          }
+        : code;
     if (issue.kind === "VPFW50")
-      return { weather, popDay: pick("pop", "日降水確率"), pop6: null, max: pick("temp_max", "最高気温"), min: pick("temp_min", "最低気温"), reliability: pick("reliability") };
+      return {
+        weather,
+        popDay: pick("pop", "日降水確率"),
+        pop6: null,
+        max: pick("temp_max", "最高気温"),
+        min: pick("temp_min", "最低気温"),
+        reliability: pick("reliability"),
+      };
     const pop6 = [0, 6, 12, 18].map((h) => {
-      const e = es.find((x) => x.element === "pop" && hourOf(x.valid_from) === h);
-      if (!e) return Date.parse(`${day}T${String(h + 6).padStart(2, "0")}:00:00+09:00`) <= Date.parse(issue.issued_at) ? null : ({ s: "absent" } as V);
-      return e.value == null ? ({ s: "none", entry: e } as V) : ({ s: "value", v: Number(e.value), entry: e } as V);
+      const e = es.find(
+        (x) => x.element === "pop" && hourOf(x.valid_from) === h,
+      );
+      if (!e)
+        return Date.parse(
+          `${day}T${String(h + 6).padStart(2, "0")}:00:00+09:00`,
+        ) <= Date.parse(issue.issued_at)
+          ? null
+          : ({ s: "absent" } as V);
+      return e.value == null
+        ? ({ s: "none", entry: e } as V)
+        : ({ s: "value", v: Number(e.value), entry: e } as V);
     });
-    return { weather, popDay: null, pop6, max: pick("temp_max", "日中の最高気温"), min: pick("temp_min", "朝の最低気温"), reliability: null };
+    return {
+      weather,
+      popDay: null,
+      pop6,
+      max: pick("temp_max", "日中の最高気温"),
+      min: pick("temp_min", "朝の最低気温"),
+      reliability: null,
+    };
   }
 
   /** 定時の発表の回（その日を予報しうるもの）。高知の VPFD51 は 5・11・17時、VPFW50 は 11・17時（R5-3）。 */
   private expected(day: string): { kind: Kind; at: string }[] {
-    const at = (d: string, h: number) => `${d}T${String(h).padStart(2, "0")}:00:00+09:00`;
+    const at = (d: string, h: number) =>
+      `${d}T${String(h).padStart(2, "0")}:00:00+09:00`;
     const out: { kind: Kind; at: string }[] = [];
-    for (let n = 7; n >= 1; n--) for (const h of [11, 17]) out.push({ kind: "VPFW50", at: at(addDays(day, -n), h) });
-    for (const h of [11, 17]) out.push({ kind: "VPFD51", at: at(addDays(day, -2), h) });
-    for (const n of [1, 0]) for (const h of [5, 11, 17]) out.push({ kind: "VPFD51", at: at(addDays(day, -n), h) });
+    for (let n = 7; n >= 1; n--)
+      for (const h of [11, 17])
+        out.push({ kind: "VPFW50", at: at(addDays(day, -n), h) });
+    for (const h of [11, 17])
+      out.push({ kind: "VPFD51", at: at(addDays(day, -2), h) });
+    for (const n of [1, 0])
+      for (const h of [5, 11, 17])
+        out.push({ kind: "VPFD51", at: at(addDays(day, -n), h) });
     return out;
   }
 
-  private stateOfMissing(at: string): { state: SlotState; failures: FetchLogRow[] } {
+  private stateOfMissing(at: string): {
+    state: SlotState;
+    failures: FetchLogRow[];
+  } {
     if (jstDate(at) < OWN_FROM) return { state: "missing", failures: [] };
     const t = Date.parse(at);
-    const logs = this.sc.fetchLog.filter((l) => Date.parse(l.at) >= t - 30 * 60_000 && Date.parse(l.at) <= t + 60 * 60_000);
+    const logs = this.sc.fetchLog.filter(
+      (l) =>
+        Date.parse(l.at) >= t - 30 * 60_000 &&
+        Date.parse(l.at) <= t + 60 * 60_000,
+    );
     const failures = logs.filter((l) => !l.ok);
     if (failures.length) return { state: "failed", failures };
     if (logs.length) return { state: "notIssued", failures: [] };
@@ -196,19 +295,31 @@ export class Data {
 
   /** 対象日 `day` の移り変わり：発表の回を時刻の順に。今より先の回は出さない。 */
   slots(day: string, now?: string): Slot[] {
-    const last = this.sc.issues.map((i) => i.issued_at).sort().at(-1) ?? "";
+    const last =
+      this.sc.issues
+        .map((i) => i.issued_at)
+        .sort()
+        .at(-1) ?? "";
     const until = now ?? last;
-    const keys = new Map<string, { kind: Kind; at: string; regular: boolean }>();
-    for (const x of this.expected(day)) if (x.at <= until) keys.set(`${x.kind}|${x.at}`, { ...x, regular: true });
+    const keys = new Map<
+      string,
+      { kind: Kind; at: string; regular: boolean }
+    >();
+    for (const x of this.expected(day))
+      if (x.at <= until) keys.set(`${x.kind}|${x.at}`, { ...x, regular: true });
     // 定時でない発表（臨時の発表や、記録の取り方による回）も、その日を予報していれば入れる。
     for (const i of this.sc.issues) {
       const k = `${i.kind}|${i.issued_at}`;
       if (keys.has(k) || (i.kind !== "VPFD51" && i.kind !== "VPFW50")) continue;
-      if (jstDate(i.issued_at) > day || dayDiff(day, jstDate(i.issued_at)) > 7) continue;
-      if (this.valuesFor(i, day)) keys.set(k, { kind: i.kind as Kind, at: i.issued_at, regular: false });
+      if (jstDate(i.issued_at) > day || dayDiff(day, jstDate(i.issued_at)) > 7)
+        continue;
+      if (this.valuesFor(i, day))
+        keys.set(k, { kind: i.kind as Kind, at: i.issued_at, regular: false });
     }
     const out: Slot[] = [];
-    for (const [key, x] of [...keys].sort(([, a], [, b]) => (a.at === b.at ? (a.kind === "VPFW50" ? -1 : 1) : a.at < b.at ? -1 : 1))) {
+    for (const [key, x] of [...keys].sort(([, a], [, b]) =>
+      a.at === b.at ? (a.kind === "VPFW50" ? -1 : 1) : a.at < b.at ? -1 : 1,
+    )) {
       const copies = this.copies.get(key) ?? [];
       const shown = copies.find((c) => c.preferred === 1) ?? null;
       let state: SlotState;
@@ -219,7 +330,19 @@ export class Data {
       const values = shown ? this.valuesFor(shown, day) : null;
       // 発表はあるのにこの日を言っていない（7日より先など）＝対象期間外：回に入れない（R5-1）。
       if (state === "ok" && !values) continue;
-      out.push({ key, kind: x.kind, at: x.at, regular: x.regular, lead: dayDiff(day, jstDate(x.at)), state, shown, copies, values, changed: new Set(), failures });
+      out.push({
+        key,
+        kind: x.kind,
+        at: x.at,
+        regular: x.regular,
+        lead: dayDiff(day, jstDate(x.at)),
+        state,
+        shown,
+        copies,
+        values,
+        changed: new Set(),
+        failures,
+      });
     }
     markChanges(out);
     return out;
@@ -230,7 +353,11 @@ export const sameV = (a: V | null | undefined, b: V | null | undefined) => {
   if (!a || !b || a.s === "absent" || b.s === "absent") return true; // 比べられないものは「変わった」としない
   // 値なし（気象庁が出していない）は「変わった」としない：週間の翌日の値なしは、府県天気予報に任せた印（R5-1）。
   if (a.s === "none" || b.s === "none") return true;
-  return a.v === b.v && (a.lower ?? null) === (b.lower ?? null) && (a.upper ?? null) === (b.upper ?? null);
+  return (
+    a.v === b.v &&
+    (a.lower ?? null) === (b.lower ?? null) &&
+    (a.upper ?? null) === (b.upper ?? null)
+  );
 };
 const sameMain = (a: V | null | undefined, b: V | null | undefined) =>
   !a || !b || a.s !== "value" || b.s !== "value" ? sameV(a, b) : a.v === b.v;
@@ -245,12 +372,23 @@ function markChanges(slots: Slot[]) {
     if (p && s.lead > 0) {
       const v = s.values;
       // 天気は「その日の天気」どうしだけ比べる（当日の発表の「11時から」は区切りが違う）。
-      const wp = p.weather.s !== "absent" && "partial" in p.weather ? p.weather.partial : null;
-      const wv = v.weather.s !== "absent" && "partial" in v.weather ? v.weather.partial : null;
-      if (wp === wv && !sameMain(p.weather, v.weather)) s.changed.add("weather");
+      const wp =
+        p.weather.s !== "absent" && "partial" in p.weather
+          ? p.weather.partial
+          : null;
+      const wv =
+        v.weather.s !== "absent" && "partial" in v.weather
+          ? v.weather.partial
+          : null;
+      if (wp === wv && !sameMain(p.weather, v.weather))
+        s.changed.add("weather");
       if (!sameMain(p.popDay, v.popDay)) s.changed.add("pop");
-      if (p.pop6 && v.pop6) v.pop6.forEach((x, i) => !sameMain(p.pop6![i], x) && s.changed.add(`pop6-${i}`));
-      if ([...s.changed].some((c) => c.startsWith("pop6"))) s.changed.add("pop");
+      if (p.pop6 && v.pop6)
+        v.pop6.forEach(
+          (x, i) => !sameMain(p.pop6![i], x) && s.changed.add(`pop6-${i}`),
+        );
+      if ([...s.changed].some((c) => c.startsWith("pop6")))
+        s.changed.add("pop");
       if (!sameMain(p.max, v.max)) s.changed.add("max");
       if (!sameMain(p.min, v.min)) s.changed.add("min");
       if (!sameMain(p.reliability, v.reliability)) s.changed.add("reliability");
@@ -259,8 +397,12 @@ function markChanges(slots: Slot[]) {
   }
 }
 
-const vText = (v: V | null | undefined, unit = "") => (!v || v.s === "absent" ? null : v.s === "none" ? "値なし" : `${v.v}${unit}`);
-const weatherName = (s: Slot) => (s.values?.weather.s === "value" ? ((s.values.weather as { name?: string }).name ?? null) : null);
+const vText = (v: V | null | undefined, unit = "") =>
+  !v || v.s === "absent" ? null : v.s === "none" ? "値なし" : `${v.v}${unit}`;
+const weatherName = (s: Slot) =>
+  s.values?.weather.s === "value"
+    ? ((s.values.weather as { name?: string }).name ?? null)
+    : null;
 
 /**
  * R6-2 の一文：実データから決まった形だけで作る（理由は言わない）。同じ種類の中の変化だけを言い、最大3文。
@@ -284,14 +426,19 @@ export function summarize(slots: Slot[]): string[] {
       const a = vText(p.values.popDay, "%");
       const b = vText(s.values.popDay, "%");
       parts.push(`降水確率 ${a}→${b}`);
-      const d = p.values.popDay?.s === "value" && s.values.popDay?.s === "value" ? Math.abs(Number(s.values.popDay.v) - Number(p.values.popDay.v)) : 0;
+      const d =
+        p.values.popDay?.s === "value" && s.values.popDay?.s === "value"
+          ? Math.abs(Number(s.values.popDay.v) - Number(p.values.popDay.v))
+          : 0;
       rank += d >= 20 ? 6 : 2;
     }
     if (s.kind === "VPFD51") {
       const names = ["0〜6時", "6〜12時", "12〜18時", "18〜24時"];
       const ch = [0, 1, 2, 3].filter((i) => s.changed.has(`pop6-${i}`));
       if (ch.length) {
-        parts.push(`降水確率 ${ch.map((i) => `${names[i]} ${vText(p.values!.pop6![i], "%")}→${vText(s.values!.pop6![i], "%")}`).join("・")}`);
+        parts.push(
+          `降水確率 ${ch.map((i) => `${names[i]} ${vText(p.values!.pop6![i], "%")}→${vText(s.values!.pop6![i], "%")}`).join("・")}`,
+        );
         rank += 4;
       }
     }
@@ -299,14 +446,23 @@ export function summarize(slots: Slot[]): string[] {
       if (s.changed.has(k)) {
         const a = p.values[k];
         const b = s.values[k];
-        const d = a.s === "value" && b.s === "value" ? Math.abs(Number(b.v) - Number(a.v)) : 0;
+        const d =
+          a.s === "value" && b.s === "value"
+            ? Math.abs(Number(b.v) - Number(a.v))
+            : 0;
         if (d >= 2 || a.s !== b.s) {
-          parts.push(`${k === "max" ? "最高" : "最低"} ${vText(a, "℃")}→${vText(b, "℃")}`);
+          parts.push(
+            `${k === "max" ? "最高" : "最低"} ${vText(a, "℃")}→${vText(b, "℃")}`,
+          );
           rank += 3;
         }
       }
     if (!parts.length) continue;
-    lines.push({ rank, at: s.at, text: `${leadLabel(s.lead)}（${issueLabel(s.at)}の${KIND_SHORT[s.kind]}）：${parts.join("、")}` });
+    lines.push({
+      rank,
+      at: s.at,
+      text: `${leadLabel(s.lead)}（${issueLabel(s.at)}の${KIND_SHORT[s.kind]}）：${parts.join("、")}`,
+    });
   }
   return lines
     .sort((a, b) => b.rank - a.rank)
@@ -315,8 +471,14 @@ export function summarize(slots: Slot[]): string[] {
     .map((l) => l.text);
 }
 
-export const sourceName = (src: string) => (src === "jma-xml" ? "自前の電文" : src === "shiromatz" ? "shiromatz の記録" : src);
-export const sourceShort = (src: string) => (src === "jma-xml" ? "電文" : "記録");
+export const sourceName = (src: string) =>
+  src === "jma-xml"
+    ? "自前の電文"
+    : src === "shiromatz"
+      ? "shiromatz の記録"
+      : src;
+export const sourceShort = (src: string) =>
+  src === "jma-xml" ? "電文" : "記録";
 
 /** 「—」や空欄の理由（押したときに出す。title に頼らない）。 */
 export function blanksOf(s: Slot): { item: string; reason: string }[] {
@@ -324,16 +486,67 @@ export function blanksOf(s: Slot): { item: string; reason: string }[] {
   if (s.state !== "ok" || !v) return [];
   const out: { item: string; reason: string }[] = [];
   const why = (x: V | null | undefined): string | null =>
-    x === null ? "対象期間外（この発表より前の時間）" : !x || x.s === "absent" ? "項目なし（この発表にこの項目がない）" : x.s === "none" ? "値なし（気象庁が値を出していない）" : null;
+    x === null
+      ? "対象期間外（この発表より前の時間）"
+      : !x || x.s === "absent"
+        ? "項目なし（この発表にこの項目がない）"
+        : x.s === "none"
+          ? "値なし（気象庁が値を出していない）"
+          : null;
   const add = (item: string, x: V | null | undefined) => {
     const r = why(x);
     if (r) out.push({ item, reason: r });
   };
   add("天気", v.weather);
   if (s.kind === "VPFW50") add("降水確率（1日）", v.popDay);
-  else ["0〜6時", "6〜12時", "12〜18時", "18〜24時"].forEach((n, i) => add(`降水確率 ${n}`, v.pop6![i]));
+  else
+    ["0〜6時", "6〜12時", "12〜18時", "18〜24時"].forEach((n, i) =>
+      add(`降水確率 ${n}`, v.pop6![i]),
+    );
   add(s.kind === "VPFW50" ? "最高気温" : "日中の最高気温", v.max);
   add(s.kind === "VPFW50" ? "最低気温" : "朝の最低気温", v.min);
   if (s.kind === "VPFW50") add("信頼度", v.reliability);
+  return out;
+}
+
+/**
+ * その発表が数値（降水確率・気温）を持っているか。府県天気予報の「明後日」は天気だけで、降水確率と気温は
+ * 気象庁がもともと出さない（取れなかったのではない）。両方ある時刻で、どちらを主に見せるかに使う。
+ */
+export function hasNumbers(s: Slot): boolean {
+  const v = s.values;
+  if (s.state !== "ok" || !v) return false;
+  const n = (x: V | null | undefined) => !!x && x.s === "value";
+  return (
+    n(v.max) || n(v.min) || n(v.popDay) || (v.pop6 ?? []).some((q) => n(q))
+  );
+}
+
+/** 同じ時刻の発表のうち、主に見せる方：数値を持つ方。両方持っていれば府県天気予報（詳しい方）。 */
+export function primaryAt(slots: Slot[], at: string): Slot | null {
+  const here = slots.filter((z) => z.at === at);
+  return (
+    here.find((z) => z.kind === "VPFD51" && hasNumbers(z)) ??
+    here.find((z) => z.kind === "VPFW50" && hasNumbers(z)) ??
+    here.find((z) => z.state === "ok") ??
+    here[0] ??
+    null
+  );
+}
+
+/**
+ * 表示の決まり（2026-11-17）：同じ時刻に週間と府県天気予報があるときは、その日を数値で予報している方だけを
+ * 出す。週間の翌日分は「値なし」、府県天気予報の明後日分は天気だけなので、数値を持つのはいつも片方
+ * （2日前までは週間、前日・当日は府県天気予報に切り替わる）。両方が数値を持つ時刻があれば府県天気予報。
+ */
+export function oneSource(slots: Slot[]): Slot[] {
+  const seen = new Set<string>();
+  const out: Slot[] = [];
+  for (const s of slots) {
+    if (seen.has(s.at)) continue;
+    seen.add(s.at);
+    const p = primaryAt(slots, s.at);
+    if (p) out.push(p);
+  }
   return out;
 }

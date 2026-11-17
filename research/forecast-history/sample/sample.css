@@ -260,3 +260,4 @@
 .fh-ptab .h:first-child, .fh-ptab .v:nth-child(5) { border-left: 0; }
 .fh-ptab.one .h, .fh-ptab.one .v { border-left: 0; }
 .fh-ptab .v.ch { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.fh-ptab .v.past { background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--ink-tertiary) 14%, transparent) 4px 5px); }

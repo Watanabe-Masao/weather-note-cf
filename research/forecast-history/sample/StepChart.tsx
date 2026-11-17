@@ -10,7 +10,7 @@
 import { useRef, type PointerEvent as RPointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "../../../src/ui/useDrawnWidth";
 import { DATA, lineLook } from "../../../src/design/tokens";
-import { hourOf, leadLabel, md, type Slot, type V } from "./model";
+import { hourOf, leadLabel, md, primaryAt, type Slot, type V } from "./model";
 import { vNum, Wx } from "./Transition";
 
 const W = 300;
@@ -72,8 +72,7 @@ export function StepChart({
   const lo = temps.length ? Math.floor(Math.min(...temps) / 5) * 5 : 0;
   const hi = temps.length ? Math.ceil(Math.max(...temps) / 5) * 5 : 30;
   const ICON_Y = 14;
-  const NOTE_Y = 30; // 「両方ある」の札
-  const CELL_TOP = 36;
+  const CELL_TOP = 28;
   const ROW = Math.ceil(fs + 4); // 6時間の1マスの高さ（数字が入る）
   const CELL_H = ROW * 4;
   const T_TOP = CELL_TOP + CELL_H + 16;
@@ -149,11 +148,7 @@ export function StepChart({
       Math.max(0, Math.floor((px - PAD_L) / step)),
     );
     const t = times[k];
-    return (
-      slots.find((z) => z.at === t && z.kind === "VPFD51") ??
-      slots.find((z) => z.at === t) ??
-      null
-    );
+    return primaryAt(slots, t);
   };
   const clear = () => {
     if (timer.current != null) window.clearTimeout(timer.current);
@@ -239,37 +234,6 @@ export function StepChart({
             </foreignObject>
           ) : null,
         )}
-        {/* 週間と府県天気予報が両方出ている時刻：背景を塗り、札を付ける（グラフはそこでどちらかを描くので） */}
-        {(() => {
-          const both = times.filter(
-            (t) =>
-              slots.some((z) => z.at === t && z.kind === "VPFW50") &&
-              slots.some((z) => z.at === t && z.kind === "VPFD51"),
-          );
-          if (!both.length) return null;
-          const x0 = xi(both[0]);
-          const x1 = xEnd(both[both.length - 1]);
-          return (
-            <g className="fh-step-both">
-              <rect
-                x={x0}
-                y={NOTE_Y - fs + 1}
-                width={x1 - x0}
-                height={AX - (NOTE_Y - fs + 1)}
-                rx={3}
-              />
-              <text
-                x={(x0 + x1) / 2}
-                y={NOTE_Y}
-                textAnchor="middle"
-                fontSize={fs}
-                className="fh-step-both-text"
-              >
-                週間と府県が両方
-              </text>
-            </g>
-          );
-        })()}
         {/* 降水確率のマス：左に時間帯（府県天気予報の4マスは上から 0〜6・6〜12・12〜18・18〜24時） */}
         {["0-6", "6-12", "12-18", "18-24"].map((n, i) => (
           <text

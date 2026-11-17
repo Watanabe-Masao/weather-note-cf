@@ -12,6 +12,7 @@ import {
   hourOf,
   KIND_SHORT,
   type Kind,
+  hasNumbers,
   leadLabel,
   md,
   type Slot,
@@ -24,7 +25,6 @@ export type OneMode = "tone" | "dash";
 const W = 300;
 const PAD_L = 26;
 const PAD_R = 8;
-const POP6_NAME = ["0〜6時", "6〜12時", "12〜18時", "18〜24時"];
 const HOLD_MS = 280;
 
 /** 週間の線の色（tone のとき）：同じ色相で一段落ち着かせる。透明度ではなく面の色と混ぜる（見本だけの仮の値）。 */
@@ -615,13 +615,17 @@ function PopTable({ s, prev }: { s: Slot; prev: Slot | null }) {
       ))}
       {v.pop6!.map((q, i) => {
         const p = numOf(q);
+        // 当日の発表で、始まりが発表の時刻より前の時間帯は「過ぎた（過ぎつつある）」時間帯：値がなくても当然。
+        const past =
+          q === null || (s.lead === 0 && p == null && i * 6 <= hourOf(s.at));
         const b = prev?.values?.pop6 ? numOf(prev.values.pop6[i]) : null;
         return (
           <span
             key={i}
-            className={`v${p != null && b != null && p !== b ? " ch" : ""}`}
+            // q が null：その時間帯はもう過ぎている（当日の発表は途中から）。文字を出さず、枠だけ控えめに。
+            className={`v${past ? " past" : ""}${p != null && b != null && p !== b ? " ch" : ""}`}
           >
-            {p == null ? "---" : `${p}%`}
+            {past ? "" : p == null ? "---" : `${p}%`}
             <Delta now={p} before={b} />
           </span>
         );
@@ -662,20 +666,24 @@ function Issue({
         <span className="dd-pic">
           <Wx s={s} size={small ? 32 : 52} />
         </span>
-        <span className="dd-temps">
-          <span className="tone-hot">{mx ?? "—"}</span>
-          <Delta
-            now={mx}
-            before={prev?.values ? numOf(prev.values.max) : null}
-          />
-          <span className="dd-slash">/</span>
-          <span className="tone-cold">{mn ?? "—"}</span>
-          <Delta
-            now={mn}
-            before={prev?.values ? numOf(prev.values.min) : null}
-          />
-          <small>℃</small>
-        </span>
+        {numOf(v.max) != null || numOf(v.min) != null ? (
+          <span className="dd-temps">
+            <span className="tone-hot">{mx ?? "—"}</span>
+            <Delta
+              now={mx}
+              before={prev?.values ? numOf(prev.values.max) : null}
+            />
+            <span className="dd-slash">/</span>
+            <span className="tone-cold">{mn ?? "—"}</span>
+            <Delta
+              now={mn}
+              before={prev?.values ? numOf(prev.values.min) : null}
+            />
+            <small>℃</small>
+          </span>
+        ) : (
+          <span className="dd-temps" />
+        )}
         <span className="dd-kind">
           <span className={`fh-kchip ${s.kind}`}>{KIND_SHORT[s.kind]}</span>
           {md(s.at.slice(0, 10))} {hourOf(s.at)}時
@@ -684,7 +692,7 @@ function Issue({
           {rel && <span className="fh-lead">信頼度{rel}</span>}
         </span>
       </div>
-      <PopTable s={s} prev={prev} />
+      {hasNumbers(s) && <PopTable s={s} prev={prev} />}
     </div>
   );
 }
@@ -706,13 +714,9 @@ export function FocusSay({ s, slots }: { s: Slot; slots: Slot[] }) {
       </div>
     );
   }
-  const o = slots.find(
-    (z) => z.at === s.at && z.kind !== s.kind && z.state === "ok" && z.values,
-  );
   return (
     <div className="fh-focus">
       <Issue s={s} slots={slots} />
-      {o && <Issue s={o} slots={slots} small />}
     </div>
   );
 }
