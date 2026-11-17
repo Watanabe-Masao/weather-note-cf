@@ -5,7 +5,8 @@ import { createRoot } from "react-dom/client";
 import "../../../src/styles.css";
 import { applyTheme } from "../../../src/design/tokens";
 import { aheadItems, FRAMES, minuteLabel, SCALE, type Zoom } from "./data";
-import { AmountGraph, StrengthGraph } from "./RainGraph";
+import { type Span, TimeGraph } from "./TimeGraph";
+import { Segmented } from "../../../src/ui/kit";
 import { RainMap } from "./RainMap";
 import "./sample.css";
 
@@ -15,6 +16,7 @@ function App() {
   const [m, setM] = useState(0);
   const [play, setPlay] = useState(false);
   const [zoom, setZoom] = useState<Zoom>(8);
+  const [span, setSpan] = useState<Span>("6");
   const [coast, setCoast] = useState<{ rings: number[][] } | null>(null);
   useEffect(() => {
     fetch("./coast.json")
@@ -79,14 +81,19 @@ function App() {
           ))}
           <small>mm/h</small>
         </div>
-        <h2 className="rn-sub">
-          雨の強さ<small>5分ごと・mm/h</small>
-        </h2>
-        <StrengthGraph m={m} onPick={go} />
-        <h2 className="rn-sub">
-          1時間の降水量<small>mm</small>
-        </h2>
-        <AmountGraph m={m} onPick={go} />
+        <div className="rn-span">
+          <Segmented
+            label="グラフの幅"
+            value={span}
+            onChange={setSpan}
+            options={[
+              { id: "6", label: "6時間" },
+              { id: "12", label: "12時間" },
+              { id: "24", label: "24時間" },
+            ]}
+          />
+        </div>
+        <TimeGraph m={m} span={span} onPick={go} />
         <p className="rn-credit">出典（本番）：気象庁「雨雲の動き」「今後の雨」・アメダス。</p>
       </section>
     </main>

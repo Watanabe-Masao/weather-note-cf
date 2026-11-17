@@ -61,7 +61,7 @@ export const pointSeries = FRAMES.map((m) => ({ m, v: intensity(KOCHI.lon, KOCHI
 
 /** 1時間ごとの量（mm）：過去6時間はアメダスの実績、この先15時間は「今後の雨」の予測。 */
 export const hourly = Array.from({ length: 21 }, (_, i) => {
-  const h = i - 5; // −5..15：h の値は (h−1)時〜h時の1時間（終わりの時刻で呼ぶ）
+  const h = i - 5; // −5..15：h の値は (h−1)時〜h時の1時間（終わりの時刻で呼ぶ）。今後の雨は15時間先まで
   let sum = 0;
   for (let k = 0; k < 12; k++) sum += intensity(KOCHI.lon, KOCHI.lat, (h - 1) * 60 + k * 5 + 2.5) / 12;
   // 予測は先ほどぼかす（見本：遠い先ほど弱く広く）

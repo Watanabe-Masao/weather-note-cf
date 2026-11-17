@@ -37,4 +37,8 @@ body { background: var(--surface-base); color: var(--ink-primary); }
 .rn-zoom button:disabled { color: var(--ink-disabled); }
 .rn-scrub { width: 100%; min-height: 44px; margin: 0; accent-color: var(--accent-base); }
 .rn-hit { fill: transparent; cursor: pointer; }
-.rn-sel { fill: color-mix(in srgb, var(--ink-primary) 14%, transparent); }
+.rn-sel { fill: color-mix(in srgb, var(--ink-primary) 9%, transparent); stroke: var(--ink-secondary); stroke-width: 1; }
+.rn-row { font-size: 11px; fill: var(--ink-secondary); }
+.rn-axis { stroke: var(--line-strong); stroke-width: 1; }
+.rn-none { font-size: 11px; fill: var(--ink-tertiary); }
+.rn-span .seg { width: 100%; }
