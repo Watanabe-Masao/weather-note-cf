@@ -84,3 +84,29 @@ describe("Open-Meteo daily totals from the hourly forecast", () => {
     expect(rows[0].radiation).toBe(10.8);
   });
 });
+
+describe("AMeDAS observations just after midnight", () => {
+  it("is no observation yet (not a failure) while JMA's latest time is still the day before", async () => {
+    const { observations } = await import("../worker/src/amedas");
+    const { jstToday } = await import("../shared/dates");
+    const today = jstToday();
+    const yesterday = new Date(Date.parse(`${today}T00:00:00Z`) - 86_400_000).toISOString().slice(0, 10);
+    const seen: string[] = [];
+    const real = globalThis.fetch;
+    globalThis.fetch = (async (url: string) => {
+      seen.push(String(url));
+      if (String(url).endsWith("amedastable.json"))
+        return new Response(JSON.stringify({ "74182": { kjName: "高知", type: "A", lat: [33, 33.4], lon: [133, 32.9] } }));
+      if (String(url).endsWith("latest_time.txt")) return new Response(`${yesterday}T23:50:00+09:00`);
+      return new Response("", { status: 404 });
+    }) as typeof fetch;
+    try {
+      const r = await observations({ precNo: 74, blockNo: "47893", name: "高知", prefecture: "高知県", lat: [33, 33.4], lon: [133, 32.9] }, today);
+      expect(r.rows).toEqual([]);
+      expect(r.latest).toBeNull();
+      expect(seen.some((u) => u.includes("/data/point/"))).toBe(false);
+    } finally {
+      globalThis.fetch = real;
+    }
+  });
+});

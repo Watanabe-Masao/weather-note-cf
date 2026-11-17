@@ -160,6 +160,10 @@ export async function observations(station: Station, day: string = jstToday()) {
   if (!latestResponse.ok) throw new SourceError("最新の観測時刻を取得できませんでした。");
   const latestTime = (await latestResponse.text()).trim();
   const today = jstToday();
+  const answer = (data: PointData) => ({ ...parseLivePoint(data, day), stationId: id, stationName: name, stationType: type, date: day, latestTime, provider: "JMA", source: "https://www.jma.go.jp/bosai/amedas/" });
+  // Just after midnight JMA has observed nothing of the new day yet (the latest time is still the day
+  // before, and the day's first file is not out): that is no observation yet, not a failure to fetch.
+  if (day === today && latestTime.slice(0, 10) < day) return answer({});
   const lastHour = day < today ? 23 : latestTime.slice(0, 10) === day ? +latestTime.slice(11, 13) : 0;
   const blocks = Array.from({ length: Math.floor(lastHour / 3) + 1 }, (_, i) => String(i * 3).padStart(2, "0"));
   const results = await Promise.allSettled(
