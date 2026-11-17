@@ -157,3 +157,25 @@ describe("地点の表（shared/stationPlaces.ts）", () => {
     expect(Object.keys(HISTORY_PLACES)).toEqual(Object.keys(STATION_PLACES));
   });
 });
+
+describe("警報・注意報：毎時の見張り（2026-11-18）", () => {
+  const base = {
+    state: { forecastLastOk: null as string | null, typhoonLastOk: null as string | null, openAlerts: [], accountErrorsLastDay: [] },
+    room: { d1Size: null, d1WritesMonth: { percent: 1 }, r2: { percentOfFree: 1 }, cron: { runsLastDay: 288, stages: [] } },
+    waste: { unparsed: 0, parseFailed: 0, fetchFailuresLastDay: 0 },
+  };
+  const now = Date.parse("2026-11-18T00:00:00Z");
+  const at = (h: number) => new Date(now - h * 3_600_000).toISOString();
+  const keys = (warnings: { lastOk: string | null; fetchFailuresLastDay: number } | undefined) => {
+    const j = judgeHealth({ ...base, state: { ...base.state, forecastLastOk: at(0), typhoonLastOk: at(0), warnings } }, now);
+    return { problems: j.problems.map((p) => p.key), notes: j.notes.map((n) => n.key) };
+  };
+  it("1日で注意、3日で異常（長い一覧は7日分）。まだ一度も読んでいないときは判断しない", () => {
+    expect(keys({ lastOk: at(2), fetchFailuresLastDay: 3 })).toEqual({ problems: [], notes: [] });
+    expect(keys({ lastOk: at(30), fetchFailuresLastDay: 288 }).notes).toContain("warningStale");
+    expect(keys({ lastOk: at(80), fetchFailuresLastDay: 288 }).problems).toContain("warningStale");
+    expect(keys({ lastOk: null, fetchFailuresLastDay: 5 }).problems).toContain("warningStale");
+    expect(keys({ lastOk: null, fetchFailuresLastDay: 0 })).toEqual({ problems: [], notes: [] });
+    expect(keys(undefined)).toEqual({ problems: [], notes: [] });
+  });
+});
