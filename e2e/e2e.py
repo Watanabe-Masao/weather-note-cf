@@ -47,6 +47,52 @@ TYPHOON_NOW = {"ok": True, "fetchedAt": "2026-11-10T00:00:00Z", "typhoons": [{
     "warning": [{"lat": 31.9, "lon": 133.5, "km": 180}, {"lat": 34.0, "lon": 134.5, "km": 220}],
     "warningTimes": ["2026-11-10T09:00:00+09:00", "2026-11-11T21:00:00+09:00"],
     "ahead": [{"validtime": "2026-11-10T21:00:00+09:00", "hours": 12, "center": [33.5, 134.0], "circleKm": 60}]}]}
+# 雨の見込み（確認用）: the frames as /api/rain-now builds them (now = 12:00 JST, the fixed clock), and made-up
+# tiles (a band of rain moving north-east, drawn in plain Python: no imaging library on CI). One past frame
+# (11:30) and one hourly frame (18:30〜19:30) answer 404, to show 「取れなかった」.
+def _name(minutes):
+    t = datetime.datetime(2026, 11, 10, 3, 0, tzinfo=datetime.timezone.utc) + datetime.timedelta(minutes=minutes)
+    return t.strftime("%Y%m%d%H%M%S")
+def _frame(m, kind, product, b, member="none"):
+    return {"m": m, "kind": kind, "product": product, "basetime": _name(b), "validtime": _name(m), "member": member}
+RAIN_NOW = {"v": 1, "station": "47893", "supported": True, "now": _name(0),
+    "frames": [_frame(m, "obs", "hrpns", m) for m in range(-180, 1, 5)] + [_frame(m, "nowcast", "hrpns", 0) for m in range(5, 61, 5)]
+      + [_frame(m, "hourly", "rasrf", -30) for m in range(90, 871, 60)],
+    "hours": [_frame(m, "hourly", "rasrf", m) for m in range(-360, 1, 60)] + [_frame(m, "hourly", "rasrf", -30) for m in range(30, 871, 60)],
+    "lists": {"obs": {"ok": True, "count": 37, "latest": _name(0)}, "nowcast": {"ok": True, "count": 12, "latest": _name(0)}, "rasrf": {"ok": True, "count": 14, "latest": _name(-30)}},
+    "fetchedAt": "2026-11-10T03:00:30Z", "source": "気象庁ホームページ「雨雲の動き」「今後の雨」"}
+RAIN_MISSING = {_name(-30), _name(450)}
+RAIN_COLORS = [(242, 242, 255), (160, 210, 255), (33, 140, 255), (0, 65, 255), (250, 245, 0), (255, 153, 0), (255, 40, 0), (180, 0, 104)]
+_tile_cache = {}
+def rain_tile(path):
+    # /api/rain-tile/<product>/<basetime>/<member>/<validtime>/<z>/<x>/<y>.png
+    import zlib, struct, math
+    parts = path.split("/")
+    valid, z, x, y = parts[6], int(parts[7]), int(parts[8]), int(parts[9].split(".")[0])
+    if valid in RAIN_MISSING: return None
+    key = (valid, z, x, y)
+    if key in _tile_cache: return _tile_cache[key]
+    t = datetime.datetime.strptime(valid, "%Y%m%d%H%M%S").replace(tzinfo=datetime.timezone.utc)
+    h = (t - datetime.datetime(2026, 11, 10, 3, 0, tzinfo=datetime.timezone.utc)).total_seconds() / 3600
+    n = 256 * 2 ** z
+    rows = []
+    for py in range(256):
+        row = bytearray([0])
+        lat = math.degrees(math.atan(math.sinh(math.pi * (1 - 2 * (y * 256 + py) / n))))
+        for px in range(256):
+            lon = (x * 256 + px) / n * 360 - 180
+            # a band from the south-west, 1時間に経度 0.35°・緯度 0.22° ほど北東へ (as the sample)
+            du, dv = lon - (133.2 + 0.35 * h), lat - (33.3 + 0.22 * h)
+            u = du * 0.83 + dv * 0.56; v = -du * 0.56 + dv * 0.83
+            val = 30 * math.exp(-(u * u) / (2 * 0.12 ** 2) - (v * v) / (2 * 0.6 ** 2))
+            lv = -1 if val < 0.4 else 0 if val < 1 else 1 if val < 5 else 2 if val < 10 else 3 if val < 20 else 4 if val < 30 else 5
+            row += bytes((0, 0, 0, 0)) if lv < 0 else bytes((*RAIN_COLORS[lv], 255))
+        rows.append(bytes(row))
+    raw = zlib.compress(b"".join(rows))
+    chunk = lambda k, d: struct.pack(">I", len(d)) + k + d + struct.pack(">I", zlib.crc32(k + d) & 0xffffffff)
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 256, 256, 8, 6, 0, 0, 0)) + chunk(b"IDAT", raw) + chunk(b"IEND", b"")
+    _tile_cache[key] = png
+    return png
 TYPHOON_ON = {"on": False}  # the TY step turns the made-up typhoon on, then off again
 def api(path, q):
     if path == "/api/typhoon":
@@ -65,6 +111,8 @@ def api(path, q):
         return {"users": [{"id": "u1", "login_id": "masao", "name": "渡辺", "role": "admin", "created_at": 1762800000000, "last_login": 1762800000000, "disabled_at": None, "reports": 0, "research": None}, {"id": "u2", "login_id": "tanaka", "name": None, "role": "user", "created_at": 1762800000000, "last_login": None, "disabled_at": None, "reports": 3, "research": 1}]}
     if path == "/api/admin/forecast-import":
         return {"first": "2025-01", "last": "2026-11", "next": {"month": "2025-02", "expected": "2025-03-02", "available": False}, "parser": {"telegram": 1, "record": 1}, "months": [{"office": "390000", "month": "2025-01", "commit_sha": "abc", "fetched_at": "2026-11-17T03:00:00Z", "rows": 4791, "issues": 186, "empty_days": [], "overlaps": 0, "differ": 0, "license": "CC BY-SA 4.0"}]}
+    if path == "/api/rain-now":
+        return RAIN_NOW
     if path == "/api/forecast-history":
         # 予報の履歴 (R6): made-up — 2026-10 の記録（shiromatz）を日付だけずらした、TODAY を対象日にした1日分。
         if q.get("date") == TODAY.isoformat():
@@ -212,6 +260,14 @@ with sync_playwright() as p:
     # 天気図 (#249): JMA's pictures stand in as a 1px PNG (no network in the test).
     PNG1 = bytes.fromhex("89504e470d0a1a0a0000000d4948445200000001000000010806000000" "1f15c4890000000d49444154789c6360000002000154a24f5d0000000049454e44ae426082")
     ctx.route(re.compile(r"https://www\.(data\.)?jma\.go\.jp/.*\.png$"), lambda r: r.fulfill(status=200, content_type="image/png", body=PNG1))
+    # 雨の見込み（確認用）: the tiles through the Worker (registered after /api/**, so it is tried first).
+    TILES_404 = []  # the tiles RN answers 404 on purpose (「取れなかった」)
+    def tile(route):
+        from urllib.parse import urlparse
+        png = rain_tile(urlparse(route.request.url).path)
+        if png is None: TILES_404.append(route.request.url)
+        route.fulfill(status=404, content_type="text/plain", body="none") if png is None else route.fulfill(status=200, content_type="image/png", body=png)
+    ctx.route("**/api/rain-tile/**", tile)
     pg = ctx.new_page()
     pg.on("console", lambda m: m.type in ("error", "warning") and errors.append(m.text))
     pg.on("pageerror", lambda e: errors.append("PAGEERROR " + str(e)))
@@ -640,7 +696,7 @@ with sync_playwright() as p:
         layout_ok("J1c", "設定")
         buttons_ok("J1d", "設定", 0)
         check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
-        check("J3 管理者には「研究用（テスト）」に比べ板が4つまとまる", pg.locator("#set-research").count() == 1 and pg.locator("section[aria-labelledby='set-research'] .actions button").count() == 4)
+        check("J3 管理者には「研究用（テスト）」に比べ板が5つまとまる", pg.locator("#set-research").count() == 1 and pg.locator("section[aria-labelledby='set-research'] .actions button").count() == 5)
         check("J4 肌感の基準にはテストのボタンがない", pg.locator("section[aria-labelledby='set-feel'] button", has_text="比べる").count() == 0)
         # 予報の履歴 (#250, R2): the record's months, taken one at a time by the administrator.
         pg.locator(".msheet.settings button", has_text="ユーザー管理").click(); calm()
@@ -712,6 +768,38 @@ with sync_playwright() as p:
         check("SD6 比較に戻すと比較の表が戻る", pg.locator(".side-compare").count() == 1 and pg.locator(".day-detail").count() == 0)
         pg.evaluate("window.scrollTo(0, 0)")
     step("SD", sd)
+
+    # RN. 雨の見込み（確認用）: 本物の形のこまとタイル（作ったもの）で、地図・グラフ・取れなかったこま・再生。
+    def rn():
+        shots = os.environ.get("WN_SHOT")
+        pg.click(".app-head .icon-btn"); calm()
+        pg.locator(".msheet.settings button", has_text="雨の見込み（確認用）").click(); calm()
+        settle(lambda: pg.locator(".rn-board .rn-map").count() == 1 and pg.locator(".rn-board .rn-loading").count() == 0, 15)
+        check("RN1 雨の見込み：地図・つまみ・グラフが出る", pg.locator(".rn-board .rn-map canvas").count() == 1 and pg.locator(".rn-board .rn-scrub").count() == 1 and pg.locator(".rn-board .rn-graph").count() == 1)
+        check("RN2 今のこま：「12:00」「今・実況」", "12:00" in txt(".rn-when") and "今・実況" in txt(".rn-when"), txt(".rn-when"))
+        settle(lambda: "読み込み中" not in txt(".rn-say"), 20)
+        check("RN3 この先の言葉が出る（読み込み中でない）", pg.locator(".rn-say-item").count() >= 2 and "読み込み中" not in txt(".rn-say"), txt(".rn-say"))
+        if shots: pg.screenshot(path=f"{shots}-rain.png", full_page=True)
+        # 取れなかったこま（11:30）：雨なしと見せない
+        idx = [f["m"] for f in RAIN_NOW["frames"]].index(-30)
+        pg.locator(".rn-scrub").fill(str(idx)); calm()
+        settle(lambda: pg.locator(".rn-miss").count() == 1, 8)
+        check("RN4 取れなかったこま：「このこまは取れませんでした」と「取れなかった」", pg.locator(".rn-miss").count() == 1 and "取れなかった" in txt(".rn-when"), txt(".rn-when"))
+        if shots: pg.screenshot(path=f"{shots}-rain-missing.png")
+        # 1時間の量のこま：凡例の見出しが変わる
+        idx = [f["m"] for f in RAIN_NOW["frames"]].index(150)
+        pg.locator(".rn-scrub").fill(str(idx)); calm()
+        settle(lambda: pg.locator(".rn-loading").count() == 0, 8)
+        check("RN5 1時間の量のこま：「1時間の量（mm）」と「1〜2時間後」…の幅", "1時間の量（mm）" in txt(".rn-legend-title") and "〜" in txt(".rn-when"), (txt(".rn-legend-title"), txt(".rn-when")))
+        layout_ok("RN6", "雨の見込み")
+        st = small_text(); check("RN7 11px より小さい文字がない（雨の見込み）", not st, str(st))
+        check("RN8 画面からはみ出さない（雨の見込み）", no_overflow())
+        pg.locator(".rn-diag summary").click(); calm()
+        check("RN9 取れ方（確認用）：一覧3つとこまの数", pg.locator(".rn-diag tbody tr").count() == 3 and "こまのうち" in txt(".rn-diag-body"), txt(".rn-diag-body")[:200])
+        if shots: pg.screenshot(path=f"{shots}-rain-hourly.png", full_page=True)
+        esc()
+        esc()
+    step("RN", rn)
 
     # AC. 長期の気温履歴を比べる（テスト）: L1 and L2 through the new core, side by side (#189)
     def ac():
@@ -1186,6 +1274,8 @@ with sync_playwright() as p:
 
     # The 500s step FS asks for on purpose are not errors of the app.
     errors = [e for e in errors if not (FAILED_ON_PURPOSE and "status of 500" in e)]
+    # So are the tiles RN answers 404 (取れなかったこま).
+    errors = [e for e in errors if not (TILES_404 and "status of 404" in e)]
     check("Z コンソールのエラーなし", not errors, "; ".join(errors[:5]))
     b.close()
 srv.shutdown()
