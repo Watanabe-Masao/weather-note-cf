@@ -317,3 +317,11 @@
 /* 降水確率の欄：タップで「6時間ごと」と「かんたん」を切り替える。見た目は変えず、キーボードで選んだときだけ枠 */
 .fh-pop-toggle { fill: transparent; pointer-events: none; outline: none; }
 .fh-pop-toggle:focus-visible { stroke: var(--accent); stroke-width: 1.5; }
+
+/* 3時間ごとの天気が無い発表：1日の天気の絵1つ＋6時間ごとの降水確率（列の線は引かず、1日1マスと分かるように） */
+.fh-ctab .c.span4.dayw { display: grid; grid-template-rows: auto auto; justify-items: stretch; align-content: center; gap: 2px; padding: var(--space-1) 0; }
+.fh-ctab .dayw > :first-child { justify-self: center; }
+.fh-ctab .dayw .pops { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.fh-ctab .dayw .pops > span { text-align: center; }
+.fh-ctab .dayw .pops > .ch { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.fh-ctab .dayw .pops > .past { align-self: stretch; background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--ink-tertiary) 14%, transparent) 4px 5px); }

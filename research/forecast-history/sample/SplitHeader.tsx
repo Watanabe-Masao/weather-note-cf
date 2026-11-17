@@ -189,6 +189,34 @@ export function SplitHeader({
               before={prev?.values ? numOf(prev.values.popDay) : null}
             />
           </span>
+        ) : ok && !v!.wx3 ? (
+          // 3時間ごとの天気が無い発表（取り込んだ記録など）：その日の天気の絵を1つ、4列をまたいで。
+          // 降水確率は6時間ごとのまま。作った値は入れない。
+          <span className="c span4 dayw">
+            <Wx s={s} size={18} />
+            <span className="pops">
+              {[0, 1, 2, 3].map((c) => {
+                const q = v!.pop6?.[c];
+                const p = numOf(q);
+                const past =
+                  q === null ||
+                  q === undefined ||
+                  (s.lead === 0 && p == null && c * 6 <= hourOf(s.at));
+                const b = prev?.values?.pop6
+                  ? numOf(prev.values.pop6[c])
+                  : null;
+                return (
+                  <span
+                    key={c}
+                    className={`${past ? "past" : ""}${p != null && b != null && p !== b ? " ch" : ""}`}
+                  >
+                    {past ? "" : p == null ? "---" : `${p}%`}
+                    <Delta now={p} before={b} />
+                  </span>
+                );
+              })}
+            </span>
+          </span>
         ) : ok ? (
           [0, 1, 2, 3].map((c) => {
             const q = v!.pop6?.[c];
