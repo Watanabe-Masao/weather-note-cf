@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { ensureSchema } from "../worker/src/accounts";
 import { ensureForecastSchema } from "../worker/src/forecastArchive";
+import { ensureForecastImportSchema } from "../worker/src/forecastImport";
 import { health, keepError, timed } from "../worker/src/health";
 import { copyTelegrams, ensureR2Schema } from "../worker/src/r2Archive";
 import { ensureTyphoonSchema } from "../worker/src/typhoonArchive";
@@ -90,4 +91,21 @@ describe("監視と管理", () => {
     expect(h.waste.notCopiedToR2).toBe(0);
     expect(h.state.openAlerts).toEqual([]);
   });
+
+  it("says the months of the record's import — the last taken and the next — and nothing else of them", async () => {
+    const db = await setup();
+    expect((await health(db, NOW)).state.forecastImport).toEqual({ lastTaken: null, next: "2025-01" });
+    await ensureForecastImportSchema(db);
+    for (const [office, month] of [
+      ["390000", "2025-01"],
+      ["390000", "2025-02"],
+      ["130000", "2025-02"],
+    ])
+      db.raw
+        .prepare("INSERT INTO forecast_imports VALUES ('shiromatz', ?, ?, 'c', 'u', 'h', 'f', 1, 1, '[]', 0, 0, '{}', 'CC BY-SA 4.0', 1)")
+        .run(office, month);
+    const h = await health(db, NOW);
+    expect(h.state.forecastImport).toEqual({ lastTaken: "2025-02", next: "2025-03" });
+  });
 });
+

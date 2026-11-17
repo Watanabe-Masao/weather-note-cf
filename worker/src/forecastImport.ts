@@ -127,6 +127,69 @@ function daysOf(month: string, issues: ForecastIssue[], ours: Set<string>, today
   return { empty, perDay: Object.fromEntries(per) };
 }
 
+/**
+ * The commit a month is taken at, so the same file can be taken again (R2-9): the head of main, read
+ * the way git reads it (the smart HTTP refs). Not GitHub's API: without a token it allows few calls per
+ * address, and Cloudflare's addresses are shared, so it refuses at once (HTTP 403, 2026-11-17).
+ */
+async function headCommit(get: Fetcher): Promise<string> {
+  const refs = await get(`https://github.com/${SHIROMATZ_REPO}.git/info/refs?service=git-upload-pack`, {
+    headers: { "User-Agent": "git/2.45 weather-note (#250)" },
+  });
+  if (!refs.ok) throw new Error(`記録のコミットが分かりません（HTTP ${refs.status}）。`);
+  const commit = /([0-9a-f]{40}) refs\/heads\/main\b/.exec(await refs.text())?.[1];
+  if (!commit) throw new Error("記録のコミットが分かりません（main が見つからない）。");
+  return commit;
+}
+
+/** The month's zip at a commit of the record (forecast/forecast_YYYYMM.zip). */
+const zipUrl = (commit: string, month: string) => `https://raw.githubusercontent.com/${SHIROMATZ_REPO}/${commit}/forecast/forecast_${month.replace("-", "")}.zip`;
+
+const monthAfter = (m: string) => {
+  const [y, mo] = m.split("-").map(Number);
+  return mo === 12 ? `${y + 1}-01` : `${y}-${String(mo + 1).padStart(2, "0")}`;
+};
+
+/**
+ * The month to take next: the first from IMPORT_FIRST not taken yet, up to IMPORT_LAST (null when all
+ * are taken). The last month taken, beside it. Shared by the administrator's screen and /api/health.
+ */
+export function importPosition(taken: Iterable<string>): { lastTaken: string | null; next: string | null } {
+  const set = new Set(taken);
+  let next: string | null = IMPORT_FIRST;
+  while (next && set.has(next)) next = next < IMPORT_LAST ? monthAfter(next) : null;
+  const lastTaken = [...set].filter((m) => m >= IMPORT_FIRST && m <= IMPORT_LAST).sort().pop() ?? null;
+  return { lastTaken, next };
+}
+
+/**
+ * Whether the record has the month yet. The record adds the month before on the 2nd, about 12:01 UTC
+ * (21時ごろ JST; 2026-10 came on 2026-11-02), so `expected` is that day. `available` is true or false
+ * only when it was asked and answered (404 is false); null, with the reason, when it could not be
+ * asked — 「確かめられなかった」 is never shown as 「まだ無い」.
+ */
+export interface NextMonth {
+  month: string;
+  expected: string;
+  available: boolean | null;
+  reason?: string;
+}
+
+const checkFetch: Fetcher = (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(10_000) });
+
+export async function checkMonth(month: string, get: Fetcher = checkFetch): Promise<NextMonth> {
+  const expected = `${monthAfter(month)}-02`;
+  try {
+    const commit = await headCommit(get);
+    const r = await get(zipUrl(commit, month), { method: "HEAD" });
+    if (r.status === 404) return { month, expected, available: false };
+    if (r.ok) return { month, expected, available: true };
+    return { month, expected, available: null, reason: `記録に問い合わせられませんでした（HTTP ${r.status}）。` };
+  } catch (e) {
+    return { month, expected, available: null, reason: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 export interface ImportResult {
   month: string;
   commit: string;
@@ -141,17 +204,8 @@ export async function importShiromatzMonth(db: Db, month: string, now = Date.now
   if (!/^\d{4}-\d{2}$/.test(month) || month < IMPORT_FIRST || month > IMPORT_LAST) throw new Error(`取り込める月は ${IMPORT_FIRST} から ${IMPORT_LAST} までです。`);
   await ensureForecastImportSchema(db);
   const ym = month.replace("-", "");
-  const path = `forecast/forecast_${ym}.zip`;
-  // The commit the month is taken at, so the same file can be taken again (R2-9): the head of main, read
-  // the way git reads it (the smart HTTP refs). Not GitHub's API: without a token it allows few calls per
-  // address, and Cloudflare's addresses are shared, so it refuses at once (HTTP 403, 2026-11-17).
-  const refs = await get(`https://github.com/${SHIROMATZ_REPO}.git/info/refs?service=git-upload-pack`, {
-    headers: { "User-Agent": "git/2.45 weather-note (#250)" },
-  });
-  if (!refs.ok) throw new Error(`記録のコミットが分かりません（HTTP ${refs.status}）。`);
-  const commit = /([0-9a-f]{40}) refs\/heads\/main\b/.exec(await refs.text())?.[1];
-  if (!commit) throw new Error("記録のコミットが分かりません（main が見つからない）。");
-  const url = `https://raw.githubusercontent.com/${SHIROMATZ_REPO}/${commit}/${path}`;
+  const commit = await headCommit(get);
+  const url = zipUrl(commit, month);
   const z = await get(url);
   if (z.status === 404) throw new Error(`${month} の記録はまだありません。`);
   if (!z.ok) throw new Error(`記録を取れませんでした（HTTP ${z.status}）。`);
@@ -275,8 +329,8 @@ export async function importShiromatzMonth(db: Db, month: string, now = Date.now
   return result;
 }
 
-/** The months taken, for the administrator's screen. */
-export async function importSummary(db: Db) {
+/** The months taken, for the administrator's screen, and whether the record has the next one yet. */
+export async function importSummary(db: Db, get: Fetcher = checkFetch) {
   await ensureForecastImportSchema(db);
   const rows = (
     await db
@@ -284,9 +338,11 @@ export async function importSummary(db: Db) {
       .bind(SHIROMATZ_SOURCE)
       .all<{ office: string; month: string; commit_sha: string; fetched_at: string; rows: number; issues: number; empty_days: string; overlaps: number; differ: number; license: string }>()
   ).results;
+  const { next } = importPosition(rows.map((r) => r.month));
   return {
     first: IMPORT_FIRST,
     last: IMPORT_LAST,
+    next: next ? await checkMonth(next, get) : null,
     parser: { telegram: FORECAST_XML_PARSER, record: SHIROMATZ_PARSER },
     months: rows.map((r) => ({ ...r, empty_days: JSON.parse(r.empty_days) as string[] })),
   };

@@ -3,6 +3,8 @@ name: health
 # 監視と管理 (2026-11-17): every hour, the app's /api/health is read and judged (scripts/health-check.mjs).
 # Something wrong opens an issue labelled "health" (or adds to the open one); when it is all right
 # again, the issue is closed. The numbers are on the job page and in its log for the daily check.
+# 過去の記録の取り込み (#250): when the record has the month to take next, an issue labelled
+# "import-ready" says so (not a problem, so apart from "health"); it is closed once that month is taken.
 # Free on a public repository (GitHub-hosted standard runners).
 on:
   schedule:
@@ -53,3 +55,19 @@ jobs:
           elif [ -n "$open" ]; then
             gh issue close "$open" --comment "復旧しました（$(date -u +%Y-%m-%dT%H:%MZ)）。"
           fi
+      - name: open or close the import-ready issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create import-ready --color 0E8A16 --description "取り込める月（health.yml）" 2>/dev/null || true
+          # Not read → nothing is done (an issue might be opened twice).
+          open=$(gh issue list --label import-ready --state open --json number,title) || { echo "import-ready の issue が読めないので、何もしません。"; exit 0; }
+          node scripts/health-check.mjs --import-issue "$open" > import-actions.txt
+          while IFS=$'\t' read -r act a b; do
+            case "$act" in
+              open)
+                gh issue create --title "$b" --label import-ready --body-file import-ready.md ;;
+              close)
+                gh issue close "$a" --comment "$b" ;;
+            esac
+          done < import-actions.txt

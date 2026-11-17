@@ -8,7 +8,9 @@
 //                run; wall time is what can be measured from inside, and bounds it);
 //   app_errors — failures of the account requests (the log keeps them only 3–7 days, the count here 30).
 
+import { SHIROMATZ_SOURCE } from "../../shared/forecastShiromatz";
 import type { Db } from "./accounts";
+import { importPosition } from "./forecastImport";
 import { monthUsage, type UsageEnv } from "./usage";
 
 export const HEALTH_SCHEMA = [
@@ -211,6 +213,9 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
     "SELECT COUNT(*) AS issues, SUM(entries) AS entries FROM forecast_issues WHERE preferred = 0",
   );
   const failingFetch = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM forecast_fetch_log WHERE ok = 0 AND at >= ?", dayAgo);
+  // 過去の記録の取り込み (#250): the months only — the last taken and the one to take next — for the
+  // hourly check to ask the record whether that month is there yet (health-check.mjs, import-ready).
+  const imported = await all<{ month: string }>(db, "SELECT DISTINCT month FROM forecast_imports WHERE source = ?", SHIROMATZ_SOURCE);
   const openAlerts = [
     ...(await all<{ key: string; opened_at: string }>(db, "SELECT key, opened_at FROM forecast_alerts WHERE closed_at IS NULL")),
     ...(await all<{ key: string; opened_at: string }>(db, "SELECT key, opened_at FROM typhoon_alerts WHERE closed_at IS NULL")),
@@ -273,6 +278,7 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       kochiLatest: Object.fromEntries(latest.map((l) => [l.kind, l.issued_at])),
       openAlerts: openAlerts.map((a) => ({ key: a.key, since: a.opened_at })),
       accountErrorsLastDay: errors.map((e) => ({ place: e.place, n: e.n, last: e.last })),
+      forecastImport: importPosition(imported.map((r) => r.month)),
     },
     tables,
   };
