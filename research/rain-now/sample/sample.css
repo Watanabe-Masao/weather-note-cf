@@ -42,3 +42,4 @@ body { background: var(--surface-base); color: var(--ink-primary); }
 .rn-axis { stroke: var(--line-strong); stroke-width: 1; }
 .rn-none { font-size: 11px; fill: var(--ink-tertiary); }
 .rn-span .seg { width: 100%; }
+.rn-here { margin-left: auto; color: var(--ink-secondary); }

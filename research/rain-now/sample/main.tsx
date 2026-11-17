@@ -80,6 +80,7 @@ function App() {
             </span>
           ))}
           <small>mm/h</small>
+          <span className="rn-here">＋ 現在地（見本は仮の位置）</span>
         </div>
         <div className="rn-span">
           <Segmented

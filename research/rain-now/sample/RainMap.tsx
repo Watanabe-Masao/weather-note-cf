@@ -1,7 +1,7 @@
 // 地図：地点のまわりの雨の強さ（mm/h、気象庁の色の段）。＋−で段階8（四国全体）〜10（高知市のまわり）まで寄せる。
 // 予測のこまは「予測」の札と灰の枠（色味のある色は「選んでいる」印だけ、design-system 1章）。
 import { useEffect, useRef } from "react";
-import { colorOf, intensity, isForecast, KOCHI, minuteLabel, viewOf, ZOOMS, type Zoom } from "./data";
+import { colorOf, HERE, intensity, isForecast, KOCHI, minuteLabel, viewOf, ZOOMS, type Zoom } from "./data";
 
 type Coast = { rings: number[][] };
 const COS = Math.cos((33.5 * Math.PI) / 180);
@@ -76,6 +76,20 @@ export function RainMap({ m, coast, zoom, onZoom }: { m: number; coast: Coast | 
     ctx.globalAlpha = 1;
     ctx.fillStyle = tok("--ink-primary");
     ctx.fillText(KOCHI.name, kx + 14, ky - 7);
+    // 現在地：「＋」の印だけ（値は出さない）。縁取りをして雨の色の上でも見えるように
+    const hx = X(HERE.lon);
+    const hy = Y(HERE.lat);
+    ctx.lineCap = "round";
+    for (const [col, wd] of [[tok("--surface-base"), 5], [tok("--ink-primary"), 2]] as const) {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = wd;
+      ctx.beginPath();
+      ctx.moveTo(hx - 7, hy);
+      ctx.lineTo(hx + 7, hy);
+      ctx.moveTo(hx, hy - 7);
+      ctx.lineTo(hx, hy + 7);
+      ctx.stroke();
+    }
     // 縮尺
     const bar = (v.km / (111 * COS) / (v.e - v.w)) * w;
     ctx.fillStyle = tok("--ink-secondary");
