@@ -244,9 +244,9 @@ function App({
   >("step");
   const [scrub, setScrub] = useState<string | null>(null);
   const [release, setRelease] = useState<"keep" | "back">("keep");
-  const [recent, setRecent] = useState(true);
+  const [recent, setRecent] = useState(false);
   const [axis, setAxis] = useState<"date" | "clock">("date");
-  const [popView, setPopView] = useState<"detail" | "simple">("detail");
+  const [popView, setPopView] = useState<"detail" | "simple">("simple");
   const [head, setHead] = useState<"split" | "stack">("split");
   const [onlyChanged, setOnlyChanged] = useState(false);
   const [cell, setCell] = useState<{ key: string; day: string } | null>(null);
