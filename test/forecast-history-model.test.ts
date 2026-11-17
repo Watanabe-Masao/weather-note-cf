@@ -83,3 +83,19 @@ describe("予報の履歴：発表の回", () => {
     expect(d11.values!.pop6!.slice(0, 2)).toEqual([null, null]);
   });
 });
+
+describe("予報の履歴：記録の無い回も今まで並べる", () => {
+  it("lists the regular issues up to now as 記録なし when nothing was kept after an earlier issue", async () => {
+    const h = await day("2026-11-18");
+    // 記録は 11/17 11時まで。今を 11/18 12時とすると、11/17 17時・11/18 5時・11時の回も並ぶ（記録なし）。
+    const slots = h.slots("2026-11-18", "2026-11-18T12:00:00+09:00");
+    const after = slots.filter((s) => s.at > "2026-11-17T11:00:00+09:00");
+    expect(after.map((s) => `${s.kind} ${s.at.slice(5, 13)}`)).toEqual([
+      "VPFW50 11-17T17",
+      "VPFD51 11-17T17",
+      "VPFD51 11-18T05",
+      "VPFD51 11-18T11",
+    ]);
+    expect(after.every((s) => s.state !== "ok")).toBe(true);
+  });
+});

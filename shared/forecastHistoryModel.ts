@@ -257,7 +257,10 @@ export class ForecastHistory {
     return { state: "missing", failures: [] };
   }
 
-  /** 対象日 `day` の移り変わり：発表の回を時刻の順に。今より先の回は出さない。 */
+  /**
+   * 対象日 `day` の移り変わり：発表の回を時刻の順に。今（`now`）より先の回は出さない。`now` を渡さないと
+   * 最後に記録のある発表までになり、それより後の記録の無い回が並ばない（画面では必ず今を渡す）。
+   */
   slots(day: string, now?: string): Slot[] {
     const last =
       this.sc.issues
