@@ -6,7 +6,8 @@ import { colorOf, frameLabel, HERE, isAmount, isForecast, KOCHI, relLabel, value
 type Coast = { rings: number[][] };
 const COS = Math.cos((33.5 * Math.PI) / 180);
 
-export function RainMap({ m, coast, zoom, onZoom, note }: { m: number; coast: Coast | null; zoom: Zoom; onZoom: (z: Zoom) => void; note?: string | null }) {
+// 取れなかったこま：雨は描かず（「雨なし」に見せない）、地図を薄くして「取れなかった」と書く。枠は破線（アプリの記録なしと同じ）。
+export function RainMap({ m, coast, zoom, onZoom, note, missing = false }: { m: number; coast: Coast | null; zoom: Zoom; onZoom: (z: Zoom) => void; note?: string | null; missing?: boolean }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const forecast = isForecast(m);
   const v = viewOf(zoom);
@@ -44,6 +45,7 @@ export function RainMap({ m, coast, zoom, onZoom, note }: { m: number; coast: Co
     const cw = (v.cell / (v.e - v.w)) * w;
     const ch = (v.cell / (v.n - v.s)) * h;
     ctx.globalAlpha = 0.85;
+    if (!missing)
     for (let lon = v.w; lon < v.e; lon += v.cell)
       for (let lat = v.s; lat < v.n; lat += v.cell) {
         const col = colorOf(valueAt(lon + v.cell / 2, lat + v.cell / 2, m));
@@ -97,15 +99,22 @@ export function RainMap({ m, coast, zoom, onZoom, note }: { m: number; coast: Co
     ctx.fillRect(w - 12 - bar, h - 14, bar, 2);
     ctx.font = `11px ${tok("--font-family")}`;
     ctx.fillText(`${v.km}km`, w - 12 - bar, h - 18);
-  }, [m, coast, v]);
+  }, [m, coast, v, missing]);
   const i = ZOOMS.indexOf(zoom);
   return (
-    <figure className={`rn-map${forecast ? " forecast" : ""}`}>
-      <canvas ref={ref} className="rn-canvas" role="img" aria-label={`${frameLabel(m)}の${isAmount(m) ? "1時間の降水量" : "雨の強さ"}（${forecast ? "予測" : "実況"}）`} />
+    <figure className={`rn-map${forecast ? " forecast" : ""}${missing ? " missing" : ""}`}>
+      <canvas ref={ref} className="rn-canvas" role="img" aria-label={`${frameLabel(m)}の${isAmount(m) ? "1時間の降水量" : "雨の強さ"}（${forecast ? "予測" : "実況"}）${missing ? "：取れなかった" : ""}`} />
+      {missing && (
+        <span className="rn-miss">
+          <b>このこまは取れませんでした</b>
+          <span>雨がないという意味ではありません</span>
+        </span>
+      )}
       <span className={`rn-when${forecast ? " forecast" : ""}`}>
         <b>{frameLabel(m)}</b>
         <span>
-          {relLabel(m)}・{isAmount(m) ? "予測（1時間の量）" : forecast ? "予測" : "実況"}
+          {/* 取れなかったこまは、何のこまかより「取れなかった」を先に（長くて2行目が折れないように） */}
+          {relLabel(m)}・{missing ? "取れなかった" : isAmount(m) ? "予測（1時間の量）" : forecast ? "予測" : "実況"}
         </span>
       </span>
       {note && <span className="rn-playnote">{note}</span>}

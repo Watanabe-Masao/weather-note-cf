@@ -12,7 +12,8 @@ const PAD_R = 8;
 export const SPANS = { "6": { from: -180, to: 180, tick: 60 }, "12": { from: -240, to: 480, tick: 120 }, "24": { from: -360, to: 1080, tick: 180 } } as const;
 export type Span = keyof typeof SPANS;
 
-export function TimeGraph({ m, span, onPick }: { m: number; span: Span; onPick: (m: number) => void }) {
+// 取れなかった所は破線の枠と「×」（雨なし＝空白・予測＝灰の網かけ、のどちらとも違う見た目）。
+export function TimeGraph({ m, span, onPick, missing = () => false }: { m: number; span: Span; onPick: (m: number) => void; missing?: (m: number) => boolean }) {
   const ref = useRef<SVGSVGElement>(null);
   const { from, to, tick } = SPANS[span];
   const x = (t: number) => PAD_L + ((t - from) / (to - from)) * (W - PAD_L - PAD_R);
@@ -74,7 +75,9 @@ export function TimeGraph({ m, span, onPick }: { m: number; span: Span; onPick: 
       <line x1={PAD_L} x2={W - PAD_R} y1={R2.base} y2={R2.base} className="rn-axis" />
       {/* 上：5分ごとの強さ */}
       {pointSeries.map((p) =>
-        p.v > 0 && inView(p.m, p.m + 5) ? (
+        missing(p.m) && inView(p.m, p.m + 5) ? (
+          <rect key={p.m} x={cx(p.m) + 0.5} y={R1.top} width={Math.max(1, cx(p.m + 5) - cx(p.m) - 1)} height={R1.base - R1.top} className="rn-missbox" />
+        ) : p.v > 0 && inView(p.m, p.m + 5) ? (
           <rect key={p.m} x={cx(p.m) + 0.3} y={y1(p.v)} width={Math.max(0.6, cx(p.m + 5) - cx(p.m) - 0.6)} height={R1.base - y1(p.v)} style={{ fill: colorOf(p.v) ?? "transparent" }} />
         ) : null,
       )}
@@ -89,7 +92,15 @@ export function TimeGraph({ m, span, onPick }: { m: number; span: Span; onPick: 
       {hourly.map((p) => {
         const t0 = (p.h - 1) * 60;
         const t1 = p.h * 60;
-        if (!inView(t0, t1) || p.mm <= 0) return null;
+        if (!inView(t0, t1)) return null;
+        if (missing(t1))
+          return (
+            <g key={p.h}>
+              <rect x={cx(t0) + 0.5} y={R2.top} width={cx(t1) - cx(t0) - 1} height={R2.base - R2.top} className="rn-missbox" />
+              <text x={(cx(t0) + cx(t1)) / 2} y={R2.base - 4} textAnchor="middle" className="rn-none">×</text>
+            </g>
+          );
+        if (p.mm <= 0) return null;
         return (
           <g key={p.h}>
             <rect x={cx(t0) + 0.5} y={y2(p.mm)} width={cx(t1) - cx(t0) - 1} height={R2.base - y2(p.mm)} className="rn-amt" />

@@ -125,7 +125,7 @@ export const colorOf = (v: number) => SCALE.find((s) => v >= s.from && v < s.to)
 /** 言葉（見本）：この先1時間の高知の雨を、決まった形だけで言う（理由は言わない）。 */
 export const STRENGTH = (v: number) => (v >= 30 ? "激しい雨" : v >= 20 ? "強い雨" : v >= 10 ? "やや強い雨" : v >= 1 ? "雨" : "弱い雨");
 /** この先1時間の高知の雨を、降りはじめ・いちばん強い・その後に分けて（時刻と「何分後」を並べて）。 */
-export function aheadItems(): { label: string; value: string; sub?: string }[] {
+export function aheadItems(state: SampleState = "ok"): { label: string; value: string; sub?: string }[] {
   const ahead = pointSeries.filter((p) => p.m > 0);
   const now = pointSeries.find((p) => p.m === 0)!.v;
   const first = ahead.find((p) => p.v >= 1);
@@ -137,10 +137,19 @@ export function aheadItems(): { label: string; value: string; sub?: string }[] {
   const stop = ahead.find((p, i) => i > 0 && p.v < 1 && ahead[i - 1].v >= 1);
   out.push(stop ? { label: "やむ", value: `${minuteLabel(stop.m)}ごろ`, sub: `${stop.m}分後` } : { label: "その後", value: `${minuteLabel(60)}以降も`, sub: "降り続く見込み" });
   // この先15時間（今後の雨）：合計と、いちばん多い1時間
-  const next = hourly.filter((p) => p.forecast);
+  // 取れなかった1時間は足さず、合計は「以上」にして、何時間分が欠けているかを書く（0mm と見せない）
+  const all = hourly.filter((p) => p.forecast);
+  const lost = all.filter((p) => isMissing(p.h * 60, state));
+  const next = all.filter((p) => !isMissing(p.h * 60, state));
   const total = Math.round(next.reduce((t, p) => t + p.mm, 0) * 10) / 10;
   const most = next.reduce((a, b) => (b.mm > a.mm ? b : a), next[0]);
-  out.push(total > 0 ? { label: "15時間の合計", value: `${total}mm`, sub: `多いのは${minuteLabel((most.h - 1) * 60)}〜 ${most.mm}mm` } : { label: "15時間の合計", value: "0mm" });
+  const more = lost.length ? "以上" : "";
+  const lostNote = lost.length ? `${lost.length}時間分は取れなかった` : null;
+  out.push(
+    total > 0
+      ? { label: "15時間の合計", value: `${total}mm${more}`, sub: lostNote ?? `多いのは${minuteLabel((most.h - 1) * 60)}〜 ${most.mm}mm` }
+      : { label: "15時間の合計", value: `0mm${more}`, sub: lostNote ?? undefined },
+  );
   return out;
 }
 
@@ -158,3 +167,27 @@ export function sayAhead(): string {
   parts.push(stop ? `${stop.m}分後にやむ見込み` : "1時間後も続く見込み");
   return parts.join("、");
 }
+
+/**
+ * こまの取れ方（本番と同じ形）。本番は気象庁のタイルを読みに行き、読めなかったこまは「取れなかった」。
+ * 雨が無いこま（タイルが空）と取れなかったこまは、見た目も言葉も分ける（R5-1：「取れなかった」を「ない」と見せない）。
+ */
+export type SampleState = "ok" | "missing" | "stale";
+export interface Source {
+  name: string;
+  /** 発表の時刻（今からの分）。本番は気象庁の一覧の basetime。 */
+  issued: number;
+  /** これより古いと「古い」と出す（分）。見本は仮の値：本番は気象庁の一覧が出てくる間隔を見て決める。 */
+  staleAfter: number;
+}
+export function sources(state: SampleState): { nowcast: Source; hourly: Source } {
+  return state === "stale"
+    ? { nowcast: { name: "雨雲の動き", issued: -40, staleAfter: 15 }, hourly: { name: "今後の雨", issued: -90, staleAfter: 90 } }
+    : { nowcast: { name: "雨雲の動き", issued: 0, staleAfter: 15 }, hourly: { name: "今後の雨", issued: -30, staleAfter: 90 } };
+}
+export const isStale = (s: Source) => -s.issued >= s.staleAfter;
+/** 見本で「取れなかった」にするこま（実況の2こまと、今後の雨の1こま）。 */
+const MISSING = new Set([-95, -90, 420]);
+export const isMissing = (m: number, state: SampleState) => state === "missing" && MISSING.has(m);
+/** 地図の凡例の見出し：こまが表すもの（強さか、1時間の量か）。色の段は同じでも、物と単位が違う。 */
+export const legendTitle = (m: number) => (isAmount(m) ? "1時間の量（mm）" : "雨の強さ（mm/h）");
