@@ -246,6 +246,7 @@ function App({
   const [release, setRelease] = useState<"keep" | "back">("keep");
   const [recent, setRecent] = useState(true);
   const [axis, setAxis] = useState<"date" | "clock">("date");
+  const [popView, setPopView] = useState<"detail" | "simple">("detail");
   const [head, setHead] = useState<"split" | "stack">("split");
   const [onlyChanged, setOnlyChanged] = useState(false);
   const [cell, setCell] = useState<{ key: string; day: string } | null>(null);
@@ -449,7 +450,17 @@ function App({
                 <>
                   {plan === "step" ? (
                     <>
+                      <Segmented
+                        label="降水確率"
+                        value={popView}
+                        onChange={setPopView}
+                        options={[
+                          { id: "detail", label: "6時間ごと" },
+                          { id: "simple", label: "かんたん" },
+                        ]}
+                      />
                       <StepChart
+                        pop={popView}
                         slots={slots}
                         day={day}
                         focus={focusKey}

@@ -31,6 +31,7 @@ export function StepChart({
   onSelect,
   recent = false,
   axis = "date",
+  pop = "detail",
 }: {
   slots: Slot[];
   day: string;
@@ -39,6 +40,8 @@ export function StepChart({
   recent?: boolean;
   /** 横の目盛り：date＝日付だけ（時の数字を出さない）、clock＝発表の時刻を時計の絵で。 */
   axis?: "date" | "clock";
+  /** 降水確率：detail＝府県天気予報は6時間ごとの4マス、simple＝どの発表も1マス（府県天気予報は残っている時間帯の最大）。 */
+  pop?: "detail" | "simple";
   onScrub: (key: string | null, phase: "move" | "end") => void;
   onSelect: (key: string) => void;
 }) {
@@ -78,7 +81,8 @@ export function StepChart({
   const BAND_Y = 38; // 「1日ごと（週間）」「6時間ごと（府県）」の帯
   const CELL_TOP = 46;
   const ROW = Math.ceil(fs + 4); // 6時間の1マスの高さ（数字が入る）
-  const CELL_H = ROW * 4;
+  const simple = pop === "simple";
+  const CELL_H = simple ? Math.ceil(ROW * 1.6) : ROW * 4;
   const T_TOP = CELL_TOP + CELL_H + 16;
   const T_H = 96;
   const AX = T_TOP + T_H + 4;
@@ -289,8 +293,17 @@ export function StepChart({
                   <path d="M6,0 L0,3 L6,6" className="fh-band-arrow" />
                 </marker>
               </defs>
-              {band(PAD_L, xs ?? W - PAD_R, "1日ごと（週間）")}
-              {xs != null && band(xs, W - PAD_R, "6時間ごと（府県）")}
+              {band(
+                PAD_L,
+                xs ?? W - PAD_R,
+                simple ? "1日（週間）" : "1日ごと（週間）",
+              )}
+              {xs != null &&
+                band(
+                  xs,
+                  W - PAD_R,
+                  simple ? "最大（府県）" : "6時間ごと（府県）",
+                )}
               {xs != null && (
                 <line
                   x1={xs}
@@ -304,7 +317,7 @@ export function StepChart({
           );
         })()}
         {/* 降水確率のマス：左に時間帯（府県天気予報の4マスは上から 0〜6・6〜12・12〜18・18〜24時） */}
-        {["0-6", "6-12", "12-18", "18-24"].map((n, i) => (
+        {(simple ? [] : ["0-6", "6-12", "12-18", "18-24"]).map((n, i) => (
           <text
             key={n}
             x={PAD_L - 3}
@@ -316,15 +329,17 @@ export function StepChart({
             {n.split("-")[0]}
           </text>
         ))}
-        <text
-          x={PAD_L - 3}
-          y={CELL_TOP - 2}
-          textAnchor="end"
-          fontSize={fs}
-          className="fh-tick quiet"
-        >
-          時
-        </text>
+        {!simple && (
+          <text
+            x={PAD_L - 3}
+            y={CELL_TOP - 2}
+            textAnchor="end"
+            fontSize={fs}
+            className="fh-tick quiet"
+          >
+            時
+          </text>
+        )}
         {times.map((t) => {
           const s = popAt.get(t);
           const gx = xi(t) + 1;
@@ -354,8 +369,16 @@ export function StepChart({
               />
             );
           }
-          if (s.kind === "VPFW50") {
-            const p = vNum(s.values?.popDay);
+          if (s.kind === "VPFW50" || simple) {
+            const ps = (s.values?.pop6 ?? [])
+              .map((q) => vNum(q))
+              .filter((v): v is number => v != null);
+            const p =
+              s.kind === "VPFW50"
+                ? vNum(s.values?.popDay)
+                : ps.length
+                  ? Math.max(...ps)
+                  : null;
             return (
               <g key={`c${t}`}>
                 <rect
@@ -565,14 +588,18 @@ export function StepChart({
           <i className="fh-step-swatch" style={{ background: cell(90) }} />
           降水確率
         </span>
-        <span>
-          <i className="fh-box one" />
-          1日全体（週間）
-        </span>
-        <span>
-          <i className="fh-box four" />
-          6時間ごと（府県）
-        </span>
+        {!simple && (
+          <>
+            <span>
+              <i className="fh-box one" />
+              1日全体（週間）
+            </span>
+            <span>
+              <i className="fh-box four" />
+              6時間ごと（府県）
+            </span>
+          </>
+        )}
         <span>
           <i className="fh-step-swatch band" />
           予測範囲
