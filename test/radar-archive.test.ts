@@ -118,3 +118,14 @@ describe("雨雲レーダー：毎時の見張り", () => {
     expect(keys(at(2.5)).problems).toContain("radarStale");
   });
 });
+
+describe("地点の表（shared/stationPlaces.ts）", () => {
+  it("is the one table the forecast history and the radar both read (要件 R4「場所」)", async () => {
+    const { STATION_PLACES } = await import("../shared/stationPlaces");
+    const { HISTORY_PLACES } = await import("../shared/forecastHistory");
+    const { RADAR_PLACE } = await import("../shared/radar");
+    expect(HISTORY_PLACES["47893"]).toBe(STATION_PLACES["47893"].forecast);
+    expect(RADAR_PLACE).toBe(STATION_PLACES["47893"].radar);
+    expect(Object.keys(HISTORY_PLACES)).toEqual(Object.keys(STATION_PLACES));
+  });
+});

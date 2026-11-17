@@ -6,6 +6,8 @@
 // 出典：気象庁ホームページ「雨雲の動き」。The rain here is an intensity at that moment (mm/h), never an
 // amount (mm): it is not put in the same column or line as AMeDAS's hourly precipitation (R4).
 
+import { STATION_PLACES } from "./stationPlaces";
+
 export const RADAR_LIST_URL = "https://www.jma.go.jp/bosai/jmatile/data/nowc/targetTimes_N1.json";
 export const radarTileUrl = (basetime: string, validtime: string, z: number, x: number, y: number) =>
   `https://www.jma.go.jp/bosai/jmatile/data/nowc/${basetime}/none/${validtime}/surf/hrpns/${z}/${x}/${y}.png`;
@@ -20,8 +22,8 @@ export function tileOf(lat: number, lon: number, z: number): { x: number; y: num
   };
 }
 
-/** The place kept: Kochi (高知市, the station 47893) and the 3×3 tiles around its tile at zoom 8. */
-export const RADAR_PLACE = { name: "高知", lat: 33.56, lon: 133.53, z: 8, around: 1 };
+/** The place kept: Kochi (the station 47893) and the 3×3 tiles around its tile at zoom 8 — its row of the one table of places (shared/stationPlaces.ts). */
+export const RADAR_PLACE = STATION_PLACES["47893"].radar;
 
 export function radarTiles(place = RADAR_PLACE): { z: number; x: number; y: number }[] {
   const c = tileOf(place.lat, place.lon, place.z);

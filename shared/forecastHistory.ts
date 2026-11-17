@@ -2,6 +2,8 @@
 // The rows are forecast_issues / forecast_entries / forecast_fetch_log as they are kept (R4), only cut
 // to the day and the places of the station — the screen decides what to show from them, not the server.
 
+import { STATION_PLACES } from "./stationPlaces";
+
 /** forecast_issues, as kept. */
 export interface HistoryIssue {
   issue_id: string;
@@ -49,15 +51,13 @@ export interface HistoryFetchLog {
 }
 
 /**
- * The places a station's history is read from: the office (週間の天気・降水確率), the 府県天気予報's area
- * it lies in (天気・降水確率・3時間ごとの天気) and the point whose temperatures are given (気温).
- * Only the stations written here have a history: an area is not guessed (a station not here gets
- * `supported: false`, and the screen says the history is not there for it yet).
+ * The places a station's history is read from (office, 府県天気予報's area, temperature point): the
+ * station's row of the one table of places (shared/stationPlaces.ts). A station not there has no history
+ * (`supported: false`): an area is not guessed.
  */
-export const HISTORY_PLACES: Record<string, { office: string; area: string; point: string }> = {
-  // 高知：高知県（390000）、府県天気予報の中部（390010）、気温は高知（74182）。
-  "47893": { office: "390000", area: "390010", point: "74182" },
-};
+export const HISTORY_PLACES: Record<string, { office: string; area: string; point: string }> = Object.fromEntries(
+  Object.entries(STATION_PLACES).map(([id, p]) => [id, p.forecast]),
+);
 
 /** The elements the screen reads (R6-1). */
 export const HISTORY_ELEMENTS = ["weather", "weather_text", "weather_code", "weather_3h", "pop", "temp_max", "temp_min", "reliability"];
