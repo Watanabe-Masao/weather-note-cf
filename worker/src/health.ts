@@ -8,7 +8,9 @@
 //                run; wall time is what can be measured from inside, and bounds it);
 //   app_errors — failures of the account requests (the log keeps them only 3–7 days, the count here 30).
 
+import { SHIROMATZ_SOURCE } from "../../shared/forecastShiromatz";
 import type { Db } from "./accounts";
+import { importPosition } from "./forecastImport";
 import { monthUsage, type UsageEnv } from "./usage";
 
 export const HEALTH_SCHEMA = [
@@ -122,6 +124,8 @@ const TABLES: [string, string | null][] = [
   ["forecast_alerts", "opened_at"],
   ["typhoon_telegrams", "fetched_at"],
   ["typhoon_fetch_log", "at"],
+  ["warning_telegrams", "fetched_at"],
+  ["warning_fetch_log", "at"],
   ["archive_copies", "copied_at"],
   ["wxchart_saved", "fetched_at"],
   ["wxchart_fetch_log", "at"],
@@ -174,8 +178,12 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       "SELECT SUM(LENGTH(xml)) AS bytes, SUM(CASE WHEN EXISTS (SELECT 1 FROM archive_copies c WHERE c.source = 'typhoon' AND c.id = t.id) THEN LENGTH(xml) ELSE 0 END) AS copied FROM typhoon_telegrams t",
     ),
   };
-  const xmlBytes = (xml.forecast?.bytes ?? 0) + (xml.typhoon?.bytes ?? 0);
-  const xmlTwice = (xml.forecast?.copied ?? 0) + (xml.typhoon?.copied ?? 0);
+  const warningXml = await one<{ bytes: number | null; copied: number | null }>(
+    db,
+    "SELECT SUM(LENGTH(xml)) AS bytes, SUM(CASE WHEN EXISTS (SELECT 1 FROM archive_copies c WHERE c.source = 'warning' AND c.id = t.id) THEN LENGTH(xml) ELSE 0 END) AS copied FROM warning_telegrams t",
+  );
+  const xmlBytes = (xml.forecast?.bytes ?? 0) + (xml.typhoon?.bytes ?? 0) + (warningXml?.bytes ?? 0);
+  const xmlTwice = (xml.forecast?.copied ?? 0) + (xml.typhoon?.copied ?? 0) + (warningXml?.copied ?? 0);
 
   const r2 = {
     telegrams: await one<{ n: number; bytes: number | null }>(db, "SELECT COUNT(*) AS n, SUM(bytes) AS bytes FROM archive_copies"),
@@ -202,15 +210,24 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
   );
   const unparsed = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM forecast_telegrams WHERE parser = 0");
   const parseFailed = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM forecast_telegrams WHERE parsed LIKE '{\"error\"%'");
-  const notCopied = await one<{ n: number }>(
-    db,
-    "SELECT (SELECT COUNT(*) FROM forecast_telegrams) + (SELECT COUNT(*) FROM typhoon_telegrams) - (SELECT COUNT(*) FROM archive_copies) AS n",
-  );
+  // Each source on its own (a table not made yet counts as none, and does not hide the others).
+  const notCopiedOf = async (source: string, table: string) =>
+    (await one<{ n: number }>(db, `SELECT COUNT(*) AS n FROM ${table} t WHERE NOT EXISTS (SELECT 1 FROM archive_copies c WHERE c.source = ? AND c.id = t.id)`, source))?.n ?? 0;
+  const warningNotCopied = await notCopiedOf("warning", "warning_telegrams");
+  const notCopied = (await notCopiedOf("forecast", "forecast_telegrams")) + (await notCopiedOf("typhoon", "typhoon_telegrams")) + warningNotCopied;
   const notPreferred = await one<{ issues: number; entries: number }>(
     db,
     "SELECT COUNT(*) AS issues, SUM(entries) AS entries FROM forecast_issues WHERE preferred = 0",
   );
   const failingFetch = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM forecast_fetch_log WHERE ok = 0 AND at >= ?", dayAgo);
+  // 警報・注意報の電文 (warningArchive.ts): counts and times only. No "should have come" watch (they are
+  // not issued on a schedule): the failures to fetch are what is told.
+  const warningCount = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM warning_telegrams");
+  const warningLatest = await all<{ kind: string; issued_at: string }>(db, "SELECT kind, MAX(issued_at) AS issued_at FROM warning_telegrams GROUP BY kind ORDER BY kind");
+  const warningFailing = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM warning_fetch_log WHERE ok = 0 AND at >= ?", dayAgo);
+  // 過去の記録の取り込み (#250): the months only — the last taken and the one to take next — for the
+  // hourly check to ask the record whether that month is there yet (health-check.mjs, import-ready).
+  const imported = await all<{ month: string }>(db, "SELECT DISTINCT month FROM forecast_imports WHERE source = ?", SHIROMATZ_SOURCE);
   const openAlerts = [
     ...(await all<{ key: string; opened_at: string }>(db, "SELECT key, opened_at FROM forecast_alerts WHERE closed_at IS NULL")),
     ...(await all<{ key: string; opened_at: string }>(db, "SELECT key, opened_at FROM typhoon_alerts WHERE closed_at IS NULL")),
@@ -259,7 +276,7 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
     // 無駄: what is kept or done for nothing, or not done.
     waste: {
       xmlInDatabase: { bytes: xmlBytes, alsoInR2: xmlTwice },
-      notCopiedToR2: notCopied?.n ?? 0,
+      notCopiedToR2: notCopied,
       unparsed: unparsed?.n ?? 0,
       parseFailed: parseFailed?.n ?? 0,
       recordCopiesNotShown: { issues: notPreferred?.issues ?? 0, entries: notPreferred?.entries ?? 0 },
@@ -270,9 +287,17 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       forecastLastOk: await lastOk("forecast_fetch_log"),
       typhoonLastOk: await lastOk("typhoon_fetch_log"),
       chartsLastOk: await lastOk("wxchart_fetch_log"),
+      warnings: {
+        telegrams: warningCount?.n ?? 0,
+        latest: Object.fromEntries(warningLatest.map((l) => [l.kind, l.issued_at])),
+        notCopiedToR2: warningNotCopied,
+        lastOk: await lastOk("warning_fetch_log"),
+        fetchFailuresLastDay: warningFailing?.n ?? 0,
+      },
       kochiLatest: Object.fromEntries(latest.map((l) => [l.kind, l.issued_at])),
       openAlerts: openAlerts.map((a) => ({ key: a.key, since: a.opened_at })),
       accountErrorsLastDay: errors.map((e) => ({ place: e.place, n: e.n, last: e.last })),
+      forecastImport: importPosition(imported.map((r) => r.month)),
     },
     tables,
   };

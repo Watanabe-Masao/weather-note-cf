@@ -1333,6 +1333,8 @@ button.label-feel:active { transform: scale(0.97); }
 .hour-compare { --plot-left: 34px; }
 .light-strip { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
 .light-title { font-size: var(--size-sm); color: var(--ink-secondary); }
+/* 「昼は いつもの…倍」: xs (a bare <small> is the browser's "smaller", 10px under 12px). */
+.light-title small { font-size: var(--size-xs); }
 .light-row { display: flex; align-items: center; }
 .light-row-label { width: var(--plot-left); font-size: var(--size-sm); color: var(--ink-tertiary); }
 .light-cells { flex: 1; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 1px; margin-right: 10px; }
@@ -2337,6 +2339,8 @@ svg.scrub {
   align-items: center;
   margin-bottom: 4px;
 }
+/* The time span by the band's name: xs (a bare <small> is the browser's "smaller", 10px here). */
+.band-detail header small { font-size: var(--size-xs); }
 
 .band-detail table {
   width: 100%;
@@ -4150,7 +4154,8 @@ svg.scrub {
 .sun-chart { width: 100%; height: auto; display: block; touch-action: pan-y; cursor: ew-resize; }
 .sun-horizon { stroke: var(--ink-secondary); stroke-width: 1.2; }
 .sun-depth { stroke: var(--ink-tertiary); stroke-opacity: 0.45; stroke-dasharray: 3 3; }
-.sun-tick { fill: var(--ink-tertiary); font-size: var(--size-xs); font-family: var(--font-numeric); }
+/* The size is set on the text (SunSheet.tsx): xs on screen, whatever width the drawing is shown at. */
+.sun-tick { fill: var(--ink-tertiary); font-family: var(--font-numeric); }
 .sun-curve { fill: none; stroke: var(--ink-tertiary); stroke-width: 2; stroke-linecap: round; }
 .sun-curve.day { stroke-width: 2.5; }
 .sun-cursor { stroke: var(--ink-secondary); stroke-dasharray: 2 3; }

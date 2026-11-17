@@ -15,6 +15,7 @@ import { type AccountsEnv, type Db, ensureSchema, handleAccounts, isAccountPath 
 import { runSchedule } from "./notify";
 import { activeTyphoons } from "./typhoon";
 import { collectForecasts } from "./forecastArchive";
+import { collectWarnings } from "./warningArchive";
 import { parseForecasts } from "./forecastParse";
 import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
@@ -217,6 +218,8 @@ export default {
         // R5-3: the administrators told when the forecast archive stops (forecastWatch.ts) — before the
         // reading, which is heavier: a watch that must not wait on it, nor be cut by its limits.
         .then(stage("forecast watch", () => watchForecastArchive(db)))
+        // 警報・注意報の電文 (高知県, warningArchive.ts): before the reading too — a telegram missed for 7 days cannot be taken again.
+        .then(stage("warning archive", () => collectWarnings(db)))
         // Then read what was kept: values with their times, for the history (forecastParse.ts).
         .then(stage("forecast parse", () => parseForecasts(db))),
     );
