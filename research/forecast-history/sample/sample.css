@@ -243,3 +243,20 @@
 .fh-step-both rect { fill: color-mix(in srgb, var(--accent-base) 8%, transparent); stroke: color-mix(in srgb, var(--accent-base) 45%, transparent); stroke-width: 1; stroke-dasharray: 3 2; }
 .fh-step-both-text { fill: var(--accent-base); font-weight: var(--weight-bold); }
 .fh-focus-both { color: var(--accent-base); font-size: var(--size-sm); }
+/* 上の枠：文でなく画面の形で */
+.fh-issue { display: grid; gap: var(--space-3); }
+.fh-issue.small { padding-top: var(--space-3); border-top: 1px dashed color-mix(in srgb, var(--accent-base) 45%, transparent); }
+.fh-issue.small .dd-temps { font-size: var(--size-lg); }
+.fh-delta { font-size: var(--size-xs); font-weight: var(--weight-bold); margin-left: 1px; }
+.fh-delta.up { color: var(--data-hot); }
+.fh-delta.down { color: var(--data-cold); }
+.fh-kchip { display: inline-flex; align-items: center; padding: 0 var(--space-2); border-radius: var(--radius-sm); font-size: var(--size-xs); font-weight: var(--weight-bold); border: 1px solid var(--line-strong); color: var(--ink-primary); }
+.fh-kchip.VPFD51 { border-color: var(--accent-base); color: var(--accent-base); }
+.fh-lead { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.fh-ptab { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); overflow: hidden; font-variant-numeric: tabular-nums; }
+.fh-ptab.one { grid-template-columns: minmax(0, 1fr); }
+.fh-ptab .h { text-align: center; font-size: var(--size-xs); color: var(--ink-tertiary); padding: var(--space-1) 0; background: var(--surface-inset); border-left: 1px solid var(--line-soft); }
+.fh-ptab .v { text-align: center; font-size: var(--size-base); color: var(--ink-secondary); padding: var(--space-2) 0; border-left: 1px solid var(--line-soft); border-top: 1px solid var(--line-soft); }
+.fh-ptab .h:first-child, .fh-ptab .v:nth-child(5) { border-left: 0; }
+.fh-ptab.one .h, .fh-ptab.one .v { border-left: 0; }
+.fh-ptab .v.ch { color: var(--ink-primary); font-weight: var(--weight-bold); }

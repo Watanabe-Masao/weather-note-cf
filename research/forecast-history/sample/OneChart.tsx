@@ -548,7 +548,7 @@ export function OneChart({
               strokeWidth="1.2"
             />
           </svg>
-          週間（降水は1日）
+          週間
         </span>
         <span>
           <svg width="26" height="10" aria-hidden="true">
@@ -562,23 +562,134 @@ export function OneChart({
             />
             <circle cx="13" cy="5" r="2.6" fill="var(--data-hot)" />
           </svg>
-          府県天気予報（降水は6時間ごとの最も高い値）
+          府県
         </span>
       </div>
-      <p className="fh-note">
-        押すと、その発表を選びます。長押しして横になぞると、指の下の発表が上の文に出ます。
-      </p>
     </div>
   );
 }
 
 /**
- * 上の文（赤の枠）：指の下・選んだ発表を、アプリの1日モードの頭（dd-hero）と同じ形で出す。天気は絵、
- * 最高／最低は大きな数字、下に「何の発表か」と、1つ前の同じ種類の発表からの変化を1行で。
- * 週間の信頼度 A/B/C は、アプリ独自の信頼度の札と取り違えないよう、札にせず言葉で書く。
+ * 上の枠：指の下・選んだ発表を、文で説明せず画面の形で出す（アプリの1日モードの頭と、時間帯の表）。
+ * - 天気の絵、最高／最低（前の同じ種類の発表からの差を ▲▼ で）、何の発表かの札。
+ * - 降水確率の表：府県天気予報は 00-06・06-12・12-18・18-24 の4つ、週間は「1日」の1つ。値がない所は「---」。
+ *   前の発表から変わった値は太字と ▲▼。
+ * - 同じ時刻にもう一方の種類の発表もあれば、同じ形で小さく並べる。
+ * - 週間の信頼度 A/B/C は、アプリ独自の信頼度の札と取り違えないよう、札にせず「信頼度」と書く。
  */
+type Num = { s: string; v?: unknown } | null | undefined;
+const numOf = (x: Num) => (x && x.s === "value" ? Number(x.v) : null);
+
+function Delta({ now, before }: { now: number | null; before: number | null }) {
+  if (now == null || before == null || now === before) return null;
+  const d = now - before;
+  return (
+    <small className={`fh-delta ${d > 0 ? "up" : "down"}`}>
+      {d > 0 ? `▲${d}` : `▼${-d}`}
+    </small>
+  );
+}
+
+function PopTable({ s, prev }: { s: Slot; prev: Slot | null }) {
+  const v = s.values!;
+  if (s.kind === "VPFW50") {
+    const p = numOf(v.popDay);
+    const b = prev?.values ? numOf(prev.values.popDay) : null;
+    return (
+      <div className="fh-ptab one">
+        <span className="h">1日</span>
+        <span className={`v${p != null && b != null && p !== b ? " ch" : ""}`}>
+          {p == null ? "---" : `${p}%`}
+          <Delta now={p} before={b} />
+        </span>
+      </div>
+    );
+  }
+  const names = ["00-06", "06-12", "12-18", "18-24"];
+  return (
+    <div className="fh-ptab">
+      {names.map((n) => (
+        <span key={n} className="h">
+          {n}
+        </span>
+      ))}
+      {v.pop6!.map((q, i) => {
+        const p = numOf(q);
+        const b = prev?.values?.pop6 ? numOf(prev.values.pop6[i]) : null;
+        return (
+          <span
+            key={i}
+            className={`v${p != null && b != null && p !== b ? " ch" : ""}`}
+          >
+            {p == null ? "---" : `${p}%`}
+            <Delta now={p} before={b} />
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+function Issue({
+  s,
+  slots,
+  small = false,
+}: {
+  s: Slot;
+  slots: Slot[];
+  small?: boolean;
+}) {
+  const v = s.values!;
+  const i = slots.indexOf(s);
+  // 前の同じ種類の発表（当日は途中からの値なので比べない＝差を出さない）。
+  const prev =
+    s.lead === 0
+      ? null
+      : (slots
+          .slice(0, i)
+          .reverse()
+          .find((p) => p.kind === s.kind && p.state === "ok" && p.values) ??
+        null);
+  const mx = numOf(v.max);
+  const mn = numOf(v.min);
+  const rel =
+    s.kind === "VPFW50" && v.reliability?.s === "value"
+      ? String(v.reliability.v)
+      : null;
+  return (
+    <div className={`fh-issue${small ? " small" : ""}`}>
+      <div className="dd-hero">
+        <span className="dd-pic">
+          <Wx s={s} size={small ? 32 : 52} />
+        </span>
+        <span className="dd-temps">
+          <span className="tone-hot">{mx ?? "—"}</span>
+          <Delta
+            now={mx}
+            before={prev?.values ? numOf(prev.values.max) : null}
+          />
+          <span className="dd-slash">/</span>
+          <span className="tone-cold">{mn ?? "—"}</span>
+          <Delta
+            now={mn}
+            before={prev?.values ? numOf(prev.values.min) : null}
+          />
+          <small>℃</small>
+        </span>
+        <span className="dd-kind">
+          <span className={`fh-kchip ${s.kind}`}>{KIND_SHORT[s.kind]}</span>
+          {md(s.at.slice(0, 10))} {hourOf(s.at)}時
+          <span className="fh-lead">{leadLabel(s.lead)}</span>
+          {!prev && s.lead > 0 && <span className="fh-lead">最初</span>}
+          {rel && <span className="fh-lead">信頼度{rel}</span>}
+        </span>
+      </div>
+      <PopTable s={s} prev={prev} />
+    </div>
+  );
+}
+
 export function FocusSay({ s, slots }: { s: Slot; slots: Slot[] }) {
-  const what = `${leadLabel(s.lead)}・${md(s.at.slice(0, 10))} ${hourOf(s.at)}時の${KIND_SHORT[s.kind]}`;
   if (s.state !== "ok" || !s.values) {
     return (
       <div className="fh-focus">
@@ -587,94 +698,21 @@ export function FocusSay({ s, slots }: { s: Slot; slots: Slot[] }) {
           <span className="dd-temps">
             <span className="fh-focus-state">{STATE_TEXT[s.state]}</span>
           </span>
-          <span className="dd-kind">{what}</span>
+          <span className="dd-kind">
+            <span className={`fh-kchip ${s.kind}`}>{KIND_SHORT[s.kind]}</span>
+            {md(s.at.slice(0, 10))} {hourOf(s.at)}時
+          </span>
         </div>
       </div>
     );
   }
-  const v = s.values;
-  const n = (x: { s: string; v?: unknown } | null | undefined) =>
-    x && x.s === "value" ? String(x.v) : "—";
-  const pop =
-    s.kind === "VPFW50"
-      ? `降水確率 ${n(v.popDay)}%`
-      : `降水確率 ${v
-          .pop6!.map((p, i) =>
-            p === null ? null : `${POP6_NAME[i].replace("時", "")} ${n(p)}`,
-          )
-          .filter(Boolean)
-          .join("・")}%`;
-  const rel =
-    s.kind === "VPFW50" && v.reliability?.s === "value"
-      ? `、信頼度${v.reliability.v}`
-      : "";
-  const i = slots.indexOf(s);
-  const prev = slots
-    .slice(0, i)
-    .reverse()
-    .find((p) => p.kind === s.kind && p.state === "ok");
-  const names = [
-    ...new Set(
-      [...s.changed].map((k) =>
-        k === "weather"
-          ? "天気"
-          : k === "max"
-            ? "最高"
-            : k === "min"
-              ? "最低"
-              : "降水確率",
-      ),
-    ),
-  ];
-  const change =
-    s.lead === 0
-      ? "当日の発表は途中からの値なので、前の発表とは比べない。"
-      : !prev
-        ? "この日を予報した最初の発表。"
-        : names.length === 0
-          ? `前の発表（${md(prev.at.slice(0, 10))} ${hourOf(prev.at)}時）から変わらなかった。`
-          : `前の発表（${md(prev.at.slice(0, 10))} ${hourOf(prev.at)}時）から ${names.join("・")} が変わった。`;
+  const o = slots.find(
+    (z) => z.at === s.at && z.kind !== s.kind && z.state === "ok" && z.values,
+  );
   return (
     <div className="fh-focus">
-      <div className="dd-hero">
-        <span className="dd-pic">
-          <Wx s={s} size={52} />
-        </span>
-        <span className="dd-temps">
-          <span className="tone-hot">{n(v.max)}</span>
-          <span className="dd-slash">/</span>
-          <span className="tone-cold">{n(v.min)}</span>
-          <small>℃</small>
-        </span>
-        <span className="dd-kind">{what}</span>
-      </div>
-      <p className="dd-say">
-        {pop}
-        {rel}。{change}
-      </p>
-      {(() => {
-        // 同じ時刻にもう一方の種類（週間／府県天気予報）の発表もあるときは、それも1行で（両方ある時刻）。
-        const o = slots.find(
-          (z) =>
-            z.at === s.at && z.kind !== s.kind && z.state === "ok" && z.values,
-        );
-        if (!o || !o.values) return null;
-        const ov = o.values;
-        const pp =
-          o.kind === "VPFW50"
-            ? `降水確率 ${n(ov.popDay)}%`
-            : `降水確率 ${ov.pop6!.map((p) => n(p)).join("・")}%`;
-        const name =
-          ov.weather.s === "value"
-            ? ((ov.weather as { name?: string }).name ?? "—")
-            : "—";
-        return (
-          <p className="dd-say fh-focus-both">
-            同じ時刻の{KIND_SHORT[o.kind]}：{name}、{pp}、{n(ov.max)}／
-            {n(ov.min)}℃
-          </p>
-        );
-      })()}
+      <Issue s={s} slots={slots} />
+      {o && <Issue s={o} slots={slots} small />}
     </div>
   );
 }

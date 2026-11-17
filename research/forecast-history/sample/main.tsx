@@ -502,9 +502,11 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
               )}
               {plan === "chart" && <Actual day={day} />}
             </div>
-            <p className="fh-today">
-              範囲は7日前〜当日。当日の発表は途中からの値（「11時から」など）なので、前の発表とは比べない（太字にしない）。
-            </p>
+            {!one && (
+              <p className="fh-today">
+                範囲は7日前〜当日。当日の発表は途中からの値（「11時から」など）なので、前の発表とは比べない（太字にしない）。
+              </p>
+            )}
             <Provenance
               s={selected}
               sc={sc}

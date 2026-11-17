@@ -401,7 +401,7 @@ export function StepChart({
             </text>
           </g>
         ))}
-        {/* 週間の予測範囲（帯） */}
+        {/* 予測範囲（帯） */}
         {(["max", "min"] as const).map((k) =>
           tempSeries(k).map((s) => {
             const b = s && s.kind === "VPFW50" ? band(s.values?.[k]) : null;
@@ -538,11 +538,11 @@ export function StepChart({
           <i className="fh-step-swatch" style={{ background: cell(20) }} />
           <i className="fh-step-swatch" style={{ background: cell(50) }} />
           <i className="fh-step-swatch" style={{ background: cell(90) }} />
-          降水確率（濃いほど高い。週間は1日で1マス、府県天気予報は6時間ごとに縦4マス）
+          降水確率
         </span>
         <span>
           <i className="fh-step-swatch band" />
-          週間の予測範囲
+          予測範囲
         </span>
         <span>
           <svg width="26" height="10" aria-hidden="true">
@@ -564,12 +564,9 @@ export function StepChart({
               strokeWidth="2"
             />
           </svg>
-          府県天気予報（日中の最高・朝の最低）
+          府県
         </span>
       </div>
-      <p className="fh-note">
-        気温は次の発表まで同じ値のまま（階段）。押すとその発表を選び、長押しして横になぞると上の文に出ます。
-      </p>
     </div>
   );
 }
