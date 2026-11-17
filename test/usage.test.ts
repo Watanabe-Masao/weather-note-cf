@@ -16,6 +16,12 @@ function cloudflare(fail: string[] = []) {
     const b = JSON.parse(String(init.body)) as { query: string; variables: Record<string, unknown> };
     asked.push({ ...b, auth: (init.headers as Record<string, string>).Authorization });
     const which = b.query.includes("workersInvocationsAdaptive") ? "workers" : b.query.includes("d1Analytics") ? "d1" : "r2";
+    // As Cloudflare answers: a group ordered by a field must have it among its dimensions.
+    for (const g of b.query.split("AdaptiveGroups(").slice(1)) {
+      const by = /orderBy: \[(\w+)_(?:ASC|DESC)\]/.exec(g)?.[1];
+      if (by && !new RegExp(`dimensions \\{[^}]*\\b${by}\\b`).test(g))
+        return { ok: true, status: 200, json: async () => ({ data: null, errors: [{ message: `cannot order by ${by}: it is neither aggregated, nor a dimension` }] }) };
+    }
     if (fail.includes(which)) return { ok: true, status: 200, json: async () => ({ data: null, errors: [{ message: "not authorized for that account" }] }) };
     const account =
       which === "workers"

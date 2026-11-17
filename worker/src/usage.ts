@@ -110,12 +110,14 @@ export async function monthUsage(env: UsageEnv, now = Date.now(), post: Post = (
     };
   });
 
+  // Ordering by a field needs it among the dimensions (as D1's `date` above); without it Cloudflare answers
+  // "cannot order by datetime: it is neither aggregated, nor a dimension" and R2 is never read.
   const r2 = await part(async () => {
     const a = await ask<{ o: { sum: { requests: number }; dimensions: { actionType: string } }[]; s: { max: { payloadSize: number; objectCount: number } }[] }>(
       e,
       `query ($accountTag: string!, $from: Time!, $to: Time!, $bucket: string!) { viewer { accounts(filter: { accountTag: $accountTag }) {
          o: r2OperationsAdaptiveGroups(limit: 100, filter: { datetime_geq: $from, datetime_leq: $to, bucketName: $bucket }) { sum { requests } dimensions { actionType } }
-         s: r2StorageAdaptiveGroups(limit: 1, filter: { datetime_geq: $from, datetime_leq: $to, bucketName: $bucket }, orderBy: [datetime_DESC]) { max { payloadSize objectCount } } } } }`,
+         s: r2StorageAdaptiveGroups(limit: 1, filter: { datetime_geq: $from, datetime_leq: $to, bucketName: $bucket }, orderBy: [datetime_DESC]) { max { payloadSize objectCount } dimensions { datetime } } } } }`,
       { from, to, bucket: BUCKET },
       post,
     );
