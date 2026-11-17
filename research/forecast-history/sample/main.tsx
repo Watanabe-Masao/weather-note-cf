@@ -235,7 +235,7 @@ function App({
   ACTUALS: Record<string, ActualDay>;
 }) {
   const [theme, setTheme] = useState<ThemeName>("navy");
-  const [scId, setScId] = useState("oct");
+  const [scId, setScId] = useState("acc");
   const sc = SCENARIOS.find((s) => s.id === scId)!;
   const data = useMemo(() => new Data(sc), [sc]);
   const days = useMemo(() => data.days(), [data]);
