@@ -149,7 +149,7 @@ export function OneChart({
     return { runs, dots };
   };
   // 府県天気予報の降水確率は、選ばずに1本にする：その発表の6時間ごとの値のうち最も高いもの。
-  // 低い方までの幅は、その発表の位置に細い縦の線で添える（4つの値のばらつき）。
+  // 4つの値は、その発表を押す・なぞると棒で出る。
   const pop6s = (s: Slot) =>
     (s.values?.pop6 ?? [])
       .map((p) => vNum(p))
@@ -351,22 +351,6 @@ export function OneChart({
             </foreignObject>
           ) : null,
         )}
-        {/* 府県天気予報の6時間の降水確率：低い値から高い値までの幅 */}
-        {slots
-          .filter(
-            (s) =>
-              s.kind === "VPFD51" && s.state === "ok" && pop6s(s).length > 1,
-          )
-          .map((s) => (
-            <line
-              key={`r${s.key}`}
-              x1={x(s.at)}
-              x2={x(s.at)}
-              y1={py(Math.min(...pop6s(s)))}
-              y2={py(Math.max(...pop6s(s)))}
-              className="fh-one-range"
-            />
-          ))}
         {/* 広げた所の府県天気予報：6時間ごとの降水確率を4本の棒で（0〜6・6〜12・12〜18・18〜24時） */}
         {focusSlot0 &&
           focusSlot0.kind === "VPFD51" &&
@@ -578,7 +562,7 @@ export function OneChart({
             />
             <circle cx="13" cy="5" r="2.6" fill="var(--data-hot)" />
           </svg>
-          府県天気予報（降水は6時間ごとの最も高い値。縦の線は低い値まで）
+          府県天気予報（降水は6時間ごとの最も高い値）
         </span>
       </div>
       <p className="fh-note">

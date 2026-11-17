@@ -225,6 +225,5 @@
 .fh-focus-nopic { width: 52px; height: 52px; border-radius: 50%; border: 1px dashed var(--line-strong); }
 .fh-focus-state { font-size: var(--size-lg); color: var(--ink-secondary); }
 .fh-chart svg.fh-one-svg { overflow: hidden; }
-.fh-one-range { stroke: var(--data-rain); stroke-width: 1.5; stroke-linecap: round; }
 .fh-one-bar { fill: color-mix(in srgb, var(--data-rain) 70%, var(--surface-raised)); }
 .fh-one-bar.none { fill: var(--line-strong); }
