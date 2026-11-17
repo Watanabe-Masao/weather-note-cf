@@ -112,7 +112,7 @@ export interface DayValues {
   reliability: V | null;
 }
 
-export type SlotState = "ok" | "cancelled" | "missing" | "failed" | "unexplained";
+export type SlotState = "ok" | "cancelled" | "missing" | "failed" | "notIssued";
 export interface Slot {
   key: string;
   kind: Kind;
@@ -133,14 +133,14 @@ export const STATE_TEXT: Record<SlotState, string> = {
   cancelled: "取り消し",
   missing: "記録なし",
   failed: "取れなかった",
-  unexplained: "見つからない",
+  notIssued: "届いていない",
 };
 export const STATE_NOTE: Record<SlotState, string> = {
   ok: "",
   cancelled: "気象庁がこの発表を取り消した（取消の電文がある）",
   missing: "この回の取得の記録も発表もない（未取得）",
   failed: "この時間帯の取得に失敗が残り、後の取得でも補えていない（取得失敗）",
-  unexplained: "取得は成功しているのに、この回の発表がない（R5-1 にない状態）",
+  notIssued: "取得は成功しているのに、この回の発表がない：気象庁から出ていない（R5-3 の「届かない」と同じ扱い）",
 };
 
 export class Data {
@@ -208,7 +208,7 @@ export class Data {
     const logs = this.sc.fetchLog.filter((l) => Date.parse(l.at) >= t - 30 * 60_000 && Date.parse(l.at) <= t + 60 * 60_000);
     const failures = logs.filter((l) => !l.ok);
     if (failures.length) return { state: "failed", failures };
-    if (logs.length) return { state: "unexplained", failures: [] };
+    if (logs.length) return { state: "notIssued", failures: [] };
     return { state: "missing", failures: [] };
   }
 
@@ -259,7 +259,8 @@ function markChanges(slots: Slot[]) {
   for (const s of slots) {
     if (s.state !== "ok" || !s.values) continue;
     const p = prev[s.kind]?.values;
-    if (p) {
+    // 当日の発表は途中からの値なので、前の発表とは比べない（R6-1 の範囲は7日前〜当日）。
+    if (p && s.lead > 0) {
       const v = s.values;
       // 天気は「その日の天気」どうしだけ比べる（当日の発表の「11時から」は区切りが違う）。
       const wp = p.weather.s !== "absent" && "partial" in p.weather ? p.weather.partial : null;

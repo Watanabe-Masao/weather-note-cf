@@ -186,6 +186,7 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
               {plan === "steps" && <TransitionSteps slots={slots} selected={sel} onSelect={setSel} actual={<li className="fh-step"><Actual day={day} /></li>} />}
               {plan === "chart" && <Actual day={day} />}
             </div>
+            <p className="fh-today">範囲は7日前〜当日。当日の発表は途中からの値（「11時から」など）なので、前の発表とは比べない（太字にしない）。</p>
             <Provenance s={selected} sc={sc} />
           </div>
         </section>
@@ -206,6 +207,7 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
             <li><span className="fh-out-sample" /> 空欄：その発表がその日・その時間を予報していない（対象期間外）。</li>
             <li><span className="fh-state missing">記録なし</span> 取得の記録も発表もない（未取得）。「ない」とは言わない。</li>
             <li><span className="fh-state failed">取れなかった</span> その時間帯の取得に失敗が残り、後でも補えていない（取得失敗）。</li>
+            <li><span className="fh-state notIssued">届いていない</span> 取得は成功しているのに、その回の発表がない（気象庁から出ていない、R5-3 の「届かない」）。</li>
             <li><span className="fh-state cancelled">取り消し</span> 気象庁が取り消した発表。値は出さない。</li>
             <li><span className="fh-tag fix">訂正</span> 訂正の電文の値を出している（元の発表は「同じ発表」に残る）。</li>
             <li><span className="fh-src">電文</span><span className="fh-src">記録</span> 出どころ：自前の電文（気象庁 防災情報XML）／shiromatz の記録（CC BY-SA 4.0）。</li>

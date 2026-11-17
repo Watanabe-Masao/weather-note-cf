@@ -60,7 +60,7 @@
 .fh-state.missing { border: 1px dashed var(--line-strong); box-shadow: none; color: var(--ink-tertiary); }
 .fh-state.failed { color: var(--status-error); box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-error) 60%, transparent) inset; }
 .fh-state.cancelled { color: var(--status-warning); box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warning) 55%, transparent) inset; text-decoration: line-through; text-decoration-thickness: 1px; }
-.fh-state.unexplained { color: var(--ink-secondary); border: 1px dotted var(--ink-tertiary); box-shadow: none; }
+.fh-state.notIssued { color: var(--ink-secondary); border: 1px dotted var(--ink-tertiary); box-shadow: none; }
 .fh-tag { display: inline-flex; align-items: center; height: 15px; padding: 0 3px; margin-left: 3px; border-radius: var(--radius-tick); font-size: var(--size-xs); line-height: 1; }
 .fh-tag.fix { color: var(--status-warning); box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warning) 55%, transparent) inset; }
 .fh-src { display: inline-flex; align-items: center; height: 15px; padding: 0 3px; margin-left: 3px; border-radius: var(--radius-tick); font-size: var(--size-xs); line-height: 1; color: var(--ink-tertiary); box-shadow: 0 0 0 1px var(--line-soft) inset; }
@@ -191,3 +191,4 @@
 .fh-credit p { margin: 0 0 var(--space-2); }
 .fh-runn { margin-left: var(--space-3); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .fh-colhead small { font-size: var(--size-xs); }
+.fh-today { margin: var(--space-2) 0 0; color: var(--ink-tertiary); font-size: var(--size-xs); }
