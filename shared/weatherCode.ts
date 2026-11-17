@@ -2,20 +2,19 @@
 //
 // 出どころ：気象庁 天気予報ページ（https://www.jma.go.jp/bosai/forecast/）の SCRIPT に埋め込まれた
 //   Forecast.Const.TELOPS（番号 → [昼の絵, 夜の絵, 代表の番号, 日本語, 英語]）。
-// 取得：2026-11-17。ただしこの日、作業環境から気象庁のサイトには届かなかった（接続が拒否された）。
-//   そのため、表は次の第三者の写しから書き写したもので、気象庁のページから直接取ったものではない：
-//     misohena/el-jma（GitHub）docs/how-to-get-jma-forecast.org、コミット 4ee37412bcf5454e1a519560c2f96053a56725ae
-//     （Forecast.Const.TELOPS をそのまま載せたもの。「118種類が定義されている(2022-02-21現在)」とある）。
-//   次の写しとも番号・絵・代表の番号・日本語の 118 件すべてが一致することを確かめた（英語は空白の違いだけ）：
-//     chatann/weather-app weatherTelops.json（68c9ddd2f1839c92fd73db1857c9b746865e709e）
-//     glockpete/ha-jma custom_components/jma/telops.py（5966d66896f182e35938cba0d191d411ed18f6b0）
-//     ikuradon/823chan src/lib/const.ts（c221d7d08dc3a3ed84ee27df798eca7c81ee7f97）
-//   リポジトリの実データ（test/fixtures/forecast の電文・JSON・記録）に出てくる番号がすべてあり、電文の
-//   基本天気と言葉が合うことは test/weather-code.test.ts で確かめている。気象庁のページそのものとの照合は
-//   まだしていない（届くようになったら照合し、この注記を直す）。
+// 気象庁のページと照合済み（2026-11-17）：GitHub Actions（research/telops ブランチの research-telops）で
+//   このページ（Last-Modified 2026-11-09）を取得し、埋め込まれた TELOPS の 118 件が、番号・絵・代表の番号・
+//   日本語・英語のすべてでこの表と一致した（増えた番号・違う番号なし）。
+// 書き写しの元（作業環境からは気象庁に届かなかったため）：第三者の写し misohena/el-jma（GitHub）
+//   docs/how-to-get-jma-forecast.org、コミット 4ee37412bcf5454e1a519560c2f96053a56725ae。次の写しとも一致：
+//   chatann/weather-app weatherTelops.json、glockpete/ha-jma custom_components/jma/telops.py、
+//   ikuradon/823chan src/lib/const.ts。
+// リポジトリの実データ（test/fixtures/forecast の電文・JSON・記録）に出てくる番号がすべてあり、電文の
+// 基本天気と言葉が合うことは test/weather-code.test.ts で確かめている。
 //
-// 言葉は気象庁のページの表記のまま（晴・曇。電文の基本天気は「晴れ」「くもり」と書く）。表にない番号は
-// null：推測で埋めない（分からない番号を「ない」や別の言葉にしない）。出典：気象庁。
+// 表の言葉は気象庁のページの書き方のまま（晴・曇）。画面には電文の基本天気と同じ書き方（晴れ・くもり）を
+// weatherCodeLabel で出す。表にない番号は null：推測で埋めない（分からない番号を「ない」や別の言葉にしない）。
+// 出典：気象庁。
 
 /** 番号ごとの [昼の絵, 夜の絵, 代表の番号（100 晴・200 曇・300 雨・400 雪）, 日本語, 英語]。気象庁の表のまま。 */
 export const WEATHER_CODES: Readonly<Record<string, readonly [day: string, night: string, group: string, text: string, en: string]>> = {
@@ -167,7 +166,16 @@ export function weatherCodeInfo(code: string | number): WeatherCodeInfo | null {
   return { code: k, text, en, dayIcon, nightIcon, group };
 }
 
-/** 番号の言葉（晴時々曇 …）。表にない番号は null。 */
+/** 番号の言葉（晴時々曇 …）。気象庁のページの書き方のまま。表にない番号は null。 */
 export function weatherCodeText(code: string | number): string | null {
   return weatherCodeInfo(code)?.text ?? null;
+}
+
+/**
+ * 画面用の言葉（晴れ時々くもり …）：電文の基本天気と同じ書き方（R2-5「天気は文でそろえる」）。
+ * 表の言葉を機械的に置き換える：晴 → 晴れ（すでに「晴れ」のものは重ねない）、曇 → くもり。表にない番号は null。
+ */
+export function weatherCodeLabel(code: string | number): string | null {
+  const text = weatherCodeText(code);
+  return text == null ? null : text.replace(/晴(?!れ)/g, "晴れ").replace(/曇/g, "くもり");
 }

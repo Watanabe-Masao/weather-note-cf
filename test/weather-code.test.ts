@@ -5,7 +5,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseForecastXml } from "../shared/forecastXml";
-import { WEATHER_CODES, weatherCodeInfo, weatherCodeText } from "../shared/weatherCode";
+import { WEATHER_CODES, weatherCodeInfo, weatherCodeLabel, weatherCodeText } from "../shared/weatherCode";
 
 const fixture = (name: string) => readFileSync(new URL(`./fixtures/forecast/${name}`, import.meta.url), "utf8");
 
@@ -63,6 +63,26 @@ describe("天気の番号の表", () => {
     for (const code of ["999", "109", "129", "500", "000", "", "abc", "1010", "0100", "10", "100a", 109, 100.5, Number.NaN, -100, "constructor", "toString"])
       expect(weatherCodeText(code as string | number)).toBeNull();
     expect(weatherCodeInfo("999")).toBeNull();
+    for (const code of ["999", "109", "", "abc", 100.5, "constructor"]) expect(weatherCodeLabel(code)).toBeNull();
+  });
+
+  it("gives the screen's words as the telegrams write them (晴れ・くもり)", () => {
+    expect(weatherCodeLabel("100")).toBe("晴れ");
+    expect(weatherCodeLabel(101)).toBe("晴れ時々くもり");
+    expect(weatherCodeLabel("200")).toBe("くもり");
+    expect(weatherCodeLabel("313")).toBe("雨後くもり");
+    expect(weatherCodeLabel("130")).toBe("朝の内霧後晴れ");
+    expect(weatherCodeLabel("302")).toBe("雨時々止む");
+  });
+
+  it("leaves no 晴 without れ and no 曇 in any of the 118 labels, and changes nothing else", () => {
+    for (const [code, [, , , text]] of Object.entries(WEATHER_CODES)) {
+      const label = weatherCodeLabel(code)!;
+      expect(label).not.toMatch(/晴(?!れ)/);
+      expect(label).not.toMatch(/晴れれ/);
+      expect(label).not.toContain("曇");
+      expect(label.replace(/晴れ/g, "晴").replace(/くもり/g, "曇")).toBe(text);
+    }
   });
 });
 
@@ -108,6 +128,15 @@ describe("リポジトリの実データと照らす", () => {
     const ps = pairs("weather");
     expect(ps.length).toBeGreaterThan(0);
     const wrong = ps.filter((p) => same(p.words) !== weatherCodeText(p.code)).map((p) => `${p.name} ${p.place} ${p.validFrom} ${p.code} ${p.words}`);
+    expect(wrong).toEqual([]);
+  });
+
+  it("gives, by weatherCodeLabel, the telegrams' 基本天気 (weather) at the same area and time, every pair", () => {
+    const ps = pairs("weather");
+    expect(ps.length).toBeGreaterThan(0);
+    const wrong = ps
+      .filter((p) => p.words.replace(/\s/g, "") !== weatherCodeLabel(p.code)?.replace(/\s/g, ""))
+      .map((p) => `${p.name} ${p.place} ${p.validFrom} ${p.code} ${p.words} / ${weatherCodeLabel(p.code)}`);
     expect(wrong).toEqual([]);
   });
 
