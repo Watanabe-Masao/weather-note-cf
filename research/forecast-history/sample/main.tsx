@@ -27,6 +27,7 @@ import {
   summarize,
   oneSource,
   weekday,
+  addDays,
 } from "./model";
 import "./sample.css";
 import { TransitionChart, TransitionRows, TransitionSteps } from "./Transition";
@@ -52,10 +53,12 @@ type Sc = Scenario & {
 };
 const DEFAULT_DAY: Record<string, string> = {
   oct: "2026-10-25",
+  acc: "2026-11-18",
   nov: "2026-11-18",
   syn: "2026-11-18",
 };
 const SC_NOTE: Record<string, string> = {
+  acc: "仮のデータ。本番では 11/10 から電文がたまっていくので、その「たまった状態」を10月の記録を31日ずらして作ったもの（値は10月の予報で、実際の11月の予報ではない）。3時間ごとの天気は降水確率から仮に作った。実績も10月の日を31日ずらして見せている。",
   oct: "実データ。shiromatz の記録（2026年10月、高知 390000）を取り込みの処理に通したもの。",
   nov: "実データ。手元にある電文は fixtures の4通（11/16 17時〜11/17 11時）だけなので、それより前の回は「記録なし」と出る（本番の D1 にはある）。",
   syn: "値は 11月の実際の電文。訂正・取り消し・取得失敗は、それを元に作った合成。",
@@ -246,6 +249,8 @@ function App({
   const [release, setRelease] = useState<"keep" | "back">("keep");
   const [recent, setRecent] = useState(false);
   const [axis, setAxis] = useState<"date" | "clock">("date");
+  // 「11月 仮」は10月の予報を31日ずらしたものなので、実績も同じだけずらした日を見せる。
+  const actualOf = (d: string) => ACTUALS[scId === "acc" ? addDays(d, -31) : d];
   const [popView, setPopView] = useState<"detail" | "simple">("simple");
   const [head, setHead] = useState<"split" | "stack">("split");
   const [onlyChanged, setOnlyChanged] = useState(false);
@@ -310,9 +315,11 @@ function App({
               label:
                 s.id === "oct"
                   ? "10月 記録"
-                  : s.id === "nov"
-                    ? "11月 電文"
-                    : "合成の状態",
+                  : s.id === "acc"
+                    ? "11月 仮"
+                    : s.id === "nov"
+                      ? "11月 電文"
+                      : "合成の状態",
             }))}
           />
           <Segmented
@@ -417,12 +424,12 @@ function App({
                   s={focusSlot}
                   slots={slots}
                   day={day}
-                  a={ACTUALS[day]}
+                  a={actualOf(day)}
                 />
               ) : (
                 <>
                   <FocusSay s={focusSlot} slots={slots} />
-                  <ActualBlock day={day} a={ACTUALS[day]} />
+                  <ActualBlock day={day} a={actualOf(day)} />
                 </>
               )
             ) : lines.length ? (
