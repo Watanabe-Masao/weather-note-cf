@@ -21,6 +21,9 @@ import "./forecastHistory.css";
 
 type Loaded = { date: string; station: string; r: ForecastHistoryResponse } | { date: string; station: string; error: true };
 
+/** 今の日本時間（発表の時刻と同じ書き方、"2026-11-17T23:40:00+09:00"）。 */
+const jstNow = () => `${new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
+
 const cache = new Map<string, Promise<ForecastHistoryResponse>>();
 function load(station: string, date: string): Promise<ForecastHistoryResponse> {
   const k = `${station}/${date}`;
@@ -56,7 +59,8 @@ export function ForecastHistoryPanel({ store, station, date }: { store: WeatherS
   const [onlyChanged, setOnlyChanged] = useState(false);
   useEffect(() => setSel(null), [station, date]);
 
-  const all = useMemo(() => (res && "r" in res && res.r.supported ? new Model(res.r).slots(date) : []), [res, date]);
+  // 回は「今」までの分を並べる（最後に記録のある発表まで、ではない）：記録の無い回も「記録なし」として出す（R5-1）。
+  const all = useMemo(() => (res && "r" in res && res.r.supported ? new Model(res.r).slots(date, jstNow()) : []), [res, date]);
   const slots = useMemo(() => oneSource(all), [all]);
 
   // 実績：その日と前の日（朝 0〜9時の最低の 0時の値）。
