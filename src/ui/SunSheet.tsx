@@ -7,8 +7,9 @@ import { dateLabel, hoursMinutes } from "../design/format";
 import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
 import { SectionHead, Slider } from "./kit";
-import { ICON, TYPE_SIZE } from "../design/tokens";
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { ICON } from "../design/tokens";
+import { useMemo, useRef, useState, type PointerEvent } from "react";
+import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 
 const W = 340;
 const H = 230;
@@ -67,18 +68,8 @@ export function SunSheet({
   const part = dayParts(date, station).find((p) => p.id !== "night" && at >= p.from && at < p.to)?.label ?? "夜";
   const skyNow = skies[Math.min(skies.length - 1, Math.round(at / 10))];
   const svg = useRef<SVGSVGElement>(null);
-  // The drawing is W wide and shown at the card's width: the tick labels are set so they are xs on screen
-  // (in the drawing's own units a CSS size shrinks with it, under 11px on a phone).
-  const [tick, setTick] = useState<number>(TYPE_SIZE.xs);
-  useEffect(() => {
-    const el = svg.current;
-    if (!el) return;
-    const fit = () => el.clientWidth && setTick((TYPE_SIZE.xs * W) / el.clientWidth);
-    fit();
-    const ro = new ResizeObserver(fit);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // The drawing is W wide and shown at the card's width: the tick labels are xs on screen (useDrawnWidth).
+  const tick = svgTextSize("xs", W, useDrawnWidth(svg));
   const scrubbing = useRef(false);
   const moved = useRef(false);
   const pick = (ev: PointerEvent) => {
