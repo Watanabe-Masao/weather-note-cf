@@ -15,6 +15,7 @@ import { type AccountsEnv, type Db, ensureSchema, handleAccounts, isAccountPath 
 import { runSchedule } from "./notify";
 import { activeTyphoons } from "./typhoon";
 import { collectForecasts } from "./forecastArchive";
+import { parseForecasts } from "./forecastParse";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { forecastCharts } from "../../shared/wxchart";
@@ -206,7 +207,10 @@ export default {
         .catch((e) => console.error("weather-note: typhoon notify", e))
         // 予報の履歴 (#250): JMA's forecasts of the offices in use, kept as issued (forecastArchive.ts).
         .then(() => collectForecasts(db))
-        .catch((e) => console.error("weather-note: forecast archive", e)),
+        .catch((e) => console.error("weather-note: forecast archive", e))
+        // Then read what was kept: values with their times, for the history (forecastParse.ts).
+        .then(() => parseForecasts(db))
+        .catch((e) => console.error("weather-note: forecast parse", e)),
     );
   },
 } satisfies ExportedHandler<AccountsEnv>;
