@@ -51,17 +51,20 @@ function zip(files: Record<string, string>, store = false): ArrayBuffer {
   return new Blob([...locals, ...central, new Uint8Array(e.buffer)] as BlobPart[]).arrayBuffer() as unknown as ArrayBuffer;
 }
 
+const MAIN = "c0ffee".padEnd(40, "0");
+
 function github(months: Record<string, Record<string, string>>) {
   const asked: string[] = [];
   const get = async (url: string) => {
     asked.push(url);
     const m = /forecast_(\d{6})\.zip/.exec(url)?.[1] ?? "";
-    if (url.startsWith("https://api.github.com/")) {
-      const body = months[m] ? [{ sha: `sha${m}` }] : [];
-      return { ok: true, status: 200, text: async () => JSON.stringify(body), arrayBuffer: async () => new ArrayBuffer(0) };
+    if (url.includes("/info/refs?service=git-upload-pack")) {
+      // git's smart HTTP refs, as GitHub serves them (pkt-lines).
+      const body = `001e# service=git-upload-pack\n0000015a${"a".repeat(40)} HEAD\0multi_ack\n003f${"c0ffee".padEnd(40, "0")} refs/heads/main\n0000`;
+      return { ok: true, status: 200, text: async () => body, arrayBuffer: async () => new ArrayBuffer(0) };
     }
     const files = months[m];
-    if (!files || !url.includes(`/sha${m}/`)) return { ok: false, status: 404, text: async () => "", arrayBuffer: async () => new ArrayBuffer(0) };
+    if (!files || !url.includes(`/${MAIN}/`)) return { ok: false, status: 404, text: async () => "", arrayBuffer: async () => new ArrayBuffer(0) };
     const buf = await zip(files);
     return { ok: true, status: 200, text: async () => "", arrayBuffer: async () => buf };
   };
@@ -88,12 +91,12 @@ describe("予報の履歴：記録を取り込む", () => {
     const csv = fixture("shiromatz-202501-390000.csv");
     const g = github({ "202501": { "forecast_202501_390000.csv": csv, "forecast_202501_130000.csv": fixture("shiromatz-202610-390000.csv") } });
     const r = await importShiromatzMonth(db, "2025-01", Date.parse("2026-11-17T12:00:00+09:00"), g.get);
-    expect(r.commit).toBe("sha202501");
+    expect(r.commit).toBe(MAIN);
     expect(r.offices).toEqual([{ office: "390000", issues: 11, emptyDays: expect.any(Array), overlaps: 0, differ: 0 }]);
     expect(r.offices[0].emptyDays).toHaveLength(29); // the trimmed file has 1/1 and 1/2 only
-    expect(g.asked[1]).toBe("https://raw.githubusercontent.com/shiromatz/Japan-Meteorological-Agency-Weather-Forecast/sha202501/forecast/forecast_202501.zip");
+    expect(g.asked[1]).toBe(`https://raw.githubusercontent.com/shiromatz/Japan-Meteorological-Agency-Weather-Forecast/${MAIN}/forecast/forecast_202501.zip`);
     expect(db.raw.prepare("SELECT office, month, commit_sha, rows, issues, overlaps, differ, license FROM forecast_imports").all()).toEqual([
-      { office: "390000", month: "2025-01", commit_sha: "sha202501", rows: csv.trim().split("\n").length - 1, issues: 11, overlaps: 0, differ: 0, license: "CC BY-SA 4.0" },
+      { office: "390000", month: "2025-01", commit_sha: MAIN, rows: csv.trim().split("\n").length - 1, issues: 11, overlaps: 0, differ: 0, license: "CC BY-SA 4.0" },
     ]);
     expect(db.raw.prepare("SELECT DISTINCT office, source, preferred FROM forecast_issues").all()).toEqual([{ office: "390000", source: "shiromatz", preferred: 1 }]);
     const values = db.raw.prepare("SELECT COUNT(*) AS n FROM forecast_entries").get();

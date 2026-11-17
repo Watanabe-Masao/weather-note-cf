@@ -142,16 +142,18 @@ export async function importShiromatzMonth(db: Db, month: string, now = Date.now
   await ensureForecastImportSchema(db);
   const ym = month.replace("-", "");
   const path = `forecast/forecast_${ym}.zip`;
-  // The commit the month is taken at, so the same file can be taken again (R2-9).
-  const c = await get(`https://api.github.com/repos/${SHIROMATZ_REPO}/commits?path=${path}&per_page=1`, {
-    headers: { "User-Agent": "weather-note (#250)", Accept: "application/vnd.github+json" },
+  // The commit the month is taken at, so the same file can be taken again (R2-9): the head of main, read
+  // the way git reads it (the smart HTTP refs). Not GitHub's API: without a token it allows few calls per
+  // address, and Cloudflare's addresses are shared, so it refuses at once (HTTP 403, 2026-11-17).
+  const refs = await get(`https://github.com/${SHIROMATZ_REPO}.git/info/refs?service=git-upload-pack`, {
+    headers: { "User-Agent": "git/2.45 weather-note (#250)" },
   });
-  if (!c.ok) throw new Error(`記録のコミットが分かりません（HTTP ${c.status}）。`);
-  const commits = JSON.parse(await c.text()) as { sha: string }[];
-  if (!commits.length) throw new Error(`${month} の記録はまだありません。`);
-  const commit = commits[0].sha;
+  if (!refs.ok) throw new Error(`記録のコミットが分かりません（HTTP ${refs.status}）。`);
+  const commit = /([0-9a-f]{40}) refs\/heads\/main\b/.exec(await refs.text())?.[1];
+  if (!commit) throw new Error("記録のコミットが分かりません（main が見つからない）。");
   const url = `https://raw.githubusercontent.com/${SHIROMATZ_REPO}/${commit}/${path}`;
   const z = await get(url);
+  if (z.status === 404) throw new Error(`${month} の記録はまだありません。`);
   if (!z.ok) throw new Error(`記録を取れませんでした（HTTP ${z.status}）。`);
   const offices = [...(await officesInUse(db, now))].sort();
   // The record names them forecast_YYYYMM_<office>.csv (FH-04: 57 offices, 高知 forecast_202501_390000.csv).
