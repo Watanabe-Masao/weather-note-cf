@@ -1,6 +1,7 @@
 // R2 (weather-note-archive): what is kept as files, beside the database (N-1, 2026-11-17).
 //
-//  1. The telegrams as JMA issued them (予報 forecast_telegrams, 台風 typhoon_telegrams), each gzipped
+//  1. The telegrams as JMA issued them (予報 forecast_telegrams, 台風 typhoon_telegrams, 警報・注意報
+//     warning_telegrams), each gzipped
 //     under telegrams/<source>/<yyyy-mm>/<id>.xml.gz. A copy counts only once it has been read back,
 //     unzipped and found to have the telegram's own hash (archive_copies). Until every telegram has a
 //     checked copy the database keeps its XML too; taking the XML out of the database is a separate
@@ -64,6 +65,7 @@ const H = 3_600_000;
 const SOURCES = [
   { source: "forecast", table: "forecast_telegrams" },
   { source: "typhoon", table: "typhoon_telegrams" },
+  { source: "warning", table: "warning_telegrams" },
 ] as const;
 
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; arrayBuffer(): Promise<ArrayBuffer>; json?(): Promise<unknown>; text(): Promise<string> }>;

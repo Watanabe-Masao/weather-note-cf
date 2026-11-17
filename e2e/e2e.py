@@ -64,7 +64,7 @@ def api(path, q):
     if path == "/api/admin/users":
         return {"users": [{"id": "u1", "login_id": "masao", "name": "渡辺", "role": "admin", "created_at": 1762800000000, "last_login": 1762800000000, "disabled_at": None, "reports": 0, "research": None}, {"id": "u2", "login_id": "tanaka", "name": None, "role": "user", "created_at": 1762800000000, "last_login": None, "disabled_at": None, "reports": 3, "research": 1}]}
     if path == "/api/admin/forecast-import":
-        return {"first": "2025-01", "last": "2026-11", "parser": {"telegram": 1, "record": 1}, "months": [{"office": "390000", "month": "2025-01", "commit_sha": "abc", "fetched_at": "2026-11-17T03:00:00Z", "rows": 4791, "issues": 186, "empty_days": [], "overlaps": 0, "differ": 0, "license": "CC BY-SA 4.0"}]}
+        return {"first": "2025-01", "last": "2026-11", "next": {"month": "2025-02", "expected": "2025-03-02", "available": False}, "parser": {"telegram": 1, "record": 1}, "months": [{"office": "390000", "month": "2025-01", "commit_sha": "abc", "fetched_at": "2026-11-17T03:00:00Z", "rows": 4791, "issues": 186, "empty_days": [], "overlaps": 0, "differ": 0, "license": "CC BY-SA 4.0"}]}
     if path == "/api/stations":
         return [{"precNo": 74, "blockNo": "47893", "name": "高知", "prefecture": "高知県", "lat": [33, 33.8], "lon": [133, 33.1]}]
     if path == "/api/daily":
@@ -255,12 +255,27 @@ with sync_playwright() as p:
         check(f"{code} 押せる高さが32以上（{where}）", not small, str(small))
 
     # Text on screen smaller than the type scale's xs (11px, iOS Caption 2): none (docs/design-system.md, #151).
-    small_text = lambda: pg.evaluate("""[...document.querySelectorAll('body *')].filter(e => {
+    # In an SVG the computed font-size is in the drawing's own units: the size on screen is that times the
+    # drawing's scale (getScreenCTM), so a map or a graph drawn smaller than its viewBox is caught too.
+    # Every check also notes the classes of the text it looked at and their parents (WN_SEEN writes them out),
+    # so the parts that no check ever sees can be listed.
+    SMALL_SEEN = set()
+    def small_text():
+        r = pg.evaluate("""(() => { const seen = new Set();
+      const px = (e) => { const f = parseFloat(getComputedStyle(e).fontSize);
+        if (!(e instanceof SVGElement) || !e.getScreenCTM) return f;
+        const m = e.getScreenCTM(); return m ? f * Math.hypot(m.a, m.b) : f; };
+      const hits = [...document.querySelectorAll('body *')].filter(e => {
         const r = e.getBoundingClientRect();
-        if (!r.width || r.bottom < 0 || r.top > innerHeight || r.right < 0 || r.left > innerWidth) return false;
+        // Off screen (scrolled out of the sheet, the next day in the drum) still counts: its size is the same.
+        if (!r.width || !r.height || getComputedStyle(e).visibility === 'hidden') return false;
         if (![...e.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) return false;
-        return parseFloat(getComputedStyle(e).fontSize) < 11;
-      }).map(e => (e.getAttribute('class') || e.tagName) + ' ' + getComputedStyle(e).fontSize + ' ' + e.textContent.trim().slice(0, 8)).slice(0, 5)""")
+        for (let a = e; a && a !== document.body; a = a.parentElement) for (const c of a.classList) seen.add(c);
+        return px(e) < 10.95;
+      }).map(e => (e.getAttribute('class') || e.tagName) + ' ' + px(e).toFixed(1) + 'px ' + e.textContent.trim().slice(0, 8)).slice(0, 5);
+      return { hits, seen: [...seen] }; })()""")
+        SMALL_SEEN.update(r["seen"])
+        return r["hits"]
     def touch(kind, x, y):
         cdp.send("Input.dispatchTouchEvent", {"type": kind, "touchPoints": [] if kind == "touchEnd" else [{"x": x, "y": y}]})
     def sheet_h():
@@ -482,9 +497,11 @@ with sync_playwright() as p:
             if pg.locator(".status-bar.error").count(): break
             calm()
         check("FS1 失敗がステータスに出る", pg.locator(".status-bar.error").count() == 1)
+        st = small_text(); check("FS1b 11px より小さい文字がない（状態の行）", not st, str(st))
         pg.locator(".status-detail").click(); calm()
         items = pg.locator(".failure-item").count()
         body = txt(".failure-sheet") if pg.locator(".failure-sheet").count() else ""
+        st = small_text(); check("FS2b 11px より小さい文字がない（取得できなかったもの）", not st, str(st))
         check("FS2 押すと何が取れなかったかのシート", items >= 1, str(items))
         check("FS3 理由・取り先・使う所・時刻が出る", all(w in body for w in ["テスト用の失敗", "時間別の表", "使う所", "失敗"]), body[:120])
         pg.locator(".failure-all").scroll_into_view_if_needed(); wait(300)
@@ -531,6 +548,7 @@ with sync_playwright() as p:
         pg.locator(".day-sun-button").first.scroll_into_view_if_needed(); pg.locator(".day-sun-button").first.click(); calm()
         times = pg.locator(".sun-times dd").all_inner_texts()
         check("SS1 太陽のシートが開き、薄明の時刻が9つと昼の長さ", pg.locator(".sun-sheet").count() == 1 and len(times) == 10, str(times))
+        st = small_text(); check("SS1b 11px より小さい文字がない（太陽のシート）", not st, str(st))
         mins = [int(t.split(":")[0]) * 60 + int(t.split(":")[1]) for t in (x.split()[-1] for x in times[:9]) if ":" in t]
         check("SS2 天文→航海→市民→日の出→南中→日の入り→市民→航海→天文 の順", mins == sorted(mins) and len(mins) == 9, str(mins))
         pg.evaluate("""() => { const r = document.querySelector('.sun-slider input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
@@ -600,6 +618,7 @@ with sync_playwright() as p:
         check("I0c 日を選ぶまで［決定］は押せない", pg.locator(".calendar-foot .btn.primary").is_disabled())
         pg.locator(".cal-day:not(:disabled)").nth(3).click(); calm()
         check("I 1回目のタップは仮（閉じない、上の組み合わせが変わる）", pg.locator(".msheet").count() == 1 and pg.locator(".cal-pair.changed").count() == 1)
+        st = small_text(); check("I1b 11px より小さい文字がない（カレンダー）", not st, str(st))
         pg.locator(".cal-day:not(:disabled)").nth(3).click(); calm()
         check("I 同じ日をもう一度で決まって閉じる", pg.locator(".msheet").count() == 0 and txt(".side .date-button") != "2026/11/10", txt(".side .date-button"))
         had = pg.locator(".today-chip").count()
@@ -623,6 +642,8 @@ with sync_playwright() as p:
         sec = pg.locator("section[aria-labelledby='admin-forecast-import']")
         sec.scroll_into_view_if_needed(); calm()
         check("J5 管理：予報の履歴の取り込み（取り込んだ月と次の月のボタン）", pg.locator(".admin-imports li").count() == 1 and sec.locator("button", has_text="2025-02 を取り込む").count() == 1, sec.inner_text()[:120])
+        btn = sec.locator("button", has_text="2025-02 を取り込む")
+        check("J5c 次の月が記録にまだ無いときは押せず、入る見込みの日を出す", btn.count() == 1 and btn.is_disabled() and "2025年3月2日の夜の見込み" in sec.inner_text(), sec.inner_text()[:200])
         layout_ok("J5b", "ユーザー管理")
         if os.environ.get("WN_SHOT"): sec.screenshot(path=f"{os.environ['WN_SHOT']}-admin-import.png")
         esc()
@@ -664,6 +685,7 @@ with sync_playwright() as p:
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
         check("SD4 この日の値：肌感＋7項目", pg.locator(".dd-value").count() == 8, pg.locator(".dd-value").count())
         check("SD4b 天気図（③の一番上）：時刻を選べる", pg.locator(".wx-chart").count() == 1 and (pg.locator(".wx-hours button").count() == 7 or pg.locator(".wx-chart b", has_text="予想天気図").count() == 1))
+        st = small_text(); check("SD4c 11px より小さい文字がない（1日モード・天気図）", not st, str(st))
         pg.locator(".dd-value", has_text="降水").first.click(); calm()
         check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
         if shots: pg.screenshot(path=f"{shots}-single.png", full_page=True)
@@ -742,7 +764,7 @@ with sync_playwright() as p:
         check("R4 答えると足りないものが減る", "感じ方" not in t and "あと" in t, t)
         pg.locator(".msheet").last.evaluate("e => e.scrollTop = e.scrollHeight / 2"); wait(300)
         check("R5 途中までスクロールしても見える", vis())
-        st = small_text(); check("R6 10px より小さい文字がない（記録）", not st, str(st))
+        st = small_text(); check("R6 11px より小さい文字がない（記録）", not st, str(st))
         layout_ok("R7", "記録")
         buttons_ok("R8", "記録", 1)
         esc()
@@ -756,7 +778,7 @@ with sync_playwright() as p:
         md = txt(".band-map-date.center").split()[0]
         check("K0 中央の日のマップ", head.endswith("/" + md.split("/")[0] + "/" + md.split("/")[1]), f"マップ {md} / 表 {head}")
         check("K1 肌感マップが開く", pg.locator(".msheet.feel-sheet").count() == 1)
-        st = small_text(); check("K1b 10px より小さい文字がない（肌感マップ）", not st, str(st))
+        st = small_text(); check("K1b 11px より小さい文字がない（肌感マップ）", not st, str(st))
         layout_ok("K1c", "肌感マップ")
         mh = pg.evaluate("document.querySelector('.msheet').getBoundingClientRect().height")
         sm = pg.evaluate("parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sheet-max'))")
@@ -768,6 +790,7 @@ with sync_playwright() as p:
         check("K5 凡例がマップの下", pg.evaluate("document.querySelector('.map-legend').getBoundingClientRect().top > document.querySelector('.band-map').getBoundingClientRect().bottom"))
         pg.locator(".band-cell.center").nth(2).click(); calm()
         check("K6 マスで両日の詳細", pg.locator(".band-detail table").count() == 2)
+        st = small_text(); check("K6b 11px より小さい文字がない（肌感マップの詳細）", not st, str(st))
         pg.locator(".seg button", has_text="推移").click(); calm()
         bx = pg.locator("svg.scrub").bounding_box()
         pg.mouse.move(bx["x"] + bx["width"] * 0.3, bx["y"] + 80); wait(200)
@@ -799,6 +822,7 @@ with sync_playwright() as p:
         check("L1 条件から選ぶが開く", pg.locator(".msheet.cond-sheet").count() == 1)
         check("L2 条件は5行（最高・最低・雨・台風・期間）", pg.locator(".cond-line").count() == 5)
         check("L3 最初は最高が開いて範囲（つまみ2つ）", pg.locator(".cond-line.open[data-cond=max] .slider input").count() == 2)
+        st = small_text(); check("L3b 11px より小さい文字がない（条件から選ぶ）", not st, str(st))
         layout_ok("L3b", "条件から選ぶ")
         pg.locator(".cond-line[data-cond=max] .seg button", has_text="以上").click(); wait(300)
         check("L4 以上はつまみ1つ", pg.locator(".cond-line[data-cond=max] .slider input").count() == 1, txt(".cond-line[data-cond=max] .cond-value"))
@@ -929,6 +953,7 @@ with sync_playwright() as p:
         check("Q2 マスに天気と最高気温", pg.locator(".cal-day .cal-max").filter(has_text=re.compile(r"\d")).count() >= 20)
         pg.locator(".cal-presets .chip", has_text="前週").click(); wait(300)
         check("Q3 プリセットで組み合わせが前週に", "前週" in txt(".cal-pair-interval"), txt(".cal-pair-interval"))
+        st = small_text(); check("Q3b 11px より小さい文字がない（カレンダーの組み合わせ・プリセット）", not st, str(st))
         pg.click(".calendar-foot .primary"); calm()
         check("Q4 決定で前週になる", pg.locator(".side-compare select.mode").input_value() == "lastWeek" and txt(".side-compare .date-button") == "2026/11/3", txt(".side-compare .date-button"))
         pg.locator(".side-compare .date-button").click(); calm()
@@ -1022,6 +1047,7 @@ with sync_playwright() as p:
         check("T2 見出し", title() == "明るさの移り変わり", title())
         check("T3 時刻で：見出しが分で言う", "分" in txt(".lt-head-main"), txt(".lt-head-main"))
         check("T4 時刻で：グラフ", pg.locator(".light-trend svg.lt-chart").count() == 1)
+        st = small_text(); check("T4b 11px より小さい文字がない（日照と明るさの推移）", not st, str(st))
         before = txt(".light-trend .readout-card .ro-title")
         pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()  # P left the sheet low; the graph must be on screen
         pg.locator(".light-trend .drum-pane svg").first.scroll_into_view_if_needed(); wait(300)
@@ -1136,6 +1162,9 @@ with sync_playwright() as p:
         TYPHOON_ON["old"] = False
         reload()
     step("TY", ty)
+
+    if os.environ.get("WN_SEEN"):
+        with open(os.environ["WN_SEEN"], "w") as f: f.write("\n".join(sorted(SMALL_SEEN)))
 
     # The 500s step FS asks for on purpose are not errors of the app.
     errors = [e for e in errors if not (FAILED_ON_PURPOSE and "status of 500" in e)]
