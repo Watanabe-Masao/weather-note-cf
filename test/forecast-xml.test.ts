@@ -28,6 +28,14 @@ describe("府県天気予報（VPFD51）を読む", () => {
     expect(new Set(t.entries.filter((e) => e.placeType === "area").map((e) => e.placeName))).toEqual(new Set(["中部", "東部", "西部"]));
   });
 
+  it("reads 天気 also as JMA's sentence (the words of its forecast page and JSON, and of shiromatz)", () => {
+    expect(pick(t.entries, { place: "390010", element: "weather_text" }).map((e) => e.value)).toEqual([
+      "雨　時々　くもり　所により　昼過ぎ　から　夜のはじめ頃　雷　を伴う",
+      "くもり　所により　昼過ぎ　から　夕方　雨",
+      "くもり　時々　晴れ",
+    ]);
+  });
+
   it("keeps the 降水確率 as 6-hour values, never as a day's", () => {
     const pop = pick(t.entries, { place: "390010", element: "pop" });
     expect(pop.map(brief).slice(0, 2)).toEqual(["pop 11-17T12:00 PT6H １２時から１８時まで 80", "pop 11-17T18:00 PT6H １８時から００時まで 60"]);

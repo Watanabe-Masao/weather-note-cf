@@ -1,6 +1,6 @@
 // 予報の履歴 (#250, R1-7): JMA's forecast telegrams (防災情報XML, kept as issued by
 // worker/src/forecastArchive.ts) read into one issue and its values:
-//   VPFD51 府県天気予報（Ｒ１）  — by area (区域): 天気 and its code for 今日・明日・明後日, the 6-hour
+//   VPFD51 府県天気予報（Ｒ１）  — by area (区域): 天気 (its summary and its sentence) and its code for 今日・明日・明後日, the 6-hour
 //                                 降水確率, the 3-hour 卓越天気; by station (地点): 朝の最低気温,
 //                                 日中の最高気温, 最高気温, the 3-hour 気温.
 //   VPFW50 府県週間天気予報    — by area: 天気 and its code, 日降水確率, 信頼度 (A/B/C) for 7 days; by
@@ -18,6 +18,7 @@ export const FORECAST_XML_PARSER = 1;
 
 export type ForecastElement =
   | "weather" // the weather in words, as JMA writes it (くもり時々晴れ)
+  | "weather_text" // the weather as JMA's sentence (雨　時々　くもり　所により…), as the forecast page and JSON give it
   | "weather_code" // 天気予報用テロップ番号 (200 …)
   | "weather_3h" // ３時間内卓越天気
   | "pop" // 降水確率 (%), 6-hour or daily by `period`
@@ -157,7 +158,18 @@ function readTimeSeries(ts: string, problems: string[], out: ForecastEntry[]) {
       const type = first(prop, "Type") ?? "";
       const tags = PROPERTY[type];
       if (!tags) continue;
-      // 天気 in 府県天気予報 also carries DetailForecast (the sentence, word by word): only the summary parts are read.
+      // 天気 in 府県天気予報 also carries DetailForecast: its sentence is read (weather_text, the words JMA's
+      // forecast page and JSON show), its word-by-word parts are not.
+      for (const { attrs, body: part } of blocks(prop, "WeatherForecastPart")) {
+        const ref = attr(attrs, "refID") ?? "";
+        const time = times.get(ref);
+        const sentence = /^\s*<Sentence>([^<]*)<\/Sentence>/.exec(part)?.[1]?.trim();
+        if (!time || !sentence) {
+          problems.push(`${type}：文が読めない`);
+          continue;
+        }
+        out.push({ ...where, element: "weather_text", validFrom: time.from, validTo: time.to, period: time.period, label: time.label, value: sentence, unit: null, lower: null, upper: null, jmaType: "天気の文", condition: null });
+      }
       const parts = prop.replace(/<DetailForecast>[\s\S]*?<\/DetailForecast>/g, "");
       for (const tag of tags)
         for (const v of values(parts, tag)) {
