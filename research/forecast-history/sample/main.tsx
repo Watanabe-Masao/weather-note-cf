@@ -32,6 +32,7 @@ import "./sample.css";
 import { TransitionChart, TransitionRows, TransitionSteps } from "./Transition";
 import { FocusSay, OneChart } from "./OneChart";
 import { StepChart } from "./StepChart";
+import { SplitHeader } from "./SplitHeader";
 import { type ActualDay, ActualBlock } from "./Actual";
 
 type Sc = Scenario & {
@@ -245,6 +246,7 @@ function App({
   const [release, setRelease] = useState<"keep" | "back">("keep");
   const [recent, setRecent] = useState(true);
   const [axis, setAxis] = useState<"date" | "clock">("date");
+  const [head, setHead] = useState<"split" | "stack">("split");
   const [onlyChanged, setOnlyChanged] = useState(false);
   const [cell, setCell] = useState<{ key: string; day: string } | null>(null);
   const [sel, setSel] = useState<string | null>(null);
@@ -361,6 +363,15 @@ function App({
               ]}
             />
           )}
+          <Segmented
+            label="上の枠"
+            value={head}
+            onChange={setHead}
+            options={[
+              { id: "split", label: "左右" },
+              { id: "stack", label: "上下" },
+            ]}
+          />
         </div>
         <p className="fh-note">{SC_NOTE[scId]}</p>
       </header>
@@ -400,10 +411,19 @@ function App({
               <small className="dd-hint">③ 根拠と記録</small>
             </SectionHead>
             {focusSlot ? (
-              <>
-                <FocusSay s={focusSlot} slots={slots} />
-                <ActualBlock day={day} a={ACTUALS[day]} />
-              </>
+              head === "split" ? (
+                <SplitHeader
+                  s={focusSlot}
+                  slots={slots}
+                  day={day}
+                  a={ACTUALS[day]}
+                />
+              ) : (
+                <>
+                  <FocusSay s={focusSlot} slots={slots} />
+                  <ActualBlock day={day} a={ACTUALS[day]} />
+                </>
+              )
             ) : lines.length ? (
               <ul className="fh-say">
                 {lines.map((l) => (

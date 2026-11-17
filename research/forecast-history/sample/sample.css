@@ -273,3 +273,24 @@
 .fh-clock line { stroke: var(--ink-primary); stroke-width: 1.4; stroke-linecap: round; }
 .fh-clock.pm line { stroke: var(--surface-raised); }
 .fh-today-label { fill: var(--accent-base); font-weight: var(--weight-bold); }
+/* 上の枠：左右に分ける案 */
+.fh-split { display: grid; gap: var(--space-3); margin-bottom: var(--space-3); }
+.fh-split-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); }
+.fh-split-col { display: grid; gap: var(--space-2); min-width: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-inset); }
+.fh-split-col.actual { outline: 1px solid var(--line-strong); }
+.fh-split-top { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.fh-split-temps { font-family: var(--font-numeric); font-size: var(--size-xl); font-weight: var(--weight-bold); white-space: nowrap; }
+.fh-split-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font-size: var(--size-xs); color: var(--ink-secondary); }
+.fh-focus-nopic.small { width: 40px; height: 40px; }
+.fh-ctab { display: grid; grid-template-columns: auto repeat(4, minmax(0, 1fr)); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); overflow: hidden; font-variant-numeric: tabular-nums; }
+.fh-ctab > * { border-top: 1px solid var(--line-soft); border-left: 1px solid var(--line-soft); }
+.fh-ctab > :nth-child(-n + 5) { border-top: 0; }
+.fh-ctab .rh { border-left: 0; padding: 0 var(--space-2); display: grid; place-items: center; font-size: var(--size-xs); font-weight: var(--weight-bold); color: var(--ink-secondary); background: var(--surface-inset); }
+.fh-ctab .rh.ac { color: var(--ink-primary); }
+.fh-ctab .h { text-align: center; font-size: var(--size-xs); color: var(--ink-tertiary); padding: var(--space-1) 0; background: var(--surface-inset); }
+.fh-ctab .c { display: grid; justify-items: center; align-content: center; gap: 2px; padding: var(--space-2) 0; font-size: var(--size-sm); color: var(--ink-secondary); min-height: 3.2em; }
+.fh-ctab .c.ch { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.fh-ctab .c.span4 { grid-column: span 4; display: flex; justify-content: center; align-items: baseline; gap: var(--space-2); }
+.fh-ctab .c.past { background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--ink-tertiary) 14%, transparent) 4px 5px); }
+.fh-ctab .icons { display: flex; gap: 2px; }
+.fh-ctab .w-none { width: 16px; height: 16px; }
