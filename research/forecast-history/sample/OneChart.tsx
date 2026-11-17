@@ -6,8 +6,7 @@
 // 1日と6時間で区切りが違い、気温も「最高・最低」と「日中の最高・朝の最低」で別の値のため）。長押し（0.28秒）で補助線を出し、そのまま横になぞると、
 // 指の下の発表が上の文に出る（アプリの日別グラフと同じ操作。ただのスワイプは日送りに使うため）。
 
-import { useRef, useState, type PointerEvent as RPointerEvent } from "react";
-import { Chip } from "../../../src/ui/kit";
+import { useRef, type PointerEvent as RPointerEvent } from "react";
 import { lineLook, DATA } from "../../../src/design/tokens";
 import { hourOf, KIND_SHORT, type Kind, leadLabel, md, type Slot, STATE_TEXT } from "./model";
 import { vNum, Wx } from "./Transition";
@@ -38,7 +37,6 @@ export function OneChart({
   onScrub: (key: string | null, phase: "move" | "end") => void;
   onSelect: (key: string) => void;
 }) {
-  const [pop6, setPop6] = useState(2);
   const timer = useRef<number | null>(null);
   const scrubbing = useRef(false);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -91,9 +89,12 @@ export function OneChart({
     });
     return { runs, dots };
   };
-  const popOf = (s: Slot) => (s.kind === "VPFW50" ? vNum(s.values?.popDay) : vNum(s.values?.pop6?.[pop6]));
+  // 府県天気予報の降水確率は、選ばずに1本にする：その発表の6時間ごとの値のうち最も高いもの。
+  // 低い方までの幅は、その発表の位置に細い縦の線で添える（4つの値のばらつき）。
+  const pop6s = (s: Slot) => (s.values?.pop6 ?? []).map((p) => vNum(p)).filter((v): v is number => v != null);
+  const popOf = (s: Slot) => (s.kind === "VPFW50" ? vNum(s.values?.popDay) : pop6s(s).length ? Math.max(...pop6s(s)) : null);
   const lines = [
-    { key: "pop", c: "rain" as const, ...lineOf(popOf, py), changedKey: (s: Slot) => (s.kind === "VPFW50" ? "pop" : `pop6-${pop6}`), above: true },
+    { key: "pop", c: "rain" as const, ...lineOf(popOf, py), changedKey: (s: Slot) => (s.kind === "VPFW50" ? "pop" : [0, 1, 2, 3].some((i) => s.changed.has(`pop6-${i}`)) ? `pop6-${[0, 1, 2, 3].find((i) => s.changed.has(`pop6-${i}`))}` : "pop6-none"), above: true },
     { key: "max", c: "hot" as const, ...lineOf((s) => vNum(s.values?.max), ty), changedKey: () => "max", above: true },
     { key: "min", c: "cold" as const, ...lineOf((s) => vNum(s.values?.min), ty), changedKey: () => "min", above: false },
   ];
@@ -196,6 +197,12 @@ export function OneChart({
             </foreignObject>
           ) : null,
         )}
+        {/* 府県天気予報の6時間の降水確率：低い値から高い値までの幅 */}
+        {slots
+          .filter((s) => s.kind === "VPFD51" && s.state === "ok" && pop6s(s).length > 1)
+          .map((s) => (
+            <line key={`r${s.key}`} x1={x(s.at)} x2={x(s.at)} y1={py(Math.min(...pop6s(s)))} y2={py(Math.max(...pop6s(s)))} className="fh-one-range" />
+          ))}
         {/* 値の線：1本につなぐ。週間の区間・府県天気予報の区間で描き分け、つなぎ目（週間→府県）は細い点線。 */}
         {lines.map((l) => (
           <g key={l.key}>
@@ -286,16 +293,8 @@ export function OneChart({
             <line x1="1" x2="25" y1="5" y2="5" stroke="var(--data-hot)" strokeWidth="2" />
             <circle cx="13" cy="5" r="2.6" fill="var(--data-hot)" />
           </svg>
-          府県天気予報（降水は{POP6_NAME[pop6]}）
+          府県天気予報（降水は6時間ごとの最も高い値。縦の線は低い値まで）
         </span>
-      </div>
-      <div className="chip-row fh-pop6">
-        <small className="fh-lbl">府県の降水（6時間）</small>
-        {POP6_NAME.map((n, i) => (
-          <Chip key={n} size="sm" on={pop6 === i} onClick={() => setPop6(i)}>
-            {n}
-          </Chip>
-        ))}
       </div>
       <p className="fh-note">押すと、その発表を選びます。長押しして横になぞると、指の下の発表が上の文に出ます。</p>
     </div>
