@@ -198,3 +198,16 @@
 .fx-rowhead button { min-height: 44px; }
 .fh-r1 > .fh-state { justify-self: start; }
 .fx-week-days { grid-auto-columns: minmax(72px, 1fr); }
+
+/* 1枚のグラフ（OneChart、AB：色／線） */
+.fh-one svg { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.fh-one-switch line { stroke: var(--line-strong); stroke-width: 1; stroke-dasharray: 2 3; }
+.fh-one-gap { fill: color-mix(in srgb, var(--ink-tertiary) 14%, transparent); }
+.fh-one-gap.failed { fill: color-mix(in srgb, var(--warn-base, var(--accent-base)) 18%, transparent); }
+.fh-one-cursor { stroke: var(--ink-secondary); stroke-width: 1; stroke-dasharray: 2 3; }
+.fh-one-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); font-size: var(--size-xs); color: var(--ink-secondary); margin: var(--space-2) 0; }
+.fh-one-legend span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.fh-focus { margin: 0 0 var(--space-3); display: grid; gap: var(--space-1); font-size: var(--size-base); line-height: 1.55; min-height: 5.2em; }
+.fh-focus p { margin: 0; }
+.fh-focus-head { font-weight: var(--weight-bold); }
+.fh-focus-change { color: var(--ink-secondary); font-size: var(--size-sm); }

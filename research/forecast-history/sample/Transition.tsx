@@ -131,7 +131,8 @@ function itemsOf(rows: Slot[], onlyChanged: boolean): Item[] {
       gaps.push(s);
       continue;
     }
-    if (onlyChanged && s.state === "ok" && seenOk && s.changed.size === 0 && !gaps.length) {
+    // 当日の発表は前の発表と比べないので、「変わらなかった発表」には数えない（いつも1行で出す）。
+    if (onlyChanged && s.state === "ok" && s.lead > 0 && seenOk && s.changed.size === 0 && !gaps.length) {
       same.push(s);
       continue;
     }
@@ -231,7 +232,7 @@ export function TransitionRows({
 /** 案C：変わり目だけ。変わらなかった発表は数だけ出し、すべての発表に戻せる。 */
 export function TransitionSteps({ slots, selected, onSelect, actual }: { slots: Slot[]; selected: string | null; onSelect: (k: string) => void; actual: ReactNode }) {
   const [all, setAll] = useState(false);
-  const unchanged = slots.filter((s, i) => s.state === "ok" && s.changed.size === 0 && slots.slice(0, i).some((p) => p.kind === s.kind && p.state === "ok")).length;
+  const unchanged = slots.filter((s, i) => s.state === "ok" && s.lead > 0 && s.changed.size === 0 && slots.slice(0, i).some((p) => p.kind === s.kind && p.state === "ok")).length;
   return (
     <div className="fh-steps-wrap">
       <p className="fh-steps-head">

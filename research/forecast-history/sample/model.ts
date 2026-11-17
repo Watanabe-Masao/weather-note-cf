@@ -1,6 +1,8 @@
 // 予報の履歴 R6 の見本：forecast_issues / forecast_entries の行から、画面に出すものを決める（見本だけの仮の決まり）。
 // 本体に入れるときは、ここで決めたことを要件（R5-1・R6）と照らして shared/ に移す。
 
+import { weatherCodeLabel } from "../../../shared/weatherCode";
+
 export interface IssueRow {
   issue_id: string;
   source: string; // jma-xml / shiromatz
@@ -59,28 +61,8 @@ export const KIND_SHORT: Record<Kind, string> = { VPFW50: "週間", VPFD51: "府
 export const OWN_FROM = "2026-11-10";
 
 /**
- * 天気予報用テロップ番号 → 気象庁の天気の名前（この見本のデータに出てくる番号だけ）。
- * アプリにはまだこの表がない：週間の天気は電文には言葉（基本天気）があるが、shiromatz の記録には番号しかない。
+ * 天気の名前は shared/weatherCode.ts の weatherCodeLabel（気象庁の表、画面用の書き方）。表にない番号は推測せず「番号 N」と出す。
  */
-export const TELOP: Record<string, string> = {
-  "100": "晴れ",
-  "101": "晴れ時々くもり",
-  "102": "晴れ一時雨",
-  "110": "晴れ後時々くもり",
-  "111": "晴れ後くもり",
-  "112": "晴れ後一時雨",
-  "200": "くもり",
-  "201": "くもり時々晴れ",
-  "202": "くもり一時雨",
-  "203": "くもり時々雨",
-  "211": "くもり後晴れ",
-  "212": "くもり後一時雨",
-  "214": "くもり後雨",
-  "300": "雨",
-  "302": "雨時々止む",
-  "311": "雨後晴れ",
-  "313": "雨後くもり",
-};
 /** WeatherIcon（skyOf）は漢字の 晴・曇・雨 で読むので、名前をその形にして渡す。 */
 export const skyText = (name: string | null) => (name ? name.replace(/くもり/g, "曇").replace(/晴れ/g, "晴") : null);
 
@@ -181,7 +163,7 @@ export class Data {
     const sentence = es.find((x) => x.element === "weather_text")?.value ?? null;
     const codeEntry = code.s !== "absent" ? code.entry : null;
     const partial = codeEntry && codeEntry.period !== "P1D" ? `${hourOf(codeEntry.valid_from)}時から` : null;
-    const weather = code.s === "value" ? { ...code, name: TELOP[String(code.v)] ?? `番号${code.v}`, sentence, partial } : code;
+    const weather = code.s === "value" ? { ...code, name: weatherCodeLabel(String(code.v)) ?? `番号 ${code.v}`, sentence, partial } : code;
     if (issue.kind === "VPFW50")
       return { weather, popDay: pick("pop", "日降水確率"), pop6: null, max: pick("temp_max", "最高気温"), min: pick("temp_min", "最低気温"), reliability: pick("reliability") };
     const pop6 = [0, 6, 12, 18].map((h) => {

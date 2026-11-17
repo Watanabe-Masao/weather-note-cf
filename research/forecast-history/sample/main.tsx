@@ -10,6 +10,7 @@ import { type KindFilter, type Item, type Layout, Matrix } from "./Matrix";
 import { blanksOf, Data, type EntryRow, issueLabel, KIND_NAME, md, type Scenario, type Slot, sourceName, STATE_NOTE, STATE_TEXT, summarize, weekday } from "./model";
 import "./sample.css";
 import { TransitionChart, TransitionRows, TransitionSteps } from "./Transition";
+import { FocusSay, OneChart } from "./OneChart";
 
 type Sc = Scenario & { telegrams?: { id: string; fetched_at: string; parser: number; parsed: string | null }[]; imported?: { fetched_at: string; commit_sha: string; file_hash: string; url: string }[]; note?: string };
 const DEFAULT_DAY: Record<string, string> = { oct: "2026-10-25", nov: "2026-11-18", syn: "2026-11-18" };
@@ -137,7 +138,9 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
   const [dayBy, setDayBy] = useState<Record<string, string>>(DEFAULT_DAY);
   const day = days.includes(dayBy[scId]) ? dayBy[scId] : days[days.length - 1];
   const setDay = (d: string) => setDayBy({ ...dayBy, [scId]: d });
-  const [plan, setPlan] = useState<"combo" | "chart" | "table" | "steps">("combo");
+  const [plan, setPlan] = useState<"oneTone" | "oneDash" | "combo" | "chart" | "table" | "steps">("oneTone");
+  const [scrub, setScrub] = useState<string | null>(null);
+  const [release, setRelease] = useState<"keep" | "back">("keep");
   const [onlyChanged, setOnlyChanged] = useState(false);
   const [cell, setCell] = useState<{ key: string; day: string } | null>(null);
   const [sel, setSel] = useState<string | null>(null);
@@ -149,6 +152,15 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
   const slots = useMemo(() => data.slots(day), [data, day]);
   const lines = useMemo(() => summarize(slots), [slots]);
   const selected = slots.find((s) => s.key === sel) ?? null;
+  const one = plan === "oneTone" || plan === "oneDash";
+  // 上の文に出す発表：なぞっている間は指の下、離したら「残す」なら選んだ発表、「戻す」なら要約。
+  const focusKey = one ? (scrub ?? (release === "keep" ? sel : null)) : null;
+  const focusSlot = slots.find((s) => s.key === focusKey) ?? null;
+  const onScrub = (k: string | null, phase: "move" | "end") => {
+    if (phase === "move") return setScrub(k);
+    setScrub(null);
+    if (release === "keep" && k) setSel(k);
+  };
   const cellSlot = useMemo(() => (cell ? (data.slots(cell.day).find((s) => s.key === cell.key) ?? null) : null), [data, cell]);
   const i = days.indexOf(day);
   applyTheme(theme);
@@ -183,7 +195,9 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
             <SectionHead title="この日の予報の移り変わり" as="h3">
               <small className="dd-hint">③ 根拠と記録</small>
             </SectionHead>
-            {lines.length ? (
+            {focusSlot ? (
+              <FocusSay s={focusSlot} slots={slots} />
+            ) : lines.length ? (
               <ul className="fh-say">
                 {lines.map((l) => (
                   <li key={l}>{l}</li>
@@ -200,13 +214,41 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
               value={plan}
               onChange={setPlan}
               options={[
+                { id: "oneTone", label: "1枚・色" },
+                { id: "oneDash", label: "1枚・線" },
                 { id: "combo", label: "案D 組合せ" },
                 { id: "table", label: "案B 行" },
                 { id: "chart", label: "案A 線" },
                 { id: "steps", label: "案C 変化" },
               ]}
             />
+            {one && (
+              <Segmented
+                label="指を離したら"
+                value={release}
+                onChange={(v) => { setRelease(v); setScrub(null); }}
+                options={[
+                  { id: "keep", label: "その発表を残す" },
+                  { id: "back", label: "要約に戻す" },
+                ]}
+              />
+            )}
             <div className="fh-plan">
+              {one && (
+                <>
+                  <OneChart slots={slots} day={day} mode={plan === "oneTone" ? "tone" : "dash"} focus={focusKey} onScrub={onScrub} onSelect={setSel} />
+                  <Segmented
+                    label="行の絞り込み"
+                    value={onlyChanged ? "changed" : "all"}
+                    onChange={(v) => setOnlyChanged(v === "changed")}
+                    options={[
+                      { id: "all", label: "すべての発表" },
+                      { id: "changed", label: "変わった発表だけ" },
+                    ]}
+                  />
+                  <TransitionRows slots={slots} selected={sel} onSelect={setSel} actual={<Actual day={day} />} onlyChanged={onlyChanged} />
+                </>
+              )}
               {plan === "combo" && (
                 <>
                   <TransitionChart slots={slots} day={day} selected={sel} onSelect={setSel} compact />
