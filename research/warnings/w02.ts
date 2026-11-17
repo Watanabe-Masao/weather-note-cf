@@ -3,6 +3,7 @@
 //     artifact cannot be downloaded from where the report is written; also shows whether a telegram
 //     is still served days later.
 //  (2・3, the monthly tables and agora, ran once on 2026-11-17 and are taken out: see below.)
+// (Run again on 2026-11-18 to see whether a telegram that left the feed is still served.)
 // Run by the "research-warnings" workflow; output goes to the log and the run's artifact.
 //   npx --yes tsx@4.19.2 research/warnings/w02.ts --out research/warnings/out2
 // 出典：気象庁（防災情報XML）。
