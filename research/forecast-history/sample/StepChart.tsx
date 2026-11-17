@@ -10,7 +10,7 @@
 import { useRef, type PointerEvent as RPointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "../../../src/ui/useDrawnWidth";
 import { DATA, lineLook } from "../../../src/design/tokens";
-import { hourOf, leadLabel, md, primaryAt, type Slot, type V } from "./model";
+import { hourOf, md, primaryAt, type Slot, type V } from "./model";
 import { vNum, Wx } from "./Transition";
 
 const W = 300;
@@ -30,12 +30,15 @@ export function StepChart({
   onScrub,
   onSelect,
   recent = false,
+  axis = "date",
 }: {
   slots: Slot[];
   day: string;
   focus: string | null;
   /** 新しい発表を強く、古い発表を控えめに描く（ECMWF の重ね描きの考え方）。気温の線と帯だけ。マスの濃さは確率なので変えない。 */
   recent?: boolean;
+  /** 横の目盛り：date＝日付だけ（時の数字を出さない）、clock＝発表の時刻を時計の絵で。 */
+  axis?: "date" | "clock";
   onScrub: (key: string | null, phase: "move" | "end") => void;
   onSelect: (key: string) => void;
 }) {
@@ -78,7 +81,7 @@ export function StepChart({
   const T_TOP = CELL_TOP + CELL_H + 16;
   const T_H = 96;
   const AX = T_TOP + T_H + 4;
-  const height = AX + 30;
+  const height = AX + (axis === "clock" ? 32 : 18);
   const ty = (v: number) => T_TOP + T_H - ((v - lo) / (hi - lo || 1)) * T_H;
   const width = (c: "hot" | "cold") => lineLook("target", DATA[c]).strokeWidth;
 
@@ -441,14 +444,6 @@ export function StepChart({
           const date = t.slice(0, 10);
           const prev = times[k - 1];
           const newDay = !prev || prev.slice(0, 10) !== date;
-          const lead = Math.round(
-            (Date.parse(`${day}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) /
-              86_400_000,
-          );
-          const nextDay = times
-            .slice(k + 1)
-            .find((z) => z.slice(0, 10) !== date);
-          const dayRoom = (nextDay ? xi(nextDay) : W - PAD_R) - xi(t);
           return (
             <g key={`t${t}`}>
               {newDay && prev && (
@@ -460,25 +455,33 @@ export function StepChart({
                   className="fh-dayline"
                 />
               )}
-              <text
-                x={xi(t) + step / 2}
-                y={AX + 12}
-                textAnchor="middle"
-                className="fh-tick"
-              >
-                {hourOf(t)}
-              </text>
-              {newDay && (
-                <text
-                  x={Math.min(xi(t) + 2, W - (date === day ? 50 : 20))}
-                  y={height - 4}
-                  className="fh-tick quiet"
-                >
-                  {/* 最初の日だけ月を書く。幅があれば「前日」なども */}
-                  {k === 0 ? md(date) : `${Number(date.slice(8, 10))}日`}
-                  {dayRoom >= 54 || date === day ? ` ${leadLabel(lead)}` : ""}
-                </text>
+              {axis === "clock" && (
+                <Clock cx={xi(t) + step / 2} cy={AX + 9} hour={hourOf(t)} />
               )}
+              {newDay &&
+                (() => {
+                  // その日の発表の列の真ん中に日付（最初の日だけ月を書く。対象日は「当日」）
+                  const last = times
+                    .filter((z) => z.slice(0, 10) === date)
+                    .at(-1)!;
+                  const cx = (xi(t) + xEnd(last)) / 2;
+                  const label =
+                    date === day
+                      ? "当日"
+                      : k === 0
+                        ? md(date)
+                        : `${Number(date.slice(8, 10))}日`;
+                  return (
+                    <text
+                      x={cx}
+                      y={height - 4}
+                      textAnchor="middle"
+                      className={`fh-tick${date === day ? " fh-today-label" : " quiet"}`}
+                    >
+                      {label}
+                    </text>
+                  );
+                })()}
             </g>
           );
         })}
@@ -533,5 +536,25 @@ export function StepChart({
         </span>
       </div>
     </div>
+  );
+}
+
+/**
+ * 時計の絵：短い針で時刻（12時間の文字盤）。午前は白い文字盤、午後は塗った文字盤（5時と17時を見分ける）。
+ */
+function Clock({ cx, cy, hour }: { cx: number; cy: number; hour: number }) {
+  const r = 5;
+  const a = ((hour % 12) / 12) * 2 * Math.PI;
+  const pm = hour >= 12;
+  return (
+    <g className={`fh-clock${pm ? " pm" : ""}`} aria-label={`${hour}時`}>
+      <circle cx={cx} cy={cy} r={r} />
+      <line
+        x1={cx}
+        y1={cy}
+        x2={cx + Math.sin(a) * (r - 1.6)}
+        y2={cy - Math.cos(a) * (r - 1.6)}
+      />
+    </g>
   );
 }

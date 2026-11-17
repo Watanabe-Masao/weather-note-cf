@@ -244,6 +244,7 @@ function App({
   const [scrub, setScrub] = useState<string | null>(null);
   const [release, setRelease] = useState<"keep" | "back">("keep");
   const [recent, setRecent] = useState(true);
+  const [axis, setAxis] = useState<"date" | "clock">("date");
   const [onlyChanged, setOnlyChanged] = useState(false);
   const [cell, setCell] = useState<{ key: string; day: string } | null>(null);
   const [sel, setSel] = useState<string | null>(null);
@@ -435,6 +436,7 @@ function App({
                         onScrub={onScrub}
                         onSelect={setSel}
                         recent={recent}
+                        axis={axis}
                       />
                       <Segmented
                         label="新しい発表"
@@ -443,6 +445,15 @@ function App({
                         options={[
                           { id: "on", label: "新しいほど濃く" },
                           { id: "off", label: "同じ濃さ" },
+                        ]}
+                      />
+                      <Segmented
+                        label="横の目盛り"
+                        value={axis}
+                        onChange={setAxis}
+                        options={[
+                          { id: "date", label: "日付だけ" },
+                          { id: "clock", label: "時計" },
                         ]}
                       />
                     </>
