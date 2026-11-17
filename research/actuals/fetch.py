@@ -25,7 +25,10 @@ def num(s):
 
 def rows(html, table_id):
     soup = BeautifulSoup(html, "lxml")
-    t = soup.find("table", id=table_id)
+    t = soup.find("table", id=table_id) or soup.find("table", class_="data2_s")
+    if t is None:
+        print("no table", table_id, (soup.title.string if soup.title else "")[:80], file=sys.stderr)
+        return []
     return [tr for tr in t.find_all("tr") if tr.find("td")]
 
 out = {"source": "気象庁 過去の気象データ（高知 47893）", "days": {}}
