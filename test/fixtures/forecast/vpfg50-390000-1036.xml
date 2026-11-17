@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Report xmlns="http://xml.kishou.go.jp/jmaxml1/" xmlns:jmx="http://xml.kishou.go.jp/jmaxml1/" xmlns:jmx_add="http://xml.kishou.go.jp/jmaxml1/addition1/">
+<Control>
+<Title>府県天気概況</Title>
+<DateTime>2026-11-17T01:36:07Z</DateTime>
+<Status>通常</Status>
+<EditorialOffice>高知地方気象台</EditorialOffice>
+<PublishingOffice>高知地方気象台</PublishingOffice>
+</Control>
+<Head xmlns="http://xml.kishou.go.jp/jmaxml1/informationBasis1/">
+<Title>天気概況</Title>
+<ReportDateTime>2026-11-17T10:36:00+09:00</ReportDateTime>
+<TargetDateTime>2026-11-17T10:36:00+09:00</TargetDateTime>
+<EventID/>
+<InfoType>発表</InfoType>
+<Serial/>
+<InfoKind>平文情報</InfoKind>
+<InfoKindVersion>1.0_0</InfoKindVersion>
+<Headline>
+<Text/>
+</Headline>
+</Head>
+<Body xmlns="http://xml.kishou.go.jp/jmaxml1/body/meteorology1/">
+<TargetArea xmlns:jmx_eb="http://xml.kishou.go.jp/jmaxml1/elementBasis1/" codeType="気象情報／府県予報区・細分区域等">
+<Name>高知県</Name>
+<Code>390000</Code>
+</TargetArea>
+<Notice/>
+<Comment>
+<Text type="本文">　高知県は、低気圧や湿った空気の影響で概ね曇り、雨の降っている所があります。
+
+　１７日は、低気圧や湿った空気の影響で概ね雨となり、昼過ぎから夜のはじめ頃にかけて雷を伴った激しい雨の降る所があるでしょう。
+
+　１８日は、気圧の谷や湿った空気の影響で曇り、昼過ぎから夕方にかけて雨の降る所がある見込みです。</Text>
+</Comment>
+</Body>
+</Report>
