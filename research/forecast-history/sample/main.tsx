@@ -11,6 +11,7 @@ import { blanksOf, Data, type EntryRow, issueLabel, KIND_NAME, md, type Scenario
 import "./sample.css";
 import { TransitionChart, TransitionRows, TransitionSteps } from "./Transition";
 import { FocusSay, OneChart } from "./OneChart";
+import { StepChart } from "./StepChart";
 
 type Sc = Scenario & { telegrams?: { id: string; fetched_at: string; parser: number; parsed: string | null }[]; imported?: { fetched_at: string; commit_sha: string; file_hash: string; url: string }[]; note?: string };
 const DEFAULT_DAY: Record<string, string> = { oct: "2026-10-25", nov: "2026-11-18", syn: "2026-11-18" };
@@ -138,7 +139,7 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
   const [dayBy, setDayBy] = useState<Record<string, string>>(DEFAULT_DAY);
   const day = days.includes(dayBy[scId]) ? dayBy[scId] : days[days.length - 1];
   const setDay = (d: string) => setDayBy({ ...dayBy, [scId]: d });
-  const [plan, setPlan] = useState<"oneTone" | "oneDash" | "combo" | "chart" | "table" | "steps">("oneTone");
+  const [plan, setPlan] = useState<"step" | "oneTone" | "oneDash" | "combo" | "chart" | "table" | "steps">("step");
   const [scrub, setScrub] = useState<string | null>(null);
   const [release, setRelease] = useState<"keep" | "back">("keep");
   const [onlyChanged, setOnlyChanged] = useState(false);
@@ -152,7 +153,7 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
   const slots = useMemo(() => data.slots(day), [data, day]);
   const lines = useMemo(() => summarize(slots), [slots]);
   const selected = slots.find((s) => s.key === sel) ?? null;
-  const one = plan === "oneTone" || plan === "oneDash";
+  const one = plan === "oneTone" || plan === "oneDash" || plan === "step";
   // 上の文に出す発表：なぞっている間は指の下、離したら「残す」なら選んだ発表、「戻す」なら要約。
   const focusKey = one ? (scrub ?? (release === "keep" ? sel : null)) : null;
   const focusSlot = slots.find((s) => s.key === focusKey) ?? null;
@@ -214,6 +215,7 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
               value={plan}
               onChange={setPlan}
               options={[
+                { id: "step", label: "案G 階段・マス" },
                 { id: "oneTone", label: "1枚・色" },
                 { id: "oneDash", label: "1枚・線" },
                 { id: "combo", label: "案D 組合せ" },
@@ -236,7 +238,11 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
             <div className="fh-plan">
               {one && (
                 <>
-                  <OneChart slots={slots} day={day} mode={plan === "oneTone" ? "tone" : "dash"} focus={focusKey} onScrub={onScrub} onSelect={setSel} />
+                  {plan === "step" ? (
+                    <StepChart slots={slots} day={day} focus={focusKey} onScrub={onScrub} onSelect={setSel} />
+                  ) : (
+                    <OneChart slots={slots} day={day} mode={plan === "oneTone" ? "tone" : "dash"} focus={focusKey} onScrub={onScrub} onSelect={setSel} />
+                  )}
                   <Segmented
                     label="行の絞り込み"
                     value={onlyChanged ? "changed" : "all"}
