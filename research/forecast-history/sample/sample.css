@@ -329,3 +329,12 @@
 /* 降水確率の欄の切り替えの目印（AB の B）：左の余白に上下の矢印 */
 .fh-pop-hint rect { fill: var(--surface-inset); stroke: var(--line-strong); stroke-width: 0.8; }
 .fh-pop-hint path { fill: none; stroke: var(--ink-secondary); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* 府県の予報の行：絵・値・変化の3段を固定して、列ごとに位置がずれないように（変化が無い列も段を空けておく） */
+.fh-ctab { grid-template-rows: auto 4.6em 3.6em; }
+.fh-ctab .c.fc3 { height: 4.6em; display: grid; grid-template-rows: 16px 1.3em 1.1em; align-content: center; justify-items: center; gap: 2px; padding: var(--space-1) 0; }
+.fh-ctab .c.fc3 .icons { height: 16px; }
+.fh-ctab .c.fc3 .v { line-height: 1.3em; }
+.fh-ctab .c.fc3 .d { line-height: 1.1em; font-size: var(--size-xs); }
+.fh-ctab .c.span4 { height: 4.6em; }
+.fh-ctab .c.span4 ~ .c, .fh-ctab .rh.ac ~ .c { height: 3.6em; }

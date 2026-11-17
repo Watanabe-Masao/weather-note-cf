@@ -230,11 +230,13 @@ export function SplitHeader({
             return (
               <span
                 key={c}
-                className={`c${past ? " past" : ""}${p != null && b != null && p !== b ? " ch" : ""}`}
+                className={`c fc3${past ? " past" : ""}${p != null && b != null && p !== b ? " ch" : ""}`}
               >
-                {!past && w && (
-                  <span className="icons">
-                    {w.map((t, k) =>
+                {/* 3段を固定：絵・値・前の発表からの変化。どの列も同じ高さに並ぶ */}
+                <span className="icons">
+                  {!past &&
+                    w &&
+                    w.map((t, k) =>
                       t ? (
                         <WeatherIcon
                           key={k}
@@ -246,10 +248,13 @@ export function SplitHeader({
                         <span key={k} className="w-none" />
                       ),
                     )}
-                  </span>
-                )}
-                {past ? "" : p == null ? "---" : `${p}%`}
-                <Delta now={p} before={b} />
+                </span>
+                <span className="v">
+                  {past ? "" : p == null ? "---" : `${p}%`}
+                </span>
+                <span className="d">
+                  <Delta now={p} before={b} />
+                </span>
               </span>
             );
           })

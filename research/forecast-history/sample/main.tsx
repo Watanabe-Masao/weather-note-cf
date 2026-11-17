@@ -251,7 +251,7 @@ function App({
   const [axis, setAxis] = useState<"date" | "clock">("date");
   // 「11月 仮」は10月の予報を31日ずらしたものなので、実績も同じだけずらした日を見せる。
   const actualOf = (d: string) => ACTUALS[scId === "acc" ? addDays(d, -31) : d];
-  const [popHint, setPopHint] = useState(false);
+  const [popHint, setPopHint] = useState(true);
   const [popView, setPopView] = useState<"detail" | "simple">("simple");
   const [head, setHead] = useState<"split" | "stack">("split");
   const [onlyChanged, setOnlyChanged] = useState(false);
