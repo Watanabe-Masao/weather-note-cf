@@ -11,10 +11,10 @@
 .fh-val { font-variant-numeric: tabular-nums; font-family: var(--font-numeric); white-space: nowrap; }
 .fh-val small { font-size: var(--size-xs); color: var(--ink-tertiary); margin-left: 1px; }
 .fh-val.changed { font-weight: var(--weight-bold); position: relative; }
-.fh-val.changed::after { content: ""; display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: currentColor; margin-left: 2px; vertical-align: 0.5em; }
+.fh-val.changed::after { content: ""; display: inline-block; width: 4px; height: 4px; border-radius: 50%; background: currentColor; margin-left: var(--space-1); vertical-align: 0.5em; }
 .fh-dash { color: var(--ink-disabled); font-family: var(--font-numeric); cursor: help; }
 .fh-out { display: inline-block; min-width: 1.2em; }
-.fh-sl { color: var(--ink-tertiary); margin: 0 2px; font-size: var(--size-xs); }
+.fh-sl { color: var(--ink-tertiary); margin: 0 var(--space-1); font-size: var(--size-xs); }
 /* 札：状態は言葉で（R5-1）。色は付けすぎない：失敗だけエラーの色、取り消しは注意の色の枠。 */
 .fh-state { display: inline-flex; align-items: center; height: 18px; padding: 0 var(--space-3); border-radius: var(--radius-xs); font-size: var(--size-xs); white-space: nowrap; color: var(--ink-secondary); box-shadow: 0 0 0 1px var(--line-strong) inset; }
 .fh-state.missing { border: 1px dashed var(--line-strong); box-shadow: none; color: var(--ink-tertiary); }

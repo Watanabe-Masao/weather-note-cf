@@ -193,7 +193,8 @@ class H(http.server.SimpleHTTPRequestHandler):
             self.path = "/index.html"
         return super().do_GET()
 
-srv = http.server.ThreadingHTTPServer(("127.0.0.1", 8799), functools.partial(H, directory=DIST))
+PORT = int(os.environ.get("WN_PORT", "8799"))  # another port lets two runs go side by side
+srv = http.server.ThreadingHTTPServer(("127.0.0.1", PORT), functools.partial(H, directory=DIST))
 threading.Thread(target=srv.serve_forever, daemon=True).start()
 
 
@@ -246,6 +247,9 @@ with sync_playwright() as p:
       class D extends RD{constructor(...a){super(...(a.length?a:[RD.now()+off]))} static now(){return RD.now()+off}}
       globalThis.Date=D;}""")
     ctx.add_init_script(path=os.path.join(HERE, "calm.js"))
+    # WN_THEME=navy|mist|warm starts the app in that theme (as chosen in 設定 → 表示 → テーマ).
+    if os.environ.get("WN_THEME"):
+        ctx.add_init_script(f"try {{ localStorage.setItem('weather-note-theme', {json.dumps(os.environ['WN_THEME'])}) }} catch {{}}")
     FAIL = set()  # parts of a URL that answer 500 (a step makes a request fail on purpose)
     FAILED_ON_PURPOSE = []
     def handle(route):
@@ -271,7 +275,7 @@ with sync_playwright() as p:
     pg = ctx.new_page()
     pg.on("console", lambda m: m.type in ("error", "warning") and errors.append(m.text))
     pg.on("pageerror", lambda e: errors.append("PAGEERROR " + str(e)))
-    pg.goto("http://127.0.0.1:8799/")
+    pg.goto(f"http://127.0.0.1:{PORT}/")
     pg.wait_for_timeout(1500)
     pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
     cdp = ctx.new_cdp_session(pg)
@@ -292,7 +296,26 @@ with sync_playwright() as p:
     title = lambda: txt(".sheet-head-title")
     no_overflow = lambda: pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
     # Text that runs out of its box, lies on other text, or is cut short (e2e/layout.js, #151).
+    # WN_STYLES=<file>: the computed look (spacing, edges, corners, shadows, times) of every element drawn,
+    # written at each check of the text and the layout, so a change that should not change the look can
+    # be compared before and after (e2e/style_diff.py, #142 A).
+    STYLE_PROPS = ["padding-top", "padding-right", "padding-bottom", "padding-left", "margin-top", "margin-right", "margin-bottom", "margin-left",
+                   "row-gap", "column-gap", "top", "right", "bottom", "left", "border-top-width", "border-right-width", "border-bottom-width", "border-left-width",
+                   "outline-width", "outline-offset", "border-top-left-radius", "border-top-right-radius", "border-bottom-left-radius", "border-bottom-right-radius",
+                   "box-shadow", "text-shadow", "opacity", "transition-duration", "transition-timing-function", "transition-delay", "animation-duration", "animation-timing-function",
+                   "stroke-width", "rx", "font-size", "width", "height"]
+    STYLE_N = [0]
+    def snap_styles(where):
+        if not os.environ.get("WN_STYLES"): return
+        STYLE_N[0] += 1
+        rows = pg.evaluate("""(props) => { const key = (e) => { const p = []; for (let a = e; a && a !== document.body; a = a.parentElement) {
+            const sib = a.parentElement ? [...a.parentElement.children].filter(c => c.tagName === a.tagName) : [a];
+            p.unshift(a.tagName.toLowerCase() + (a.classList.length ? '.' + [...a.classList].sort().join('.') : '') + ':' + sib.indexOf(a)); } return p.join('>'); };
+          const out = {}; for (const e of document.querySelectorAll('body *')) { const r = e.getBoundingClientRect(); if (!r.width && !r.height) continue;
+            const c = getComputedStyle(e); out[key(e)] = props.map(p => c.getPropertyValue(p)).join('|'); } return out; }""", STYLE_PROPS)
+        with open(os.environ["WN_STYLES"], "a") as f: f.write(json.dumps({"n": STYLE_N[0], "where": where, "props": STYLE_PROPS, "rows": rows}, ensure_ascii=False) + "\n")
     def layout_ok(code, where):
+        snap_styles(f"{code} {where}")
         r = pg.evaluate("__layoutIssues()")
         bad = r["overflow"] + r["overlap"] + r["clipped"]
         check(f"{code} 文字のはみ出し・重なり・切れがない（{where}）", not bad, str(bad))
@@ -323,6 +346,7 @@ with sync_playwright() as p:
     # so the parts that no check ever sees can be listed.
     SMALL_SEEN = set()
     def small_text():
+        snap_styles(f"文字 {len(results)}")
         r = pg.evaluate("""(() => { const seen = new Set();
       const px = (e) => { const f = parseFloat(getComputedStyle(e).fontSize);
         if (!(e instanceof SVGElement) || !e.getScreenCTM) return f;
