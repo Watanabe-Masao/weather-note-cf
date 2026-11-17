@@ -1,6 +1,6 @@
 // R6-4 の見本：発表×対象日の表。縦に発表時刻、横に対象日。R6-3（ある発表の週間予報の再現）も行を押して見る。
 
-import { Fragment, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { Chip, Segmented } from "../../../src/ui/kit";
 import { addDays, type Data, issueLabel, KIND_SHORT, type Kind, md, type Slot, STATE_TEXT, weekday } from "./model";
 import { Pop6, StateTag, Val, Wx } from "./Transition";
@@ -37,7 +37,7 @@ export function buildMatrix(data: Data, day: string, span: number, all: string[]
   return { cols, rows: [...rows.values()].sort((a, b) => (a.at === b.at ? (a.kind === "VPFW50" ? -1 : 1) : a.at < b.at ? -1 : 1)) };
 }
 
-function Cell({ s, item, layout }: { s: Slot; item: Item; layout: Layout }) {
+function Cell({ s, item, layout, noPop }: { s: Slot; item: Item; layout: Layout; noPop: boolean }) {
   const v = s.values!;
   const pop = s.kind === "VPFW50" ? <Val v={v.popDay} unit="%" tone="rain" changed={s.changed.has("pop")} /> : <span className="fx-pop6"><Pop6 s={s} /></span>;
   if (layout === "all")
@@ -50,7 +50,7 @@ function Cell({ s, item, layout }: { s: Slot; item: Item; layout: Layout }) {
           <Val v={v.max} tone="hot" changed={s.changed.has("max")} />
           <Val v={v.min} tone="cold" changed={s.changed.has("min")} />
         </span>
-        {pop}
+        {!noPop && pop}
       </span>
     );
   if (item === "weather")
@@ -69,35 +69,41 @@ export function Matrix({
   all,
   onDay,
   layout,
+  onLayout,
   item,
   onItem,
   kind,
   onKind,
   selRow,
   onRow,
+  selCell,
+  onCell,
 }: {
   data: Data;
   day: string;
   all: string[];
   onDay: (d: string) => void;
   layout: Layout;
+  onLayout: (l: Layout) => void;
   item: Item;
   onItem: (i: Item) => void;
   kind: KindFilter;
   onKind: (k: KindFilter) => void;
   selRow: string | null;
   onRow: (k: string | null) => void;
+  selCell: { key: string; day: string } | null;
+  onCell: (c: { key: string; day: string } | null) => void;
 }) {
   const { cols, rows } = useMemo(() => buildMatrix(data, day, 4, all), [data, day, all]);
   const shown = rows.filter((r) => kind === "both" || r.kind === kind);
+  // 1日の降水確率（週間）と6時間の降水確率（府県）は、同じ列に並べない（R2）。両方のときは降水確率を出さない。
+  const noPop = kind === "both";
   const box = useRef<HTMLDivElement>(null);
-  // 初めは選んだ日の列が見える位置に（横）、新しい発表が見える位置に（縦）。
   useEffect(() => {
     const el = box.current;
     if (!el) return;
     const th = el.querySelector<HTMLElement>(`th[data-day="${day}"]`);
     if (th) el.scrollLeft = th.offsetLeft - 68 - (el.clientWidth - 68 - th.offsetWidth) / 2;
-    // 縦は、対象日の前日〜当日の発表が見えるところに（選んだ行があればそこ）。
     const trs = [...el.querySelectorAll<HTMLElement>("tbody tr")];
     const near = trs.filter((tr) => (tr.dataset.key ?? "").split("|")[1]?.slice(0, 10) <= day).at(-1);
     const sel = selRow ? el.querySelector<HTMLElement>(`tr[data-key="${CSS.escape(selRow)}"]`) : null;
@@ -119,23 +125,23 @@ export function Matrix({
             { id: "both", label: "両方" },
           ]}
         />
-        {layout === "one" && (
-          <div className="chip-row">
-            {(Object.keys(ITEM_NAME) as Item[]).map((i) => (
-              <Chip key={i} size="sm" on={item === i} onClick={() => onItem(i)}>
-                {ITEM_NAME[i]}
-              </Chip>
-            ))}
-          </div>
-        )}
+        <div className="chip-row">
+          <Chip size="sm" on={layout === "all"} onClick={() => onLayout("all")}>
+            まとめて
+          </Chip>
+          {(Object.keys(ITEM_NAME) as Item[]).map((i) => (
+            <Chip key={i} size="sm" on={layout === "one" && item === i} onClick={() => (onItem(i), onLayout("one"))}>
+              {ITEM_NAME[i]}
+            </Chip>
+          ))}
+        </div>
+        {noPop && (layout === "all" || item === "pop") && <small className="fh-note">両方のときは降水確率を出しません（週間は1日、府県は6時間で区切りが違うため）。</small>}
       </div>
       <div className="fx-scroll" ref={box}>
         <table className={`fx-table ${layout}`}>
           <thead>
             <tr>
-              <th className="fx-corner">
-                発表＼対象日
-              </th>
+              <th className="fx-corner">発表＼対象日</th>
               {cols.map((d) => (
                 <th key={d} data-day={d} className={d === day ? "on" : undefined}>
                   <button onClick={() => onDay(d)} aria-pressed={d === day} aria-label={`${md(d)}（${weekday(d)}）を対象日にする`}>
@@ -150,7 +156,6 @@ export function Matrix({
             {shown.map((r, i) => {
               const prev = shown[i - 1];
               const newDay = !prev || prev.at.slice(0, 10) !== r.at.slice(0, 10);
-              // 発表がない回：覆うはずの列をまとめて1つのマスにし、言葉で書く。
               const spans: { from: number; to: number }[] = [];
               if (r.state !== "ok")
                 cols.forEach((d, ci) => {
@@ -175,9 +180,14 @@ export function Matrix({
                   {r.state === "ok"
                     ? cols.map((d) => {
                         const s = r.cells.get(d);
+                        const on = selCell?.key === r.key && selCell.day === d;
                         return (
-                          <td key={d} className={`${d === day ? "col-on" : ""}${s && !s.changed.size ? " quiet" : ""}`}>
-                            {s ? <Cell s={s} item={item} layout={layout} /> : null}
+                          <td key={d} className={`${d === day ? "col-on" : ""}${s && !s.changed.size ? " quiet" : ""}${on ? " cell-on" : ""}`}>
+                            {s ? (
+                              <button className="fx-cell" onClick={() => (onCell(on ? null : { key: r.key, day: d }), onRow(r.key))} aria-pressed={on} aria-label={`${issueLabel(r.at)}の${md(d)}`}>
+                                <Cell s={s} item={item} layout={layout} noPop={noPop} />
+                              </button>
+                            ) : null}
                           </td>
                         );
                       })
@@ -198,44 +208,47 @@ export function Matrix({
           </tbody>
         </table>
       </div>
-      {sel && <IssueWeek row={sel} cols={cols} />}
+      {sel && <IssueWeek data={data} row={sel} />}
     </div>
   );
 }
 
-/** R6-3：選んだ発表の時点の予報（その発表が言っていた日すべて）を1列に再現する。 */
-function IssueWeek({ row, cols }: { row: Row; cols: string[] }) {
-  const days = cols.filter((d) => row.cells.has(d));
+/** R6-3：選んだ発表が予報しているすべての対象日（表に見えている列だけにしない）。 */
+function IssueWeek({ data, row }: { data: Data; row: Row }) {
+  const issue = [...row.cells.values()][0]?.shown ?? null;
+  const from = row.at.slice(0, 10);
+  const days: { d: string; s: Slot }[] = [];
+  if (issue)
+    for (let n = 0; n <= 8; n++) {
+      const d = addDays(from, n);
+      const v = data.valuesFor(issue, d);
+      if (v) days.push({ d, s: { ...[...row.cells.values()][0], values: v, changed: new Set() } });
+    }
   return (
     <div className="fx-week">
       <p className="fx-week-head">
-        <b>{issueLabel(row.at)}</b> の{KIND_SHORT[row.kind] === "週間" ? "週間天気予報" : "府県天気予報"}が言っていたこと
+        <b>{issueLabel(row.at)}</b> の{KIND_SHORT[row.kind] === "週間" ? "週間天気予報" : "府県天気予報"}が予報していた日（{days.length}日）
         {row.state !== "ok" && <span className={`fh-state ${row.state}`}>{STATE_TEXT[row.state]}</span>}
       </p>
       {row.state === "ok" && (
         <div className="fx-week-days">
-          {days.map((d) => {
-            const s = row.cells.get(d)!;
-            return (
-              <Fragment key={d}>
-                <span className="fx-wd">
-                  <small>
-                    {md(d)}（{weekday(d)}）
-                  </small>
-                  <Wx s={s} size={22} />
-                  <span>
-                    <Val v={s.values!.max} tone="hot" />
-                    <small className="fh-sl">/</small>
-                    <Val v={s.values!.min} tone="cold" />
-                  </span>
-                  {s.kind === "VPFW50" ? <Val v={s.values!.popDay} unit="%" tone="rain" /> : <span className="fx-pop6">{s.values!.pop6!.map((p, i) => <Val key={i} v={p} tone="rain" />)}</span>}
-                </span>
-              </Fragment>
-            );
-          })}
+          {days.map(({ d, s }) => (
+            <span key={d} className="fx-wd">
+              <small>
+                {md(d)}（{weekday(d)}）
+              </small>
+              <Wx s={s} size={22} />
+              <span>
+                <Val v={s.values!.max} tone="hot" />
+                <small className="fh-sl">/</small>
+                <Val v={s.values!.min} tone="cold" />
+              </span>
+              {s.kind === "VPFW50" ? <Val v={s.values!.popDay} unit="%" tone="rain" /> : <span className="fx-pop6"><Pop6 s={s} /></span>}
+            </span>
+          ))}
         </div>
       )}
-      <small className="fh-note">表の中に見えている日だけ。週間は発表の翌日から7日分（表の範囲を広げると全部出る）。</small>
+      <small className="fh-note">{row.kind === "VPFW50" ? "週間は発表の翌日から7日分。降水確率は1日の値。" : "府県天気予報は今日・明日・明後日。降水確率は6時間ごと。"}横に送ると全部見られる。</small>
     </div>
   );
 }

@@ -7,9 +7,9 @@ import "../../../src/styles.css";
 import { applyTheme, THEME_LABEL, THEME_NAMES, type ThemeName } from "../../../src/design/tokens";
 import { Glyph, Segmented, SectionHead } from "../../../src/ui/kit";
 import { type KindFilter, type Item, type Layout, Matrix } from "./Matrix";
-import { Data, type EntryRow, issueLabel, KIND_NAME, md, type Scenario, type Slot, sourceName, STATE_NOTE, STATE_TEXT, summarize, weekday } from "./model";
+import { blanksOf, Data, type EntryRow, issueLabel, KIND_NAME, md, type Scenario, type Slot, sourceName, STATE_NOTE, STATE_TEXT, summarize, weekday } from "./model";
 import "./sample.css";
-import { TransitionChart, TransitionSteps, TransitionTable } from "./Transition";
+import { TransitionChart, TransitionRows, TransitionSteps } from "./Transition";
 
 type Sc = Scenario & { telegrams?: { id: string; fetched_at: string; parser: number; parsed: string | null }[]; imported?: { fetched_at: string; commit_sha: string; file_hash: string; url: string }[]; note?: string };
 const DEFAULT_DAY: Record<string, string> = { oct: "2026-10-25", nov: "2026-11-18", syn: "2026-11-18" };
@@ -33,8 +33,9 @@ function Actual({ day }: { day: string }) {
   );
 }
 
-function Provenance({ s, sc }: { s: Slot | null; sc: Sc }) {
-  if (!s) return <p className="fh-note">発表（行・列・点）を押すと、その値の出どころと状態がここに出ます。</p>;
+function Provenance({ s, sc, day, hint }: { s: Slot | null; sc: Sc; day?: string; hint: string }) {
+  if (!s) return <p className="fh-note">{hint}</p>;
+  const blanks = blanksOf(s);
   const t = s.shown && sc.telegrams?.find((x) => x.id === s.shown!.issue_id);
   const imp = s.shown?.source === "shiromatz" ? sc.imported?.[0] : null;
   const places = s.values ? [...new Set((["weather", "max"] as const).map((k) => (s.values![k].s !== "absent" ? (s.values![k] as { entry: EntryRow }).entry.place_name : null)).filter(Boolean))] : [];
@@ -43,9 +44,22 @@ function Provenance({ s, sc }: { s: Slot | null; sc: Sc }) {
     <div className="fh-prov">
       <p className="fh-prov-head">
         <b>{issueLabel(s.at)}</b> {KIND_NAME[s.kind]}
+        {day && <span>の {md(day)}（{weekday(day)}）</span>}
         {s.state !== "ok" && <span className={`fh-state ${s.state}`}>{STATE_TEXT[s.state]}</span>}
       </p>
       <dl>
+        {blanks.length > 0 && (
+          <>
+            <dt>「—」の理由</dt>
+            <dd>
+              {blanks.map((b) => (
+                <span key={b.item} className="fh-copy">
+                  {b.item}：{b.reason}
+                </span>
+              ))}
+            </dd>
+          </>
+        )}
         {s.state !== "ok" && (
           <>
             <dt>状態</dt>
@@ -79,6 +93,14 @@ function Provenance({ s, sc }: { s: Slot | null; sc: Sc }) {
               <>
                 <dt>天気の文</dt>
                 <dd>{sentence}</dd>
+              </>
+            )}
+            {s.values && s.values.max.s === "value" && s.values.max.lower != null && (
+              <>
+                <dt>予測範囲</dt>
+                <dd>
+                  最高 {s.values.max.lower}〜{s.values.max.upper}℃・最低 {s.values.min.s === "value" ? `${s.values.min.lower}〜${s.values.min.upper}℃` : "—"}
+                </dd>
               </>
             )}
             <dt>発表の ID</dt>
@@ -115,9 +137,11 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
   const [dayBy, setDayBy] = useState<Record<string, string>>(DEFAULT_DAY);
   const day = days.includes(dayBy[scId]) ? dayBy[scId] : days[days.length - 1];
   const setDay = (d: string) => setDayBy({ ...dayBy, [scId]: d });
-  const [plan, setPlan] = useState<"chart" | "table" | "steps">("table");
+  const [plan, setPlan] = useState<"combo" | "chart" | "table" | "steps">("combo");
+  const [onlyChanged, setOnlyChanged] = useState(false);
+  const [cell, setCell] = useState<{ key: string; day: string } | null>(null);
   const [sel, setSel] = useState<string | null>(null);
-  const [layout, setLayout] = useState<Layout>("one");
+  const [layout, setLayout] = useState<Layout>("all");
   const [item, setItem] = useState<Item>("weather");
   const [kind, setKind] = useState<KindFilter>("VPFW50");
   const [row, setRow] = useState<string | null>(null);
@@ -125,6 +149,7 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
   const slots = useMemo(() => data.slots(day), [data, day]);
   const lines = useMemo(() => summarize(slots), [slots]);
   const selected = slots.find((s) => s.key === sel) ?? null;
+  const cellSlot = useMemo(() => (cell ? (data.slots(cell.day).find((s) => s.key === cell.key) ?? null) : null), [data, cell]);
   const i = days.indexOf(day);
   applyTheme(theme);
   const counts = slots.reduce<Record<string, number>>((a, s) => ({ ...a, [s.state]: (a[s.state] ?? 0) + 1 }), {});
@@ -133,7 +158,7 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
       <header className="fh-bar">
         <p className="fh-title">予報の履歴 R6 の見本</p>
         <div className="fh-ctl">
-          <Segmented label="データ" value={scId} onChange={(v) => { setScId(v); setSel(null); setRow(null); }} options={SCENARIOS.map((s) => ({ id: s.id, label: s.id === "oct" ? "10月 記録" : s.id === "nov" ? "11月 電文" : "合成の状態" }))} />
+          <Segmented label="データ" value={scId} onChange={(v) => { setScId(v); setSel(null); setRow(null); setCell(null); }} options={SCENARIOS.map((s) => ({ id: s.id, label: s.id === "oct" ? "10月 記録" : s.id === "nov" ? "11月 電文" : "合成の状態" }))} />
           <Segmented label="テーマ" value={theme} onChange={setTheme} options={THEME_NAMES.map((t) => ({ id: t, label: THEME_LABEL[t].split(" ")[0] }))} />
           <Segmented label="幅" value={width} onChange={setWidth} options={[{ id: "390", label: "390" }, { id: "360", label: "360" }, { id: "full", label: "全幅" }]} />
         </div>
@@ -175,35 +200,50 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
               value={plan}
               onChange={setPlan}
               options={[
+                { id: "combo", label: "案D 組合せ" },
                 { id: "table", label: "案B 行" },
-                { id: "chart", label: "案A 折れ線" },
-                { id: "steps", label: "案C 変わり目" },
+                { id: "chart", label: "案A 線" },
+                { id: "steps", label: "案C 変化" },
               ]}
             />
             <div className="fh-plan">
+              {plan === "combo" && (
+                <>
+                  <TransitionChart slots={slots} day={day} selected={sel} onSelect={setSel} compact />
+                  <Segmented
+                    label="行の絞り込み"
+                    value={onlyChanged ? "changed" : "all"}
+                    onChange={(v) => setOnlyChanged(v === "changed")}
+                    options={[
+                      { id: "all", label: "すべての発表" },
+                      { id: "changed", label: "変わった発表だけ" },
+                    ]}
+                  />
+                  <TransitionRows slots={slots} selected={sel} onSelect={setSel} actual={<Actual day={day} />} onlyChanged={onlyChanged} />
+                </>
+              )}
               {plan === "chart" && <TransitionChart slots={slots} day={day} selected={sel} onSelect={setSel} />}
-              {plan === "table" && <TransitionTable slots={slots} selected={sel} onSelect={setSel} actual={<Actual day={day} />} />}
-              {plan === "steps" && <TransitionSteps slots={slots} selected={sel} onSelect={setSel} actual={<li className="fh-step"><Actual day={day} /></li>} />}
+              {plan === "table" && <TransitionRows slots={slots} selected={sel} onSelect={setSel} actual={<Actual day={day} />} />}
+              {plan === "steps" && <TransitionSteps slots={slots} selected={sel} onSelect={setSel} actual={<Actual day={day} />} />}
               {plan === "chart" && <Actual day={day} />}
             </div>
             <p className="fh-today">範囲は7日前〜当日。当日の発表は途中からの値（「11時から」など）なので、前の発表とは比べない（太字にしない）。</p>
-            <Provenance s={selected} sc={sc} />
+            <Provenance s={selected} sc={sc} hint="発表（行・札・線の上）を押すと、その値の出どころと「—」の理由がここに出ます。" />
           </div>
         </section>
 
         <section className="fh-card" aria-label="発表×対象日の表">
-          <SectionHead title="発表×対象日の表" as="h3">
-            <Segmented label="マスの中身" value={layout} onChange={setLayout} options={[{ id: "one", label: "案1 1項目" }, { id: "all", label: "案2 まとめて" }]} />
-          </SectionHead>
-          <Matrix data={data} day={day} all={days} onDay={setDay} layout={layout} item={item} onItem={setItem} kind={kind} onKind={setKind} selRow={row} onRow={setRow} />
-          <p className="fh-note">列の日付を押すと対象日が変わる（上の移り変わりも）。行の発表を押すと、その発表の時点の予報（R6-3）が下に出る。</p>
+          <SectionHead title="発表×対象日の表" as="h3" />
+          <Matrix data={data} day={day} all={days} onDay={setDay} layout={layout} onLayout={setLayout} item={item} onItem={setItem} kind={kind} onKind={setKind} selRow={row} onRow={setRow} selCell={cell} onCell={setCell} />
+          <Provenance s={cellSlot} sc={sc} day={cell?.day} hint="マスを押すと、その値の出どころと「—」の理由がここに出ます。" />
+          <p className="fh-note">基本は「まとめて」（天気・最高／最低・降水）。項目を選ぶとその項目だけ。列の日付を押すと対象日が変わる（上の移り変わりも）。行の発表を押すと、その発表が予報していた日をすべて出す（R6-3）。</p>
         </section>
 
         <section className="fh-card fh-legend" aria-label="見方">
           <SectionHead title="見方" as="h3" />
           <ul>
             <li><span className="fh-val changed">40</span> 太字と点：1つ前の同じ種類の発表から変わった値。変わらなかった行は控えめ。</li>
-            <li><span className="fh-dash">—</span> 気象庁が値を出していない（値なし・項目なし）。押すと「値なし」か「項目なし」が分かる。</li>
+            <li><span className="fh-dash">—</span> 気象庁が出していない（値なし・項目なし）。その発表の行やマスを押すと、どちらかと理由が出る。</li>
             <li><span className="fh-out-sample" /> 空欄：その発表がその日・その時間を予報していない（対象期間外）。</li>
             <li><span className="fh-state missing">記録なし</span> 取得の記録も発表もない（未取得）。「ない」とは言わない。</li>
             <li><span className="fh-state failed">取れなかった</span> その時間帯の取得に失敗が残り、後でも補えていない（取得失敗）。</li>

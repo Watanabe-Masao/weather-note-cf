@@ -335,3 +335,23 @@ export function summarize(slots: Slot[]): string[] {
 
 export const sourceName = (src: string) => (src === "jma-xml" ? "自前の電文" : src === "shiromatz" ? "shiromatz の記録" : src);
 export const sourceShort = (src: string) => (src === "jma-xml" ? "電文" : "記録");
+
+/** 「—」や空欄の理由（押したときに出す。title に頼らない）。 */
+export function blanksOf(s: Slot): { item: string; reason: string }[] {
+  const v = s.values;
+  if (s.state !== "ok" || !v) return [];
+  const out: { item: string; reason: string }[] = [];
+  const why = (x: V | null | undefined): string | null =>
+    x === null ? "対象期間外（この発表より前の時間）" : !x || x.s === "absent" ? "項目なし（この発表にこの項目がない）" : x.s === "none" ? "値なし（気象庁が値を出していない）" : null;
+  const add = (item: string, x: V | null | undefined) => {
+    const r = why(x);
+    if (r) out.push({ item, reason: r });
+  };
+  add("天気", v.weather);
+  if (s.kind === "VPFW50") add("降水確率（1日）", v.popDay);
+  else ["0〜6時", "6〜12時", "12〜18時", "18〜24時"].forEach((n, i) => add(`降水確率 ${n}`, v.pop6![i]));
+  add(s.kind === "VPFW50" ? "最高気温" : "日中の最高気温", v.max);
+  add(s.kind === "VPFW50" ? "最低気温" : "朝の最低気温", v.min);
+  if (s.kind === "VPFW50") add("信頼度", v.reliability);
+  return out;
+}
