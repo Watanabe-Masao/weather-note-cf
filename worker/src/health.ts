@@ -194,11 +194,7 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
     "SELECT stage, COUNT(*) AS runs, SUM(1 - ok) AS failed, CAST(AVG(ms) AS INTEGER) AS avg_ms, MAX(ms) AS max_ms, MAX(at) AS last FROM cron_runs WHERE at >= ? GROUP BY stage ORDER BY stage",
     dayAgo,
   );
-  const runTotals = await one<{ max_ms: number; runs: number }>(
-    db,
-    "SELECT MAX(total) AS max_ms, COUNT(*) AS runs FROM (SELECT at, SUM(ms) AS total FROM cron_runs WHERE at >= ? GROUP BY at)",
-    dayAgo,
-  );
+  const runTotals = await one<{ runs: number }>(db, "SELECT COUNT(DISTINCT at) AS runs FROM cron_runs WHERE at >= ?", dayAgo);
   const errors = await all<{ place: string; n: number; last: string }>(
     db,
     "SELECT place, COUNT(*) AS n, MAX(at) AS last FROM app_errors WHERE at >= ? GROUP BY place ORDER BY n DESC",
@@ -232,6 +228,8 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
               // CPU for the month, roughly: requests × the median CPU time (Cloudflare bills the sum).
               cpuMsEstimate: Math.round((u.workers.value.requests * u.workers.value.cpuP50Us) / 1000),
               cpuPercentEstimate: pct((u.workers.value.requests * u.workers.value.cpuP50Us) / 1000, PLAN.cpuMsMonth),
+              // The slowest invocations' CPU (99th percentile) against the limit of one run (30 s).
+              cpuP99PercentOfRun: pct(u.workers.value.cpuP99Us / 1000, PLAN.cronCpuMs),
             }
           : { error: u.workers.error },
         d1: u.d1.ok
@@ -254,7 +252,9 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       d1Size: d1Bytes == null ? null : { bytes: d1Bytes, percent: pct(d1Bytes, PLAN.d1Bytes) },
       d1WritesMonth: { estimate: writesMonth, percent: pct(writesMonth, PLAN.d1WritesMonth), rowsLastDay: rowsDay },
       r2: { bytes: r2Bytes, percentOfFree: pct(r2Bytes, PLAN.r2FreeBytes), chartsLastDay: r2.chartsDay?.n ?? 0, chartBytesLastDay: r2.chartsDay?.bytes ?? 0 },
-      cron: { runsLastDay: runTotals?.runs ?? 0, maxMs: runTotals?.max_ms ?? 0, percentOfCpu: pct(runTotals?.max_ms ?? 0, PLAN.cronCpuMs), stages },
+      // Wall time (waiting on JMA, D1 and R2 included), not CPU: the stages run in two lines at once,
+      // so their sum is no run's length. CPU against its limit is in `usage` (Cloudflare's count).
+      cron: { runsLastDay: runTotals?.runs ?? 0, longestStageMs: Math.max(0, ...stages.map((s) => s.max_ms)), stages },
     },
     // 無駄: what is kept or done for nothing, or not done.
     waste: {

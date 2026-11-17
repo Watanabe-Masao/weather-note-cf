@@ -43,7 +43,8 @@ if (h) {
   if (room.d1Size && room.d1Size.percent >= 50) notes.push(`データベースの大きさが上限の ${room.d1Size.percent}%。`);
   if (room.d1WritesMonth.percent >= 50) notes.push(`データベースの書き込み（月の見込み）が込みの量の ${room.d1WritesMonth.percent}%。`);
   if (room.r2.percentOfFree >= 70) notes.push(`R2 が無料枠の ${room.r2.percentOfFree}%。`);
-  if (room.cron.percentOfCpu >= 30) notes.push(`定時処理の最長が ${room.cron.maxMs}ms（上限30秒の ${room.cron.percentOfCpu}%）。`);
+  for (const st of room.cron.stages) if (st.max_ms >= 60_000) notes.push(`定時処理「${st.stage}」が長い（最長 ${Math.round(st.max_ms / 1000)}秒、待ち時間を含む）。`);
+  if (typeof h.usage?.workers?.cpuP99PercentOfRun === "number" && h.usage.workers.cpuP99PercentOfRun >= 30) notes.push(`計算時間の長い回（99%）が1回の上限の ${h.usage.workers.cpuP99PercentOfRun}%。`);
   // 実際の使用量（Cloudflare の集計）
   const u = h.usage ?? {};
   if (u.error) notes.push(`実際の使用量が読めません（${u.error}）。`);
@@ -73,7 +74,7 @@ if (h) {
     ...(h.usage?.error
       ? [`- 読めません：${h.usage.error}`]
       : [
-          h.usage.workers?.error ? `- Workers：読めません（${h.usage.workers.error}）` : `- リクエスト ${h.usage.workers.requests.toLocaleString()}回（${h.usage.workers.requestsPercent}%／1,000万）・計算時間の目安 ${Math.round(h.usage.workers.cpuMsEstimate / 1000).toLocaleString()}秒（${h.usage.workers.cpuPercentEstimate}%／3万秒）・エラー ${h.usage.workers.errors}回`,
+          h.usage.workers?.error ? `- Workers：読めません（${h.usage.workers.error}）` : `- リクエスト ${h.usage.workers.requests.toLocaleString()}回（${h.usage.workers.requestsPercent}%／1,000万）・計算時間の目安 ${Math.round(h.usage.workers.cpuMsEstimate / 1000).toLocaleString()}秒（${h.usage.workers.cpuPercentEstimate}%／3万秒）・長い回（99%） ${Math.round(h.usage.workers.cpuP99Us / 1000)}ms（1回の上限の ${h.usage.workers.cpuP99PercentOfRun}%）・エラー ${h.usage.workers.errors}回`,
           h.usage.d1?.error ? `- D1：読めません（${h.usage.d1.error}）` : `- データベース：書き込み ${h.usage.d1.rowsWritten.toLocaleString()}行（${h.usage.d1.rowsWrittenPercent}%／5,000万）・読み取り ${h.usage.d1.rowsRead.toLocaleString()}行（${h.usage.d1.rowsReadPercent}%）・大きさ ${h.usage.d1.sizeBytes == null ? "—" : mb(h.usage.d1.sizeBytes)}`,
           h.usage.r2?.error ? `- R2：読めません（${h.usage.r2.error}）` : `- R2：保存 ${mb(h.usage.r2.bytes)}（${h.usage.r2.bytesPercentOfFree}%／10GB）・${h.usage.r2.objects}個・書き込み ${h.usage.r2.classA}回（${h.usage.r2.classAPercentOfFree}%）・読み出し ${h.usage.r2.classB}回`,
         ]),
@@ -84,7 +85,7 @@ if (h) {
     `| データベースの大きさ | ${r.d1Size ? mb(r.d1Size.bytes) : "—"} | ${r.d1Size ? r.d1Size.percent + "%（10GB）" : "—"} |`,
     `| 書き込み（月の見込み） | ${r.d1WritesMonth.estimate.toLocaleString()}行（1日 ${r.d1WritesMonth.rowsLastDay.toLocaleString()}行が増えた） | ${r.d1WritesMonth.percent}%（5,000万行） |`,
     `| R2 | ${mb(r.r2.bytes)}（天気図 1日 ${r.r2.chartsLastDay}枚） | ${r.r2.percentOfFree}%（無料枠10GB） |`,
-    `| 定時処理の最長 | ${r.cron.maxMs}ms（24時間で ${r.cron.runsLastDay}回） | ${r.cron.percentOfCpu}%（30秒） |`,
+    `| 定時処理 | 24時間で ${r.cron.runsLastDay}回・いちばん長い段 ${Math.round(r.cron.longestStageMs / 1000)}秒（待ち時間を含む） | 計算時間は上の「実際の使用量」 |`,
     "",
     "## 無駄（持ちすぎ・やり残し）",
     `- データベースの電文の原文：${mb(w.xmlInDatabase.bytes)}（うち R2 にも写し済み ${mb(w.xmlInDatabase.alsoInR2)}：二重持ち）`,
