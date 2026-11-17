@@ -1,0 +1,22 @@
+name: research-radar
+
+# RD-02 (research/weather-map-radar/rd02.mjs): the radar list once and a few tiles around 高知市; only sizes,
+# form and times go to the log, nothing is saved. Push to research/weather-map-radar only; no schedule.
+# To be removed once the result is written down. 出典：気象庁ホームページ。
+on:
+  push:
+    branches: [research/weather-map-radar]
+    paths:
+      - research/weather-map-radar/rd02.mjs
+      - .github/workflows/research-radar.yml
+
+jobs:
+  rd02:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node research/weather-map-radar/rd02.mjs
