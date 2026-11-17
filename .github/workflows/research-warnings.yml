@@ -1,0 +1,31 @@
+name: research-warnings
+
+# WN-01（警報・注意報の履歴の下調べ）: JMA's feeds, the warning telegrams of 高知 in them, 高知地方気象台's
+# monthly tables of the warnings issued, and the archive at NII (research/warnings/w01.ts). Runs only on a
+# push to the research/warnings branch (no schedule); nothing is committed by it — the report, the samples
+# and what was read are this run's artifact. 出典：気象庁、国立情報学研究所。
+on:
+  push:
+    branches: [research/warnings]
+    paths:
+      - research/warnings/**
+      - .github/workflows/research-warnings.yml
+
+jobs:
+  wn01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: sudo apt-get install -y -q poppler-utils
+      - run: npx --yes tsx@4.19.2 research/warnings/w01.ts --out research/warnings/out
+      - if: always()
+        run: cat research/warnings/out/w01-report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: warnings-${{ github.run_id }}
+          path: research/warnings/out
