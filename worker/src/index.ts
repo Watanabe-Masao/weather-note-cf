@@ -17,6 +17,7 @@ import { activeTyphoons } from "./typhoon";
 import { collectForecasts } from "./forecastArchive";
 import { collectWarnings } from "./warningArchive";
 import { parseForecasts } from "./forecastParse";
+import { forecastHistory } from "./forecastHistory";
 import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { health, timed } from "./health";
@@ -38,6 +39,7 @@ function publicMessage(e: unknown): string {
 
 const FORECAST_TTL = 30 * 60; // seconds
 const TYPHOON_TTL = 30 * 60;
+const HISTORY_TTL = 10 * 60;
 
 const findStation = (id: string | null): Station => {
   const s = stations.find((x) => x.blockNo === id);
@@ -140,6 +142,17 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
       // 監視と管理 (health.ts): room left under the plan, what is kept for nothing, and whether it works. A minute at the edge.
       if (!db) return jsonResponse({ v: 1, error: "no database" }, 503);
       return cachedFor(url.origin, `${CACHE_VERSION}/health`, 60, waitUntil, () => health(db, Date.now(), env));
+    }
+    case "/api/forecast-history": {
+      // 予報の履歴 (#250, R6): one day's issues and values as kept, for 「この日の予報の移り変わり」. Shared for
+      // 10 minutes (new issues come at 5・11・17時 and are read within minutes).
+      const station = findStation(q.get("station"));
+      const day = q.get("date");
+      if (!isDay(day) || day < FIRST_DAY || day > addDays(today, FORECAST_DAYS)) throw new BadRequest("日付を確認してください。");
+      if (!db) return jsonResponse({ v: 1, station: station.blockNo, date: day, supported: false });
+      return cachedFor(url.origin, `${CACHE_VERSION}/forecast-history/${station.blockNo}/${day}`, HISTORY_TTL, waitUntil, () =>
+        forecastHistory(db, station.blockNo, day),
+      );
     }
     case "/api/wxchart-forecast": {
       // 予想天気図 (#249): JMA's latest 24・48時間 charts, as its weather map page lists them, shared for 30 minutes.
