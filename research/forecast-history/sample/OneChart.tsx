@@ -44,8 +44,9 @@ export function OneChart({
   const svgRef = useRef<SVGSVGElement>(null);
   if (!slots.length) return null;
   const t0 = Date.parse(slots[0].at);
-  const t1 = Date.parse(`${day}T18:00:00+09:00`);
-  const x = (iso: string) => PAD_L + ((Date.parse(iso) - t0) / (t1 - t0)) * (W - PAD_L - PAD_R);
+  // 範囲は最初の発表から最後の発表まで（その先の空きは描かない）。最後の発表の絵が欠けないよう右に少し余白。
+  const t1 = Math.max(Date.parse(slots[slots.length - 1].at), t0 + 3_600_000);
+  const x = (iso: string) => PAD_L + ((Date.parse(iso) - t0) / (t1 - t0)) * (W - PAD_L - PAD_R - 10);
   const temps = slots.flatMap((s) => [vNum(s.values?.max), vNum(s.values?.min)]).filter((v): v is number => v != null);
   const lo = temps.length ? Math.floor(Math.min(...temps) / 5) * 5 : 0;
   const hi = temps.length ? Math.ceil(Math.max(...temps) / 5) * 5 : 30;
@@ -152,6 +153,7 @@ export function OneChart({
         ref={svgRef}
         width="100%"
         viewBox={`0 0 ${W} ${height}`}
+        className="fh-one-svg"
         role="img"
         aria-label="発表ごとの予報の移り変わり（1枚のグラフ）"
         onContextMenu={(e) => e.preventDefault()}
@@ -245,10 +247,10 @@ export function OneChart({
           return (
             <g key={d}>
               <line x1={xd} x2={xd} y1={T_TOP + T_H + 4} y2={height - H_AXIS + 4} className="fh-dayline" />
-              <text x={xd + 2} y={height - H_AXIS + 14} className="fh-tick">
+              <text x={Math.min(xd + 2, W - 30)} y={height - H_AXIS + 14} className="fh-tick">
                 {md(d)}
               </text>
-              <text x={xd + 2} y={height - H_AXIS + 26} className="fh-tick quiet">
+              <text x={Math.min(xd + 2, W - 30)} y={height - H_AXIS + 26} className="fh-tick quiet">
                 {leadLabel(lead)}
               </text>
             </g>

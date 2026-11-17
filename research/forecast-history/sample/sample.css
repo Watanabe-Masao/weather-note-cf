@@ -224,3 +224,4 @@
 
 .fh-focus-nopic { width: 52px; height: 52px; border-radius: 50%; border: 1px dashed var(--line-strong); }
 .fh-focus-state { font-size: var(--size-lg); color: var(--ink-secondary); }
+.fh-chart svg.fh-one-svg { overflow: hidden; }
