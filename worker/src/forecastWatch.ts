@@ -11,10 +11,16 @@
 // later stop opens a new row and the history can be read back.
 //
 // Decided (2026-11-17), as constants below so they can be tuned:
-//  missing:<kind>  「発表が届かない」: the feed reads, but no telegram of that kind for 高知 (390000) has been
-//                  kept for FORECAST_MISSING_MS[kind] (by issued_at, against now). VPFD51 9h, VPFW50 15h
-//                  (provisional). Not judged before the archive has ever run, nor before the first
-//                  telegram of the kind was kept (nothing to compare against).
+//  missing:<kind>  「発表が届かない」(定時発表の想定時刻＋猶予): the feed reads, and S is the latest scheduled
+//                  issue time (FORECAST_SCHEDULE, JST hours) with S + FORECAST_GRACE_MS (60 min) <= now;
+//                  open when the latest telegram of that kind kept for 高知 (390000) has issued_at < S,
+//                  closed (復旧) when the condition no longer holds (a telegram issued at or after S came).
+//                  Measured (FH-04, 7 days of the feed): VPFD51 at 05/11/17 JST, VPFW50 at 11/17, each
+//                  reaching the feed 18–28 minutes before its ReportDateTime; extra issues (07, 21 …)
+//                  only make the latest newer, so they never raise an alert. A fixed "N hours since the
+//                  last" rule fired every night (17→05 is 12h) and is not used.
+//                  Not judged before the archive has ever run, nor before the first telegram of the
+//                  kind was kept (nothing to compare against).
 //  fetch           「取得失敗」: the last FORECAST_FETCH_FAILS (3) runs in forecast_fetch_log all failed.
 // The two are kept apart: while the latest run failed, `missing` is neither opened nor closed — the
 // cause is the fetch, told by `fetch` (or about to be, after 3 runs), and an open `missing` is not
@@ -40,13 +46,15 @@ export const FORECAST_WATCH_SCHEMA = [
 /** The office watched: 高知 (the app's own). */
 export const FORECAST_WATCH_OFFICE = "390000";
 const OFFICE_NAME = "高知";
-/** How long without a new telegram of each kind before it is told (provisional). */
-export const FORECAST_MISSING_MS = {
-  VPFD51: 9 * 3_600_000,
-  VPFW50: 15 * 3_600_000,
+/** The regular issue times of each kind (JST hours of ReportDateTime; FH-04). */
+export const FORECAST_SCHEDULE = {
+  VPFD51: [5, 11, 17],
+  VPFW50: [11, 17],
 } as const;
-type WatchedKind = keyof typeof FORECAST_MISSING_MS;
-const WATCHED_KINDS = Object.keys(FORECAST_MISSING_MS) as WatchedKind[];
+/** How long after a scheduled issue time before its absence is told. */
+export const FORECAST_GRACE_MS = 60 * 60_000;
+type WatchedKind = keyof typeof FORECAST_SCHEDULE;
+const WATCHED_KINDS = Object.keys(FORECAST_SCHEDULE) as WatchedKind[];
 const KIND_NAME: Record<WatchedKind, string> = {
   VPFD51: "府県天気予報",
   VPFW50: "府県週間天気予報",
@@ -91,7 +99,21 @@ const span = (ms: number) => {
   const m = Math.round((ms % 3_600_000) / 60_000);
   return h ? `${h}時間${m ? `${m}分` : ""}` : `${m}分`;
 };
-const hours = (ms: number) => `${Math.round(ms / 3_600_000)}時間`;
+
+/** The latest scheduled issue time of `kind` at or before `t` (epoch ms), in JST hours. */
+export function scheduledBefore(kind: WatchedKind, t: number): number {
+  const JST = 9 * 3_600_000;
+  const hours = [...FORECAST_SCHEDULE[kind]].sort((a, b) => b - a);
+  // Midnight JST of t's day, as epoch ms.
+  let day = Math.floor((t + JST) / 86_400_000) * 86_400_000 - JST;
+  for (;;) {
+    for (const h of hours) {
+      const s = day + h * 3_600_000;
+      if (s <= t) return s;
+    }
+    day -= 86_400_000;
+  }
+}
 
 const msg = (title: string, body: string): Message => ({
   title,
@@ -163,8 +185,10 @@ async function lookNow(db: Db, now: number): Promise<Look> {
       watched.add(key);
       const t = latest[k];
       if (!t) continue;
+      const due = scheduledBefore(k, now - FORECAST_GRACE_MS);
+      if (Date.parse(t.issued_at) >= due) continue;
       const age = now - Date.parse(t.issued_at);
-      if (age < FORECAST_MISSING_MS[k]) continue;
+      const dueIso = new Date(due).toISOString();
       // A failure older than the last telegram kept says nothing about this stop.
       const f =
         lastFailure && Date.parse(lastFailure.at) > Date.parse(t.issued_at)
@@ -176,11 +200,12 @@ async function lookNow(db: Db, now: number): Promise<Look> {
         detail: JSON.stringify({
           kind: k,
           office: FORECAST_WATCH_OFFICE,
+          due: dueIso,
           lastTelegram: t,
           lastFailure,
         }),
         open: msg(
-          `予報の保存：${OFFICE_NAME}の${KIND_NAME[k]}が${hours(FORECAST_MISSING_MS[k])}届いていません`,
+          `予報の保存：${OFFICE_NAME}の${KIND_NAME[k]}（${jst(dueIso)}の発表）が届いていません`,
           `配信は読めていますが、${KIND_NAME[k]}の新しい発表が保存されていません。最後に保存したのは ${jst(t.issued_at)} 発表の分です（${span(age)}前）。${failed(f)}`,
         ),
       });

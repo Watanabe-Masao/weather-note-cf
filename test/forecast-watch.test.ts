@@ -61,35 +61,39 @@ async function setup() {
   return { db, told, telegram, run, watch };
 }
 
+/** A JST time, e.g. at("11-17T06:01"). */
+const at = (s: string) => Date.parse(`2026-${s}:00+09:00`);
+
 describe("watching the forecast archive", () => {
-  it("tells the administrators (only) once when no 府県天気予報 has come for 9 hours, and once when one does", async () => {
+  it("府県天気予報: quiet overnight after 17時, and before 5時 + 1 hour; told once at 6時 if 5時 has not come; 復旧 when it does", async () => {
     const { db, told, telegram, run, watch } = await setup();
-    const first = telegram("VPFD51", T0);
-    telegram("VPFW50", T0);
-    run(T0 + 5 * MIN, true);
-    run(T0 + 9 * H - 5 * MIN, true);
-    expect((await watch(T0 + 9 * H - MIN)).opened).toEqual([]);
-    run(T0 + 9 * H, true);
-    expect((await watch(T0 + 9 * H)).opened).toEqual(["missing:VPFD51"]);
+    const last = telegram("VPFD51", at("11-16T17:00"));
+    telegram("VPFW50", at("11-16T17:00"));
+    for (const t of ["11-17T04:00", "11-17T05:30", "11-17T05:59"]) {
+      run(at(t), true);
+      expect(await watch(at(t))).toEqual({ opened: [], closed: [] });
+    }
+    run(at("11-17T06:01"), true);
+    expect((await watch(at("11-17T06:01"))).opened).toEqual(["missing:VPFD51"]);
     expect(told).toHaveLength(1);
     expect(told[0]).toMatchObject({
       to: "https://push.test/admin",
-      title: "予報の保存：高知の府県天気予報が9時間届いていません",
+      title: "予報の保存：高知の府県天気予報（11/17 5時の発表）が届いていません",
     });
-    expect(told[0].body).toMatch(/11\/17 5時 発表/);
+    expect(told[0].body).toMatch(/11\/16 17時 発表/);
     // No repeat while open.
-    run(T0 + 9 * H + 5 * MIN, true);
-    expect(await watch(T0 + 9 * H + 5 * MIN)).toEqual({ opened: [], closed: [] });
+    run(at("11-17T06:06"), true);
+    expect(await watch(at("11-17T06:06"))).toEqual({ opened: [], closed: [] });
     expect(told).toHaveLength(1);
-    // A new one comes: over.
-    telegram("VPFD51", T0 + 9 * H + 6 * MIN);
-    run(T0 + 9 * H + 10 * MIN, true);
-    expect((await watch(T0 + 9 * H + 10 * MIN)).closed).toEqual(["missing:VPFD51"]);
+    // The 5時 one comes late: over.
+    telegram("VPFD51", at("11-17T05:00"));
+    run(at("11-17T06:11"), true);
+    expect((await watch(at("11-17T06:11"))).closed).toEqual(["missing:VPFD51"]);
     expect(told.map((t) => t.title)).toEqual([
-      "予報の保存：高知の府県天気予報が9時間届いていません",
+      "予報の保存：高知の府県天気予報（11/17 5時の発表）が届いていません",
       "予報の保存：復旧しました",
     ]);
-    expect(told[1].body).toMatch(/府県天気予報がまた届いています（最新：11\/17 14時6分 発表）/);
+    expect(told[1].body).toMatch(/府県天気予報がまた届いています（最新：11\/17 5時 発表）/);
     // The row is kept, closed, with what was seen.
     const rows = db.raw.prepare("SELECT key, kind, closed_at, detail, sent FROM forecast_alerts").all() as {
       key: string;
@@ -102,21 +106,36 @@ describe("watching the forecast archive", () => {
     expect(rows[0]).toMatchObject({ kind: "missing", sent: 1 });
     expect(rows[0].key).toMatch(/^missing:VPFD51@/);
     expect(rows[0].closed_at).not.toBeNull();
-    expect(JSON.parse(rows[0].detail).lastTelegram).toEqual({ id: first, issued_at: "2026-11-17T05:00:00+09:00" });
+    const detail = JSON.parse(rows[0].detail);
+    expect(detail.lastTelegram).toEqual({ id: last, issued_at: "2026-11-16T17:00:00+09:00" });
+    expect(detail.due).toBe(new Date(at("11-17T05:00")).toISOString());
   });
 
-  it("waits 15 hours for the 府県週間天気予報", async () => {
-    const { telegram, run, watch } = await setup();
-    telegram("VPFW50", T0);
-    for (let h = 1; h < 15; h++) {
-      telegram("VPFD51", T0 + h * H);
-      run(T0 + h * H, true);
-      expect((await watch(T0 + h * H)).opened).toEqual([]);
+  it("is quiet when each issue comes on time (the feed has it before its ReportDateTime)", async () => {
+    const { told, telegram, run, watch } = await setup();
+    for (const [kind, t] of [
+      ["VPFD51", "11-17T05:00"],
+      ["VPFD51", "11-17T11:00"],
+      ["VPFW50", "11-17T11:00"],
+    ])
+      telegram(kind, at(t));
+    for (const t of ["11-17T06:01", "11-17T12:01", "11-17T17:59"]) {
+      run(at(t), true);
+      expect(await watch(at(t))).toEqual({ opened: [], closed: [] });
     }
-    telegram("VPFD51", T0 + 15 * H);
-    run(T0 + 15 * H, true);
-    const r = await watch(T0 + 15 * H);
-    expect(r.opened).toEqual(["missing:VPFW50"]);
+    expect(told).toEqual([]);
+  });
+
+  it("府県週間天気予報: quiet at 10時 after 17時 the day before; told at 12時 if 11時 has not come", async () => {
+    const { told, telegram, run, watch } = await setup();
+    telegram("VPFW50", at("11-16T17:00"));
+    telegram("VPFD51", at("11-17T05:00"));
+    telegram("VPFD51", at("11-17T11:00"));
+    run(at("11-17T10:00"), true);
+    expect((await watch(at("11-17T10:00"))).opened).toEqual([]);
+    run(at("11-17T12:01"), true);
+    expect((await watch(at("11-17T12:01"))).opened).toEqual(["missing:VPFW50"]);
+    expect(told[0].title).toBe("予報の保存：高知の府県週間天気予報（11/17 11時の発表）が届いていません");
   });
 
   it("tells when the feed failed three times in a row, with the reason, and when it reads again", async () => {
@@ -141,32 +160,34 @@ describe("watching the forecast archive", () => {
   it("does not also tell `missing` while the fetch is failing (the cause is the fetch)", async () => {
     const { told, telegram, run, watch } = await setup();
     telegram("VPFD51", T0);
-    telegram("VPFW50", T0);
+    telegram("VPFW50", at("11-17T11:00"));
     run(T0, true);
     for (let m = 5; m <= 10 * 60; m += 5) run(T0 + m * MIN, false, "Error: feed HTTP 503");
+    // 15時: the 11時 府県天気予報 is missing, but the fetch is the cause.
     expect((await watch(T0 + 10 * H)).opened).toEqual(["fetch"]);
     expect(told.map((t) => t.title)).toEqual(["予報の保存：気象庁の配信を読めません（3回続けて失敗）"]);
-    // The feed reads again but 高知's 府県天気予報 still has not come: now it is `missing`, with the last failure.
+    // The feed reads again but 11時's has still not come: now it is `missing`, with the last failure.
     run(T0 + 10 * H + 5 * MIN, true);
     const r = await watch(T0 + 10 * H + 5 * MIN);
     expect(r).toEqual({ opened: ["missing:VPFD51"], closed: ["fetch"] });
-    const missing = told.find((t) => /府県天気予報が9時間/.test(t.title))!;
+    const missing = told.find((t) => /府県天気予報（/.test(t.title))!;
+    expect(missing.title).toBe("予報の保存：高知の府県天気予報（11/17 11時の発表）が届いていません");
     expect(missing.body).toMatch(/最後の失敗（11\/17 15時）：Error: feed HTTP 503/);
   });
 
   it("keeps an open `missing` open (not 復旧) while the fetch fails", async () => {
     const { told, telegram, run, watch } = await setup();
-    telegram("VPFD51", T0);
-    run(T0 + 9 * H, true);
-    expect((await watch(T0 + 9 * H)).opened).toEqual(["missing:VPFD51"]);
-    run(T0 + 9 * H + 5 * MIN, false, "x");
-    expect(await watch(T0 + 9 * H + 5 * MIN)).toEqual({ opened: [], closed: [] });
+    telegram("VPFD51", at("11-17T05:00"));
+    run(at("11-17T12:01"), true);
+    expect((await watch(at("11-17T12:01"))).opened).toEqual(["missing:VPFD51"]);
+    run(at("11-17T12:06"), false, "x");
+    expect(await watch(at("11-17T12:06"))).toEqual({ opened: [], closed: [] });
     expect(told).toHaveLength(1);
   });
 
   it("says nothing before the archive has run, or before the first telegram of a kind; but tells `fetch`", async () => {
     const { told, telegram, run, watch } = await setup();
-    expect(await watch(T0)).toEqual({ opened: [], closed: [] });
+    expect(await watch(T0 + 20 * H)).toEqual({ opened: [], closed: [] });
     run(T0, true);
     expect(await watch(T0 + 20 * H)).toEqual({ opened: [], closed: [] });
     // A telegram of another office or kind is not 高知's VPFD51.
@@ -185,14 +206,15 @@ describe("watching the forecast archive", () => {
 
   it("tells a later stop again, as a new row", async () => {
     const { db, telegram, run, watch } = await setup();
-    telegram("VPFD51", T0);
-    run(T0 + 9 * H, true);
-    await watch(T0 + 9 * H);
-    telegram("VPFD51", T0 + 10 * H);
-    run(T0 + 10 * H, true);
-    await watch(T0 + 10 * H);
-    run(T0 + 19 * H, true);
-    expect((await watch(T0 + 19 * H)).opened).toEqual(["missing:VPFD51"]);
+    telegram("VPFD51", at("11-17T05:00"));
+    run(at("11-17T12:01"), true);
+    expect((await watch(at("11-17T12:01"))).opened).toEqual(["missing:VPFD51"]);
+    telegram("VPFD51", at("11-17T11:00"));
+    run(at("11-17T12:10"), true);
+    expect((await watch(at("11-17T12:10"))).closed).toEqual(["missing:VPFD51"]);
+    run(at("11-17T18:01"), true);
+    expect((await watch(at("11-17T18:01"))).opened).toEqual(["missing:VPFD51"]);
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM forecast_alerts").get()).toEqual({ n: 2 });
   });
 });
+
