@@ -1,10 +1,11 @@
 // R6-4 の見本：発表×対象日の表。縦に発表時刻、横に対象日。R6-3（ある発表の週間予報の再現）も行を押して見る。
 
-import { useEffect, useMemo, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef } from "react";
 import { Chip, Segmented } from "../../../src/ui/kit";
 import {
   addDays,
   type Data,
+  hourOf,
   issueLabel,
   KIND_SHORT,
   type Kind,
@@ -250,82 +251,95 @@ export function Matrix({
                   if (last && last.to === ci - 1) last.to = ci;
                   else spans.push({ from: ci, to: ci });
                 });
+              const date = r.at.slice(0, 10);
               return (
-                <tr
-                  key={r.key}
-                  data-key={r.key}
-                  className={`${selRow === r.key ? "on" : ""}${newDay ? " newday" : ""} k-${r.kind}`}
-                >
-                  <th className="fx-rowhead">
-                    <button
-                      onClick={() => onRow(selRow === r.key ? null : r.key)}
-                      aria-pressed={selRow === r.key}
-                    >
-                      <b>{issueLabel(r.at)}</b>
-                      <small>
-                        {KIND_SHORT[r.kind]}
-                        {!r.regular && "・臨時"}
-                        {r.fix && <span className="fh-tag fix">訂正</span>}
-                        {r.source && (
-                          <span className="fh-src">
-                            {r.source === "jma-xml" ? "電文" : "記録"}
-                          </span>
-                        )}
-                      </small>
-                    </button>
-                  </th>
-                  {r.state === "ok"
-                    ? cols.map((d) => {
-                        const s = r.cells.get(d);
-                        const on = selCell?.key === r.key && selCell.day === d;
-                        return (
-                          <td
-                            key={d}
-                            className={`${d === day ? "col-on" : ""}${s && !s.changed.size ? " quiet" : ""}${on ? " cell-on" : ""}`}
-                          >
-                            {s ? (
-                              <button
-                                className="fx-cell"
-                                onClick={() => (
-                                  onCell(on ? null : { key: r.key, day: d }),
-                                  onRow(r.key)
-                                )}
-                                aria-pressed={on}
-                                aria-label={`${issueLabel(r.at)}の${md(d)}`}
-                              >
-                                <Cell
-                                  s={s}
-                                  item={item}
-                                  layout={layout}
-                                  noPop={noPop}
-                                />
-                              </button>
-                            ) : null}
-                          </td>
-                        );
-                      })
-                    : cols.map((d, ci) => {
-                        const sp = spans.find((x) => x.from === ci);
-                        if (sp)
+                <Fragment key={r.key}>
+                  {/* 発表した日ごとの見出しの行：行の頭は時刻だけにする（日付をくり返さない） */}
+                  {newDay && (
+                    <tr className="fx-dayrow">
+                      <th className="fx-rowhead fx-dayhead" scope="rowgroup">
+                        {md(date)}
+                        <small>（{weekday(date)}）</small>
+                      </th>
+                      <td colSpan={cols.length} />
+                    </tr>
+                  )}
+                  <tr
+                    data-key={r.key}
+                    className={`${selRow === r.key ? "on" : ""}${newDay ? " newday" : ""} k-${r.kind}`}
+                  >
+                    <th className="fx-rowhead">
+                      <button
+                        onClick={() => onRow(selRow === r.key ? null : r.key)}
+                        aria-pressed={selRow === r.key}
+                      >
+                        <b>{hourOf(r.at)}時</b>
+                        <small>
+                          {KIND_SHORT[r.kind]}
+                          {!r.regular && "・臨時"}
+                          {r.fix && <span className="fh-tag fix">訂正</span>}
+                          {r.source && (
+                            <span className="fh-src">
+                              {r.source === "jma-xml" ? "電文" : "記録"}
+                            </span>
+                          )}
+                        </small>
+                      </button>
+                    </th>
+                    {r.state === "ok"
+                      ? cols.map((d) => {
+                          const s = r.cells.get(d);
+                          const on =
+                            selCell?.key === r.key && selCell.day === d;
                           return (
                             <td
                               key={d}
-                              colSpan={sp.to - sp.from + 1}
-                              className={`fx-gap ${r.state}`}
+                              className={`${d === day ? "col-on" : ""}${s && !s.changed.size ? " quiet" : ""}${on ? " cell-on" : ""}`}
                             >
-                              <StateTag s={r.cells.get(d)!} />
+                              {s ? (
+                                <button
+                                  className="fx-cell"
+                                  onClick={() => (
+                                    onCell(on ? null : { key: r.key, day: d }),
+                                    onRow(r.key)
+                                  )}
+                                  aria-pressed={on}
+                                  aria-label={`${issueLabel(r.at)}の${md(d)}`}
+                                >
+                                  <Cell
+                                    s={s}
+                                    item={item}
+                                    layout={layout}
+                                    noPop={noPop}
+                                  />
+                                </button>
+                              ) : null}
                             </td>
                           );
-                        if (spans.some((x) => ci > x.from && ci <= x.to))
-                          return null;
-                        return (
-                          <td
-                            key={d}
-                            className={d === day ? "col-on" : undefined}
-                          />
-                        );
-                      })}
-                </tr>
+                        })
+                      : cols.map((d, ci) => {
+                          const sp = spans.find((x) => x.from === ci);
+                          if (sp)
+                            return (
+                              <td
+                                key={d}
+                                colSpan={sp.to - sp.from + 1}
+                                className={`fx-gap ${r.state}`}
+                              >
+                                <StateTag s={r.cells.get(d)!} />
+                              </td>
+                            );
+                          if (spans.some((x) => ci > x.from && ci <= x.to))
+                            return null;
+                          return (
+                            <td
+                              key={d}
+                              className={d === day ? "col-on" : undefined}
+                            />
+                          );
+                        })}
+                  </tr>
+                </Fragment>
               );
             })}
           </tbody>

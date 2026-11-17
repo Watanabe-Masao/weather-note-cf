@@ -365,3 +365,11 @@
 .fh-drow-sub { grid-area: sub; display: flex; flex-wrap: wrap; gap: 2px var(--space-3); font-size: var(--size-xs); color: var(--ink-secondary); min-width: 0; }
 
 .fh-drow-ch { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 1px var(--space-2); max-width: 11em; }
+
+/* 表（発表×対象日）：発表した日ごとの見出しの行 */
+.fx-table tr.fx-dayrow > * { background: var(--surface-inset); border-top: 1px solid var(--line-soft); padding: var(--space-1) var(--space-3); }
+.fx-dayhead { text-align: left; font-size: var(--size-xs); font-weight: var(--weight-bold); color: var(--ink-primary); white-space: nowrap; }
+.fx-dayhead small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
+.fx-table tr.fx-dayrow + tr > * { border-top: 0; }
+.fx-table tr.k-VPFD51 .fx-rowhead b, .fx-rowhead b { font-size: var(--size-sm); font-weight: var(--weight-bold); }
+.fx-table tbody tr.fx-dayrow td { height: auto; }
