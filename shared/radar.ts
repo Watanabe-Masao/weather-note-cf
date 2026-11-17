@@ -12,6 +12,16 @@ export const RADAR_LIST_URL = "https://www.jma.go.jp/bosai/jmatile/data/nowc/tar
 export const radarTileUrl = (basetime: string, validtime: string, z: number, x: number, y: number) =>
   `https://www.jma.go.jp/bosai/jmatile/data/nowc/${basetime}/none/${validtime}/surf/hrpns/${z}/${x}/${y}.png`;
 
+// 解析雨量 (KC-01, research/keep-candidates, 2026-11-17): the hour's rain amount (mm), radar corrected with
+// the rain gauges, 1 km, every 30 minutes. JMA lists about 12 hours and a time that drops out is gone (404).
+//   一覧：…/jmatile/data/rasrf/targetTimes.json — 行ごとに basetime・validtime・member（none／immed）
+//   タイル：…/rasrf/{basetime}/{member}/{validtime}/surf/rasrf/{z}/{x}/{y}.png
+// The 解析 only (basetime = validtime; the 15-hour forecast is not kept yet), every member listed, the same
+// tiles as the radar. An amount (mm), never put with the radar's intensity (mm/h) (R4).
+export const RASRF_LIST_URL = "https://www.jma.go.jp/bosai/jmatile/data/rasrf/targetTimes.json";
+export const rasrfTileUrl = (basetime: string, member: string, validtime: string, z: number, x: number, y: number) =>
+  `https://www.jma.go.jp/bosai/jmatile/data/rasrf/${basetime}/${member}/${validtime}/surf/rasrf/${z}/${x}/${y}.png`;
+
 /** The usual web-map tile (x, y) that holds a point at zoom z. */
 export function tileOf(lat: number, lon: number, z: number): { x: number; y: number } {
   const n = 2 ** z;
@@ -46,5 +56,6 @@ export const isKeptRadarTime = (utc: string) => /^\d{10}(00|30)00$/.test(utc);
 export interface RadarListItem {
   basetime: string;
   validtime: string;
+  member?: string;
   elements?: string[];
 }

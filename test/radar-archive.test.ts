@@ -5,7 +5,9 @@
 import { describe, expect, it } from "vitest";
 import { judgeHealth } from "../shared/healthJudge";
 import { isKeptRadarTime, jstOfRadarTime, radarTiles, tileOf } from "../shared/radar";
-import { radarKey, saveRadar } from "../worker/src/radarArchive";
+import { RADAR_PRODUCTS, radarKey, rasrfKey, saveRadar } from "../worker/src/radarArchive";
+
+const HRPNS = [RADAR_PRODUCTS[0]];
 import { d1 } from "./d1";
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, ...new Array(80).fill(1)]);
@@ -65,12 +67,12 @@ describe("雨雲レーダー：保存", () => {
     const b = bucket();
     const f = fetcher(list(times));
     const now = Date.parse("2026-11-17T13:12:00Z");
-    expect(await saveRadar(db, b, now, f.get)).toEqual({ saved: 9, waiting: 9, ok: true });
+    expect(await saveRadar(db, b, now, f.get, 9, HRPNS)).toEqual({ saved: 9, waiting: 9, ok: true });
     expect([...b.files.keys()].every((k) => k.startsWith("radar/hrpns/2026-11/20261117130000/8/"))).toBe(true);
     // 予測（basetime ≠ validtime）や 0・30分でない時刻は読まない。
     expect(f.seen.filter((u) => u.endsWith(".png")).every((u) => u.includes("/20261117130000/none/20261117130000/surf/hrpns/8/"))).toBe(true);
-    expect(await saveRadar(db, b, now + 300_000, f.get)).toEqual({ saved: 9, waiting: 0, ok: true });
-    expect(await saveRadar(db, b, now + 600_000, f.get)).toEqual({ saved: 0, waiting: 0, ok: true });
+    expect(await saveRadar(db, b, now + 300_000, f.get, 9, HRPNS)).toEqual({ saved: 9, waiting: 0, ok: true });
+    expect(await saveRadar(db, b, now + 600_000, f.get, 9, HRPNS)).toEqual({ saved: 0, waiting: 0, ok: true });
     expect(b.files.size).toBe(18);
     expect(db.raw.prepare("SELECT DISTINCT valid_at FROM radar_saved ORDER BY valid_at").all()).toEqual([
       { valid_at: "2026-11-17T21:30:00+09:00" },
@@ -86,17 +88,43 @@ describe("雨雲レーダー：保存", () => {
     const db = d1();
     const b = bucket();
     const now = Date.parse("2026-11-17T13:12:00Z");
-    await saveRadar(db, b, now, fetcher(list(times.slice(0, 3)), new Set(["/8/222/102.png"])).get);
+    await saveRadar(db, b, now, fetcher(list(times.slice(0, 3)), new Set(["/8/222/102.png"])).get, 9, HRPNS);
     expect(b.files.size).toBe(8);
-    expect(db.raw.prepare("SELECT ok, saved, waiting, error FROM radar_fetch_log").get()).toEqual({ ok: 0, saved: 8, waiting: 1, error: "20261117130000/8/222/102: HTTP 503" });
-    expect(await saveRadar(db, b, now + 300_000, fetcher(list(times.slice(0, 3))).get)).toEqual({ saved: 1, waiting: 0, ok: true });
+    expect(db.raw.prepare("SELECT ok, saved, waiting, error FROM radar_fetch_log").get()).toEqual({ ok: 0, saved: 8, waiting: 1, error: "hrpns 20261117130000/8/222/102: HTTP 503" });
+    expect(await saveRadar(db, b, now + 300_000, fetcher(list(times.slice(0, 3))).get, 9, HRPNS)).toEqual({ saved: 1, waiting: 0, ok: true });
   });
   it("logs a list that cannot be read, and saves nothing", async () => {
     const db = d1();
     const b = bucket();
     const get = async () => ({ ok: false, status: 500, text: async () => "", arrayBuffer: async () => new ArrayBuffer(0) });
-    expect(await saveRadar(db, b, Date.parse("2026-11-17T13:12:00Z"), get)).toEqual({ saved: 0, waiting: 0, ok: false });
-    expect(db.raw.prepare("SELECT ok, error FROM radar_fetch_log").get()).toEqual({ ok: 0, error: "nowc list 500" });
+    expect(await saveRadar(db, b, Date.parse("2026-11-17T13:12:00Z"), get, 9, HRPNS)).toEqual({ saved: 0, waiting: 0, ok: false });
+    expect(db.raw.prepare("SELECT ok, error FROM radar_fetch_log").get()).toEqual({ ok: 0, error: "hrpns list 500" });
+  });
+});
+
+describe("解析雨量：保存", () => {
+  it("keeps the 解析 (basetime = validtime) of each member listed, not the forecast, in its own place", async () => {
+    const db = d1();
+    const b = bucket();
+    const rows = JSON.stringify([
+      { basetime: "20261117133000", validtime: "20261117133000", member: "immed", elements: ["rasrf", "rasrf_nd"] },
+      { basetime: "20261117133000", validtime: "20261117133000", member: "none", elements: ["rasrf", "rasrf03h"] },
+      { basetime: "20261117133000", validtime: "20261117143000", member: "none", elements: ["rasrf"] },
+      { basetime: "20261117132000", validtime: "20261117132000", member: "none", elements: ["rasrf"] },
+    ]);
+    const seen: string[] = [];
+    const get = async (url: string) => {
+      seen.push(url);
+      if (url.endsWith("rasrf/targetTimes.json")) return { ok: true, status: 200, text: async () => rows, arrayBuffer: async () => new ArrayBuffer(0) };
+      return { ok: true, status: 200, text: async () => "", arrayBuffer: async () => PNG.buffer.slice(0) as ArrayBuffer };
+    };
+    const rasrf = [RADAR_PRODUCTS[1]];
+    expect(await saveRadar(db, b, Date.parse("2026-11-17T13:40:00Z"), get, 9, rasrf)).toEqual({ saved: 9, waiting: 9, ok: true });
+    expect(await saveRadar(db, b, Date.parse("2026-11-17T13:45:00Z"), get, 9, rasrf)).toEqual({ saved: 9, waiting: 0, ok: true });
+    expect([...b.files.keys()].sort()[0]).toBe(rasrfKey("20261117133000", "immed", 8, 221, 101));
+    expect(b.files.has(rasrfKey("20261117133000", "none", 8, 222, 102))).toBe(true);
+    // 予報（validtime ≠ basetime）と 0・30分でない時刻は読まない。
+    expect(seen.filter((u) => u.endsWith(".png")).every((u) => /\/rasrf\/20261117133000\/(none|immed)\/20261117133000\/surf\/rasrf\/8\//.test(u))).toBe(true);
   });
 });
 

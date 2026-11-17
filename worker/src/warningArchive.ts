@@ -50,8 +50,13 @@ const SHORT_REACH_MS = 8 * 3_600_000;
 const LOG_DAYS = 400;
 /** A run fetches at most this many telegrams (a scheduled run's subrequests are few); the rest wait for the next. */
 const PER_RUN = 25;
-/** The kinds kept: VPWW53 and the R06 ones (VPWW55〜61). */
-export const WARNING_KINDS = ["VPWW53", "VPWW55", "VPWW56", "VPWW57", "VPWW58", "VPWW59", "VPWW60", "VPWW61"] as const;
+/**
+ * The kinds kept: VPWW53 and the R06 ones (VPWW55〜61); and the 随時 news of the same feed (2026-11-17,
+ * research/keep-candidates): 竜巻注意情報 (VPHW50・51, now 「気象防災速報（竜巻注意）」), 記録的短時間大雨情報
+ * (VPOA50) and 府県気象防災速報 (VPBS50, where VPOA50 and 顕著な大雨に関する情報 go). Each is small (about 20 KB)
+ * and not kept by JMA for long. 土砂災害警戒情報 comes as VPWW56 (VXWW50 runs beside it for the change-over).
+ */
+export const WARNING_KINDS = ["VPWW53", "VPWW55", "VPWW56", "VPWW57", "VPWW58", "VPWW59", "VPWW60", "VPWW61", "VPHW50", "VPHW51", "VPOA50", "VPBS50"] as const;
 /** The offices kept: 高知県 only (2026-11-17). */
 export const WARNING_OFFICES = ["390000"] as const;
 
