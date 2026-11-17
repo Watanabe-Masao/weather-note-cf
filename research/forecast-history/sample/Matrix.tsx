@@ -1,12 +1,13 @@
 // R6-4 の見本：発表×対象日の表。縦に発表時刻、横に対象日。R6-3（ある発表の週間予報の再現）も行を押して見る。
 
-import { Fragment, useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Chip, Segmented } from "../../../src/ui/kit";
 import { addDays, type Data, issueLabel, KIND_SHORT, type Kind, md, type Slot, STATE_TEXT, weekday } from "./model";
 import { Pop6, StateTag, Val, Wx } from "./Transition";
+import { NOTE, Why } from "./Why";
 
 export type Item = "weather" | "pop" | "max" | "min";
-export type Layout = "one" | "all";
+export type Layout = "one" | "all" | "combo";
 export type KindFilter = "VPFW50" | "VPFD51" | "both";
 const ITEM_NAME: Record<Item, string> = { weather: "天気", pop: "降水確率", max: "最高", min: "最低" };
 
@@ -37,7 +38,7 @@ export function buildMatrix(data: Data, day: string, span: number, all: string[]
   return { cols, rows: [...rows.values()].sort((a, b) => (a.at === b.at ? (a.kind === "VPFW50" ? -1 : 1) : a.at < b.at ? -1 : 1)) };
 }
 
-function Cell({ s, item, layout }: { s: Slot; item: Item; layout: Layout }) {
+function Cell({ s, item, layout }: { s: Slot; item: Item; layout: "one" | "all" }) {
   const v = s.values!;
   const pop = s.kind === "VPFW50" ? <Val v={v.popDay} unit="%" tone="rain" changed={s.changed.has("pop")} /> : <span className="fx-pop6"><Pop6 s={s} /></span>;
   if (layout === "all")
@@ -88,6 +89,10 @@ export function Matrix({
   selRow: string | null;
   onRow: (k: string | null) => void;
 }) {
+  // 組み合わせ：案2（まとめて）を基本に、項目を選んだら案1。
+  const [comboItem, setComboItem] = useState<Item | null>(null);
+  const eff: "one" | "all" = layout === "combo" ? (comboItem ? "one" : "all") : layout;
+  const effItem = layout === "combo" ? (comboItem ?? item) : item;
   const { cols, rows } = useMemo(() => buildMatrix(data, day, 4, all), [data, day, all]);
   const shown = rows.filter((r) => kind === "both" || r.kind === kind);
   const box = useRef<HTMLDivElement>(null);
@@ -104,7 +109,7 @@ export function Matrix({
     const target = sel ?? near;
     el.scrollTop = target ? target.offsetTop + target.offsetHeight - el.clientHeight + 8 : 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [day, kind, layout]);
+  }, [day, kind, eff]);
   const sel = selRow ? rows.find((r) => r.key === selRow) : null;
   return (
     <div className="fx">
@@ -119,6 +124,18 @@ export function Matrix({
             { id: "both", label: "両方" },
           ]}
         />
+        {layout === "combo" && (
+          <div className="chip-row">
+            <Chip size="sm" on={comboItem == null} onClick={() => setComboItem(null)}>
+              まとめて
+            </Chip>
+            {(Object.keys(ITEM_NAME) as Item[]).map((i) => (
+              <Chip key={i} size="sm" on={comboItem === i} onClick={() => setComboItem(comboItem === i ? null : i)}>
+                {ITEM_NAME[i]}
+              </Chip>
+            ))}
+          </div>
+        )}
         {layout === "one" && (
           <div className="chip-row">
             {(Object.keys(ITEM_NAME) as Item[]).map((i) => (
@@ -130,7 +147,7 @@ export function Matrix({
         )}
       </div>
       <div className="fx-scroll" ref={box}>
-        <table className={`fx-table ${layout}`}>
+        <table className={`fx-table ${eff}`}>
           <thead>
             <tr>
               <th className="fx-corner">
@@ -177,7 +194,13 @@ export function Matrix({
                         const s = r.cells.get(d);
                         return (
                           <td key={d} className={`${d === day ? "col-on" : ""}${s && !s.changed.size ? " quiet" : ""}`}>
-                            {s ? <Cell s={s} item={item} layout={layout} /> : null}
+                            {s ? (
+                              <Cell s={s} item={effItem} layout={eff} />
+                            ) : (
+                              <Why note={NOTE.out} fill>
+                                <span className="fh-out" />
+                              </Why>
+                            )}
                           </td>
                         );
                       })
@@ -190,7 +213,13 @@ export function Matrix({
                             </td>
                           );
                         if (spans.some((x) => ci > x.from && ci <= x.to)) return null;
-                        return <td key={d} className={d === day ? "col-on" : undefined} />;
+                        return (
+                          <td key={d} className={d === day ? "col-on" : undefined}>
+                            <Why note={NOTE.out} fill>
+                              <span className="fh-out" />
+                            </Why>
+                          </td>
+                        );
                       })}
                 </tr>
               );
@@ -198,44 +227,54 @@ export function Matrix({
           </tbody>
         </table>
       </div>
-      {sel && <IssueWeek row={sel} cols={cols} />}
+      {sel && <IssueWeek row={sel} data={data} />}
     </div>
   );
 }
 
-/** R6-3：選んだ発表の時点の予報（その発表が言っていた日すべて）を1列に再現する。 */
-function IssueWeek({ row, cols }: { row: Row; cols: string[] }) {
-  const days = cols.filter((d) => row.cells.has(d));
+/** R6-3：選んだ発表の時点の予報を再現する。その発表が予報しているすべての対象日（表に出ている列に限らない）。 */
+function IssueWeek({ row, data }: { row: Row; data: Data }) {
+  const shown = [...row.cells.values()][0]?.shown ?? null;
+  const days = shown ? data.daysOf(shown) : [];
+  const cells = days.map((d) => ({ d, s: data.slots(d).find((x) => x.key === row.key) ?? null }));
   return (
     <div className="fx-week">
       <p className="fx-week-head">
-        <b>{issueLabel(row.at)}</b> の{KIND_SHORT[row.kind] === "週間" ? "週間天気予報" : "府県天気予報"}が言っていたこと
-        {row.state !== "ok" && <span className={`fh-state ${row.state}`}>{STATE_TEXT[row.state]}</span>}
+        <b>{issueLabel(row.at)}</b> の{row.kind === "VPFW50" ? "週間天気予報" : "府県天気予報"}が言っていたこと
+        {row.state !== "ok" && <StateTag s={[...row.cells.values()][0]} />}
       </p>
       {row.state === "ok" && (
         <div className="fx-week-days">
-          {days.map((d) => {
-            const s = row.cells.get(d)!;
-            return (
-              <Fragment key={d}>
-                <span className="fx-wd">
-                  <small>
-                    {md(d)}（{weekday(d)}）
-                  </small>
+          {cells.map(({ d, s }) => (
+            <span key={d} className="fx-wd">
+              <small className="fx-wd-day">
+                {md(d)}
+                <span>{weekday(d)}</span>
+              </small>
+              {s?.values ? (
+                <>
                   <Wx s={s} size={22} />
                   <span>
-                    <Val v={s.values!.max} tone="hot" />
+                    <Val v={s.values.max} tone="hot" />
                     <small className="fh-sl">/</small>
-                    <Val v={s.values!.min} tone="cold" />
+                    <Val v={s.values.min} tone="cold" />
                   </span>
-                  {s.kind === "VPFW50" ? <Val v={s.values!.popDay} unit="%" tone="rain" /> : <span className="fx-pop6">{s.values!.pop6!.map((p, i) => <Val key={i} v={p} tone="rain" />)}</span>}
-                </span>
-              </Fragment>
-            );
-          })}
+                  {s.kind === "VPFW50" ? <Val v={s.values.popDay} unit="%" tone="rain" /> : <span className="fx-pop6">{s.values.pop6!.map((p, i) => <Val key={i} v={p} tone="rain" />)}</span>}
+                </>
+              ) : (
+                <Why note={NOTE.out}>
+                  <span className="fh-dash">—</span>
+                </Why>
+              )}
+            </span>
+          ))}
         </div>
       )}
-      <small className="fh-note">表の中に見えている日だけ。週間は発表の翌日から7日分（表の範囲を広げると全部出る）。</small>
+      {row.state === "ok" && (
+        <small className="fh-note">
+          この発表が予報している {days.length}日すべて（{md(days[0])}〜{md(days[days.length - 1])}）。表に出ていない日も入る。横に動かせる。
+        </small>
+      )}
     </div>
   );
 }

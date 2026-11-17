@@ -10,9 +10,16 @@ import { type KindFilter, type Item, type Layout, Matrix } from "./Matrix";
 import { Data, type EntryRow, issueLabel, KIND_NAME, md, type Scenario, type Slot, sourceName, STATE_NOTE, STATE_TEXT, summarize, weekday } from "./model";
 import "./sample.css";
 import { TransitionChart, TransitionSteps, TransitionTable } from "./Transition";
+import { WhyProvider } from "./Why";
 
 type Sc = Scenario & { telegrams?: { id: string; fetched_at: string; parser: number; parsed: string | null }[]; imported?: { fetched_at: string; commit_sha: string; file_hash: string; url: string }[]; note?: string };
 const DEFAULT_DAY: Record<string, string> = { oct: "2026-10-25", nov: "2026-11-18", syn: "2026-11-18" };
+const PLAN_NOTE: Record<string, string> = {
+  combo: "上に案A の小さなグラフ、下に案B の発表の行。案C は「変わった発表だけ」の絞り込み。",
+  chart: "案A 折れ線：降水確率と気温だけを線に。天気は絵だけ（線で結ばない）。",
+  table: "案B 発表ごとの行：1段目に発表時刻と天気、2段目に降水確率と最高・最低。",
+  steps: "案C 変わり目だけ：変わらなかった発表はまとめる（押すと開く）。",
+};
 const SC_NOTE: Record<string, string> = {
   oct: "実データ。shiromatz の記録（2026年10月、高知 390000）を取り込みの処理に通したもの。",
   nov: "実データ。手元にある電文は fixtures の4通（11/16 17時〜11/17 11時）だけなので、それより前の回は「記録なし」と出る（本番の D1 にはある）。",
@@ -115,9 +122,10 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
   const [dayBy, setDayBy] = useState<Record<string, string>>(DEFAULT_DAY);
   const day = days.includes(dayBy[scId]) ? dayBy[scId] : days[days.length - 1];
   const setDay = (d: string) => setDayBy({ ...dayBy, [scId]: d });
-  const [plan, setPlan] = useState<"chart" | "table" | "steps">("table");
+  const [plan, setPlan] = useState<"combo" | "chart" | "table" | "steps">("combo");
+  const [changedOnly, setChangedOnly] = useState<"all" | "changed">("all");
   const [sel, setSel] = useState<string | null>(null);
-  const [layout, setLayout] = useState<Layout>("one");
+  const [layout, setLayout] = useState<Layout>("combo");
   const [item, setItem] = useState<Item>("weather");
   const [kind, setKind] = useState<KindFilter>("VPFW50");
   const [row, setRow] = useState<string | null>(null);
@@ -130,6 +138,7 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
   const counts = slots.reduce<Record<string, number>>((a, s) => ({ ...a, [s.state]: (a[s.state] ?? 0) + 1 }), {});
   return (
     <div className={`fh-page w-${width}`} key={theme}>
+      <WhyProvider>
       <header className="fh-bar">
         <p className="fh-title">予報の履歴 R6 の見本</p>
         <div className="fh-ctl">
@@ -170,20 +179,39 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
             <p className="fh-count">
               {slots.length}回の発表のうち {counts.ok ?? 0}回{Object.entries(counts).filter(([k]) => k !== "ok").map(([k, n]) => `・${STATE_TEXT[k as Slot["state"]]} ${n}回`).join("")}
             </p>
-            <Segmented
-              label="案"
-              value={plan}
-              onChange={setPlan}
-              options={[
-                { id: "table", label: "案B 行" },
-                { id: "chart", label: "案A 折れ線" },
-                { id: "steps", label: "案C 変わり目" },
-              ]}
-            />
+            <div className="fh-planseg">
+              <Segmented
+                label="案"
+                value={plan}
+                onChange={setPlan}
+                options={[
+                  { id: "combo", label: "組み合わせ" },
+                  { id: "chart", label: "案A" },
+                  { id: "table", label: "案B" },
+                  { id: "steps", label: "案C" },
+                ]}
+              />
+              <small className="fh-note">{PLAN_NOTE[plan]}</small>
+            </div>
             <div className="fh-plan">
+              {plan === "combo" && (
+                <>
+                  <TransitionChart slots={slots} day={day} selected={sel} onSelect={setSel} compact />
+                  <Segmented
+                    label="発表の絞り込み"
+                    value={changedOnly}
+                    onChange={setChangedOnly}
+                    options={[
+                      { id: "all", label: "全部の発表" },
+                      { id: "changed", label: "変わった発表だけ" },
+                    ]}
+                  />
+                  <TransitionTable slots={slots} selected={sel} onSelect={setSel} actual={<Actual day={day} />} changedOnly={changedOnly === "changed"} onShowAll={() => setChangedOnly("all")} />
+                </>
+              )}
               {plan === "chart" && <TransitionChart slots={slots} day={day} selected={sel} onSelect={setSel} />}
               {plan === "table" && <TransitionTable slots={slots} selected={sel} onSelect={setSel} actual={<Actual day={day} />} />}
-              {plan === "steps" && <TransitionSteps slots={slots} selected={sel} onSelect={setSel} actual={<li className="fh-step"><Actual day={day} /></li>} />}
+              {plan === "steps" && <TransitionSteps slots={slots} selected={sel} onSelect={setSel} actual={<li className="fh-step"><Actual day={day} /></li>} onShowAll={() => setPlan("table")} />}
               {plan === "chart" && <Actual day={day} />}
             </div>
             <p className="fh-today">範囲は7日前〜当日。当日の発表は途中からの値（「11時から」など）なので、前の発表とは比べない（太字にしない）。</p>
@@ -193,18 +221,19 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
 
         <section className="fh-card" aria-label="発表×対象日の表">
           <SectionHead title="発表×対象日の表" as="h3">
-            <Segmented label="マスの中身" value={layout} onChange={setLayout} options={[{ id: "one", label: "案1 1項目" }, { id: "all", label: "案2 まとめて" }]} />
+            <Segmented label="マスの中身" value={layout} onChange={setLayout} options={[{ id: "combo", label: "組み合わせ" }, { id: "one", label: "案1" }, { id: "all", label: "案2" }]} />
           </SectionHead>
           <Matrix data={data} day={day} all={days} onDay={setDay} layout={layout} item={item} onItem={setItem} kind={kind} onKind={setKind} selRow={row} onRow={setRow} />
-          <p className="fh-note">列の日付を押すと対象日が変わる（上の移り変わりも）。行の発表を押すと、その発表の時点の予報（R6-3）が下に出る。</p>
+          <p className="fh-note">{layout === "combo" ? "案2（まとめて）を基本に、項目を選ぶと案1（1マスに1項目）。" : layout === "one" ? "案1：1マスに1項目。" : "案2：1マスにまとめて。"}列の日付を押すと対象日が変わる（上の移り変わりも）。行の発表を押すと、その発表が予報しているすべての日（R6-3）が下に出る。</p>
         </section>
 
         <section className="fh-card fh-legend" aria-label="見方">
           <SectionHead title="見方" as="h3" />
           <ul>
             <li><span className="fh-val changed">40</span> 太字と点：1つ前の同じ種類の発表から変わった値。変わらなかった行は控えめ。</li>
-            <li><span className="fh-dash">—</span> 気象庁が値を出していない（値なし・項目なし）。押すと「値なし」か「項目なし」が分かる。</li>
-            <li><span className="fh-out-sample" /> 空欄：その発表がその日・その時間を予報していない（対象期間外）。</li>
+            <li><span className="fh-dash">—</span> 気象庁が値を出していない（値なし・項目なし）。押すと、どちらか（理由）が下に出る。</li>
+            <li><span className="fh-out-sample" /> 空欄：その発表がその日・その時間を予報していない（対象期間外）。押すと理由が出る。</li>
+            <li>下の札（記録なし・取れなかった など）と「信頼度」も、押すと説明が出る。</li>
             <li><span className="fh-state missing">記録なし</span> 取得の記録も発表もない（未取得）。「ない」とは言わない。</li>
             <li><span className="fh-state failed">取れなかった</span> その時間帯の取得に失敗が残り、後でも補えていない（取得失敗）。</li>
             <li><span className="fh-state notIssued">届いていない</span> 取得は成功しているのに、その回の発表がない（気象庁から出ていない、R5-3 の「届かない」）。</li>
@@ -224,6 +253,7 @@ function App({ SCENARIOS }: { SCENARIOS: Sc[] }) {
           {sc.synthetic && <p>合成：{sc.synthetic.join("／")}</p>}
         </footer>
       </main>
+      </WhyProvider>
     </div>
   );
 }
