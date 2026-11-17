@@ -74,15 +74,29 @@ describe("予報の履歴：電文を読む", () => {
     keep("20261117020000_0_VPFW50_390000", "VPFW50", xml.replace("<InfoType>発表</InfoType>", "<InfoType>訂正</InfoType>").replace(">くもり一時雨<", ">雨<"));
     await parseForecasts(db);
     // Read newest first, the 訂正 comes before the 発表: it is tied when the 発表 is read.
-    expect(db.raw.prepare("SELECT issue_id, info_type, revision_of FROM forecast_issues ORDER BY issue_id").all()).toEqual([
-      { issue_id: "20261117014218_0_VPFW50_390000", info_type: "発表", revision_of: null },
-      { issue_id: "20261117020000_0_VPFW50_390000", info_type: "訂正", revision_of: "20261117014218_0_VPFW50_390000" },
+    expect(db.raw.prepare("SELECT issue_id, info_type, revision_of, preferred FROM forecast_issues ORDER BY issue_id").all()).toEqual([
+      { issue_id: "20261117014218_0_VPFW50_390000", info_type: "発表", revision_of: null, preferred: 0 },
+      { issue_id: "20261117020000_0_VPFW50_390000", info_type: "訂正", revision_of: "20261117014218_0_VPFW50_390000", preferred: 1 }, // the 訂正 is shown
     ]);
     expect(
       db.raw.prepare("SELECT issue_id, value FROM forecast_entries WHERE element = 'weather' AND valid_from = '2026-11-24T00:00:00+09:00' ORDER BY issue_id").all(),
     ).toEqual([
       { issue_id: "20261117014218_0_VPFW50_390000", value: "くもり一時雨" },
       { issue_id: "20261117020000_0_VPFW50_390000", value: "雨" },
+    ]);
+  });
+
+  it("shows none of an issue JMA cancelled (取消), and never an empty copy", async () => {
+    const { db, keep } = await setup();
+    const xml = fixture("vpfw50-390000-1100.xml");
+    keep("a", "VPFW50", xml);
+    keep("b", "VPFW50", xml.replace("<InfoType>発表</InfoType>", "<InfoType>取消</InfoType>").replace(/<Body[\s\S]*<\/Body>/, "<Body></Body>"));
+    keep("c", "VPFD51", fixture("vpfd51-390000-1100.xml").replace(/<Body[\s\S]*<\/Body>/, "<Body></Body>"));
+    await parseForecasts(db);
+    expect(db.raw.prepare("SELECT issue_id, info_type, entries, preferred FROM forecast_issues ORDER BY issue_id").all()).toEqual([
+      { issue_id: "a", info_type: "発表", entries: 42, preferred: 0 },
+      { issue_id: "b", info_type: "取消", entries: 0, preferred: 0 },
+      { issue_id: "c", info_type: "発表", entries: 0, preferred: 0 },
     ]);
   });
 

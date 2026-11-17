@@ -9,8 +9,11 @@
 // kept XML, newest first (N-5): the read values are derived, never the record.
 //
 // Values from another source (shiromatz, R2) go in the same two tables with their own `source`, so
-// a value always says where it came from; `preferred` marks which of two copies of one issue is shown
-// (R2-6).
+// a value always says where it came from. Which copy of an issue is shown (`preferred`) is decided in
+// one place, choosePreferred, again after every write: of the copies of one issue (the same office,
+// kind and time issued) none when JMA cancelled it (取消); else, of those with values, our own telegram
+// read without problems, then ours, then the record's — and of ours a 訂正 over the 発表 it corrects.
+// A telegram that cannot be read, or reads empty, so never hides the record's copy (R2-6, R5-1).
 
 import { FORECAST_XML_PARSER, parseForecastXml, type ForecastIssue } from "../../shared/forecastXml";
 import type { Db } from "./accounts";
@@ -55,8 +58,11 @@ export const FORECAST_PARSE_SCHEMA = [
   "CREATE INDEX IF NOT EXISTS forecast_entries_place ON forecast_entries (place, element, valid_from)",
 ];
 
-/** Telegrams read in one scheduled run: a backlog (a new parser) is read over runs, newest first. */
-export const PARSE_PER_RUN = 20;
+/**
+ * Telegrams read in one scheduled run: a backlog (a new parser) is read over runs, newest first. Small,
+ * so the run stays within D1's queries for one invocation beside the collector (about 7 a telegram).
+ */
+export const PARSE_PER_RUN = 5;
 
 const ready = new WeakMap<Db, Promise<void>>();
 export function ensureForecastParseSchema(db: Db): Promise<void> {
@@ -75,7 +81,7 @@ export function ensureForecastParseSchema(db: Db): Promise<void> {
 }
 
 /** The statements that put one read issue in place of what was read of it before (one batch, one transaction). */
-export function issueStatements(db: Db, issueId: string, source: string, t: ForecastIssue, revisionOf: string | null, preferred = true) {
+export function issueStatements(db: Db, issueId: string, source: string, t: ForecastIssue, revisionOf: string | null) {
   return [
     db.prepare("DELETE FROM forecast_entries WHERE issue_id = ?").bind(issueId),
     db
@@ -93,7 +99,7 @@ export function issueStatements(db: Db, issueId: string, source: string, t: Fore
         t.title,
         t.headline,
         revisionOf,
-        preferred ? 1 : 0,
+        0, // decided by choosePreferred
         FORECAST_XML_PARSER,
         t.entries.length,
         t.problems.length ? t.problems.join("／") : null,
@@ -114,6 +120,26 @@ export function issueStatements(db: Db, issueId: string, source: string, t: Fore
 }
 
 /**
+ * Decides again which copy of each issue of `office` issued from `from` to `to` (ISO, JST) is shown:
+ * one statement, put in the same batch as the write it follows, so two writers never leave two shown.
+ */
+export function choosePreferred(db: Db, office: string, from: string, to = from) {
+  return db
+    .prepare(
+      `UPDATE forecast_issues AS f SET preferred = CASE
+         WHEN EXISTS (SELECT 1 FROM forecast_issues c WHERE c.office = f.office AND c.kind = f.kind AND c.issued_at = f.issued_at AND c.info_type = '取消') THEN 0
+         WHEN f.issue_id = (
+           SELECT g.issue_id FROM forecast_issues g
+           WHERE g.office = f.office AND g.kind = f.kind AND g.issued_at = f.issued_at AND g.entries > 0
+           ORDER BY (g.source = 'jma-xml' AND g.problems IS NULL) DESC, g.source = 'jma-xml' DESC, g.info_type = '訂正' DESC, g.issue_id DESC
+           LIMIT 1) THEN 1
+         ELSE 0 END
+       WHERE f.office = ? AND f.issued_at BETWEEN ? AND ?`,
+    )
+    .bind(office, from, to);
+}
+
+/**
  * A 訂正 stands beside the issue it corrects (the same office, kind and ReportDateTime, issued as 発表):
  * both are kept, and the correction names the one it corrects.
  */
@@ -126,6 +152,19 @@ async function correctedIssue(db: Db, issueId: string, t: ForecastIssue): Promis
     .bind(t.office, t.kind, t.issuedAt, issueId)
     .first<{ issue_id: string }>();
   return r?.issue_id ?? null;
+}
+
+/** A telegram that could not be read or written: its XML stays, its read values go, the reason is kept, and the shown copy is decided again. */
+async function failedRead(db: Db, r: { id: string; office: string; xml: string }, e: unknown) {
+  const issued = /<ReportDateTime>([^<]+)<\/ReportDateTime>/.exec(r.xml)?.[1] ?? null;
+  await db.batch([
+    db.prepare("DELETE FROM forecast_entries WHERE issue_id = ?").bind(r.id),
+    db.prepare("DELETE FROM forecast_issues WHERE issue_id = ?").bind(r.id),
+    ...(issued ? [choosePreferred(db, r.office, issued)] : []),
+    db
+      .prepare("UPDATE forecast_telegrams SET parser = ?, parsed = ? WHERE id = ?")
+      .bind(FORECAST_XML_PARSER, JSON.stringify({ error: String(e instanceof Error ? e.message : e).slice(0, 300) }), r.id),
+  ]);
 }
 
 /** One scheduled run's reading: the telegrams not read yet by this parser, newest first. Returns how many read and how many did not. */
@@ -145,34 +184,35 @@ export async function parseForecasts(db: Db, limit = PARSE_PER_RUN): Promise<{ r
       t = parseForecastXml(r.xml, r.kind, r.office);
     } catch (e) {
       // The XML stays; what was read of it before goes (it was read by an older parser), and the reason is kept.
-      await db.batch([
-        db.prepare("DELETE FROM forecast_entries WHERE issue_id = ?").bind(r.id),
-        db.prepare("DELETE FROM forecast_issues WHERE issue_id = ?").bind(r.id),
-        db
-          .prepare("UPDATE forecast_telegrams SET parser = ?, parsed = ? WHERE id = ?")
-          .bind(FORECAST_XML_PARSER, JSON.stringify({ error: String(e instanceof Error ? e.message : e).slice(0, 300) }), r.id),
-      ]);
+      await failedRead(db, r, e);
       failed++;
       continue;
     }
-    const revisionOf = await correctedIssue(db, r.id, t);
-    await db.batch([
-      ...issueStatements(db, r.id, "jma-xml", t, revisionOf),
-      // A 訂正 read before the issue it corrects (newest first) is tied to it now.
-      ...(t.infoType === "発表"
-        ? [
-            db
-              .prepare(
-                "UPDATE forecast_issues SET revision_of = ? WHERE source = 'jma-xml' AND office = ? AND kind = ? AND issued_at = ? AND info_type = '訂正' AND revision_of IS NULL",
-              )
-              .bind(r.id, t.office, t.kind, t.issuedAt),
-          ]
-        : []),
-      db
-        .prepare("UPDATE forecast_telegrams SET parser = ?, parsed = ? WHERE id = ?")
-        .bind(FORECAST_XML_PARSER, JSON.stringify({ entries: t.entries.length, problems: t.problems }), r.id),
-    ]);
-    read++;
+    try {
+      const revisionOf = await correctedIssue(db, r.id, t);
+      await db.batch([
+        ...issueStatements(db, r.id, "jma-xml", t, revisionOf),
+        // A 訂正 read before the issue it corrects (newest first) is tied to it now.
+        ...(t.infoType === "発表"
+          ? [
+              db
+                .prepare(
+                  "UPDATE forecast_issues SET revision_of = ? WHERE source = 'jma-xml' AND office = ? AND kind = ? AND issued_at = ? AND info_type = '訂正' AND revision_of IS NULL",
+                )
+                .bind(r.id, t.office, t.kind, t.issuedAt),
+            ]
+          : []),
+        choosePreferred(db, t.office, t.issuedAt),
+        db
+          .prepare("UPDATE forecast_telegrams SET parser = ?, parsed = ? WHERE id = ?")
+          .bind(FORECAST_XML_PARSER, JSON.stringify({ entries: t.entries.length, problems: t.problems }), r.id),
+      ]);
+      read++;
+    } catch (e) {
+      // A write that fails (D1's limits …) is kept as a failure too, so the telegrams behind it are still read.
+      await failedRead(db, r, e);
+      failed++;
+    }
   }
   return { read, failed };
 }
