@@ -8,3 +8,7 @@ research/brightness/out/
 research/types/out/
 research/typhoon/out/
 research/typhoon/out2/
+
+# 予報の履歴 R6 の見本：作ったデータと組んだページ（research/forecast-history/README.md）
+research/forecast-history/sample/public/
+research/forecast-history/dist/
