@@ -619,6 +619,8 @@ const size = {
   xl: 20,
   input: 16,
 } as const;
+/** The type scale for text drawn in SVG, where a CSS size would be read in the drawing's own units. */
+export const TYPE_SIZE = size;
 
 /**
  * Text roles on the data faces (読み取り・日別の表・比較サマリー; #151). Each role is one size,
