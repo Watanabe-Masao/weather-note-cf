@@ -33,6 +33,23 @@ function Delta({ now, before }: { now: number | null; before: number | null }) {
 
 const SLOTS = ["00-06", "06-12", "12-18", "18-24"];
 
+/** 実績と予報の差（実績 − 予報）。0.5 未満はほぼ当たり（±0）。 */
+function Gap({
+  actual,
+  fc,
+  tone,
+}: {
+  actual: number | null;
+  fc: number | null;
+  tone: "hot" | "cold";
+}) {
+  if (actual == null || fc == null) return <span className="fh-gap-v">—</span>;
+  const d = Math.round((actual - fc) * 10) / 10;
+  const txt =
+    Math.abs(d) < 0.5 ? "±0" : `${d > 0 ? "+" : "−"}${Math.abs(d).toFixed(1)}`;
+  return <span className={`fh-gap-v tone-${tone}`}>{txt}</span>;
+}
+
 export function SplitHeader({
   s,
   slots,
@@ -134,6 +151,17 @@ export function SplitHeader({
                 {hours.length ? `${hours[hours.length - 1].h}時まで` : "まだ"}
               </span>
             )}
+          </div>
+          {/* 予報との差（実績 − 選んだ発表の予報）。▲▼（前の発表からの変化）と取り違えないよう、符号つきの数字と「差」の札で */}
+          <div className="fh-gap">
+            {done && a && (mx != null || mn != null) ? (
+              <>
+                <span className="fh-gap-tag">差</span>
+                <Gap actual={a.max} fc={mx} tone="hot" />
+                <span className="dd-slash">/</span>
+                <Gap actual={a.min} fc={mn} tone="cold" />
+              </>
+            ) : null}
           </div>
         </div>
       </div>

@@ -294,3 +294,15 @@
 .fh-ctab .c.past { background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--ink-tertiary) 14%, transparent) 4px 5px); }
 .fh-ctab .icons { display: flex; gap: 2px; }
 .fh-ctab .w-none { width: 16px; height: 16px; }
+/* 高さを変えない：発表を切り替えても、上の段・表の行の高さはいつも同じ */
+.fh-split-top { height: 44px; }
+.fh-split-meta { line-height: 1.5; min-height: 3em; align-content: flex-start; }
+.fh-ctab .c { height: 3.6em; min-height: 0; box-sizing: border-box; }
+.fh-ctab .c.span4 { align-items: center; }
+.fh-ctab { grid-template-rows: auto 3.6em 3.6em; }
+.fh-split-meta { height: 3em; overflow: hidden; }
+.fh-split-col { grid-template-rows: 44px 3em; }
+.fh-split-col.actual { grid-template-rows: 44px auto auto; }
+.fh-gap { display: flex; align-items: baseline; gap: var(--space-1); height: 1.6em; font-family: var(--font-numeric); font-weight: var(--weight-bold); font-size: var(--size-sm); }
+.fh-gap-tag { font-size: var(--size-xs); font-weight: var(--weight-bold); padding: 0 var(--space-1); border-radius: var(--radius-sm); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
+.fh-split-col.actual .fh-split-meta { height: auto; min-height: 0; }
