@@ -8,6 +8,8 @@ export interface StationPlaces {
   forecast: { office: string; area: string; point: string };
   /** 雨雲レーダー：地点の位置と、保存する地図タイルの段階・まわりの枚数（around 1 で 3×3）。 */
   radar: { lat: number; lon: number; z: number; around: number };
+  /** 長い先の予報：地方の予報（1か月予報・早期天候情報）を出す官署（地方の中枢）。2週間気温予報は全国1通。 */
+  longRange: { regionOffice: string };
 }
 
 export const STATION_PLACES: Record<string, StationPlaces> = {
@@ -16,5 +18,7 @@ export const STATION_PLACES: Record<string, StationPlaces> = {
     name: "高知",
     forecast: { office: "390000", area: "390010", point: "74182" },
     radar: { lat: 33.56, lon: 133.53, z: 8, around: 1 },
+    // 四国地方の1か月予報は高松地方気象台（ファイル名 370000、#283 KC-02）。早期天候情報も同じと見込む（実物で確かめる）。
+    longRange: { regionOffice: "370000" },
   },
 };

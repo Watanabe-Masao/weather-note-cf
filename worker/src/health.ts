@@ -132,6 +132,8 @@ const TABLES: [string, string | null][] = [
   ["wxchart_fetch_log", "at"],
   ["radar_saved", "fetched_at"],
   ["radar_fetch_log", "at"],
+  ["longrange_telegrams", "fetched_at"],
+  ["longrange_fetch_log", "at"],
   ["cron_runs", "at"],
   ["health_checks", "at"],
   ["health_alerts", "opened_at"],
@@ -197,8 +199,10 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
     // 雨雲レーダー (radarArchive.ts): a table not made yet reads as nothing kept.
     radar: await one<{ n: number; bytes: number | null }>(db, "SELECT COUNT(*) AS n, SUM(bytes) AS bytes FROM radar_saved"),
     radarDay: await one<{ n: number; bytes: number | null }>(db, "SELECT COUNT(*) AS n, SUM(bytes) AS bytes FROM radar_saved WHERE fetched_at >= ?", dayAgo),
+    // 長い先の予報の電文（longRangeArchive.ts、gzip）。
+    longRange: await one<{ n: number; bytes: number | null }>(db, "SELECT COUNT(*) AS n, SUM(bytes) AS bytes FROM longrange_telegrams"),
   };
-  const r2Bytes = (r2.telegrams?.bytes ?? 0) + (r2.charts?.bytes ?? 0) + (r2.radar?.bytes ?? 0);
+  const r2Bytes = (r2.telegrams?.bytes ?? 0) + (r2.charts?.bytes ?? 0) + (r2.radar?.bytes ?? 0) + (r2.longRange?.bytes ?? 0);
 
   const lastOk = async (t: string) => (await one<{ at: string }>(db, `SELECT MAX(at) AS at FROM ${t} WHERE ok = 1`))?.at ?? null;
   const latest = await all<{ kind: string; issued_at: string }>(
@@ -302,6 +306,7 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       chartsLastOk: await lastOk("wxchart_fetch_log"),
       // Not there until the saving has run once (a database without R2, or before the first run): not judged then.
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM radar_fetch_log"))?.n ? { radarLastOk: await lastOk("radar_fetch_log") } : {}),
+      ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM longrange_fetch_log"))?.n ? { longRangeLastOk: await lastOk("longrange_fetch_log") } : {}),
       warnings: {
         telegrams: warningCount?.n ?? 0,
         latest: Object.fromEntries(warningLatest.map((l) => [l.kind, l.issued_at])),
