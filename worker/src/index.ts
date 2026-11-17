@@ -21,6 +21,7 @@ import { forecastHistory } from "./forecastHistory";
 import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { saveRadar } from "./radarArchive";
+import { collectLongRange } from "./longRangeArchive";
 import { health, timed } from "./health";
 import { claimHealthWatch, watchHealth } from "./healthWatch";
 import { collectTyphoons } from "./typhoonArchive";
@@ -252,7 +253,9 @@ export default {
       ctx.waitUntil(
         stage("radar save", () => saveRadar(db, bucket))()
           .then(stage("wxchart save", () => saveCharts(db, bucket)))
-          .then(stage("archive copy", () => copyTelegrams(db, bucket))),
+          .then(stage("archive copy", () => copyTelegrams(db, bucket)))
+          // 長い先の予報（1か月予報・早期天候情報・2週間気温予報）：R2 に gzip で、30分ごと（longRangeArchive.ts）。
+          .then(stage("long range", () => collectLongRange(db, bucket))),
       );
   },
 } satisfies ExportedHandler<AccountsEnv>;

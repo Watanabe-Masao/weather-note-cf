@@ -46,6 +46,7 @@ export interface HealthView {
     typhoonLastOk: string | null;
     chartsLastOk?: string | null;
     radarLastOk?: string | null;
+    longRangeLastOk?: string | null;
     openAlerts: { key: string; since: string }[];
     accountErrorsLastDay: { place: string; n: number }[];
     forecastImport?: { lastTaken: string | null; next: string | null };
@@ -93,6 +94,8 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
       if (ago(s.radarLastOk) > 2) problem("radarStale", `雨雲レーダーの保存が最後にうまくいったのは ${hours(ago(s.radarLastOk))}（約3時間を過ぎた分は取り直せない）。`);
       else if (ago(s.radarLastOk) > 1) note("radarStale", `雨雲レーダーの保存が最後にうまくいったのは ${hours(ago(s.radarLastOk))}。`);
     }
+    // 長い先の予報：30分ごとに読む。配信の長い一覧は7日分なので、半日止まっても取り直せる（注意だけ）。
+    if (s.longRangeLastOk !== undefined && ago(s.longRangeLastOk) > 12) note("longRangeStale", `長い先の予報の電文の保存が最後にうまくいったのは ${hours(ago(s.longRangeLastOk))}。`);
     for (const a of s.openAlerts) problem(`alert:${a.key}`, `アプリの警告が開いたまま：${a.key}（${a.since} から）。`);
     const errs = s.accountErrorsLastDay.reduce((n, e) => n + e.n, 0);
     if (errs >= 3) problem("accountErrors", `アカウントの処理の失敗が24時間で ${errs} 回（${s.accountErrorsLastDay.map((e) => `${e.place} ${e.n}`).join("・")}）。`);
