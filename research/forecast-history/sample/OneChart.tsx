@@ -54,11 +54,15 @@ export function OneChart({
   // 指でなぞっている所（横の位置、0〜1）。そこを中心にグラフを広げる。
   const [center, setCenter] = useState<number | null>(null);
   if (!slots.length) return null;
-  const t0 = Date.parse(slots[0].at);
   // 範囲は最初の発表から最後の発表まで（その先の空きは描かない）。最後の発表の絵が欠けないよう右に少し余白。
-  const t1 = Math.max(Date.parse(slots[slots.length - 1].at), t0 + 3_600_000);
   const SPAN = W - PAD_L - PAD_R - 10;
-  const baseU = (iso: string) => (Date.parse(iso) - t0) / (t1 - t0);
+  // 横の目盛りは「発表の時刻」：発表を等しい間隔で並べる（時刻の長さどおりにしない）。同じ時刻の週間と
+  // 府県天気予報は同じ位置。
+  const times = [...new Set(slots.map((z) => z.at))].sort(
+    (a, b) => Date.parse(a) - Date.parse(b),
+  );
+  const baseU = (iso: string) =>
+    times.length > 1 ? times.indexOf(iso) / (times.length - 1) : 0.5;
   // 動的に広げる：指の下（なぞっていなければ選んだ発表）を中心に、近くほど広く、遠くほど詰めて描く
   // （魚眼。中心の位置は動かないので、指の下の発表がずれない）。中心のあたりは約 (K+1) 倍（2.6 倍）に広がる。
   const K = 1.6;
@@ -101,9 +105,6 @@ export function OneChart({
   const height = T_TOP + T_H + 8 + H_AXIS;
   const ty = (v: number) => T_TOP + T_H - ((v - lo) / (hi - lo || 1)) * T_H;
   const py = (v: number) => POP_TOP + POP_H - (v / 100) * POP_H;
-  const days: string[] = [];
-  for (let t = t0; t <= t1; t += 86_400_000)
-    days.push(new Date(t + 9 * 3_600_000).toISOString().slice(0, 10));
   const width = (c: "hot" | "cold" | "rain") =>
     lineLook("target", DATA[c], c === "rain" ? { weight: "minor" } : {})
       .strokeWidth;
@@ -462,45 +463,64 @@ export function OneChart({
             })}
           </g>
         ))}
-        {/* 日付 */}
-        {days.map((d) => {
-          const xd = x(`${d}T00:00:00+09:00`);
-          if (xd < PAD_L - 1) return null;
+        {/* 目盛り：発表の時刻ごと（時）、その下に日付。日が変わる所に区切り線。 */}
+        {times.map((t, k) => {
+          const xt = x(t);
+          const date = t.slice(0, 10);
+          const prev = times[k - 1];
+          const newDay = !prev || prev.slice(0, 10) !== date;
+          const gapPrev = prev ? xt - x(prev) : Infinity;
+          const gapNext = times[k + 1] ? x(times[k + 1]) - xt : Infinity;
+          const room = Math.min(gapPrev, gapNext);
+          // その日の最初の発表から、次の日の最初の発表までの幅（日付の文字が入るか）
+          const nextDay = times
+            .slice(k + 1)
+            .find((z) => z.slice(0, 10) !== date);
+          const dayRoom = (nextDay ? x(nextDay) : W - PAD_R) - xt;
           const lead = Math.round(
-            (Date.parse(`${day}T00:00:00Z`) - Date.parse(`${d}T00:00:00Z`)) /
+            (Date.parse(`${day}T00:00:00Z`) - Date.parse(`${date}T00:00:00Z`)) /
               86_400_000,
           );
-          // 詰まった所の日付は書かない（次の日までの幅が文字より狭いとき）。対象日はいつも書く。
-          const next = x(
-            `${new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10)}T00:00:00+09:00`,
-          );
-          const crowded = d !== day && next - xd < 26;
           return (
-            <g key={d}>
+            <g key={t}>
+              {newDay && prev && (
+                <line
+                  x1={(xt + x(prev)) / 2}
+                  x2={(xt + x(prev)) / 2}
+                  y1={T_TOP + T_H + 2}
+                  y2={height - 2}
+                  className="fh-dayline"
+                />
+              )}
               <line
-                x1={xd}
-                x2={xd}
-                y1={T_TOP + T_H + 4}
-                y2={height - H_AXIS + 4}
+                x1={xt}
+                x2={xt}
+                y1={T_TOP + T_H + 2}
+                y2={T_TOP + T_H + 6}
                 className="fh-dayline"
               />
-              {!crowded && (
-                <>
-                  <text
-                    x={Math.min(xd + 2, W - 30)}
-                    y={height - H_AXIS + 14}
-                    className="fh-tick"
-                  >
-                    {md(d)}
-                  </text>
-                  <text
-                    x={Math.min(xd + 2, W - 30)}
-                    y={height - H_AXIS + 26}
-                    className="fh-tick quiet"
-                  >
-                    {leadLabel(lead)}
-                  </text>
-                </>
+              {room >= 12 && (
+                <text
+                  x={xt}
+                  y={T_TOP + T_H + 16}
+                  textAnchor="middle"
+                  className="fh-tick"
+                >
+                  {hourOf(t)}
+                </text>
+              )}
+              {newDay && (dayRoom >= 28 || date === day) && (
+                <text
+                  x={Math.min(
+                    xt - 4,
+                    W - (dayRoom >= 54 || date === day ? 50 : 28),
+                  )}
+                  y={height - 4}
+                  className="fh-tick quiet"
+                >
+                  {md(date)}
+                  {dayRoom >= 54 || date === day ? ` ${leadLabel(lead)}` : ""}
+                </text>
               )}
             </g>
           );
