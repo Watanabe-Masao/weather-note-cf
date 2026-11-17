@@ -11,6 +11,8 @@
 // it is over, never again while it stays open — the open ones are kept in health_alerts (the same
 // columns and the same "open once, close once" claim as forecast_alerts; a closed key is renamed
 // `${key}@${opened_at}` so a later one opens a new row). Notes (気づいたこと) are counted, not told.
+// One happening, one notification (#271): what another watch already tells is judged and counted here
+// but not told — see toldElsewhere.
 // 取り込める月 (#262): told once when the record has the month to take next (its row, `import:YYYY-MM`,
 // is kept closed, so it is never told again and is never an open alert). The issue on GitHub stays.
 //
@@ -43,6 +45,14 @@ export const HEALTH_WATCH_SCHEMA = [
     sent INTEGER NOT NULL DEFAULT 0
   )`,
 ];
+
+/**
+ * Problems another watch already tells (#271, 「1つの出来事には1つの知らせ」): judged and counted
+ * (health_checks, /api/health), not told nor kept open here.
+ *   alert:*        an open alert of the forecast or typhoon watch (forecastWatch.ts, typhoonWatch.ts);
+ *   forecastStale  the forecast feed not read — forecastWatch.ts's 「取得失敗」.
+ */
+export const toldElsewhere = (key: string) => key === "forecastStale" || key.startsWith("alert:");
 
 /** A look is taken when none was taken in this long before. */
 export const HEALTH_WATCH_EVERY_MS = 60 * 60_000;
@@ -111,8 +121,9 @@ export async function watchHealth(
     ),
   );
   // Opened: each claimed once (an open one is not told again).
+  const told = judged.problems.filter((f) => !toldElsewhere(f.key));
   const newly: Finding[] = [];
-  for (const f of judged.problems) {
+  for (const f of told) {
     const claim = await db
       .prepare("INSERT OR IGNORE INTO health_alerts (key, kind, opened_at, closed_at, detail) VALUES (?, 'problem', ?, NULL, ?)")
       .bind(f.key, at, f.text)
@@ -120,7 +131,7 @@ export async function watchHealth(
     if (claim.meta.changes) newly.push(f);
   }
   // Over: every open problem not found in this look (each closed by one run only).
-  const still = new Set(judged.problems.map((f) => f.key));
+  const still = new Set(told.map((f) => f.key));
   const over: { key: string; text: string }[] = [];
   for (const [key, r] of open) {
     if (still.has(key)) continue;

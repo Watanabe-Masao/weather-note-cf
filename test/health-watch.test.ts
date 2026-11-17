@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { judgeHealth } from "../shared/healthJudge";
 import { ensureSchema } from "../worker/src/accounts";
 import { ensureForecastSchema } from "../worker/src/forecastArchive";
+import { ensureForecastWatchSchema } from "../worker/src/forecastWatch";
 import { health } from "../worker/src/health";
 import { claimHealthWatch, watchHealth } from "../worker/src/healthWatch";
 import { ensureTyphoonSchema } from "../worker/src/typhoonArchive";
@@ -74,12 +75,14 @@ describe("毎時の見張り：1時間に1回", () => {
 describe("毎時の見張り：異常を知らせる", () => {
   it("tells the administrators when a problem starts and when it is over, not every hour while it stays", async () => {
     const s = await setup();
-    // Nothing fetched yet: 予報 and 台風 are stale.
+    // Nothing fetched yet: 予報 and 台風 are stale (予報's is told by forecastWatch.ts, not here).
     let r = await s.look(T0);
-    expect(r.opened.sort()).toEqual(["forecastStale", "typhoonStale"]);
+    expect(r.problems).toBe(2);
+    expect(r.opened).toEqual(["typhoonStale"]);
     expect(s.told).toHaveLength(1);
-    expect(s.told[0]).toMatchObject({ to: "https://push.test/admin", title: "監視：異常が2件あります" });
-    expect(s.told[0].body).toContain("予報の電文を最後に取れたのは 記録なし");
+    expect(s.told[0]).toMatchObject({ to: "https://push.test/admin", title: "監視：異常が1件あります" });
+    expect(s.told[0].body).toContain("台風の電文を最後に取れたのは 記録なし");
+    expect(s.told[0].body).not.toContain("予報");
 
     // An hour on, the same problems (their text has moved on): not told again.
     r = await s.look(T0 + H);
@@ -90,21 +93,19 @@ describe("毎時の見張り：異常を知らせる", () => {
     s.fetched(T0 + 2 * H - 5 * MIN);
     r = await s.look(T0 + 2 * H);
     expect(r).toMatchObject({ problems: 0, opened: [] });
-    expect(r.closed.sort()).toEqual(["forecastStale", "typhoonStale"]);
+    expect(r.closed).toEqual(["typhoonStale"]);
     expect(s.told).toHaveLength(2);
-    expect(s.told[1].title).toBe("監視：2件 直りました");
-    expect(s.told[1].body).toContain("直りました：予報の電文を最後に取れたのは");
+    expect(s.told[1].title).toBe("監視：1件 直りました");
+    expect(s.told[1].body).toContain("直りました：台風の電文を最後に取れたのは");
     await s.look(T0 + 2 * H + 20 * MIN); // still all right: nothing told
     expect(s.told).toHaveLength(2);
 
     // Stale again later: a new one, told again (the closed one kept, renamed).
     r = await s.look(T0 + 5 * H);
-    expect(r.opened.sort()).toEqual(["forecastStale", "typhoonStale"]);
+    expect(r.opened).toEqual(["typhoonStale"]);
     expect(s.told).toHaveLength(3);
     const rows = s.db.raw.prepare("SELECT key, closed_at IS NULL AS open, sent FROM health_alerts WHERE kind = 'problem' ORDER BY key").all();
     expect(rows).toEqual([
-      { key: "forecastStale", open: 1, sent: 1 },
-      { key: `forecastStale@${new Date(T0).toISOString()}`, open: 0, sent: 1 },
       { key: "typhoonStale", open: 1, sent: 1 },
       { key: `typhoonStale@${new Date(T0).toISOString()}`, open: 0, sent: 1 },
     ]);
@@ -118,10 +119,28 @@ describe("毎時の見張り：異常を知らせる", () => {
     await claimHealthWatch(s.db, T0);
     await s.look(T0);
     const w = (await health(s.db, T0 + MIN)).state.watch;
-    expect(w).toEqual({ at: new Date(T0).toISOString(), finished: true, problems: 2, notes: expect.any(Number), opened: 2, closed: 0, sent: 1 });
+    // Counted with what is told elsewhere (forecastStale), opened only what is told here.
+    expect(w).toEqual({ at: new Date(T0).toISOString(), finished: true, problems: 2, notes: expect.any(Number), opened: 1, closed: 0, sent: 1 });
     // A look taken but not ended says so.
     await claimHealthWatch(s.db, T0 + H);
     expect((await health(s.db, T0 + H)).state.watch).toMatchObject({ at: new Date(T0 + H).toISOString(), finished: false, problems: null });
+  });
+});
+
+describe("毎時の見張り：1つの出来事には1つの知らせ (#271)", () => {
+  it("does not tell an open alert of another watch, nor the forecast feed's stop (forecastWatch.ts tells them)", async () => {
+    const s = await setup();
+    s.fetched(T0 - 5 * MIN);
+    await ensureForecastWatchSchema(s.db);
+    s.db.raw
+      .prepare("INSERT INTO forecast_alerts (key, kind, opened_at, closed_at, detail) VALUES ('fetch', 'fetch', ?, NULL, '{}')")
+      .run(new Date(T0 - H).toISOString());
+    await claimHealthWatch(s.db, T0);
+    const r = await s.look(T0);
+    expect(r).toMatchObject({ problems: 1, opened: [], sent: 0 });
+    expect(s.told).toEqual([]);
+    expect(s.db.raw.prepare("SELECT COUNT(*) AS n FROM health_alerts").get()).toEqual({ n: 0 });
+    expect((await health(s.db, T0 + MIN)).state.watch).toMatchObject({ problems: 1, opened: 0 });
   });
 });
 
