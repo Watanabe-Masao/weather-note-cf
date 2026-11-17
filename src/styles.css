@@ -4607,6 +4607,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .dd-prov dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-3); }
 .dd-prov dt { color: var(--ink-tertiary); white-space: nowrap; }
 .dd-prov dd { margin: 0; line-height: 1.5; }
+.dd-prov-item { display: block; }
 .dd-sec .section-head { margin-top: var(--space-4); }
 .dd-hint { color: var(--ink-tertiary); font-size: var(--size-xs); }
 .dd-sun { margin: 0 0 var(--space-3); display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-6); color: var(--ink-secondary); font-size: var(--size-sm); }

@@ -39,6 +39,13 @@ export async function rainNow(station: string, get: Fetcher = defaultFetch, now 
       ...(l.error ? { error: l.error } : {}),
     };
   };
+  // 今後の雨の発表ごとのまとめ（確認用：発表がどこまで先を持っているか）
+  const byBase = new Map<string, string[]>();
+  for (const i of rasrf.items) if (i.validtime > i.basetime) byBase.set(i.basetime, [...(byBase.get(i.basetime) ?? []), i.validtime]);
+  const bases = [...byBase.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .slice(0, 4)
+    .map(([basetime, vs]) => ({ basetime, count: vs.length, first: vs.reduce((a, b) => (b < a ? b : a)), last: vs.reduce((a, b) => (b > a ? b : a)) }));
   return {
     v: 1,
     station,
@@ -46,7 +53,7 @@ export async function rainNow(station: string, get: Fetcher = defaultFetch, now 
     now: built.now,
     frames: built.frames,
     hours: built.hours,
-    lists: { obs: state(obs, "obs"), nowcast: state(nowcast, "nowcast"), rasrf: state(rasrf, "hourly") },
+    lists: { obs: state(obs, "obs"), nowcast: state(nowcast, "nowcast"), rasrf: { ...state(rasrf, "hourly"), bases } },
     fetchedAt,
     source,
   };

@@ -94,7 +94,14 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
             <dt>いまの値</dt>
             <dd>{prov.source}</dd>
             <dt>待っているもの</dt>
-            <dd>{prov.waiting.join("、")}</dd>
+            <dd>
+              {/* 待っているものは1行に1つ（「、」でつなぐと読み分けにくい、2026-11-18 本番の見た目） */}
+              {prov.waiting.map((w) => (
+                <span key={w} className="dd-prov-item">
+                  {w}
+                </span>
+              ))}
+            </dd>
             <dt>確定の見込み</dt>
             <dd>{prov.when}</dd>
           </dl>

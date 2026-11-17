@@ -7,7 +7,7 @@
 // - 現在地は押したときだけ端末に聞き、「＋」の印だけ出す（値は出さない。位置はサーバーに送らない）。
 // 出典：気象庁ホームページ「雨雲の動き」「今後の雨」を加工して作成。
 import { useEffect, useMemo, useState } from "react";
-import { msOf, type RainFrame, RAIN_LEVELS, levelHex, rainPlace, type RainZoom } from "../../../shared/rainNow";
+import { type ListState, msOf, type RainFrame, RAIN_LEVELS, levelHex, rainPlace, type RainZoom } from "../../../shared/rainNow";
 import { STATION_PLACES } from "../../../shared/stationPlaces";
 import { Glyph, Segmented } from "../kit";
 import { ModalSheet } from "../ModalSheet";
@@ -240,7 +240,7 @@ function Board({
   );
 }
 
-function Diag({ data, levels, expected, reload }: { data: { lists: Record<"obs" | "nowcast" | "rasrf", { ok: boolean; count: number; latest: string | null; error?: string }>; fetchedAt: string }; levels: Map<string, Level>; expected: RainFrame[]; reload: () => void }) {
+function Diag({ data, levels, expected, reload }: { data: { lists: Record<"obs" | "nowcast" | "rasrf", ListState>; fetchedAt: string }; levels: Map<string, Level>; expected: RainFrame[]; reload: () => void }) {
   const names = { obs: "雨雲の動き（実況）", nowcast: "雨雲の動き（予測）", rasrf: "今後の雨" } as const;
   const got = expected.map((f) => levels.get(frameKey(f)));
   const count = (p: (l: Level | undefined) => boolean) => got.filter(p).length;
@@ -260,6 +260,12 @@ function Diag({ data, levels, expected, reload }: { data: { lists: Record<"obs" 
           })}
         </tbody>
       </table>
+      {data.lists.rasrf.bases && data.lists.rasrf.bases.length > 0 && (
+        <p>
+          今後の雨の発表ごと（新しい順）：
+          {data.lists.rasrf.bases.map((b) => `${clockOfName(b.basetime)}発表 ${b.count}行（${clockOfName(b.first)}〜${clockOfName(b.last)}）`).join("、")}
+        </p>
+      )}
       <p>
         地点の値：{expected.length}こまのうち 読めた {count((l) => typeof l === "number")}・取れなかった {count((l) => l === "missing")}・色が読めない {count((l) => l === "unread")}・読み込み中{" "}
         {count((l) => l === undefined)}
