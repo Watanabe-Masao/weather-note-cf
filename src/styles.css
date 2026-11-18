@@ -3141,7 +3141,8 @@ svg.scrub {
   padding: 0 var(--space-6);
   font-size: var(--size-sm);
 }
-/* A finger is wider than 32: the small one is pressable 44 high, past what it shows. */
+/* A finger is wider than 32: the small one is pressable 44 high, past what it shows（ふつうの大きさ 36 も同じ、#296 の残り）. */
+.btn::after,
 .btn.sm::after {
   content: "";
   position: absolute;
@@ -3246,16 +3247,23 @@ button.label-feel::after,
 /* select には ::after が付かないので、透明な縁で押せる範囲を広げ、同じだけ外へ戻す（見た目は同じ）。
    小さなチップの select：縁の線は内側の影で描く。年の選択：下の点線はそのままに上へだけ広げる。 */
 select.chip.sm {
+  --vis-h: 28px; /* 見た目の高さ（小さなチップ） */
   min-height: var(--tap-min);
-  margin-block: calc((28px - var(--tap-min)) / 2);
+  margin-block: calc((var(--vis-h) - var(--tap-min)) / 2);
   border: 0 solid transparent;
-  border-width: calc((var(--tap-min) - 28px) / 2) 1px;
+  border-width: calc((var(--tap-min) - var(--vis-h)) / 2) var(--stroke-hair);
   background-clip: padding-box;
-  box-shadow: inset 0 0 0 1px var(--line-strong);
+  box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong);
+}
+/* 比較の表の上の小さなチップは見た目 26（.side-compare .chip.sm）。 */
+.side-compare select.chip.sm {
+  --vis-h: 26px;
+  min-height: var(--tap-min);
 }
 .cal-year {
-  border-top: calc(var(--tap-min) - 23px) solid transparent;
-  margin-top: calc(23px - var(--tap-min));
+  --vis-h: 23px; /* 年の選択の見た目の高さ（文字と下の点線） */
+  border-top: calc(var(--tap-min) - var(--vis-h)) solid transparent;
+  margin-top: calc(var(--vis-h) - var(--tap-min));
 }
 
 .field select,
