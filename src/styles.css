@@ -288,6 +288,22 @@ select.chip {
   transform: scale(0.94);
 }
 
+/* 押せる範囲（44px、#296、2026-11-18）：丸い見た目（36・32px）はそのまま、押せる範囲だけを TAP.min の円に広げる。 */
+.icon-btn {
+  position: relative;
+}
+
+.icon-btn::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+
 .icon-btn.sm {
   width: 32px;
   height: 32px;
