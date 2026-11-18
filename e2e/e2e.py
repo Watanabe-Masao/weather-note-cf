@@ -667,11 +667,18 @@ with sync_playwright() as p:
         check("HC4 太陽の帯に「空は模式」（南中と重ならない）、太陽の線に暗い縁", sm and sm["text"] == "空は模式" and sm["apart"] and sm["inside"] and sm["casing"], str(sm))
         # SS. 太陽: the sun strip opens the sheet; the three twilights in order; the slider reads 10-minute steps.
         pg.locator(".day-sun-button").first.scroll_into_view_if_needed(); pg.locator(".day-sun-button").first.click(); calm()
-        times = pg.locator(".sun-times dd").all_inner_texts()
-        check("SS1 太陽のシートが開き、薄明の時刻が9つと昼の長さ", pg.locator(".sun-sheet").count() == 1 and len(times) == 10, str(times))
+        # 1画面に収める形（2026-11-18）：日の出・南中・日の入りの3枚と、薄明の表（朝の始まり・夕の終わり）と昼の長さ。
+        keys = pg.locator(".sun-key b").all_inner_texts()
+        tw = pg.locator(".sun-tw tbody tr").all_inner_texts()
+        check("SS1 太陽のシート：日の出・南中・日の入りの3枚、薄明3つ（朝・夕）、昼の長さ", pg.locator(".sun-sheet").count() == 1 and len(keys) == 3 and len(tw) == 3 and "時間" in txt(".sun-tw tfoot"), (keys, tw))
         st = small_text(); check("SS1b 11px より小さい文字がない（太陽のシート）", not st, str(st))
-        mins = [int(t.split(":")[0]) * 60 + int(t.split(":")[1]) for t in (x.split()[-1] for x in times[:9]) if ":" in t]
-        check("SS2 天文→航海→市民→日の出→南中→日の入り→市民→航海→天文 の順", mins == sorted(mins) and len(mins) == 9, str(mins))
+        tm = lambda x: int(x.split(":")[0]) * 60 + int(x.split(":")[1])
+        cells = [c.split() for c in tw]
+        morning = [tm(c[1]) for c in cells]; evening = [tm(c[2]) for c in cells]
+        mins = sorted(morning, reverse=True) == morning and evening == sorted(evening) and max(morning) < tm(keys[0]) and tm(keys[0]) < tm(keys[1]) < tm(keys[2]) < min(evening)
+        check("SS2 薄明は 市民→航海→天文 の順（朝は早く・夕は遅く）、日の出→南中→日の入り", mins, (keys, tw))
+        fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
+        check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
         pg.evaluate("""() => { const r = document.querySelector('.sun-slider input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
           set.call(r, '370'); r.dispatchEvent(new Event('input', { bubbles: true })); }"""); wait(300)
         check("SS3 スライダーで 6:10 に（10分ごと）", txt(".sun-now-time") == "6:10", txt(".sun-now"))
