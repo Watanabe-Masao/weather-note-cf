@@ -4423,7 +4423,23 @@ select.chip.sm {
 .moon-cal-day { display: grid; justify-items: center; gap: 0; min-height: var(--tap-min); padding: var(--space-1) 0; border: var(--stroke-hair) solid transparent; border-radius: var(--radius-sm); background: none; color: var(--ink-primary); }
 .moon-cal-day.on { border-color: var(--accent-base); background: var(--accent-wash); }
 .moon-cal-n { font-size: var(--size-xs); font-variant-numeric: tabular-nums; }
-.moon-cal-day small { font-size: var(--size-xs); color: var(--ink-tertiary); font-variant-numeric: tabular-nums; }
+/* 月のこよみ：カレンダーと推移のグラフは同じ枠に重ね、高いほうの高さを取る（切り替えで下の月相が動かない） */
+.moon-sheet .seg { margin-top: var(--space-4); }
+.moon-body { display: grid; }
+.moon-pane { grid-area: 1 / 1; min-width: 0; }
+.moon-pane.off { visibility: hidden; }
+.moon-trend { margin-top: var(--space-3); }
+.moon-trend-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); font-size: var(--size-xs); color: var(--ink-secondary); }
+.moon-trend-legend span { display: inline-flex; align-items: center; gap: var(--space-2); }
+.moon-trend-key { display: inline-block; width: var(--space-6); border-radius: var(--radius-xs); }
+.moon-trend-key.size { height: var(--stroke-focus); }
+.moon-trend-key.lit { height: var(--space-3); background: var(--surface-inset); border: var(--stroke-hair) solid var(--line-soft); }
+.moon-trend-chart { width: 100%; height: auto; display: block; margin-top: var(--space-2); touch-action: pan-y; cursor: ew-resize; }
+.moon-trend-grid { stroke: var(--line-soft); stroke-width: var(--stroke-hair); }
+.moon-trend-lit { fill: var(--surface-inset); stroke: var(--line-strong); stroke-width: var(--stroke-hair); }
+.moon-trend-size { fill: none; stroke-width: var(--stroke-focus); stroke-linejoin: round; }
+.moon-trend-dot { stroke: var(--surface-base); stroke-width: var(--stroke-hair); }
+.moon-trend-mark { fill: var(--ink-secondary); }
 .moon-next { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
 .moon-next span { display: grid; justify-items: center; padding: var(--space-2) 0; border-radius: var(--radius-sm); background: var(--surface-inset); }
 .moon-next small { font-size: var(--size-xs); color: var(--ink-tertiary); }

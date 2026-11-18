@@ -722,6 +722,17 @@ with sync_playwright() as p:
         mfit = pg.evaluate("(() => { const b = document.querySelector('.moon-sheet .msheet-body'); return [b.scrollHeight, b.clientHeight]; })()")
         check("SS2e 月のこよみ：月齢と形、カレンダーの日が30、次の月相4つ、日を押すと替わる、スクロールしないで収まる", "月齢" in t0 and cal == 30 and pg.locator(".moon-next span").count() == 4 and t1 != t0 and "11/24" in t1 and mfit[0] <= mfit[1] + 1, (t0[:40], cal, t1[:40], mfit))
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon.png")
+        # 満ち欠けと大きさ（2026-11-19）：同じ枠でグラフに替わる。下の月相は動かない。グラフを押すとその日が選ばれる。1画面に収まる。
+        y_next0 = pg.locator(".moon-next").bounding_box()["y"]
+        pg.locator(".moon-sheet .seg button", has_text="満ち欠けと大きさ").click(); calm()
+        y_next1 = pg.locator(".moon-next").bounding_box()["y"]
+        gb = pg.locator(".moon-trend-chart").bounding_box()
+        pg.mouse.click(gb["x"] + gb["width"] * 0.2, gb["y"] + gb["height"] / 2); calm()
+        t2 = txt(".moon-today")
+        mfit2 = pg.evaluate("(() => { const b = document.querySelector('.moon-sheet .msheet-body'); return [b.scrollHeight, b.clientHeight]; })()")
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-trend.png")
+        check("SS2h 月のこよみ・満ち欠けと大きさ：同じ枠で替わり下が動かない、押すとその日、収まる", abs(y_next0 - y_next1) < 1 and t2 != t1 and mfit2[0] <= mfit2[1] + 1 and pg.locator(".moon-trend-mark").count() >= 1, (y_next0, y_next1, t2[:30], mfit2))
+        pg.locator(".moon-sheet .seg button", has_text="カレンダー").click(); calm()
         pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
