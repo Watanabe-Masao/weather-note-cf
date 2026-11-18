@@ -248,7 +248,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             ? [
                 {
                   key: "avg",
-                  label: `手前${WINDOW_LABEL[avgWindow]}の平均`,
+                  label: other ? `手前${WINDOW_LABEL[avgWindow]}の平均` : `${WINDOW_LABEL[avgWindow]}平均`,
                   // Read as numbers: in the secondary ink (the reference line's own colour is drawn faint, #241).
                   color: "var(--ink-secondary)",
                   a: avgMain ? formatDetail(at(avgMain), metric) : "—",
@@ -257,7 +257,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
                 },
                 {
                   key: "dev",
-                  label: `手前${WINDOW_LABEL[avgWindow]}との差`,
+                  label: other ? `手前${WINDOW_LABEL[avgWindow]}との差` : `${WINDOW_LABEL[avgWindow]}平均との差`,
                   a: (avgMain && signedDiff(at(main), at(avgMain), metric.unit)) || "—",
                   b: (avgOther && signedDiff(at(second), at(avgOther), metric.unit)) || "—",
                   diff: avgMain && avgOther ? signedDiff(devOf(at(main), at(avgMain)), devOf(at(second), at(avgOther)), metric.unit) : "",
@@ -405,6 +405,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           ))}
         </p>
       )}
+      {/* 凡例と ⓘ は1行に（2026-11-18：ⓘ が1行だけ離れていた）。開いた説明はその下に全幅で。 */}
+      <div className="legend-row">
       <p className="line-legend">
         {/* A tap on a line's name sets it aside (grey) or brings it back (design engine: dimmed lines keep their form). */}
         <LegendLine on={!dim.main} onToggle={() => toggleDim("main")} look={lineLook("target", color, { dimmed: dim.main })} label={`対象 ${mainLabel}`} />
@@ -415,6 +417,10 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         {avgOther && (
           <LegendLine on={!dim.avgOther} onToggle={() => toggleDim("avgOther")} look={lineLook("compare", color, { kind: "reference", dimmed: dim.avgOther })} label="比較の手前" />
         )}
+        <span>
+          <i className="ls-forecast" />
+          予報
+        </span>
         <button className="avg-window" onClick={stepWindow} aria-label={`平均の期間（今は手前${WINDOW_LABEL[avgWindow]}）。押すと切り替え`}>
           平均 <b>{WINDOW_LABEL[avgWindow]}</b>
           <span className="steps" aria-hidden>
@@ -423,10 +429,6 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             ))}
           </span>
         </button>
-        <span>
-          <i className="ls-forecast" />
-          予報
-        </span>
         {metricId === "feel" && (
           <span>
             <LineSample look={lineLook("target", "", { kind: "reference" })} />
@@ -435,6 +437,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         )}
       </p>
       <InfoNote more={<>時刻の下の天気は、その時刻の前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}。薄いのは日照と降水からの推定です。凡例の線の名前を押すと、その線を薄くできます。</>} />
+      </div>
     </div>
   );
 }

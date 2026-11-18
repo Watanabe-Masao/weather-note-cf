@@ -445,6 +445,31 @@ export function GraphReadout({
   /** The grid alone, for a face that is already a card (the day's summary): no card in a card. */
   bare?: boolean;
 }) {
+  // 1日だけのときは横1列（時刻・値・平均・差・天気を並べる、2026-11-18 渡辺さん「スクロールが長すぎる」）。
+  // 列が足りなければ折り返す。名前は値の上に小さく、単位は名前の後ろに。
+  if (single && !bare) {
+    return (
+      <div className={live ? "readout-card ro-strip live" : "readout-card ro-strip"} aria-live="polite">
+        <b className="ro-title">{title}</b>
+        {rows.map((r) => {
+          const u = r.text || (r.a != null && typeof r.a === "object") ? "" : (r.unit ?? unit);
+          return (
+            <span key={r.key} className={r.text ? "ro-cell ro-cell-text" : "ro-cell"}>
+              <small className="ro-label">
+                {r.mark && <MarkIcon shape={r.mark} color={r.color ?? "currentColor"} />}
+                {r.label}
+                {u && <span className="ro-unit">{u}</span>}
+              </small>
+              <span className={`ro-v${r.text ? " ro-text" : ""}`} style={r.mark ? undefined : { color: r.color }}>
+                {r.a}
+              </span>
+            </span>
+          );
+        })}
+        {footer}
+      </div>
+    );
+  }
   return (
     <div className={bare ? "readout-bare" : live ? "readout-card live" : "readout-card"} aria-live={bare ? undefined : "polite"}>
       <div className={single ? "ro-grid ro-single" : "ro-grid"}>

@@ -2,7 +2,9 @@
 //   the top: what kind of day (its picture, 最高／最低, 実績 or 予報, a line about it);
 //   ① 1日の流れ: everything that has a time, on one clock (日の出・日の入り, the five 時間帯 — a tap
 //      opens their hours —, and the chosen item over 24 hours, the same graph as the 時間帯 sheet);
-//   ② この日の値: the values that have no time, every item at once (a tap shows it in ①);
+//      The items, each with the day's value, sit right above that graph and choose what it shows
+//      (2026-11-18: they were a section of their own, far from the graph they move). 肌感 is a line
+//      under the top, and opens the 肌感マップ.
 //   ③ 根拠と記録: where it comes from — how the forecasts of the day moved (予報の履歴, R6), the weather
 //      chart —, and the person's own reports of that day.
 // Nothing here is computed anew: the values, hours, parts and words are the ones the comparison
@@ -26,7 +28,7 @@ import { DaySummaryContext } from "./daySummaryPress";
 import { FeelContext, levelColor, levelName } from "./FeelBar";
 import { HourFace } from "./HourFace";
 import { useSun } from "./HourCompare";
-import { Chip, Conf, CONF_TEXT, confidenceOfRow, SectionHead } from "./kit";
+import { Chip, Conf, CONF_TEXT, confidenceOfRow, Glyph, SectionHead } from "./kit";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
 import { WxChart } from "./WxChart";
 import { RainNowBoard } from "./rainNow/RainNowBoard";
@@ -72,6 +74,62 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   const [rainOpen, setRainOpen] = useState(false);
   const source = row?.type === "forecast" ? `気象庁の予報${conf ? `（${CONF_TEXT[conf]}）` : ""}` : `気象庁の観測（${kindLabel(store, station, date) || "—"}）`;
 
+  // グラフの項目を選ぶ（値つき）：24時間のグラフのすぐ上に小さく並べる（2026-11-18 渡辺さん「連動しているのに離れていて長い」）。
+  // 押した項目の残りの値（平均・寒暖差など）は、並びの下の1行に。
+  const picked = METRICS.find((m) => m.id === metric) ?? null;
+  const pickedRest = (() => {
+    if (!picked || !row) return "";
+    const series = tableSeries(picked, row.type !== "forecast");
+    const h = picked.needsHours ? rows : null;
+    const shown = series.map((s) => ({ s, text: formatValue(s.value(row, h, feel, station), s.unit ?? picked.unit) }));
+    const main = shown.filter((x) => !x.s.minor).slice(0, 2);
+    return shown
+      .filter((x) => !main.includes(x) && x.text && x.text !== "—")
+      .map((x) => `${x.s.tableLabel ?? x.s.label} ${x.text}${x.s.unit && x.s.unit !== picked.unit ? x.s.unit : ""}`)
+      .join("・");
+  })();
+  const pick = (
+    <div className="dd-pick-wrap">
+      <div className="dd-pick" role="group" aria-label="グラフの項目">
+        {METRICS.map((m) => {
+          const series = tableSeries(m, row?.type !== "forecast");
+          const h = m.needsHours ? rows : null;
+          const main = series
+            .filter((x) => !x.minor)
+            .slice(0, 2)
+            .map((x) => ({ s: x, text: row ? formatValue(x.value(row, h, feel, station), x.unit ?? m.unit) : "" }));
+          return (
+            <button
+              key={m.id}
+              className={m.id === metric ? "dd-value on" : "dd-value"}
+              onClick={() => onMetric(m.id)}
+              aria-pressed={m.id === metric}
+              aria-label={`${m.label}（${main.map((x) => `${x.s.label} ${x.text || "—"}`).join("、")}${m.unit}）`}
+            >
+              <span className="dd-value-name">
+                {m.label}
+                {m.unit && <small>{m.unit}</small>}
+              </span>
+              <span className="dd-value-num" aria-hidden>
+                {main.map((x, i) => (
+                  <span key={x.s.key}>
+                    {i > 0 && <small className="dd-slash">/</small>}
+                    <span className={`tone-${x.s.tone}`}>{x.text || "—"}</span>
+                  </span>
+                ))}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      {pickedRest && (
+        <p className="dd-pick-rest">
+          <b>{picked!.label}</b> {pickedRest}
+        </p>
+      )}
+    </div>
+  );
+
   return (
     <section className="day-detail" aria-label="1日の詳しい様子">
       <div className="dd-hero">
@@ -92,6 +150,8 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
           )}
         </span>
       </div>
+      {/* 肌感は1日の言葉として見出しの下に。押すと肌感マップ（グラフの項目ではないので、項目の選びからは外した、2026-11-18）。 */}
+      <FeelLine rows={rows} station={station} onOpen={onOpenFeel} />
       {comment.length > 0 && <p className="dd-say">{comment.join("")}</p>}
       {!prov && provOpen && row && (
         <div className="dd-prov plain">
@@ -143,48 +203,8 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
           height={200}
           summary={false}
           onToggleSun={onToggleSun}
+          top={pick}
         />
-      </div>
-
-      <div className="dd-sec">
-        <SectionHead title="この日の値" as="h3">
-          <small className="dd-hint">押すと上のグラフがその項目に</small>
-        </SectionHead>
-        <div className="dd-values">
-          <FeelTile rows={rows} station={station} onOpen={onOpenFeel} />
-          {METRICS.map((m) => {
-            const series = tableSeries(m, row?.type !== "forecast");
-            const h = m.needsHours ? rows : null;
-            const shown = series.map((s) => ({ s, text: row ? formatValue(s.value(row, h, feel, station), s.unit ?? m.unit) : "" }));
-            const main = shown.filter((x) => !x.s.minor).slice(0, 2);
-            const rest = shown.filter((x) => !main.includes(x));
-            return (
-              <button key={m.id} className={m.id === metric ? "dd-value on" : "dd-value"} onClick={() => onMetric(m.id)} aria-pressed={m.id === metric}>
-                <span className="dd-value-name">
-                  {m.label}
-                  <em>{main.map((x) => x.s.label).join(" / ")}</em>
-                </span>
-                <span className="dd-value-num">
-                  {main.map((x, i) => (
-                    <span key={x.s.key}>
-                      {i > 0 && <small className="dd-slash">/</small>}
-                      <span className={`tone-${x.s.tone}`}>{x.text || "—"}</span>
-                    </span>
-                  ))}
-                  <small>{m.unit}</small>
-                </span>
-                {rest.length > 0 && (
-                  <span className="dd-value-note">
-                    {rest
-                      .filter((x) => x.text && x.text !== "—")
-                      .map((x) => `${x.s.tableLabel ?? x.s.label} ${x.text}${x.s.unit && x.s.unit !== m.unit ? x.s.unit : ""}`)
-                      .join("・")}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       <div className="dd-sec">
@@ -198,9 +218,6 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
               その日の要約{typhoon ? "・台風" : ""}
             </Chip>
           )}
-          <Chip size="sm" onClick={onOpenFeel}>
-            肌感マップ
-          </Chip>
         </div>
       </div>
     </section>
@@ -337,29 +354,28 @@ function Parts({ store, station, date }: { store: WeatherStore | null; station: 
 }
 
 /** 肌感 first among the values: the app's own subject. The day's daytime feel, as the table's bar reads it. */
-function FeelTile({ rows, station, onOpen }: { rows: ReturnType<WeatherStore["getHours"]>["rows"] | null; station: string; onOpen: () => void }) {
+function FeelLine({ rows, station, onOpen }: { rows: ReturnType<WeatherStore["getHours"]>["rows"] | null; station: string; onOpen: () => void }) {
   const feel = useContext(FeelContext);
   const temp = METRICS.find((m) => m.id === "temp")!;
   const s = temp.series.find((x) => x.key === "feel");
   const v = s && rows?.length ? s.value(null, rows, feel, station) : null;
   const level = v == null ? null : levelOf(v, feel);
   return (
-    <button className="dd-value" onClick={onOpen}>
-      <span className="dd-value-name">
-        肌感
-        <em>{feel.sun ? "日なた・日中" : "日かげ・日中"}</em>
+    <button className="dd-feel-line" onClick={onOpen} aria-label={`肌感（${feel.sun ? "日なた" : "日かげ"}・日中）${level == null ? "—" : levelName(level, feel.scale)}。押すと肌感マップ`}>
+      <small>肌感</small>
+      {level == null ? (
+        <b>—</b>
+      ) : (
+        <b>
+          <i className="dd-swatch" style={{ background: levelColor(level, feel.scale) }} />
+          {levelName(level, feel.scale)}
+        </b>
+      )}
+      <small>{feel.sun ? "日なた・日中" : "日かげ・日中"}</small>
+      <span className="dd-feel-go">
+        肌感マップ
+        <Glyph name="next" />
       </span>
-      <span className="dd-value-num">
-        {level == null ? (
-          "—"
-        ) : (
-          <>
-            <i className="dd-swatch" style={{ background: levelColor(level, feel.scale) }} />
-            {levelName(level, feel.scale)}
-          </>
-        )}
-      </span>
-      <span className="dd-value-note">押すと肌感マップ</span>
     </button>
   );
 }

@@ -2,7 +2,7 @@
 // comparison day. It follows the table: move the day there and this moves with it.
 
 import { PartsOutlook } from "./PartsOutlook";
-import { useContext, useEffect, useState } from "react";
+import { type ReactNode, useContext, useEffect, useState } from "react";
 import type { ChartMetricId } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { initialDetailMetric } from "../dayDetail";
@@ -28,9 +28,11 @@ interface Props {
   onToggleSun?: () => void;
   /** Tap a date in the summary to pick it from the calendar. */
   pick?: (side: CalendarSide) => void;
+  /** Right under the 24時間 head, above the readout (1日モード: the items to choose, with the day's values). */
+  top?: ReactNode;
 }
 
-export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true, onStep, onToggleSun, pick }: Props) {
+export function HourFace({ store, station, target, compareDate, metric, today, height, summary = true, onStep, onToggleSun, pick, top }: Props) {
   const settings = useContext(FeelContext);
   const base = initialDetailMetric(metric);
   // Temperature can also be read as 肌感 (肌感（日なた/日かげ）) hour by hour.
@@ -57,6 +59,7 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
           />
         )}
       </SectionHead>
+      {top}
       <HourCompare store={store} station={station} date={target} other={compareDate} metricId={id} today={today} height={height} />
     </div>
   );
