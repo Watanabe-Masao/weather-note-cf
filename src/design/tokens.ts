@@ -679,6 +679,8 @@ export const RADIUS = radius;
  * — the bands still count, without hard tiles. Today's band now is ringed (`ring`).
  */
 export const FEEL_BAND = { divider: 1.5, blur: 0.22, ring: 1.5 } as const;
+/** The least a finger can press (px, iPhone): a control drawn smaller is pressable this far past what it shows. */
+export const TAP = { min: 44 } as const;
 /** 肌感マップ's cell: its inner edge fades over edgeBlur from a band edgeSpread wide (px). */
 export const FEEL_CELL = { edgeBlur: 4, edgeSpread: 1 } as const;
 
@@ -749,6 +751,7 @@ export function cssVariables(): Record<string, string> {
   put("radius", radius, "px");
   put("feel-band", { divider: FEEL_BAND.divider, ring: FEEL_BAND.ring }, "px");
   put("feel-cell", FEEL_CELL, "px");
+  put("tap", TAP, "px");
   put("shadow", shadow);
   put("layer", LAYER);
   put(
