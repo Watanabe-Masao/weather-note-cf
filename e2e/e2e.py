@@ -715,6 +715,16 @@ with sync_playwright() as p:
         dbg = pg.evaluate("(document.querySelector('.sky-debug') || {}).textContent || ''")
         pg.locator(".sky-sensor .btn", has_text="センサーの値").click(); calm()
         check("SS2j センサーの値：行列の高さ・ロール・コンパスとの差が出て、閉じられる", "高さ 10.0" in dbg and "ロール 0.0" in dbg and "-172.4" in dbg and pg.locator(".sky-debug").count() == 0, dbg)
+        # 横・斜めに持つ（2026-11-19、実機の値）：立てている間にコンパスとの差を測り、横に持っても方位が合う。地平線が傾く。
+        ev = lambda a, b, g, c, n: pg.evaluate("""([a, b, g, c, n]) => { for (let i = 0; i < n; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: a, beta: b, gamma: g }); Object.defineProperty(e, 'webkitCompassHeading', { value: c }); window.dispatchEvent(e); } }""", [a, b, g, c, n])
+        ev(283.0, 94.8, 81.3, 348.7, 60); pg.wait_for_timeout(300)
+        ev(79.1, 4.8, -89.0, 283.4, 60); pg.wait_for_timeout(400)
+        head2 = pg.evaluate("(document.querySelector('.sky-view.window .sky-heading') || {}).textContent || ''")
+        hl = pg.evaluate("(() => { const l = document.querySelector('.sky-view.window .sun-horizon'); return l ? [+l.getAttribute('x1'), +l.getAttribute('y1'), +l.getAttribute('x2'), +l.getAttribute('y2')] : null; })()")
+        if os.environ.get("WN_SUN"): pg.locator(".sky-stage").first.screenshot(path=os.environ["WN_SUN"] + "-roll.png")
+        steep = hl is not None and abs(hl[3] - hl[1]) > 5 * abs(hl[2] - hl[0])
+        ev(283.0, 94.8, 81.3, 348.7, 60); pg.wait_for_timeout(300)
+        check("SS2k 横に持つ：方位は北のまま（コンパスの横ずれを使わない）、地平線が縦に傾く", head2.startswith("北") and steep, (head2, hl))
         pg.locator(".sky-sensor .btn", has_text="やめる").click(); calm()
         h_pan = pg.locator(".sky-view").first.bounding_box()["height"] if pg.locator(".sky-view").count() else 0
         check("SS2d 端末の向きで見る：南を向けると南を真ん中にした窓（上へ10°）、やめると戻る、絵の高さは同じ", head.startswith("南 180°") and "上へ 10°" in head and pg.locator(".sky-view.window").count() == 0 and abs(h_win - h_pan) < 1, (head, h_win, h_pan))

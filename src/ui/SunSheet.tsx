@@ -483,7 +483,7 @@ function SkyView({ look, stream, sunAlt, sunAz, moon, phase, sunTrack, moonTrack
 const FOV = 60;
 /** 背面カメラ（1倍）の長い辺の画角（°）：iPhone の広角（26mm 相当、4:3）でおよそ 67°。映像を窓に「覆う」で合わせる。 */
 const CAMERA_LONG_FOV = 67;
-type SkyProps = { look: { azimuth: number; altitude: number }; sunAlt: number; sunAz: number; moon: { altitude: number; azimuth: number }; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour };
+type SkyProps = { look: { azimuth: number; altitude: number; roll?: number }; sunAlt: number; sunAz: number; moon: { altitude: number; azimuth: number }; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour };
 function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky, w, h, stream, full }: SkyProps & { w: number; h: number; stream?: MediaStream | null; full?: boolean }) {
   const video = useRef<HTMLVideoElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -502,7 +502,41 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
     return (scale * Math.max(vw, vh)) / 2 / Math.tan((CAMERA_LONG_FOV / 2) * (Math.PI / 180));
   })();
   const at = (az: number, alt: number) => project(look, { azimuth: az, altitude: alt }, focal, w, h);
-  const horizon = at(look.azimuth, 0).y;
+  // 地平線（2026-11-19 ロール）：縦に固定した画面を横・斜めに持つと、地平線は画面の中で傾く。地平線の2点を通る線と、
+  // その下側（地面）を画面の四角から切り出した形で描く。
+  const hp1 = at(look.azimuth - 45, 0);
+  const hp2 = at(look.azimuth + 45, 0);
+  const hdx = hp2.x - hp1.x;
+  const hdy = hp2.y - hp1.y;
+  const hlen = Math.hypot(hdx, hdy) || 1;
+  const tilt = (Math.atan2(hdy, hdx) * 180) / Math.PI;
+  const below = at(look.azimuth, -20);
+  const side = (x: number, y: number) => hdx * (y - hp1.y) - hdy * (x - hp1.x);
+  const groundSign = Math.sign(side(below.x, below.y)) || 1;
+  const ground = (() => {
+    const box = [
+      [0, 0],
+      [w, 0],
+      [w, h],
+      [0, h],
+    ];
+    const out: number[][] = [];
+    for (let i = 0; i < 4; i++) {
+      const a = box[i];
+      const b = box[(i + 1) % 4];
+      const sa = side(a[0], a[1]) * groundSign;
+      const sb = side(b[0], b[1]) * groundSign;
+      if (sa >= 0) out.push(a);
+      if (sa >= 0 !== sb >= 0) {
+        const t = sa / (sa - sb);
+        out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+      }
+    }
+    return out.length ? `M${out.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(" L")} Z` : "";
+  })();
+  const far = 3 * (w + h);
+  const hx = (hdx / hlen) * far;
+  const hy = (hdy / hlen) * far;
   const line = (pts: { alt: number; az: number }[], above = true) => {
     let d = "";
     let prev = false;
@@ -519,7 +553,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
     return d;
   };
   const ring = (alt: number) => line(Array.from({ length: 61 }, (_, i) => ({ alt, az: look.azimuth - 90 + i * 3 })), false);
-  const dirs = Array.from({ length: 16 }, (_, i) => i * 22.5).map((az) => ({ az, q: at(az, 0) })).filter(({ q }) => q.front && q.x > 0 && q.x < w);
+  const dirs = Array.from({ length: 16 }, (_, i) => i * 22.5).map((az) => ({ az, q: at(az, 0) })).filter(({ q }) => q.front && q.x > 0 && q.x < w && (Math.abs(tilt) < 20 || (q.y > -14 && q.y < h)));
   const edge = (az: number, alt: number, name: string) => {
     const q = at(az, alt);
     if (q.inside || alt < 0) return null;
@@ -543,19 +577,19 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
       {stream && <video ref={video} className="sky-video" playsInline muted autoPlay onLoadedMetadata={(e) => setDims({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })} />}
       <svg className="sky-view window" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label={`端末を向けた方向の空：${dirName(look.azimuth)}・高さ${Math.round(look.altitude)}°`}>
         <defs>
-          <linearGradient id="sky-window-bg" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="sky-window-bg" x1="0" y1="0" x2="0" y2="1" gradientTransform={tilt ? `rotate(${tilt.toFixed(1)} 0.5 0.5)` : undefined}>
             <stop offset="0" stopColor={sky.zenith} />
             <stop offset="1" stopColor={sky.horizon} />
           </linearGradient>
         </defs>
         {!stream && <rect width={w} height={h} fill="url(#sky-window-bg)" />}
-        {!stream && horizon < h && <rect y={Math.max(0, horizon)} width={w} height={h - Math.max(0, horizon)} className="sky-ground" />}
+        {!stream && ground && <path d={ground} className="sky-ground" />}
         {[30, 60].map((a) => (
           <path key={a} d={ring(a)} className="sky-alt" />
         ))}
-        {horizon > 0 && horizon < h && <line x1={0} x2={w} y1={horizon} y2={horizon} className="sun-horizon" />}
+        <line x1={hp1.x - hx} y1={hp1.y - hy} x2={hp2.x + hx} y2={hp2.y + hy} className="sun-horizon" />
         {dirs.map(({ az, q }) => (
-          <text key={az} x={q.x} y={Math.min(h - 6, Math.max(14, horizon + 14))} textAnchor="middle" className="sun-tick sky-dir">
+          <text key={az} transform={`translate(${q.x.toFixed(1)} ${(Math.abs(tilt) < 20 ? Math.min(h - 20, Math.max(0, q.y)) : q.y).toFixed(1)}) rotate(${tilt.toFixed(1)})`} y={14} textAnchor="middle" className="sun-tick sky-dir">
             {dirName(az)}
           </text>
         ))}
