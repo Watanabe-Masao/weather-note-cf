@@ -3086,7 +3086,7 @@ svg.scrub {
 /* 押せる範囲（44px、design-system 4.1、#296）：見た目は変えず、押せる範囲だけを見た目の外へ広げる。
    両方向に広げるのは、隣に押す所が無い小さな印だけ（日付の送り・ⓘ・月の振り返り）。ほかは縦だけ
    （横に並ぶ隣に重ならないように）。「選んだ日を外す」（.month-picked）は縦に広げると下の日付のボタンに
-   重なるので広げない。 */
+   重なるので広げない。チップ（.chip）も見た目は変えず縦だけ広げる（見本で決めた、2026-11-18 案A）。 */
 .arrow,
 .info-btn,
 .calendar-head .cal-month-review,
@@ -3099,7 +3099,10 @@ button.label-feel,
 .line-legend .avg-window,
 .month-fold,
 .typhoon-link,
-.admin-exports summary {
+.admin-exports summary,
+.chip,
+.notify-days button,
+.notify-add button {
   position: relative;
 }
 .arrow::after,
@@ -3123,7 +3126,10 @@ button.label-feel::after,
 .month-fold::after,
 .typhoon-link::after,
 .day-sun-button::after,
-.admin-exports summary::before {
+.admin-exports summary::before,
+.chip::after,
+.notify-days button::after,
+.notify-add button::after {
   content: "";
   position: absolute;
   left: 0;
