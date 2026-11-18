@@ -1,11 +1,10 @@
 // Component kit: the small parts every screen is built from. Each has one look and one behaviour,
 // so the same thing never looks different on two screens (rules: docs/design-system.md).
 
-import { type ButtonHTMLAttributes, type CSSProperties, Fragment, useContext, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type ButtonHTMLAttributes, type CSSProperties, Fragment, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { dayTone } from "../../shared/holidays";
 import type { Confidence } from "../../shared/confidence";
 import { type BandMark, barLook, barPath, type DataColor, type LineDay, type LineKind, type LineLook, lineLook, RADIUS, SHAPE } from "../design/tokens";
-import { SheetDetentContext } from "./GraphSheet";
 import { dateLabel, digitsOf, monthDay, num, phraseBreak, weekdayOf } from "../design/format";
 
 /** A choice chip. `size="sm"` for filters inside sheets. */
@@ -471,11 +470,7 @@ export function GraphReadout({
       </div>
     );
   }
-  // 2日を比べるとき（見本 2026-11-18）：列の頭は日付だけの1行（対象・比較の言葉は読み上げで）。言葉の行（明るさ・空など）が
-  // 2つ以上あるときは「言葉で見る」に畳み、数の行だけを出す（日照で7行になっていたのを4行に）。
-  const textRows = !single && !bare ? rows.filter((r) => r.text) : [];
-  const fold = textRows.length >= 2;
-  const shown = fold ? rows.filter((r) => !r.text) : rows;
+  // 2日を比べるとき（2026-11-18）：列の頭は日付だけの1行（対象・比較の言葉は読み上げで）。
   const line = (r: ReadoutRow) => {
     const words = (v: ReactNode) => (r.text && typeof v === "string" ? <span className="ro-words">{phraseBreak(v)}</span> : v);
     const u = r.text || (r.a != null && typeof r.a === "object") ? "" : (r.unit ?? unit);
@@ -512,36 +507,13 @@ export function GraphReadout({
           </small>
         )}
         {!single && <small className="ro-col">差</small>}
-        {shown.map(line)}
+        {rows.map(line)}
       </div>
-      {fold && (
-        <ReadoutWords>
-          <div className="ro-grid ro-pair">{textRows.map(line)}</div>
-        </ReadoutWords>
-      )}
       {footer}
     </div>
   );
 }
 
-function ReadoutWords({ children }: { children: ReactNode }) {
-  // 見本（2026-11-18）：シートの高さで自動に開閉する。最大まで上げたら開き、中くらい以下では畳む。指で動かしている間は
-  // 変えない（離して止まった高さで決める）。ボタンで開閉したら、次にシートの高さが変わるまではそれに従う。
-  const detent = useContext(SheetDetentContext);
-  const [mine, setMine] = useState<{ at: string | null; open: boolean } | null>(null);
-  const [last, setLast] = useState(detent);
-  if (detent != null && detent !== last) {
-    setLast(detent);
-    setMine(null);
-  }
-  const auto = last === "max";
-  const open = mine ? mine.open : auto;
-  return (
-    <Fold open={open} onToggle={() => setMine({ at: last, open: !open })} openLabel="明るさと空を言葉で見る" closeLabel="言葉を畳む">
-      {children}
-    </Fold>
-  );
-}
 
 /**
  * A long press (#176): `onLong` after `ms` held still; a move of more than 8px (a swipe, a scroll)
