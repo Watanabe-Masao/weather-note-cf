@@ -4,7 +4,8 @@
 // Line style says which day only (target solid, comparison dashed); forecast days are hatched behind.
 // Missing values leave a gap (never interpolated).
 
-import { useContext, useLayoutEffect, useRef, useState } from "react";
+import { useContext, useRef, useState } from "react";
+import { useDrawnWidth } from "./useDrawnWidth";
 import { addDays } from "../../shared/dates";
 import { type Band, BANDS, type FeelSettings, hourlyBands } from "../../shared/feel";
 import { dayTone } from "../../shared/holidays";
@@ -52,14 +53,7 @@ export function BandTrend({ store, station, target, partner, onStep }: Props) {
   const [chosen, setChosen] = useState<number[]>([0, 2, 4]); // 朝・昼・夜
   const [withCompare, setWithCompare] = useState(true);
   const ref = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(320);
-  useLayoutEffect(() => {
-    const el = ref.current!;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
-    ro.observe(el);
-    setW(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
+  const w = useDrawnWidth(ref, [], 320);
 
   const dates = drumOffsets.map((n) => addDays(target, n));
   const mine = dates.map((d) => bandsOf(store, station, d, settings));

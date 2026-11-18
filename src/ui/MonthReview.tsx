@@ -4,7 +4,8 @@
 // item a day, read by the finger), 曜日 (the weekdays side by side) and 肌感 (the bands over the month).
 // Opened from the calendar's month (CalendarModal). See docs/design-system.md「月の振り返り」.
 
-import { Fragment, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useDrawnWidth } from "./useDrawnWidth";
 import { addDays } from "../../shared/dates";
 import { dayEdges, dayParts, hoursIn, PARTS, type PartId } from "../../shared/dayParts";
 import { SCALE_STEPS } from "../../shared/feel";
@@ -349,14 +350,7 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
 /** Each day's 最高〜最低 as a round bar: the month filled (最高の色から最低の色へ), the year before outlined beside it. */
 function MonthRange({ a, b, picked, days, focus, onFocus }: { a: (WeatherRow | null)[]; b: (WeatherRow | null)[]; picked?: ReadonlySet<string>; days?: string[] } & Scrub) {
   const ref = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(320);
-  useLayoutEffect(() => {
-    const el = ref.current!;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
-    ro.observe(el);
-    setW(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
+  const w = useDrawnWidth(ref, [], 320);
   const H = 150;
   const PAD = { left: 24, right: 4, top: 6, bottom: 18 };
   const vals = [...a, ...b].flatMap((r) => [num(r?.max), num(r?.min)]).filter((v): v is number => v != null);
@@ -648,14 +642,7 @@ function PickedBands({ picked, days, x, step, top, bottom }: { picked?: Readonly
 /** A month of one item: amounts as bars (the month filled, the year before outlined), levels as lines (solid, dashed). */
 function MonthSeries({ m, a, b, picked, days, focus, onFocus }: { m: MonthMetric; a: (WeatherRow | null)[]; b: (WeatherRow | null)[]; picked?: ReadonlySet<string>; days?: string[] } & Scrub) {
   const ref = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(320);
-  useLayoutEffect(() => {
-    const el = ref.current!;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
-    ro.observe(el);
-    setW(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
+  const w = useDrawnWidth(ref, [], 320);
   const H = 160;
   // The unit sits above the axis, clear of the top tick.
   const PAD = { left: 30, right: 4, top: 18, bottom: 18 };

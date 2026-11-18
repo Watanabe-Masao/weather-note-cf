@@ -3,7 +3,8 @@
 // (tokens.ts lineLook / barLook / barPath), only smaller and without touch. The 0–24 hours run left
 // to right, as in the time-band graph.
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useRef } from "react";
+import { useDrawnWidth } from "./useDrawnWidth";
 import type { WeatherRow } from "../../shared/types";
 import { barLook, barPath, DATA, lineLook } from "../design/tokens";
 import { niceTicks, num, tickLabel } from "../design/format";
@@ -35,14 +36,7 @@ function runs(points: Point[]): Point[][] {
 
 export function MiniDayChart({ rows, otherRows, label }: { rows: WeatherRow[] | null; otherRows: WeatherRow[] | null; label: string }) {
   const ref = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(320);
-  useLayoutEffect(() => {
-    const el = ref.current!;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
-    ro.observe(el);
-    setW(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
+  const w = useDrawnWidth(ref, [], 320);
   const temp = series(rows, "temp");
   const tempB = series(otherRows, "temp");
   const rain = series(rows, "rain");
