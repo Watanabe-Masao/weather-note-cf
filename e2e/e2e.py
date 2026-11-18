@@ -314,8 +314,24 @@ with sync_playwright() as p:
           const out = {}; for (const e of document.querySelectorAll('body *')) { const r = e.getBoundingClientRect(); if (!r.width && !r.height) continue;
             const c = getComputedStyle(e); out[key(e)] = props.map(p => c.getPropertyValue(p)).join('|'); } return out; }""", STYLE_PROPS)
         with open(os.environ["WN_STYLES"], "a") as f: f.write(json.dumps({"n": STYLE_N[0], "where": where, "props": STYLE_PROPS, "rows": rows}, ensure_ascii=False) + "\n")
+    # WN_TAPS=<file>: the things to press that are smaller than 44px across or high (design-system 3, the
+    # pressable area, a ::before/::after laid over them counted), written at each check of the layout — an
+    # audit, not a check (python3 e2e/tap_report.py <file> lists them by kind).
+    def tap_audit(where):
+        if not os.environ.get("WN_TAPS"): return
+        rows = pg.evaluate("""() => { const out = [];
+          for (const e of document.querySelectorAll('button, a[href], [role=button], [role=tab], [role=radio], input, select, summary, [tabindex]:not([tabindex="-1"])')) {
+            const r = e.getBoundingClientRect(); if (!r.width || !r.height || r.bottom < 0 || r.top > innerHeight) continue;
+            const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.pointerEvents === 'none') continue;
+            let w = r.width, h = r.height;
+            for (const ps of ['::before', '::after']) { const p = getComputedStyle(e, ps); if (p.content === 'none' || p.position !== 'absolute') continue;
+              w = Math.max(w, parseFloat(p.width) || 0); h = Math.max(h, parseFloat(p.height) || 0); }
+            if (w < 43.5 || h < 43.5) out.push([e.tagName.toLowerCase() + '.' + [...e.classList].join('.'), (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 16), Math.round(w), Math.round(h)]); }
+          return out; }""")
+        with open(os.environ["WN_TAPS"], "a") as f: f.write(json.dumps({"where": where, "rows": rows}, ensure_ascii=False) + "\n")
     def layout_ok(code, where):
         snap_styles(f"{code} {where}")
+        tap_audit(f"{code} {where}")
         r = pg.evaluate("__layoutIssues()")
         bad = r["overflow"] + r["overlap"] + r["clipped"]
         check(f"{code} 文字のはみ出し・重なり・切れがない（{where}）", not bad, str(bad))
