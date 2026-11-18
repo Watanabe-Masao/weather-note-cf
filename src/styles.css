@@ -3083,6 +3083,63 @@ svg.scrub {
   height: 44px;
   transform: translateY(-50%);
 }
+/* 押せる範囲（44px、design-system 4.1、#296）：見た目は変えず、押せる範囲だけを見た目の外へ広げる。
+   両方向に広げるのは、隣に押す所が無い小さな印だけ（日付の送り・ⓘ・月の振り返り）。ほかは縦だけ
+   （横に並ぶ隣に重ならないように）。「選んだ日を外す」（.month-picked）は縦に広げると下の日付のボタンに
+   重なるので広げない。 */
+.arrow,
+.info-btn,
+.calendar-head .cal-month-review,
+.today-chip,
+.date-button,
+.cs-date-btn,
+button.label-feel,
+.back-btn,
+.line-legend .legend-line,
+.line-legend .avg-window,
+.month-fold,
+.typhoon-link,
+.admin-exports summary {
+  position: relative;
+}
+.arrow::after,
+.info-btn::after,
+.calendar-head .cal-month-review::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100%, var(--tap-min));
+  height: max(100%, var(--tap-min));
+  transform: translate(-50%, -50%);
+}
+.today-chip::after,
+.date-button::after,
+.cs-date-btn::after,
+button.label-feel::after,
+.back-btn::after,
+.line-legend .legend-line::after,
+.line-legend .avg-window::after,
+.month-fold::after,
+.typhoon-link::after,
+.day-sun-button::after,
+.admin-exports summary::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: max(100%, var(--tap-min));
+  transform: translateY(-50%);
+}
+.field select,
+.field input,
+.threshold input,
+.set-row select,
+.set-number input,
+.notify-add input {
+  min-height: var(--tap-min);
+}
 .btn.block,
 .actions > button {
   width: 100%;
