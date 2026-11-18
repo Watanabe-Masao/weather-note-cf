@@ -9,7 +9,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { type ListState, msOf, type RainFrame, RAIN_LEVELS, levelHex, rainPlace, type RainZoom } from "../../../shared/rainNow";
 import { STATION_PLACES } from "../../../shared/stationPlaces";
-import { Glyph, Segmented } from "../kit";
+import { Button, Glyph, IconButton, Segmented, Slider } from "../kit";
 import { ModalSheet } from "../ModalSheet";
 import { type Coast, prefetchFrame, RainNowMap } from "./RainNowMap";
 import { RainNowGraph, type Span, SPANS } from "./RainNowGraph";
@@ -37,17 +37,17 @@ export function RainNowBoard({ station, onClose }: { station: string; onClose: (
           <div className="rn-stale" role="status">
             <b>一覧が取れませんでした</b>
             <span>{loaded.message}。雨がないという意味ではありません。</span>
-            <button type="button" className="rn-btn" onClick={reload}>
+            <Button size="sm" onClick={reload}>
               読み直す
-            </button>
+            </Button>
           </div>
         ) : !loaded.data.now ? (
           <div className="rn-stale" role="status">
             <b>雨雲の動き（実況）の一覧が取れませんでした</b>
             <span>{loaded.data.lists.obs.error ?? "一覧が空でした"}。雨がないという意味ではありません。</span>
-            <button type="button" className="rn-btn" onClick={reload}>
+            <Button size="sm" onClick={reload}>
               読み直す
-            </button>
+            </Button>
           </div>
         ) : (
           <Board key={loaded.data.fetchedAt} data={loaded.data} place={{ ...place, name }} station={station} reload={reload} />
@@ -161,15 +161,20 @@ function Board({
         ))}
       </div>
       <RainNowMap now={now} frame={frame} zoom={zoom} onZoom={setZoom} note={play ? note : null} place={place} here={here} coast={coast} />
-      <input
-        type="range"
+      <Slider
         className="rn-scrub"
         min={0}
         max={frames.length - 1}
-        value={i}
-        onChange={(e) => go(frames[Number(e.target.value)].m)}
-        aria-label="地図の時刻"
-        aria-valuetext={`${frameLabel(now, frame)} ${relLabel(frame)}${isAmount ? " 1時間の量の予測" : frame.m > 0 ? " 予測" : " 実況"}`}
+        step={1}
+        ticks={[frames.findIndex((f) => f.m === 0)].filter((k) => k >= 0)}
+        thumbs={[
+          {
+            value: i,
+            label: "地図の時刻",
+            valueText: `${frameLabel(now, frame)} ${relLabel(frame)}${isAmount ? " 1時間の量の予測" : frame.m > 0 ? " 予測" : " 実況"}`,
+            onChange: (k) => go(frames[k].m),
+          },
+        ]}
       />
       <div className="rn-scale">
         <span style={{ flex: Math.max(1, fiveCount - 1) }}>
@@ -179,23 +184,23 @@ function Board({
         </span>
         {hourCount > 0 && (
           <span style={{ flex: hourCount }} className="hourly">
-            <i>{`${frames.at(-1)!.m / 60}時間後`}</i>
+            <i>{relLabel({ m: frames.at(-1)!.m, kind: frames[0].kind })}</i>
           </span>
         )}
       </div>
       <div className="rn-ctl">
-        <button type="button" className="rn-btn" aria-label="ひとつ前" onClick={() => go(frames[Math.max(0, i - 1)].m)}>
-          <Glyph name="prev" size="12px" />
-        </button>
-        <button type="button" className={`rn-btn wide${play ? " on" : ""}`} aria-pressed={play} onClick={startPlay}>
+        <IconButton label="ひとつ前" onClick={() => go(frames[Math.max(0, i - 1)].m)}>
+          <Glyph name="prev" />
+        </IconButton>
+        <Button className="rn-wide" aria-pressed={play} onClick={startPlay}>
           {play ? "停止" : "再生"}
-        </button>
-        <button type="button" className="rn-btn" aria-label="ひとつ先" onClick={() => go(frames[Math.min(frames.length - 1, i + 1)].m)}>
-          <Glyph name="next" size="12px" />
-        </button>
-        <button type="button" className="rn-btn wide" onClick={() => go(0)}>
+        </Button>
+        <IconButton label="ひとつ先" onClick={() => go(frames[Math.min(frames.length - 1, i + 1)].m)}>
+          <Glyph name="next" />
+        </IconButton>
+        <Button className="rn-wide" onClick={() => go(0)}>
           今に戻る
-        </button>
+        </Button>
       </div>
       <div className="rn-legend" aria-label={`凡例：${isAmount ? "1時間の量（mm）" : "雨の強さ（mm/h）"}`}>
         <b className={`rn-legend-title${isAmount ? " amount" : ""}`} aria-live="polite">
@@ -207,9 +212,9 @@ function Board({
             {k === 0 ? "<1" : l.from}
           </span>
         ))}
-        <button type="button" className="rn-here" onClick={askHere}>
-          ＋ 現在地{here ? "（出しています）" : "を出す"}
-        </button>
+        <Button size="sm" className="rn-here" onClick={askHere}>
+          <Glyph name="plus" /> 現在地{here ? "（出しています）" : "を出す"}
+        </Button>
         {hereNote && <span className="rn-here-note">{hereNote}</span>}
       </div>
       <div className="rn-span">
@@ -272,9 +277,9 @@ function Diag({ data, levels, expected, reload }: { data: { lists: Record<"obs" 
       </p>
       <p>
         一覧を読んだ時刻：{new Date(data.fetchedAt).toLocaleTimeString("ja-JP", { timeZone: "Asia/Tokyo" })}{" "}
-        <button type="button" className="rn-btn small" onClick={reload}>
+        <Button size="sm" onClick={reload}>
           読み直す
-        </button>
+        </Button>
       </p>
     </div>
   );

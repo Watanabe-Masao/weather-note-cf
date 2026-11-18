@@ -207,10 +207,10 @@ export function DangerButton({ label, armedLabel, onConfirm, disabled, block = t
   );
 }
 
-/** A round icon button with a 36 px target (the visible part may be smaller). */
-export function IconButton({ label, onClick, children, size = "md" }: { label: string; onClick: () => void; children: ReactNode; size?: "md" | "sm" }) {
+/** A round icon button: 36 px to see (sm 32), 44 px to press (#310). */
+export function IconButton({ label, onClick, children, size = "md", disabled }: { label: string; onClick: () => void; children: ReactNode; size?: "md" | "sm"; disabled?: boolean }) {
   return (
-    <button className={`icon-btn${size === "sm" ? " sm" : ""}`} onClick={onClick} aria-label={label} title={label}>
+    <button type="button" className={`icon-btn${size === "sm" ? " sm" : ""}`} onClick={onClick} aria-label={label} title={label} disabled={disabled}>
       {children}
     </button>
   );
@@ -581,6 +581,25 @@ export function InfoNote({ children, more, className }: { children?: ReactNode; 
         </button>
       </p>
       {open && <p className="info-more">{more}</p>}
+    </div>
+  );
+}
+
+/**
+ * 畳む・開く（Fold、2026-11-18 渡辺さん「長すぎるのでアニメーションで開く」）：長い一覧の続きを畳んでおき、ボタンの下へ
+ * 高さをなめらかに開く（MOTION.enter。ボタンは動かず、指の下から中身が伸びる）。閉じている間は中身を読み上げにも出さない。動きを減らす設定では一瞬で開く。
+ * ボタンの言葉は開く前・開いた後で変える（何が出てくるかを書く）。
+ */
+export function Fold({ open, onToggle, openLabel, closeLabel, children }: { open: boolean; onToggle: () => void; openLabel: ReactNode; closeLabel: ReactNode; children: ReactNode }) {
+  return (
+    <div className={`fold${open ? " open" : ""}`}>
+      <Button size="sm" className="fold-btn" aria-expanded={open} onClick={onToggle}>
+        <Glyph name={open ? "up" : "down"} />
+        {open ? closeLabel : openLabel}
+      </Button>
+      <div className="fold-body" inert={!open || undefined} aria-hidden={!open || undefined}>
+        <div className="fold-inner">{children}</div>
+      </div>
     </div>
   );
 }

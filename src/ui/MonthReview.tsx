@@ -14,7 +14,7 @@ import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
 import { niceTicks, num, signedDiff, tickLabel } from "../design/format";
-import { barLook, barPath, DATA, FEEL_SCALE_COLORS, feelEdgeOf, lineLook, RADIUS, SHAPE } from "../design/tokens";
+import { barLook, barPath, DATA, FEEL_SCALE_COLORS, feelFillLook, lineLook, RADIUS, SHAPE } from "../design/tokens";
 import { bandsFor, FeelBar, FeelContext } from "./FeelBar";
 import { DayWeatherIcon } from "./WeatherIcon";
 import { dayTone } from "../../shared/holidays";
@@ -431,7 +431,7 @@ function FeelMonth({ store, station, days, daysB }: { store: WeatherStore | null
     return (
       <span className={`month-feel-bar${thin ? " thin" : ""}`}>
         {/* The days of each step written in it (not only in a title, #296). */}
-        {c.map((k, i) => (k ? <i key={i} style={{ flex: k, background: FEEL_SCALE_COLORS[scale][i], "--feel-edge": feelEdgeOf(FEEL_SCALE_COLORS[scale][i]) ?? "transparent" } as CSSProperties} aria-label={`${steps[i].label} ${k}日`}>{k}</i> : null))}
+        {c.map((k, i) => (k ? <i key={i} className="feel-fill" style={{ flex: k, ...feelFillLook(FEEL_SCALE_COLORS[scale][i]) } as CSSProperties} aria-label={`${steps[i].label} ${k}日`}>{k}</i> : null))}
       </span>
     );
   };

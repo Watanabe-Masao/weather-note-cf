@@ -17,6 +17,9 @@ function files(dir: string): string[] {
 }
 
 const all = files(SRC).map((p) => ({ p: p.slice(SRC.length + 1), s: readFileSync(p, "utf8") }));
+// Every stylesheet under src (styles.css and each screen's own, e.g. rainNow.css): the engine's rules hold in all
+// of them, not only in styles.css (2026-11-18: the newer screens' sheets had slipped past these checks).
+const ALL_CSS = all.filter(({ p }) => p.endsWith(".css")).map(({ s }) => s).join("\n");
 
 describe("design tokens", () => {
 
@@ -40,7 +43,7 @@ describe("design tokens", () => {
 });
 
 describe("type scale", () => {
-  const css = readFileSync(join(SRC, "styles.css"), "utf8");
+  const css = ALL_CSS;
 
   it("every font-size is a step of the scale (or inherits, or a step under its parent floored at xs)", () => {
     const sizes = [...css.matchAll(/font-size:\s*([^;}]+)/g)].map((m) => m[1].replace(/\s*!important/, "").trim());
@@ -61,7 +64,7 @@ describe("type scale", () => {
 });
 
 describe("faces: colour, corners, depth", () => {
-  const css = readFileSync(join(SRC, "styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const css = ALL_CSS.replace(/\/\*[\s\S]*?\*\//g, "");
 
   it("no colour is written in the stylesheet (tokens or color-mix of tokens only)", () => {
     expect(css.match(/#[0-9a-fA-F]{3,8}\b|rgba?\([^)]*\)/g) ?? []).toEqual([]);
@@ -86,7 +89,7 @@ describe("faces: colour, corners, depth", () => {
 });
 
 describe("cards: 浮いた面 and 沈んだ面 only (#151)", () => {
-  const css = readFileSync(join(SRC, "styles.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const css = ALL_CSS.replace(/\/\*[\s\S]*?\*\//g, "");
   const CARDS = ["compare-summary", "band-summary", "lt-head", "cal-pair", "set-group", "cond-list", "cond-table", "ds-lead", "readout-card", "predict-card", "sun-card", "ds-wind"];
   const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
 
@@ -116,7 +119,7 @@ describe("marks are drawn, not typed (#151)", () => {
     expect(hits).toEqual([]);
   });
   it("and not as a CSS content mark", () => {
-    const css = readFileSync(join(SRC, "styles.css"), "utf8");
+    const css = ALL_CSS;
     expect(css.match(new RegExp(`content:\\s*"${MARK}+"`, "g")) ?? []).toEqual([]);
   });
 });

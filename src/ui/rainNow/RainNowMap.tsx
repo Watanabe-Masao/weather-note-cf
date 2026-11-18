@@ -4,7 +4,7 @@
 // 全部取れなければ「このこまは取れませんでした」、一部なら破線で囲んで「一部取れなかった」（雨なしと見せない）。
 import { useEffect, useRef, useState } from "react";
 import { RAIN_ZOOMS, type RainFrame, type RainZoom } from "../../../shared/rainNow";
-import { Glyph } from "../kit";
+import { Glyph, IconButton } from "../kit";
 import { frameLabel, loadTile, relLabel, type Tile, tilePath } from "./rainNowData";
 
 export type Coast = { rings: number[][] };
@@ -188,12 +188,12 @@ export function RainNowMap({
       {!ready && <span className="rn-loading">読み込み中…</span>}
       {note && <span className="rn-playnote">{note}</span>}
       <span className="rn-zoom">
-        <button type="button" aria-label="寄せる" disabled={i === RAIN_ZOOMS.length - 1} onClick={() => onZoom(RAIN_ZOOMS[i + 1])}>
-          <Glyph name="plus" size="14px" />
-        </button>
-        <button type="button" aria-label="引く" disabled={i === 0} onClick={() => onZoom(RAIN_ZOOMS[i - 1])}>
-          <Glyph name="minus" size="14px" />
-        </button>
+        <IconButton label="寄せる" disabled={i === RAIN_ZOOMS.length - 1} onClick={() => onZoom(RAIN_ZOOMS[i + 1])}>
+          <Glyph name="plus" />
+        </IconButton>
+        <IconButton label="引く" disabled={i === 0} onClick={() => onZoom(RAIN_ZOOMS[i - 1])}>
+          <Glyph name="minus" />
+        </IconButton>
       </span>
     </figure>
   );
