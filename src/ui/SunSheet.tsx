@@ -6,7 +6,7 @@ import { sunHours, type SunTimes } from "../data/sun";
 import { dateLabel, hoursMinutes } from "../design/format";
 import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
-import { SectionHead, Slider } from "./kit";
+import { InfoNote, Slider } from "./kit";
 import { ICON } from "../design/tokens";
 import { useMemo, useRef, useState, type PointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
@@ -79,17 +79,6 @@ export function SunSheet({
     setAt(Math.min(1430, Math.max(0, Math.round(m / 10) * 10)));
   };
   const length = set - rise;
-  const rows: { label: string; time: number | null; strong?: boolean; note?: string }[] = [
-    { label: "天文薄明 始まり", time: t.astronomical.start },
-    { label: "航海薄明 始まり", time: t.nautical.start },
-    { label: "市民薄明 始まり", time: t.civil.start },
-    { label: "日の出", time: rise, strong: true },
-    { label: "南中", time: e.noon, strong: true, note: `高さ ${Math.round(e.noonAltitude)}°` },
-    { label: "日の入り", time: set, strong: true },
-    { label: "市民薄明 終わり", time: t.civil.end },
-    { label: "航海薄明 終わり", time: t.nautical.end },
-    { label: "天文薄明 終わり", time: t.astronomical.end },
-  ];
 
   return (
     <ModalSheet title={`${dateLabel(date)}の太陽`} onClose={onClose} className="sun-sheet">
@@ -181,41 +170,70 @@ export function SunSheet({
         </span>
         <span className="sun-now-alt">{altAt >= 0 ? `地平線の上 ${Math.round(altAt)}°` : `地平線の下 ${Math.round(-altAt)}°`}</span>
       </div>
-      <p className="sun-note">
-        左右になぞると10分ごとに動きます。空の色はこの日の天気（実績・予報）からの模式で、グラフの下の帯と同じです
-        {filled > 0 ? "（データのない時間は晴れた日の空）" : ""}。地平線の下は、薄明が見やすいように広げて描いています。
-      </p>
       </div>
 
-      <SectionHead title="時刻" />
-      <dl className="sun-times sun-card">
-        {rows.map((r) => (
-          <div key={r.label} className={r.strong ? "strong" : undefined}>
-            <dt>{r.label}</dt>
-            <dd>
-              {r.note && <small>{r.note}</small>}
-              {r.time == null ? "—" : clockOf(r.time)}
-            </dd>
+      {/* 1画面に収める（2026-11-18 渡辺さん「スクロールしなくていいサイズまで」）：日の出・南中・日の入りを3枚に、
+          3つの薄明は朝と夕の2列の表に、説明は ⓘ に。 */}
+      <div className="sun-keys">
+        {[
+          { label: "日の出", time: rise },
+          { label: "南中", time: e.noon, note: `高さ ${Math.round(e.noonAltitude)}°` },
+          { label: "日の入り", time: set },
+        ].map((k) => (
+          <div key={k.label} className="sun-key">
+            <small>{k.label}</small>
+            <b>{k.time == null ? "—" : clockOf(k.time)}</b>
+            {k.note && <small>{k.note}</small>}
           </div>
         ))}
-        <div className="total">
-          <dt>昼の長さ（日の出〜日の入り）</dt>
-          <dd>
-            {hoursMinutes(length)}
-          </dd>
-        </div>
-      </dl>
-
-      <SectionHead title="3つの薄明" />
-      <ul className="sun-notes">
-        {TWILIGHTS.map((tw) => (
-          <li key={tw.id}>
-            {/* The sky low over the land in the middle of this twilight (a clear evening). */}
-            <i className="sun-swatch" style={{ background: skyAt(tw.deg + 3, 1, 0, true).horizon }} />
-            <b>{tw.label}</b>（太陽が地平線の下 {-tw.deg - 6}〜{-tw.deg}°）：{tw.note}
-          </li>
-        ))}
-      </ul>
+      </div>
+      <table className="sun-tw">
+        <thead>
+          <tr>
+            <th>薄明</th>
+            <th>朝の始まり</th>
+            <th>夕の終わり</th>
+          </tr>
+        </thead>
+        <tbody>
+          {TWILIGHTS.map((tw) => {
+            const span = tw.id === "civil" ? t.civil : tw.id === "nautical" ? t.nautical : t.astronomical;
+            return (
+              <tr key={tw.id}>
+                <th>
+                  {/* The sky low over the land in the middle of this twilight (a clear evening). */}
+                  <i className="sun-swatch" style={{ background: skyAt(tw.deg + 3, 1, 0, true).horizon }} />
+                  {tw.label.replace("薄明", "")}
+                </th>
+                <td>{span.start == null ? "—" : clockOf(span.start)}</td>
+                <td>{span.end == null ? "—" : clockOf(span.end)}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr>
+            <th>昼の長さ</th>
+            <td colSpan={2}>{hoursMinutes(length)}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <InfoNote
+        className="sun-info"
+        more={
+          <>
+            左右になぞると10分ごとに動きます。空の色はこの日の天気（実績・予報）からの模式で、グラフの下の帯と同じです
+            {filled > 0 ? "（データのない時間は晴れた日の空）" : ""}。地平線の下は、薄明が見やすいように広げて描いています。
+            {TWILIGHTS.map((tw) => (
+              <span key={tw.id} className="sun-info-tw">
+                <b>{tw.label}</b>（太陽が地平線の下 {-tw.deg - 6}〜{-tw.deg}°）：{tw.note}
+              </span>
+            ))}
+          </>
+        }
+      >
+        空の色は模式・なぞると10分ごと
+      </InfoNote>
     </ModalSheet>
   );
 }

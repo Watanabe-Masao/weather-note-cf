@@ -4386,17 +4386,20 @@ select.chip.sm {
 .sun-now-phase { display: grid; font-size: var(--size-base); color: var(--ink-primary); line-height: 1.25; }
 .sun-now-phase small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sun-now-alt { margin-left: auto; font-size: var(--size-sm); color: var(--ink-secondary); font-family: var(--font-numeric); }
-.sun-note { margin: var(--space-3) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
-.sun-times { display: grid; margin: 0; }
-.sun-times > div { display: flex; justify-content: space-between; align-items: baseline; padding: var(--space-3) 0; }
-.sun-times > div + div { border-top: var(--stroke-hair) solid var(--line-soft); }
-.sun-times dt { font-size: var(--size-sm); color: var(--ink-secondary); }
-.sun-times dd { margin: 0; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-md); color: var(--ink-primary); display: flex; gap: var(--space-4); align-items: baseline; }
-.sun-times dd small { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.sun-times .strong dt, .sun-times .strong dd { color: var(--ink-primary); font-weight: var(--weight-bold); }
-.sun-times .total { border-top-color: var(--line-strong); }
-.sun-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); font-size: var(--size-sm); color: var(--ink-secondary); }
-.sun-notes b { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.sun-keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }
+.sun-key { display: grid; justify-items: center; gap: 0; padding: var(--space-3) var(--space-2); border-radius: var(--radius-md); background: var(--surface-inset); }
+.sun-key small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.sun-key b { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-lg); font-weight: var(--weight-bold); color: var(--ink-primary); }
+.sun-tw { width: 100%; border-collapse: collapse; margin-top: var(--space-3); font-variant-numeric: tabular-nums; }
+.sun-tw th, .sun-tw td { padding: var(--space-2) var(--space-2); text-align: right; font-weight: var(--weight-regular); border-bottom: var(--stroke-hair) solid var(--line-soft); }
+.sun-tw thead th { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.sun-tw tbody th, .sun-tw tfoot th { text-align: left; font-size: var(--size-sm); color: var(--ink-secondary); }
+.sun-tw td { font-family: var(--font-numeric); font-size: var(--size-md); color: var(--ink-primary); }
+.sun-tw thead th:first-child { text-align: left; }
+.sun-tw tfoot th, .sun-tw tfoot td { border-bottom: 0; }
+.sun-info { margin-top: var(--space-2); padding-bottom: var(--space-7); } /* ⓘ の押せる範囲（44px）が下へはみ出してスクロールが出ないように */
+.sun-info-tw { display: block; margin-top: var(--space-2); }
+.sun-info-tw b { color: var(--ink-primary); }
 .sun-swatch { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-tick); box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; margin-right: var(--space-3); vertical-align: -1px; }
 
 /* 強風／暴風 (#175, shared/storm.ts): a small round tag on the weather picture's shoulder. Amber, the
