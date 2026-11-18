@@ -4,7 +4,7 @@
 // item a day, read by the finger), 曜日 (the weekdays side by side) and 肌感 (the bands over the month).
 // Opened from the calendar's month (CalendarModal). See docs/design-system.md「月の振り返り」.
 
-import { Fragment, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, Fragment, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useDrawnWidth } from "./useDrawnWidth";
 import { addDays } from "../../shared/dates";
 import { dayEdges, dayParts, hoursIn, PARTS, type PartId } from "../../shared/dayParts";
@@ -14,7 +14,7 @@ import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
 import { niceTicks, num, signedDiff, tickLabel } from "../design/format";
-import { barLook, barPath, DATA, FEEL_SCALE_COLORS, lineLook, RADIUS, SHAPE } from "../design/tokens";
+import { barLook, barPath, DATA, FEEL_SCALE_COLORS, feelEdgeOf, lineLook, RADIUS, SHAPE } from "../design/tokens";
 import { bandsFor, FeelBar, FeelContext } from "./FeelBar";
 import { DayWeatherIcon } from "./WeatherIcon";
 import { dayTone } from "../../shared/holidays";
@@ -430,7 +430,8 @@ function FeelMonth({ store, station, days, daysB }: { store: WeatherStore | null
     if (!total) return <span className={`month-feel-bar${thin ? " thin" : ""} empty`} />;
     return (
       <span className={`month-feel-bar${thin ? " thin" : ""}`}>
-        {c.map((k, i) => (k ? <i key={i} style={{ flex: k, background: FEEL_SCALE_COLORS[scale][i] }} title={`${steps[i].label} ${k}日`} /> : null))}
+        {/* The days of each step written in it (not only in a title, #296). */}
+        {c.map((k, i) => (k ? <i key={i} style={{ flex: k, background: FEEL_SCALE_COLORS[scale][i], "--feel-edge": feelEdgeOf(FEEL_SCALE_COLORS[scale][i]) ?? "transparent" } as CSSProperties} aria-label={`${steps[i].label} ${k}日`}>{k}</i> : null))}
       </span>
     );
   };
@@ -453,7 +454,7 @@ function FeelMonth({ store, station, days, daysB }: { store: WeatherStore | null
           </span>
         ))}
       </p>
-      <p className="chart-key-note">太い帯がこの月、細い帯が前の年の同じ月。帯の長さはその段の日数。</p>
+      <p className="chart-key-note">太い帯がこの月、細い帯が前の年の同じ月。帯の中の数字と長さはその段の日数。</p>
     </div>
   );
 }
@@ -1140,7 +1141,7 @@ function WeekDetail({
               {/* This month filled, 前年同曜日 outlined under it (the bars' rule: filled / outlined). */}
               <span className="week-detail-bar">
                 <i style={{ width: `${pct(c.a)}%`, background: color }} />
-                <em style={{ width: `${pct(c.b)}%`, borderColor: color }} title="前年同曜日" />
+                <em style={{ width: `${pct(c.b)}%`, borderColor: color }} aria-label="前年同曜日" />
               </span>
               <span className="week-detail-num">
                 <i style={{ color }}>

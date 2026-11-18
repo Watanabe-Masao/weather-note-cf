@@ -4279,6 +4279,8 @@ button.label-feel::after,
 .ds-head svg { width: 30px; height: 30px; }
 .ds-head .wx-with-storm { margin-right: var(--space-4); }
 .ds-word { font-size: var(--size-base); font-weight: var(--weight-bold); color: var(--ink-primary); }
+.ds-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.cal-pair-side .cal-pair-holiday { color: var(--day-holiday); }
 .ds-head .badge { margin-left: auto; }
 .ds-comment { display: grid; gap: var(--space-1); margin: 0; font-size: var(--size-base); line-height: 1.5; color: var(--ink-primary); word-break: auto-phrase; }
 .ds-storm-title { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--status-warning); }
@@ -4418,10 +4420,11 @@ button.label-feel::after,
 .month-feel-row { display: grid; grid-template-columns: 40px 1fr; align-items: center; gap: var(--space-3); }
 .month-feel-name { font-size: var(--size-sm); color: var(--ink-secondary); }
 .month-feel-bars { display: grid; gap: 3px; }
-.month-feel-bar { display: flex; gap: 1.5px; height: 12px; border-radius: var(--radius-xs); overflow: hidden; }
-.month-feel-bar.thin { height: 5px; opacity: 0.7; }
+.month-feel-bar { display: flex; gap: 1.5px; height: 18px; border-radius: var(--radius-xs); overflow: hidden; }
+.month-feel-bar.thin { height: 14px; opacity: 0.7; }
+/* The days of the step, written in it (white on the step's colour, as 肌感マップ's cells). */
+.month-feel-bar i { box-shadow: inset 0 0 var(--feel-cell-edge-blur) var(--feel-cell-edge-spread) var(--feel-edge, transparent); display: grid; place-items: center; min-width: 0; overflow: hidden; color: var(--ink-on-feel); font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-xs); font-weight: var(--weight-bold); font-style: normal; line-height: 1; }
 .month-feel-bar.empty { background: var(--line-soft); }
-.month-feel-bar i { display: block; }
 .month-review .chart-key-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
 
 .month-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4); }

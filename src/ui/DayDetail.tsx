@@ -26,7 +26,7 @@ import { DaySummaryContext } from "./daySummaryPress";
 import { FeelContext, levelColor, levelName } from "./FeelBar";
 import { HourFace } from "./HourFace";
 import { useSun } from "./HourCompare";
-import { Conf, confidenceOfRow, SectionHead } from "./kit";
+import { Conf, CONF_TEXT, confidenceOfRow, SectionHead } from "./kit";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
 import { WxChart } from "./WxChart";
 import { ForecastHistoryPanel } from "./forecastHistory/ForecastHistory";
@@ -173,7 +173,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
         <WxChart date={date} today={today} />
         <p className="dd-basis">
           <span>出どころ</span>
-          {row?.type === "forecast" ? `気象庁の予報${conf ? `（信頼度 ${conf}）` : ""}` : `気象庁の観測（${kindLabel(store, station, date) || "—"}）`}
+          {row?.type === "forecast" ? `気象庁の予報${conf ? `（${CONF_TEXT[conf]}）` : ""}` : `気象庁の観測（${kindLabel(store, station, date) || "—"}）`}
         </p>
         <MyReports station={station} date={date} />
         <div className="dd-links">
