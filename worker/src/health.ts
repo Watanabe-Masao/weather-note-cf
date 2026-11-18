@@ -10,9 +10,9 @@
 //   app_errors — failures of the account requests (the log keeps them only 3–7 days, the count here 30).
 
 import { SHIROMATZ_SOURCE } from "../../shared/forecastShiromatz";
-import type { Db } from "./accounts";
+import type { Db, Stmt } from "./accounts";
 import { importPosition } from "./forecastImport";
-import { monthUsage, type UsageEnv } from "./usage";
+import { monthUsage, scheduledRuns, type UsageEnv } from "./usage";
 
 export const HEALTH_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS cron_runs (
@@ -52,6 +52,12 @@ export function ensureHealthSchema(db: Db): Promise<void> {
   if (!p) {
     p = (async () => {
       for (const q of HEALTH_SCHEMA) await db.prepare(q).run();
+      // d1_ms (2026-11-18): added to a table that may already be there; "duplicate column" means it is.
+      try {
+        await db.prepare("ALTER TABLE cron_runs ADD COLUMN d1_ms INTEGER").run();
+      } catch (e) {
+        if (!/duplicate column/i.test(String(e))) throw e;
+      }
     })().catch((e) => {
       ready.delete(db);
       throw e;
@@ -61,19 +67,69 @@ export function ensureHealthSchema(db: Db): Promise<void> {
   return p;
 }
 
-/** Runs one scheduled stage and keeps its time and outcome (never throws: a stage's failure is logged and kept). */
-export async function timed(db: Db, at: string, stage: string, fn: () => Promise<unknown>): Promise<void> {
+/**
+ * A D1 that counts the time spent waiting on it (each statement's wall time, from the call to the answer):
+ * a stage's time is then split into D1 and the rest (JMA, R2 and the computing), for when a stage is slow.
+ */
+export function metered(db: Db): { db: Db; ms: () => number; reset: () => void } {
+  let total = 0;
+  const time = async <T>(p: Promise<T>): Promise<T> => {
+    const t = Date.now();
+    try {
+      return await p;
+    } finally {
+      total += Date.now() - t;
+    }
+  };
+  type Wrapped = Stmt & { inner: Stmt };
+  const wrap = (s: Stmt): Wrapped => ({
+    inner: s,
+    bind: (...v: unknown[]) => wrap(s.bind(...v)),
+    first: (<T>() => time(s.first<T>())) as Stmt["first"],
+    all: (<T>() => time(s.all<T>())) as Stmt["all"],
+    run: () => time(s.run()),
+  });
+  return {
+    db: { prepare: (q: string) => wrap(db.prepare(q)), batch: (st: Stmt[]) => time(db.batch(st.map((x) => (x as Partial<Wrapped>).inner ?? x))) },
+    ms: () => total,
+    reset: () => void (total = 0),
+  };
+}
+/**
+ * One metered D1 per stage, kept for the isolate: the modules make their tables once per D1 object (a
+ * WeakMap each), so a new wrapper every run would make them again every run — more D1 work, not less.
+ */
+const meters = new WeakMap<Db, Map<string, ReturnType<typeof metered>>>();
+function meterOf(db: Db, stage: string) {
+  let byStage = meters.get(db);
+  if (!byStage) meters.set(db, (byStage = new Map()));
+  let m = byStage.get(stage);
+  if (!m) byStage.set(stage, (m = metered(db)));
+  m.reset();
+  return m;
+}
+
+/**
+ * Runs one scheduled stage and keeps its time and outcome (never throws: a stage's failure is logged and kept).
+ * `ms` is the wall time, `d1_ms` the part of it spent waiting on D1 (metered). The same line is also written to
+ * the Worker's log (Workers Logs, observability in wrangler.jsonc), which does not depend on D1: when D1 cannot
+ * be written, the log still says the stage ran.
+ */
+export async function timed(db: Db, at: string, stage: string, fn: (db: Db) => Promise<unknown>): Promise<void> {
   const t = Date.now();
+  const m = meterOf(db, stage);
   let ok = 1;
   try {
-    await fn();
+    await fn(m.db);
   } catch (e) {
     ok = 0;
     console.error(`weather-note: ${stage}`, e);
   }
+  const ms = Date.now() - t;
+  console.log(JSON.stringify({ wn: "cron-stage", at, stage, ms, d1Ms: m.ms(), ok }));
   try {
     await ensureHealthSchema(db);
-    await db.prepare("INSERT OR REPLACE INTO cron_runs (at, stage, ms, ok) VALUES (?, ?, ?, ?)").bind(at, stage, Date.now() - t, ok).run();
+    await db.prepare("INSERT OR REPLACE INTO cron_runs (at, stage, ms, ok, d1_ms) VALUES (?, ?, ?, ?, ?)").bind(at, stage, ms, ok, m.ms()).run();
   } catch (e) {
     console.error("weather-note: cron_runs", e);
   }
@@ -84,6 +140,8 @@ export async function timed(db: Db, at: string, stage: string, fn: () => Promise
  * that started but was cut short before any stage ended is told apart from one never started (cronGaps).
  */
 export async function markStart(db: Db, at: string, lateMs: number): Promise<void> {
+  // First to the Worker's log (apart from D1): a start that D1 could not keep is still seen there.
+  console.log(JSON.stringify({ wn: "cron-start", at, lateMs: Math.max(0, Math.round(lateMs)) }));
   try {
     await ensureHealthSchema(db);
     await db.prepare("INSERT OR REPLACE INTO cron_runs (at, stage, ms, ok) VALUES (?, 'start', ?, 1)").bind(at, Math.max(0, Math.round(lateMs))).run();
@@ -92,18 +150,21 @@ export async function markStart(db: Db, at: string, lateMs: number): Promise<voi
   }
 }
 
-/** The 5-minute runs (wrangler.jsonc: every 5 minutes, on the minute) in the 24 hours before `now`. */
+/** The 5-minute runs (wrangler.jsonc: every 5 minutes, on the minute, UTC; JST is whole hours ahead, so the same times). */
 const SLOT_MS = 5 * 60_000;
+/** The runs counted: 288 (24 hours), the last one ending at least this long ago — a run still going is not missing. */
+export const CRON_WINDOW = { runs: 288, graceMs: 10 * 60_000 } as const;
 /**
- * 定時処理の抜け (2026-11-18): the 5-minute times in the last 24 hours with no stage kept at all (cron_runs,
- * keyed by the run's scheduled time), as runs of missing times — so a stretch (Cloudflare not starting
- * them, a deploy) is told apart from runs missing here and there (one cut short before any stage ended).
- * The newest first, at most `limit`; `missing` counts them all.
+ * 定時処理の抜け (2026-11-18): of the 288 scheduled times in a fixed window (the 24 hours of 5-minute times
+ * whose last is at least 10 minutes before `now`; times in UTC as the cron runs, shown in JST), those with no
+ * stage kept at all (cron_runs, keyed by the run's scheduled time), as runs of missing times — so a stretch is
+ * told apart from runs missing here and there. A time with no row is not proven not started: D1 may have
+ * failed to keep it (the Worker's log, apart from D1, says; see markStart). The newest first, at most `limit`.
  */
-export function cronGaps(ats: string[], now: number, limit = 6): { missing: number; gaps: { from: string; to: string; n: number }[] } {
+export function cronGaps(ats: string[], now: number, limit = 6): { window: { from: string; to: string; runs: number }; kept: number; missing: number; gaps: { from: string; to: string; n: number }[] } {
   const have = new Set(ats.map((a) => Math.floor(Date.parse(a) / SLOT_MS)));
-  const last = Math.floor(now / SLOT_MS) - 1; // the slot now may still be running
-  const first = Math.floor((now - 24 * 3_600_000) / SLOT_MS) + 1;
+  const last = Math.floor((now - CRON_WINDOW.graceMs) / SLOT_MS);
+  const first = last - CRON_WINDOW.runs + 1;
   const gaps: { from: string; to: string; n: number }[] = [];
   let missing = 0;
   for (let k = last; k >= first; k--) {
@@ -115,7 +176,12 @@ export function cronGaps(ats: string[], now: number, limit = 6): { missing: numb
       g.n++;
     } else gaps.push({ from: new Date(k * SLOT_MS).toISOString(), to: new Date(k * SLOT_MS).toISOString(), n: 1 });
   }
-  return { missing, gaps: gaps.slice(0, limit) };
+  return {
+    window: { from: new Date(first * SLOT_MS).toISOString(), to: new Date(last * SLOT_MS).toISOString(), runs: CRON_WINDOW.runs },
+    kept: CRON_WINDOW.runs - missing,
+    missing,
+    gaps: gaps.slice(0, limit),
+  };
 }
 
 /** A failure of an account request, kept for counting (the place and the error's first line). */
@@ -248,13 +314,14 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
     db,
     "SELECT kind, MAX(issued_at) AS issued_at FROM forecast_telegrams WHERE office = '390000' GROUP BY kind",
   );
-  const stages = await all<{ stage: string; runs: number; failed: number; avg_ms: number; max_ms: number; last: string }>(
+  const stages = await all<{ stage: string; runs: number; failed: number; avg_ms: number; max_ms: number; avg_d1_ms: number | null; last: string }>(
     db,
-    "SELECT stage, COUNT(*) AS runs, SUM(1 - ok) AS failed, CAST(AVG(ms) AS INTEGER) AS avg_ms, MAX(ms) AS max_ms, MAX(at) AS last FROM cron_runs WHERE at >= ? GROUP BY stage ORDER BY stage",
+    "SELECT stage, COUNT(*) AS runs, SUM(1 - ok) AS failed, CAST(AVG(ms) AS INTEGER) AS avg_ms, MAX(ms) AS max_ms, CAST(AVG(d1_ms) AS INTEGER) AS avg_d1_ms, MAX(at) AS last FROM cron_runs WHERE at >= ? GROUP BY stage ORDER BY stage",
     dayAgo,
   );
-  const runTotals = await one<{ runs: number }>(db, "SELECT COUNT(DISTINCT at) AS runs FROM cron_runs WHERE at >= ?", dayAgo);
-  const runTimes = (await all<{ at: string }>(db, "SELECT DISTINCT at FROM cron_runs WHERE at >= ?", dayAgo)).map((r) => r.at);
+  // A day and a half back: the fixed window (cronGaps) starts 24 hours and 10 minutes before now.
+  const runTimes = (await all<{ at: string }>(db, "SELECT DISTINCT at FROM cron_runs WHERE at >= ?", iso(now - 36 * 3_600_000))).map((r) => r.at);
+  const gaps = cronGaps(runTimes, now);
   const errors = await all<{ place: string; n: number; last: string }>(
     db,
     "SELECT place, COUNT(*) AS n, MAX(at) AS last FROM app_errors WHERE at >= ? GROUP BY place ORDER BY n DESC",
@@ -292,6 +359,27 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
 
   // The month's real use, as Cloudflare counts it (usage.ts); each part says itself when it could not be read.
   const u = await monthUsage(env, now, usageFetch);
+  // 定時処理の回を Cloudflare 自身の記録でも（D1 とは別の記録）：決まった窓（cronGaps）と同じ288回。
+  const cf = await scheduledRuns(env, { from: gaps.window.from, to: gaps.window.to }, usageFetch);
+  const cfRuns = cf.ok
+    ? {
+        ok: true as const,
+        empty: cf.value.empty,
+        runs: cf.value.runs,
+        byStatus: cf.value.byStatus,
+        cpuMaxMs: Math.round(cf.value.cpuMaxUs / 1000),
+        // Cloudflare が始めたのに D1 に何も残っていない回（D1 に書けなかった）と、Cloudflare にも D1 にも無い回。
+        ...(cf.value.empty
+          ? {}
+          : (() => {
+              const started = new Set(cf.value.times.map((t) => Math.floor(Date.parse(t) / SLOT_MS)));
+              const keptSet = new Set(runTimes.map((a) => Math.floor(Date.parse(a) / SLOT_MS)));
+              let startedNotKept = 0;
+              for (const k of started) if (!keptSet.has(k)) startedNotKept++;
+              return { startedNotKept, notStarted: CRON_WINDOW.runs - started.size };
+            })()),
+      }
+    : { ok: false as const, error: cf.error };
   const measured = u.ok
     ? {
         from: u.from,
@@ -330,7 +418,8 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       // so their sum is no run's length. CPU against its limit is in `usage` (Cloudflare's count).
       // 抜け: the 5-minute times with no stage kept (cronGaps); the stage `start` (index.ts) is kept first
       // thing, so a run that started and was cut short is not among them.
-      cron: { runsLastDay: runTotals?.runs ?? 0, longestStageMs: Math.max(0, ...stages.map((s) => s.max_ms)), stages, ...cronGaps(runTimes, now) },
+      // runsLastDay: the runs kept in the fixed window of 288 (cronGaps), so it is out of 288 exactly.
+      cron: { runsLastDay: gaps.kept, longestStageMs: Math.max(0, ...stages.map((s) => s.max_ms)), stages, ...gaps, cloudflare: cfRuns },
     },
     // 無駄: what is kept or done for nothing, or not done.
     waste: {

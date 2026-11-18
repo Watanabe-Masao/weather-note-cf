@@ -98,6 +98,31 @@ describe("two devices of one person", () => {
   });
 });
 
+describe("再送と重複（2026-11-18、#297 のあと）", () => {
+  it("サーバーが保存したのに答えだけが失われたとき：次の同期で送り直しても、1件のまま・順番（seq）も進まない", async () => {
+    const db = await server();
+    const clock = { t: 100 };
+    const d = device(db, clock);
+    d.store.set("r1", rep("r1", 50));
+    // 1回目：サーバーは保存したが、答えが届かなかった（端末は失敗と思う）
+    const lost = d.deps("A");
+    const first = await syncOnce(startState("A"), { ...lost, post: async (b) => (await lost.post(b), Promise.reject(new Error("network"))) });
+    expect(first.error).toBe("network");
+    expect(first.pushedAt).toBe(0); // 送れた印は進めない → 次で送り直す
+    const seq1 = (db.raw.prepare("SELECT seq FROM reports WHERE user_id = 'A' AND id = 'r1'").get() as { seq: number }).seq;
+    // 2回目：同じ記録を送り直す
+    clock.t = 200;
+    const second = await syncOnce(first, d.deps("A"));
+    expect(second.error).toBeNull();
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM reports WHERE user_id = 'A'").get()).toEqual({ n: 1 });
+    expect((db.raw.prepare("SELECT seq FROM reports WHERE user_id = 'A' AND id = 'r1'").get() as { seq: number }).seq).toBe(seq1);
+    // 同じものを何度送っても同じ
+    await pushReports(db, "A", checkReports([rep("r1", 50)]) as never, 300);
+    await pushReports(db, "A", checkReports([rep("r1", 50)]) as never, 300);
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM reports WHERE user_id = 'A'").get()).toEqual({ n: 1 });
+  });
+});
+
 describe("one device shared by two people", () => {
   it("never sends one person's reports to the other's account", async () => {
     const db = await server();

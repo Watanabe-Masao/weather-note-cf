@@ -229,32 +229,32 @@ export default {
     const db = env.DB;
     // Each stage's time and outcome is kept (health.ts: cron_runs), so the room left and a slow stage can be seen.
     const at = new Date(event.scheduledTime).toISOString();
-    const stage = (name: string, fn: () => Promise<unknown>) => () => timed(db, at, name, fn);
+    const stage = (name: string, fn: (d: Db) => Promise<unknown>) => () => timed(db, at, name, fn);
     // 定時処理の抜け (health.ts cronGaps): the run kept first, with how late it started.
     ctx.waitUntil(markStart(db, at, Date.now() - event.scheduledTime));
-    ctx.waitUntil(stage("notify", () => ensureSchema(db).then(() => runSchedule(db)))());
+    ctx.waitUntil(stage("notify", (d) => ensureSchema(d).then(() => runSchedule(d)))());
     // Apart from the notifications: a failure here never stops them (and is logged in its own table).
     // Then the sources are watched, and the administrators told when one stops (typhoonWatch.ts).
     ctx.waitUntil(
-      stage("typhoon archive", () => collectTyphoons(db))()
-        .then(stage("typhoon watch", () => watchTyphoonSources(db)))
+      stage("typhoon archive", (d) => collectTyphoons(d))()
+        .then(stage("typhoon watch", (d) => watchTyphoonSources(d)))
         // 台風の目安: after the new telegrams are in (typhoonNotify.ts).
-        .then(stage("typhoon notify", () => ensureSchema(db).then(() => runTyphoonNotify(db))))
+        .then(stage("typhoon notify", (d) => ensureSchema(d).then(() => runTyphoonNotify(d))))
         // 予報の履歴 (#250): JMA's forecasts of the offices in use, kept as issued (forecastArchive.ts).
-        .then(stage("forecast archive", () => collectForecasts(db)))
+        .then(stage("forecast archive", (d) => collectForecasts(d)))
         // R5-3: the administrators told when the forecast archive stops (forecastWatch.ts) — before the
         // reading, which is heavier: a watch that must not wait on it, nor be cut by its limits.
-        .then(stage("forecast watch", () => watchForecastArchive(db)))
+        .then(stage("forecast watch", (d) => watchForecastArchive(d)))
         // 警報・注意報の電文 (高知県, warningArchive.ts): before the reading too — a telegram missed for 7 days cannot be taken again.
-        .then(stage("warning archive", () => collectWarnings(db)))
+        .then(stage("warning archive", (d) => collectWarnings(d)))
         // Then read what was kept: values with their times, for the history (forecastParse.ts).
-        .then(stage("forecast parse", () => parseForecasts(db))),
+        .then(stage("forecast parse", (d) => parseForecasts(d))),
     );
     // 毎時の見張り (healthWatch.ts), apart from the rest: once an hour (most runs only find it is not due,
     // one statement), /api/health judged and the administrators told when a problem starts or is over.
     ctx.waitUntil(
       claimHealthWatch(db, event.scheduledTime)
-        .then((due) => (due ? stage("health watch", () => watchHealth(db, event.scheduledTime, env))() : undefined))
+        .then((due) => (due ? stage("health watch", (d) => watchHealth(d, event.scheduledTime, env))() : undefined))
         .catch((e) => console.error("weather-note: health watch", e)),
     );
     // Files kept in R2 (r2Archive.ts), apart from the rest: the rain radar every 30 minutes first (JMA lists
@@ -262,11 +262,11 @@ export default {
     const bucket = env.ARCHIVE;
     if (bucket)
       ctx.waitUntil(
-        stage("radar save", () => saveRadar(db, bucket))()
-          .then(stage("wxchart save", () => saveCharts(db, bucket)))
-          .then(stage("archive copy", () => copyTelegrams(db, bucket)))
+        stage("radar save", (d) => saveRadar(d, bucket))()
+          .then(stage("wxchart save", (d) => saveCharts(d, bucket)))
+          .then(stage("archive copy", (d) => copyTelegrams(d, bucket)))
           // 長い先の予報（1か月予報・早期天候情報・2週間気温予報）：R2 に gzip で、30分ごと（longRangeArchive.ts）。
-          .then(stage("long range", () => collectLongRange(db, bucket))),
+          .then(stage("long range", (d) => collectLongRange(d, bucket))),
       );
   },
 } satisfies ExportedHandler<AccountsEnv>;

@@ -35,7 +35,9 @@ describe("監視と管理", () => {
       { stage: "a", ok: 1 },
       { stage: "b", ok: 0 },
     ]);
-    const h = await health(db, NOW + 60_000);
+    // The fixed window (cronGaps) leaves out the last 10 minutes: a run still going is not counted, nor missing.
+    expect((await health(db, NOW + 60_000)).room.cron.runsLastDay).toBe(0);
+    const h = await health(db, NOW + 11 * 60_000);
     expect(h.room.cron.runsLastDay).toBe(1);
     expect(h.room.cron.stages.map((s) => [s.stage, s.runs, s.failed])).toEqual([
       ["a", 1, 0],
