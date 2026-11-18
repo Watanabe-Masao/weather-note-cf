@@ -164,8 +164,8 @@ const THEMES: Record<ThemeName, Palette> = {
     // tertiary as secondary: the 補足 comparison chose 3 (one quiet ink, size and place tell the rest).
     ink: {
       primary: "#d9d1c4",
-      secondary: "#ada99f",
-      tertiary: "#ada99f",
+      secondary: "#b8b4aa",
+      tertiary: "#b8b4aa",
       disabled: "#6c727c",
       onAccent: "#00071f",
       onFeel: "#ffffff",
@@ -185,9 +185,9 @@ const THEMES: Record<ThemeName, Palette> = {
       glow: "rgba(145, 180, 155, 0.24)",
     },
     data: {
-      hot: "#cd6739",
-      cold: "#3788cf",
-      temp: "#cd6739",
+      hot: "#ea7742",
+      cold: "#409ded",
+      temp: "#ea7742",
       mean: "#8ea3b9",
       rain: "#45c8d8",
       snow: "#cdd9ff",
