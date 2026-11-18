@@ -180,6 +180,10 @@ p {
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--chip-tone) 18%, transparent) inset;
 }
 
+/* 中身がまだ無い（天気図の出ていない時刻）：線を点線に、文字を控えめに。選んでいれば選んだ色のまま点線。 */
+.chip.muted { border-style: dashed; }
+.chip.muted:not(.on) { color: var(--ink-tertiary); background: transparent; }
+
 .chip.sm {
   min-height: 28px;
   padding: 3px var(--space-5);
