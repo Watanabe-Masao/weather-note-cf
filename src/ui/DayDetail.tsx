@@ -65,6 +65,8 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   // ふだんは「暫定 ⓘ」だけ。ⓘ で開く（ほかの説明と同じ InfoNote の形、2026-11-18 渡辺さん）。
   const prov = day?.state === "ready" ? provisionalNote(row, date, today, day.kind === "fixed") : null;
   const [provOpen, setProvOpen] = useState(false);
+  // この日の値の出どころは ⓘ で開く（2026-11-18 渡辺さん「出どころは ⓘ でいい」）。暫定の日は待っているものも。
+  const source = row?.type === "forecast" ? `気象庁の予報${conf ? `（${CONF_TEXT[conf]}）` : ""}` : `気象庁の観測（${kindLabel(store, station, date) || "—"}）`;
 
   return (
     <section className="day-detail" aria-label="1日の詳しい様子">
@@ -79,14 +81,22 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
         <span className="dd-kind">
           {kindLabel(store, station, date)}
           {conf && <Conf value={conf} />}
-          {prov && (
-            <button className="info-btn" onClick={() => setProvOpen(!provOpen)} aria-expanded={provOpen} aria-label={provOpen ? "暫定の説明を閉じる" : "暫定の説明を開く"}>
+          {row && (
+            <button className="info-btn" onClick={() => setProvOpen(!provOpen)} aria-expanded={provOpen} aria-label={provOpen ? "出どころの説明を閉じる" : "出どころの説明を開く"}>
               ⓘ
             </button>
           )}
         </span>
       </div>
       {comment.length > 0 && <p className="dd-say">{comment.join("")}</p>}
+      {!prov && provOpen && row && (
+        <div className="dd-prov plain">
+          <dl>
+            <dt>出どころ</dt>
+            <dd>{source}</dd>
+          </dl>
+        </div>
+      )}
       {prov && provOpen && (
         <div className="dd-prov">
           <p className="dd-prov-lead">暫定：まだ確定していない値です</p>
@@ -168,11 +178,6 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
 
       <div className="dd-sec">
         <SectionHead title="根拠と記録" as="h3" />
-        {/* この日の値の出どころは、その値の話の始めに（下の天気図の出どころと取り違えないように、2026-11-18）。 */}
-        <p className="dd-basis">
-          <span>出どころ</span>
-          {row?.type === "forecast" ? `気象庁の予報${conf ? `（${CONF_TEXT[conf]}）` : ""}` : `気象庁の観測（${kindLabel(store, station, date) || "—"}）`}
-        </p>
         <MyReports station={station} date={date} />
         <h4 className="dd-sub">この日の予報の移り変わり</h4>
         <ForecastHistoryPanel store={store} station={station} date={date} />
