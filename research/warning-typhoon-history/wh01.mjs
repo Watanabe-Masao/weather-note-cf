@@ -1,4 +1,4 @@
-// WH-01 (#299 P0): can the warnings and typhoon telegrams kept be checked against another record of what
+// WH-01 (#299 P0; run 2: the columns read by position, the page image in short lines): can the warnings and typhoon telegrams kept be checked against another record of what
 // was issued? Looks only (robots.txt first); sizes, times and parsed counts to the log. The PDF pages are
 // read here and not kept; one page is printed as a small image (base64) only to check the reading by eye.
 // Run once by a push to research/warning-typhoon-history. 出典：気象庁ホームページ（高知地方気象台を含む）。
@@ -82,10 +82,33 @@ for (const ym of have.filter((x) => x >= "2026_05")) {
     for (const l of lines.filter((x) => x.trim()).slice(0, 60)) console.log(`  | ${l.replace(/\s+$/, "").slice(0, 220)}`);
     console.log("  -- 読み取った行の先頭 25 --");
     for (const x of rows.slice(0, 25)) console.log(`  ${x.at} ${x.name} [${x.marks}]`);
-    execFileSync("pdftoppm", ["-f", "1", "-l", "1", "-r", "60", "-gray", "-png", f, join(tmp, "p")]);
+    // The columns by position (pdftotext -bbox): the row of 市・町・村 under the names gives one x per column.
+    execFileSync("pdftotext", ["-bbox", "-f", "1", "-l", "1", f, join(tmp, "b.html")]);
+    const words = [...readFileSync(join(tmp, "b.html"), "utf8").matchAll(/<word xMin="([\d.]+)" yMin="([\d.]+)" xMax="([\d.]+)" yMax="[\d.]+">([^<]*)<\/word>/g)].map((m) => ({ x: +m[1], y: +m[2], x2: +m[3], t: m[4] }));
+    const chars = words.flatMap((w) => [...w.t].map((c, i, a) => ({ x: w.x + ((w.x2 - w.x) / a.length) * (i + 0.5), y: w.y, c })));
+    const suffixRow = words.filter((w) => /^[市町村]+$/.test(w.t));
+    const ys = new Map();
+    for (const w of suffixRow) ys.set(Math.round(w.y), (ys.get(Math.round(w.y)) ?? 0) + w.t.length);
+    const yCol = [...ys].sort((a, b) => b[1] - a[1])[0]?.[0];
+    const cols = chars.filter((c) => /[市町村]/.test(c.c) && Math.abs(c.y - yCol) < 2).map((c) => c.x).sort((a, b) => a - b);
+    const top = chars.filter((c) => c.y < yCol - 1 && c.y > yCol - 60);
+    const colName = cols.map((x) => top.filter((c) => Math.abs(c.x - x) < 3).sort((a, b) => a.y - b.y).map((c) => c.c).join("") + chars.find((c) => Math.abs(c.y - yCol) < 2 && Math.abs(c.x - x) < 1)?.c);
+    console.log(`  columns ${cols.length}: ${colName.join(" ")}`);
+    const names = words.filter((w) => /(注意報|警報)$/.test(w.t) && w.y > yCol + 2).sort((a, b) => a.y - b.y);
+    const MARKS = /^[●◯○▼■◆解]$/;
+    const markChars = chars.filter((c) => MARKS.test(c.c) && c.y > yCol + 2);
+    console.log("  -- 位置で読んだ行（1ページ目の先頭 25、列の順。・は印なし） --");
+    names.slice(0, 25).forEach((nm, i) => {
+      const next = names[i + 1]?.y ?? nm.y + 30;
+      const dt = words.filter((w) => Math.abs(w.y - nm.y) < 2 && /^(\d{1,2}月\d{1,2}日|\d{1,2}時\d{2}分)$/.test(w.t)).map((w) => w.t).join(" ");
+      const row = cols.map((x) => markChars.find((c) => c.y > nm.y - 2 && c.y < next - 2 && Math.abs(c.x - x) < 4)?.c ?? "・");
+      console.log(`  ${dt || "(同じ時刻)"} ${nm.t} ${row.join("")}  高知市=${row[0]}`);
+    });
+    execFileSync("pdftoppm", ["-f", "1", "-l", "1", "-r", "70", "-gray", "-y", "0", "-H", "420", "-W", "820", "-png", f, join(tmp, "p")]);
     const png = readFileSync(join(tmp, "p-1.png"));
     console.log(`=====PAGE1-PNG ${ym} ${png.length}=====`);
-    console.log(png.toString("base64"));
+    const b64 = png.toString("base64");
+    for (let i = 0; i < b64.length; i += 120) console.log(`B64 ${b64.slice(i, i + 120)}`);
     console.log("=====PAGE1-END=====");
   }
 }
