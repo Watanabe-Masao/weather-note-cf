@@ -3,7 +3,7 @@
 // 2022-12, 日々の天気図 from 2002), the National Diet Library's collection before 2002, and for the
 // days ahead the latest 予想天気図 that falls on the day. Nothing is kept by the app yet.
 
-import { useEffect, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { CHART_HOURS, CREDIT, dayChart, type ForecastChart, QUICK_FROM, quickChartUrl } from "../../shared/wxchart";
 import { Chip, Segmented } from "./kit";
@@ -208,41 +208,46 @@ function IssuedCharts({ issued }: { issued: string }) {
   }, [issued]);
   const ahead = saved?.at === issued ? saved.charts : null;
   const when = `${md(issued)} ${Number(issued.slice(11, 13))}時の発表`;
+  // 3枚を横1列に（実況・24時間後・48時間後の予想）。押すと大きく（2026-11-18 渡辺さん「スクロールが長すぎる」）。
+  // 無い図はその枠に「なし」と書く（枠は残して、何が無いかが分かるように）。
+  const slot = (key: string, cap: ReactNode, body: ReactNode) => (
+    <div key={key} className="wx-fc">
+      {body}
+      <small>{cap}</small>
+    </div>
+  );
+  const none = (text: string) => <span className="wx-empty">{text}</span>;
+  const nowPic =
+    b.date < QUICK_FROM
+      ? none("2024年10月より前")
+      : missing === url
+        ? none("見つかりません")
+        : (
+            <a href={url} target="_blank" rel="noreferrer" className="wx-pic">
+              <img src={url} alt={`地上天気図（日本周辺）${md(b.date)} ${b.hour}時`} width={600} height={581} loading="lazy" onError={() => setMissing(url)} />
+            </a>
+          );
+  const aheadOf = (hours: number) => {
+    const c = ahead?.find((x) => x.hours === hours);
+    if (ahead == null) return slot(`a${hours}`, `${hours}時間後の予想`, none("読み込み中…"));
+    if (!c) return slot(`a${hours}`, `${hours}時間後の予想`, none("なし"));
+    return slot(
+      c.src,
+      `${hm(c.valid)}の予想`,
+      <a href={c.src} target="_blank" rel="noreferrer" className="wx-pic">
+        <img src={c.src} alt={`予想天気図 ${c.hours}時間後`} width={600} height={581} loading="lazy" />
+      </a>,
+    );
+  };
   return (
     <>
       <p className="wx-lead">{when}のときの空の形</p>
-      {b.date < QUICK_FROM ? (
-        <p className="wx-none">この発表の時の3時間ごとの天気図はありません（2024年10月より前）。</p>
-      ) : missing === url ? (
-        <p className="wx-none">{md(b.date)} {b.hour}時の天気図は見つかりませんでした。</p>
-      ) : (
-        <div className="wx-fc">
-          <a href={url} target="_blank" rel="noreferrer" className="wx-pic">
-            <img src={url} alt={`地上天気図（日本周辺）${md(b.date)} ${b.hour}時`} width={600} height={581} loading="lazy" onError={() => setMissing(url)} />
-          </a>
-          <small>
-            {md(b.date)} {b.hour}時の天気図（この発表の{b.lead}時間前）
-          </small>
-        </div>
-      )}
-      {ahead == null ? (
-        <p className="wx-none">その時の予想天気図を読み込み中…</p>
-      ) : ahead.length === 0 ? (
-        <p className="wx-none">この発表の時の予想天気図はありません（保存を始める前の発表です）。</p>
-      ) : (
-        <div className="wx-pair">
-          {ahead.map((c) => (
-            <div key={c.src} className="wx-fc">
-              <a href={c.src} target="_blank" rel="noreferrer" className="wx-pic">
-                <img src={c.src} alt={`予想天気図 ${c.hours}時間後`} width={600} height={581} loading="lazy" />
-              </a>
-              <small>
-                {hm(c.valid)}の予想（{c.hours}時間後）
-              </small>
-            </div>
-          ))}
-        </div>
-      )}
+      <div className="wx-trio">
+        {slot("now", `${md(b.date)} ${b.hour}時（${b.lead}時間前）`, nowPic)}
+        {aheadOf(24)}
+        {aheadOf(48)}
+      </div>
+      {ahead != null && ahead.length === 0 && <p className="wx-none">予想天気図は、保存を始める前の発表のため、ありません。</p>}
       <small className="wx-credit">「地上天気図（日本周辺）」「予想天気図」（{CREDIT}）・押すと大きく</small>
     </>
   );

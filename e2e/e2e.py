@@ -789,7 +789,7 @@ with sync_playwright() as p:
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
         # 項目の選び（値つき）は 24時間の見出しのすぐ下（2026-11-18）。肌感は見出しの下の1行で、押すと肌感マップ。
         check("SD4 グラフの項目：7つが24時間のグラフのすぐ上、肌感は上の1行", pg.locator(".hour-face .dd-pick .dd-value").count() == 7 and pg.locator(".dd-feel-line").count() == 1, pg.locator(".dd-value").count())
-        if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day.png")
+        if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day.png"); pg.locator(".day-detail .dd-sec").last.screenshot(path=f"{shots}-basis.png")
         lr = pg.locator(".day-detail .legend-row")
         if lr.count():
             tops = pg.evaluate("[...document.querySelectorAll('.day-detail .legend-row .legend-line, .day-detail .legend-row .avg-window, .day-detail .legend-row .info-btn')].map(e => Math.round(e.getBoundingClientRect().top + e.getBoundingClientRect().height / 2))")
@@ -797,7 +797,7 @@ with sync_playwright() as p:
             if shots: lr.screenshot(path=f"{shots}-legend.png")
         # 天気図は予報の移り変わりと連動（2026-11-18）：「発表の時」は選んだ発表の直前の天気図と、その時の予想天気図。
         lead = txt(".wx-chart .wx-lead") if pg.locator(".wx-chart .wx-lead").count() else ""
-        check("SD4b 天気図：「発表の時｜この日」、発表の時は選んだ発表の時刻の図（保存の無い予想天気図は無いと書く）", pg.locator(".wx-chart").count() == 1 and pg.locator(".wx-chart .seg button").count() == 2 and "の発表のときの空の形" in lead and "予想天気図はありません" in txt(".wx-chart"), lead)
+        check("SD4b 天気図：「発表の時｜この日」、発表の時は選んだ発表の時刻の図（保存の無い予想天気図は無いと書く）", pg.locator(".wx-chart").count() == 1 and pg.locator(".wx-chart .seg button").count() == 2 and "の発表のときの空の形" in lead and (pg.locator(".wx-trio .wx-empty").count() == 2 or "予想天気図はありません" in txt(".wx-chart")), lead)
         pg.locator(".wx-chart .seg button", has_text="この日").click(); calm()
         check("SD4b2 「この日」：対象日の天気図（時刻を選べる）", pg.locator(".wx-hours button").count() == 7 or pg.locator(".wx-chart h4", has_text="予想天気図").count() == 1)
         pg.locator(".wx-chart .seg button", has_text="発表の時").click(); calm()

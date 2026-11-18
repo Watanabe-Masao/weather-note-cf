@@ -153,3 +153,15 @@
 .fh-drow-ch { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1) var(--space-2); max-width: 11em; }
 .fh-dgroup { display: grid; border: var(--stroke-hair) solid var(--line-soft); border-radius: var(--radius-sm); overflow: hidden; }
 .dd-sub { margin: var(--space-2) 0 0; font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }
+/* 詰める（2026-11-18 渡辺さん「空白でスクロールが長くなりすぎない」）：上の段の絵・余白、表の行の高さ、一覧の間。 */
+.fh-split { margin-bottom: 0; gap: var(--space-2); }
+.fh-split-col { padding: var(--space-2) var(--space-3); gap: var(--space-1); grid-template-rows: 36px 3em; }
+.fh-split-col.actual { grid-template-rows: 36px auto auto; }
+.fh-split-top { height: 36px; }
+.fh-split-temps { font-size: var(--size-lg); }
+.fh-focus-nopic.small { width: 32px; height: 32px; }
+.fh-ctab { grid-template-rows: auto 4.2em 3em; }
+.fh-ctab .c.fc3, .fh-ctab .c.span4 { height: 4.2em; }
+.fh-ctab .c.span4 ~ .c, .fh-ctab .rh.ac ~ .c { height: 3em; }
+.fh-days { gap: var(--space-3); }
+.fh-rows-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }

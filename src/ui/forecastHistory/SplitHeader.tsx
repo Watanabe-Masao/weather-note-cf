@@ -102,7 +102,7 @@ export function SplitHeader({
           <div className="fh-split-top">
             <span className="fh-split-pic">
               {ok ? (
-                <Wx s={s} size={40} />
+                <Wx s={s} size={32} />
               ) : (
                 <span className="fh-focus-nopic small" />
               )}
