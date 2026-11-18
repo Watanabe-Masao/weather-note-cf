@@ -470,51 +470,65 @@ export function GraphReadout({
       </div>
     );
   }
+  // 2日を比べるとき（見本 2026-11-18）：列の頭は日付だけの1行（対象・比較の言葉は読み上げで）。言葉の行（明るさ・空など）が
+  // 2つ以上あるときは「言葉で見る」に畳み、数の行だけを出す（日照で7行になっていたのを4行に）。
+  const textRows = !single && !bare ? rows.filter((r) => r.text) : [];
+  const fold = textRows.length >= 2;
+  const shown = fold ? rows.filter((r) => !r.text) : rows;
+  const line = (r: ReadoutRow) => {
+    const words = (v: ReactNode) => (r.text && typeof v === "string" ? <span className="ro-words">{phraseBreak(v)}</span> : v);
+    const u = r.text || (r.a != null && typeof r.a === "object") ? "" : (r.unit ?? unit);
+    const kind = (v: ReactNode) => (typeof v === "string" || typeof v === "number" ? "" : " ro-icon");
+    return (
+      <Fragment key={r.key}>
+        <span className={r.text ? "ro-label ro-text-label" : "ro-label"}>
+          {r.mark && <MarkIcon shape={r.mark} color={r.color ?? "currentColor"} />}
+          {r.label}
+          {u && <small className="ro-unit">{u}</small>}
+        </span>
+        <span className={`ro-v${r.text ? " ro-text" : ""}${kind(r.a)}`} style={r.mark ? undefined : { color: r.color }}>
+          {words(r.a)}
+        </span>
+        {!single && (
+          <span className={`ro-v ro-b${r.text ? " ro-text" : ""}${kind(r.b ?? "—")}`} style={r.mark ? undefined : { color: r.color }}>
+            {words(r.b ?? "—")}
+          </span>
+        )}
+        {!single && <span className="ro-v ro-diff">{r.diff || "—"}</span>}
+      </Fragment>
+    );
+  };
   return (
     <div className={bare ? "readout-bare" : live ? "readout-card live" : "readout-card"} aria-live={bare ? undefined : "polite"}>
-      <div className={single ? "ro-grid ro-single" : "ro-grid"}>
+      <div className={single ? "ro-grid ro-single" : "ro-grid ro-pair"}>
         <b className="ro-title">{title}</b>
-        <small className="ro-col">
-          {single ? "" : "対象"}
-          {dates?.a && <em>{dates.a}</em>}
+        <small className="ro-col" aria-label={single ? undefined : `対象 ${typeof dates?.a === "string" ? dates.a : ""}`}>
+          {dates?.a ? <em>{dates.a}</em> : single ? "" : "対象"}
         </small>
         {!single && (
-          <small className="ro-col">
-            比較{dates?.b && <em>{dates.b}</em>}
+          <small className="ro-col" aria-label={`比較 ${typeof dates?.b === "string" ? dates.b : ""}`}>
+            {dates?.b ? <em>{dates.b}</em> : "比較"}
           </small>
         )}
         {!single && <small className="ro-col">差</small>}
-        {rows.map((r) => {
-          // Words break before their last word (日差しの｜明るさ, とても｜明るい, 日の出前後の｜空), never
-          // mid-word; at most two lines (.ro-words).
-          const words = (v: ReactNode) =>
-            r.text && typeof v === "string" ? <span className="ro-words">{phraseBreak(v)}</span> : v;
-          // The unit sits with the row's name, once, so every value is a bare number and the
-          // numbers of a column line up on their decimal point (a unit on some rows only moved them).
-          const u = r.text || (r.a != null && typeof r.a === "object") ? "" : (r.unit ?? unit);
-          const kind = (v: ReactNode) => (typeof v === "string" || typeof v === "number" ? "" : " ro-icon");
-          return (
-            <Fragment key={r.key}>
-              <span className={r.text ? "ro-label ro-text-label" : "ro-label"}>
-                {r.mark && <MarkIcon shape={r.mark} color={r.color ?? "currentColor"} />}
-                {r.label}
-                {u && <small className="ro-unit">{u}</small>}
-              </span>
-              <span className={`ro-v${r.text ? " ro-text" : ""}${kind(r.a)}`} style={r.mark ? undefined : { color: r.color }}>
-                {words(r.a)}
-              </span>
-              {!single && (
-                <span className={`ro-v ro-b${r.text ? " ro-text" : ""}${kind(r.b ?? "—")}`} style={r.mark ? undefined : { color: r.color }}>
-                  {words(r.b ?? "—")}
-                </span>
-              )}
-              {!single && <span className="ro-v ro-diff">{r.diff || "—"}</span>}
-            </Fragment>
-          );
-        })}
+        {shown.map(line)}
       </div>
+      {fold && (
+        <ReadoutWords>
+          <div className="ro-grid ro-pair">{textRows.map(line)}</div>
+        </ReadoutWords>
+      )}
       {footer}
     </div>
+  );
+}
+
+function ReadoutWords({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Fold open={open} onToggle={() => setOpen(!open)} openLabel="明るさと空を言葉で見る" closeLabel="言葉を畳む">
+      {children}
+    </Fold>
   );
 }
 
