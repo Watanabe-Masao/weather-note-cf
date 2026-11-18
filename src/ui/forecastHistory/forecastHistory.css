@@ -19,7 +19,7 @@
 .fh-state { display: inline-flex; align-items: center; height: 18px; padding: 0 var(--space-3); border-radius: var(--radius-xs); font-size: var(--size-xs); white-space: nowrap; color: var(--ink-secondary); box-shadow: 0 0 0 var(--stroke-hair) var(--line-strong) inset; }
 .fh-state.missing { border: var(--stroke-hair) dashed var(--line-strong); box-shadow: none; color: var(--ink-tertiary); }
 .fh-state.failed { color: var(--status-error); box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--status-error) 60%, transparent) inset; }
-.fh-state.cancelled { color: var(--status-warning); box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--status-warning) 55%, transparent) inset; text-decoration: line-through; text-decoration-thickness: 1px; }
+.fh-state.cancelled { color: var(--status-warning); box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--status-warning) 55%, transparent) inset; text-decoration: line-through; text-decoration-thickness: var(--stroke-hair); }
 .fh-state.notIssued { color: var(--ink-secondary); border: var(--stroke-hair) dotted var(--ink-tertiary); box-shadow: none; }
 .fh-lbl { font-size: var(--size-xs); color: var(--ink-tertiary); margin-right: var(--space-2); white-space: nowrap; }
 /* 案A：折れ線 */
@@ -53,7 +53,7 @@
 .fh-step-band.min { fill: color-mix(in srgb, var(--data-cold) 16%, transparent); }
 .fh-step-swatch { display: inline-block; width: 12px; height: 12px; border-radius: var(--radius-tick); }
 .fh-step-swatch.band { background: color-mix(in srgb, var(--data-hot) 22%, transparent); }
-.fh-step-val { fill: var(--ink-primary); font-family: var(--font-numeric); font-weight: var(--weight-bold); paint-order: stroke; stroke: color-mix(in srgb, var(--surface-raised) 70%, transparent); stroke-width: 2px; letter-spacing: -0.3px; }
+.fh-step-val { fill: var(--ink-primary); font-family: var(--font-numeric); font-weight: var(--weight-bold); paint-order: stroke; stroke: color-mix(in srgb, var(--surface-raised) 70%, transparent); stroke-width: var(--stroke-focus); letter-spacing: -0.3px; }
 .fh-delta { font-size: var(--size-xs); font-weight: var(--weight-bold); margin-left: 1px; }
 .fh-delta.up { color: var(--data-hot); }
 .fh-delta.down { color: var(--data-cold); }

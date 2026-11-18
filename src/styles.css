@@ -66,7 +66,7 @@ button:disabled {
 }
 
 :focus-visible {
-  outline: 2px solid var(--line-focus);
+  outline: var(--stroke-focus) solid var(--line-focus);
   outline-offset: 2px;
 }
 
@@ -157,7 +157,7 @@ p {
   min-height: 32px;
   padding: 5px 13px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
   color: var(--ink-secondary);
   font-size: var(--size-base);
@@ -177,7 +177,7 @@ p {
   color: var(--chip-tone);
   border-color: color-mix(in srgb, var(--chip-tone) 55%, transparent);
   background: color-mix(in srgb, var(--chip-tone) 13%, var(--surface-raised));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--chip-tone) 18%, transparent) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--chip-tone) 18%, transparent) inset;
 }
 
 /* 中身がまだ無い（天気図の出ていない時刻）：線を点線に、文字を控えめに。選んでいれば選んだ色のまま点線。 */
@@ -248,7 +248,7 @@ select.chip {
   padding: 3px;
   border-radius: var(--radius-md);
   background: var(--surface-inset);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset;
   flex: none;
 }
 
@@ -281,7 +281,7 @@ select.chip {
   height: 36px;
   flex: none;
   border-radius: 50%;
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
   color: var(--ink-secondary);
   padding: 0;
@@ -332,7 +332,7 @@ select.chip {
   font-size: var(--size-xs);
   font-weight: var(--weight-medium);
   white-space: nowrap;
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   color: var(--ink-tertiary);
   flex: none;
 }
@@ -435,7 +435,7 @@ select.chip {
 
 .side {
   background: linear-gradient(180deg, var(--surface-raised), var(--surface-base));
-  border: 1px solid var(--line-soft);
+  border: var(--stroke-hair) solid var(--line-soft);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-card);
   overflow: hidden;
@@ -452,7 +452,7 @@ select.chip {
   align-items: center;
   justify-content: start;
   padding: var(--space-1) var(--space-4) var(--space-1) var(--space-1);
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: var(--stroke-hair) solid var(--line-soft);
 }
 
 .date-nav-extra {
@@ -474,7 +474,7 @@ select.chip {
   align-items: center;
   gap: var(--space-1);
   background: transparent;
-  border: 1px solid color-mix(in srgb, var(--accent-base) 60%, transparent);
+  border: var(--stroke-hair) solid color-mix(in srgb, var(--accent-base) 60%, transparent);
   color: var(--accent-base);
   border-radius: var(--radius-pill);
   padding: var(--space-1) 9px;
@@ -536,7 +536,7 @@ select.chip {
 .date-button {
   background: transparent;
   border: none;
-  border-bottom: 1px dashed var(--ink-tertiary);
+  border-bottom: var(--stroke-hair) dashed var(--ink-tertiary);
   font-size: var(--size-md);
   font-weight: var(--weight-bold);
   letter-spacing: 0.02em;
@@ -582,7 +582,7 @@ select.chip {
   font-size: var(--size-sm);
   color: var(--ink-tertiary);
   padding-left: var(--space-4);
-  border-right: 1px solid var(--line-soft);
+  border-right: var(--stroke-hair) solid var(--line-soft);
 }
 
 /* One line per row, all in the same grey: the colour is the numbers' to carry (#151). */
@@ -622,7 +622,7 @@ button.label-feel {
   margin-left: calc(-1 * var(--space-3));
   padding: 0 var(--space-2);
   border-radius: var(--radius-pill);
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
   font-size: var(--size-sm);
   color: var(--ink-secondary);
@@ -781,7 +781,7 @@ button.label-feel:active { transform: scale(0.97); }
   display: grid;
   height: 12px;
   border-radius: var(--radius-xs);
-  box-shadow: 0 0 0 1px var(--line-shade);
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-shade);
 }
 
 .feel-bar i {
@@ -820,7 +820,7 @@ button.label-feel:active { transform: scale(0.97); }
 
 /* Estimate from the daily row until hourly data arrives. */
 .feel-bar.estimate {
-  outline: 1px dashed var(--ink-tertiary);
+  outline: var(--stroke-hair) dashed var(--ink-tertiary);
   outline-offset: 2px;
   opacity: 0.85;
 }
@@ -852,7 +852,7 @@ button.label-feel:active { transform: scale(0.97); }
   position: absolute;
   z-index: var(--layer-band);
   pointer-events: none;
-  border: 1.5px solid var(--accent-base);
+  border: var(--stroke-select) solid var(--accent-base);
   border-radius: var(--radius-md);
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent-base) 8%, transparent), color-mix(in srgb, var(--accent-base) 3%, transparent));
   box-shadow:
@@ -882,7 +882,7 @@ button.label-feel:active { transform: scale(0.97); }
   background:
     linear-gradient(180deg, var(--effect-gloss), transparent 90px),
     var(--surface-base);
-  border: 1px solid var(--line-soft);
+  border: var(--stroke-hair) solid var(--line-soft);
   border-bottom: none;
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   display: flex;
@@ -987,7 +987,7 @@ button.label-feel:active { transform: scale(0.97); }
   gap: var(--space-4);
   min-height: 36px;
   padding: 0 var(--space-6) var(--space-4);
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: var(--stroke-hair) solid var(--line-soft);
 }
 
 .sheet-head-title {
@@ -1110,7 +1110,7 @@ button.label-feel:active { transform: scale(0.97); }
 .chart-center {
   fill: none;
   stroke: var(--accent-base);
-  stroke-width: 1.5;
+  stroke-width: var(--stroke-select);
   opacity: 0.75;
 }
 
@@ -1214,7 +1214,7 @@ button.label-feel:active { transform: scale(0.97); }
 .line-legend i {
   display: inline-block;
   width: 18px;
-  border-top: 2px solid var(--ink-secondary);
+  border-top: var(--stroke-focus) solid var(--ink-secondary);
 }
 
 /* A line's name you can tap: sets the line aside (grey) or brings it back. A 32 px target. */
@@ -1248,7 +1248,7 @@ button.label-feel:active { transform: scale(0.97); }
   gap: 5px;
   min-height: 32px;
   padding: 0 var(--space-5);
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   border-radius: var(--radius-pill);
   background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
   color: var(--ink-secondary);
@@ -1322,7 +1322,7 @@ button.label-feel:active { transform: scale(0.97); }
 }
 
 .feel-legend i.dashed {
-  outline: 1px dashed var(--ink-tertiary);
+  outline: var(--stroke-hair) dashed var(--ink-tertiary);
   outline-offset: -1px;
 }
 
@@ -1336,7 +1336,7 @@ button.label-feel:active { transform: scale(0.97); }
   min-height: 32px;
   margin: var(--space-6) 0 var(--space-3);
   padding: var(--space-5) var(--space-2) 0;
-  border-top: 1px solid var(--line-soft);
+  border-top: var(--stroke-hair) solid var(--line-soft);
 }
 
 .section-title {
@@ -1369,7 +1369,7 @@ button.label-feel:active { transform: scale(0.97); }
 .day-sun-chevron { fill: none; stroke: var(--accent-base); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
 
 .day-sun-button { position: absolute; left: 0; right: 0; height: 32px; padding: 0; border: none; background: transparent; cursor: pointer; z-index: 1; }
-.day-sun-button:focus-visible { outline: 2px solid var(--accent-base); outline-offset: -2px; border-radius: var(--radius-sm); }
+.day-sun-button:focus-visible { outline: var(--stroke-focus) solid var(--accent-base); outline-offset: -2px; border-radius: var(--radius-sm); }
 /* 明るさ under the 日差し graph: 24 cells per day, aligned with the plot (its left edge is --plot-left,
    set by the graph from its own axis column; right 10px). */
 .hour-compare { --plot-left: 34px; }
@@ -1381,19 +1381,19 @@ button.label-feel:active { transform: scale(0.97); }
 .light-row-label { width: var(--plot-left); font-size: var(--size-sm); color: var(--ink-tertiary); }
 .light-cells { flex: 1; display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: 1px; margin-right: var(--space-5); }
 .light-cells i { height: 18px; border-radius: var(--radius-tick); }
-.light-cells i.on { outline: 1.5px solid var(--ink-primary); outline-offset: -1px; }
+.light-cells i.on { outline: var(--stroke-select) solid var(--ink-primary); outline-offset: -1px; }
 .light-note { margin: var(--space-1) 0 0 var(--plot-left); }
 .light-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); margin: var(--space-1) 0 0 var(--plot-left); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .light-legend span { display: inline-flex; align-items: center; gap: 3px; }
-.light-legend i { width: 10px; height: 10px; border-radius: var(--radius-tick); border: 1px solid var(--line-soft); }
+.light-legend i { width: 10px; height: 10px; border-radius: var(--radius-tick); border: var(--stroke-hair) solid var(--line-soft); }
 /* 明るさと空: each hour as its six 10-minute sky colours (zenith above horizon) over a thin line of the light's levels. */
 .light-rows { position: relative; display: flex; flex-direction: column; gap: var(--space-2); }
-.light-cells.sky i { height: 30px; display: flex; flex-direction: column; overflow: hidden; box-shadow: inset 0 0 0 1px var(--line-swatch); }
+.light-cells.sky i { height: 30px; display: flex; flex-direction: column; overflow: hidden; box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-swatch); }
 .light-cells.sky i.none { box-shadow: none; }
 .light-cells.sky i b { display: block; }
 .light-cells.sky i b:first-of-type { flex: 3; }
 .light-cells.sky i b:last-of-type { flex: 2; }
-.light-cells.sky i u { display: block; flex: none; height: 5px; border-top: 1px solid var(--surface-page); }
+.light-cells.sky i u { display: block; flex: none; height: 5px; border-top: var(--stroke-hair) solid var(--surface-page); }
 /* The strip is traced with a finger: never the iOS loupe, selection or the copy menu (#: 拡大鏡でないように). */
 .light-trace { display: none; }
 .light-trace.on {
@@ -1419,7 +1419,7 @@ button.label-feel:active { transform: scale(0.97); }
   gap: var(--space-4);
   border-radius: var(--radius-lg);
   background: var(--surface-overlay);
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   box-shadow: var(--shadow-float);
   -webkit-user-select: none;
   user-select: none;
@@ -1433,14 +1433,14 @@ button.label-feel:active { transform: scale(0.97); }
 .sky-zoom-head small, .sky-zoom-now small { font-size: var(--size-xs); color: var(--ink-secondary); }
 .sky-zoom-steps { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; align-items: end; }
 .sky-zoom-steps span { display: flex; flex-direction: column; gap: 3px; }
-.sky-zoom-steps i { height: 56px; border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px var(--line-swatch); }
-.sky-zoom-steps span.on i { height: 70px; outline: 2px solid var(--ink-primary); outline-offset: 1px; }
+.sky-zoom-steps i { height: 56px; border-radius: var(--radius-sm); box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-swatch); }
+.sky-zoom-steps span.on i { height: 70px; outline: var(--stroke-focus) solid var(--ink-primary); outline-offset: 1px; }
 .sky-zoom-steps small { font-size: var(--size-xs); text-align: center; color: var(--ink-secondary); }
 .sky-zoom-steps u { display: block; height: 4px; border-radius: var(--radius-tick); }
 .sky-zoom-light { font-size: var(--size-sm); color: var(--ink-secondary); margin-top: calc(-1 * var(--space-1)); }
 .sky-zoom-steps span.on small { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .sky-zoom-day { display: flex; flex-direction: column; gap: var(--space-3); }
-.sky-zoom-day + .sky-zoom-day { padding-top: var(--space-4); border-top: 1px solid var(--line-soft); }
+.sky-zoom-day + .sky-zoom-day { padding-top: var(--space-4); border-top: var(--stroke-hair) solid var(--line-soft); }
 .sky-zoom-day:not(:only-of-type) .sky-zoom-steps i { height: 36px; }
 .sky-zoom-day:not(:only-of-type) .sky-zoom-steps span.on i { height: 44px; }
 .sky-zoom-now em { font-style: normal; font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); margin-right: var(--space-3); }
@@ -1452,12 +1452,12 @@ button.label-feel:active { transform: scale(0.97); }
   width: 32px;
   height: 32px;
   border-radius: var(--radius-pill);
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   background: var(--surface-raised);
   color: var(--ink-primary);
   font-size: var(--size-md);
 }
-.sky-word i { display: inline-block; width: 9px; height: 12px; margin-right: 3px; vertical-align: -1px; border-radius: var(--radius-tick); box-shadow: inset 0 0 0 1px var(--line-swatch); }
+.sky-word i { display: inline-block; width: 9px; height: 12px; margin-right: 3px; vertical-align: -1px; border-radius: var(--radius-tick); box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-swatch); }
 .day-band-edge { stroke: var(--line-soft); }
 
 .day-band-label {
@@ -1635,14 +1635,14 @@ button.label-feel:active { transform: scale(0.97); }
 /* The guide that follows the finger. */
 .guide-v {
   stroke: var(--ink-primary);
-  stroke-width: 1;
+  stroke-width: var(--stroke-hair);
   opacity: 0.55;
 }
 
 /* The value where a guide meets the axis: a tag in the line's colour. */
 .guide-tag {
   stroke: color-mix(in srgb, var(--surface-page) 60%, transparent);
-  stroke-width: 1;
+  stroke-width: var(--stroke-hair);
 }
 
 .guide-tag-text {
@@ -1654,7 +1654,7 @@ button.label-feel:active { transform: scale(0.97); }
 }
 
 .guide-h {
-  stroke-width: 1;
+  stroke-width: var(--stroke-hair);
   stroke-dasharray: 2 3;
   opacity: 0.75;
 }
@@ -1712,7 +1712,7 @@ svg.scrub {
   column-gap: var(--space-4);
   padding: 0 26px var(--space-3) 0;
   margin-bottom: var(--space-1);
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: var(--stroke-hair) solid var(--line-soft);
 }
 
 .cs-head {
@@ -1810,8 +1810,8 @@ svg.scrub {
   gap: 5px;
   min-width: 84px;
   padding: var(--space-1) var(--space-3);
-  border-left: 1px solid var(--line-soft);
-  border-right: 1px solid var(--line-soft);
+  border-left: var(--stroke-hair) solid var(--line-soft);
+  border-right: var(--stroke-hair) solid var(--line-soft);
 }
 
 .cs-label {
@@ -1926,7 +1926,7 @@ svg.scrub {
   padding: 0 var(--space-2);
   border-radius: var(--radius-xs);
   background: var(--surface-inset);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset;
 }
 
 .cs-line {
@@ -2021,7 +2021,7 @@ svg.scrub {
   -webkit-overflow-scrolling: touch;
   padding: 0 14px max(18px, env(safe-area-inset-bottom));
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-  border: 1px solid var(--line-soft);
+  border: var(--stroke-hair) solid var(--line-soft);
   border-bottom: none;
   background:
     linear-gradient(180deg, var(--effect-gloss), transparent 120px),
@@ -2216,7 +2216,7 @@ svg.scrub {
   bottom: 0;
   left: calc(var(--bm-label) + var(--bm-gap) + 3 * var(--bm-step) - var(--space-1));
   width: calc(var(--bm-step) - var(--bm-gap) + 4px);
-  border: 1.5px solid var(--accent-base);
+  border: var(--stroke-select) solid var(--accent-base);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-glow);
   pointer-events: none;
@@ -2312,7 +2312,7 @@ svg.scrub {
 
 /* The comparison strip: a hairline gap, a little darker, its value small. */
 .bm-b {
-  border-top: 1.5px solid color-mix(in srgb, var(--surface-page) 75%, transparent);
+  border-top: var(--stroke-select) solid color-mix(in srgb, var(--surface-page) 75%, transparent);
   filter: saturate(0.85) brightness(0.88);
 }
 
@@ -2338,7 +2338,7 @@ svg.scrub {
 .bm-a.estimate,
 .bm-b.estimate {
   opacity: 0.6;
-  outline: 1px dashed color-mix(in srgb, var(--surface-page) 65%, transparent);
+  outline: var(--stroke-hair) dashed color-mix(in srgb, var(--surface-page) 65%, transparent);
   outline-offset: -3px;
 }
 
@@ -2350,7 +2350,7 @@ svg.scrub {
   display: grid;
   place-items: center;
   background: transparent;
-  border: 1px solid var(--status-error);
+  border: var(--stroke-hair) solid var(--status-error);
   color: var(--status-error);
 }
 
@@ -2390,7 +2390,7 @@ svg.scrub {
 .line-legend .ls-estimate {
   width: 14px;
   height: 10px;
-  border: 1px dashed var(--ink-tertiary);
+  border: var(--stroke-hair) dashed var(--ink-tertiary);
   border-radius: var(--radius-tick);
 }
 
@@ -2435,7 +2435,7 @@ svg.scrub {
 .band-detail td {
   text-align: right;
   padding: 3px var(--space-1);
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: var(--stroke-hair) solid var(--line-soft);
 }
 
 .band-detail th:first-child,
@@ -2482,7 +2482,7 @@ svg.scrub {
 }
 
 .cond-line + .cond-line {
-  border-top: 1px solid color-mix(in srgb, var(--line-strong) 70%, transparent);
+  border-top: var(--stroke-hair) solid color-mix(in srgb, var(--line-strong) 70%, transparent);
 }
 
 .cond-line.open {
@@ -2714,7 +2714,7 @@ svg.scrub {
   align-items: center;
   justify-content: center;
   font-size: var(--size-base);
-  border-top: 1px solid color-mix(in srgb, var(--line-strong) 55%, transparent);
+  border-top: var(--stroke-hair) solid color-mix(in srgb, var(--line-strong) 55%, transparent);
 }
 
 .cond-col.labels > span {
@@ -2729,7 +2729,7 @@ svg.scrub {
   flex-direction: column;
   gap: 1px;
   border-top: none;
-  border-bottom: 1px solid var(--line-strong);
+  border-bottom: var(--stroke-hair) solid var(--line-strong);
 }
 
 .cond-col > span.head + span {
@@ -2785,7 +2785,7 @@ svg.scrub {
   padding: 0 var(--space-3) 0 14px;
   border-radius: var(--radius-md);
   background: var(--surface-overlay);
-  box-shadow: var(--shadow-float), 0 0 0 1px var(--line-soft) inset;
+  box-shadow: var(--shadow-float), 0 0 0 var(--stroke-hair) var(--line-soft) inset;
   font-size: var(--size-base);
 }
 
@@ -2899,7 +2899,7 @@ svg.scrub {
 .cal-year {
   appearance: none;
   border: none;
-  border-bottom: 1px dashed var(--ink-tertiary);
+  border-bottom: var(--stroke-hair) dashed var(--ink-tertiary);
   background: none;
   color: var(--ink-primary);
   font: inherit;
@@ -2934,7 +2934,7 @@ svg.scrub {
   border: none;
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset;
   font-family: var(--font-numeric);
   font-variant-numeric: tabular-nums;
   color: var(--ink-primary);
@@ -2981,7 +2981,7 @@ svg.scrub {
   font-size: var(--size-xs);
   font-weight: var(--weight-bold);
   color: var(--status-warning);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warning) 55%, transparent) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--status-warning) 55%, transparent) inset;
 }
 
 .cal-day:disabled {
@@ -2992,7 +2992,7 @@ svg.scrub {
 .cal-day.is-outside {
   opacity: 0.4;
   background: none;
-  box-shadow: 0 0 0 1px var(--line-strong) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-strong) inset;
   background-image: none;
 }
 .cal-day.is-outside .cal-n { color: var(--ink-disabled); }
@@ -3032,14 +3032,14 @@ svg.scrub {
 /* Today: a small dot under the number. */
 .cal-day.today .cal-n {
   text-decoration: underline;
-  text-decoration-thickness: 2px;
+  text-decoration-thickness: var(--stroke-focus);
   text-underline-offset: 2px;
   text-decoration-color: var(--accent-base);
 }
 
 /* The current day: framed (as the table's centre). */
 .cal-day.current {
-  box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--accent-base) 60%, transparent) inset;
+  box-shadow: 0 0 0 var(--stroke-select) color-mix(in srgb, var(--accent-base) 60%, transparent) inset;
 }
 
 /* The previewed day: lit. */
@@ -3059,7 +3059,7 @@ svg.scrub {
   padding: 0 var(--space-2);
   border-radius: var(--radius-xs);
   background: var(--surface-overlay);
-  box-shadow: 0 0 0 1px var(--line-strong);
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-strong);
   font-family: var(--font-family);
   font-size: var(--size-xs);
   color: var(--ink-secondary);
@@ -3096,7 +3096,7 @@ svg.scrub {
 .ds-lead {
   border-radius: var(--radius-lg);
   background: linear-gradient(180deg, var(--effect-gloss), transparent 40px), var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset;
 }
 .band-summary,
 .lt-head,
@@ -3119,7 +3119,7 @@ svg.scrub {
 .ds-hours {
   border-radius: var(--radius-md);
   background: var(--surface-inset);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset;
   padding: var(--space-4) var(--space-7);
 }
 
@@ -3137,7 +3137,7 @@ svg.scrub {
   min-height: 36px;
   min-width: 72px;
   padding: 0 var(--space-7);
-  border: 1px solid transparent;
+  border: var(--stroke-hair) solid transparent;
   border-radius: var(--radius-pill);
   font-size: var(--size-base);
   font-weight: var(--weight-bold);
@@ -3350,7 +3350,7 @@ select.chip.sm {
 .btn:active:not(:disabled),
 .actions > button:active:not(:disabled) { transform: scale(0.97); }
 .btn:focus-visible,
-.actions > button:focus-visible { outline: 2px solid var(--line-focus); outline-offset: 2px; }
+.actions > button:focus-visible { outline: var(--stroke-focus) solid var(--line-focus); outline-offset: 2px; }
 
 /* Not yet: a grey face, so a primary that cannot be pressed does not look like a faded one. */
 .btn:disabled,
@@ -3368,7 +3368,7 @@ select.chip.sm {
   width: 14px;
   height: 14px;
   border-radius: 50%;
-  border: 2px solid currentColor;
+  border: var(--stroke-focus) solid currentColor;
   border-right-color: transparent;
   animation: btn-spin 0.8s linear infinite;
 }
@@ -3392,7 +3392,7 @@ select.chip.sm {
 .threshold input {
   width: 100%;
   background: var(--surface-raised);
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   border-radius: var(--radius-md);
   padding: var(--space-5);
   font-size: var(--size-md);
@@ -3434,7 +3434,7 @@ select.chip.sm {
 .set-row select {
   width: 100%;
   background: var(--surface-inset);
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   border-radius: var(--radius-md);
   padding: var(--space-5);
   font-size: var(--size-md);
@@ -3444,7 +3444,7 @@ select.chip.sm {
 .set-number input {
   width: 72px;
   background: var(--surface-inset);
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   border-radius: var(--radius-md);
   padding: var(--space-4);
   font-size: var(--size-md);
@@ -3491,7 +3491,7 @@ select.chip.sm {
   margin-left: calc(-1 * var(--space-1));
   border-radius: var(--radius-tick);
   background: var(--ink-primary);
-  box-shadow: 0 0 0 1.5px var(--surface-raised);
+  box-shadow: 0 0 0 var(--stroke-select) var(--surface-raised);
   pointer-events: none;
 }
 .level-handle b {
@@ -3524,7 +3524,7 @@ select.chip.sm {
   align-items: center;
   justify-content: center;
   height: 36px;
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--surface-raised);
   color: var(--ink-primary);
@@ -3676,7 +3676,7 @@ select.chip.sm {
 
 .sheet-dock {
   padding: var(--space-3) var(--space-4) 0;
-  border-bottom: 1px solid var(--line-soft);
+  border-bottom: var(--stroke-hair) solid var(--line-soft);
 }
 
 .cs-dock > .compare-summary.pinned {
@@ -3727,12 +3727,12 @@ select.chip.sm {
   background: color-mix(in srgb, var(--surface-overlay) 92%, transparent);
   -webkit-backdrop-filter: blur(var(--effect-blur));
   backdrop-filter: blur(var(--effect-blur));
-  box-shadow: 0 0 0 1px var(--line-strong), var(--shadow-pinned);
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-strong), var(--shadow-pinned);
   transition: box-shadow var(--motion-quick) var(--ease-standard);
 }
 
 .swipe-hint.ready .swipe-hint-inner {
-  box-shadow: 0 0 0 1.5px var(--accent-base), var(--shadow-glow);
+  box-shadow: 0 0 0 var(--stroke-select) var(--accent-base), var(--shadow-glow);
 }
 
 .swipe-hint-text {
@@ -3777,7 +3777,7 @@ select.chip.sm {
   padding: var(--space-1) 0;
   color: inherit;
   font: inherit;
-  border-bottom: 1px dashed var(--ink-tertiary);
+  border-bottom: var(--stroke-hair) dashed var(--ink-tertiary);
 }
 
 .cs-date-btn:active {
@@ -3797,7 +3797,7 @@ select.chip.sm {
   font-size: var(--size-sm);
   color: var(--ink-secondary);
   background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset;
   animation: fade-in var(--motion-base) var(--ease-standard);
 }
 
@@ -3848,7 +3848,7 @@ select.chip.sm {
   padding: var(--space-5) var(--space-6);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset;
 }
 
 .failure-head {
@@ -3892,7 +3892,7 @@ select.chip.sm {
 }
 
 .status-bar.error {
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-error) 45%, transparent) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--status-error) 45%, transparent) inset;
 }
 
 .status-bar.error > i {
@@ -3914,7 +3914,7 @@ select.chip.sm {
   height: 14px;
   flex: none;
   border-radius: 50%;
-  border: 2px solid var(--line-strong);
+  border: var(--stroke-focus) solid var(--line-strong);
   border-top-color: var(--accent-base);
   animation: spin 0.9s linear infinite;
 }
@@ -4000,12 +4000,12 @@ select.chip.sm {
   line-height: 1;
   text-box: trim-both cap alphabetic;
   color: var(--ink-secondary);
-  box-shadow: 0 0 0 1px var(--line-strong) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-strong) inset;
 }
 
 .conf.conf-C {
   color: var(--status-warning);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warning) 55%, transparent) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--status-warning) 55%, transparent) inset;
 }
 
 .line-legend .conf {
@@ -4030,7 +4030,7 @@ select.chip.sm {
   font-size: var(--size-xs);
   font-weight: var(--weight-bold);
   color: var(--ink-secondary);
-  box-shadow: 0 0 0 1px var(--line-strong) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-strong) inset;
   vertical-align: 2px;
 }
 /* The rows join the summary's grid (like .cs-row); the heading spans it. */
@@ -4039,7 +4039,7 @@ select.chip.sm {
   grid-column: 1 / -1;
   margin-top: var(--space-3) !important;
   padding-top: var(--space-3);
-  border-top: 1px dashed var(--line-strong);
+  border-top: var(--stroke-hair) dashed var(--line-strong);
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -4079,7 +4079,7 @@ select.chip.sm {
   white-space: pre-line;
   line-height: 1.25;
   word-break: keep-all;
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   border-radius: var(--radius-md);
   background: var(--surface-inset);
   color: var(--ink-secondary);
@@ -4087,7 +4087,7 @@ select.chip.sm {
 }
 .report-pick.on {
   border-color: var(--accent-base);
-  box-shadow: 0 0 0 1.5px var(--accent-base) inset;
+  box-shadow: 0 0 0 var(--stroke-select) var(--accent-base) inset;
   color: var(--ink-primary);
   font-weight: var(--weight-bold);
 }
@@ -4106,7 +4106,7 @@ select.chip.sm {
 .basis-formula { margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); background: var(--surface-inset); font-family: var(--font-numeric); font-size: var(--size-base); color: var(--ink-primary); overflow-x: auto; }
 .basis-note { margin: 0; font-size: var(--size-sm); line-height: 1.6; color: var(--ink-secondary); }
 .basis-note.lead { font-size: var(--size-sm); }
-.after-answer { position: fixed; left: max(var(--space-6), env(safe-area-inset-left, 0px)); right: max(var(--space-6), env(safe-area-inset-right, 0px)); bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); z-index: var(--layer-popover); max-width: 480px; margin: 0 auto; background: var(--surface-raised); border: 1px solid var(--line-soft); border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6); box-shadow: var(--shadow-float); font-size: var(--size-base); }
+.after-answer { position: fixed; left: max(var(--space-6), env(safe-area-inset-left, 0px)); right: max(var(--space-6), env(safe-area-inset-right, 0px)); bottom: calc(var(--space-6) + env(safe-area-inset-bottom, 0px)); z-index: var(--layer-popover); max-width: 480px; margin: 0 auto; background: var(--surface-raised); border: var(--stroke-hair) solid var(--line-soft); border-radius: var(--radius-lg); padding: var(--space-5) var(--space-6); box-shadow: var(--shadow-float); font-size: var(--size-base); }
 .after-answer-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-4); }
 .after-answer ul { margin: var(--space-3) 0 0; padding-left: 1.1em; display: grid; gap: var(--space-1); }
 .after-answer p { margin: var(--space-3) 0 0; color: var(--ink-secondary); }
@@ -4127,15 +4127,15 @@ select.chip.sm {
 .try-wind { display: grid; gap: var(--space-2); font-size: var(--size-base); }
 .try-wind input { width: 100%; }
 .basis-cusum { width: 100%; max-width: 320px; height: 84px; }
-.basis-cusum path { fill: none; stroke: var(--accent-base); stroke-width: 2; }
+.basis-cusum path { fill: none; stroke: var(--accent-base); stroke-width: var(--stroke-focus); }
 .basis-pit { width: 100%; max-width: 320px; height: 64px; }
 .basis-pit rect { fill: var(--accent-base); opacity: 0.75; }
 .basis-pit-even { stroke: var(--ink-secondary); stroke-dasharray: 3 3; }
 .basis-table td.warn, .basis-table tr.warn td { color: var(--status-warning); }
 .beta-fc.inline { display: inline; margin-left: var(--space-3); }
 .basis-table { width: 100%; border-collapse: collapse; font-size: var(--size-sm); font-variant-numeric: tabular-nums; }
-.basis-table th { text-align: left; font-weight: var(--weight-regular); color: var(--ink-tertiary); padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--line-strong); white-space: nowrap; }
-.basis-table td { padding: 3px var(--space-2); border-bottom: 1px solid var(--line-soft); color: var(--ink-primary); white-space: nowrap; }
+.basis-table th { text-align: left; font-weight: var(--weight-regular); color: var(--ink-tertiary); padding: var(--space-1) var(--space-2); border-bottom: var(--stroke-hair) solid var(--line-strong); white-space: nowrap; }
+.basis-table td { padding: 3px var(--space-2); border-bottom: var(--stroke-hair) solid var(--line-soft); color: var(--ink-primary); white-space: nowrap; }
 .basis-table td small { color: var(--ink-tertiary); font-size: var(--size-xs); }
 .basis-table td.num { text-align: right; position: relative; }
 .basis-table tr.missing td { color: var(--ink-disabled); }
@@ -4155,7 +4155,7 @@ select.chip.sm {
 .predict-bars span { display: grid; grid-template-rows: 1fr auto; height: 100%; align-items: end; justify-items: center; border-radius: var(--radius-xs); }
 .predict-bars i { width: 70%; border-radius: var(--radius-tick) var(--radius-tick) 0 0; background: color-mix(in srgb, var(--ink-secondary) 35%, transparent); }
 .predict-bars .mode i { background: var(--accent-base); }
-.predict-bars .mine { box-shadow: 0 0 0 1.5px var(--ink-primary) inset; }
+.predict-bars .mine { box-shadow: 0 0 0 var(--stroke-select) var(--ink-primary) inset; }
 .predict-bars small { font-size: var(--size-xs); color: var(--ink-tertiary); font-variant-numeric: tabular-nums; }
 .basis-table td.wrap { white-space: normal; min-width: 9em; }
 .beta-in, .beta-out { display: block; font-size: var(--size-xs); line-height: 1.1; }
@@ -4169,7 +4169,7 @@ select.chip.sm {
 .login-form input {
   width: 100%;
   background: var(--surface-inset);
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   border-radius: var(--radius-md);
   padding: var(--space-5);
   font-size: var(--size-input); /* 16px keeps iPhone from zooming in */
@@ -4179,23 +4179,23 @@ select.chip.sm {
 .login-form .actions > button, .admin .actions > button { min-width: 0; }
 .set-small {
   background: var(--surface-raised);
-  border: 1px solid var(--line-strong);
+  border: var(--stroke-hair) solid var(--line-strong);
   border-radius: var(--radius-md);
   padding: var(--space-4) var(--space-6);
   font-size: var(--size-base);
   color: var(--ink-primary);
   white-space: nowrap;
 }
-.once-secret { display: grid; gap: var(--space-3); padding: var(--space-6); border: 1px solid var(--accent-base); border-radius: var(--radius-md); background: var(--surface-inset); }
+.once-secret { display: grid; gap: var(--space-3); padding: var(--space-6); border: var(--stroke-hair) solid var(--accent-base); border-radius: var(--radius-md); background: var(--surface-inset); }
 .once-secret code { font-family: var(--font-mono); font-size: var(--size-lg); font-weight: var(--weight-bold); line-height: 1.3; letter-spacing: 0.06em; color: var(--ink-primary); user-select: all; overflow-wrap: anywhere; }
 .once-secret small { color: var(--ink-secondary); font-size: var(--size-sm); }
 .admin { display: grid; gap: var(--space-5); }
 .admin-users { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-5); }
-.admin-users li { display: grid; gap: var(--space-2); padding: var(--space-5) 0; border-top: 1px solid var(--line-soft); }
+.admin-users li { display: grid; gap: var(--space-2); padding: var(--space-5) 0; border-top: var(--stroke-hair) solid var(--line-soft); }
 .admin-users li.off { opacity: 0.6; }
 .admin-users li > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-4); }
 .admin-users li small { color: var(--ink-tertiary); font-size: var(--size-sm); }
-.admin-tag { font-size: var(--size-sm); padding: 1px var(--space-3); border-radius: var(--radius-pill); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
+.admin-tag { font-size: var(--size-sm); padding: 1px var(--space-3); border-radius: var(--radius-pill); border: var(--stroke-hair) solid var(--line-strong); color: var(--ink-secondary); }
 .admin-tag.off { color: var(--status-error); border-color: color-mix(in srgb, var(--status-error) 50%, transparent); }
 
 /* The header's 記録 button (logged in): reporting at any time, not only from a notification. */
@@ -4205,24 +4205,24 @@ select.chip.sm {
 .notify-time {
   display: inline-flex; align-items: center; gap: var(--space-2);
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-6); border-radius: var(--radius-pill);
-  background: var(--surface-inset); border: 1px solid var(--line-strong);
+  background: var(--surface-inset); border: var(--stroke-hair) solid var(--line-strong);
   font-family: var(--font-mono); font-size: var(--size-base); font-weight: var(--weight-bold); line-height: 1; color: var(--ink-primary);
 }
 .notify-time button { width: 28px; height: 28px; border-radius: 50%; border: 0; background: transparent; color: var(--ink-secondary); font-size: var(--size-md); }
 .notify-add { display: inline-flex; gap: var(--space-3); align-items: center; }
 .notify-add input {
-  background: var(--surface-inset); border: 1px solid var(--line-strong); border-radius: var(--radius-md);
+  background: var(--surface-inset); border: var(--stroke-hair) solid var(--line-strong); border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4); font-size: var(--size-input); color: var(--ink-primary);
 }
 .notify-add button, .notify-days button {
   min-height: 34px; padding: 0 var(--space-6); border-radius: var(--radius-md);
-  border: 1px solid var(--line-strong); background: var(--surface-raised); color: var(--ink-primary); font-size: var(--size-base);
+  border: var(--stroke-hair) solid var(--line-strong); background: var(--surface-raised); color: var(--ink-primary); font-size: var(--size-base);
 }
 .notify-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: var(--space-3); }
 /* 台風の目安: 通知の時間帯 (from 〜 to). */
 .notify-hours { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; font-size: var(--size-base); color: var(--ink-secondary); }
 .notify-hours input {
-  background: var(--surface-inset); border: 1px solid var(--line-strong); border-radius: var(--radius-md);
+  background: var(--surface-inset); border: var(--stroke-hair) solid var(--line-strong); border-radius: var(--radius-md);
   padding: var(--space-3) var(--space-4); font-size: var(--size-input); color: var(--ink-primary);
 }
 .notify-days button { padding: 0; }
@@ -4231,7 +4231,7 @@ select.chip.sm {
 .notify-bands { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-3); }
 .notify-bands button {
   display: grid; gap: var(--space-1); justify-items: center; padding: var(--space-3) 0;
-  border-radius: var(--radius-md); border: 1px solid var(--line-strong); background: var(--surface-raised); color: var(--ink-secondary);
+  border-radius: var(--radius-md); border: var(--stroke-hair) solid var(--line-strong); background: var(--surface-raised); color: var(--ink-secondary);
 }
 .notify-bands button b { font-size: var(--size-base); color: var(--ink-primary); }
 .notify-bands button small { font-family: var(--font-mono); font-size: var(--size-sm); font-weight: var(--weight-bold); line-height: 1; }
@@ -4240,7 +4240,7 @@ select.chip.sm {
 .notify-time em { font-style: normal; font-family: var(--font-family); font-size: var(--size-sm); color: var(--ink-secondary); margin-right: var(--space-1); }
 
 /* β: how far the learning has got (comfort.ts: learningOf). */
-.learn-tag { display: inline-block; width: fit-content; justify-self: start; margin-right: var(--space-3); padding: 1px var(--space-4); border-radius: var(--radius-pill); font-size: var(--size-sm); font-weight: var(--weight-bold); border: 1px solid var(--line-strong); color: var(--ink-secondary); }
+.learn-tag { display: inline-block; width: fit-content; justify-self: start; margin-right: var(--space-3); padding: 1px var(--space-4); border-radius: var(--radius-pill); font-size: var(--size-sm); font-weight: var(--weight-bold); border: var(--stroke-hair) solid var(--line-strong); color: var(--ink-secondary); }
 .learn-tag.provisional { border-color: color-mix(in srgb, var(--accent-base) 50%, transparent); color: var(--ink-primary); }
 .learn-tag.testable, .learn-tag.verified { border-color: var(--accent-base); color: var(--ink-primary); }
 .predict-state { font-size: var(--size-base); color: var(--ink-secondary); }
@@ -4248,7 +4248,7 @@ select.chip.sm {
 .predict-sides b { color: var(--ink-primary); }
 .report-quality { margin: 0; font-size: var(--size-base); }
 .admin-delete { display: grid; gap: var(--space-3); padding: var(--space-4) 0; }
-.admin-delete input { background: var(--surface-inset); border: 1px solid var(--line-strong); border-radius: var(--radius-md); padding: var(--space-4); font-size: var(--size-input); color: var(--ink-primary); }
+.admin-delete input { background: var(--surface-inset); border: var(--stroke-hair) solid var(--line-strong); border-radius: var(--radius-md); padding: var(--space-4); font-size: var(--size-input); color: var(--ink-primary); }
 .admin-exports { font-size: var(--size-base); color: var(--ink-secondary); }
 .admin-exports ul { margin: var(--space-3) 0 0; padding-left: 18px; }
 .admin-imports { margin: 0; padding-left: 18px; font-size: var(--size-base); color: var(--ink-secondary); display: grid; gap: var(--space-3); }
@@ -4259,7 +4259,7 @@ select.chip.sm {
 .research-table { overflow-x: auto; }
 .research-table h3 { margin: 0 0 var(--space-3); }
 .research-table table { width: 100%; border-collapse: collapse; font-size: var(--size-base); font-variant-numeric: tabular-nums; }
-.research-table th, .research-table td { padding: var(--space-3) var(--space-2); border-top: 1px solid var(--line-soft); text-align: right; vertical-align: top; }
+.research-table th, .research-table td { padding: var(--space-3) var(--space-2); border-top: var(--stroke-hair) solid var(--line-soft); text-align: right; vertical-align: top; }
 .research-table thead th { border-top: 0; font-weight: var(--weight-bold); color: var(--ink-secondary); font-size: var(--size-sm); }
 .research-table tbody th { text-align: left; font-weight: var(--weight-medium); }
 .research-table tr.small { opacity: 0.55; }
@@ -4324,7 +4324,7 @@ select.chip.sm {
 .sun-test-legend span { display: inline-flex; align-items: center; gap: var(--space-3); }
 .sun-test-table { overflow-x: auto; }
 .sun-test-table table { border-collapse: collapse; font-size: var(--size-sm); font-variant-numeric: tabular-nums; width: 100%; letter-spacing: -0.02em; }
-.sun-test-table th, .sun-test-table td { padding: 3px var(--space-1); text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
+.sun-test-table th, .sun-test-table td { padding: 3px var(--space-1); text-align: right; white-space: nowrap; border-bottom: var(--stroke-hair) solid var(--line-soft); }
 .sun-test-table th:nth-last-child(-n + 4), .sun-test-table td:nth-last-child(-n + 4) { color: var(--ink-primary); padding-left: var(--space-2); }
 .sun-test-table th { color: var(--ink-tertiary); font-weight: var(--weight-regular); }
 .sun-test-table tr.fc td { color: var(--ink-tertiary); }
@@ -4345,7 +4345,7 @@ select.chip.sm {
 }
 .report-missing { display: grid; gap: var(--space-1); line-height: 1.25; }
 .report-missing small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-secondary); }
-.report-save:disabled { border: 1px dashed var(--line-strong); }
+.report-save:disabled { border: var(--stroke-hair) dashed var(--line-strong); }
 .report-lead p { font-size: var(--size-base); color: var(--ink-secondary); }
 
 /* Drawn marks (kit Glyph): no line box of their own, so a flex parent centres them exactly. */
@@ -4364,15 +4364,15 @@ select.chip.sm {
 .sun-depth { stroke: var(--ink-tertiary); stroke-opacity: 0.45; stroke-dasharray: 3 3; }
 /* The size is set on the text (SunSheet.tsx): xs on screen, whatever width the drawing is shown at. */
 .sun-tick { fill: var(--ink-tertiary); font-family: var(--font-numeric); }
-.sun-curve { fill: none; stroke: var(--ink-tertiary); stroke-width: 2; stroke-linecap: round; }
+.sun-curve { fill: none; stroke: var(--ink-tertiary); stroke-width: var(--stroke-focus); stroke-linecap: round; }
 .sun-curve.day { stroke-width: 2.5; }
 .sun-cursor { stroke: var(--ink-secondary); stroke-dasharray: 2 3; }
-.sun-mark { fill: var(--ink-primary); stroke: var(--surface-page); stroke-width: 1; }
+.sun-mark { fill: var(--ink-primary); stroke: var(--surface-page); stroke-width: var(--stroke-hair); }
 .sun-mark.rise { fill: var(--ink-primary); }
-.sun-dot { fill: var(--surface-base); stroke: var(--ink-primary); stroke-width: 2; }
+.sun-dot { fill: var(--surface-base); stroke: var(--ink-primary); stroke-width: var(--stroke-focus); }
 .sun-dot.day { fill: var(--ink-primary); stroke: var(--surface-base); }
 .sun-now { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-3); }
-.sun-now-sky { width: 28px; height: 28px; border-radius: var(--radius-sm); box-shadow: 0 0 0 1px var(--line-soft) inset; flex: none; }
+.sun-now-sky { width: 28px; height: 28px; border-radius: var(--radius-sm); box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; flex: none; }
 .sun-now-time { font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-lg); font-weight: var(--weight-bold); min-width: 3.2em; }
 .sun-now-phase { display: grid; font-size: var(--size-base); color: var(--ink-primary); line-height: 1.25; }
 .sun-now-phase small { font-size: var(--size-xs); color: var(--ink-tertiary); }
@@ -4380,7 +4380,7 @@ select.chip.sm {
 .sun-note { margin: var(--space-3) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sun-times { display: grid; margin: 0; }
 .sun-times > div { display: flex; justify-content: space-between; align-items: baseline; padding: var(--space-3) 0; }
-.sun-times > div + div { border-top: 1px solid var(--line-soft); }
+.sun-times > div + div { border-top: var(--stroke-hair) solid var(--line-soft); }
 .sun-times dt { font-size: var(--size-sm); color: var(--ink-secondary); }
 .sun-times dd { margin: 0; font-family: var(--font-numeric); font-variant-numeric: tabular-nums; font-size: var(--size-md); color: var(--ink-primary); display: flex; gap: var(--space-4); align-items: baseline; }
 .sun-times dd small { font-size: var(--size-xs); color: var(--ink-tertiary); }
@@ -4388,7 +4388,7 @@ select.chip.sm {
 .sun-times .total { border-top-color: var(--line-strong); }
 .sun-notes { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); font-size: var(--size-sm); color: var(--ink-secondary); }
 .sun-notes b { color: var(--ink-primary); font-weight: var(--weight-bold); }
-.sun-swatch { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-tick); box-shadow: 0 0 0 1px var(--line-soft) inset; margin-right: var(--space-3); vertical-align: -1px; }
+.sun-swatch { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-tick); box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; margin-right: var(--space-3); vertical-align: -1px; }
 
 /* 強風／暴風 (#175, shared/storm.ts): a small round tag on the weather picture's shoulder. Amber, the
    warning colour: outlined for 強風 (注意報の基準), filled for 暴風 (警報の基準). */
@@ -4492,7 +4492,7 @@ select.chip.sm {
   gap: 0 var(--space-2);
   margin-top: var(--space-3);
   padding-top: var(--space-3);
-  border-top: 1px solid var(--line-soft);
+  border-top: var(--stroke-hair) solid var(--line-soft);
 }
 .parts-wx-name {
   font-size: var(--size-sm);
@@ -4583,7 +4583,7 @@ select.chip.sm {
 .month-cal-head { text-align: center; font-size: var(--size-xs); color: var(--ink-tertiary); padding-bottom: var(--space-1); }
 .month-cal-head.tone-saturday { color: var(--day-saturday); }
 .month-cal-head.tone-holiday { color: var(--day-holiday); }
-.month-cal-day { display: grid; justify-items: center; gap: 1px; padding: var(--space-2) var(--space-1) 3px; border-radius: var(--radius-sm); background: var(--surface-inset); box-shadow: 0 0 0 1px var(--line-soft) inset; min-width: 0; }
+.month-cal-day { display: grid; justify-items: center; gap: 1px; padding: var(--space-2) var(--space-1) 3px; border-radius: var(--radius-sm); background: var(--surface-inset); box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; min-width: 0; }
 .month-cal-date { font-size: var(--size-xs); font-family: var(--font-numeric); color: var(--ink-secondary); justify-self: start; padding-left: 3px; line-height: 1; }
 .month-cal-icon { height: 18px; }
 .month-cal-temp { display: flex; gap: var(--space-2); font-family: var(--font-numeric); font-size: var(--size-xs); }
@@ -4592,9 +4592,9 @@ select.chip.sm {
 .month-cal-feel .feel-bar { height: 5px; }
 .month-cal-rain { font-size: var(--size-xs); font-family: var(--font-numeric); color: var(--data-rain); height: 13px; line-height: 13px; }
 
-.month-review .ds-lead .month-tiles { margin-top: var(--space-5); padding-top: var(--space-5); border-top: 1px solid var(--line-soft); }
+.month-review .ds-lead .month-tiles { margin-top: var(--space-5); padding-top: var(--space-5); border-top: var(--stroke-hair) solid var(--line-soft); }
 
-.month-head .month-tiles { margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--line-soft); }
+.month-head .month-tiles { margin-top: var(--space-4); padding-top: var(--space-4); border-top: var(--stroke-hair) solid var(--line-soft); }
 .month-lean { margin: 0; font-size: var(--size-md); color: var(--ink-primary); }
 .month-lean small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .month-tabs { display: flex; justify-content: center; margin: var(--space-5) 0 var(--space-4); }
@@ -4604,11 +4604,11 @@ select.chip.sm {
 .month-cal-pick { border: none; background: none; padding: var(--space-2) 0; border-radius: var(--radius-sm); color: var(--ink-tertiary); font: inherit; font-size: var(--size-xs); }
 .month-cal-pick.week { display: grid; place-items: center; align-self: stretch; font-family: var(--font-numeric); font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.1; }
 .month-cal-pick.week small { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.month-cal-pick.on { background: var(--accent-wash); color: var(--accent-base); box-shadow: 0 0 0 1px var(--accent-base) inset; }
+.month-cal-pick.on { background: var(--accent-wash); color: var(--accent-base); box-shadow: 0 0 0 var(--stroke-hair) var(--accent-base) inset; }
 .month-cal-pick.corner { font-size: var(--size-xs); }
 button.month-cal-day { border: none; font: inherit; color: inherit; cursor: pointer; }
-.month-cal-day.picked { background: var(--accent-wash); box-shadow: 0 0 0 1.5px var(--accent-base) inset !important; }
-.month-picked { margin-right: var(--space-3); border: none; border-radius: var(--radius-pill); padding: var(--space-1) var(--space-5); background: var(--accent-wash); color: var(--accent-base); font: inherit; font-size: var(--size-xs); box-shadow: 0 0 0 1px var(--accent-base) inset; vertical-align: middle; }
+.month-cal-day.picked { background: var(--accent-wash); box-shadow: 0 0 0 var(--stroke-select) var(--accent-base) inset !important; }
+.month-picked { margin-right: var(--space-3); border: none; border-radius: var(--radius-pill); padding: var(--space-1) var(--space-5); background: var(--accent-wash); color: var(--accent-base); font: inherit; font-size: var(--size-xs); box-shadow: 0 0 0 var(--stroke-hair) var(--accent-base) inset; vertical-align: middle; }
 
 .month-metric { margin-bottom: var(--space-3); }
 .month-picked-bands rect { fill: var(--accent-wash); }
@@ -4624,7 +4624,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .month-thirds > span { display: grid; justify-items: end; font-family: var(--font-numeric); line-height: 1.2; }
 .month-thirds i { font-style: normal; font-size: var(--size-md); }
 .month-thirds em { font-style: normal; font-size: var(--size-xs); color: var(--ink-tertiary); }
-.month-report-part { display: grid; grid-template-columns: 72px 1fr; gap: var(--space-4); border-top: 1px solid var(--line-soft); padding-top: var(--space-4); }
+.month-report-part { display: grid; grid-template-columns: 72px 1fr; gap: var(--space-4); border-top: var(--stroke-hair) solid var(--line-soft); padding-top: var(--space-4); }
 .month-report-part b { font-size: var(--size-sm); color: var(--ink-secondary); font-weight: var(--weight-bold); }
 .month-report-part p { margin: 0; display: grid; gap: 3px; font-size: var(--size-sm); line-height: 1.55; color: var(--ink-primary); }
 .month-report-note { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
@@ -4646,17 +4646,17 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .month-filter-days-area .month-cal { touch-action: auto; }
 .month-filter-row.cal { grid-template-columns: 1fr; }
 
-.week-detail-row { display: grid; grid-template-columns: 20px 1fr 64px 86px; gap: var(--space-4); align-items: center; padding: var(--space-3) var(--space-3); border-radius: var(--radius-sm); box-shadow: 0 0 0 1px transparent inset; transition: box-shadow var(--motion-base) var(--ease-standard); }
-.week-detail-row.on { box-shadow: 0 0 0 1.5px var(--accent-base) inset; }
+.week-detail-row { display: grid; grid-template-columns: 20px 1fr 64px 86px; gap: var(--space-4); align-items: center; padding: var(--space-3) var(--space-3); border-radius: var(--radius-sm); box-shadow: 0 0 0 var(--stroke-hair) transparent inset; transition: box-shadow var(--motion-base) var(--ease-standard); }
+.week-detail-row.on { box-shadow: 0 0 0 var(--stroke-select) var(--accent-base) inset; }
 .week-detail-row > b { font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .week-detail-row > b.tone-saturday { color: var(--day-saturday); }
 .week-detail-row > b.tone-holiday { color: var(--day-holiday); }
 .week-detail-bar { display: grid; gap: 3px; }
 .week-detail-bar i, .week-detail-bar em { display: block; min-width: 2px; border-radius: 0 var(--radius-xs) var(--radius-xs) 0; }
 .week-detail-bar i { height: 8px; }
-.week-detail-bar em { height: 6px; border: 1.5px solid; border-left-width: 0; box-sizing: border-box; opacity: 0.8; }
-.week-groups { display: grid; border-top: 1px solid var(--line-soft); }
-.week-group { display: grid; grid-template-columns: 1fr auto; gap: var(--space-4); align-items: center; padding: var(--space-4) var(--space-1); border-bottom: 1px solid var(--line-soft); }
+.week-detail-bar em { height: 6px; border: var(--stroke-select) solid; border-left-width: 0; box-sizing: border-box; opacity: 0.8; }
+.week-groups { display: grid; border-top: var(--stroke-hair) solid var(--line-soft); }
+.week-group { display: grid; grid-template-columns: 1fr auto; gap: var(--space-4); align-items: center; padding: var(--space-4) var(--space-1); border-bottom: var(--stroke-hair) solid var(--line-soft); }
 .week-group-days { flex-wrap: nowrap; gap: var(--space-2); min-width: 0; }
 .week-group-days .chip { flex: 1 1 0; min-width: 0; justify-content: center; padding-inline: 0; }
 .week-group-val { display: grid; justify-items: end; min-width: 76px; line-height: 1.25; }
@@ -4668,7 +4668,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 
 /* 台風の日 (#220): the corner of the day, as the 強風／暴風 tag — outlined inside the 強風域, filled inside the 暴風域. */
 .month-cal-day { position: relative; }
-.month-cal-ty { position: absolute; top: var(--space-1); right: var(--space-1); display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: var(--size-xs); line-height: 1; color: var(--status-warning); box-shadow: 0 0 0 1px var(--status-warning) inset; }
+.month-cal-ty { position: absolute; top: var(--space-1); right: var(--space-1); display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; font-size: var(--size-xs); line-height: 1; color: var(--status-warning); box-shadow: 0 0 0 var(--stroke-hair) var(--status-warning) inset; }
 .month-cal-ty.violent { color: var(--surface-base); background: var(--status-warning); box-shadow: none; }
 
 /* 雨の強さ: the mm under each word (強い 20mm〜), small. */
@@ -4688,15 +4688,15 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
   padding: 9px var(--space-6) var(--space-4);
   border-radius: var(--radius-md);
   background: var(--surface-raised);
-  box-shadow: 0 0 0 1px var(--line-soft) inset;
+  box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset;
   animation: fade-in var(--motion-base) var(--ease-standard);
 }
 .typhoon-card.gale,
-.typhoon-card.storm { box-shadow: 0 0 0 1.5px var(--status-warning) inset; }
+.typhoon-card.storm { box-shadow: 0 0 0 var(--stroke-select) var(--status-warning) inset; }
 .typhoon-card header { display: grid; grid-template-columns: auto 1fr auto; gap: var(--space-4); align-items: center; }
 .typhoon-card header b { font-size: var(--size-md); color: var(--ink-primary); }
 .typhoon-card header b small { margin-left: var(--space-3); font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
-.typhoon-mark { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: var(--size-xs); color: var(--status-warning); box-shadow: 0 0 0 1px var(--status-warning) inset; }
+.typhoon-mark { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-size: var(--size-xs); color: var(--status-warning); box-shadow: 0 0 0 var(--stroke-hair) var(--status-warning) inset; }
 .typhoon-mark.violent { color: var(--surface-base); background: var(--status-warning); box-shadow: none; }
 .typhoon-pressure { font-size: var(--size-md); color: var(--ink-primary); }
 .typhoon-pressure small { margin-left: var(--space-1); font-size: var(--size-xs); color: var(--ink-tertiary); }
@@ -4710,15 +4710,15 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 /* 台風の日 in the table (#220): 台 on the weather picture's left shoulder (the 強風／暴風 tag takes the
    right). Outlined in the 強風域, filled in the 暴風域, dashed for the 暴風警戒域 ahead. */
 .cell-icon { position: relative; }
-.typhoon-tag { position: absolute; top: -3px; left: calc(50% - 31px); display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; font-size: var(--size-xs); line-height: 1; color: var(--status-warning); box-shadow: 0 0 0 1px var(--status-warning) inset; background: var(--surface-base); }
+.typhoon-tag { position: absolute; top: -3px; left: calc(50% - 31px); display: grid; place-items: center; width: 15px; height: 15px; border-radius: 50%; font-size: var(--size-xs); line-height: 1; color: var(--status-warning); box-shadow: 0 0 0 var(--stroke-hair) var(--status-warning) inset; background: var(--surface-base); }
 .typhoon-tag.storm { color: var(--surface-base); background: var(--status-warning); box-shadow: none; }
-.typhoon-tag.warning { box-shadow: none; border: 1px dashed var(--status-warning); box-sizing: border-box; }
+.typhoon-tag.warning { box-shadow: none; border: var(--stroke-hair) dashed var(--status-warning); box-sizing: border-box; }
 
 /* 期間 in dates under its words (「'23/5/18〜'26/5/16」): small, quiet. */
 .cond-value .cond-sub { display: block; margin-top: 1px; font-size: var(--size-xs); color: var(--ink-tertiary); text-align: right; }
 
 /* 台風情報の取れなさ (#220, review 2026-11-16): a quiet line, never read as "no typhoon". */
-.typhoon-failed { margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-5); border-radius: var(--radius-md); font-size: var(--size-xs); color: var(--ink-tertiary); background: var(--surface-raised); box-shadow: 0 0 0 1px var(--line-soft) inset; }
+.typhoon-failed { margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-5); border-radius: var(--radius-md); font-size: var(--size-xs); color: var(--ink-tertiary); background: var(--surface-raised); box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; }
 .typhoon-stale { margin: 0; font-size: var(--size-xs); color: var(--status-warning); }
 
 /* 台風の日 beside any day's picture (#220, TyphoonTag): on the shoulder in a calendar's cell; in the
@@ -4731,7 +4731,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ds-typhoon {
   display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
   width: 100%; padding: var(--space-5) 14px; border: none; border-radius: var(--radius-md);
-  background: var(--surface-raised); box-shadow: 0 0 0 1px var(--status-warning) inset;
+  background: var(--surface-raised); box-shadow: 0 0 0 var(--stroke-hair) var(--status-warning) inset;
   color: var(--ink-primary); font-size: var(--size-base); text-align: left;
 }
 .ds-typhoon span:first-child { display: grid; gap: var(--space-1); }
@@ -4760,26 +4760,26 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ty-station { fill: var(--status-warning); stroke: var(--surface-page); }
 .ty-station-name { fill: var(--ink-primary); font-weight: var(--weight-bold); }
 .ty-zoom { position: absolute; right: var(--space-4); top: var(--space-4); display: grid; gap: var(--space-2); }
-.ty-zoom button { width: 32px; height: 32px; border: none; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-base) 85%, transparent); box-shadow: 0 0 0 1px var(--line-strong) inset; color: var(--ink-primary); font-size: var(--size-md); }
+.ty-zoom button { width: 32px; height: 32px; border: none; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--surface-base) 85%, transparent); box-shadow: 0 0 0 var(--stroke-hair) var(--line-strong) inset; color: var(--ink-primary); font-size: var(--size-md); }
 .ty-map-note { position: absolute; left: var(--space-5); bottom: var(--space-4); margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); }
 .ty-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) 14px; margin: 0 var(--space-1); font-size: var(--size-xs); color: var(--ink-secondary); }
 .ty-legend i { display: inline-block; vertical-align: middle; margin-right: 5px; }
-.ty-legend .tr { width: 16px; border-top: 2px solid var(--ink-primary); }
-.ty-legend .fc { width: 16px; border-top: 2px dashed var(--status-forecast); }
-.ty-legend .g { width: 10px; height: 10px; border: 1.5px solid var(--status-warning); border-radius: 50%; }
+.ty-legend .tr { width: 16px; border-top: var(--stroke-focus) solid var(--ink-primary); }
+.ty-legend .fc { width: 16px; border-top: var(--stroke-focus) dashed var(--status-forecast); }
+.ty-legend .g { width: 10px; height: 10px; border: var(--stroke-select) solid var(--status-warning); border-radius: 50%; }
 .ty-legend .s { width: 10px; height: 10px; background: color-mix(in srgb, var(--status-warning) 45%, transparent); border-radius: 50%; }
-.ty-legend .p { width: 10px; height: 10px; border: 1.5px dashed var(--status-forecast); border-radius: 50%; }
-.ty-legend .w { width: 10px; height: 10px; border: 1.5px dashed var(--status-warning); border-radius: 50%; }
+.ty-legend .p { width: 10px; height: 10px; border: var(--stroke-select) dashed var(--status-forecast); border-radius: 50%; }
+.ty-legend .w { width: 10px; height: 10px; border: var(--stroke-select) dashed var(--status-warning); border-radius: 50%; }
 .ty-chips { display: flex; gap: var(--space-3); overflow-x: auto; padding-bottom: var(--space-1); scrollbar-width: none; }
 .ty-chips button { flex: none; display: grid; gap: 1px; padding: var(--space-3) var(--space-5); border: none; border-radius: var(--radius-md); background: var(--surface-raised); color: var(--ink-secondary); font-size: var(--size-sm); font-family: var(--font-numeric); text-align: left; }
 .ty-chips button small { font-family: var(--font-family); font-size: var(--size-xs); color: var(--ink-tertiary); }
-.ty-chips button[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent-base); box-shadow: 0 0 0 1px var(--accent-base) inset; }
+.ty-chips button[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent-base); box-shadow: 0 0 0 var(--stroke-hair) var(--accent-base) inset; }
 .ty-say { margin: 0 var(--space-1); min-height: 3em; line-height: 1.6; color: var(--ink-secondary); font-size: var(--size-base); }
 .ty-say b { color: var(--ink-primary); }
 .ty-say strong.in { color: var(--status-warning); }
 .ty-band-title { margin: var(--space-2) var(--space-1) 0; font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .ty-rows { display: grid; }
-.ty-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: var(--space-5); padding: 9px var(--space-1); border-top: 1px solid var(--line-soft); align-items: baseline; font-size: var(--size-sm); color: var(--ink-primary); }
+.ty-row { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: var(--space-5); padding: 9px var(--space-1); border-top: var(--stroke-hair) solid var(--line-soft); align-items: baseline; font-size: var(--size-sm); color: var(--ink-primary); }
 .ty-row:first-child { border-top: 0; }
 .ty-row time { font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-secondary); }
 .ty-row.none div { color: var(--ink-secondary); }
@@ -4801,7 +4801,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .day-detail {
   margin-top: var(--space-4);
   background: linear-gradient(180deg, var(--surface-raised), var(--surface-base));
-  border: 1px solid var(--line-soft);
+  border: var(--stroke-hair) solid var(--line-soft);
   border-radius: var(--radius-lg);
   padding: var(--space-6) var(--space-6) var(--space-7);
   display: grid;
@@ -4814,7 +4814,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .dd-kind { color: var(--ink-secondary); font-size: var(--size-sm); display: inline-flex; gap: var(--space-2); align-items: center; }
 .dd-say { margin: 0; color: var(--ink-secondary); font-size: var(--size-base); line-height: 1.6; }
 /* 暫定の説明（shared/provisionalNote.ts）：暫定の色は枠線だけ（Badge と同じ） */
-.dd-prov { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px var(--status-provisional); font-size: var(--size-sm); color: var(--ink-secondary); }
+.dd-prov { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); box-shadow: inset 0 0 0 var(--stroke-hair) var(--status-provisional); font-size: var(--size-sm); color: var(--ink-secondary); }
 .dd-prov.plain { box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong); }
 .dd-prov-lead { margin: 0; color: var(--ink-primary); font-weight: var(--weight-bold); }
 .dd-prov dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-3); }
@@ -4829,7 +4829,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .dd-part {
   display: grid; justify-items: center; gap: var(--space-1);
   padding: var(--space-2) 0; border-radius: var(--radius-md);
-  background: var(--surface-inset); border: 1px solid transparent; color: var(--ink-primary);
+  background: var(--surface-inset); border: var(--stroke-hair) solid transparent; color: var(--ink-primary);
   font-variant-numeric: tabular-nums;
 }
 .dd-part small { color: var(--ink-secondary); font-size: var(--size-xs); }
@@ -4840,7 +4840,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .dd-hours-head { display: flex; justify-content: space-between; align-items: center; font-size: var(--size-base); }
 .dd-hours table { width: 100%; border-collapse: collapse; font-size: var(--size-base); font-variant-numeric: tabular-nums; }
 .dd-hours th { font-size: var(--size-xs); color: var(--ink-tertiary); font-weight: var(--weight-regular); text-align: right; padding: var(--space-1) var(--space-2); }
-.dd-hours td { text-align: right; padding: var(--space-2); border-top: 1px solid var(--line-soft); }
+.dd-hours td { text-align: right; padding: var(--space-2); border-top: var(--stroke-hair) solid var(--line-soft); }
 .dd-hours td:nth-child(2) { text-align: center; }
 .dd-hours td.dd-h { text-align: left; color: var(--ink-secondary); white-space: nowrap; }
 .dd-hours th, .dd-hours td { white-space: nowrap; }
