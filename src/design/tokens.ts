@@ -665,6 +665,8 @@ const radius = {
   xl: 20,
   pill: 999,
 } as const;
+/** The corners for code (an SVG's rx, an inline style): the same steps as --radius-* in CSS. */
+export const RADIUS = radius;
 
 /**
  * The table's 肌感 band (FeelBar): one strip with soft corners (`radius.xs`), the time bands' colours

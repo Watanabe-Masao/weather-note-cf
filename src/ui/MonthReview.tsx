@@ -13,7 +13,7 @@ import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
 import { niceTicks, num, signedDiff, tickLabel } from "../design/format";
-import { barLook, barPath, DATA, FEEL_SCALE_COLORS, lineLook, SHAPE } from "../design/tokens";
+import { barLook, barPath, DATA, FEEL_SCALE_COLORS, lineLook, RADIUS, SHAPE } from "../design/tokens";
 import { bandsFor, FeelBar, FeelContext } from "./FeelBar";
 import { DayWeatherIcon } from "./WeatherIcon";
 import { dayTone } from "../../shared/holidays";
@@ -451,7 +451,7 @@ function FeelMonth({ store, station, days, daysB }: { store: WeatherStore | null
       <p className="line-legend">
         {steps.map((s, i) => (
           <span key={s.label}>
-            <i style={{ background: FEEL_SCALE_COLORS[scale][i], width: 10, height: 10, borderRadius: 2 }} />
+            <i style={{ background: FEEL_SCALE_COLORS[scale][i], width: 10, height: 10, borderRadius: RADIUS.tick }} />
             {s.label}
           </span>
         ))}
