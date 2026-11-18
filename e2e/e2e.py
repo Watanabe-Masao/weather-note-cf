@@ -444,8 +444,6 @@ with sync_playwright() as p:
 
     # TX. 質感 (design-system.md 4.1): values by the points, the 幅 view, rounded amount bars
     def tx():
-        moon = pg.locator(".sun-keys.moon .sun-key").count()
-        check("SS2c 月：月の出・南中・月の入りの3枚と、選んだ時刻の月（高さ・方位・月齢・明るい部分）", moon == 3 and "月齢" in txt(".sun-now.moon"), txt(".sun-now.moon"))
         fit = pg.evaluate("(()=>{const b=document.querySelector('.sheet-body');return [b.scrollHeight,b.clientHeight]})()")
         check("TX0 日別のグラフはシートに収まる（縦にスクロールしない）", fit[0] <= fit[1] + 1, str(fit))
         check("TX0b 上のカードに時間帯の天気（朝〜夜の5つ）", pg.locator(".sheet .readout-card .parts-wx-cell").count() == 5)

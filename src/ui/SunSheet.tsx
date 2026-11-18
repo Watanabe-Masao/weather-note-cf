@@ -9,7 +9,7 @@ import { ModalSheet } from "./ModalSheet";
 import { Button, InfoNote, Segmented, Slider } from "./kit";
 import { moonPhase, moonPosition, moonTimes } from "../../shared/moon";
 import { DEFAULT_LAT_LON, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
-import { ICON } from "../design/tokens";
+import { ICON, RADIUS } from "../design/tokens";
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 
@@ -378,7 +378,7 @@ function SkyView({ sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky }: { at:
           <stop offset="1" stopColor={sky.horizon} />
         </linearGradient>
       </defs>
-      <rect x={P.l} y={P.t} width={VW - P.l - P.r} height={horizon - P.t} fill="url(#sky-view-bg)" rx={4} />
+      <rect x={P.l} y={P.t} width={VW - P.l - P.r} height={horizon - P.t} fill="url(#sky-view-bg)" rx={RADIUS.xs} />
       <rect x={P.l} y={horizon} width={VW - P.l - P.r} height={gy(-8) - horizon} className="sky-ground" />
       {[30, 60].map((a) => (
         <g key={a}>
