@@ -4,8 +4,9 @@
 // days ahead the latest 予想天気図 that falls on the day. Nothing is kept by the app yet.
 
 import { useEffect, useState } from "react";
-import { CHART_HOURS, CREDIT, dayChart, type ForecastChart } from "../../shared/wxchart";
-import { Chip } from "./kit";
+import { addDays } from "../../shared/dates";
+import { CHART_HOURS, CREDIT, dayChart, type ForecastChart, QUICK_FROM, quickChartUrl } from "../../shared/wxchart";
+import { Chip, Segmented } from "./kit";
 
 let forecast: Promise<ForecastChart[]> | null = null;
 const loadForecast = () =>
@@ -16,7 +17,7 @@ const loadForecast = () =>
 
 const hm = (iso: string) => `${Number(iso.slice(5, 7))}/${Number(iso.slice(8, 10))} ${Number(iso.slice(11, 13))}時`;
 
-export function WxChart({ date, today }: { date: string; today: string }) {
+function DayCharts({ date, today, titled }: { date: string; today: string; titled: boolean }) {
   const what = dayChart(date, today);
   const [hour, setHour] = useState(9);
   const [missing, setMissing] = useState<Record<string, true>>({});
@@ -35,7 +36,7 @@ export function WxChart({ date, today }: { date: string; today: string }) {
     return (
       <figure className="wx-chart">
         <div className="wx-head">
-          <h4 className="dd-sub">天気図</h4>
+          {titled && <h4 className="dd-sub">天気図</h4>}
           <span className="wx-hours" role="group" aria-label="時刻">
             {CHART_HOURS.map((h) => (
               <Chip key={h} size="sm" on={h === hour} onClick={() => setHour(h)}>
@@ -60,7 +61,7 @@ export function WxChart({ date, today }: { date: string; today: string }) {
     return (
       <figure className="wx-chart">
         <div className="wx-head">
-          <h4 className="dd-sub">予想天気図</h4>
+          {titled && <h4 className="dd-sub">予想天気図</h4>}
         </div>
         {ahead == null ? (
           <p className="wx-none">読み込み中…</p>
@@ -85,7 +86,7 @@ export function WxChart({ date, today }: { date: string; today: string }) {
   return (
     <div className="wx-chart">
       <div className="wx-head">
-        <h4 className="dd-sub">天気図</h4>
+        {titled && <h4 className="dd-sub">天気図</h4>}
       </div>
       {what.kind === "archive" && (
         <p className="wx-links">
@@ -115,5 +116,112 @@ export function WxChart({ date, today }: { date: string; today: string }) {
       {what.kind === "none" && <p className="wx-none">この日の天気図はありません。</p>}
       {what.kind !== "none" && <small className="wx-credit">出典：{CREDIT.replace("より", "")}{what.kind === "ndl" ? "・国立国会図書館" : ""}</small>}
     </div>
+  );
+}
+
+/**
+ * 天気図（1日モード「根拠と記録」、予報の移り変わりと連動、2026-11-18 渡辺さん）：
+ *   発表の時：選んだ発表の直前の天気図（3時間ごとの実況）と、その時点で出ていた予想天気図（保存した分）。
+ *             予報を作ったときの空の形。発表を選び直すと一緒に変わる。
+ *   この日：対象日そのものの天気図（実際どうなったか）。
+ * 発表が無い日（予報の移り変わりが出ない日）は「この日」だけ。どの図にも、いつの図かを書く。
+ */
+export function WxChart({ date, today, issued }: { date: string; today: string; issued?: string | null }) {
+  const [view, setView] = useState<"issued" | "day">("issued");
+  if (!issued) return <DayCharts date={date} today={today} titled />;
+  return (
+    <div className="wx-chart">
+      <div className="wx-head">
+        <h4 className="dd-sub">天気図</h4>
+      </div>
+      <Segmented
+        label="天気図の時点"
+        value={view}
+        onChange={setView}
+        options={[
+          { id: "issued", label: "発表の時" },
+          { id: "day", label: "この日" },
+        ]}
+      />
+      {view === "issued" ? <IssuedCharts issued={issued} /> : <DayCharts date={date} today={today} titled={false} />}
+    </div>
+  );
+}
+
+const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+
+/** その発表の直前の実況の天気図（3時間ごと）：発表の時刻以下でいちばん近い 3・6…21時（3時より前は前の日の21時）。 */
+export function chartBefore(issued: string): { date: string; hour: number; lead: number } {
+  const d = issued.slice(0, 10);
+  const h = Number(issued.slice(11, 13));
+  const hour = [...CHART_HOURS].reverse().find((x) => x <= h);
+  return hour == null ? { date: addDays(d, -1), hour: 21, lead: h + 3 } : { date: d, hour, lead: h - hour };
+}
+
+type Saved = { hours: number; base: string; valid: string; src: string };
+const savedAt = new Map<string, Promise<Saved[]>>();
+const loadSaved = (at: string) => {
+  let p = savedAt.get(at);
+  if (!p) {
+    p = fetch(`/api/wxchart-at?at=${encodeURIComponent(at)}`)
+      .then((r) => (r.ok ? r.json() : { charts: [] }))
+      .then((j: { charts?: Saved[] }) => j.charts ?? [])
+      .catch(() => (savedAt.delete(at), []));
+    savedAt.set(at, p);
+  }
+  return p;
+};
+
+function IssuedCharts({ issued }: { issued: string }) {
+  const b = chartBefore(issued);
+  const url = quickChartUrl(b.date, b.hour);
+  const [missing, setMissing] = useState<string | null>(null);
+  const [saved, setSaved] = useState<{ at: string; charts: Saved[] } | null>(null);
+  useEffect(() => {
+    let live = true;
+    void loadSaved(issued).then((charts) => live && setSaved({ at: issued, charts }));
+    return () => {
+      live = false;
+    };
+  }, [issued]);
+  const ahead = saved?.at === issued ? saved.charts : null;
+  const when = `${md(issued)} ${Number(issued.slice(11, 13))}時の発表`;
+  return (
+    <>
+      <p className="wx-lead">{when}のときの空の形</p>
+      {b.date < QUICK_FROM ? (
+        <p className="wx-none">この発表の時の3時間ごとの天気図はありません（2024年10月より前）。</p>
+      ) : missing === url ? (
+        <p className="wx-none">{md(b.date)} {b.hour}時の天気図は見つかりませんでした。</p>
+      ) : (
+        <div className="wx-fc">
+          <a href={url} target="_blank" rel="noreferrer" className="wx-pic">
+            <img src={url} alt={`地上天気図（日本周辺）${md(b.date)} ${b.hour}時`} width={600} height={581} loading="lazy" onError={() => setMissing(url)} />
+          </a>
+          <small>
+            {md(b.date)} {b.hour}時の天気図（この発表の{b.lead}時間前）
+          </small>
+        </div>
+      )}
+      {ahead == null ? (
+        <p className="wx-none">その時の予想天気図を読み込み中…</p>
+      ) : ahead.length === 0 ? (
+        <p className="wx-none">この発表の時の予想天気図はありません（保存を始める前の発表です）。</p>
+      ) : (
+        <div className="wx-pair">
+          {ahead.map((c) => (
+            <div key={c.src} className="wx-fc">
+              <a href={c.src} target="_blank" rel="noreferrer" className="wx-pic">
+                <img src={c.src} alt={`予想天気図 ${c.hours}時間後`} width={600} height={581} loading="lazy" />
+              </a>
+              <small>
+                {hm(c.valid)}の予想（{c.hours}時間後）
+              </small>
+            </div>
+          ))}
+        </div>
+      )}
+      <small className="wx-credit">「地上天気図（日本周辺）」「予想天気図」（{CREDIT}）・押すと大きく</small>
+    </>
   );
 }

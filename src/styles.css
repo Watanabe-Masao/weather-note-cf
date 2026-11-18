@@ -4765,8 +4765,10 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .wx-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); flex-wrap: wrap; font-size: var(--size-base); }
 .wx-hours { display: flex; gap: var(--space-1); flex-wrap: wrap; }
 .wx-pic { display: block; border-radius: var(--radius-md); overflow: hidden; background: var(--surface-inset); }
+.wx-lead { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
+.wx-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .wx-pic img { display: block; width: 100%; height: auto; }
 .wx-chart figcaption, .wx-credit, .wx-fc small, .wx-links small { color: var(--ink-tertiary); font-size: var(--size-xs); }
-.wx-fc { display: grid; gap: var(--space-1); }
+.wx-fc { display: grid; gap: var(--space-1); min-width: 0; }
 .wx-none { margin: 0; color: var(--ink-secondary); font-size: var(--size-sm); }
 .wx-links { margin: 0; display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }

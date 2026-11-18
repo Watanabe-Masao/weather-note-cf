@@ -191,8 +191,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
         <SectionHead title="根拠と記録" as="h3" />
         <MyReports station={station} date={date} />
         <h4 className="dd-sub">この日の予報の移り変わり</h4>
-        <ForecastHistoryPanel store={store} station={station} date={date} />
-        <WxChart date={date} today={today} />
+        <ForecastHistoryPanel store={store} station={station} date={date} chart={(issued) => <WxChart date={date} today={today} issued={issued} />} />
         <div className="dd-links">
           {openSummary != null && (
             <Chip size="sm" onClick={() => openSummary({ date, other: null })}>
