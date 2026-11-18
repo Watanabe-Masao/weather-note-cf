@@ -7,6 +7,39 @@ import { type ReactNode, useEffect, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { CHART_HOURS, CREDIT, dayChart, type ForecastChart, QUICK_FROM, quickChartUrl } from "../../shared/wxchart";
 import { Chip, Segmented } from "./kit";
+import { ModalSheet } from "./ModalSheet";
+
+/**
+ * 天気図の絵：押すとアプリの中のシートで大きく（2026-11-18 渡辺さん：保存した図は閉じるが無く、閉じると画面がいちばん上に戻った）。
+ * シートなので「×」と下へ引いて閉じられ、閉じても読んでいた所のまま。指で広げて拡大できる。
+ * 長押しで新しいタブに開くこともできるよう、リンク（href）は残す。
+ */
+function ChartPic({ src, alt, onError }: { src: string; alt: string; onError?: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <a
+        href={src}
+        target="_blank"
+        rel="noreferrer"
+        className="wx-pic"
+        aria-label={`${alt}（押すと大きく）`}
+        onClick={(e) => {
+          e.preventDefault();
+          setOpen(true);
+        }}
+      >
+        <img src={src} alt={alt} width={600} height={581} loading="lazy" onError={onError} />
+      </a>
+      {open && (
+        <ModalSheet title={alt} onClose={() => setOpen(false)} className="wx-viewer">
+          <img className="wx-viewer-img" src={src} alt={alt} width={600} height={581} />
+          <small className="wx-credit">{CREDIT}・指で広げると拡大</small>
+        </ModalSheet>
+      )}
+    </>
+  );
+}
 
 let forecast: Promise<ForecastChart[]> | null = null;
 const loadForecast = () =>
@@ -70,9 +103,7 @@ function DayCharts({ date, today, titled }: { date: string; today: string; title
         {missing[url] || notYet(hour) ? (
           <p className="wx-none">{date === today ? "この時刻の天気図はまだ出ていません。" : "この時刻の天気図は見つかりませんでした。"}</p>
         ) : (
-          <a href={url} target="_blank" rel="noreferrer" className="wx-pic">
-            <img src={url} alt={`地上天気図（日本周辺）${hour}時`} width={600} height={581} loading="lazy" onError={() => setMissing((m) => ({ ...m, [url]: true }))} />
-          </a>
+          <ChartPic src={url} alt={`地上天気図（日本周辺）${hour}時`} onError={() => setMissing((m) => ({ ...m, [url]: true }))} />
         )}
         <figcaption>「地上天気図（日本周辺）」（{CREDIT}）・押すと大きく</figcaption>
       </figure>
@@ -92,9 +123,7 @@ function DayCharts({ date, today, titled }: { date: string; today: string; title
         ) : (
           mine.map((c) => (
             <div key={c.url} className="wx-fc">
-              <a href={c.url} target="_blank" rel="noreferrer" className="wx-pic">
-                <img src={c.url} alt={`予想天気図 ${c.hours}時間後`} width={600} height={581} loading="lazy" />
-              </a>
+              <ChartPic src={c.url} alt={`予想天気図 ${c.hours}時間後`} />
               <small>
                 {hm(c.valid)}の予想（{hm(c.base)}の観測から{c.hours}時間後）
               </small>
@@ -223,9 +252,7 @@ function IssuedCharts({ issued }: { issued: string }) {
       : missing === url
         ? none("見つかりません")
         : (
-            <a href={url} target="_blank" rel="noreferrer" className="wx-pic">
-              <img src={url} alt={`地上天気図（日本周辺）${md(b.date)} ${b.hour}時`} width={600} height={581} loading="lazy" onError={() => setMissing(url)} />
-            </a>
+            <ChartPic src={url} alt={`地上天気図（日本周辺）${md(b.date)} ${b.hour}時`} onError={() => setMissing(url)} />
           );
   const aheadOf = (hours: number) => {
     const c = ahead?.find((x) => x.hours === hours);
@@ -234,9 +261,7 @@ function IssuedCharts({ issued }: { issued: string }) {
     return slot(
       c.src,
       `${hm(c.valid)}の予想`,
-      <a href={c.src} target="_blank" rel="noreferrer" className="wx-pic">
-        <img src={c.src} alt={`予想天気図 ${c.hours}時間後`} width={600} height={581} loading="lazy" />
-      </a>,
+      <ChartPic src={c.src} alt={`予想天気図 ${c.hours}時間後`} />,
     );
   };
   return (
