@@ -25,7 +25,7 @@ const ALLOWED: Record<string, number> = {
   "ui/SunTestBoard.tsx": 3,
   "ui/MonthReview.tsx": 6,
   "ui/ModalSheet.tsx": 1,
-  "ui/Settings.tsx": 10,
+  "ui/Settings.tsx": 9,
   "ui/DateNav.tsx": 3,
   "ui/CalendarModal.tsx": 4,
   "ui/DayDetail.tsx": 5,
