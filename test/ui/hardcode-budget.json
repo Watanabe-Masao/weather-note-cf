@@ -18,8 +18,7 @@
     "28px": 1,
     "31px": 1,
     "34px": 2,
-    "36px": 1,
-    "64px": 1
+    "36px": 1
   },
   "時間・動きの曲線": {
     "ease-in-out": 1,
@@ -50,16 +49,15 @@
     "3000ms": 1
   },
   "線の太さ": {
-    "0.8px": 2,
-    "1px": 147,
+    "1px": 115,
     "1.1px": 1,
-    "1.2px": 7,
-    "1.4px": 8,
-    "1.5px": 24,
+    "1.2px": 6,
+    "1.4px": 7,
+    "1.5px": 20,
     "1.6px": 1,
     "1.65px": 1,
     "1.9px": 1,
-    "2px": 25,
+    "2px": 23,
     "2.2px": 4,
     "2.4px": 1,
     "2.5px": 2,
@@ -102,7 +100,6 @@
     "accent-base 3%": 1,
     "accent-base 45%": 1,
     "accent-base 50%": 1,
-    "accent-base 6%": 1,
     "accent-base 60%": 3,
     "accent-base 8%": 1,
     "accent-base 86%": 1,
@@ -116,7 +113,6 @@
     "data-hot 22%": 1,
     "data-hot 40%": 1,
     "data-sun 28%": 2,
-    "ink-primary 9%": 1,
     "ink-secondary 22%": 1,
     "ink-secondary 35%": 1,
     "ink-tertiary 12%": 1,

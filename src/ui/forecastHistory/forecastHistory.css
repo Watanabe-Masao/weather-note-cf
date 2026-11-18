@@ -16,17 +16,17 @@
 .fh-out { display: inline-block; min-width: 1.2em; }
 .fh-sl { color: var(--ink-tertiary); margin: 0 var(--space-1); font-size: var(--size-xs); }
 /* 札：状態は言葉で（R5-1）。色は付けすぎない：失敗だけエラーの色、取り消しは注意の色の枠。 */
-.fh-state { display: inline-flex; align-items: center; height: 18px; padding: 0 var(--space-3); border-radius: var(--radius-xs); font-size: var(--size-xs); white-space: nowrap; color: var(--ink-secondary); box-shadow: 0 0 0 1px var(--line-strong) inset; }
-.fh-state.missing { border: 1px dashed var(--line-strong); box-shadow: none; color: var(--ink-tertiary); }
-.fh-state.failed { color: var(--status-error); box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-error) 60%, transparent) inset; }
-.fh-state.cancelled { color: var(--status-warning); box-shadow: 0 0 0 1px color-mix(in srgb, var(--status-warning) 55%, transparent) inset; text-decoration: line-through; text-decoration-thickness: 1px; }
-.fh-state.notIssued { color: var(--ink-secondary); border: 1px dotted var(--ink-tertiary); box-shadow: none; }
+.fh-state { display: inline-flex; align-items: center; height: 18px; padding: 0 var(--space-3); border-radius: var(--radius-xs); font-size: var(--size-xs); white-space: nowrap; color: var(--ink-secondary); box-shadow: 0 0 0 var(--stroke-hair) var(--line-strong) inset; }
+.fh-state.missing { border: var(--stroke-hair) dashed var(--line-strong); box-shadow: none; color: var(--ink-tertiary); }
+.fh-state.failed { color: var(--status-error); box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--status-error) 60%, transparent) inset; }
+.fh-state.cancelled { color: var(--status-warning); box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--status-warning) 55%, transparent) inset; text-decoration: line-through; text-decoration-thickness: 1px; }
+.fh-state.notIssued { color: var(--ink-secondary); border: var(--stroke-hair) dotted var(--ink-tertiary); box-shadow: none; }
 .fh-lbl { font-size: var(--size-xs); color: var(--ink-tertiary); margin-right: var(--space-2); white-space: nowrap; }
 /* 案A：折れ線 */
 .fh-chart { min-width: 0; }
 .fh-chart svg { display: block; overflow: visible; }
-.fh-grid { stroke: var(--chart-grid); stroke-width: 1; stroke-dasharray: 2 5; }
-.fh-dayline { stroke: var(--line-soft); stroke-width: 1; }
+.fh-grid { stroke: var(--chart-grid); stroke-width: var(--stroke-hair); stroke-dasharray: 2 5; }
+.fh-dayline { stroke: var(--line-soft); stroke-width: var(--stroke-hair); }
 .fh-tick { font-size: var(--size-xs); fill: var(--ink-tertiary); font-family: var(--font-numeric); }
 .fh-tick.quiet { fill: var(--ink-disabled); }
 .fh-vlabel { font-size: var(--size-xs); font-family: var(--font-numeric); paint-order: stroke; stroke: var(--surface-raised); stroke-width: 3px; stroke-linejoin: round; }
@@ -34,7 +34,7 @@
 .fh-vlabel.tone-cold { fill: var(--data-cold); }
 .fh-vlabel.tone-rain { fill: var(--data-rain); }
 .fh-hit { fill: transparent; cursor: pointer; }
-.fh-colsel { fill: color-mix(in srgb, var(--accent-base) 12%, transparent); stroke: var(--accent-base); stroke-width: 1; }
+.fh-colsel { fill: color-mix(in srgb, var(--accent-base) 12%, transparent); stroke: var(--accent-base); stroke-width: var(--stroke-hair); }
 .fh-chart.compact svg { margin-bottom: 0; }
 .fh-credit { color: var(--ink-tertiary); font-size: var(--size-xs); line-height: 1.6; }
 .fh-credit p { margin: 0 0 var(--space-2); }
@@ -42,7 +42,7 @@
 .fh-one svg { touch-action: pan-y; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .fh-one-legend { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-5); font-size: var(--size-xs); color: var(--ink-secondary); margin: var(--space-2) 0; }
 .fh-one-legend span { display: inline-flex; align-items: center; gap: var(--space-2); }
-.fh-focus-nopic { width: 52px; height: 52px; border-radius: 50%; border: 1px dashed var(--line-strong); }
+.fh-focus-nopic { width: 52px; height: 52px; border-radius: 50%; border: var(--stroke-hair) dashed var(--line-strong); }
 .fh-focus-state { font-size: var(--size-lg); color: var(--ink-secondary); }
 .fh-chart svg.fh-one-svg { overflow: hidden; }
 /* 案G：階段とマス */
@@ -51,33 +51,33 @@
 .fh-step-gap { fill: color-mix(in srgb, var(--ink-tertiary) 12%, transparent); }
 .fh-step-band.max { fill: color-mix(in srgb, var(--data-hot) 16%, transparent); }
 .fh-step-band.min { fill: color-mix(in srgb, var(--data-cold) 16%, transparent); }
-.fh-step-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+.fh-step-swatch { display: inline-block; width: 12px; height: 12px; border-radius: var(--radius-tick); }
 .fh-step-swatch.band { background: color-mix(in srgb, var(--data-hot) 22%, transparent); }
 .fh-step-val { fill: var(--ink-primary); font-family: var(--font-numeric); font-weight: var(--weight-bold); paint-order: stroke; stroke: color-mix(in srgb, var(--surface-raised) 70%, transparent); stroke-width: 2px; letter-spacing: -0.3px; }
 .fh-delta { font-size: var(--size-xs); font-weight: var(--weight-bold); margin-left: 1px; }
 .fh-delta.up { color: var(--data-hot); }
 .fh-delta.down { color: var(--data-cold); }
-.fh-kchip { display: inline-flex; align-items: center; padding: 0 var(--space-2); border-radius: var(--radius-sm); font-size: var(--size-xs); font-weight: var(--weight-bold); border: 1px solid var(--line-strong); color: var(--ink-primary); }
-.fh-kchip.VPFD51 { border-color: var(--accent-base); color: var(--accent-base); }
+.fh-kchip { display: inline-flex; align-items: center; padding: 0 var(--space-2); border-radius: var(--radius-sm); font-size: var(--size-xs); font-weight: var(--weight-bold); border: var(--stroke-hair) solid var(--line-strong); color: var(--ink-primary); }
+.fh-kchip.VPFD51 { border-color: var(--ink-secondary); }
 .fh-lead { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.fh-step-today rect { fill: color-mix(in srgb, var(--accent-base) 6%, transparent); stroke: var(--accent-base); stroke-width: 1.5; }
+.fh-step-today rect { fill: none; stroke: var(--ink-secondary); stroke-width: var(--stroke-select); }
 .fh-kchip.actual { border-color: var(--ink-secondary); color: var(--ink-primary); background: var(--surface-inset); }
-.fh-clock circle { fill: var(--surface-raised); stroke: var(--ink-secondary); stroke-width: 1; }
+.fh-clock circle { fill: var(--surface-raised); stroke: var(--ink-secondary); stroke-width: var(--stroke-hair); }
 .fh-clock.pm circle { fill: var(--ink-secondary); }
-.fh-clock line { stroke: var(--ink-primary); stroke-width: 1.4; stroke-linecap: round; }
+.fh-clock line { stroke: var(--ink-primary); stroke-width: var(--stroke-select); stroke-linecap: round; }
 .fh-clock.pm line { stroke: var(--surface-raised); }
-.fh-today-label { fill: var(--accent-base); font-weight: var(--weight-bold); }
+.fh-today-label { fill: var(--ink-primary); font-weight: var(--weight-bold); }
 /* 上の枠：左右に分ける案 */
 .fh-split { display: grid; gap: var(--space-3); margin-bottom: var(--space-3); }
 .fh-split-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-3); }
 .fh-split-col { display: grid; gap: var(--space-2); min-width: 0; padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-inset); }
-.fh-split-col.actual { outline: 1px solid var(--line-strong); }
+.fh-split-col.actual { outline: var(--stroke-hair) solid var(--line-strong); }
 .fh-split-top { display: flex; align-items: center; gap: var(--space-2); min-width: 0; }
 .fh-split-temps { font-family: var(--font-numeric); font-size: var(--size-xl); font-weight: var(--weight-bold); white-space: nowrap; }
 .fh-split-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font-size: var(--size-xs); color: var(--ink-secondary); }
 .fh-focus-nopic.small { width: 40px; height: 40px; }
-.fh-ctab { display: grid; grid-template-columns: auto repeat(4, minmax(0, 1fr)); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); overflow: hidden; font-variant-numeric: tabular-nums; }
-.fh-ctab > * { border-top: 1px solid var(--line-soft); border-left: 1px solid var(--line-soft); }
+.fh-ctab { display: grid; grid-template-columns: auto repeat(4, minmax(0, 1fr)); border: var(--stroke-hair) solid var(--line-soft); border-radius: var(--radius-sm); overflow: hidden; font-variant-numeric: tabular-nums; }
+.fh-ctab > * { border-top: var(--stroke-hair) solid var(--line-soft); border-left: var(--stroke-hair) solid var(--line-soft); }
 .fh-ctab > :nth-child(-n + 5) { border-top: 0; }
 .fh-ctab .rh { border-left: 0; padding: 0 var(--space-2); display: grid; place-items: center; font-size: var(--size-xs); font-weight: var(--weight-bold); color: var(--ink-secondary); background: var(--surface-inset); }
 .fh-ctab .rh.ac { color: var(--ink-primary); }
@@ -99,16 +99,16 @@
 .fh-split-col.actual { grid-template-rows: 44px auto auto; }
 .fh-gap { display: flex; align-items: baseline; gap: var(--space-1); height: 1.6em; font-family: var(--font-numeric); font-weight: var(--weight-bold); font-size: var(--size-sm); }
 .fh-split-col.actual .fh-split-meta { height: auto; min-height: 0; }
-.fh-band line { stroke: var(--ink-tertiary); stroke-width: 0.8; }
+.fh-band line { stroke: var(--ink-tertiary); stroke-width: var(--stroke-hair); }
 .fh-band text { fill: var(--ink-secondary); }
 .fh-band-arrow { fill: var(--ink-tertiary); }
-.fh-band-split { stroke: var(--ink-tertiary); stroke-width: 1; stroke-dasharray: 3 3; }
-.fh-box { display: inline-block; width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid var(--ink-secondary); }
+.fh-band-split { stroke: var(--ink-tertiary); stroke-width: var(--stroke-hair); stroke-dasharray: 3 3; }
+.fh-box { display: inline-block; width: 14px; height: 14px; border-radius: var(--radius-xs); border: var(--stroke-select) solid var(--ink-secondary); }
 .fh-box.four { background: repeating-linear-gradient(180deg, transparent 0 2.5px, var(--ink-secondary) 2.5px 3.5px); background-clip: content-box; }
 .fh-gap-l { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-secondary); font-family: var(--font-family); }
 /* 降水確率の欄：タップで「6時間ごと」と「かんたん」を切り替える。見た目は変えず、キーボードで選んだときだけ枠 */
 .fh-pop-toggle { fill: transparent; pointer-events: none; outline: none; }
-.fh-pop-toggle:focus-visible { stroke: var(--accent-base); stroke-width: 1.5; }
+.fh-pop-toggle:focus-visible { stroke: var(--accent-base); stroke-width: var(--stroke-select); }
 /* 3時間ごとの天気が無い発表：1日の天気の絵1つ＋6時間ごとの降水確率（列の線は引かず、1日1マスと分かるように） */
 .fh-ctab .c.span4.dayw { display: grid; grid-template-rows: auto auto; grid-template-columns: minmax(0, 1fr); justify-content: stretch; justify-items: stretch; align-content: center; gap: var(--space-1); padding: var(--space-1) 0; }
 .fh-ctab .dayw > :first-child { justify-self: center; }
@@ -117,8 +117,8 @@
 .fh-ctab .dayw .pops > .ch { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .fh-ctab .dayw .pops > .past { align-self: stretch; background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--ink-tertiary) 14%, transparent) 4px 5px); }
 /* 降水確率の欄の切り替えの目印（AB の B）：左の余白に上下の矢印 */
-.fh-pop-hint rect { fill: var(--surface-inset); stroke: var(--line-strong); stroke-width: 0.8; }
-.fh-pop-hint path { fill: none; stroke: var(--ink-secondary); stroke-width: 1.2; stroke-linecap: round; stroke-linejoin: round; }
+.fh-pop-hint rect { fill: var(--surface-inset); stroke: var(--line-strong); stroke-width: var(--stroke-hair); }
+.fh-pop-hint path { fill: none; stroke: var(--ink-secondary); stroke-width: var(--stroke-hair); stroke-linecap: round; stroke-linejoin: round; }
 /* 府県の予報の行：絵・値・変化の3段を固定して、列ごとに位置がずれないように（変化が無い列も段を空けておく） */
 .fh-ctab { grid-template-rows: auto 4.6em 3.6em; }
 .fh-ctab .c.fc3 { height: 4.6em; display: grid; grid-template-rows: 16px 1.3em 1.1em; align-content: center; justify-items: center; gap: var(--space-1); padding: var(--space-1) 0; }
@@ -131,12 +131,12 @@
 .fh-days { display: grid; gap: var(--space-4); }
 .fh-day-h { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); padding: var(--space-2) var(--space-3); background: var(--surface-inset); }
 .fh-day-h b { font-size: var(--size-base); font-variant-numeric: tabular-nums; }
-.fh-day-h b small { font-size: var(--size-xs); font-weight: normal; color: var(--ink-tertiary); }
+.fh-day-h b small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
 .fh-day-h span { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.fh-day-h span.today { color: var(--accent-base); font-weight: var(--weight-bold); }
-.fh-drow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "t main ch" "t sub sub"; column-gap: var(--space-3); row-gap: var(--space-1); align-items: center; width: 100%; min-height: 44px; padding: var(--space-2) var(--space-3); text-align: left; background: none; border: 0; border-top: 1px solid color-mix(in srgb, var(--line-soft) 60%, transparent); color: var(--ink-primary); font-size: var(--size-base); font-variant-numeric: tabular-nums; }
+.fh-day-h span.today { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.fh-drow { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "t main ch" "t sub sub"; column-gap: var(--space-3); row-gap: var(--space-1); align-items: center; width: 100%; min-height: 44px; padding: var(--space-2) var(--space-3); text-align: left; background: none; border: 0; border-top: var(--stroke-hair) solid color-mix(in srgb, var(--line-soft) 60%, transparent); color: var(--ink-primary); font-size: var(--size-base); font-variant-numeric: tabular-nums; }
 .fh-day-h + .fh-drow { border-top: 0; }
-.fh-drow.on { background: color-mix(in srgb, var(--accent-base) 9%, transparent); box-shadow: 0 0 0 1px var(--accent-base) inset; }
+.fh-drow.on { background: color-mix(in srgb, var(--accent-base) 9%, transparent); box-shadow: 0 0 0 var(--stroke-hair) var(--accent-base) inset; }
 .fh-drow.gap { color: var(--ink-tertiary); grid-template-areas: "t main main"; }
 .fh-drow.quiet .fh-drow-main .fh-val { color: var(--ink-secondary); }
 .fh-drow-t { grid-area: t; display: grid; justify-items: start; gap: var(--space-1); align-self: start; }
@@ -148,8 +148,8 @@
 .fh-drow-c.tone-cold { color: var(--data-cold); }
 .fh-drow-c.tone-rain { color: var(--data-rain); }
 .fh-drow-c.tone-plain { color: var(--ink-primary); }
-.fh-drow-same { color: var(--ink-tertiary); font-weight: normal; }
+.fh-drow-same { color: var(--ink-tertiary); font-weight: var(--weight-regular); }
 .fh-drow-sub { grid-area: sub; display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--size-xs); color: var(--ink-secondary); min-width: 0; }
 .fh-drow-ch { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-1) var(--space-2); max-width: 11em; }
-.fh-dgroup { display: grid; border: 1px solid var(--line-soft); border-radius: var(--radius-sm); overflow: hidden; }
+.fh-dgroup { display: grid; border: var(--stroke-hair) solid var(--line-soft); border-radius: var(--radius-sm); overflow: hidden; }
 .dd-sub { margin: var(--space-2) 0 0; font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }

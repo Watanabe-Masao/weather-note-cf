@@ -26,7 +26,7 @@ import { DaySummaryContext } from "./daySummaryPress";
 import { FeelContext, levelColor, levelName } from "./FeelBar";
 import { HourFace } from "./HourFace";
 import { useSun } from "./HourCompare";
-import { Conf, CONF_TEXT, confidenceOfRow, SectionHead } from "./kit";
+import { Chip, Conf, CONF_TEXT, confidenceOfRow, SectionHead } from "./kit";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
 import { WxChart } from "./WxChart";
 import { ForecastHistoryPanel } from "./forecastHistory/ForecastHistory";
@@ -168,23 +168,24 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
 
       <div className="dd-sec">
         <SectionHead title="根拠と記録" as="h3" />
-        <h4 className="dd-sub">この日の予報の移り変わり</h4>
-        <ForecastHistoryPanel store={store} station={station} date={date} />
-        <WxChart date={date} today={today} />
+        {/* この日の値の出どころは、その値の話の始めに（下の天気図の出どころと取り違えないように、2026-11-18）。 */}
         <p className="dd-basis">
           <span>出どころ</span>
           {row?.type === "forecast" ? `気象庁の予報${conf ? `（${CONF_TEXT[conf]}）` : ""}` : `気象庁の観測（${kindLabel(store, station, date) || "—"}）`}
         </p>
         <MyReports station={station} date={date} />
+        <h4 className="dd-sub">この日の予報の移り変わり</h4>
+        <ForecastHistoryPanel store={store} station={station} date={date} />
+        <WxChart date={date} today={today} />
         <div className="dd-links">
           {openSummary != null && (
-            <button className="chip sm" onClick={() => openSummary({ date, other: null })}>
+            <Chip size="sm" onClick={() => openSummary({ date, other: null })}>
               その日の要約{typhoon ? "・台風" : ""}
-            </button>
+            </Chip>
           )}
-          <button className="chip sm" onClick={onOpenFeel}>
+          <Chip size="sm" onClick={onOpenFeel}>
             肌感マップ
-          </button>
+          </Chip>
         </div>
       </div>
     </section>

@@ -834,13 +834,13 @@ with sync_playwright() as p:
         if shots: pg.screenshot(path=f"{shots}-rain.png", full_page=True)
         # 取れなかったこま（11:30）：雨なしと見せない
         idx = [f["m"] for f in RAIN_NOW["frames"]].index(-30)
-        pg.locator(".rn-scrub").fill(str(idx)); calm()
+        pg.locator(".rn-scrub input").fill(str(idx)); calm()
         settle(lambda: pg.locator(".rn-miss").count() == 1, 8)
         check("RN4 取れなかったこま：「このこまは取れませんでした」と「取れなかった」", pg.locator(".rn-miss").count() == 1 and "取れなかった" in txt(".rn-when"), txt(".rn-when"))
         if shots: pg.screenshot(path=f"{shots}-rain-missing.png")
         # 1時間の量のこま：凡例の見出しが変わる
         idx = [f["m"] for f in RAIN_NOW["frames"]].index(150)
-        pg.locator(".rn-scrub").fill(str(idx)); calm()
+        pg.locator(".rn-scrub input").fill(str(idx)); calm()
         settle(lambda: pg.locator(".rn-loading").count() == 0, 8)
         check("RN5 1時間の量のこま：「1時間の量（mm）」と「1〜2時間後」…の幅", "1時間の量（mm）" in txt(".rn-legend-title") and "〜" in txt(".rn-when"), (txt(".rn-legend-title"), txt(".rn-when")))
         layout_ok("RN6", "雨の見込み")

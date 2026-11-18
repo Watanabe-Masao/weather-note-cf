@@ -17,7 +17,7 @@ import { CloseIcon } from "./icons";
 import { DayLabel, IconButton, SectionHead, Segmented } from "./kit";
 import { monthDay } from "../design/format";
 import { bandsFor, FeelContext, legendOf, levelColor, levelName } from "./FeelBar";
-import { feelEdgeOf } from "../design/tokens";
+import { feelFillLook } from "../design/tokens";
 
 interface Props {
   store: WeatherStore | null;
@@ -29,8 +29,8 @@ interface Props {
 }
 
 /** "6:39–8:49": when a band runs that day at the station (by the sun, shared/dayParts.ts). */
-/** A cell's fill and its inner edge (a few pixels of a lighter tone of the step, inside the frame). */
-const cellLook = (color: string) => ({ background: color, "--feel-edge": feelEdgeOf(color) ?? "transparent" }) as CSSProperties;
+/** A cell's fill and its inner edge (肌感の塗り, feelFillLook). */
+const cellLook = (color: string) => feelFillLook(color) as CSSProperties;
 
 export const bandSpan = (date: string, station: string, band: number) => {
   const w = dayParts(date, station)[band];

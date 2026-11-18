@@ -571,6 +571,12 @@ export const FEEL_SCALE_COLORS: Record<7 | 5 | 3, string[]> = {
 export const FEEL_EDGES: string[] = [...THEMES.navy.feelEdge];
 /** The inner edge of a step's colour (any scale: the 5 and 3 steps are steps of the seven). */
 export const feelEdgeOf = (color: string): string | undefined => FEEL_EDGES[FEEL_LEVELS.indexOf(color)];
+/**
+ * 肌感の塗り（面）の見え方（2026-11-18、design-system 2.0b「肌感の塗り」）：段の色で塗り、枠の内側に少し明るい色を
+ * ぼかし（FEEL_CELL）、数字は白（ink.onFeel）。CSS の `.feel-fill` と組にして使う。肌感マップのマス・月の振り返りの帯
+ * のように数字を載せる面はこれで塗る。凡例や行の頭の小さな見本（12px 以下）は縁を付けない（ぼかしで色が見えなくなる）。
+ */
+export const feelFillLook = (color: string): Record<string, string> => ({ background: color, "--feel-edge": feelEdgeOf(color) ?? "transparent" });
 
 /** Lines for the five 時間区分 in the trend graph (朝・日中・昼・夕方・夜): distinct from the level colours. */
 /**
@@ -679,6 +685,12 @@ export const RADIUS = radius;
  * — the bands still count, without hard tiles. Today's band now is ringed (`ring`).
  */
 export const FEEL_BAND = { divider: 1.5, blur: 0.22, ring: 1.5 } as const;
+/**
+ * 線の太さ（design-system 2.3、2026-11-18）：役割で決まる。hair 区切り・枠・グリッド・目盛り、select 選んでいる枠・
+ * 強調の輪・当日の枠、focus フォーカスの輪・操作のアイコンの線・強い区切り。グラフの値の線は lineLook / barLook から。
+ */
+export const STROKE = { hair: 1, select: 1.5, focus: 2 } as const;
+
 /** The least a finger can press (px, iPhone): a control drawn smaller is pressable this far past what it shows. */
 export const TAP = { min: 44 } as const;
 /** 肌感マップ's cell: its inner edge fades over edgeBlur from a band edgeSpread wide (px). */
@@ -752,6 +764,7 @@ export function cssVariables(): Record<string, string> {
   put("feel-band", { divider: FEEL_BAND.divider, ring: FEEL_BAND.ring }, "px");
   put("feel-cell", FEEL_CELL, "px");
   put("tap", TAP, "px");
+  put("stroke", STROKE, "px");
   put("shadow", shadow);
   put("layer", LAYER);
   put(

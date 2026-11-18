@@ -207,10 +207,10 @@ export function DangerButton({ label, armedLabel, onConfirm, disabled, block = t
   );
 }
 
-/** A round icon button with a 36 px target (the visible part may be smaller). */
-export function IconButton({ label, onClick, children, size = "md" }: { label: string; onClick: () => void; children: ReactNode; size?: "md" | "sm" }) {
+/** A round icon button: 36 px to see (sm 32), 44 px to press (#310). */
+export function IconButton({ label, onClick, children, size = "md", disabled }: { label: string; onClick: () => void; children: ReactNode; size?: "md" | "sm"; disabled?: boolean }) {
   return (
-    <button className={`icon-btn${size === "sm" ? " sm" : ""}`} onClick={onClick} aria-label={label} title={label}>
+    <button type="button" className={`icon-btn${size === "sm" ? " sm" : ""}`} onClick={onClick} aria-label={label} title={label} disabled={disabled}>
       {children}
     </button>
   );

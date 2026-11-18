@@ -5,6 +5,7 @@
 
 import { useEffect, useState } from "react";
 import { CHART_HOURS, CREDIT, dayChart, type ForecastChart } from "../../shared/wxchart";
+import { Chip } from "./kit";
 
 let forecast: Promise<ForecastChart[]> | null = null;
 const loadForecast = () =>
@@ -34,12 +35,12 @@ export function WxChart({ date, today }: { date: string; today: string }) {
     return (
       <figure className="wx-chart">
         <div className="wx-head">
-          <b>天気図</b>
+          <h4 className="dd-sub">天気図</h4>
           <span className="wx-hours" role="group" aria-label="時刻">
             {CHART_HOURS.map((h) => (
-              <button key={h} className={h === hour ? "chip sm on" : "chip sm"} aria-pressed={h === hour} onClick={() => setHour(h)}>
+              <Chip key={h} size="sm" on={h === hour} onClick={() => setHour(h)}>
                 {h}時
-              </button>
+              </Chip>
             ))}
           </span>
         </div>
@@ -59,7 +60,7 @@ export function WxChart({ date, today }: { date: string; today: string }) {
     return (
       <figure className="wx-chart">
         <div className="wx-head">
-          <b>予想天気図</b>
+          <h4 className="dd-sub">予想天気図</h4>
         </div>
         {ahead == null ? (
           <p className="wx-none">読み込み中…</p>
@@ -84,7 +85,7 @@ export function WxChart({ date, today }: { date: string; today: string }) {
   return (
     <div className="wx-chart">
       <div className="wx-head">
-        <b>天気図</b>
+        <h4 className="dd-sub">天気図</h4>
       </div>
       {what.kind === "archive" && (
         <p className="wx-links">
