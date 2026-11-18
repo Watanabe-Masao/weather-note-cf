@@ -4397,6 +4397,12 @@ select.chip.sm {
 .sun-keys.moon { margin-top: var(--space-2); }
 .sky-view { width: 100%; height: auto; display: block; margin-top: var(--space-3); }
 .sky-ground { fill: var(--surface-inset); }
+.sky-sensor { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
+.sky-offset { display: inline-flex; align-items: center; gap: var(--space-2); }
+.sky-offset small, .sky-sensor-state { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.sky-edge path { fill: var(--ink-primary); }
+.sky-edge text { fill: var(--ink-primary); font-size: var(--size-xs); }
+.sky-heading { fill: var(--ink-primary); font-size: var(--size-xs); }
 .sky-alt { stroke: var(--line-soft); stroke-width: var(--stroke-hair); stroke-dasharray: 2 4; }
 .sky-alt-label, .sky-dir { font-size: var(--size-xs); }
 .sky-sun { stroke: var(--surface-base); stroke-width: var(--stroke-hair); }
