@@ -398,6 +398,13 @@ with sync_playwright() as p:
         check("A5 シートの見出し", title() == "気温の日別", title())
         st = small_text(); check("A6 11px より小さい文字がない（表）", not st, str(st))
         layout_ok("A7", "表")
+        # 引き手の押せる範囲：シートの上の縁から上へ 20px の透明な帯（#296、案A）。引き手と合わせて 44 を超え、押すと引き手と同じ。
+        reach = pg.evaluate("(() => { const s = document.querySelector('aside.sheet').getBoundingClientRect(); const e = document.elementFromPoint(innerWidth / 2, s.top - 10); const h = document.querySelector('.sheet .sheet-handle').getBoundingClientRect(); const r = document.querySelector('.sheet-handle-reach').getBoundingClientRect(); return { hit: e && e.className, total: Math.round(r.height + h.height), detent: document.querySelector('aside.sheet').dataset.detent, top: s.top } })()")
+        pg.mouse.click(195, reach["top"] - 10); calm()
+        d1 = pg.evaluate("document.querySelector('aside.sheet').dataset.detent")
+        pg.mouse.click(195, pg.evaluate("document.querySelector('aside.sheet').getBoundingClientRect().top") - 10); calm()
+        d2 = pg.evaluate("document.querySelector('aside.sheet').dataset.detent")
+        check("A7b 引き手の上の帯：押せる高さ 44 以上、押すと引き手と同じく高さが替わり、もう一度で戻る", reach["hit"] == "sheet-handle-reach" and reach["total"] >= 44 and d1 != reach["detent"] and d2 == reach["detent"], (reach, d1, d2))
         buttons_ok("A8", "表", 0)
         # Today (2026-11-10, 12:00 JST): its weekday filled, its 肌感 band ringed at the band now.
         check("A9 今日の列だけ曜日に印", pg.locator(".cell-date.is-today").count() == 1 and "火" in txt(".cell-date.is-today small"), str(pg.locator(".cell-date.is-today").count()))
