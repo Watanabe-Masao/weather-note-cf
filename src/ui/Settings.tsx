@@ -7,7 +7,6 @@ import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { SunTestBoard } from "./SunTestBoard";
 import { HistoryCompareBoard } from "./HistoryCompareBoard";
 import { ShortHistoryBoard } from "./ShortHistoryBoard";
-import { RainNowBoard } from "./rainNow/RainNowBoard";
 import { LearnedCompareBoard } from "./LearnedCompareBoard";
 import { jstToday } from "../../shared/dates";
 import { AccountSection } from "../account/AccountSection";
@@ -230,7 +229,7 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
  */
 function ResearchSection({ store, station }: { store: WeatherStore | null; station: string }) {
   const { me } = useAccount();
-  const [open, setOpen] = useState<null | "sun" | "history" | "short" | "learned" | "rain">(null);
+  const [open, setOpen] = useState<null | "sun" | "history" | "short" | "learned">(null);
   if (me?.role !== "admin") return null;
   const close = () => setOpen(null);
   return (
@@ -242,13 +241,11 @@ function ResearchSection({ store, station }: { store: WeatherStore | null; stati
         <button onClick={() => setOpen("history")}>長期の気温履歴を比べる</button>
         <button onClick={() => setOpen("short")}>短期の履歴と答え</button>
         <button onClick={() => setOpen("learned")}>学習あり版を比べる</button>
-        <button onClick={() => setOpen("rain")}>雨の見込み（確認用）</button>
       </div>
       {open === "sun" && <SunTestBoard store={store} station={station} today={jstToday()} onClose={close} />}
       {open === "history" && <HistoryCompareBoard store={store} station={station} today={jstToday()} onClose={close} />}
       {open === "short" && <ShortHistoryBoard store={store} station={station} today={jstToday()} onClose={close} />}
       {open === "learned" && <LearnedCompareBoard store={store} station={station} onClose={close} />}
-      {open === "rain" && <RainNowBoard station={station} onClose={close} />}
     </section>
   );
 }

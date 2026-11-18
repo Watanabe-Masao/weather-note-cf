@@ -736,7 +736,7 @@ with sync_playwright() as p:
         layout_ok("J1c", "設定")
         buttons_ok("J1d", "設定", 0)
         check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
-        check("J3 管理者には「研究用（テスト）」に比べ板が5つまとまる", pg.locator("#set-research").count() == 1 and pg.locator("section[aria-labelledby='set-research'] .actions button").count() == 5)
+        check("J3 管理者には「研究用（テスト）」に比べ板が4つまとまる（雨の見込みは 1日モードへ移した）", pg.locator("#set-research").count() == 1 and pg.locator("section[aria-labelledby='set-research'] .actions button").count() == 4)
         check("J4 肌感の基準にはテストのボタンがない", pg.locator("section[aria-labelledby='set-feel'] button", has_text="比べる").count() == 0)
         # 予報の履歴 (#250, R2): the record's months, taken one at a time by the administrator.
         pg.locator(".msheet.settings button", has_text="ユーザー管理").click(); calm()
@@ -837,8 +837,16 @@ with sync_playwright() as p:
     # RN. 雨の見込み（確認用）: 本物の形のこまとタイル（作ったもの）で、地図・グラフ・取れなかったこま・再生。
     def rn():
         shots = os.environ.get("WN_SHOT")
-        pg.click(".app-head .icon-btn"); calm()
-        pg.locator(".msheet.settings button", has_text="雨の見込み（確認用）").click(); calm()
+        # 雨の見込みは今日の 1日モードにある（2026-11-18）：札の言葉と「地図で見る」。過去の日には出ない。
+        pg.locator(".app-head .seg button", has_text="1日").click(); calm()
+        settle(lambda: pg.locator(".rn-card .rn-say-item").count() == 2 and "読み込み中" not in txt(".rn-card"), 15)
+        check("RN0 今日の 1日モードに雨の見込み（1時間・15時間の2枚と「地図で見る」）", pg.locator(".rn-card .rn-say-item").count() == 2 and pg.locator(".rn-card button", has_text="地図で見る").count() == 1, txt(".rn-card")[:120])
+        if shots: pg.screenshot(path=f"{shots}-rain-card.png", clip={**pg.locator(".day-detail").bounding_box(), "height": 520})
+        pg.locator("button[aria-label$='1日前へ']").first.click(); calm()
+        check("RN0b 昨日の 1日モードには雨の見込みが出ない", pg.locator(".rn-card").count() == 0)
+        pg.locator("button[aria-label$='1日後へ']").first.click(); calm()
+        settle(lambda: pg.locator(".rn-card button").count() == 1, 5)
+        pg.locator(".rn-card button", has_text="地図で見る").click(); calm()
         settle(lambda: pg.locator(".rn-board .rn-map").count() == 1 and pg.locator(".rn-board .rn-loading").count() == 0, 15)
         check("RN1 雨の見込み：地図・つまみ・グラフが出る", pg.locator(".rn-board .rn-map canvas").count() == 1 and pg.locator(".rn-board .rn-scrub").count() == 1 and pg.locator(".rn-board .rn-graph").count() == 1)
         check("RN2 今のこま：「12:00」「今・実況」", "12:00" in txt(".rn-when") and "今・実況" in txt(".rn-when"), txt(".rn-when"))
@@ -863,7 +871,7 @@ with sync_playwright() as p:
         check("RN9 取れ方（確認用）：一覧3つとこまの数", pg.locator(".rn-diag tbody tr").count() == 3 and "こまのうち" in txt(".rn-diag-body"), txt(".rn-diag-body")[:200])
         if shots: pg.screenshot(path=f"{shots}-rain-hourly.png", full_page=True)
         esc()
-        esc()
+        pg.locator(".app-head .seg button", has_text="比較").click(); calm()
     step("RN", rn)
 
     # AC. 長期の気温履歴を比べる（テスト）: L1 and L2 through the new core, side by side (#189)

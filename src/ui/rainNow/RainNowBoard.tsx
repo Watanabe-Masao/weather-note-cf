@@ -27,7 +27,7 @@ export function RainNowBoard({ station, onClose }: { station: string; onClose: (
   const name = STATION_PLACES[station]?.name ?? station;
   const [loaded, reload] = useRainNow(station);
   return (
-    <ModalSheet title="雨の見込み（確認用）" onClose={onClose} className="rn-board">
+    <ModalSheet title="雨の見込み" onClose={onClose} className="rn-board">
       <div className="rn-page">
         {!place ? (
           <p className="rn-note">この地点の雨雲の場所はまだ決めていません（地点の表 shared/stationPlaces.ts）。</p>
@@ -286,7 +286,7 @@ function Diag({ data, levels, expected, reload }: { data: { lists: Record<"obs" 
 }
 
 /** この先の言葉：今／降りはじめ・いちばん強い・やむ／その後・この先15時間。段で言う（値そのものは画像から読めない）。 */
-function aheadItems(now: string, frames: RainFrame[], hours: RainFrame[], levels: Map<string, Level>): { label: string; value: string; sub?: string }[] {
+export function aheadItems(now: string, frames: RainFrame[], hours: RainFrame[], levels: Map<string, Level>): { label: string; value: string; sub?: string }[] {
   const lv = (f: RainFrame | undefined) => (f ? levels.get(frameKey(f)) : undefined);
   const cur = frames.find((f) => f.m === 0);
   const ahead = frames.filter((f) => f.kind === "nowcast");

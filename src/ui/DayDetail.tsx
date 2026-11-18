@@ -29,6 +29,8 @@ import { useSun } from "./HourCompare";
 import { Chip, Conf, CONF_TEXT, confidenceOfRow, SectionHead } from "./kit";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
 import { WxChart } from "./WxChart";
+import { RainNowBoard } from "./rainNow/RainNowBoard";
+import { RainNowCard } from "./rainNow/RainNowCard";
 import { ForecastHistoryPanel } from "./forecastHistory/ForecastHistory";
 
 interface Props {
@@ -66,6 +68,8 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   const prov = day?.state === "ready" ? provisionalNote(row, date, today, day.kind === "fixed") : null;
   const [provOpen, setProvOpen] = useState(false);
   // この日の値の出どころは ⓘ で開く（2026-11-18 渡辺さん「出どころは ⓘ でいい」）。暫定の日は待っているものも。
+  // 雨の見込みは「今」のものなので、今日の 1日モードにだけ（RainNowCard）。押すと地図のシート。
+  const [rainOpen, setRainOpen] = useState(false);
   const source = row?.type === "forecast" ? `気象庁の予報${conf ? `（${CONF_TEXT[conf]}）` : ""}` : `気象庁の観測（${kindLabel(store, station, date) || "—"}）`;
 
   return (
@@ -117,6 +121,13 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
           </dl>
         </div>
       )}
+
+      {date === today && (
+        <div className="dd-sec">
+          <RainNowCard station={station} onOpen={() => setRainOpen(true)} />
+        </div>
+      )}
+      {rainOpen && <RainNowBoard station={station} onClose={() => setRainOpen(false)} />}
 
       <div className="dd-sec">
         <SectionHead title="1日の流れ" as="h3" />
