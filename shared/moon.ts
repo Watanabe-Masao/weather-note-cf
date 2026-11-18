@@ -4,7 +4,7 @@
 // 時刻は分（その日の 0:00 JST から）。出・入りが無い日（月の出入りは毎日約50分ずつ遅れ、ひと月に1回ずつ無い日がある）は
 // null で、計算できなかったのとは分ける（none：その日に無い）。
 
-import { AstroTime, Body, Equator, GeoMoon, Horizon, Illumination, MoonPhase, NextMoonQuarter, Observer, SearchHourAngle, SearchMoonPhase, SearchMoonQuarter, SearchRiseSet } from "astronomy-engine";
+import { AstroTime, Body, Equator, GeoMoon, Horizon, Illumination, MoonPhase, NextMoonQuarter, Observer, SearchHourAngle, SearchMoonPhase, SearchMoonQuarter, SearchRiseSet, Seasons } from "astronomy-engine";
 
 const DAY_MS = 86_400_000;
 const startOf = (date: string) => Date.parse(`${date}T00:00:00+09:00`);
@@ -84,3 +84,58 @@ export function moonShapeName(ms: number): { shape: string; old: string | null }
   const OLD: Record<number, string> = { 2: "三日月", 12: "十三夜", 15: "十六夜", 16: "立待月", 17: "居待月", 18: "寝待月", 19: "更待月" };
   return { shape, old: OLD[age] ?? null };
 }
+
+/** 月の明るさ（実視等級、小さいほど明るい。満月で約 −12.7、半月で約 −10）。 */
+export function moonMagnitude(ms: number): number {
+  return Illumination(Body.Moon, new AstroTime(new Date(ms))).mag;
+}
+
+/** 見かけの大きさ（°）を 0°32′45″ の形に。 */
+export function dms(deg: number): string {
+  const total = Math.round(deg * 3600);
+  const d = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const sec = total % 60;
+  return `${d}°${String(m).padStart(2, "0")}′${String(sec).padStart(2, "0")}″`;
+}
+
+const MONTH_FULL = ["ウルフムーン", "スノームーン", "ワームムーン", "ピンクムーン", "フラワームーン", "ストロベリームーン", "バックムーン", "スタージョンムーン", "コーンムーン", "ハンターズムーン", "ビーバームーン", "コールドムーン"];
+const jstMonth = (ms: number) => new Date(ms + 9 * 3_600_000).getUTCMonth();
+const fullAfter = (ms: number) => SearchMoonPhase(180, new AstroTime(new Date(ms)), 40)!.date.getTime();
+/** その年の秋分にいちばん近い満月（ハーベストムーン）の時刻。 */
+function harvestOf(year: number): number {
+  const eq = Seasons(year).sep_equinox.date.getTime();
+  const after = fullAfter(eq);
+  const before = SearchMoonPhase(180, new AstroTime(new Date(eq - 30 * DAY_MS)), 30)!.date.getTime();
+  return eq - before < after - eq ? before : after;
+}
+
+/**
+ * 満月の呼び名（アメリカの農事暦〔Old Farmer's Almanac〕の呼び方。Star Walk などと同じ）：月ごとの名前、ただし
+ * 秋分にいちばん近い満月はハーベストムーン、その次はハンターズムーン（9月がハーベストなら10月が、10月なら11月が）。
+ * ハーベストでない9月の満月はコーンムーン。同じ月（日本時間）の2回目の満月はブルームーンも添える。
+ * `at` は満月の時刻（moonQuarters の kind 2）。
+ */
+export function fullMoonName(at: number): { name: string; blue: boolean } {
+  const year = new Date(at + 9 * 3_600_000).getUTCFullYear();
+  const h = harvestOf(year);
+  const near = (a: number, b: number) => Math.abs(a - b) < DAY_MS;
+  const prev = SearchMoonPhase(180, new AstroTime(new Date(at - 35 * DAY_MS)), 33)?.date.getTime();
+  const blue = prev !== undefined && !near(prev, at) && jstMonth(prev) === jstMonth(at) && new Date(prev + 9 * 3_600_000).getUTCFullYear() === year;
+  if (near(at, h)) return { name: "ハーベストムーン", blue };
+  if (near(at, fullAfter(h + DAY_MS))) return { name: "ハンターズムーン", blue };
+  const m = jstMonth(at);
+  return { name: m === 9 && at < h ? MONTH_FULL[8] : MONTH_FULL[m], blue };
+}
+
+/** 8つの形のひとこと（月のこよみの説明）。 */
+export const SHAPE_NOTE: Record<string, string> = {
+  新月: "月が太陽と同じ方向にあり、照らされた面が地球から見えません。夜空に月は無く、星が見やすい時期です。",
+  "三日月形（満ちていく）": "夕方の西の空に細く光ります。日ごとに右側から太り、日の入り後しばらくで沈みます。",
+  上弦の月: "右半分が光る半月。昼ごろ東から昇り、日の入りごろ南の空に。真夜中ごろ西に沈みます。",
+  満ちていく丸い月: "上弦と満月の間。半分より多く照らされ、宵から夜半まで見えます。十三夜はこのころです。",
+  満月: "月が太陽の反対側にあり、日の入りごろ東から昇って一晩中見えます。いちばん明るい時期です。",
+  欠けていく丸い月: "満月の後、右側から欠けていきます。出が日ごとに遅れ、夜遅くから明け方に見えます。",
+  下弦の月: "左半分が光る半月。真夜中ごろ東から昇り、明け方に南の空に。昼ごろ西に沈みます。",
+  "細い月（欠けていく）": "明け方の東の空に細く光ります。日の出の前にだけ見え、まもなく新月です。",
+};

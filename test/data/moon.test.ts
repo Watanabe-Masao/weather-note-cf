@@ -2,7 +2,7 @@
 // 出典：国立天文台 暦計算室「各地のこよみ」高知（緯度 33.5500°・経度 133.5333°・標高 0m）2026年11月の月の出入り。
 // 表の時刻は分の位で丸めてあるので、出入り・南中は2分以内、方位は1°以内、南中の高さは0.5°以内、月齢（正午）は0.1日以内。
 import { describe, expect, it } from "vitest";
-import { moonDistance, moonPhase, moonQuarters, moonTimes } from "../../shared/moon";
+import { dms, fullMoonName, moonDistance, moonMagnitude, moonPhase, moonQuarters, moonTimes } from "../../shared/moon";
 
 const LAT = 33.55;
 const LON = 133.5333;
@@ -82,5 +82,32 @@ describe("月相と距離", () => {
       expect(m.diameter).toBeGreaterThan(0.49);
       expect(m.diameter).toBeLessThan(0.57);
     }
+  });
+});
+
+// 満月の呼び名・大きさの書き方・明るさ（2026-11-19）
+describe("満月の呼び名（アメリカの農事暦）", () => {
+  const full = (iso: string) => moonQuarters(Date.parse(iso), 4).find((q) => q.kind === 2)!.at;
+  it("月ごとの名前、秋分にいちばん近いのがハーベスト、その次がハンターズ", () => {
+    expect(fullMoonName(full("2026-01-01T00:00:00+09:00")).name).toBe("ウルフムーン");
+    expect(fullMoonName(full("2026-09-20T00:00:00+09:00")).name).toBe("ハーベストムーン"); // 9/27
+    expect(fullMoonName(full("2026-10-20T00:00:00+09:00")).name).toBe("ハンターズムーン"); // 10/26
+    expect(fullMoonName(full("2026-11-20T00:00:00+09:00")).name).toBe("ビーバームーン"); // 11/24
+    expect(fullMoonName(full("2026-12-20T00:00:00+09:00")).name).toBe("コールドムーン");
+  });
+  it("同じ月の2回目の満月はブルームーン（2026年5月31日）", () => {
+    const b = fullMoonName(full("2026-05-20T00:00:00+09:00"));
+    expect(b.blue).toBe(true);
+    expect(fullMoonName(full("2026-04-25T00:00:00+09:00")).blue).toBe(false);
+  });
+});
+describe("大きさと明るさ", () => {
+  it("度・分・秒", () => {
+    expect(dms(0.5458)).toBe("0°32′45″");
+    expect(dms(0.5)).toBe("0°30′00″");
+  });
+  it("満月は約 −12.7 等、半月は約 −10 等", () => {
+    expect(moonMagnitude(Date.parse("2026-11-24T23:54:00+09:00"))).toBeCloseTo(-12.7, 0);
+    expect(moonMagnitude(Date.parse("2026-11-17T20:48:00+09:00"))).toBeGreaterThan(-10.5);
   });
 });

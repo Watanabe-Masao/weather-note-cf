@@ -4389,6 +4389,8 @@ select.chip.sm {
 .moon-curve { fill: none; stroke-width: var(--stroke-focus); stroke-dasharray: 4 3; stroke-linecap: round; }
 .moon-dot { stroke: var(--surface-base); stroke-width: var(--stroke-hair); }
 .moon-dark { fill: var(--surface-inset); stroke: var(--line-strong); stroke-width: var(--stroke-hair); }
+/* 影の側：同じ絵をうっすら（明るい側との差で形が読める） */
+.moon-shade { opacity: 0.16; }
 .moon-glyph { display: block; flex: none; }
 .sun-play { display: flex; align-items: center; gap: var(--space-4); }
 .sun-play .sun-slider { flex: 1; min-width: 0; }
@@ -4442,8 +4444,10 @@ select.chip.sm {
 .moon-trend-mark { fill: var(--ink-secondary); }
 .moon-next { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
 .moon-next span { display: grid; justify-items: center; padding: var(--space-2) 0; border-radius: var(--radius-sm); background: var(--surface-inset); }
+.moon-note { margin-top: var(--space-2); }
+.moon-next-name { white-space: nowrap; }
 .moon-next small { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.moon-next b { font-size: var(--size-sm); font-variant-numeric: tabular-nums; }
+.moon-next b { font-size: var(--size-sm); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -0.02em; }
 .moon-credit { margin: var(--space-3) 0 var(--space-4); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sky-sensor { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
 .sky-sensor-state { font-size: var(--size-xs); color: var(--ink-tertiary); }
