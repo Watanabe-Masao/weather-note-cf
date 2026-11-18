@@ -917,6 +917,19 @@ button.label-feel:active { transform: scale(0.97); }
 }
 
 /* The page behind dims (and softens) while the sheet is above the middle height. */
+.sheet-handle-reach {
+  position: fixed;
+  left: 0;
+  right: 0;
+  max-width: 600px;
+  margin: 0 auto;
+  /* 引き手（高さ 25）と合わせて 44 を超える */
+  height: var(--space-8);
+  z-index: var(--layer-sheet);
+  touch-action: none;
+  cursor: grab;
+}
+
 .sheet-scrim {
   position: fixed;
   left: 0;

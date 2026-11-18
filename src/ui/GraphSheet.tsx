@@ -210,6 +210,17 @@ export function GraphSheet({ title, tabs, detent, heights, onDetent, children, s
         }}
         aria-hidden
       />
+      {/* 引き手の押せる範囲を上へ広げる透明な帯（#296、2026-11-18 渡辺さん案A）。シートは外を切り落とすので、
+          シートの外に置いて上の縁に付いて動く。押すと引き手と同じ（引く・押して高さを替える）。読み上げは引き手の方で。 */}
+      <div
+        className="sheet-handle-reach"
+        style={{ bottom: Math.max(0, height), transition: live == null ? `bottom ${duration}ms ${SHEET_EASE}` : "none" }}
+        onPointerDown={handleDown}
+        onPointerMove={(e) => follow(e.clientY)}
+        onPointerUp={handleUp}
+        onPointerCancel={() => finish()}
+        aria-hidden
+      />
       <aside
         className={live == null ? "sheet" : "sheet dragging"}
         style={{ height: Math.max(0, height), transition: motion }}
