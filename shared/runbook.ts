@@ -15,7 +15,7 @@ export interface RunbookEntry {
 }
 
 export const RUNBOOK: RunbookEntry[] = [
-  { code: "R-01", title: "予報の電文が取れない・届かない", severity: "S1", keys: ["forecastStale", "alert:fetch", "alert:missing", "fetchFailures"] },
+  { code: "R-01", title: "予報の電文が取れない・届かない", severity: "S1", keys: ["forecastStale", "forecastGap", "alert:fetch", "alert:missing", "fetchFailures"] },
   { code: "R-02", title: "台風の電文が取れない・読めない", severity: "S1", keys: ["typhoonStale", "alert:collector", "alert:json", "alert:mismatch", "alert:problems"] },
   { code: "R-03", title: "雨雲レーダー・解析雨量が保存できない", severity: "S1", keys: ["radarStale"] },
   { code: "R-04", title: "警報・注意報の電文が保存できない", severity: "S1", keys: ["warningStale"] },
@@ -25,6 +25,7 @@ export const RUNBOOK: RunbookEntry[] = [
   { code: "R-08", title: "電文が読めない・たまる", severity: "S2", keys: ["unparsed", "parseFailed"] },
   { code: "R-09", title: "余裕", severity: "S3", keys: ["d1Size", "d1Writes", "r2", "cpuP99", "month", "usage"] },
   { code: "R-10", title: "過去の記録の取り込み", severity: "S3", keys: ["importUnknown", "import"] },
+  { code: "R-11", title: "取り戻せない欠けが出た", severity: "S2", keys: ["dataLost"] },
 ];
 
 /** 知らせの key から手順を引く（`alert:missing:VPFD51` → `alert:missing`、`cronFailed:notify` → `cronFailed`）。 */

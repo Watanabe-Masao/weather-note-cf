@@ -22,6 +22,7 @@
 
 import { checkImport, judgeHealth, type Finding, type ImportReady } from "../../shared/healthJudge";
 import { runbookTag } from "../../shared/runbook";
+import { auditCompleteness } from "./completeness";
 import { claimDigest, digestExtra, digestLines, digestMessage } from "./dailyDigest";
 import type { Db } from "./accounts";
 import { health } from "./health";
@@ -115,6 +116,8 @@ export async function watchHealth(
   await ensureHealthWatchSchema(db);
   const send = deps.send ?? sendPush;
   const at = new Date(now).toISOString();
+  // 欠けの発見（completeness.ts）：取り戻せない欠けを data_gaps に1度だけ残す（見る前に）。
+  await auditCompleteness(db, now).catch((e) => console.error("weather-note: completeness", e));
   const h = await health(db, now, env, deps.usageFetch);
   const importReady: ImportReady | null = h.state.forecastImport
     ? await checkImport(h.state.forecastImport, deps.head ?? fetch, "weather-note health (Cloudflare Worker)")
