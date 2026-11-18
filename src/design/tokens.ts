@@ -28,7 +28,7 @@ interface Palette {
   dark: boolean;
   surface: Record<"page" | "base" | "raised" | "overlay" | "inset", string>;
   ink: Record<
-    "primary" | "secondary" | "tertiary" | "disabled" | "onAccent",
+    "primary" | "secondary" | "tertiary" | "disabled" | "onAccent" | "onFeel",
     string
   >;
   line: Record<
@@ -43,6 +43,8 @@ interface Palette {
   feel: string[];
   feel5: string[];
   feel3: string[];
+  /** The inner edge of a 肌感 cell (肌感マップ): a few pixels of a lighter tone of its step, inside the frame. */
+  feelEdge: string[];
   bands: string[];
   shadow: Record<
     "card" | "sheet" | "overlay" | "pinned" | "lift" | "float" | "edge",
@@ -123,15 +125,26 @@ const lightEffect = (tint: string, page: string, veil: string) => ({
   veil,
 });
 
+// 肌感の7段（2026-11-18 渡辺さん「寒い＝#3232FF をベースに色の表」「枠の内側を数ピクセル #3265FF のグラデーション」
+// 「Warm White とグリーンも合わせて見直し」）：3テーマで同じ色。段は明るさではなく鮮やかさで分ける（寒い・暑いが
+// いちばん鮮やか、ふつうがいちばん落ち着く）。どの段も白い数字が読める明るさ（4.5:1 以上）で、数字は ink.onFeel。
+// 縁は各段の少し明るい色（寒い #3232FF → #3265FF と同じ寄せ方）。
+const FEEL = {
+  feel: ["#3232ff", "#0072e5", "#007db0", "#547e5d", "#a46700", "#bd5700", "#e22919"],
+  feel5: ["#3232ff", "#007db0", "#547e5d", "#a46700", "#e22919"],
+  feel3: ["#0072e5", "#547e5d", "#bd5700"],
+  feelEdge: ["#3265ff", "#3b8eeb", "#4394bd", "#719275", "#b68043", "#cc7546", "#ee5c50"],
+};
+
 const THEMES: Record<ThemeName, Palette> = {
   navy: {
     dark: true,
     surface: {
-      page: "#101b2c",
-      base: "#172337",
-      raised: "#223044",
-      overlay: "#233145",
-      inset: "#111d2f",
+      page: "#00071f",
+      base: "#041029",
+      raised: "#0d1c36",
+      overlay: "#0d1d37",
+      inset: "#010b23",
     },
     // tertiary as secondary: the 補足 comparison chose 3 (one quiet ink, size and place tell the rest).
     ink: {
@@ -139,10 +152,11 @@ const THEMES: Record<ThemeName, Palette> = {
       secondary: "#ada99f",
       tertiary: "#ada99f",
       disabled: "#6c727c",
-      onAccent: "#101b2c",
+      onAccent: "#00071f",
+      onFeel: "#ffffff",
     },
     line: {
-      strong: "#42536a",
+      strong: "#354764",
       soft: "rgba(255, 255, 255, 0.06)",
       focus: "#91b49b",
       swatch: "rgba(255, 255, 255, 0.14)",
@@ -156,9 +170,9 @@ const THEMES: Record<ThemeName, Palette> = {
       glow: "rgba(145, 180, 155, 0.24)",
     },
     data: {
-      hot: "#db7f58",
-      cold: "#589cdc",
-      temp: "#db7f58",
+      hot: "#cd6739",
+      cold: "#3788cf",
+      temp: "#cd6739",
       mean: "#8ea3b9",
       rain: "#45c8d8",
       snow: "#cdd9ff",
@@ -181,23 +195,13 @@ const THEMES: Record<ThemeName, Palette> = {
       error: "#ff8a80",
     },
     icon: {
-      sun: "#c19952",
-      moon: "#a7a082",
-      cloud: "#96a1ad",
-      rain: "#77a4cf",
+      sun: "#b28b44",
+      moon: "#989274",
+      cloud: "#88939e",
+      rain: "#6996c0",
       glint: "#ffffff",
     },
-    feel: [
-      "#7283d0",
-      "#6578a9",
-      "#5b6b7f",
-      "#4f6346",
-      "#78683d",
-      "#9b7044",
-      "#c57151",
-    ],
-    feel5: ["#7283d0", "#5b6b7f", "#4f6346", "#78683d", "#c57151"],
-    feel3: ["#6578a9", "#4f6346", "#9b7044"],
+    ...FEEL,
     bands: ["#f4f7fb", "#cdd8e6", "#a9b8cb", "#8797ad", "#6a7a91"],
     shadow: DARK_SHADOW,
     effect: {
@@ -214,8 +218,8 @@ const THEMES: Record<ThemeName, Palette> = {
       // the colour), so the fill keeps one relation to the card, the sheet and the sunk face alike.
       veil: "rgba(255, 255, 255, 0.05)",
     },
-    reference: { color: "#555e68", opacity: 1 },
-    chart: { grid: "#2e3740", hatch: "#3c444e" },
+    reference: { color: "#44536b", opacity: 1 },
+    chart: { grid: "#1c2a3f", hatch: "#2b384f" },
     compareOpacity: 0.89,
   },
   mist: {
@@ -233,6 +237,7 @@ const THEMES: Record<ThemeName, Palette> = {
       tertiary: "#475a4a",
       disabled: "#748678",
       onAccent: "#ffffff",
+      onFeel: "#ffffff",
     },
     line: {
       strong: "#9eaf9b",
@@ -283,17 +288,7 @@ const THEMES: Record<ThemeName, Palette> = {
       rain: "#19619b",
       glint: "#ffffff",
     },
-    feel: [
-      "#4958b7",
-      "#526bb5",
-      "#6080a4",
-      "#6b9755",
-      "#997a18",
-      "#a35d12",
-      "#ab3b2a",
-    ],
-    feel5: ["#4958b7", "#6080a4", "#6b9755", "#997a18", "#ab3b2a"],
-    feel3: ["#526bb5", "#6b9755", "#a35d12"],
+    ...FEEL,
     bands: ["#26382c", "#35483b", "#45584b", "#56695c", "#677b6d"],
     shadow: lightShadow("38, 56, 44"),
     effect: lightEffect("30, 44, 36", "196, 208, 193", "rgba(0, 0, 0, 0.07)"),
@@ -316,6 +311,7 @@ const THEMES: Record<ThemeName, Palette> = {
       tertiary: "#616b73",
       disabled: "#939a9e",
       onAccent: "#ffffff",
+      onFeel: "#ffffff",
     },
     line: {
       strong: "#d0cdc5",
@@ -366,17 +362,7 @@ const THEMES: Record<ThemeName, Palette> = {
       rain: "#296ea9",
       glint: "#ffffff",
     },
-    feel: [
-      "#5565c6",
-      "#5e79c4",
-      "#6e8eb3",
-      "#79a663",
-      "#a7882b",
-      "#b16a25",
-      "#b94937",
-    ],
-    feel5: ["#5565c6", "#6e8eb3", "#79a663", "#a7882b", "#b94937"],
-    feel3: ["#5e79c4", "#79a663", "#b16a25"],
+    ...FEEL,
     bands: ["#243448", "#334459", "#43546a", "#53657b", "#64768d"],
     shadow: lightShadow("36, 52, 72"),
     effect: lightEffect("36, 46, 60", "247, 245, 240", "rgba(0, 0, 0, 0.065)"),
@@ -566,6 +552,10 @@ export const FEEL_SCALE_COLORS: Record<7 | 5 | 3, string[]> = {
   5: [...THEMES.navy.feel5],
   3: [...THEMES.navy.feel3],
 };
+/** The inner edge of each of the seven steps (肌感マップ's cells). */
+export const FEEL_EDGES: string[] = [...THEMES.navy.feelEdge];
+/** The inner edge of a step's colour (any scale: the 5 and 3 steps are steps of the seven). */
+export const feelEdgeOf = (color: string): string | undefined => FEEL_EDGES[FEEL_LEVELS.indexOf(color)];
 
 /** Lines for the five 時間区分 in the trend graph (朝・日中・昼・夕方・夜): distinct from the level colours. */
 /**
@@ -674,6 +664,8 @@ export const RADIUS = radius;
  * — the bands still count, without hard tiles. Today's band now is ringed (`ring`).
  */
 export const FEEL_BAND = { divider: 1.5, blur: 0.22, ring: 1.5 } as const;
+/** 肌感マップ's cell: its inner edge fades over edgeBlur from a band edgeSpread wide (px). */
+export const FEEL_CELL = { edgeBlur: 4, edgeSpread: 1 } as const;
 
 /** Elevation: what sits above what. Shadows deepen with height. */
 const shadow = { ...THEMES.navy.shadow };
@@ -734,12 +726,14 @@ export function cssVariables(): Record<string, string> {
   put("day", day);
   put("status", status);
   FEEL_LEVELS.forEach((c, i) => (out[`--feel-${i}`] = c));
+  FEEL_EDGES.forEach((c, i) => (out[`--feel-edge-${i}`] = c));
   put("font", font);
   put("size", size, "px");
   put("weight", weight);
   put("space", space, "px");
   put("radius", radius, "px");
   put("feel-band", { divider: FEEL_BAND.divider, ring: FEEL_BAND.ring }, "px");
+  put("feel-cell", FEEL_CELL, "px");
   put("shadow", shadow);
   put("layer", LAYER);
   put(
@@ -780,6 +774,7 @@ export function applyTheme(
   Object.assign(shadow, t.shadow);
   Object.assign(effect, t.effect);
   FEEL_LEVELS.splice(0, FEEL_LEVELS.length, ...t.feel);
+  FEEL_EDGES.splice(0, FEEL_EDGES.length, ...t.feelEdge);
   FEEL_SCALE_COLORS[5] = [...t.feel5];
   FEEL_SCALE_COLORS[3] = [...t.feel3];
   BAND_LINES.splice(0, BAND_LINES.length, ...t.bands);

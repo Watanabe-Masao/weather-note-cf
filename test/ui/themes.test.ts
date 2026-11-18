@@ -165,7 +165,8 @@ describe.each(THEME_NAMES)("%s", (name) => {
   });
   // Deep Navy (#244): a red light enough to read on a dark face turns salmon at the light themes'
   // hue, so its red leans 10° toward brown (terracotta, Warm White's brick red in the dark), and both
-  // temperatures carry 68% of the light themes' saturation (chroma ÷ lightness) so they do not glare.
+  // temperatures carry 85% of the light themes' saturation (chroma ÷ lightness) so they do not glare
+  // (68% until 2026-11-18: on the deeper face they read dull at night).
   it("keeps the temperatures one colour across themes: the light themes alike, Deep Navy a terracotta red and a calmer blue", () => {
     const warm = themePalette("warm");
     const lch = (c: string) => {
@@ -182,23 +183,29 @@ describe.each(THEME_NAMES)("%s", (name) => {
       else expect(Math.abs(x.C - w.C)).toBeLessThan(0.02);
     }
   });
-  it("draws the 肌感 steps as one diverging scale in every theme: 寒い and 暑い farthest, ふつう nearest, each pair alike", () => {
-    // The distances from the base face, cold to hot (#242): the same in each theme, so a step reads
-    // as strongly on Deep Navy as on the light faces. Each still reads as a mark on the card.
-    const want = [4.4, 3.6, 2.9, 2.4, 2.9, 3.6, 4.4];
-    const at = t.feel.map((c) => contrast(c, t.surface.base));
-    expect(
-      at.flatMap((v, i) =>
-        Math.abs(v - want[i]) > 0.15 ? [`feel${i + 1} ${v.toFixed(2)}`] : [],
-      ),
-    ).toEqual([]);
-    expect(
-      t.feel.flatMap((c, i) =>
-        contrast(c, t.surface.raised) < 2
-          ? [`feel${i + 1}/raised ${contrast(c, t.surface.raised).toFixed(2)}`]
-          : [],
-      ),
-    ).toEqual([]);
+  // 肌感の7段 (2026-11-18 渡辺さん、寒い＝#3232FF の色の表 A＋縁): one scale in all three themes, filled
+  // vivid with white numbers on it. The steps part by vividness, not by distance from the face: 寒い and
+  // 暑い the most vivid, ふつう the calmest, each pair alike. Until 2026-11-18 the steps parted by
+  // distance from the face (4.4 … 2.4 … 4.4), which on Deep Navy made the warm steps brown.
+  it("draws the 肌感 steps as one scale in every theme: white numbers read on each, 寒い and 暑い the most vivid, ふつう the calmest", () => {
+    const navy = themePalette("navy");
+    expect(t.feel).toEqual(navy.feel);
+    expect(t.feelEdge).toEqual(navy.feelEdge);
+    expect(t.feel[0]).toBe("#3232ff");
+    expect(t.feelEdge[0]).toBe("#3265ff");
+    expect(t.ink.onFeel).toBe("#ffffff");
+    expect(ok(t.feel.map((c, i) => [`feel${i + 1}`, c, t.ink.onFeel]), 4.5)).toEqual([]);
+    const chroma = t.feel.map((c) => {
+      const [, a, b] = oklab(c);
+      return Math.hypot(a, b);
+    });
+    // Vivid toward both ends: each step calmer than the one outside it, ふつう the calmest.
+    expect(chroma[0] > chroma[1] && chroma[1] > chroma[2] && chroma[2] > chroma[3]).toBe(true);
+    expect(chroma[6] > chroma[5] && chroma[5] > chroma[4] && chroma[4] > chroma[3]).toBe(true);
+    for (const [a, b] of [[0, 6], [1, 5], [2, 4]]) expect(Math.abs(chroma[a] - chroma[b])).toBeLessThan(0.07);
+    // Still a mark on the card, and the edge a lighter tone of its own step.
+    expect(ok(t.feel.map((c, i) => [`feel${i + 1}/raised`, c, t.surface.raised]), 2)).toEqual([]);
+    for (const [i, c] of t.feel.entries()) expect(oklab(t.feelEdge[i])[0]).toBeGreaterThan(oklab(c)[0]);
     expect(t.feel5).toEqual([0, 2, 3, 4, 6].map((i) => t.feel[i]));
     expect(t.feel3).toEqual([1, 3, 5].map((i) => t.feel[i]));
   });
@@ -224,7 +231,7 @@ describe.each(THEME_NAMES)("%s", (name) => {
 });
 
 /** Deep Navy's temperatures (#244): their share of Warm White's saturation, and the red's lean toward brown (degrees). */
-const NAVY_SATURATION = 0.68;
+const NAVY_SATURATION = 0.85;
 const NAVY_RED_LEAN = 10;
 
 describe("putting a theme in use", () => {

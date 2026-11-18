@@ -761,7 +761,7 @@ with sync_playwright() as p:
             check(f"TH1 {label}：テーマが変わり、設定は開いたまま", pg.evaluate("document.documentElement.dataset.theme") == name and pg.locator(".msheet.settings").count() == 1)
             esc()
             bg = pg.evaluate("getComputedStyle(document.body).backgroundColor")
-            want = {"mist": "rgb(196, 208, 193)", "warm": "rgb(247, 245, 240)", "navy": "rgb(16, 27, 44)"}[name]
+            want = {"mist": "rgb(196, 208, 193)", "warm": "rgb(247, 245, 240)", "navy": "rgb(0, 7, 31)"}[name]
             check(f"TH2 {label}：画面の地の色がそのテーマの page", bg == want, bg)
             if shots:
                 pg.screenshot(path=f"{shots}-theme-{name}.png", full_page=False)
