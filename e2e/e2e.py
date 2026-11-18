@@ -444,6 +444,8 @@ with sync_playwright() as p:
 
     # TX. 質感 (design-system.md 4.1): values by the points, the 幅 view, rounded amount bars
     def tx():
+        moon = pg.locator(".sun-keys.moon .sun-key").count()
+        check("SS2c 月：月の出・南中・月の入りの3枚と、選んだ時刻の月（高さ・方位・月齢・明るい部分）", moon == 3 and "月齢" in txt(".sun-now.moon"), txt(".sun-now.moon"))
         fit = pg.evaluate("(()=>{const b=document.querySelector('.sheet-body');return [b.scrollHeight,b.clientHeight]})()")
         check("TX0 日別のグラフはシートに収まる（縦にスクロールしない）", fit[0] <= fit[1] + 1, str(fit))
         check("TX0b 上のカードに時間帯の天気（朝〜夜の5つ）", pg.locator(".sheet .readout-card .parts-wx-cell").count() == 5)
@@ -668,7 +670,7 @@ with sync_playwright() as p:
         # SS. 太陽: the sun strip opens the sheet; the three twilights in order; the slider reads 10-minute steps.
         pg.locator(".day-sun-button").first.scroll_into_view_if_needed(); pg.locator(".day-sun-button").first.click(); calm()
         # 1画面に収める形（2026-11-18）：日の出・南中・日の入りの3枚と、薄明の表（朝の始まり・夕の終わり）と昼の長さ。
-        keys = pg.locator(".sun-key b").all_inner_texts()
+        keys = pg.locator(".sun-keys:not(.moon) .sun-key b").all_inner_texts()
         tw = pg.locator(".sun-tw tbody tr").all_inner_texts()
         check("SS1 太陽のシート：日の出・南中・日の入りの3枚、薄明3つ（朝・夕）、昼の長さ", pg.locator(".sun-sheet").count() == 1 and len(keys) == 3 and len(tw) == 3 and "時間" in txt(".sun-tw tfoot"), (keys, tw))
         st = small_text(); check("SS1b 11px より小さい文字がない（太陽のシート）", not st, str(st))
@@ -677,6 +679,8 @@ with sync_playwright() as p:
         morning = [tm(c[1]) for c in cells]; evening = [tm(c[2]) for c in cells]
         mins = sorted(morning, reverse=True) == morning and evening == sorted(evening) and max(morning) < tm(keys[0]) and tm(keys[0]) < tm(keys[1]) < tm(keys[2]) < min(evening)
         check("SS2 薄明は 市民→航海→天文 の順（朝は早く・夕は遅く）、日の出→南中→日の入り", mins, (keys, tw))
+        moon = pg.locator(".sun-keys.moon .sun-key").count()
+        check("SS2c 月：月の出・南中・月の入りの3枚と、選んだ時刻の月（高さ・方位・月齢・明るい部分）", moon == 3 and "月齢" in txt(".sun-now.moon"), txt(".sun-now.moon"))
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
         pg.evaluate("""() => { const r = document.querySelector('.sun-slider input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;

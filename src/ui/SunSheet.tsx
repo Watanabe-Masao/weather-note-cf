@@ -6,9 +6,11 @@ import { sunHours, type SunTimes } from "../data/sun";
 import { dateLabel, hoursMinutes } from "../design/format";
 import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
-import { InfoNote, Slider } from "./kit";
+import { Button, InfoNote, Segmented, Slider } from "./kit";
+import { moonPhase, moonPosition, moonTimes } from "../../shared/moon";
+import { DEFAULT_LAT_LON, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
 import { ICON } from "../design/tokens";
-import { useMemo, useRef, useState, type PointerEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 
 const W = 340;
@@ -41,6 +43,14 @@ export function SunSheet({
     const filled = c.slice(0, -1).filter((p) => !own(p.min)).length;
     return { e: dayEdges(date, station), t: twilights(date, station), curve: c, skies, filled };
   }, [date, station, sky]);
+  // 月（2026-11-18、shared/moon.ts・Astronomy Engine）：10分ごとの高さと方位、その日の出・南中・入り。太陽の方位も。
+  const ll = stationLatLon(station) ?? DEFAULT_LAT_LON;
+  const sky3 = useMemo(() => {
+    const day0 = Date.parse(`${date}T00:00:00+09:00`);
+    const moon = curve.map((p) => moonPosition(day0 + p.min * 60_000, ll.lat, ll.lon));
+    const sunAz = curve.map((p) => solarAzimuth(date, p.min, ll.lat, ll.lon));
+    return { moon, sunAz, times: moonTimes(date, ll.lat, ll.lon), day0 };
+  }, [date, curve, ll.lat, ll.lon]);
   // Sunrise and sunset by the same rule as the graph (data/sun sunHours), in minutes.
   const { rise: riseH, set: setH } = sunHours(sun, e);
   const rise = riseH * 60;
@@ -61,12 +71,35 @@ export function SunSheet({
   // The moment read out, in 10-minute steps: starts at the graph's hour, moved by swiping the
   // chart or the slider under it.
   const [at, setAt] = useState(() => Math.min(1430, hour != null ? hour * 60 : Math.round(e.noon / 10) * 10));
+  const [view, setView] = useState<"graph" | "sky">("graph");
+  // 時間の動きを見る（再生）：10分ずつ進め、24時で頭に戻る。もう一度押すと止まる。
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    if (!playing) return;
+    const id = window.setInterval(() => setAt((a) => (a >= 1430 ? 0 : a + 10)), 90);
+    return () => window.clearInterval(id);
+  }, [playing]);
   const altAt = curve.reduce((a, p) => (Math.abs(p.min - at) < Math.abs(a.min - at) ? p : a)).deg;
   // The sun's state in words that never clash with the app's five parts (朝・日中・昼・夕方・夜,
   // shared/dayParts): those are named beside it, so 19:00 reads 航海薄明 ・ 時間帯は夜.
   const phase = altAt >= 0 ? "日の出ている間" : altAt >= -6 ? "市民薄明" : altAt >= -12 ? "航海薄明" : altAt >= -18 ? "天文薄明" : "暗い夜空";
   const part = dayParts(date, station).find((p) => p.id !== "night" && at >= p.from && at < p.to)?.label ?? "夜";
   const skyNow = skies[Math.min(skies.length - 1, Math.round(at / 10))];
+  const idx = Math.min(curve.length - 1, Math.round(at / 10));
+  const moonAt = sky3.moon[idx];
+  const sunAzAt = sky3.sunAz[idx];
+  const phaseAt = moonPhase(sky3.day0 + at * 60_000);
+  // 月の線（地平線より上だけ）を x・y の関数でつなぐ：下に入るとそこで切る。方位の線では 360°→0° をまたぐ所でも切る。
+  const pathOf = (pts: { x: number; y: number; up: boolean }[], wrap = false) =>
+    pts
+      .map((p, i) => {
+        if (!p.up) return "";
+        const prev = pts[i - 1];
+        const start = !prev || !prev.up || (wrap && Math.abs(p.x - prev.x) > W / 2);
+        return `${start ? "M" : "L"}${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+      })
+      .join(" ");
+  const moonPath = pathOf(curve.map((p, i) => ({ x: x(p.min), y: y(sky3.moon[i].altitude), up: sky3.moon[i].altitude >= 0 })));
   const svg = useRef<SVGSVGElement>(null);
   // The drawing is W wide and shown at the card's width: the tick labels are xs on screen (useDrawnWidth).
   const tick = svgTextSize("xs", W, useDrawnWidth(svg));
@@ -81,11 +114,22 @@ export function SunSheet({
   const length = set - rise;
 
   return (
-    <ModalSheet title={`${dateLabel(date)}の太陽`} onClose={onClose} className="sun-sheet">
+    <ModalSheet title={`${dateLabel(date)}の太陽と月`} onClose={onClose} className="sun-sheet">
       {/* Reading the sun: a sunk face (数字を読む所), as the graph readouts. */}
       <div className="sun-card">
+      <Segmented
+        label="見かた"
+        value={view}
+        onChange={setView}
+        options={[
+          { id: "graph", label: "高さのグラフ" },
+          { id: "sky", label: "空を見上げる" },
+        ]}
+      />
+      {view === "sky" && <SkyView at={at} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} />}
       <svg
         ref={svg}
+        style={view === "sky" ? { display: "none" } : undefined}
         className="sun-chart"
         data-no-sheet-drag
         viewBox={`0 0 ${W} ${H}`}
@@ -140,6 +184,9 @@ export function SunSheet({
         {[rise, set, t.civil.start, t.civil.end, t.nautical.start, t.nautical.end, t.astronomical.start, t.astronomical.end].map((m, i) =>
           m == null ? null : <circle key={i} cx={x(m)} cy={y(i < 2 ? 0 : TWILIGHTS[Math.floor((i - 2) / 2)].deg)} r={i < 2 ? 3.5 : 2.6} className={i < 2 ? "sun-mark rise" : "sun-mark"} />,
         )}
+        {/* 月：地平線より上の高さを点線で（色は天気の絵の月の色）、選んだ時刻の位置に丸。 */}
+        {moonPath && <path d={moonPath} className="moon-curve" style={{ stroke: ICON.moon }} />}
+        {moonAt.altitude >= 0 && <circle cx={x(at)} cy={y(moonAt.altitude)} r={4.5} className="moon-dot" style={{ fill: ICON.moon }} />}
         <line x1={x(at)} x2={x(at)} y1={PAD.top} y2={H - PAD.bottom} className="sun-cursor" />
         <circle cx={x(at)} cy={y(altAt)} r={5} className={altAt >= 0 ? "sun-dot day" : "sun-dot"} />
         {/* Hours as on the hour graph: bare numbers every 3 hours. */}
@@ -150,6 +197,7 @@ export function SunSheet({
         ))}
       </svg>
       {/* The same slider as 条件から選ぶ (kit Slider): ticks at sunrise and sunset, no span (a moment, not an amount). */}
+      <div className="sun-play">
       <Slider
         className="sun-slider"
         min={0}
@@ -158,6 +206,10 @@ export function SunSheet({
         ticks={[rise, set]}
         thumbs={[{ value: at, label: "時刻（10分ごと）", valueText: `${clockOf(at)} ${phase}`, onChange: setAt }]}
       />
+      <Button size="sm" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
+        {playing ? "止める" : "動かす"}
+      </Button>
+      </div>
       {/* The moment: its time, which part of the day, the sun's height, and the sky's colour then. */}
       <div className="sun-now">
         <i className="sun-now-sky" style={{ background: `linear-gradient(${skyNow.zenith}, ${skyNow.horizon})` }} />
@@ -168,7 +220,19 @@ export function SunSheet({
             時間帯は{part}・{skyNow.word}
           </small>
         </span>
-        <span className="sun-now-alt">{altAt >= 0 ? `地平線の上 ${Math.round(altAt)}°` : `地平線の下 ${Math.round(-altAt)}°`}</span>
+        <span className="sun-now-alt">
+          {altAt >= 0 ? `地平線の上 ${Math.round(altAt)}°` : `地平線の下 ${Math.round(-altAt)}°`}
+          <small>{dirName(sunAzAt)}</small>
+        </span>
+      </div>
+      <div className="sun-now moon">
+        <MoonGlyph phase={phaseAt} size={28} />
+        <span className="sun-now-phase">
+          月 {moonAt.altitude >= 0 ? `地平線の上 ${Math.round(moonAt.altitude)}°・${dirName(moonAt.azimuth)}` : "地平線の下"}
+          <small>
+            月齢 {phaseAt.age.toFixed(1)}・明るい部分 {Math.round(phaseAt.illuminated * 100)}%
+          </small>
+        </span>
       </div>
       </div>
 
@@ -184,6 +248,19 @@ export function SunSheet({
             <small>{k.label}</small>
             <b>{k.time == null ? "—" : clockOf(k.time)}</b>
             {k.note && <small>{k.note}</small>}
+          </div>
+        ))}
+      </div>
+      <div className="sun-keys moon">
+        {[
+          { label: "月の出", ev: sky3.times.rise },
+          { label: "月の南中", ev: sky3.times.transit, note: sky3.times.transit ? `高さ ${Math.round(sky3.times.transit.altitude)}°` : undefined },
+          { label: "月の入り", ev: sky3.times.set },
+        ].map((k) => (
+          <div key={k.label} className="sun-key">
+            <small>{k.label}</small>
+            <b>{k.ev ? clockOf(Math.round(k.ev.at)) : "—"}</b>
+            <small>{k.ev ? (k.note ?? dirName(k.ev.azimuth)) : "この日は無し"}</small>
           </div>
         ))}
       </div>
@@ -235,5 +312,99 @@ export function SunSheet({
         空の色は模式・なぞると10分ごと
       </InfoNote>
     </ModalSheet>
+  );
+}
+
+/** 方位の名前（16方位、北0・東90）。 */
+const DIRS = ["北", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東", "南", "南南西", "南西", "西南西", "西", "西北西", "北西", "北北西"];
+export const dirName = (az: number) => DIRS[Math.round(((az % 360) + 360) % 360 / 22.5) % 16];
+
+/**
+ * 月の満ち欠けの絵：照らされている割合（輝面比）と、満ちていくか欠けていくか（月齢 14.8 日の前か後か）から。
+ * 北半球で見た形（満ちていくときは右が明るい）。
+ */
+export function MoonGlyph({ phase, size }: { phase: { age: number; illuminated: number }; size: number }) {
+  const r = size / 2 - 1;
+  const c = size / 2;
+  const k = Math.min(1, Math.max(0, phase.illuminated));
+  const waxing = phase.age < 14.77;
+  const rx = Math.abs(1 - 2 * k) * r;
+  // 明るい側の半円＋明暗の境（楕円の半分）。半分より多く照らされていれば楕円は暗い側へふくらむ。
+  const side = waxing ? 1 : 0;
+  const bulge = waxing ? (k > 0.5 ? 1 : 0) : k > 0.5 ? 0 : 1;
+  const d = `M${c},${c - r} A${r},${r} 0 0 ${side} ${c},${c + r} A${rx},${r} 0 0 ${bulge} ${c},${c - r} Z`;
+  return (
+    <svg className="moon-glyph" width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+      <circle cx={c} cy={c} r={r} className="moon-dark" />
+      <path d={d} className="moon-lit" style={{ fill: ICON.moon }} />
+    </svg>
+  );
+}
+
+/**
+ * 空を見上げる（2026-11-18 の見本）：地上に立って見た空を、方位（北・東・南・西・北）を横に、高さ（地平線〜天頂）を縦に
+ * 広げた絵。南を真ん中に。太陽と月のその日の通り道（地平線より上）と、選んだ時刻の位置。空の色は選んだ時刻の模式の色。
+ */
+function SkyView({ sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky }: { at: number; sunAlt: number; sunAz: number; moon: { altitude: number; azimuth: number }; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour }) {
+  const VW = 340;
+  const VH = 230;
+  const P = { l: 6, r: 6, t: 10, b: 34 };
+  const gx = (az: number) => P.l + (((az % 360) + 360) % 360 / 360) * (VW - P.l - P.r);
+  const top = 75;
+  const gy = (alt: number) => P.t + (1 - Math.max(-8, Math.min(top, alt)) / top) * (VH - P.t - P.b - 12);
+  const horizon = gy(0);
+  const track = (pts: { alt: number; az: number }[]) => {
+    let d = "";
+    pts.forEach((p, i) => {
+      if (p.alt < 0) return;
+      const q = pts[i - 1];
+      const start = !q || q.alt < 0 || Math.abs(gx(p.az) - gx(q.az)) > VW / 2;
+      d += `${start ? "M" : "L"}${gx(p.az).toFixed(1)},${gy(p.alt).toFixed(1)} `;
+    });
+    return d;
+  };
+  const lbl = [
+    [0, "北"],
+    [90, "東"],
+    [180, "南"],
+    [270, "西"],
+    [360, "北"],
+  ] as const;
+  return (
+    <svg className="sky-view" viewBox={`0 0 ${VW} ${VH}`} role="img" aria-label={`空を見上げた絵。太陽は${sunAlt >= 0 ? `${dirName(sunAz)}の高さ${Math.round(sunAlt)}°` : "地平線の下"}、月は${moon.altitude >= 0 ? `${dirName(moon.azimuth)}の高さ${Math.round(moon.altitude)}°` : "地平線の下"}`}>
+      <defs>
+        <linearGradient id="sky-view-bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={sky.zenith} />
+          <stop offset="1" stopColor={sky.horizon} />
+        </linearGradient>
+      </defs>
+      <rect x={P.l} y={P.t} width={VW - P.l - P.r} height={horizon - P.t} fill="url(#sky-view-bg)" rx={4} />
+      <rect x={P.l} y={horizon} width={VW - P.l - P.r} height={gy(-8) - horizon} className="sky-ground" />
+      {[30, 60].map((a) => (
+        <g key={a}>
+          <line x1={P.l} x2={VW - P.r} y1={gy(a)} y2={gy(a)} className="sky-alt" />
+          <text x={P.l + 3} y={gy(a) - 3} className="sun-tick sky-alt-label">
+            {a}°
+          </text>
+        </g>
+      ))}
+      <line x1={P.l} x2={VW - P.r} y1={horizon} y2={horizon} className="sun-horizon" />
+      {lbl.map(([az, t]) => (
+        <g key={az}>
+          <line x1={gx(az)} x2={gx(az)} y1={horizon} y2={horizon + 4} className="sun-horizon" />
+          <text x={gx(az)} y={gy(-8) + 14} textAnchor={az === 0 ? "start" : az === 360 ? "end" : "middle"} className="sun-tick sky-dir">
+            {t}
+          </text>
+        </g>
+      ))}
+      <path d={track(sunTrack)} className="sun-curve day" style={{ stroke: ICON.sun }} />
+      <path d={track(moonTrack)} className="moon-curve" style={{ stroke: ICON.moon }} />
+      {sunAlt >= 0 && <circle cx={gx(sunAz)} cy={gy(sunAlt)} r={9} style={{ fill: ICON.sun }} className="sky-sun" />}
+      {moon.altitude >= 0 && (
+        <g transform={`translate(${gx(moon.azimuth) - 10} ${gy(moon.altitude) - 10})`}>
+          <MoonGlyph phase={phase} size={20} />
+        </g>
+      )}
+    </svg>
   );
 }
