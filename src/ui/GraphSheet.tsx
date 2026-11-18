@@ -11,7 +11,7 @@
 // - A tap on the handle toggles between the lowest and the middle height.
 // - Reduced motion: no animation, same positions.
 
-import { createContext, type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type PointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { swallowGhostClick } from "./ghostClick";
 import { moveDuration, prefersReducedMotion, releaseTarget, SHEET_EASE, softClamp, VelocityTracker, capture } from "./sheetMotion";
 
@@ -55,9 +55,6 @@ interface Drag {
   /** The unclamped height the finger asks for (velocity is measured on it). */
   raw: number;
 }
-
-/** グラフのシートの高さ（中の物が高さに合わせて詳しさを変えるため。シートの外では null）。 */
-export const SheetDetentContext = createContext<Detent | null>(null);
 
 export function GraphSheet({ title, tabs, detent, heights, onDetent, children, scrimTop = 0 }: Props) {
   const [live, setLive] = useState<number | null>(null);
@@ -264,7 +261,7 @@ export function GraphSheet({ title, tabs, detent, heights, onDetent, children, s
         {/* A slot under the head for a line docked outside the scrolling area (the pinned summary line). */}
         <div className="sheet-dock" />
         <div ref={bodyRef} className="sheet-body">
-          <SheetDetentContext.Provider value={live == null ? detent : null}>{children}</SheetDetentContext.Provider>
+          {children}
         </div>
       </aside>
     </>

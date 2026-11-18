@@ -481,7 +481,7 @@ with sync_playwright() as p:
         pg.locator(".chart-hit").nth(7).click(force=True); calm()
         pg.click(".metrics .chip:nth-child(4)"); calm()
         check("U1 明るさと空：1本の帯（切り替えなし）、マスに空の色と段の線", pg.locator(".light-strip .seg").count() == 0 and pg.locator(".light-cells.sky i b").count() >= 48 and pg.locator(".light-cells.sky i u").count() >= 24 and no_overflow(), str(pg.locator(".light-cells.sky i b").count()))
-        check("U2 読み取りに空の行", "空（" in txt(".readout-card"), txt(".readout-card"))
+        check("U2 明るさと空の言葉は帯の下（日ごとに1行）、読み取りの枠には言葉の行が無い", pg.locator(".light-words .light-words-row").count() == 2 and "外に出たとき" in txt(".light-words") and "外に出たとき" not in txt(".sheet .readout-card"), txt(".light-words"))
         st = small_text(); check("U2b 11px より小さい文字がない（時間帯）", not st, str(st))
         layout_ok("U2c", "時間帯")
         buttons_ok("U2d", "時間帯", 0)
@@ -503,23 +503,16 @@ with sync_playwright() as p:
         check("U7 軽く押すとカードが残り×で閉じる", pg.locator(".sky-zoom-close").count() == 1)
         pg.click(".sky-zoom-close"); wait(200)
         check("U8 ×で閉じる", pg.locator(".sky-zoom").count() == 0)
-        d_start = pg.evaluate("document.querySelector('aside.sheet').dataset.detent")
-        # 2日の読み取りの枠（2026-11-18）：列の頭は日付だけの1行。言葉の行（明るさ・外に出たとき・空）はシートの高さで開閉し、
-        # 最大まで上げたら開き、中くらいでは畳む。
-        fb = ".sheet .readout-card .fold-btn"
+        # 2日の読み取りの枠（2026-11-18）：列の頭は日付だけの1行、畳む物は無い。帯の下の言葉は時刻を替えても高さが同じ。
         pg.click(".metrics .chip:nth-child(4)"); calm()
         heads = pg.evaluate("[...document.querySelectorAll('.sheet .readout-card .ro-col')].map(e => Math.round(e.getBoundingClientRect().height))")
-        pg.evaluate("__flick('.sheet-handle',600,120)"); calm(800)
-        pg.click(".sheet-handle"); calm(800)
-        mid = (pg.evaluate("document.querySelector('aside.sheet').dataset.detent"), pg.locator(fb).get_attribute("aria-expanded"))
-        pg.evaluate("__flick('.sheet-handle',-700,120)"); calm(1000)
-        top = (pg.evaluate("document.querySelector('aside.sheet').dataset.detent"), pg.locator(fb).get_attribute("aria-expanded"))
-        pg.evaluate("__flick('.sheet-handle',700,120)"); calm(1000)
-        back = (pg.evaluate("document.querySelector('aside.sheet').dataset.detent"), pg.locator(fb).get_attribute("aria-expanded"))
-        check("U2f 2日の読み取り：列の頭は1行、言葉の行は中くらいで畳み・最大で開き・戻すと畳む", max(heads) <= 20 and mid == ("mid", "false") and top == ("max", "true") and back[1] == "false", (heads, mid, top, back))
-        for _ in range(3):
-            if pg.evaluate("document.querySelector('aside.sheet').dataset.detent") == d_start: break
-            pg.click(".sheet-handle"); calm(800)
+        hs = []
+        pg.locator(".sheet .day-chart > svg").first.scroll_into_view_if_needed(); calm()
+        gb = pg.locator(".sheet .day-chart > svg").first.bounding_box()
+        for fx in (0.2, 0.45, 0.6, 0.85):
+            pg.mouse.click(gb["x"] + gb["width"] * fx, gb["y"] + gb["height"] * 0.5); calm()
+            hs.append(pg.evaluate("Math.round(document.querySelector('.light-words').getBoundingClientRect().height)"))
+        check("U2f 2日の読み取り：列の頭は1行・畳むボタンなし、帯の下の言葉は時刻を替えても高さが同じ", max(heads) <= 20 and pg.locator(".sheet .readout-card .fold-btn").count() == 0 and len(set(hs)) == 1, (heads, hs))
         pg.click(".metrics .chip:nth-child(1)"); calm()
         pg.click(".back-btn"); calm()
     step("U", uu)

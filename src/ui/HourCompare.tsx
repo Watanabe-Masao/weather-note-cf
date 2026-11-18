@@ -1,7 +1,7 @@
 // The 24 hours of one day next to its partner day, for one hourly item.
 // Shared by the day detail and the sheet's 時間帯 tab, so both look and behave the same.
 
-import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useDrawnWidth } from "./useDrawnWidth";
 import { addDays, jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
@@ -271,38 +271,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             a: <HourWeather w={hoursWeather(hours?.rows ?? [], [shownHour], station, 1)} night={isNightAt(shownHour - 0.5, sunMain)} />,
             b: other ? <HourWeather w={hoursWeather(otherHours?.rows ?? [], [shownHour], station, 1)} night={!!sunOther && isNightAt(shownHour - 0.5, sunOther)} /> : "—",
           },
-          ...(metricId === "sun"
-            ? [
-                // 明るさ (shared/brightness.ts): the felt level of the hour, and how many times brighter.
-                {
-                  key: "light",
-                  text: true,
-                  label: "明るさ",
-                  unit: "",
-                  a: lightMain[shownHour - 1] == null ? "—" : brightnessLevel(lightMain[shownHour - 1]!).label,
-                  b: other ? (lightOther[shownHour - 1] == null ? "—" : brightnessLevel(lightOther[shownHour - 1]!).label) : "—",
-                  diff: other ? brightnessRatio(lightMain[shownHour - 1], lightOther[shownHour - 1]) : "",
-                },
-                // The first impression on stepping out of a lit room (about 500 lx; shared/brightness.ts).
-                {
-                  key: "stepOut",
-                  text: true,
-                  label: "外に出たとき",
-                  unit: "",
-                  a: stepOutFeel(lightMain[shownHour - 1]) ?? "—",
-                  b: other ? (stepOutFeel(lightOther[shownHour - 1]) ?? "—") : "—",
-                },
-                // 空の色（模式）at the step (the middle of the hour until a step is picked on the strip).
-                {
-                  key: "sky",
-                  text: true,
-                  label: `空（${stepTime(shownHour, step ?? 3)}）`,
-                  unit: "",
-                  a: <SkyWord s={skyStep(skyMain)} />,
-                  b: other ? <SkyWord s={skyStep(skyOther)} /> : "—",
-                },
-              ]
-            : []),
+          // 日照の言葉（明るさ・外に出たとき・空）は、読み取りの枠ではなく「明るさと空」の帯の下に（2026-11-18、LightWords）。
           ...(metricId === "feel" && personal
             ? [
                 // The level of the shown hour: everyone's, and the person's (β).
@@ -359,6 +328,16 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
 
       {metricId === "sun" && (
         <LightStrip
+          words={
+            <LightWords
+              rows={[
+                { key: "main", day: other ? "対象" : mainLabel, light: lightMain[shownHour - 1], sky: skyStep(skyMain) },
+                ...(other ? [{ key: "other", day: "比較", light: lightOther[shownHour - 1], sky: skyStep(skyOther) }] : []),
+              ]}
+              ratio={other ? brightnessRatio(lightMain[shownHour - 1], lightOther[shownHour - 1]) : ""}
+              time={stepTime(shownHour, step ?? 3)}
+            />
+          }
           hasOther={!!other}
           skyMain={skyMain}
           skyOther={other ? skyOther : null}
@@ -537,7 +516,30 @@ const ZOOM_W = 264;
  * (same side margins as the plot). The strip can be traced with a finger: a card above it enlarges
  * the hour, 10 minutes at a time. Nothing here is text to select: no loupe or copy menu.
  */
+/**
+ * 選んでいる時刻の、明るさ・外に出たとき・空を言葉で（日ごとに1行、2026-11-18）。帯の色の説明なので帯の下に置く。
+ * 行の数は日の数で決まり、時刻を動かしても高さは変わらない（言葉は1行に収め、入らなければ折り返さず省く）。
+ */
+function LightWords({ rows, ratio, time }: { rows: { key: string; day: string; light: number | null | undefined; sky: SkyColour | null }[]; ratio: string; time: string }) {
+  return (
+    <div className="light-words" aria-live="polite">
+      <small className="light-words-head">
+        {time}　明るさ・外に出たとき・空{ratio ? `（明るさは比較の${ratio}）` : ""}
+      </small>
+      {rows.map((r) => (
+        <p key={r.key} className="light-words-row">
+          <b>{r.day}</b>
+          <span>{r.light == null ? "—" : brightnessLevel(r.light).label}</span>
+          <span>{stepOutFeel(r.light) ?? "—"}</span>
+          <SkyWord s={r.sky} />
+        </p>
+      ))}
+    </div>
+  );
+}
+
 function LightStrip({
+  words,
   hasOther,
   skyMain,
   skyOther,
@@ -553,6 +555,7 @@ function LightStrip({
   step: number | null;
   onPick: (hour: number, step: number) => void;
   usual: { main: number | null; other: number | null };
+  words: ReactNode;
 }) {
   // The enlarged hour: while tracing ("trace"), or left open by a tap ("tap", closed with ×).
   const [zoom, setZoom] = useState<null | "trace" | "tap">(null);
@@ -688,6 +691,7 @@ function LightStrip({
           </div>
         )}
       </div>
+      {words}
       <p className="light-legend">
         {BRIGHTNESS_LEVELS.map((l, i) => (
           <span key={l.id}>

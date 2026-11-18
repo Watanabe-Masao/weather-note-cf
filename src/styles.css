@@ -1632,6 +1632,15 @@ button.label-feel:active { transform: scale(0.97); }
   color: var(--ink-primary);
 }
 
+/* 明るさと空の言葉（帯の下、日ごとに1行）。1行に収め、入らなければ省く（高さを変えない）。 */
+.light-words { display: grid; gap: var(--space-1); margin: var(--space-3) 0 var(--space-2); min-width: 0; }
+.light-words-head { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.light-words-row { margin: 0; display: flex; align-items: baseline; gap: var(--space-4); font-size: var(--size-sm); color: var(--ink-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.light-words-row b { font-family: var(--font-numeric); font-weight: var(--weight-bold); color: var(--ink-secondary); font-size: var(--size-xs); min-width: 3.6em; }
+.light-words-row > span { flex: none; }
+.light-words-row > span + span::before { content: "・"; margin-right: var(--space-2); color: var(--ink-tertiary); }
+.light-words-row { gap: var(--space-2); }
+
 /* The guide that follows the finger. */
 .guide-v {
   stroke: var(--ink-primary);
