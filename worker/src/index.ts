@@ -28,6 +28,7 @@ import { claimHealthWatch, watchHealth } from "./healthWatch";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { forecastCharts } from "../../shared/wxchart";
+import { forecastChartsAt, wxchartFile } from "./wxchartSaved";
 import { runTyphoonNotify } from "./typhoonNotify";
 import { logTyphoonJson, watchTyphoonSources } from "./typhoonWatch";
 
@@ -72,6 +73,8 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
 
   // 雨の見込み（確認用）：気象庁のタイルを地点のまわりだけ中継する（worker/src/rainNow.ts）。
   if (url.pathname.startsWith("/api/rain-tile/")) return rainTile(url.pathname, url.origin, waitUntil);
+  // 保存した天気図の絵（R2、wxchartSaved.ts）。名前が1回の発表なので変わらない。
+  if (url.pathname.startsWith("/api/wxchart-file/")) return wxchartFile(url.pathname, env.ARCHIVE);
 
   switch (url.pathname) {
     case "/api/rain-now": {
@@ -172,6 +175,13 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
         if (!r.ok) throw new Error(`weather_map list ${r.status}`);
         return { v: 1, source: "気象庁ホームページ", charts: forecastCharts(await r.json()) };
       });
+    }
+    case "/api/wxchart-at": {
+      // 予報の移り変わりと連動する天気図 (wxchartSaved.ts)：その発表の時点で出ていた予想天気図（保存した分）。10分。
+      const at = q.get("at") ?? "";
+      if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?\+09:00$/.test(at)) throw new BadRequest("at=YYYY-MM-DDTHH:MM+09:00");
+      if (!db) return jsonResponse({ v: 1, at, charts: [] });
+      return cachedFor(url.origin, `${CACHE_VERSION}/wxchart-at/${at.slice(0, 16)}`, HISTORY_TTL, waitUntil, () => forecastChartsAt(db, at));
     }
     case "/api/typhoon-recent": {
       // 当時の発表で埋める: the typhoons of the telegrams kept, from a day (the best track's next), shared for 30 minutes.

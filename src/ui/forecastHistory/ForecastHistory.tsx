@@ -6,7 +6,7 @@
 // データは /api/forecast-history（D1 の行のまま）、何を出すかは shared/forecastHistoryModel.ts。
 // 実績はアプリが読んでいる気象庁の値（日の表・1時間ごとの表）。
 
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { addDays } from "../../../shared/dates";
 import type { ForecastHistoryResponse } from "../../../shared/forecastHistory";
 import { ForecastHistory as Model, oneSource } from "../../../shared/forecastHistoryModel";
@@ -39,7 +39,10 @@ function load(station: string, date: string): Promise<ForecastHistoryResponse> {
   return p;
 }
 
-export function ForecastHistoryPanel({ store, station, date }: { store: WeatherStore | null; station: string; date: string }) {
+/**
+ * `chart`：選んでいる発表の時刻（発表が無い日は null）を受けて、天気図を描く（グラフの下、一覧の上。WxChart と連動）。
+ */
+export function ForecastHistoryPanel({ store, station, date, chart }: { store: WeatherStore | null; station: string; date: string; chart?: (issued: string | null) => ReactNode }) {
   const [got, setGot] = useState<Loaded | null>(null);
   useEffect(() => {
     let live = true;
@@ -71,10 +74,16 @@ export function ForecastHistoryPanel({ store, station, date }: { store: WeatherS
   const a = actualOf(dayRow, hours?.state === "ready" ? hours.rows : null);
   const aPrev = actualOf(null, prevHours?.state === "ready" ? prevHours.rows : null);
 
-  if (!res) return <p className="fh-note">予報の移り変わりを読み込み中…</p>;
-  if ("error" in res) return <p className="fh-note">予報の移り変わりを読み込めませんでした。時間をおいて開き直してください。</p>;
-  if (!res.r.supported) return <p className="fh-note">この地点の予報の移り変わりは、まだありません（今は高知だけ）。</p>;
-  if (!slots.some((s) => s.state === "ok")) return <p className="fh-note">この日を予報した発表の記録はありません。</p>;
+  const alone = (note: string) => (
+    <>
+      <p className="fh-note">{note}</p>
+      {chart?.(null)}
+    </>
+  );
+  if (!res) return alone("予報の移り変わりを読み込み中…");
+  if ("error" in res) return alone("予報の移り変わりを読み込めませんでした。時間をおいて開き直してください。");
+  if (!res.r.supported) return alone("この地点の予報の移り変わりは、まだありません（今は高知だけ）。");
+  if (!slots.some((s) => s.state === "ok")) return alone("この日を予報した発表の記録はありません。");
 
   // 上に出す発表：なぞっている間は指の下、離したら選んだ発表。何も選んでいなければいちばん新しい発表。
   const latest = [...slots].reverse().find((z) => z.state === "ok" && z.values)?.key ?? null;
@@ -101,6 +110,8 @@ export function ForecastHistoryPanel({ store, station, date }: { store: WeatherS
         hint
         onTogglePop={() => setPop((v) => (v === "simple" ? "detail" : "simple"))}
       />
+      {/* なぞっている間は変えず、離して選んだ発表で（絵の読み込みを指の速さで走らせない）。 */}
+      {chart?.(((k) => (k && k.state === "ok" ? k.at : null))(slots.find((s) => s.key === (sel ?? latest)) ?? null))}
       <Segmented
         label="行の絞り込み"
         value={onlyChanged ? "changed" : "all"}

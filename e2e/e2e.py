@@ -113,6 +113,8 @@ def api(path, q):
         return {"first": "2025-01", "last": "2026-11", "next": {"month": "2025-02", "expected": "2025-03-02", "available": False}, "parser": {"telegram": 1, "record": 1}, "months": [{"office": "390000", "month": "2025-01", "commit_sha": "abc", "fetched_at": "2026-11-17T03:00:00Z", "rows": 4791, "issues": 186, "empty_days": [], "overlaps": 0, "differ": 0, "license": "CC BY-SA 4.0"}]}
     if path == "/api/rain-now":
         return RAIN_NOW
+    if path == "/api/wxchart-at":
+        return {"v": 1, "at": q.get("at", ""), "charts": []}
     if path == "/api/forecast-history":
         # 予報の履歴 (R6): made-up — 2026-10 の記録（shiromatz）を日付だけずらした、TODAY を対象日にした1日分。
         if q.get("date") == TODAY.isoformat():
@@ -786,7 +788,12 @@ with sync_playwright() as p:
         pg.locator(".dd-part").nth(2).click(); calm()
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
         check("SD4 この日の値：肌感＋7項目", pg.locator(".dd-value").count() == 8, pg.locator(".dd-value").count())
-        check("SD4b 天気図（③の一番上）：時刻を選べる", pg.locator(".wx-chart").count() == 1 and (pg.locator(".wx-hours button").count() == 7 or pg.locator(".wx-chart h4", has_text="予想天気図").count() == 1))
+        # 天気図は予報の移り変わりと連動（2026-11-18）：「発表の時」は選んだ発表の直前の天気図と、その時の予想天気図。
+        lead = txt(".wx-chart .wx-lead") if pg.locator(".wx-chart .wx-lead").count() else ""
+        check("SD4b 天気図：「発表の時｜この日」、発表の時は選んだ発表の時刻の図（保存の無い予想天気図は無いと書く）", pg.locator(".wx-chart").count() == 1 and pg.locator(".wx-chart .seg button").count() == 2 and "の発表のときの空の形" in lead and "予想天気図はありません" in txt(".wx-chart"), lead)
+        pg.locator(".wx-chart .seg button", has_text="この日").click(); calm()
+        check("SD4b2 「この日」：対象日の天気図（時刻を選べる）", pg.locator(".wx-hours button").count() == 7 or pg.locator(".wx-chart h4", has_text="予想天気図").count() == 1)
+        pg.locator(".wx-chart .seg button", has_text="発表の時").click(); calm()
         # 予報の移り変わり (R6): 選んだ発表と実績・グラフ・発表した日ごとの一覧。降水確率の欄を押すと 1マス⇄6時間ごと。
         settle(lambda: pg.locator(".fh-split").count() == 1)
         check("SD4d 予報の移り変わり：上の枠・グラフ・日ごとの一覧", pg.locator(".fh-split").count() == 1 and pg.locator(".fh-step > svg").count() == 1 and pg.locator(".fh-dgroup").count() >= 5, (pg.locator(".fh-split").count(), pg.locator(".fh-dgroup").count()))
