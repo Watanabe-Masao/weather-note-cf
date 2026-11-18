@@ -123,7 +123,7 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
     if (errs >= 3) problem("accountErrors", `アカウントの処理の失敗が24時間で ${errs} 回（${s.accountErrorsLastDay.map((e) => `${e.place} ${e.n}`).join("・")}）。`);
     else if (errs) note("accountErrors", `アカウントの処理の失敗が24時間で ${errs} 回。`);
     for (const st of room.cron.stages) if (st.failed >= 3) problem(`cronFailed:${st.stage}`, `定時処理「${st.stage}」が24時間で ${st.failed} 回失敗。`);
-    if (room.cron.runsLastDay < 250) note("cronRuns", `定時処理が24時間で ${room.cron.runsLastDay} 回（288回のはず）。${gapText(room.cron.gaps)}`);
+    if (room.cron.runsLastDay < 250) note("cronRuns", `定時処理の記録が、決まった24時間（288回）のうち ${room.cron.runsLastDay} 回。${gapText(room.cron.gaps)}`);
     // 余裕
     if (room.d1Size && room.d1Size.percent >= 50) note("d1Size", `データベースの大きさが上限の ${room.d1Size.percent}%。`);
     if (room.d1WritesMonth.percent >= 50) note("d1Writes", `データベースの書き込み（月の見込み）が込みの量の ${room.d1WritesMonth.percent}%。`);

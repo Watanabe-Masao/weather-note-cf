@@ -238,22 +238,24 @@ describe("毎朝の点検の題", () => {
 });
 
 describe("定時処理の抜け（health.ts cronGaps、2026-11-18）", () => {
-  it("24時間の5分ごとの時刻のうち、記録の無いものを、続いた抜けにまとめる（新しい順）", async () => {
+  it("決まった窓（最後が今から10分以上前の288回）のうち、記録の無い回を、続いた抜けにまとめる（新しい順）", async () => {
     const { cronGaps } = await import("../worker/src/health");
     const { gapText } = await import("../shared/healthJudge");
-    const now = Date.parse("2026-11-18T00:02:00Z");
-    const slot = (k: number) => new Date(Math.floor(now / 300_000) * 300_000 - k * 300_000).toISOString();
-    // 288 回のうち、1〜3つ前（今の回は数えない）は続けて抜け、10 は1回だけ抜け
-    const ats = Array.from({ length: 289 }, (_, k) => k).filter((k) => ![0, 1, 2, 3, 10].includes(k)).map(slot);
+    const now = Date.parse("2026-11-18T00:12:00Z");
+    // 窓の最後は 00:00Z（00:12 − 10分 → 00:02 の5分の頭）、最初はその 287 回前
+    const slot = (k: number) => new Date(Date.parse("2026-11-18T00:00:00Z") - k * 300_000).toISOString();
+    const ats = Array.from({ length: 288 }, (_, k) => k).filter((k) => ![1, 2, 3, 10].includes(k)).map(slot);
+    ats.push("2026-11-18T00:05:00.000Z", "2026-11-18T00:10:00.000Z"); // 窓の外（まだ続いているかもしれない回）は数えない
     const g = cronGaps(ats, now);
-    expect(g.missing).toBe(4);
+    expect(g.window).toEqual({ from: slot(287), to: slot(0), runs: 288 });
+    expect([g.kept, g.missing]).toEqual([284, 4]);
     expect(g.gaps).toEqual([
       { from: slot(3), to: slot(1), n: 3 },
       { from: slot(10), to: slot(10), n: 1 },
     ]);
     // 日本時間で、大きい順
     expect(gapText(g.gaps)).toBe("抜けた時間：11/18 8:45〜8:55（3回）・11/18 8:10。");
-    expect(cronGaps(Array.from({ length: 289 }, (_, k) => slot(k)), now)).toEqual({ missing: 0, gaps: [] });
+    expect(cronGaps(Array.from({ length: 288 }, (_, k) => slot(k)), now)).toMatchObject({ kept: 288, missing: 0, gaps: [] });
   });
   it("毎朝の点検に、定時処理の回数と抜け、失敗の文言（管理者だけ）を書く", async () => {
     const s = await setup();
@@ -269,8 +271,32 @@ describe("定時処理の抜け（health.ts cronGaps、2026-11-18）", () => {
     s.db.raw.prepare("INSERT INTO app_errors (at, place, message) VALUES (?, '/api/auth/me', 'Error: D1_ERROR: overloaded')").run(new Date(T7 - H).toISOString());
     await s.look(T7);
     const d = s.told.find((t) => t.title.startsWith("毎朝の点検"))!;
-    expect(d.body).toMatch(/・定時処理（5分ごと）：\d+回／288回。抜けた時間：11\/18 4:\d\d〜5:\d\d（12回）/);
+    expect(d.body).toMatch(/・定時処理（5分ごと、11\/17 7:\d\d〜11\/18 7:\d\d の288回）：記録あり \d+回。記録の無い回：11\/18 4:\d\d〜5:\d\d（12回）/);
     expect(d.body).toContain("・アカウントの処理の失敗 2回（5:10〜6:10、");
     expect(d.body).toContain("：Error: D1_ERROR: overloaded");
+  });
+});
+
+describe("毎朝の点検：雨雲レーダー・解析雨量の欠け（2026-11-18）", () => {
+  it("30分ごとの48時刻のうち、9枚そろっていない時刻を欠けとして書く", async () => {
+    const s = await setup();
+    const T7 = Date.parse("2026-11-18T07:10:00+09:00");
+    const { ensureRadarSchema } = await import("../worker/src/radarArchive");
+    await ensureRadarSchema(s.db);
+    const jst = (ms: number) => `${new Date(ms + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
+    // 数える時刻：6:00 から 30分ずつ48個さかのぼる（今から1時間以内は数えない）
+    const end = Date.parse("2026-11-18T06:00:00+09:00");
+    for (let k = 0; k < 48; k++) {
+      const t = end - k * 1_800_000;
+      for (const p of ["hrpns", "rasrf"]) {
+        const tiles = p === "hrpns" && k === 2 ? 5 : p === "rasrf" && k === 0 ? 0 : 9; // 5:00 のレーダーは5枚だけ、6:00 の解析雨量は無し
+        for (let i = 0; i < tiles; i++)
+          s.db.raw.prepare("INSERT INTO radar_saved (key, valid_at, jma_time, z, x, y, bytes, sha256, fetched_at) VALUES (?, ?, 'x', 8, ?, 0, 1, 'h', 'f')").run(`radar/${p}/${k}/${i}`, jst(t), i);
+      }
+    }
+    await s.look(T7);
+    const d = s.told.find((t) => t.title.startsWith("毎朝の点検"))!;
+    expect(d.body).toContain("・雨雲レーダーの保存：48時刻中47時刻（欠けた時刻：5:00）");
+    expect(d.body).toContain("・解析雨量の保存：48時刻中47時刻（欠けた時刻：6:00）");
   });
 });

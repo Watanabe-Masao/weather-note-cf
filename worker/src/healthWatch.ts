@@ -183,7 +183,7 @@ export async function watchHealth(
   let digest: string | null = null;
   const day = await claimDigest(db, now);
   if (day) {
-    const m = digestMessage(await digestLines(db, now), judged.problems, judged.notes, await digestExtra(db, now));
+    const m = digestMessage(await digestLines(db, now), judged.problems, judged.notes, await digestExtra(db, now, h.room.cron.cloudflare));
     const n = await tellAdmins(db, m, now, send);
     sent += n;
     digest = day;

@@ -129,3 +129,33 @@ export async function monthUsage(env: UsageEnv, now = Date.now(), post: Post = (
 
   return { ok: true as const, from, to, workers, d1, r2 };
 }
+
+/**
+ * 定時処理の回（2026-11-18）：Cloudflare 自身の記録（workersInvocationsScheduled）で、決まった窓の中に始まった
+ * 回を数える。D1 とは別の記録なので、D1 に何も残っていない回が「始まらなかった」のか「始まったが D1 に書けな
+ * かった」のかを分けられる。答えが空のこともある（Cloudflare 側の取り込みの遅れ・欠け）ので、空は「0回」と
+ * 言わずに empty として返す。
+ */
+export async function scheduledRuns(env: UsageEnv, window: { from: string; to: string }, post: Post = (u, i) => fetch(u, i)) {
+  if (!env.CF_ANALYTICS_TOKEN || !env.CF_ACCOUNT_ID) return { ok: false as const, error: "CF_ANALYTICS_TOKEN / CF_ACCOUNT_ID が設定されていません" };
+  const e = env as Required<UsageEnv>;
+  return part(async () => {
+    const a = await ask<{ s: { scheduledDatetime: string; status: string; cpuTimeUs: number }[] }>(
+      e,
+      `query ($accountTag: string!, $from: Time!, $to: Time!, $script: string!) { viewer { accounts(filter: { accountTag: $accountTag }) {
+         s: workersInvocationsScheduled(limit: 1000, filter: { scriptName: $script, scheduledDatetime_geq: $from, scheduledDatetime_leq: $to }) {
+           scheduledDatetime status cpuTimeUs } } } }`,
+      { from: window.from, to: window.to, script: SCRIPT },
+      post,
+    );
+    const times = new Set<string>();
+    const byStatus: Record<string, number> = {};
+    let cpuMaxUs = 0;
+    for (const r of a.s) {
+      times.add(new Date(r.scheduledDatetime).toISOString());
+      byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+      cpuMaxUs = Math.max(cpuMaxUs, r.cpuTimeUs ?? 0);
+    }
+    return { empty: a.s.length === 0, runs: times.size, times: [...times], byStatus, cpuMaxUs };
+  });
+}

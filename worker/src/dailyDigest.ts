@@ -65,14 +65,58 @@ export async function digestLines(db: Db, now: number): Promise<DigestLine[]> {
  * 定時処理の回数と抜け、アカウントの処理の失敗（いちばん多い文言3つまで、回数と時刻の幅）。失敗の文言は
  * 公開の /api/health や GitHub の issue には出さず、管理者だけに届くこの知らせにだけ書く（原因を見るため）。
  */
-export async function digestExtra(db: Db, now: number): Promise<string[]> {
+export type CloudflareRuns =
+  | { ok: true; empty: boolean; runs: number; byStatus: Record<string, number>; cpuMaxMs: number; startedNotKept?: number; notStarted?: number }
+  | { ok: false; error: string };
+export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns): Promise<string[]> {
   const from = new Date(now - 24 * 3_600_000).toISOString();
   const to = new Date(now).toISOString();
   const out: string[] = [];
   try {
-    const ats = (await db.prepare("SELECT DISTINCT at FROM cron_runs WHERE at >= ? AND at < ?").bind(from, to).all<{ at: string }>()).results.map((r) => r.at);
+    const ats = (await db.prepare("SELECT DISTINCT at FROM cron_runs WHERE at >= ?").bind(new Date(now - 36 * 3_600_000).toISOString()).all<{ at: string }>()).results.map((r) => r.at);
     const g = cronGaps(ats, now);
-    out.push(`・定時処理（5分ごと）：${288 - g.missing}回／288回${g.missing ? `。${gapText(g.gaps)}` : ""}`);
+    const hm = (iso: string) => {
+      const d = new Date(Date.parse(iso) + 9 * 3_600_000);
+      return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+    };
+    // 母数は決まった窓の288回（health.ts cronGaps）。記録が無い回は「始まらなかった」とは限らない（D1 に書けなかったかもしれない）。
+    out.push(`・定時処理（5分ごと、${hm(g.window.from)}〜${hm(g.window.to)} の288回）：記録あり ${g.kept}回${g.missing ? `。記録の無い回：${gapText(g.gaps).replace(/^抜けた時間：/, "")}` : ""}`);
+  } catch (e) {
+    if (!/no such table/i.test(String(e))) throw e;
+  }
+  // Cloudflare 自身の記録（D1 とは別）：始めた回・状態、D1 に残らなかった回、始まらなかった回。空や読めないときはそう書く（0回と言わない）。
+  if (cf)
+    out.push(
+      !cf.ok
+        ? `・Cloudflare の記録：読めませんでした（${cf.error.slice(0, 80)}）`
+        : cf.empty
+          ? "・Cloudflare の記録：空でした（Cloudflare 側でまだ取り込まれていないことがあります。0回という意味ではありません）"
+          : `・Cloudflare の記録：始めた回 ${cf.runs}回（${Object.entries(cf.byStatus).map(([k, n]) => `${k} ${n}`).join("・")}）・計算時間の最長 ${cf.cpuMaxMs}ms。始めたのに D1 に残らなかった回 ${cf.startedNotKept ?? 0}・始まらなかった回 ${cf.notStarted ?? 0}`,
+    );
+  // 雨雲レーダー・解析雨量（radarArchive.ts）：30分ごとの時刻が、9枚そろって残っているか。気象庁の一覧から外れた
+  // 時刻は取り戻せないので、抜けた時刻を書く（データが欠けたことが分かるように）。今から1時間以内の時刻は、まだ
+  // 取り込みの途中かもしれないので数えない。
+  try {
+    const jst = (ms: number) => `${new Date(ms + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
+    const end = Math.floor((now - 3_600_000) / 1_800_000) * 1_800_000; // the last half hour counted
+    const start = end - 47 * 1_800_000; // 48 times
+    const rows = (
+      await db
+        .prepare("SELECT substr(key, 7, 5) AS product, valid_at, COUNT(*) AS n FROM radar_saved WHERE valid_at >= ? AND valid_at <= ? GROUP BY product, valid_at")
+        .bind(jst(start), jst(end))
+        .all<{ product: string; valid_at: string; n: number }>()
+    ).results;
+    if (rows.length) {
+      for (const [product, name] of [
+        ["hrpns", "雨雲レーダー"],
+        ["rasrf", "解析雨量"],
+      ] as const) {
+        const full = new Set(rows.filter((r) => r.product === product && r.n >= 9).map((r) => r.valid_at));
+        const lost: string[] = [];
+        for (let t = start; t <= end; t += 1_800_000) if (!full.has(jst(t))) lost.push(jst(t).slice(11, 16).replace(/^0/, ""));
+        out.push(`・${name}の保存：48時刻中${48 - lost.length}時刻${lost.length ? `（欠けた時刻：${lost.slice(0, 6).join("・")}${lost.length > 6 ? " ほか" : ""}）` : "（欠けなし）"}`);
+      }
+    }
   } catch (e) {
     if (!/no such table/i.test(String(e))) throw e;
   }
