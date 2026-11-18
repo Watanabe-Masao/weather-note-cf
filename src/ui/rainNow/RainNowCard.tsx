@@ -1,6 +1,6 @@
 // 今日の 1日モードの「雨の見込み」(2026-11-18 渡辺さん「天気図や雨予報を移しましょう」)：雨の見込みは選んだ日ではなく
 // 「今」のもの（3時間前〜15時間後）なので、今日の 1日モードにだけ出す。この先1時間・15時間の言葉（地図の板と同じ
-// aheadItems）と、地図で見るボタン。押すと雨の見込みのシート（地図・再生・グラフ）が開く。過去・先の日には出さない
+// aheadItems）と、「直近の雨雲レーダー」ボタン（2026-11-18 渡辺さんの言葉）。押すと雨の見込みのシート（地図・再生・グラフ）が開く。過去・先の日には出さない
 // （その日の雨と取り違えないように）。
 import { useMemo } from "react";
 import { rainPlace } from "../../../shared/rainNow";
@@ -15,7 +15,7 @@ export function RainNowCard({ station, onOpen }: { station: string; onOpen: () =
     <div className="rn-card">
       <SectionHead title="雨の見込み" as="h3">
         <Button size="sm" onClick={onOpen}>
-          地図で見る
+          直近の雨雲レーダー
         </Button>
       </SectionHead>
       {loaded.s === "loading" ? (

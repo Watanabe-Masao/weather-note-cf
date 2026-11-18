@@ -149,9 +149,9 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
             </button>
           )}
         </span>
+        {/* 肌感は見出しの右に（空いていた所、2026-11-18 渡辺さん）。押すと肌感マップ（グラフの項目ではないので、項目の選びからは外した）。 */}
+        <FeelLine rows={rows} station={station} onOpen={onOpenFeel} />
       </div>
-      {/* 肌感は1日の言葉として見出しの下に。押すと肌感マップ（グラフの項目ではないので、項目の選びからは外した、2026-11-18）。 */}
-      <FeelLine rows={rows} station={station} onOpen={onOpenFeel} />
       {comment.length > 0 && <p className="dd-say">{comment.join("")}</p>}
       {!prov && provOpen && row && (
         <div className="dd-prov plain">
@@ -362,7 +362,9 @@ function FeelLine({ rows, station, onOpen }: { rows: ReturnType<WeatherStore["ge
   const level = v == null ? null : levelOf(v, feel);
   return (
     <button className="dd-feel-line" onClick={onOpen} aria-label={`肌感（${feel.sun ? "日なた" : "日かげ"}・日中）${level == null ? "—" : levelName(level, feel.scale)}。押すと肌感マップ`}>
-      <small>肌感</small>
+      <small>
+        肌感<span className="dd-feel-when">{feel.sun ? "日なた・日中" : "日かげ・日中"}</span>
+      </small>
       {level == null ? (
         <b>—</b>
       ) : (
@@ -371,7 +373,6 @@ function FeelLine({ rows, station, onOpen }: { rows: ReturnType<WeatherStore["ge
           {levelName(level, feel.scale)}
         </b>
       )}
-      <small>{feel.sun ? "日なた・日中" : "日かげ・日中"}</small>
       <span className="dd-feel-go">
         肌感マップ
         <Glyph name="next" />
