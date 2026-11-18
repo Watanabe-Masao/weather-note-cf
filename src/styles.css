@@ -3141,7 +3141,8 @@ svg.scrub {
   padding: 0 var(--space-6);
   font-size: var(--size-sm);
 }
-/* A finger is wider than 32: the small one is pressable 44 high, past what it shows. */
+/* A finger is wider than 32: the small one is pressable 44 high, past what it shows（ふつうの大きさ 36 も同じ、#296 の残り）. */
+.btn::after,
 .btn.sm::after {
   content: "";
   position: absolute;
@@ -3204,6 +3205,67 @@ button.label-feel::after,
   height: max(100%, var(--tap-min));
   transform: translateY(-50%);
 }
+/* 残り（#296、2026-11-18）。押す所の上下の空きの具合で広げる向きを決める。 */
+.seg button,
+.cs-beta-fold,
+.notify-time button {
+  position: relative;
+}
+.seg button::after,
+.cs-beta-fold::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: max(100%, var(--tap-min));
+  transform: translateY(-50%);
+}
+.cs-toggle::after,
+.notify-time button::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--tap-min);
+  height: var(--tap-min);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+/* 「選んだ日を外す」は下に日付のボタンがあるので、上へだけ広げる。 */
+.month-picked {
+  position: relative;
+}
+.month-picked::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: var(--tap-min);
+}
+/* select には ::after が付かないので、透明な縁で押せる範囲を広げ、同じだけ外へ戻す（見た目は同じ）。
+   小さなチップの select：縁の線は内側の影で描く。年の選択：下の点線はそのままに上へだけ広げる。 */
+select.chip.sm {
+  --vis-h: 28px; /* 見た目の高さ（小さなチップ） */
+  min-height: var(--tap-min);
+  margin-block: calc((var(--vis-h) - var(--tap-min)) / 2);
+  border: 0 solid transparent;
+  border-width: calc((var(--tap-min) - var(--vis-h)) / 2) var(--stroke-hair);
+  background-clip: padding-box;
+  box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong);
+}
+/* 比較の表の上の小さなチップは見た目 26（.side-compare .chip.sm）。 */
+.side-compare select.chip.sm {
+  --vis-h: 26px;
+  min-height: var(--tap-min);
+}
+.cal-year {
+  --vis-h: 23px; /* 年の選択の見た目の高さ（文字と下の点線） */
+  border-top: calc(var(--tap-min) - var(--vis-h)) solid transparent;
+  margin-top: calc(var(--vis-h) - var(--tap-min));
+}
+
 .field select,
 .field input,
 .threshold input,
