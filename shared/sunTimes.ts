@@ -55,6 +55,21 @@ export function solarAltitude(date: string, minJst: number, lat: number, lon: nu
   return (Math.asin(Math.sin(phi) * Math.sin(decl) + Math.cos(phi) * Math.cos(decl) * Math.cos(H)) * 180) / Math.PI;
 }
 
+/**
+ * The sun's azimuth (degrees from north, east 90°) at a moment of a date (minutes after 0:00 JST):
+ * the same angles as solarAltitude (3D天球, 2026-11-18). Checked against Astronomy Engine within 0.3°
+ * (test/data/sun-azimuth.test.ts).
+ */
+export function solarAzimuth(date: string, minJst: number, lat: number, lon: number): number {
+  const { eqTime, decl } = solarAngles(momentOf(date, minJst));
+  const trueSolar = minJst - 540 + eqTime + 4 * lon;
+  const H = ((trueSolar / 4 - 180) * Math.PI) / 180;
+  const phi = (lat * Math.PI) / 180;
+  // From the south, westward, then turned to the north and eastward.
+  const az = Math.atan2(Math.sin(H), Math.cos(H) * Math.sin(phi) - Math.tan(decl) * Math.cos(phi));
+  return (((az * 180) / Math.PI + 180) % 360 + 360) % 360;
+}
+
 /** Solar noon (minutes JST) of a date. */
 export function solarNoon(date: string, lon: number): number {
   // Twice: the equation of time at the noon itself (it moves a few seconds in a day).
