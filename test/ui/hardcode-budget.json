@@ -21,15 +21,6 @@
     "36px": 1,
     "64px": 1
   },
-  "影": {
-    "0 0 12px accent-glow": 1,
-    "0 0 14px accent-glow": 1,
-    "0 1px 0 line-swatch inset": 1,
-    "1px 0 0 line-strong": 1,
-    "inset 0 -1px 0 line-shade": 1,
-    "inset 0 1px 0 line-highlight": 1,
-    "inset 0 1px 2px line-shade": 1
-  },
   "時間・動きの曲線": {
     "ease-in-out": 1,
     "ease-out": 1,
@@ -78,10 +69,7 @@
     "7px": 1
   },
   "角の丸み": {
-    "3": 5,
-    "8": 4,
-    "0.6": 1,
-    "1.5": 2
+    "0.6": 1
   },
   "透かし・不透明度": {
     "0": 5,

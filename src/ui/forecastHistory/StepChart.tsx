@@ -238,7 +238,7 @@ export function StepChart({
             y={2}
             width={step}
             height={AX - 2}
-            rx={3}
+            rx={RADIUS.xs}
             className="fh-colsel"
           />
         )}
@@ -420,7 +420,7 @@ export function StepChart({
                       y={y + 0.5}
                       width={gw}
                       height={ROW - 1}
-                      rx={1.5}
+                      rx={RADIUS.tick}
                       style={{ fill: p == null ? "transparent" : cell(p) }}
                       className={p == null ? "fh-step-none" : "fh-step-cell"}
                     />
@@ -597,7 +597,7 @@ export function StepChart({
             y={BAND_Y - 12}
             width={SPAN}
             height={CELL_H + (CELL_TOP - BAND_Y) + 14}
-            rx={3}
+            rx={RADIUS.xs}
             className="fh-pop-toggle"
             role="button"
             tabIndex={0}

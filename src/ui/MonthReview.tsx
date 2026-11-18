@@ -89,6 +89,9 @@ function statsOf(store: WeatherStore | null, station: string, days: string[], pa
 }
 
 /** `today`: the month runs up to it (this month's later days have no records yet). */
+/** A legend's round bar (最高〜最低 の見本): 6 wide, its ends a full half-circle. */
+const PILL_W = 6;
+
 export function MonthReview({ store, station, month, today, onClose }: { store: WeatherStore | null; station: string; month: string; today: string; onClose: () => void }) {
   const before = yearBefore(month);
   const days = daysOf(month).filter((d) => d <= today);
@@ -581,13 +584,13 @@ function RangeLegend({ now, then }: { now: string; then: string }) {
     <p className="line-legend">
       <span>
         <svg className="line-sample" width="10" height="14" aria-hidden>
-          <rect x="2" y="1" width="6" height="12" rx="3" fill={DATA.hot} />
+          <rect x="2" y="1" width={PILL_W} height="12" rx={PILL_W / 2} fill={DATA.hot} />
         </svg>
         {now}
       </span>
       <span>
         <svg className="line-sample" width="10" height="14" aria-hidden>
-          <rect x="2" y="1" width="6" height="12" rx="3" fill="none" stroke={DATA.hot} strokeWidth={1.4} opacity={0.8} />
+          <rect x="2" y="1" width={PILL_W} height="12" rx={PILL_W / 2} fill="none" stroke={DATA.hot} strokeWidth={1.4} opacity={0.8} />
         </svg>
         {then}
       </span>

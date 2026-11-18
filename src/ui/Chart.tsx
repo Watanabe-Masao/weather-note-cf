@@ -8,7 +8,7 @@ import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { addDays } from "../../shared/dates";
 import { dayTone } from "../../shared/holidays";
 import { type ChartMetric, graphSeries } from "../chartMetrics";
-import { barLook, barPath, DATA, lineLook, SHAPE } from "../design/tokens";
+import { barLook, barPath, DATA, lineLook, RADIUS, SHAPE } from "../design/tokens";
 import { Button, Chip, ForecastHatch, GraphReadout, GuideLines, BarSample, InfoNote, LineSample, RangeSample, Segmented } from "./kit";
 import type { WeatherStore } from "../data/store";
 import { dateLabel, digitsOf, monthDay, niceTicks, shortDay, signedDiff, tickLabel } from "../design/format";
@@ -527,7 +527,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
         </g>
         {/* The selected day: a frame fixed in the middle (like the tables' drum) — the days slide
             through it while panning; the background is kept for 予報. */}
-        <rect x={xOf(3 + BUFFER) - step / 2 + 1} y={PAD.top - 4} width={step - 2} height={H - PAD.top - bottom + 4} rx={8} className="chart-center" />
+        <rect x={xOf(3 + BUFFER) - step / 2 + 1} y={PAD.top - 4} width={step - 2} height={H - PAD.top - bottom + 4} rx={RADIUS.md} className="chart-center" />
         </g>
         {scrub != null && (
           <GuideLines

@@ -19,7 +19,7 @@ import type { WeatherRow } from "../../shared/types";
 import { diffDays } from "../compare";
 import { Priority } from "../data/plan";
 import type { WeatherStore } from "../data/store";
-import { DATA, LIGHT_LEVELS, lineLook } from "../design/tokens";
+import { DATA, LIGHT_LEVELS, lineLook, RADIUS } from "../design/tokens";
 import { monthDay } from "../design/format";
 import { Chip, ForecastHatch, GraphReadout, Segmented, InfoNote, LevelScale, LineSample } from "./kit";
 import { DRUM_BUFFER, drumOffsets, useDayDrum } from "./useDayDrum";
@@ -338,7 +338,7 @@ function TimeView({ station, target, compareDate, at, days, partnerOf, cloudsOf,
         </g>
         </g>
         {/* The chosen day's frame stays while the days pass under it. */}
-        {ti >= 0 && <rect x={xOf(ti) - plotW / n / 2 + 1} y={top} width={plotW / n - 2} height={H} className="chart-center" rx={8} />}
+        {ti >= 0 && <rect x={xOf(ti) - plotW / n / 2 + 1} y={top} width={plotW / n - 2} height={H} className="chart-center" rx={RADIUS.md} />}
       </svg>
       </div>
     </>
@@ -484,7 +484,7 @@ function LevelView({ station, target, compareDate, lux, days, partnerOf, cloudsO
             </g>
           );
         })}
-        {ti >= 0 && <rect x={xOf(ti) - plotW / n / 2 + 1} y={panels[0].top - 4} width={plotW / n - 2} height={plotBottom - panels[0].top + 8} className="chart-center" rx={8} />}
+        {ti >= 0 && <rect x={xOf(ti) - plotW / n / 2 + 1} y={panels[0].top - 4} width={plotW / n - 2} height={plotBottom - panels[0].top + 8} className="chart-center" rx={RADIUS.md} />}
         <g clipPath="url(#lt-plot2)">
         <g style={panStyle}>
         <DateTicks days={days} partnerOf={partnerOf} target={target} y={plotBottom + 14} xOf={xOf} span={span} />
