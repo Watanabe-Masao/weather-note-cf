@@ -93,8 +93,10 @@ export function HistoryCompareBoard({ store, station, today, onClose }: { store:
   };
   const ci = shown.findIndex((d) => d.date === chosen);
 
-  // Graph 1: the day's mean, L1, L2.
-  const H1 = 150, T1 = 8;
+  // One graph, two rows sharing the days' axis (design-system 4.1): the row's name at its top-left, the
+  // chosen day one line through both, the months once at the bottom.
+  // Row 1: the day's mean, L1, L2.
+  const H1 = 150, T1 = 16;
   const temps = shown.map((_, i) => views[i + LEAD_DAYS]?.row?.temp).map((v) => (typeof v === "number" ? v : null));
   const l1 = shown.map((d) => valueOf(d.l1));
   const l2 = shown.map((d) => valueOf(d.l2));
@@ -115,8 +117,9 @@ export function HistoryCompareBoard({ store, station, today, onClose }: { store:
   const ticks1: number[] = [];
   for (let v = lo; v <= hi; v += 5) ticks1.push(v);
 
-  // Graph 2: Δb around 0.
-  const H2 = 90, T2 = 6;
+  // Row 2: Δb around 0.
+  const H2 = 90, T2 = T1 + H1 + 24;
+  const BOTTOM = T2 + H2;
   const dmax = Math.max(1, Math.ceil(Math.max(0, ...comparable.map((d) => Math.abs(d.delta!)))));
   const y2 = (v: number) => T2 + H2 / 2 - (v / dmax) * (H2 / 2);
   const bw = Math.max(1, (X1 - X0) / Math.max(1, shown.length) - 0.6);
@@ -158,8 +161,11 @@ export function HistoryCompareBoard({ store, station, today, onClose }: { store:
           </p>
         </div>
 
-        <SectionHead title="気温と長期の履歴" />
-        <svg width="100%" viewBox={`0 0 ${W} ${T1 + H1 + 18}`} role="img" aria-label="日平均気温と、長期の気温履歴 L1・L2 の推移" onPointerDown={pick}>
+        <SectionHead title="気温と長期の履歴、境目の差" />
+        <svg width="100%" viewBox={`0 0 ${W} ${BOTTOM + 18}`} role="img" aria-label="日平均気温と長期の気温履歴 L1・L2 の推移、7段の境目の差 L2 − L1（横の日付は上下で共通）" onPointerDown={pick}>
+          <text x={X0} y={T1 - 5} className="lt-axis">
+            気温 ℃
+          </text>
           {ticks1.map((v) => (
             <g key={v}>
               <line x1={X0} x2={X1} y1={y1(v)} y2={y1(v)} stroke="var(--line-soft)" />
@@ -168,24 +174,12 @@ export function HistoryCompareBoard({ store, station, today, onClose }: { store:
               </text>
             </g>
           ))}
-          {monthTicks.map(({ d, i }) => (
-            <text key={d.date} x={xs(i)} y={T1 + H1 + 14} textAnchor="start" className="lt-axis">
-              {Number(d.date.slice(5, 7))}月
-            </text>
-          ))}
-          {ci >= 0 && <line x1={xs(ci)} x2={xs(ci)} y1={T1} y2={T1 + H1} stroke="var(--ink-secondary)" strokeWidth={1} />}
           <path d={path(temps, y1)} fill="none" stroke={LINE.reference} strokeOpacity={LINE.referenceOpacity} strokeWidth={1} />
           <path d={path(l1, y1)} fill="none" stroke={L1C} strokeWidth={2.2} />
           <path d={path(l2, y1)} fill="none" stroke={L2C} strokeWidth={2.2} />
-        </svg>
-        <p className="sun-test-legend">
-          <Sample color={LINE.reference} opacity={LINE.referenceOpacity} width={1} label="日平均気温" />
-          <Sample color={L1C} label="L1（30日の単純平均）" />
-          <Sample color={L2C} label="L2（重み付きの平均、α 0.8）" />
-        </p>
-
-        <SectionHead title="境目の差（L2 − L1）" />
-        <svg width="100%" viewBox={`0 0 ${W} ${T2 + H2 + 18}`} role="img" aria-label="7段の境目の差 L2 − L1" onPointerDown={pick}>
+          <text x={X0} y={T2 - 5} className="lt-axis">
+            境目の差 L2 − L1 ℃
+          </text>
           {[dmax, 0, -dmax].map((v) => (
             <g key={v}>
               <line x1={X0} x2={X1} y1={y2(v)} y2={y2(v)} stroke={v === 0 ? "var(--ink-tertiary)" : "var(--line-soft)"} />
@@ -194,18 +188,23 @@ export function HistoryCompareBoard({ store, station, today, onClose }: { store:
               </text>
             </g>
           ))}
-          {monthTicks.map(({ d, i }) => (
-            <text key={d.date} x={xs(i)} y={T2 + H2 + 14} textAnchor="start" className="lt-axis">
-              {Number(d.date.slice(5, 7))}月
-            </text>
-          ))}
           {shown.map((d, i) =>
             d.delta == null ? null : (
               <rect key={d.date} x={xs(i) - bw / 2} width={bw} y={Math.min(y2(0), y2(d.delta))} height={Math.max(0.5, Math.abs(y2(d.delta) - y2(0)))} fill={L2C} opacity={d.date === chosen ? 1 : 0.6} />
             ),
           )}
-          {ci >= 0 && <line x1={xs(ci)} x2={xs(ci)} y1={T2} y2={T2 + H2} stroke="var(--ink-secondary)" strokeWidth={1} />}
+          {ci >= 0 && <line x1={xs(ci)} x2={xs(ci)} y1={T1} y2={BOTTOM} stroke="var(--ink-secondary)" strokeWidth={1} />}
+          {monthTicks.map(({ d, i }) => (
+            <text key={d.date} x={xs(i)} y={BOTTOM + 14} textAnchor="start" className="lt-axis">
+              {Number(d.date.slice(5, 7))}月
+            </text>
+          ))}
         </svg>
+        <p className="sun-test-legend">
+          <Sample color={LINE.reference} opacity={LINE.referenceOpacity} width={1} label="日平均気温" />
+          <Sample color={L1C} label="L1（30日の単純平均）" />
+          <Sample color={L2C} label="L2（重み付きの平均、α 0.8）" />
+        </p>
         <p className="set-help">上なら L2 の方が境目が高い（同じ肌感でも寒い側に判定されやすい）。グラフをタップするとその日を選びます。</p>
 
         <SectionHead title={`${chosen.slice(5).replace("-", "/")} の時間ごと`}>

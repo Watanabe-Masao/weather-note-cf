@@ -852,11 +852,15 @@ with sync_playwright() as p:
         pg.mouse.click(g["x"] + g["width"] * 0.3, g["y"] + g["height"] / 2); calm()
         after = txt(".history-cmp .section-head:has-text('の時間ごと') .section-title")
         check("AC4 境目の差のグラフをタップするとその日を選ぶ", before != after, f"{before} → {after}")
+        # 横軸を共有する1つのグラフに2段（design-system 4.1）：選んだ日の線は1本で上下を通す
+        gs = ".history-cmp svg[aria-label*='境目の差']"
+        check("AC4b 気温と境目の差は1つのグラフ（2段）、選んだ日の線は1本", pg.locator(".history-cmp svg[aria-label*='L1']").count() == 1 and pg.locator(f"{gs} line[stroke='var(--ink-secondary)']").count() == 1)
         settle(lambda: pg.locator(".history-cmp tbody tr").count() == 24, 8)
         t2 = txt(".history-cmp-facts"); m2 = re.search(r"段が違った時間 (\d+)", t2)
         check("AC5 太字の行の数＝要約の「段が違った時間」", m2 and int(m2.group(1)) == pg.locator(".history-cmp tr.history-cmp-diff").count(), f"{t2} / {pg.locator('.history-cmp tr.history-cmp-diff').count()}")
         st = small_text(); check("AC6 11px より小さい文字がない（長期の気温履歴の比べ板）", not st, str(st))
         layout_ok("AC7", "長期の気温履歴の比べ板")
+        if os.environ.get("WN_SHOT"): pg.locator(".history-cmp svg[aria-label*='境目の差']").screenshot(path=f"{os.environ['WN_SHOT']}-history-cmp.png")
         esc(); esc()
     step("AC", ac)
 
@@ -866,7 +870,9 @@ with sync_playwright() as p:
         pg.locator(".msheet.settings button", has_text="短期の履歴と答え").click(); calm()
         check("AS1 短期の履歴と答えが開く", pg.locator(".msheet.short-hist").count() == 1)
         settle(lambda: pg.locator(".short-hist svg[aria-label*='短期の履歴 S']").count() == 1, 8)
-        check("AS2 肌感と S のグラフ、変化の速さのグラフ", pg.locator(".short-hist svg[aria-label*='短期の履歴 S']").count() == 1 and pg.locator(".short-hist svg[aria-label='肌感の変化の速さ']").count() == 1)
+        # 横軸を共有する1つのグラフに2段（design-system 4.1）：時刻の目盛りは下に1組だけ
+        g = ".short-hist svg[aria-label*='短期の履歴 S']"
+        check("AS2 肌感と S、変化の速さが横軸を共有する1つのグラフ（2段、時刻の目盛りは1組）", pg.locator(g).count() == 1 and "変化の速さ" in pg.locator(g).get_attribute("aria-label") and pg.locator(f"{g} text", has_text="12時").count() == 1)
         paths = pg.locator(".short-hist svg[aria-label*='短期の履歴 S'] path").count()
         check("AS3 肌感と S の線が引かれる", paths == 2, str(paths))
         t = txt(".short-hist .history-cmp-facts")
@@ -875,6 +881,7 @@ with sync_playwright() as p:
         check("AS5 日なたに切り替えると凡例も日なた", "肌感（日なた）" in txt(".short-hist .sun-test-legend"))
         st = small_text(); check("AS6 11px より小さい文字がない（短期の履歴と答え）", not st, str(st))
         layout_ok("AS7", "短期の履歴と答え")
+        if os.environ.get("WN_SHOT"): pg.locator(".short-hist svg[aria-label*='短期の履歴 S']").screenshot(path=f"{os.environ['WN_SHOT']}-short-hist.png")
         esc(); esc()
     step("AS", as_)
 
