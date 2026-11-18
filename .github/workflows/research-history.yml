@@ -1,0 +1,23 @@
+name: research-history
+
+# WH-01 (research/warning-typhoon-history/wh01.mjs): other records of the warnings and typhoon telegrams
+# issued, to check the kept ones against. Push to research/warning-typhoon-history only; no schedule.
+# Nothing read is kept. 出典：気象庁ホームページ。
+on:
+  push:
+    branches: [research/warning-typhoon-history]
+    paths:
+      - research/warning-typhoon-history/**
+      - .github/workflows/research-history.yml
+
+jobs:
+  wh01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: sudo apt-get install -y -q poppler-utils
+      - run: node research/warning-typhoon-history/wh01.mjs
