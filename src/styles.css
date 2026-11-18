@@ -4809,6 +4809,8 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .wx-lead { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
 .wx-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .wx-pic img { display: block; width: 100%; height: auto; }
+/* 押して開く天気図のシート：絵は幅いっぱい（指で広げて拡大できる）。 */
+.wx-viewer-img { display: block; width: 100%; height: auto; border-radius: var(--radius-md); touch-action: pinch-zoom; }
 .wx-chart figcaption, .wx-credit, .wx-fc small, .wx-links small { color: var(--ink-tertiary); font-size: var(--size-xs); }
 .wx-fc { display: grid; gap: var(--space-1); min-width: 0; align-content: start; }
 /* 発表の時：実況と予想2枚を横1列に（押すと大きく）。無い図は同じ大きさの点線の枠に言葉で。 */

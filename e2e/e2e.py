@@ -800,6 +800,16 @@ with sync_playwright() as p:
         check("SD4b 天気図：「発表の時｜この日」、発表の時は選んだ発表の時刻の図（保存の無い予想天気図は無いと書く）", pg.locator(".wx-chart").count() == 1 and pg.locator(".wx-chart .seg button").count() == 2 and "の発表のときの空の形" in lead and (pg.locator(".wx-trio .wx-empty").count() == 2 or "予想天気図はありません" in txt(".wx-chart")), lead)
         pg.locator(".wx-chart .seg button", has_text="この日").click(); calm()
         check("SD4b2 「この日」：対象日の天気図（時刻を選べる）", pg.locator(".wx-hours button").count() == 7 or pg.locator(".wx-chart h4", has_text="予想天気図").count() == 1)
+        # 天気図を押すとアプリの中のシートで大きく（閉じるがあり、閉じても読んでいた所のまま、2026-11-18）。
+        pic = pg.locator(".wx-chart .wx-pic").first
+        if pic.count():
+            pic.scroll_into_view_if_needed(); calm()
+            y0 = pg.evaluate("scrollY")
+            pic.click(); calm()
+            opened = pg.locator(".wx-viewer").count() == 1 and pg.locator(".wx-viewer button[aria-label='閉じる']").count() >= 1 and len(pg.context.pages) == 1
+            pg.locator(".wx-viewer button[aria-label='閉じる']").first.click(); pg.wait_for_timeout(600)
+            y1 = pg.evaluate("scrollY")
+            check("SD4i 天気図を押すとシートで大きく（×で閉じ、閉じても同じ所）", opened and pg.locator(".wx-viewer").count() == 0 and abs(y1 - y0) < 4, (opened, y0, y1))
         pg.locator(".wx-chart .seg button", has_text="発表の時").click(); calm()
         # 予報の移り変わり (R6): 選んだ発表と実績・グラフ・発表した日ごとの一覧。降水確率の欄を押すと 1マス⇄6時間ごと。
         settle(lambda: pg.locator(".fh-split").count() == 1)
