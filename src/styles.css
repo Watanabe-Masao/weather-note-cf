@@ -4397,6 +4397,26 @@ select.chip.sm {
 .sun-keys.moon { margin-top: var(--space-2); }
 .sky-view { width: 100%; height: auto; display: block; margin-top: var(--space-3); }
 .sky-ground { fill: var(--surface-inset); }
+.moon-open { margin-left: auto; }
+.moon-today { display: flex; align-items: center; gap: var(--space-6); padding: var(--space-4); border-radius: var(--radius-md); background: var(--surface-inset); }
+.moon-today-text { display: grid; gap: var(--space-1); min-width: 0; }
+.moon-today-text small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.moon-today-text b { font-size: var(--size-md); font-weight: var(--weight-bold); color: var(--ink-primary); }
+.moon-today-text span { font-size: var(--size-sm); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+.moon-old { margin-left: var(--space-3); font-size: var(--size-sm); font-weight: var(--weight-regular); color: var(--ink-secondary); }
+.moon-cal-head { display: flex; align-items: center; justify-content: center; gap: var(--space-6); margin-top: var(--space-4); }
+.moon-cal-head b { font-size: var(--size-base); font-variant-numeric: tabular-nums; }
+.moon-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: var(--space-1); margin-top: var(--space-2); }
+.moon-cal-wd { text-align: center; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.moon-cal-day { display: grid; justify-items: center; gap: 0; min-height: var(--tap-min); padding: var(--space-1) 0; border: var(--stroke-hair) solid transparent; border-radius: var(--radius-sm); background: none; color: var(--ink-primary); }
+.moon-cal-day.on { border-color: var(--accent-base); background: var(--accent-wash); }
+.moon-cal-n { font-size: var(--size-xs); font-variant-numeric: tabular-nums; }
+.moon-cal-day small { font-size: var(--size-xs); color: var(--ink-tertiary); font-variant-numeric: tabular-nums; }
+.moon-next { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
+.moon-next span { display: grid; justify-items: center; padding: var(--space-2) 0; border-radius: var(--radius-sm); background: var(--surface-inset); }
+.moon-next small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.moon-next b { font-size: var(--size-sm); font-variant-numeric: tabular-nums; }
+.moon-credit { margin: var(--space-3) 0 var(--space-4); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sky-sensor { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
 .sky-offset { display: inline-flex; align-items: center; gap: var(--space-2); }
 .sky-offset small, .sky-sensor-state { font-size: var(--size-xs); color: var(--ink-tertiary); }

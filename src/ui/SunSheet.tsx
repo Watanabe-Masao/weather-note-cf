@@ -11,6 +11,8 @@ import { moonPhase, moonPosition, moonTimes } from "../../shared/moon";
 import { DEFAULT_LAT_LON, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
 import { magneticDeclination, placeIn } from "../../shared/skyLook";
 import { useSkyLook } from "./useSkyLook";
+import { dirName, MoonGlyph } from "./moonParts";
+import { MoonSheet } from "./MoonSheet";
 import { ICON, RADIUS } from "../design/tokens";
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
@@ -74,6 +76,7 @@ export function SunSheet({
   // chart or the slider under it.
   const [at, setAt] = useState(() => Math.min(1430, hour != null ? hour * 60 : Math.round(e.noon / 10) * 10));
   const [view, setView] = useState<"graph" | "sky">("graph");
+  const [moonOpen, setMoonOpen] = useState(false);
   // 時間の動きを見る（再生）：10分ずつ進め、24時で頭に戻る。もう一度押すと止まる。
   const [playing, setPlaying] = useState(false);
   useEffect(() => {
@@ -263,7 +266,11 @@ export function SunSheet({
             月齢 {phaseAt.age.toFixed(1)}・明るい部分 {Math.round(phaseAt.illuminated * 100)}%
           </small>
         </span>
+        <Button size="sm" className="moon-open" onClick={() => setMoonOpen(true)}>
+          月のこよみ
+        </Button>
       </div>
+      {moonOpen && <MoonSheet date={date} station={station} onClose={() => setMoonOpen(false)} />}
       </div>
 
       {/* 1画面に収める（2026-11-18 渡辺さん「スクロールしなくていいサイズまで」）：日の出・南中・日の入りを3枚に、
@@ -342,32 +349,6 @@ export function SunSheet({
         空の色は模式・なぞると10分ごと
       </InfoNote>
     </ModalSheet>
-  );
-}
-
-/** 方位の名前（16方位、北0・東90）。 */
-const DIRS = ["北", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東", "南", "南南西", "南西", "西南西", "西", "西北西", "北西", "北北西"];
-export const dirName = (az: number) => DIRS[Math.round(((az % 360) + 360) % 360 / 22.5) % 16];
-
-/**
- * 月の満ち欠けの絵：照らされている割合（輝面比）と、満ちていくか欠けていくか（月齢 14.8 日の前か後か）から。
- * 北半球で見た形（満ちていくときは右が明るい）。
- */
-export function MoonGlyph({ phase, size }: { phase: { age: number; illuminated: number }; size: number }) {
-  const r = size / 2 - 1;
-  const c = size / 2;
-  const k = Math.min(1, Math.max(0, phase.illuminated));
-  const waxing = phase.age < 14.77;
-  const rx = Math.abs(1 - 2 * k) * r;
-  // 明るい側の半円＋明暗の境（楕円の半分）。半分より多く照らされていれば楕円は暗い側へふくらむ。
-  const side = waxing ? 1 : 0;
-  const bulge = waxing ? (k > 0.5 ? 1 : 0) : k > 0.5 ? 0 : 1;
-  const d = `M${c},${c - r} A${r},${r} 0 0 ${side} ${c},${c + r} A${rx},${r} 0 0 ${bulge} ${c},${c - r} Z`;
-  return (
-    <svg className="moon-glyph" width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
-      <circle cx={c} cy={c} r={r} className="moon-dark" />
-      <path d={d} className="moon-lit" style={{ fill: ICON.moon }} />
-    </svg>
   );
 }
 
