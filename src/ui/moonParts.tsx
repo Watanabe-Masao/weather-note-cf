@@ -1,5 +1,6 @@
 // 月と方位の小さな部品（太陽と月のシート・月のシートで使う）。
-import { ICON } from "../design/tokens";
+import { useId } from "react";
+import moonUrl from "../assets/moon.webp";
 
 /** 方位の名前（16方位、北0・東90）。 */
 const DIRS = ["北", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東", "南", "南南西", "南西", "西南西", "西", "西北西", "北西", "北北西"];
@@ -19,11 +20,18 @@ export function MoonGlyph({ phase, size }: { phase: { age: number; illuminated: 
   const side = waxing ? 1 : 0;
   const bulge = waxing ? (k > 0.5 ? 1 : 0) : k > 0.5 ? 0 : 1;
   const d = `M${c},${c - r} A${r},${r} 0 0 ${side} ${c},${c + r} A${rx},${r} 0 0 ${bulge} ${c},${c - r} Z`;
+  const id = useId();
+  // 月の絵（渡辺さんの絵、2026-11-19）：照らされた側は絵そのまま、影の側は同じ絵を暗く（地球照のように模様がうっすら）。
   return (
     <svg className="moon-glyph" width={size} height={size} viewBox={`0 0 ${size} ${size}`} aria-hidden>
+      <defs>
+        <clipPath id={`${id}lit`}>
+          <path d={d} />
+        </clipPath>
+      </defs>
       <circle cx={c} cy={c} r={r} className="moon-dark" />
-      <path d={d} className="moon-lit" style={{ fill: ICON.moon }} />
+      <image href={moonUrl} x={c - r} y={c - r} width={2 * r} height={2 * r} className="moon-shade" />
+      <image href={moonUrl} x={c - r} y={c - r} width={2 * r} height={2 * r} clipPath={`url(#${id}lit)`} />
     </svg>
   );
 }
-

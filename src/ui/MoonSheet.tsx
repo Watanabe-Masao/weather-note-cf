@@ -5,10 +5,10 @@
 import { type PointerEvent, useMemo, useRef, useState } from "react";
 import { daysOfMonth, monthOf } from "../../shared/dates";
 import { clockOf } from "../../shared/dayParts";
-import { moonDistance, moonPhase, moonQuarters, moonShapeName, moonTimes, QUARTER_NAME } from "../../shared/moon";
+import { dms, fullMoonName, moonDistance, moonMagnitude, moonPhase, moonQuarters, moonShapeName, moonTimes, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
 import { DEFAULT_LAT_LON, stationLatLon } from "../../shared/sunTimes";
 import { dateLabel } from "../design/format";
-import { Glyph, IconButton, Segmented } from "./kit";
+import { Glyph, IconButton, InfoNote, Segmented } from "./kit";
 import { ICON } from "../design/tokens";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 import { ModalSheet } from "./ModalSheet";
@@ -37,7 +37,11 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
   // その日に新月・上弦・満月・下弦があれば、形の名前はそれ（時刻つき）。昔の呼び名は、その日に月相が無いときだけ。
   const today = next.find((q) => jst(q.at).date === sel);
   const title = today ? `${QUARTER_NAME[today.kind]}（${clockOf(jst(today.at).min)}）` : name.shape;
-  const old = today ? null : name.old;
+  // 満月の日は呼び名（ビーバームーンなど）、それ以外は昔の呼び名（十三夜など）を添える。
+  const full = today?.kind === 2 ? fullMoonName(today.at) : null;
+  const old = full ? `${full.name}${full.blue ? "・ブルームーン" : ""}` : today ? null : name.old;
+  const mag = moonMagnitude(noonOf(sel));
+  const shapeOf = today ? (["新月", "上弦の月", "満月", "下弦の月"] as const)[today.kind] : name.shape;
   const shift = (n: number) => {
     const [y, m] = month.split("-").map(Number);
     const d = new Date(Date.UTC(y, m - 1 + n, 1));
@@ -47,7 +51,7 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
     <div className="sun-key">
       <small>{label}</small>
       <b>{e ? clockOf(Math.round(e.at)) : "—"}</b>
-      <small>{e ? (note ?? dirName(e.azimuth)) : "この日は無し"}</small>
+      <small>{e ? (note ?? `${dirName(e.azimuth)} ${Math.round(e.azimuth)}°`) : "この日は無し"}</small>
     </div>
   );
   return (
@@ -64,10 +68,20 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
             月齢 {p.age.toFixed(1)}・明るい部分 {Math.round(p.illuminated * 100)}%
           </span>
           <small>
-            距離 {Math.round(dist.km / 1000) / 10}万km・見かけの大きさ {dist.diameter.toFixed(2)}°
+            距離 {Math.round(dist.km / 1000) / 10}万km・大きさ {dms(dist.diameter)}
           </small>
+          <small>明るさ {mag.toFixed(1).replace("-", "−")} 等</small>
         </div>
       </div>
+      <InfoNote className="moon-note" more={
+        <>
+          {SHAPE_NOTE[shapeOf]}
+          {full && " 満月の呼び名はアメリカの農事暦の呼び方（秋分にいちばん近い満月がハーベストムーン、その次がハンターズムーン。同じ月の2回目の満月はブルームーン）。"}
+          {" 明るさは等級（小さいほど明るい。満月で約 −12.7）。大きさは見かけの直径（度・分・秒）。"}
+        </>
+      }>
+        {shapeOf}について
+      </InfoNote>
       <div className="sun-keys moon">
         {ev("月の出", t.rise)}
         {ev("南中", t.transit, t.transit ? `高さ ${Math.round(t.transit.altitude)}°` : undefined)}
@@ -134,6 +148,7 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
               <b>
                 {Number(j.date.slice(5, 7))}/{Number(j.date.slice(8))} {clockOf(j.min)}
               </b>
+              {q.kind === 2 && <small className="moon-next-name">{fullMoonName(q.at).name}</small>}
             </span>
           );
         })}
