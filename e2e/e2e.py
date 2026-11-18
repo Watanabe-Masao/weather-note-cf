@@ -787,7 +787,14 @@ with sync_playwright() as p:
         check("SD2 時間帯は5つ", pg.locator(".dd-part").count() == 5, pg.locator(".dd-part").count())
         pg.locator(".dd-part").nth(2).click(); calm()
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
-        check("SD4 この日の値：肌感＋7項目", pg.locator(".dd-value").count() == 8, pg.locator(".dd-value").count())
+        # 項目の選び（値つき）は 24時間の見出しのすぐ下（2026-11-18）。肌感は見出しの下の1行で、押すと肌感マップ。
+        check("SD4 グラフの項目：7つが24時間のグラフのすぐ上、肌感は上の1行", pg.locator(".hour-face .dd-pick .dd-value").count() == 7 and pg.locator(".dd-feel-line").count() == 1, pg.locator(".dd-value").count())
+        if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day.png")
+        lr = pg.locator(".day-detail .legend-row")
+        if lr.count():
+            tops = pg.evaluate("[...document.querySelectorAll('.day-detail .legend-row .legend-line, .day-detail .legend-row .avg-window, .day-detail .legend-row .info-btn')].map(e => Math.round(e.getBoundingClientRect().top + e.getBoundingClientRect().height / 2))")
+            check("SD4h 1日：凡例・平均・ⓘ が1列（真ん中の高さがそろう）", max(tops) - min(tops) <= 2, tops)
+            if shots: lr.screenshot(path=f"{shots}-legend.png")
         # 天気図は予報の移り変わりと連動（2026-11-18）：「発表の時」は選んだ発表の直前の天気図と、その時の予想天気図。
         lead = txt(".wx-chart .wx-lead") if pg.locator(".wx-chart .wx-lead").count() else ""
         check("SD4b 天気図：「発表の時｜この日」、発表の時は選んだ発表の時刻の図（保存の無い予想天気図は無いと書く）", pg.locator(".wx-chart").count() == 1 and pg.locator(".wx-chart .seg button").count() == 2 and "の発表のときの空の形" in lead and "予想天気図はありません" in txt(".wx-chart"), lead)
@@ -844,16 +851,16 @@ with sync_playwright() as p:
     # RN. 雨の見込み（確認用）: 本物の形のこまとタイル（作ったもの）で、地図・グラフ・取れなかったこま・再生。
     def rn():
         shots = os.environ.get("WN_SHOT")
-        # 雨の見込みは今日の 1日モードにある（2026-11-18）：札の言葉と「地図で見る」。過去の日には出ない。
+        # 雨の見込みは今日の 1日モードにある（2026-11-18）：札の言葉と「直近の雨雲レーダー」。過去の日には出ない。
         pg.locator(".app-head .seg button", has_text="1日").click(); calm()
         settle(lambda: pg.locator(".rn-card .rn-say-item").count() == 2 and "読み込み中" not in txt(".rn-card"), 15)
-        check("RN0 今日の 1日モードに雨の見込み（1時間・15時間の2枚と「地図で見る」）", pg.locator(".rn-card .rn-say-item").count() == 2 and pg.locator(".rn-card button", has_text="地図で見る").count() == 1, txt(".rn-card")[:120])
+        check("RN0 今日の 1日モードに雨の見込み（1時間・15時間の2枚と「直近の雨雲レーダー」）", pg.locator(".rn-card .rn-say-item").count() == 2 and pg.locator(".rn-card button", has_text="直近の雨雲レーダー").count() == 1, txt(".rn-card")[:120])
         if shots: pg.screenshot(path=f"{shots}-rain-card.png", clip={**pg.locator(".day-detail").bounding_box(), "height": 520})
         pg.locator("button[aria-label$='1日前へ']").first.click(); calm()
         check("RN0b 昨日の 1日モードには雨の見込みが出ない", pg.locator(".rn-card").count() == 0)
         pg.locator("button[aria-label$='1日後へ']").first.click(); calm()
         settle(lambda: pg.locator(".rn-card button").count() == 1, 5)
-        pg.locator(".rn-card button", has_text="地図で見る").click(); calm()
+        pg.locator(".rn-card button", has_text="直近の雨雲レーダー").click(); calm()
         settle(lambda: pg.locator(".rn-board .rn-map").count() == 1 and pg.locator(".rn-board .rn-loading").count() == 0, 15)
         check("RN1 雨の見込み：地図・つまみ・グラフが出る", pg.locator(".rn-board .rn-map canvas").count() == 1 and pg.locator(".rn-board .rn-scrub").count() == 1 and pg.locator(".rn-board .rn-graph").count() == 1)
         check("RN2 今のこま：「12:00」「今・実況」", "12:00" in txt(".rn-when") and "今・実況" in txt(".rn-when"), txt(".rn-when"))

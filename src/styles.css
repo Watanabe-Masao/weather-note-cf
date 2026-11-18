@@ -1170,6 +1170,16 @@ button.label-feel:active { transform: scale(0.97); }
   margin: var(--space-3) var(--space-2) 0;
 }
 
+/* 凡例と ⓘ を1行に（ⓘ の説明は開くと下に全幅）。 */
+.legend-row { display: flex; flex-wrap: wrap; align-items: center; margin: var(--space-3) var(--space-3) 0; }
+.legend-row .line-legend { flex: 1 1 0; min-width: 0; margin: 0; }
+.legend-row .info-note { display: contents; }
+.legend-row .info-note > p { margin: 0; display: inline-flex; align-items: center; }
+.legend-row .info-note > p .info-btn { margin: 0; }
+.legend-row .info-note .info-more { flex-basis: 100%; }
+/* 1日だけ：名前を短くして（日付・手前）凡例・平均・ⓘ を1列に（2026-11-18 渡辺さん「一列になりませんか」）。 */
+.legend-row.one .line-legend { column-gap: var(--space-5); white-space: nowrap; }
+
 /* Legends speak in the graph's own marks. */
 .line-legend,
 .level-legend {
@@ -1493,6 +1503,17 @@ button.label-feel:active { transform: scale(0.97); }
 }
 /* One day alone (1日モード, #247): the value column only. */
 .ro-grid.ro-single { grid-template-columns: minmax(0, 1fr) var(--ro-col); }
+/* 1日だけ：横1列（時刻・値・平均・差・天気）。名前は値の上に小さく。入らなければ折り返す（2026-11-18）。 */
+.readout-card.ro-strip {
+  display: flex; flex-wrap: wrap; align-items: flex-end; gap: var(--space-2) var(--space-5);
+  font-family: var(--font-numeric); font-variant-numeric: tabular-nums;
+}
+.ro-strip .ro-title { align-self: center; }
+.ro-strip .ro-cell { display: grid; gap: 0; min-width: 0; }
+.ro-strip .ro-cell .ro-label { font-size: var(--size-xs); color: var(--ink-tertiary); white-space: nowrap; display: inline-flex; align-items: center; gap: var(--space-1); }
+.ro-strip .ro-cell .ro-unit { font-size: var(--size-xs); }
+.ro-strip .ro-cell .ro-v { font-size: var(--size-md); text-align: left; line-height: 1.3; }
+.ro-strip .ro-cell-text .ro-v { font-size: var(--size-sm); }
 
 .ro-title {
   font-size: var(--size-base);
@@ -4709,7 +4730,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
   display: grid;
   gap: var(--space-3);
 }
-.dd-hero { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: var(--space-6); align-items: center; }
+.dd-hero { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: var(--space-6); align-items: center; }
 .dd-pic { grid-row: span 2; display: inline-flex; }
 .dd-temps { font-size: var(--size-xl); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: var(--space-2); }
 .dd-temps small, .dd-slash { color: var(--ink-tertiary); font-size: var(--size-sm); font-weight: var(--weight-regular); }
@@ -4730,7 +4751,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .dd-parts { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--space-2); }
 .dd-part {
   display: grid; justify-items: center; gap: var(--space-1);
-  padding: var(--space-3) 0; border-radius: var(--radius-md);
+  padding: var(--space-2) 0; border-radius: var(--radius-md);
   background: var(--surface-inset); border: 1px solid transparent; color: var(--ink-primary);
   font-variant-numeric: tabular-nums;
 }
@@ -4748,18 +4769,34 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .dd-hours th, .dd-hours td { white-space: nowrap; }
 .dd-hours td.dd-feel { text-align: left; font-size: var(--size-xs); }
 .dd-feel i, .dd-swatch { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-tick); margin-right: var(--space-2); vertical-align: -1px; }
-.dd-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
-.dd-value {
-  display: grid; gap: var(--space-1); text-align: left;
-  padding: var(--space-4) var(--space-5); border-radius: var(--radius-md);
-  background: var(--surface-inset); border: 1px solid transparent; color: var(--ink-primary); min-width: 0;
+/* 肌感：見出しの右上（気温の横の空いた所）。押すと肌感マップ。 */
+.dd-feel-line {
+  grid-column: 3; grid-row: 1 / span 2; justify-self: end; align-self: center;
+  display: grid; justify-items: end; gap: 0; min-height: var(--tap-min); min-width: 0; max-width: 100%;
+  padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); border: none; background: var(--surface-inset);
+  color: var(--ink-primary); text-align: right; font-size: var(--size-sm);
 }
-.dd-value[aria-pressed="true"] { border-color: var(--accent-base); }
-.dd-value-name { display: flex; justify-content: space-between; gap: var(--space-2); font-size: var(--size-xs); color: var(--ink-secondary); }
-.dd-value-name em { font-style: normal; color: var(--ink-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dd-value-num { font-size: var(--size-lg); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: var(--space-1); flex-wrap: wrap; }
+.dd-feel-line small { font-size: var(--size-xs); color: var(--ink-tertiary); white-space: nowrap; }
+.dd-feel-when { margin-left: var(--space-2); }
+.dd-feel-line b { font-weight: var(--weight-bold); white-space: nowrap; }
+.dd-feel-go { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--size-xs); color: var(--ink-secondary); white-space: nowrap; }
+/* グラフの項目（値つき）：24時間の見出しの下に 4列×2段。選んでいるものだけ選んだ色のふち。 */
+.dd-pick-wrap { display: grid; gap: var(--space-2); margin-bottom: var(--space-3); }
+.dd-pick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }
+/* 7つ目（気圧、桁が多い）は残りの2列を使う（空いたマスを残さない）。 */
+.dd-pick > :last-child:nth-child(4n + 3) { grid-column: span 2; }
+.dd-value {
+  display: grid; align-content: center; gap: 0; text-align: left; min-height: var(--tap-min); min-width: 0;
+  padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm);
+  background: var(--surface-inset); border: var(--stroke-hair) solid transparent; color: var(--ink-primary);
+}
+.dd-value[aria-pressed="true"] { border-color: var(--accent-base); box-shadow: 0 0 0 calc(var(--stroke-select) - var(--stroke-hair)) var(--accent-base) inset; }
+.dd-value-name { font-size: var(--size-xs); color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dd-value-name small { margin-left: var(--space-1); font-size: inherit; color: var(--ink-tertiary); }
+.dd-value-num { font-size: var(--size-sm); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 0 var(--space-1); flex-wrap: wrap; line-height: 1.25; }
 .dd-value-num small { font-size: var(--size-xs); color: var(--ink-tertiary); font-weight: var(--weight-regular); }
-.dd-value-note { font-size: var(--size-xs); color: var(--ink-secondary); }
+.dd-pick-rest { margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); }
+.dd-pick-rest b { color: var(--ink-primary); font-weight: var(--weight-bold); margin-right: var(--space-1); }
 .dd-basis { margin: 0; display: flex; gap: var(--space-5); font-size: var(--size-base); align-items: baseline; }
 .dd-basis span:first-child { flex: 0 0 auto; min-width: 5.5em; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .dd-links { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-3); }
