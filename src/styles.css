@@ -4451,10 +4451,6 @@ select.chip.sm {
 .moon-next small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .moon-next b { font-size: var(--size-sm); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -0.02em; }
 .sky-sensor { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
-/* センサーの値（確かめ用、調査 #334。方位の合わせ方が決まったら外す） */
-.sky-debug { flex: 1 1 100%; margin: 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-sm); background: var(--surface-inset); font-family: var(--font-numeric); font-size: var(--size-xs); line-height: 1.5; color: var(--ink-primary); white-space: pre-wrap; }
-.sky-full-debug { position: absolute; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); left: calc(env(safe-area-inset-left, 0px) + var(--space-4)); right: calc(env(safe-area-inset-right, 0px) + var(--tap-min) + var(--space-6)); }
-.sky-full-debug .sky-debug { background: var(--surface-overlay); }
 .sky-sensor-state { font-size: var(--size-xs); color: var(--ink-tertiary); }
 /* コンパス補正（2026-11-19）：開くと行いっぱいの目盛り。真ん中の線が今の方位。 */
 .compass-trim { flex: 1 1 100%; display: grid; justify-items: center; gap: var(--space-2); min-width: 0; }
