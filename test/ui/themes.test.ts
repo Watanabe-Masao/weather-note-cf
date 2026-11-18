@@ -146,8 +146,11 @@ describe.each(THEME_NAMES)("%s", (name) => {
   it("puts each graph role as far from the face in every theme (役割ごとの距離, #243): main > comparison > reference > hatch > grid", () => {
     const at = (c: string) => contrast(c, t.surface.base);
     const range = (v: number, lo: number, hi: number) => v >= lo && v <= hi;
+    // Deep Navy's temperatures sit further (6.2–6.8): light coloured figures on a dark face read weaker
+    // than their ratio says (measured with APCA, 2026-11-18: Lc 35 at 4.5), so they were lifted to Lc 45.
+    const [lo, hi] = t.dark ? [6.2, 6.8] : [4.6, 5.45];
     expect(
-      [at(t.data.hot), at(t.data.cold)].every((v) => range(v, 4.6, 5.45)),
+      [at(t.data.hot), at(t.data.cold)].every((v) => range(v, lo, hi)),
     ).toBe(true);
     expect(range(at(t.reference.color), 2.2, 2.6)).toBe(true);
     expect(range(at(t.chart.hatch), 1.5, 1.7)).toBe(true);
