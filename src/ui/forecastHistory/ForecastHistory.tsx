@@ -11,7 +11,7 @@ import { addDays } from "../../../shared/dates";
 import type { ForecastHistoryResponse } from "../../../shared/forecastHistory";
 import { ForecastHistory as Model, oneSource } from "../../../shared/forecastHistoryModel";
 import type { WeatherStore } from "../../data/store";
-import { Segmented } from "../kit";
+import { Chip } from "../kit";
 import { DayWeatherIcon } from "../WeatherIcon";
 import { actualOf } from "./actual";
 import { DayRows } from "./DayRows";
@@ -98,7 +98,7 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
   return (
     <div className="fh">
       {focusSlot && (
-        <SplitHeader s={focusSlot} slots={slots} day={date} a={a} aPrev={aPrev} dayIcon={dayRow && dayRow.type !== "forecast" ? <DayWeatherIcon row={dayRow} station={station} size={40} /> : null} />
+        <SplitHeader s={focusSlot} slots={slots} day={date} a={a} aPrev={aPrev} dayIcon={dayRow && dayRow.type !== "forecast" ? <DayWeatherIcon row={dayRow} station={station} size={32} /> : null} />
       )}
       <StepChart
         slots={slots}
@@ -112,15 +112,13 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
       />
       {/* なぞっている間は変えず、離して選んだ発表で（絵の読み込みを指の速さで走らせない）。 */}
       {chart?.(((k) => (k && k.state === "ok" ? k.at : null))(slots.find((s) => s.key === (sel ?? latest)) ?? null))}
-      <Segmented
-        label="行の絞り込み"
-        value={onlyChanged ? "changed" : "all"}
-        onChange={(v) => setOnlyChanged(v === "changed")}
-        options={[
-          { id: "all", label: "すべての発表" },
-          { id: "changed", label: "変わった発表だけ" },
-        ]}
-      />
+      {/* 絞り込みは一覧の見出しの右に小さく（2026-11-18：全幅の切り替えをやめて短く） */}
+      <div className="fh-rows-head">
+        <span>発表の一覧</span>
+        <Chip size="sm" on={onlyChanged} onClick={() => setOnlyChanged(!onlyChanged)}>
+          変わった発表だけ
+        </Chip>
+      </div>
       <DayRows slots={slots} all={all} day={date} selected={focusKey} onSelect={setSel} onlyChanged={onlyChanged} />
       <p className="fh-credit">出典：気象庁（府県天気予報・府県週間天気予報、防災情報XML）</p>
     </div>

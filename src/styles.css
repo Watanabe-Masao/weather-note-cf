@@ -4810,6 +4810,10 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .wx-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
 .wx-pic img { display: block; width: 100%; height: auto; }
 .wx-chart figcaption, .wx-credit, .wx-fc small, .wx-links small { color: var(--ink-tertiary); font-size: var(--size-xs); }
-.wx-fc { display: grid; gap: var(--space-1); min-width: 0; }
+.wx-fc { display: grid; gap: var(--space-1); min-width: 0; align-content: start; }
+/* 発表の時：実況と予想2枚を横1列に（押すと大きく）。無い図は同じ大きさの点線の枠に言葉で。 */
+.wx-trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.wx-trio .wx-fc small { line-height: 1.35; }
+.wx-empty { display: grid; place-items: center; aspect-ratio: 600 / 581; border-radius: var(--radius-md); outline: var(--stroke-hair) dashed var(--line-strong); outline-offset: calc(-1 * var(--stroke-hair)); color: var(--ink-tertiary); font-size: var(--size-xs); text-align: center; padding: var(--space-2); }
 .wx-none { margin: 0; color: var(--ink-secondary); font-size: var(--size-sm); }
 .wx-links { margin: 0; display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
