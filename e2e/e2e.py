@@ -679,6 +679,18 @@ with sync_playwright() as p:
         check("SS2 薄明は 市民→航海→天文 の順（朝は早く・夕は遅く）、日の出→南中→日の入り", mins, (keys, tw))
         moon = pg.locator(".sun-keys.moon .sun-key").count()
         check("SS2c 月：月の出・南中・月の入りの3枚と、選んだ時刻の月（高さ・方位・月齢・明るい部分）", moon == 3 and "月齢" in txt(".sun-now.moon"), txt(".sun-now.moon"))
+        # 端末の向きで見る（センサー連動、2026-11-18）：作ったセンサーの値（iPhone の方位 187.6°＝偏角を引いて南）を流すと、
+        # 南を真ん中にした窓になり、やめると広げた絵に戻る。
+        pg.locator(".sun-card .seg button", has_text="空を見上げる").click(); calm()
+        pg.evaluate("DeviceOrientationEvent.requestPermission = async () => 'granted'")  # iPhone のように許可を求める形（許可された）
+        pg.locator(".sky-sensor .btn", has_text="端末の向きで見る").click(); calm()
+        pg.evaluate("""() => { for (let i = 0; i < 20; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
+        head = pg.evaluate("(document.querySelector('.sky-view.window .sky-heading') || {}).textContent || ''")
+        h_win = pg.locator(".sky-view").first.bounding_box()["height"] if pg.locator(".sky-view").count() else 0
+        pg.locator(".sky-sensor .btn", has_text="やめる").click(); calm()
+        h_pan = pg.locator(".sky-view").first.bounding_box()["height"] if pg.locator(".sky-view").count() else 0
+        check("SS2d 端末の向きで見る：南を向けると南を真ん中にした窓（上へ10°）、やめると戻る、絵の高さは同じ", head.startswith("南 180°") and "上へ 10°" in head and pg.locator(".sky-view.window").count() == 0 and abs(h_win - h_pan) < 1, (head, h_win, h_pan))
+        pg.locator(".sun-card .seg button", has_text="高さのグラフ").click(); calm()
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
         pg.evaluate("""() => { const r = document.querySelector('.sun-slider input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
