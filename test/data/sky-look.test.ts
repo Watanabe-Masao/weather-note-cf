@@ -1,6 +1,6 @@
 // 端末を向けた方向（shared/skyLook.ts）：偏角、センサーの値から方位と高さ、ならし、窓の中の位置。
 import { describe, expect, it } from "vitest";
-import { azDiff, lookFrom, magneticDeclination, placeIn, smooth } from "../../shared/skyLook";
+import { azDiff, deviceLook, lookFrom, magneticDeclination, placeIn, smooth } from "../../shared/skyLook";
 
 describe("磁気偏角（国土地理院 2020.0 の近似式）", () => {
   it("高知は西へ約7.6°、札幌は約9°、那覇は約5°", () => {
@@ -59,5 +59,25 @@ describe("カメラと同じ見え方（透視）", () => {
   it("右（西寄り）は右へ、後ろは front=false", () => {
     expect(project(look, { azimuth: 190, altitude: 20 }, f, 400, 800).x).toBeGreaterThan(200);
     expect(project(look, { azimuth: 0, altitude: 20 }, f, 400, 800).front).toBe(false);
+  });
+});
+
+// 端末の傾き（調査の持ち方ごとの値：W3C の alpha・beta・gamma → 方位・高さ・ロール）
+describe("deviceLook（調査 research/moon-appearance の表）", () => {
+  const near = (a: number | null, b: number) => a != null && Math.abs(((a - b + 540) % 360) - 180) < 0.2;
+  it.each([
+    ["縦・北・水平", 0, 90, 0, 0, 0, 0, 0],
+    ["横（左回し）・北・水平", 90, 0, -90, 90, 0, 0, 0],
+    ["横（右回し）・北・水平", 270, 0, 90, 270, 0, 0, 0],
+    ["横（左回し）・東・30°見上げ", 180, -180, 60, 90, 90, 30, 0],
+    ["縦・北・右へ10°傾け", 270, 80, 90, 0, 0, 0, 10],
+  ])("%s", (_n, a, b, g, angle, az, alt, roll) => {
+    const l = deviceLook(a, b, g, angle);
+    expect(near(l.azimuth, az)).toBe(true);
+    expect(l.altitude).toBeCloseTo(alt, 1);
+    expect(near(l.roll, roll)).toBe(true);
+  });
+  it("真上の近くは方位とロールを決めない", () => {
+    expect(deviceLook(0, 179.95, 0, 0).azimuth).toBeNull();
   });
 });

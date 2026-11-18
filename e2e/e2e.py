@@ -709,6 +709,12 @@ with sync_playwright() as p:
         tap_ok = sc["height"] >= 44
         pg.locator(".compass-trim .icon-btn[aria-label='コンパス補正を閉じる']").click(); calm()
         check("SS2g コンパス補正：目盛りを左へなぞると方位が右へずれ、キーと 0°に で直せ、閉じられる", v1 == "10" and (d1 - d0) % 360 == 10 and v2 == "9" and v3 == "0" and tap_ok and pg.locator(".compass-trim").count() == 0, (d0, d1, v1, v2, v3, sc))
+        # センサーの値（確かめ用、調査 #334）：生の値と、行列で出した方位・高さ・ロール、コンパスとの差。
+        pg.locator(".sky-sensor .btn", has_text="センサーの値").click(); calm()
+        pg.evaluate("""() => { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); }"""); pg.wait_for_timeout(400)
+        dbg = pg.evaluate("(document.querySelector('.sky-debug') || {}).textContent || ''")
+        pg.locator(".sky-sensor .btn", has_text="センサーの値").click(); calm()
+        check("SS2j センサーの値：行列の高さ・ロール・コンパスとの差が出て、閉じられる", "高さ 10.0" in dbg and "ロール 0.0" in dbg and "-172.4" in dbg and pg.locator(".sky-debug").count() == 0, dbg)
         pg.locator(".sky-sensor .btn", has_text="やめる").click(); calm()
         h_pan = pg.locator(".sky-view").first.bounding_box()["height"] if pg.locator(".sky-view").count() else 0
         check("SS2d 端末の向きで見る：南を向けると南を真ん中にした窓（上へ10°）、やめると戻る、絵の高さは同じ", head.startswith("南 180°") and "上へ 10°" in head and pg.locator(".sky-view.window").count() == 0 and abs(h_win - h_pan) < 1, (head, h_win, h_pan))

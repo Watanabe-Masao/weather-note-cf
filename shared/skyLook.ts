@@ -100,3 +100,30 @@ export function project(look: { azimuth: number; altitude: number }, body: { azi
 
 /** 縦の画角（°）から、高さ h の画面での focal。 */
 export const focalOf = (vfov: number, h: number) => h / 2 / Math.tan((vfov / 2) * RAD);
+
+/**
+ * 端末の傾き（2026-11-19、調査 research/moon-appearance 3）：alpha・beta・gamma（W3C、Z−X'−Y''）から回転行列
+ * R = Rz(α)·Rx(β)·Ry(γ) を作り、背面カメラの方位（alpha が北基準のとき。iPhone は北基準でない）・高さと、
+ * 画面の回り（ロール、画面の上が右へ傾くと正）を出す。angle は screen.orientation.angle（反時計回りに回した画面で 90）。
+ * 真上・真下（|高さ| > 89.9°）では方位とロールは決まらない（null）。今は確かめ用（実機で値を見る）。
+ */
+export function deviceLook(alpha: number, beta: number, gamma: number, angle: number): { azimuth: number | null; altitude: number; roll: number | null } {
+  const [ca, sa, cb, sb, cg, sg] = [Math.cos(alpha * RAD), Math.sin(alpha * RAD), Math.cos(beta * RAD), Math.sin(beta * RAD), Math.cos(gamma * RAD), Math.sin(gamma * RAD)];
+  const R = [
+    [ca * cg - sa * sb * sg, -cb * sa, ca * sg + cg * sa * sb],
+    [cg * sa + ca * sb * sg, ca * cb, sa * sg - ca * cg * sb],
+    [-cb * sg, sb, cb * cg],
+  ];
+  const col = (v: number[]) => [0, 1, 2].map((i) => R[i][0] * v[0] + R[i][1] * v[1] + R[i][2] * v[2]);
+  const f = col([0, 0, -1]);
+  const altitude = Math.asin(Math.max(-1, Math.min(1, f[2]))) / RAD;
+  if (Math.abs(altitude) > 89.9) return { azimuth: null, altitude, roll: null };
+  const azimuth = (((Math.atan2(f[0], f[1]) / RAD) % 360) + 360) % 360;
+  const th = angle * RAD;
+  const U = col([Math.sin(th), Math.cos(th), 0]);
+  const n = Math.hypot(f[0] * f[2], f[1] * f[2], 1 - f[2] * f[2]);
+  const u0 = [(-f[2] * f[0]) / n, (-f[2] * f[1]) / n, (1 - f[2] * f[2]) / n];
+  const r0 = [f[1] * u0[2] - f[2] * u0[1], f[2] * u0[0] - f[0] * u0[2], f[0] * u0[1] - f[1] * u0[0]];
+  const d = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  return { azimuth, altitude, roll: Math.atan2(d(U, r0), d(U, u0)) / RAD };
+}

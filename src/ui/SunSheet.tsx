@@ -15,6 +15,7 @@ import { createPortal } from "react-dom";
 import { CloseIcon } from "./icons";
 import { useSkyLook } from "./useSkyLook";
 import { CompassTrim } from "./CompassTrim";
+import { SkyDebug } from "./SkyDebug";
 import { dirName, MoonGlyph } from "./moonParts";
 import { MoonSheet } from "./MoonSheet";
 import { ICON, RADIUS } from "../design/tokens";
@@ -93,6 +94,7 @@ export function SunSheet({
   const sensor = useSkyLook(magneticDeclination(ll.lat, ll.lon), offset);
   const camera = useCamera();
   const [full, setFull] = useState(false);
+  const [debug, setDebug] = useState(false); // センサーの値（確かめ用、調査 #334）
   const { state: sensorState, stop: stopSensor } = sensor;
   const { state: cameraState, stop: stopCamera } = camera;
   // 向きで見るのをやめたら、カメラも全画面も閉じる。
@@ -171,6 +173,12 @@ export function SunSheet({
           {sensor.state === "on" && (
             <CompassTrim value={offset} onChange={setOffset} heading={sensor.look?.azimuth ?? 0} />
           )}
+          {sensor.state !== "off" && (
+            <Button size="sm" aria-pressed={debug} onClick={() => setDebug(!debug)}>
+              センサーの値
+            </Button>
+          )}
+          {debug && sensor.state !== "off" && !full && <SkyDebug look={sensor.look} />}
           <small className="sky-sensor-state" aria-live="polite">
             {{ off: "", waiting: "向きを読んでいます…", on: "", denied: "向きのセンサーが許可されませんでした（設定で許可できます）", unsupported: "この端末では向きのセンサーを読めません", noHeading: "方位が読めません（傾きだけ）" }[sensor.state]}
             {{ off: "", starting: "カメラを開いています…", on: "", denied: "カメラが許可されませんでした（設定で許可できます）", unsupported: "この端末ではカメラを使えません" }[camera.state]}
@@ -180,6 +188,7 @@ export function SunSheet({
       {full && sensor.state === "on" && sensor.look && (
         <SkyFull
           onClose={() => setFull(false)}
+          extra={debug ? <SkyDebug look={sensor.look} /> : null}
           sky={(w, h) => <SkyWindow full look={sensor.look!} stream={camera.stream} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} w={w} h={h} />}
           controls={
             <>
@@ -574,7 +583,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
  * 全画面（2026-11-19）：端末の向きで見る空を画面いっぱいに。上に向いている方位と高さ・閉じる、下に時刻のつまみ・動かす・
  * カメラ・ずれの手直し。閉じると太陽と月のシートの同じ所に戻る。
  */
-function SkyFull({ sky, controls, onClose }: { sky: (w: number, h: number) => ReactNode; controls: ReactNode; onClose: () => void }) {
+function SkyFull({ sky, controls, extra, onClose }: { sky: (w: number, h: number) => ReactNode; controls: ReactNode; extra?: ReactNode; onClose: () => void }) {
   const [size, setSize] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
   useEffect(() => {
     const on = () => setSize({ w: window.innerWidth, h: window.innerHeight });
@@ -594,6 +603,7 @@ function SkyFull({ sky, controls, onClose }: { sky: (w: number, h: number) => Re
           <CloseIcon />
         </IconButton>
       </div>
+      {extra && <div className="sky-full-debug">{extra}</div>}
       <div className="sky-full-bottom">{controls}</div>
     </div>,
     document.body,
