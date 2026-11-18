@@ -812,7 +812,12 @@ with sync_playwright() as p:
         check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
         if shots: pg.screenshot(path=f"{shots}-single.png", full_page=True)
         # 暫定の説明 (2026-11-18)：昨日（暫定）にすると、出どころ・待っているもの・確定の見込みが出る。予報の今日には出ない。
-        check("SD7a 予報の日には暫定の説明も ⓘ もない", pg.locator(".dd-prov").count() == 0 and pg.locator(".dd-kind .info-btn").count() == 0)
+        # 出どころは ⓘ で開く（2026-11-18）：予報の日は ⓘ だけ、開くと出どころ（信頼度の意味まで）。暫定の説明は出ない。
+        closed0 = pg.locator(".dd-prov").count() == 0 and pg.locator(".dd-kind .info-btn").count() == 1
+        pg.locator(".dd-kind .info-btn").click(); calm()
+        src = pg.locator(".dd-prov").inner_text() if pg.locator(".dd-prov").count() else ""
+        pg.locator(".dd-kind .info-btn").click(); calm()
+        check("SD7a 予報の日：ⓘ で出どころが開き、暫定の説明は出ない、「根拠と記録」に出どころの行は無い", closed0 and "出どころ" in src and "気象庁の予報" in src and "暫定" not in src and pg.locator(".dd-basis", has_text="出どころ").count() == 0, src[:80])
         pg.locator("button[aria-label$='1日前へ']").first.click(); calm()
         settle(lambda: pg.locator(".dd-kind .info-btn").count() == 1, 5)
         check("SD7d 暫定の日：ふだんは「暫定 ⓘ」だけ（説明は閉じている）", pg.locator(".dd-kind .info-btn").count() == 1 and pg.locator(".dd-prov").count() == 0)

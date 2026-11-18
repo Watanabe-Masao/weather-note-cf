@@ -4713,6 +4713,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .dd-say { margin: 0; color: var(--ink-secondary); font-size: var(--size-base); line-height: 1.6; }
 /* 暫定の説明（shared/provisionalNote.ts）：暫定の色は枠線だけ（Badge と同じ） */
 .dd-prov { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); box-shadow: inset 0 0 0 1px var(--status-provisional); font-size: var(--size-sm); color: var(--ink-secondary); }
+.dd-prov.plain { box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong); }
 .dd-prov-lead { margin: 0; color: var(--ink-primary); font-weight: var(--weight-bold); }
 .dd-prov dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-1) var(--space-3); }
 .dd-prov dt { color: var(--ink-tertiary); white-space: nowrap; }
