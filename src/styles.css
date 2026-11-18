@@ -4397,6 +4397,18 @@ select.chip.sm {
 .sun-keys.moon { margin-top: var(--space-2); }
 .sky-view { width: 100%; height: auto; display: block; margin-top: var(--space-3); }
 .sky-ground { fill: var(--surface-inset); }
+.sky-stage { position: relative; width: 100%; margin-top: var(--space-3); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-inset); }
+.sky-stage .sky-view { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; }
+.sky-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.sky-stage.camera .sun-horizon, .sky-stage.camera .sky-alt { stroke: var(--ink-on-feel); }
+.sky-stage.camera .sky-dir, .sky-stage.camera .sky-heading, .sky-stage.camera .sky-edge text { fill: var(--ink-on-feel); paint-order: stroke; stroke: var(--surface-page); stroke-width: var(--stroke-focus); }
+.sky-full { position: fixed; inset: 0; z-index: var(--layer-popover); background: var(--surface-page); }
+.sky-stage.full { position: absolute; inset: 0; margin: 0; border-radius: 0; aspect-ratio: auto; height: 100%; }
+.sky-full-top { position: absolute; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); right: calc(env(safe-area-inset-right, 0px) + var(--space-4)); }
+.sky-full-bottom { position: absolute; left: 0; right: 0; bottom: 0; display: grid; gap: var(--space-3); padding: var(--space-5) max(var(--space-7), env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + var(--space-5)) max(var(--space-7), env(safe-area-inset-left, 0px)); background: var(--surface-overlay); box-shadow: var(--shadow-float); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
+.sky-full-read { margin: 0; display: grid; gap: var(--space-1); font-size: var(--size-sm); color: var(--ink-primary); }
+.sky-full-read b { font-family: var(--font-numeric); font-size: var(--size-md); margin-right: var(--space-3); }
+.sky-full-read small { font-size: var(--size-xs); color: var(--ink-secondary); }
 .moon-open { margin-left: auto; }
 .moon-today { display: flex; align-items: center; gap: var(--space-6); padding: var(--space-4); border-radius: var(--radius-md); background: var(--surface-inset); }
 .moon-today-text { display: grid; gap: var(--space-1); min-width: 0; }
@@ -4418,12 +4430,20 @@ select.chip.sm {
 .moon-next b { font-size: var(--size-sm); font-variant-numeric: tabular-nums; }
 .moon-credit { margin: var(--space-3) 0 var(--space-4); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sky-sensor { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
-.sky-offset { display: inline-flex; align-items: center; gap: var(--space-2); }
-.sky-offset small, .sky-sensor-state { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.sky-sensor-state { font-size: var(--size-xs); color: var(--ink-tertiary); }
+/* コンパス補正（2026-11-19）：開くと行いっぱいの目盛り。真ん中の線が今の方位。 */
+.compass-trim { flex: 1 1 100%; display: grid; justify-items: center; gap: var(--space-2); min-width: 0; }
+.compass-trim-value { padding: var(--space-1) var(--space-4); border-radius: var(--radius-pill); background: var(--surface-inset); font-size: var(--size-xs); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+.compass-trim-row { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-width: 0; }
+.compass-trim-scale { flex: 1 1 auto; min-width: 0; height: var(--tap-min); overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-inset); touch-action: none; cursor: ew-resize; display: grid; align-items: center; }
+.compass-trim-scale svg { display: block; width: 100%; }
+.compass-trim-tick { stroke: var(--ink-tertiary); stroke-width: var(--stroke-hair); }
+.compass-trim-dir { fill: var(--ink-secondary); font-size: var(--size-xs); }
+.compass-trim-center { stroke: var(--ink-primary); stroke-width: var(--stroke-focus); }
 .sky-edge path { fill: var(--ink-primary); }
 .sky-edge text { fill: var(--ink-primary); font-size: var(--size-xs); }
 .sky-heading { fill: var(--ink-primary); font-size: var(--size-xs); }
-.sky-alt { stroke: var(--line-soft); stroke-width: var(--stroke-hair); stroke-dasharray: 2 4; }
+.sky-alt { fill: none; stroke: var(--line-soft); stroke-width: var(--stroke-hair); stroke-dasharray: 2 4; }
 .sky-alt-label, .sky-dir { font-size: var(--size-xs); }
 .sky-sun { stroke: var(--surface-base); stroke-width: var(--stroke-hair); }
 .sun-card .seg { width: 100%; margin-bottom: var(--space-2); }

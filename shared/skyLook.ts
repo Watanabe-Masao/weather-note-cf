@@ -72,3 +72,31 @@ export function placeIn(look: { azimuth: number; altitude: number }, body: { azi
   const y = h / 2 - (dy / vfov) * h;
   return { x, y, inside: Math.abs(dx) <= fov / 2 && Math.abs(dy) <= vfov / 2, dx, dy };
 }
+
+/** 方位と高さ（°）から単位ベクトル（東・北・上）。 */
+const vec = (az: number, alt: number) => [Math.cos(alt * RAD) * Math.sin(az * RAD), Math.cos(alt * RAD) * Math.cos(az * RAD), Math.sin(alt * RAD)];
+
+/**
+ * カメラと同じ見え方（透視、2026-11-19）：向いている方向（look）を真ん中に、focal（画面の上の1単位＝px）で、天体の方向を
+ * 画面の位置へ。端末はまっすぐ立てている（左右に傾けていない）とする。後ろ側（90°より外）は front=false。
+ * focal は、縦の画角 vfov（°）を高さ h に合わせると (h/2)/tan(vfov/2)。
+ */
+export function project(look: { azimuth: number; altitude: number }, body: { azimuth: number; altitude: number }, focal: number, w: number, h: number) {
+  const f = vec(look.azimuth, look.altitude);
+  const up0 = [0, 0, 1];
+  // 右 = 前 × 上、上 = 右 × 前（真上・真下を向いたときは方位から右を決める）
+  let r = [f[1] * up0[2] - f[2] * up0[1], f[2] * up0[0] - f[0] * up0[2], f[0] * up0[1] - f[1] * up0[0]];
+  const rl = Math.hypot(r[0], r[1], r[2]);
+  r = rl < 1e-6 ? [Math.cos(look.azimuth * RAD), -Math.sin(look.azimuth * RAD), 0] : r.map((v) => v / rl);
+  const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+  const v = vec(body.azimuth, body.altitude);
+  const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const z = dot(v, f);
+  const front = z > 1e-3;
+  const x = w / 2 + (dot(v, r) / Math.max(z, 1e-3)) * focal;
+  const y = h / 2 - (dot(v, u) / Math.max(z, 1e-3)) * focal;
+  return { x, y, front, inside: front && x >= 0 && x <= w && y >= 0 && y <= h, sx: dot(v, r), sy: dot(v, u) };
+}
+
+/** 縦の画角（°）から、高さ h の画面での focal。 */
+export const focalOf = (vfov: number, h: number) => h / 2 / Math.tan((vfov / 2) * RAD);

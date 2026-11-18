@@ -45,3 +45,19 @@ describe("ならしと窓の中の位置", () => {
     expect(placeIn({ azimuth: 180, altitude: 0 }, { azimuth: 0, altitude: 0 }, 60, 300, 200).inside).toBe(false);
   });
 });
+
+import { focalOf, project } from "../../shared/skyLook";
+describe("カメラと同じ見え方（透視）", () => {
+  const look = { azimuth: 180, altitude: 20 };
+  const f = focalOf(60, 800);
+  it("向いている方向は画面の真ん中、縦に画角の半分上は上の端", () => {
+    expect(project(look, look, f, 400, 800)).toMatchObject({ x: 200, y: 400, inside: true });
+    const top = project(look, { azimuth: 180, altitude: 50 }, f, 400, 800);
+    expect(top.y).toBeCloseTo(0, 6);
+    expect(top.x).toBeCloseTo(200, 6);
+  });
+  it("右（西寄り）は右へ、後ろは front=false", () => {
+    expect(project(look, { azimuth: 190, altitude: 20 }, f, 400, 800).x).toBeGreaterThan(200);
+    expect(project(look, { azimuth: 0, altitude: 20 }, f, 400, 800).front).toBe(false);
+  });
+});
