@@ -4386,6 +4386,21 @@ select.chip.sm {
 .sun-now-phase { display: grid; font-size: var(--size-base); color: var(--ink-primary); line-height: 1.25; }
 .sun-now-phase small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sun-now-alt { margin-left: auto; font-size: var(--size-sm); color: var(--ink-secondary); font-family: var(--font-numeric); }
+.moon-curve { fill: none; stroke-width: var(--stroke-focus); stroke-dasharray: 4 3; stroke-linecap: round; }
+.moon-dot { stroke: var(--surface-base); stroke-width: var(--stroke-hair); }
+.moon-dark { fill: var(--surface-inset); stroke: var(--line-strong); stroke-width: var(--stroke-hair); }
+.moon-glyph { display: block; flex: none; }
+.sun-play { display: flex; align-items: center; gap: var(--space-4); }
+.sun-play .sun-slider { flex: 1; min-width: 0; }
+.sun-now.moon { margin-top: var(--space-2); }
+.sun-now-alt small { display: block; text-align: right; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.sun-keys.moon { margin-top: var(--space-2); }
+.sky-view { width: 100%; height: auto; display: block; margin-top: var(--space-3); }
+.sky-ground { fill: var(--surface-inset); }
+.sky-alt { stroke: var(--line-soft); stroke-width: var(--stroke-hair); stroke-dasharray: 2 4; }
+.sky-alt-label, .sky-dir { font-size: var(--size-xs); }
+.sky-sun { stroke: var(--surface-base); stroke-width: var(--stroke-hair); }
+.sun-card .seg { width: 100%; margin-bottom: var(--space-2); }
 .sun-keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }
 .sun-key { display: grid; justify-items: center; gap: 0; padding: var(--space-3) var(--space-2); border-radius: var(--radius-md); background: var(--surface-inset); }
 .sun-key small { font-size: var(--size-xs); color: var(--ink-tertiary); }
