@@ -232,3 +232,21 @@ describe("the collector", () => {
     ]);
   });
 });
+
+// 障害テスト（#299 P0）：D1 に書けない回・途中で切れた回のあとも、次の回で取り戻し、重ならない。
+import { faulty } from "./faults";
+import { ensureTyphoonSchema } from "../worker/src/typhoonArchive";
+describe("台風の電文：障害のあと", () => {
+  it("D1 に書けなかった回・途中で切れた回のあと、次の回で取り戻し、1通だけ", async () => {
+    for (const opts of [{ failWrites: (q: string) => q.includes("INTO typhoon_telegrams"), times: 1 }, { cutAfterWrites: 0 }]) {
+      const db = d1();
+      await ensureTyphoonSchema(db);
+      const feeds = { long: feed([T1, W1]), short: feed([T1, W1]) };
+      await collectTyphoons(faulty(db, opts).db, Date.parse("2026-09-20T01:00:00Z"), fakeFetch(feeds).get).catch(() => {});
+      expect(db.raw.prepare("SELECT COUNT(*) AS n FROM typhoon_telegrams").get()).toEqual({ n: 0 });
+      await collectTyphoons(db, Date.parse("2026-09-20T01:05:00Z"), fakeFetch(feeds).get);
+      await collectTyphoons(db, Date.parse("2026-09-20T01:10:00Z"), fakeFetch(feeds).get);
+      expect(db.raw.prepare("SELECT COUNT(*) AS n, COUNT(DISTINCT id) AS d FROM typhoon_telegrams").get()).toEqual({ n: 1, d: 1 });
+    }
+  });
+});
