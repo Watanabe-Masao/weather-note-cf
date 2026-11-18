@@ -1,10 +1,11 @@
 // Component kit: the small parts every screen is built from. Each has one look and one behaviour,
 // so the same thing never looks different on two screens (rules: docs/design-system.md).
 
-import { type ButtonHTMLAttributes, type CSSProperties, Fragment, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
+import { type ButtonHTMLAttributes, type CSSProperties, Fragment, useContext, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { dayTone } from "../../shared/holidays";
 import type { Confidence } from "../../shared/confidence";
 import { type BandMark, barLook, barPath, type DataColor, type LineDay, type LineKind, type LineLook, lineLook, RADIUS, SHAPE } from "../design/tokens";
+import { SheetDetentContext } from "./GraphSheet";
 import { dateLabel, digitsOf, monthDay, num, phraseBreak, weekdayOf } from "../design/format";
 
 /** A choice chip. `size="sm"` for filters inside sheets. */
@@ -524,9 +525,19 @@ export function GraphReadout({
 }
 
 function ReadoutWords({ children }: { children: ReactNode }) {
-  const [open, setOpen] = useState(false);
+  // 見本（2026-11-18）：シートの高さで自動に開閉する。最大まで上げたら開き、中くらい以下では畳む。指で動かしている間は
+  // 変えない（離して止まった高さで決める）。ボタンで開閉したら、次にシートの高さが変わるまではそれに従う。
+  const detent = useContext(SheetDetentContext);
+  const [mine, setMine] = useState<{ at: string | null; open: boolean } | null>(null);
+  const [last, setLast] = useState(detent);
+  if (detent != null && detent !== last) {
+    setLast(detent);
+    setMine(null);
+  }
+  const auto = last === "max";
+  const open = mine ? mine.open : auto;
   return (
-    <Fold open={open} onToggle={() => setOpen(!open)} openLabel="明るさと空を言葉で見る" closeLabel="言葉を畳む">
+    <Fold open={open} onToggle={() => setMine({ at: last, open: !open })} openLabel="明るさと空を言葉で見る" closeLabel="言葉を畳む">
       {children}
     </Fold>
   );
