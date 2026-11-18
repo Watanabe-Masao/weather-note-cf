@@ -4,7 +4,8 @@
 // 国立天文台の暦で確かめ済み）。時刻は正午の値（月齢・形）と、その日の出入り。1画面に収める。
 import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { daysOfMonth, monthOf } from "../../shared/dates";
-import { clockOf } from "../../shared/dayParts";
+import { altitudeCurve, clockOf } from "../../shared/dayParts";
+import { skyAt } from "../../shared/sky";
 import { dms, fullMoonName, moonDistance, moonLimb, moonMagnitude, moonPhase, moonQuarters, moonShapeName, moonTimes, moonTint, moonTopo, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
 import { DEFAULT_LAT_LON, stationLatLon } from "../../shared/sunTimes";
 import { dateLabel } from "../design/format";
@@ -45,6 +46,18 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
   const up = topo.altitude >= 0;
   const limb = moonLimb(ms, ll.lat, ll.lon);
   const t = moonTimes(sel, ll.lat, ll.lon);
+  // その日の月の高さ（10分ごと、観測地から）と見かけの大きさの幅。傾きは3時間ごと（グラフの小さな月）。
+  const day = useMemo(() => {
+    const t0 = Date.parse(`${sel}T00:00:00+09:00`);
+    const pts = Array.from({ length: 145 }, (_, i) => ({ min: i * 10, ...moonTopo(t0 + i * 600_000, ll.lat, ll.lon) }));
+    // 大きさの幅は月が地平線の上にある間だけ（見えるときの変化。下にあるときは観測地から遠く、小さい）。
+    const up = pts.filter((q) => q.altitude >= 0);
+    const sizes = (up.length ? up : pts).map((q) => q.diameter);
+    const marks = [0, 180, 360, 540, 720, 900, 1080, 1260, 1440]
+      .map((m) => ({ min: m, alt: pts[m / 10].altitude, limb: moonLimb(t0 + m * 60_000, ll.lat, ll.lon), p: moonPhase(t0 + m * 60_000) }))
+      .filter((q) => q.alt >= 0);
+    return { pts, marks, lo: Math.min(...sizes), hi: Math.max(...sizes), sun: altitudeCurve(sel, station, 10) };
+  }, [sel, station, ll.lat, ll.lon]);
   const next = useMemo(() => moonQuarters(Date.parse(`${sel}T00:00:00+09:00`), 4), [sel]);
   // その日に新月・上弦・満月・下弦があれば、形の名前はそれ（時刻つき）。昔の呼び名は、その日に月相が無いときだけ。
   const today = next.find((q) => jst(q.at).date === sel);
@@ -99,12 +112,21 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
           </InfoNote>
         </div>
       </div>
+      <MoonDay day={day} min={min} onPick={setMin} />
       <div className="sun-play moon-play">
         <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[t.rise?.at, t.set?.at].filter((v): v is number => v != null).map(Math.round)} thumbs={[{ value: min, label: "時刻（10分ごと）", valueText: clockOf(min), onChange: setMin }]} />
         <Button size="sm" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
           {playing ? "止める" : "動かす"}
         </Button>
       </div>
+      <p className="moon-look">
+        <span>
+          傾き：光っている側は <b>{clockDir(limb)}</b> の向き
+        </span>
+        <span>
+          大きさ：見えている間 {dms(day.lo)}〜{dms(day.hi)}（高いほど大きい）
+        </span>
+      </p>
       <div className="sun-keys moon">
         {ev("月の出", t.rise)}
         {ev("南中", t.transit, t.transit ? `高さ ${Math.round(t.transit.altitude)}°` : undefined)}
@@ -286,5 +308,100 @@ function MoonTrend({ cells, sel, onPick }: { cells: { d: string; p: ReturnType<t
         ))}
       </svg>
     </div>
+  );
+}
+
+/** 光っている側の向き（上から反時計回りの角）を、時計の文字盤の向きで（右下 ≒ 4時）。 */
+export const clockDir = (limb: number) => {
+  const h = Math.round((((360 - limb) % 360) + 360) % 360 / 30) % 12;
+  return `${h === 0 ? 12 : h}時`;
+};
+
+/**
+ * その日の月の高さ（2026-11-19 渡辺さん「高さのグラフと組み合わせないと分かりにくい」）：0〜24時の月の高さ（観測地から、
+ * 地平線の下は点線）を、空の色（太陽の高さから）の上に描く。3時間ごとに、その時刻の傾き・色の小さな月。つまみの時刻に縦線。
+ * 押す・なぞると時刻を選ぶ。
+ */
+function MoonDay({ day, min, onPick }: { day: { pts: { min: number; altitude: number }[]; marks: { min: number; alt: number; limb: number; p: ReturnType<typeof moonPhase> }[]; sun: { min: number; deg: number }[] }; min: number; onPick: (m: number) => void }) {
+  const box = useRef<SVGSVGElement>(null);
+  const W = useDrawnWidth(box, [], 340) || 340;
+  const H = 150;
+  const fs = svgTextSize("xs", W, W);
+  const L = 30;
+  const R = 8;
+  const top = 12;
+  const bottom = H - 22;
+  const x = (m: number) => L + (m / 1440) * (W - L - R);
+  // 地平線の上は 0〜90° を高さの 7割、下は −90〜0° を 3割（見えない時間は狭く）。
+  const hz = top + (bottom - top) * 0.7;
+  const y = (a: number) => (a >= 0 ? hz - (Math.min(90, a) / 90) * (hz - top) : hz + (Math.max(-90, a) / -90) * (bottom - hz));
+  const seg = (above: boolean) => {
+    let d = "";
+    let on = false;
+    for (const q of day.pts) {
+      const ok = above ? q.altitude >= 0 : q.altitude <= 0;
+      if (!ok) {
+        on = false;
+        continue;
+      }
+      d += `${on ? "L" : "M"}${x(q.min).toFixed(1)},${y(q.altitude).toFixed(1)} `;
+      on = true;
+    }
+    return d;
+  };
+  const drag = useRef(false);
+  const pick = (e: PointerEvent<SVGSVGElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const px = ((e.clientX - r.left) / r.width) * W;
+    onPick(Math.max(0, Math.min(1430, Math.round((((px - L) / (W - L - R)) * 1440) / 10) * 10)));
+  };
+  const G = 16;
+  return (
+    <svg
+      ref={box}
+      className="moon-day"
+      data-no-sheet-drag
+      viewBox={`0 0 ${W} ${H}`}
+      role="img"
+      aria-label="この日の月の高さ。押すとその時刻を選びます"
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        drag.current = true;
+        pick(e);
+      }}
+      onPointerMove={(e) => drag.current && pick(e)}
+      onPointerUp={() => (drag.current = false)}
+      onPointerCancel={() => (drag.current = false)}
+      onPointerLeave={() => (drag.current = false)}
+    >
+      <defs>
+        <linearGradient id="moon-day-sky" x1="0" y1="0" x2="1" y2="0">
+          {day.sun.filter((_, i) => i % 3 === 0).map((q) => (
+            <stop key={q.min} offset={q.min / 1440} stopColor={skyAt(q.deg, 1, 0, q.min > 720).zenith} />
+          ))}
+        </linearGradient>
+      </defs>
+      <rect x={L} y={top} width={W - L - R} height={y(0) - top} fill="url(#moon-day-sky)" />
+      <rect x={L} y={y(0)} width={W - L - R} height={bottom - y(0)} className="sky-ground" />
+      <line x1={L} x2={W - R} y1={y(0)} y2={y(0)} className="sun-horizon" />
+      {[90, 45, 0, -90].map((a) => (
+        <text key={a} x={L - 4} y={y(a) + 4} textAnchor="end" className="sun-tick" fontSize={fs}>
+          {a}°
+        </text>
+      ))}
+      {[0, 6, 12, 18, 24].map((hh) => (
+        <text key={hh} x={x(hh * 60)} y={bottom + 15} textAnchor="middle" className="sun-tick" fontSize={fs}>
+          {hh}
+        </text>
+      ))}
+      <path d={seg(false)} className="moon-curve" style={{ stroke: ICON.moon }} />
+      <path d={seg(true)} className="moon-day-up" style={{ stroke: ICON.moon }} />
+      <line x1={x(min)} x2={x(min)} y1={top} y2={bottom} className="sun-cursor" />
+      {day.marks.map((q) => (
+        <g key={q.min} transform={`translate(${(x(q.min) - G / 2).toFixed(1)} ${(y(q.alt) - G / 2).toFixed(1)})`}>
+          <MoonGlyph phase={q.p} size={G} limb={q.limb} tint={moonTint(q.alt)} />
+        </g>
+      ))}
+    </svg>
   );
 }

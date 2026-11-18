@@ -749,6 +749,11 @@ with sync_playwright() as p:
         setm(1380); calm(); t23 = txt(".moon-today"); tint23 = pg.locator(".moon-today .moon-sim filter").count()
         setm(720); calm(); t12 = txt(".moon-today"); tint12 = pg.locator(".moon-today .moon-sim filter").count()
         check("SS2i 月の見え方：23時は高い月（色つき・大きさ 0°33′）、正午は地平線の下（色なし）", "23:00" in t23 and "高さ 7" in t23 and "0°33′" in t23 and tint23 == 1 and "地平線の下" in t12 and tint12 == 0, (t23[:60], tint23, t12[:40], tint12))
+        # その日の月の高さ（2026-11-19）：グラフを押すとその時刻に。3時間ごとの小さな月、傾きと大きさの幅の行。
+        db = pg.locator(".moon-day").bounding_box()
+        pg.mouse.click(db["x"] + 30 * db["width"] / pg.evaluate("document.querySelector('.moon-day').viewBox.baseVal.width") + (db["width"] - (30 + 8) * db["width"] / pg.evaluate("document.querySelector('.moon-day').viewBox.baseVal.width")) / 2, db["y"] + db["height"] / 2); calm()
+        tday = txt(".moon-today"); look = txt(".moon-look")
+        check("SS2l 月の高さのグラフ：押すと正午に、小さな月がある、傾き（時の向き）と大きさの幅", "12:00" in tday and pg.locator(".moon-day .moon-glyph").count() >= 2 and "時 の向き" in look.replace("時の向き", "時 の向き") and "〜" in look, (tday[:30], look))
         if os.environ.get("WN_SUN"):
             setm(1380); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim.png")
             setm(1050); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim-low.png")

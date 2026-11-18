@@ -4445,6 +4445,11 @@ select.chip.sm {
 .moon-next { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
 .moon-next span { display: grid; justify-items: center; padding: var(--space-2) 0; border-radius: var(--radius-sm); background: var(--surface-inset); }
 .moon-play { margin-top: var(--space-2); }
+/* その日の月の高さ（つまみの時刻と組み合わせて読む） */
+.moon-day { width: 100%; height: auto; display: block; margin-top: var(--space-3); touch-action: pan-y; cursor: ew-resize; }
+.moon-day-up { fill: none; stroke-width: 2.5; stroke-linecap: round; }
+.moon-look { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-5); margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-secondary); }
+.moon-look b { color: var(--ink-primary); font-weight: var(--weight-bold); }
 .moon-sim { display: block; flex: none; }
 .moon-sim.below { opacity: 0.45; }
 .moon-next-name { white-space: nowrap; }
