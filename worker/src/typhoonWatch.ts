@@ -14,6 +14,7 @@
 // when it last ran.
 
 import type { Db } from "./accounts";
+import { runbookTag } from "../../shared/runbook";
 import { type Message, sendToUser } from "./notify";
 import { ensureTyphoonSchema } from "./typhoonArchive";
 import { sendPush } from "./webpush";
@@ -294,7 +295,8 @@ export async function watchTyphoonSources(
       .run();
     if (!claim.meta.changes) continue;
     opened.push(f.key);
-    const n = await tellAdmins(db, f.open, now, send);
+    // 手引きの手順を添える（shared/runbook.ts）
+    const n = await tellAdmins(db, { ...f.open, body: `${f.open.body}\n${runbookTag(`alert:${f.key}`)}` }, now, send);
     await db
       .prepare("UPDATE typhoon_alerts SET sent = ? WHERE key = ?")
       .bind(n, f.key)

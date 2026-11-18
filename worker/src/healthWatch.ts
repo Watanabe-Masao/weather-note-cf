@@ -21,6 +21,7 @@
 // Each look is kept in health_checks (counts and times only), and /api/health gives the last one.
 
 import { checkImport, judgeHealth, type Finding, type ImportReady } from "../../shared/healthJudge";
+import { runbookTag } from "../../shared/runbook";
 import { claimDigest, digestExtra, digestLines, digestMessage } from "./dailyDigest";
 import type { Db } from "./accounts";
 import { health } from "./health";
@@ -149,11 +150,11 @@ export async function watchHealth(
 
   let sent = 0;
   if (newly.length) {
-    const n = await tellAdmins(db, msg(`監視：異常が${newly.length}件あります`, list(newly.map((f) => f.text))), now, send);
+    const n = await tellAdmins(db, msg(`監視：異常が${newly.length}件あります`, list(newly.map((f) => f.text + runbookTag(f.key)))), now, send);
     sent += n;
     for (const f of newly) await db.prepare("UPDATE health_alerts SET sent = ? WHERE key = ?").bind(n, f.key).run();
   }
-  if (over.length) sent += await tellAdmins(db, msg(`監視：${over.length}件 直りました`, list(over.map((f) => `直りました：${f.text}`))), now, send);
+  if (over.length) sent += await tellAdmins(db, msg(`監視：${over.length}件 直りました`, list(over.map((f) => `直りました：${f.text}${runbookTag(f.key)}`))), now, send);
 
   // 取り込める月 (#262): once, when the record has it.
   let importTold: string | null = null;

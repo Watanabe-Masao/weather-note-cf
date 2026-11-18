@@ -16,6 +16,7 @@ import { pathToFileURL } from "node:url";
 // 監視の判断 (shared/healthJudge.ts): the same judgment as the Worker's hourly look (worker/src/healthWatch.ts),
 // in one place. Node runs the .ts as it is (only types to strip).
 import { checkImport as checkRecord, importTitle, judgeHealth, RECORD_REPO, recordZipUrl } from "../shared/healthJudge.ts";
+import { runbookTag } from "../shared/runbook.ts";
 
 export { importTitle, RECORD_REPO, recordZipUrl };
 /** Whether the record has the month to take next (shared/healthJudge.ts), asked as GitHub Actions. */
@@ -81,8 +82,9 @@ async function main() {
   // 過去の記録の取り込み: not a problem; a note only when the record could not be asked (judgeHealth).
   const importReady = h?.state?.forecastImport ? await checkImport(h.state.forecastImport) : null;
   const judged = judgeHealth(h, now, importReady);
-  problems.push(...judged.problems.map((f) => f.text));
-  notes.push(...judged.notes.map((f) => f.text));
+  // 手引きの手順を添える（docs/runbook.md、shared/runbook.ts）
+  problems.push(...judged.problems.map((f) => f.text + runbookTag(f.key)));
+  notes.push(...judged.notes.map((f) => f.text + runbookTag(f.key)));
 
   const lines = [`# Weather Note の状態（${new Date(now).toISOString()}）`, ""];
   lines.push(problems.length ? `## 異常 ${problems.length}件` : "## 異常なし", ...problems.map((p) => `- ${p}`), "");
