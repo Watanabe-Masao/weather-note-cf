@@ -786,7 +786,7 @@ with sync_playwright() as p:
         pg.locator(".dd-part").nth(2).click(); calm()
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
         check("SD4 この日の値：肌感＋7項目", pg.locator(".dd-value").count() == 8, pg.locator(".dd-value").count())
-        check("SD4b 天気図（③の一番上）：時刻を選べる", pg.locator(".wx-chart").count() == 1 and (pg.locator(".wx-hours button").count() == 7 or pg.locator(".wx-chart b", has_text="予想天気図").count() == 1))
+        check("SD4b 天気図（③の一番上）：時刻を選べる", pg.locator(".wx-chart").count() == 1 and (pg.locator(".wx-hours button").count() == 7 or pg.locator(".wx-chart h4", has_text="予想天気図").count() == 1))
         # 予報の移り変わり (R6): 選んだ発表と実績・グラフ・発表した日ごとの一覧。降水確率の欄を押すと 1マス⇄6時間ごと。
         settle(lambda: pg.locator(".fh-split").count() == 1)
         check("SD4d 予報の移り変わり：上の枠・グラフ・日ごとの一覧", pg.locator(".fh-split").count() == 1 and pg.locator(".fh-step > svg").count() == 1 and pg.locator(".fh-dgroup").count() >= 5, (pg.locator(".fh-split").count(), pg.locator(".fh-dgroup").count()))
@@ -799,6 +799,14 @@ with sync_playwright() as p:
         pg.mouse.click(b["x"] + b["width"] / 2, b["y"] + 4); calm()
         wide = pg.evaluate("[...document.querySelectorAll('.fh, .fh *')].filter(e => e.getBoundingClientRect().right > innerWidth + 1).map(e => e.className).slice(0, 3)")
         check("SD4f 予報の移り変わりが画面からはみ出さない", not wide, str(wide))
+        fb = pg.locator(".fh-days .fold-btn")
+        closed = fb.count() == 1 and fb.get_attribute("aria-expanded") == "false" and pg.locator(".fh-days .fold-body[inert]").count() == 1
+        if fb.count():
+            fb.click(); pg.wait_for_timeout(500)
+        opened = fb.count() == 1 and fb.get_attribute("aria-expanded") == "true" and pg.locator(".fh-days .fold-body").bounding_box()["height"] > 100
+        check("SD4g 予報の一覧：前の日の発表は畳まれていて、押すと開く", closed and opened, (closed, opened))
+        if fb.count():
+            fb.click(); pg.wait_for_timeout(500)
         st = small_text(); check("SD4c 11px より小さい文字がない（1日モード・天気図）", not st, str(st))
         pg.locator(".dd-value", has_text="降水").first.click(); calm()
         check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")

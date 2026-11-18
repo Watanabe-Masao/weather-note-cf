@@ -586,6 +586,25 @@ export function InfoNote({ children, more, className }: { children?: ReactNode; 
 }
 
 /**
+ * 畳む・開く（Fold、2026-11-18 渡辺さん「長すぎるのでアニメーションで開く」）：長い一覧の続きを畳んでおき、ボタンの下へ
+ * 高さをなめらかに開く（MOTION.enter。ボタンは動かず、指の下から中身が伸びる）。閉じている間は中身を読み上げにも出さない。動きを減らす設定では一瞬で開く。
+ * ボタンの言葉は開く前・開いた後で変える（何が出てくるかを書く）。
+ */
+export function Fold({ open, onToggle, openLabel, closeLabel, children }: { open: boolean; onToggle: () => void; openLabel: ReactNode; closeLabel: ReactNode; children: ReactNode }) {
+  return (
+    <div className={`fold${open ? " open" : ""}`}>
+      <Button size="sm" className="fold-btn" aria-expanded={open} onClick={onToggle}>
+        <Glyph name={open ? "up" : "down"} />
+        {open ? closeLabel : openLabel}
+      </Button>
+      <div className="fold-body" inert={!open || undefined} aria-hidden={!open || undefined}>
+        <div className="fold-inner">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+/**
  * A section's heading inside a sheet (#151 時間帯の箱): a hairline above, the name at the left, and
  * an optional note or control at the right. Sections are told apart by this line, not by boxes, so
  * the boxes left are the two that mean something: the summary (raised) and a graph's readout (inset).

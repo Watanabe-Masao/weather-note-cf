@@ -2235,6 +2235,23 @@ svg.scrub {
   font-variant-numeric: tabular-nums;
 }
 
+/* 畳む・開く（Fold）：高さを 0 から中身の高さへなめらかに（grid の行で、中身の高さを測らずに）。 */
+.fold { display: grid; }
+.fold.open .fold-inner { padding-top: var(--space-3); }
+.fold-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows var(--motion-enter) var(--ease-standard);
+}
+.fold.open .fold-body {
+  grid-template-rows: 1fr;
+}
+.fold-inner { min-height: 0; overflow: hidden; }
+.fold-btn { justify-self: center; }
+@media (prefers-reduced-motion: reduce) {
+  .fold-body { transition: none; }
+}
+
 /* 肌感の塗り（面）：段の色の上に白い数字、枠の内側に少し明るい色のぼかし（feelFillLook と組。design-system 2.0b）。 */
 .feel-fill {
   color: var(--ink-on-feel);

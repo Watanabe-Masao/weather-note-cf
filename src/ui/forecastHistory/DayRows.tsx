@@ -4,7 +4,8 @@
 //   比べるのは天気・降水確率・最高・最低・信頼度のすべて（どれか1つでも変われば「変化なし」にしない）。
 // - 当日の発表は途中からの値なので比べない（右は空ける）。
 
-import { Fragment } from "react";
+import { Fragment, useEffect, useState } from "react";
+import { Fold } from "../kit";
 import { changesOf, hourOf, KIND_SHORT, leadLabel, md, prevOf, type Slot, weekday } from "../../../shared/forecastHistoryModel";
 import { breakable, StateTag, Val, vNum, Wx } from "./parts";
 
@@ -144,9 +145,16 @@ export function DayRows({
   const pool = all ?? slots;
   const prevOfS = (s: Slot) => prevOf(pool, s);
   const dates = [...new Set(slots.map((s) => s.at.slice(0, 10)))];
-  return (
-    <div className="fh-days" role="list" aria-label="発表した日ごとの予報">
-      {dates.map((d) => {
+  // 長いので、対象日に近い2日（前日・当日）だけを出し、それより前は畳む（2026-11-18）。選んだ発表が畳んだ側にあれば開く。
+  const SHOW = 2;
+  const older = dates.slice(0, Math.max(0, dates.length - SHOW));
+  const recent = dates.slice(older.length);
+  const [open, setOpen] = useState(false);
+  const selDate = slots.find((s) => s.key === selected)?.at.slice(0, 10);
+  useEffect(() => {
+    if (selDate && older.includes(selDate)) setOpen(true);
+  }, [selDate]); // eslint-disable-line react-hooks/exhaustive-deps
+  const group = (d: string) => {
         const rows = slots.filter((s) => s.at.slice(0, 10) === d);
         const shown = rows.filter((s) => {
           if (!onlyChanged || s.state !== "ok" || s.lead === 0) return true;
@@ -178,7 +186,21 @@ export function DayRows({
             ))}
           </section>
         );
-      })}
+  };
+  const count = slots.filter((s) => older.includes(s.at.slice(0, 10))).length;
+  return (
+    <div className="fh-days" role="list" aria-label="発表した日ごとの予報">
+      {older.length > 0 && (
+        <Fold
+          open={open}
+          onToggle={() => setOpen(!open)}
+          openLabel={`前の発表も見る（${md(older[0])}〜${md(older.at(-1)!)}・${count}回）`}
+          closeLabel="前の発表を畳む"
+        >
+          <div className="fh-days">{older.map(group)}</div>
+        </Fold>
+      )}
+      {recent.map(group)}
     </div>
   );
 }
