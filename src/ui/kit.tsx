@@ -20,18 +20,21 @@ export function Chip({
   size = "md",
   tone,
   label,
+  muted,
 }: {
   on?: boolean;
   onClick?: () => void;
   children: ReactNode;
   size?: "md" | "sm";
+  /** Nothing there yet (a chart not out): drawn quieter, still tappable so the reason can be read. Say it in `label` too. */
+  muted?: boolean;
   /** A data colour for the chip's selected state (band lines in the trend). */
   tone?: string;
   label?: string;
 }) {
   return (
     <button
-      className={`chip${size === "sm" ? " sm" : ""}${on ? " on" : ""}`}
+      className={`chip${size === "sm" ? " sm" : ""}${on ? " on" : ""}${muted ? " muted" : ""}`}
       aria-pressed={on}
       aria-label={label}
       onClick={onClick}

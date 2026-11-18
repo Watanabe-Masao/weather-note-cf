@@ -31,6 +31,25 @@ function DayCharts({ date, today, titled }: { date: string; today: string; title
     };
   }, [what.kind]);
 
+  // 今日の、まだ出ていない時刻（これから先の時刻と、読めなかった図）は時刻のボタンを控えめに（2026-11-18）。
+  // 過ぎた時刻は図を先に読んでみる（押したときに出るのと同じ図。読めなければ「まだ出ていません」の印）。
+  const nowHour = new Date(Date.now() + 9 * 3_600_000).getUTCHours();
+  const notYet = (h: number) => date > today || (date === today && h > nowHour);
+  useEffect(() => {
+    if (what.kind !== "quick" || date !== today) return;
+    let live = true;
+    for (const c of what.charts) {
+      if (c.hour > nowHour) continue;
+      const img = new Image();
+      img.onerror = () => live && setMissing((m) => ({ ...m, [c.url]: true }));
+      img.src = c.url;
+    }
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [date, today]);
+
   if (what.kind === "quick") {
     const url = what.charts.find((c) => c.hour === hour)?.url ?? what.charts[2].url;
     return (
@@ -38,14 +57,17 @@ function DayCharts({ date, today, titled }: { date: string; today: string; title
         <div className="wx-head">
           {titled && <h4 className="dd-sub">天気図</h4>}
           <span className="wx-hours" role="group" aria-label="時刻">
-            {CHART_HOURS.map((h) => (
-              <Chip key={h} size="sm" on={h === hour} onClick={() => setHour(h)}>
-                {h}時
-              </Chip>
-            ))}
+            {CHART_HOURS.map((h) => {
+              const none = notYet(h) || missing[quickChartUrl(date, h)] === true;
+              return (
+                <Chip key={h} size="sm" on={h === hour} muted={none} label={none ? `${h}時（${date === today ? "まだ出ていません" : "見つかりません"}）` : undefined} onClick={() => setHour(h)}>
+                  {h}時
+                </Chip>
+              );
+            })}
           </span>
         </div>
-        {missing[url] ? (
+        {missing[url] || notYet(hour) ? (
           <p className="wx-none">{date === today ? "この時刻の天気図はまだ出ていません。" : "この時刻の天気図は見つかりませんでした。"}</p>
         ) : (
           <a href={url} target="_blank" rel="noreferrer" className="wx-pic">
