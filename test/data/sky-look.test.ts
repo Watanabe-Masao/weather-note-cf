@@ -81,3 +81,18 @@ describe("deviceLook（調査 research/moon-appearance の表）", () => {
     expect(deviceLook(0, 179.95, 0, 0).azimuth).toBeNull();
   });
 });
+
+describe("project のロール（縦に固定した画面を傾けて持つ）", () => {
+  it("右へ90°傾けると、上にあるものは画面の左に出る", () => {
+    const look = { azimuth: 0, altitude: 0, roll: 90 };
+    const p = project(look, { azimuth: 0, altitude: 10 }, 300, 400, 800);
+    expect(p.x).toBeLessThan(200 - 40);
+    expect(Math.abs(p.y - 400)).toBeLessThan(1);
+  });
+  it("ロール 0 は今までと同じ", () => {
+    const a = project({ azimuth: 30, altitude: 20 }, { azimuth: 40, altitude: 25 }, 300, 400, 800);
+    const b = project({ azimuth: 30, altitude: 20, roll: 0 }, { azimuth: 40, altitude: 25 }, 300, 400, 800);
+    expect(b.x).toBeCloseTo(a.x, 6);
+    expect(b.y).toBeCloseTo(a.y, 6);
+  });
+});

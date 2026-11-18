@@ -81,14 +81,22 @@ const vec = (az: number, alt: number) => [Math.cos(alt * RAD) * Math.sin(az * RA
  * 画面の位置へ。端末はまっすぐ立てている（左右に傾けていない）とする。後ろ側（90°より外）は front=false。
  * focal は、縦の画角 vfov（°）を高さ h に合わせると (h/2)/tan(vfov/2)。
  */
-export function project(look: { azimuth: number; altitude: number }, body: { azimuth: number; altitude: number }, focal: number, w: number, h: number) {
+export function project(look: { azimuth: number; altitude: number; roll?: number }, body: { azimuth: number; altitude: number }, focal: number, w: number, h: number) {
   const f = vec(look.azimuth, look.altitude);
   const up0 = [0, 0, 1];
   // 右 = 前 × 上、上 = 右 × 前（真上・真下を向いたときは方位から右を決める）
   let r = [f[1] * up0[2] - f[2] * up0[1], f[2] * up0[0] - f[0] * up0[2], f[0] * up0[1] - f[1] * up0[0]];
   const rl = Math.hypot(r[0], r[1], r[2]);
   r = rl < 1e-6 ? [Math.cos(look.azimuth * RAD), -Math.sin(look.azimuth * RAD), 0] : r.map((v) => v / rl);
-  const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+  let u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+  // 画面の回り（ロール、画面の上が右へ傾くと正）：画面の上と右を、前の向きのまわりに回す（縦固定の画面を横に持ったとき）。
+  if (look.roll) {
+    const c = Math.cos(look.roll * RAD);
+    const sn = Math.sin(look.roll * RAD);
+    const u2 = u.map((v, i) => v * c + r[i] * sn);
+    r = r.map((v, i) => v * c - u[i] * sn);
+    u = u2;
+  }
   const v = vec(body.azimuth, body.altitude);
   const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const z = dot(v, f);
