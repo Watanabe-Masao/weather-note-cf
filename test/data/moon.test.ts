@@ -2,7 +2,7 @@
 // 出典：国立天文台 暦計算室「各地のこよみ」高知（緯度 33.5500°・経度 133.5333°・標高 0m）2026年11月の月の出入り。
 // 表の時刻は分の位で丸めてあるので、出入り・南中は2分以内、方位は1°以内、南中の高さは0.5°以内、月齢（正午）は0.1日以内。
 import { describe, expect, it } from "vitest";
-import { dms, fullMoonName, moonDistance, moonMagnitude, moonPhase, moonQuarters, moonTimes } from "../../shared/moon";
+import { dms, fullMoonName, moonDistance, moonLimb, moonMagnitude, moonTint, moonTopo, moonPhase, moonQuarters, moonTimes } from "../../shared/moon";
 
 const LAT = 33.55;
 const LON = 133.5333;
@@ -109,5 +109,33 @@ describe("大きさと明るさ", () => {
   it("満月は約 −12.7 等、半月は約 −10 等", () => {
     expect(moonMagnitude(Date.parse("2026-11-24T23:54:00+09:00"))).toBeCloseTo(-12.7, 0);
     expect(moonMagnitude(Date.parse("2026-11-17T20:48:00+09:00"))).toBeGreaterThan(-10.5);
+  });
+});
+
+// 見え方（調査 PR #334 の表と照らし合わせ。高知 33.5597N・133.5311E）
+describe("月の見え方", () => {
+  const KOCHI = [33.5597, 133.5311] as const;
+  // 調査の表の「2時」は翌日の 2時（スクリプトの見出しが前の日のまま）。
+  it("光っている側の向き（調査の方法 B の値と 0.5° 以内）", () => {
+    const rows: [string, number][] = [
+      ["2026-11-02T02:00:00+09:00", 167.2],
+      ["2026-11-15T20:00:00+09:00", 217.1],
+      ["2026-11-19T20:00:00+09:00", 237.6],
+      ["2026-11-26T02:00:00+09:00", 6.7],
+      ["2026-11-28T02:00:00+09:00", 149.3],
+    ];
+    for (const [iso, want] of rows) expect(Math.abs(((moonLimb(Date.parse(iso), ...KOCHI) - want + 540) % 360) - 180)).toBeLessThan(0.5);
+  });
+  it("観測地から見た大きさは高いほど大きい（11/24 23時 33.68′）", () => {
+    const t = moonTopo(Date.parse("2026-11-24T23:00:00+09:00"), ...KOCHI);
+    expect(t.diameter * 60).toBeCloseTo(33.68, 1);
+    expect(t.altitude).toBeCloseTo(76.9, 0);
+  });
+  it("色は高さで赤→黄→白", () => {
+    expect(moonTint(0)).toBe("#ff4800");
+    expect(moonTint(5)).toBe("#ffc169");
+    expect(moonTint(90)).toBe("#ffffff");
+    expect(moonTint(-3)).toBe("#ff4800");
+    expect(moonTint(15)).toBe("#ffe8bf");
   });
 });

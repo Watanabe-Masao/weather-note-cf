@@ -139,3 +139,75 @@ export const SHAPE_NOTE: Record<string, string> = {
   下弦の月: "左半分が光る半月。真夜中ごろ東から昇り、明け方に南の空に。昼ごろ西に沈みます。",
   "細い月（欠けていく）": "明け方の東の空に細く光ります。日の出の前にだけ見え、まもなく新月です。",
 };
+
+// ── 見え方（2026-11-19、調査 research/moon-appearance、PR #334）─────────────────────────────
+
+/**
+ * 観測地から見た月：高さ・方位（大気差あり）、観測地からの距離（km）と見かけの大きさ（直径、°）。
+ * 観測地は地球の中心より月に近いので、月が高いほど少し大きい（最大約1.8%）。
+ */
+export function moonTopo(ms: number, lat: number, lon: number): { altitude: number; azimuth: number; km: number; diameter: number } {
+  const obs = new Observer(lat, lon, 0);
+  const t = new AstroTime(new Date(ms));
+  const eq = Equator(Body.Moon, t, obs, true, true);
+  const h = Horizon(t, obs, eq.ra, eq.dec, "normal");
+  const km = eq.dist * AU_KM;
+  return { altitude: h.altitude, azimuth: h.azimuth, km, diameter: (2 * Math.asin(MOON_RADIUS_KM / km) * 180) / Math.PI };
+}
+
+const RAD = Math.PI / 180;
+const enu = (az: number, alt: number) => [Math.sin(az * RAD) * Math.cos(alt * RAD), Math.cos(az * RAD) * Math.cos(alt * RAD), Math.sin(alt * RAD)];
+const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a: number[], b: number[]) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const along = (v: number[], m: number[]) => {
+  const k = dot(v, m);
+  return [v[0] - k * m[0], v[1] - k * m[1], v[2] - k * m[2]];
+};
+
+/**
+ * 月の光っている側の向き（°）：空を見上げて、月の真上（天頂の方向）から反時計回りに測った、太陽のある方向。
+ * 0 ＝ 上が光る、90 ＝ 左、180 ＝ 下、270 ＝ 右（夕方の三日月はおよそ右下）。
+ * 調査の方法 B：観測地から見た月と太陽の方向を、月の方向に垂直な面に写して角を測る（Meeus の χ − q と最大 2.8° 差）。
+ */
+export function moonLimb(ms: number, lat: number, lon: number): number {
+  const obs = new Observer(lat, lon, 0);
+  const t = new AstroTime(new Date(ms));
+  const pos = (b: Body) => {
+    const eq = Equator(b, t, obs, true, true);
+    const h = Horizon(t, obs, eq.ra, eq.dec, "normal");
+    return enu(h.azimuth, h.altitude);
+  };
+  const m = pos(Body.Moon);
+  const up = along([0, 0, 1], m);
+  const n = Math.hypot(up[0], up[1], up[2]) || 1;
+  const u = up.map((v) => v / n);
+  const r = cross(m, u); // 画面の右
+  const s = along(pos(Body.Sun), m);
+  const deg = (Math.atan2(-dot(s, r), dot(s, u)) * 180) / Math.PI;
+  return (deg + 360) % 360;
+}
+
+/**
+ * 高さごとの月の色（白の基準＝天頂の月、晴れた日の典型 β 0.05）。調査の表（太陽の光×月の反射×大気の透過→sRGB）。
+ * 青っぽく見える現象（煙・ちり）はデータが無いので入れない。地平線の下は地平線の色。
+ */
+const MOON_TINT: [number, [number, number, number]][] = [
+  [0, [255, 72, 0]],
+  [2, [255, 146, 9]],
+  [5, [255, 193, 105]],
+  [10, [255, 222, 167]],
+  [20, [255, 241, 214]],
+  [30, [255, 248, 233]],
+  [60, [255, 254, 251]],
+  [90, [255, 255, 255]],
+];
+export function moonTint(altitude: number): string {
+  const h = Math.max(0, Math.min(90, altitude));
+  let i = 0;
+  while (i < MOON_TINT.length - 2 && h > MOON_TINT[i + 1][0]) i++;
+  const [h0, c0] = MOON_TINT[i];
+  const [h1, c1] = MOON_TINT[i + 1];
+  const f = (h - h0) / (h1 - h0);
+  const hex = c0.map((v, j) => Math.round(v + (c1[j] - v) * f).toString(16).padStart(2, "0")).join("");
+  return `#${hex}`;
+}

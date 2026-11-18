@@ -4444,11 +4444,12 @@ select.chip.sm {
 .moon-trend-mark { fill: var(--ink-secondary); }
 .moon-next { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); margin-top: var(--space-4); }
 .moon-next span { display: grid; justify-items: center; padding: var(--space-2) 0; border-radius: var(--radius-sm); background: var(--surface-inset); }
-.moon-note { margin-top: var(--space-2); }
+.moon-play { margin-top: var(--space-2); }
+.moon-sim { display: block; flex: none; }
+.moon-sim.below { opacity: 0.45; }
 .moon-next-name { white-space: nowrap; }
 .moon-next small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .moon-next b { font-size: var(--size-sm); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -0.02em; }
-.moon-credit { margin: var(--space-3) 0 var(--space-4); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sky-sensor { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
 .sky-sensor-state { font-size: var(--size-xs); color: var(--ink-tertiary); }
 /* コンパス補正（2026-11-19）：開くと行いっぱいの目盛り。真ん中の線が今の方位。 */
