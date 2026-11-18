@@ -7,6 +7,7 @@
 // 中身は記録の回数だけ（成功した回／全部の回、新しく保存した数）。表がまだ無い取得は行を出さない。
 
 import { type Finding, gapText } from "../../shared/healthJudge";
+import { runbookTag } from "../../shared/runbook";
 import type { Db } from "./accounts";
 import { cronGaps } from "./health";
 import type { Message } from "./notify";
@@ -112,8 +113,8 @@ export function digestMessage(lines: DigestLine[], problems: Finding[], notes: F
   const body = [
     ...lines.map(row),
     ...extra,
-    ...problems.map((f) => `・異常：${f.text}`),
-    ...notes.map((f) => `・気づいたこと：${f.text}`),
+    ...problems.map((f) => `・異常：${f.text}${runbookTag(f.key)}`),
+    ...notes.map((f) => `・気づいたこと：${f.text}${runbookTag(f.key)}`),
   ].join("\n");
   return { title, body, url: "/", tag: "weather-note-daily-digest" };
 }
