@@ -2,13 +2,17 @@
 // In an SVG a size is in the drawing's own units (its viewBox), so text set to 11 in a drawing shown
 // narrower than its viewBox is under 11px on screen. Measure the width it is drawn at, and turn screen
 // px into the drawing's units with it.
-import { type RefObject, useEffect, useState } from "react";
+import { type RefObject, useLayoutEffect, useState } from "react";
 import { TYPE_SIZE } from "../design/tokens";
 
-/** The element's drawn width in px, kept up to date (0 until it is measured). */
-export function useDrawnWidth(ref: RefObject<Element | null>, deps: unknown[] = []): number {
-  const [w, setW] = useState(0);
-  useEffect(() => {
+/**
+ * The element's drawn width in px, kept up to date (`initial` until it is measured). Measured before the
+ * first paint, so a drawing does not show at the assumed width and jump. Every drawing that is laid out
+ * by its width uses this, not a ResizeObserver of its own.
+ */
+export function useDrawnWidth(ref: RefObject<Element | null>, deps: unknown[] = [], initial = 0): number {
+  const [w, setW] = useState(initial);
+  useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
     setW(el.clientWidth);

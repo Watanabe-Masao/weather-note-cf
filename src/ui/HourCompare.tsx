@@ -2,6 +2,7 @@
 // Shared by the day detail and the sheet's 時間帯 tab, so both look and behave the same.
 
 import { useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useDrawnWidth } from "./useDrawnWidth";
 import { addDays, jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
 import { BRIGHTNESS_LEVELS, brightnessLevel, brightnessRatio, dayLights, luxText, stepOutFeel, usualText } from "../../shared/brightness";
@@ -806,14 +807,7 @@ function HourChart({
   const wxPress = useDaySummaryPress();
   const H = height;
   const ref = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(320);
-  useLayoutEffect(() => {
-    const el = ref.current!;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
-    ro.observe(el);
-    setW(el.clientWidth);
-    return () => ro.disconnect();
-  }, []);
+  const w = useDrawnWidth(ref, [], 320);
 
   const metric = detailMetric(metricId);
   const values = [main, second ?? [], air ?? [], avgMain ?? [], avgOther ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null).concat(axisExtra ?? []);

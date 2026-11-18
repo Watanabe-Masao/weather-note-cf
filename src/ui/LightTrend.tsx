@@ -10,7 +10,8 @@
 // Clouds: the week reads each hour (as the hours face does); a month or a year reads each day's
 // sunshine, so that it needs no hours of 60 or 700 days.
 
-import { type RefObject, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
+import { useDrawnWidth } from "./useDrawnWidth";
 import { CLOUD, brightnessIndex, brightnessLevel, dayLights } from "../../shared/brightness";
 import { addDays } from "../../shared/dates";
 import { type Clouds, dayFactor, lightSpan, luxAtMinute, shiftAt, spanLength, spanShift, weeklyChange, clearClockOf } from "../../shared/lightShift";
@@ -77,18 +78,7 @@ interface Props {
 }
 
 /** The element's width in px (the graphs are drawn in viewBox units, the drum moves in px). */
-function useWidth(ref: RefObject<HTMLElement | null>) {
-  const [w, setW] = useState(0);
-  useLayoutEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
-    ro.observe(el);
-    setW(el.clientWidth);
-    return () => ro.disconnect();
-  }, [ref]);
-  return w;
-}
+const useWidth = (ref: RefObject<HTMLElement | null>) => useDrawnWidth(ref);
 
 export function LightTrend({ store, station, target, compareDate, today, height, onPickDay, onShiftDays }: Props) {
   const [saved, setSaved] = useState(loadSaved);
