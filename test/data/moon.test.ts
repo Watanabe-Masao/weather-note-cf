@@ -2,7 +2,7 @@
 // 出典：国立天文台 暦計算室「各地のこよみ」高知（緯度 33.5500°・経度 133.5333°・標高 0m）2026年11月の月の出入り。
 // 表の時刻は分の位で丸めてあるので、出入り・南中は2分以内、方位は1°以内、南中の高さは0.5°以内、月齢（正午）は0.1日以内。
 import { describe, expect, it } from "vitest";
-import { moonPhase, moonTimes } from "../../shared/moon";
+import { moonDistance, moonPhase, moonQuarters, moonTimes } from "../../shared/moon";
 
 const LAT = 33.55;
 const LON = 133.5333;
@@ -63,4 +63,24 @@ describe("月の出・南中・月の入り・月齢（国立天文台 高知 20
       expect(Math.abs(moonPhase(noon).age - age)).toBeLessThanOrEqual(0.1);
     });
   }
+});
+
+describe("月相と距離", () => {
+  it("2026年11月の新月・満月は、国立天文台の月齢（正午）と合う：11/10 正午に月齢 0.8、11/24 正午に 14.8 の付近", () => {
+    const q = moonQuarters(Date.parse("2026-11-01T00:00:00+09:00"), 6);
+    const nw = q.find((x) => x.kind === 0)!;
+    // 月齢 0.8（11/10 正午）から逆算した新月の時刻と 0.1 日（2.4 時間）以内
+    expect(Math.abs(nw.at - (Date.parse("2026-11-10T12:00:00+09:00") - 0.8 * 86_400_000))).toBeLessThan(0.1 * 86_400_000);
+    const order = q.map((x) => x.kind);
+    for (let i = 1; i < order.length; i++) expect(order[i]).toBe((order[i - 1] + 1) % 4);
+  });
+  it("距離は 35.6万〜40.7万 km、見かけの大きさは 0.49〜0.57°", () => {
+    for (let d = 1; d <= 30; d++) {
+      const m = moonDistance(Date.parse(`2026-11-${String(d).padStart(2, "0")}T12:00:00+09:00`));
+      expect(m.km).toBeGreaterThan(356_000);
+      expect(m.km).toBeLessThan(407_000);
+      expect(m.diameter).toBeGreaterThan(0.49);
+      expect(m.diameter).toBeLessThan(0.57);
+    }
+  });
 });

@@ -691,6 +691,16 @@ with sync_playwright() as p:
         h_pan = pg.locator(".sky-view").first.bounding_box()["height"] if pg.locator(".sky-view").count() else 0
         check("SS2d 端末の向きで見る：南を向けると南を真ん中にした窓（上へ10°）、やめると戻る、絵の高さは同じ", head.startswith("南 180°") and "上へ 10°" in head and pg.locator(".sky-view.window").count() == 0 and abs(h_win - h_pan) < 1, (head, h_win, h_pan))
         pg.locator(".sun-card .seg button", has_text="高さのグラフ").click(); calm()
+        # 月のこよみ（2026-11-19）：選んだ日の月・出入り・その月のカレンダー・次の4つの月相。日を押すとその日に。1画面に収まる。
+        pg.locator(".moon-open").click(); calm()
+        t0 = txt(".moon-today")
+        cal = pg.locator(".moon-cal-day").count()
+        pg.locator(".moon-cal-day").nth(23).click(); calm()
+        t1 = txt(".moon-today")
+        mfit = pg.evaluate("(() => { const b = document.querySelector('.moon-sheet .msheet-body'); return [b.scrollHeight, b.clientHeight]; })()")
+        check("SS2e 月のこよみ：月齢と形、カレンダーの日が30、次の月相4つ、日を押すと替わる、スクロールしないで収まる", "月齢" in t0 and cal == 30 and pg.locator(".moon-next span").count() == 4 and t1 != t0 and "11/24" in t1 and mfit[0] <= mfit[1] + 1, (t0[:40], cal, t1[:40], mfit))
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon.png")
+        pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
         pg.evaluate("""() => { const r = document.querySelector('.sun-slider input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
