@@ -1455,7 +1455,7 @@ button.label-feel:active { transform: scale(0.97); }
 .readout-card.live {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--accent-base) 55%, transparent) inset,
-    0 0 14px var(--accent-glow);
+    var(--shadow-glow);
 }
 
 /* The readout's grid (#151 一文字ずつ): a name column, then 対象・比較・差 of one width each, every
@@ -2163,7 +2163,7 @@ svg.scrub {
   width: calc(var(--bm-step) - var(--bm-gap) + 4px);
   border: 1.5px solid var(--accent-base);
   border-radius: var(--radius-md);
-  box-shadow: 0 0 12px var(--accent-glow);
+  box-shadow: var(--shadow-glow);
   pointer-events: none;
 }
 
@@ -2221,7 +2221,7 @@ svg.scrub {
 
 /* The inner edge: a few pixels of a lighter tone of the step, fading into the fill (肌感マップ, 2026-11-18). */
 .bm-a {
-  box-shadow: 0 1px 0 var(--line-swatch) inset, inset 0 0 var(--feel-cell-edge-blur) var(--feel-cell-edge-spread) var(--feel-edge, transparent);
+  box-shadow: var(--shadow-swatch-top), inset 0 0 var(--feel-cell-edge-blur) var(--feel-cell-edge-spread) var(--feel-edge, transparent);
 }
 
 .bm-b {
@@ -2612,7 +2612,7 @@ svg.scrub {
   display: flex;
   flex: none;
   background: var(--surface-raised);
-  box-shadow: 1px 0 0 var(--line-strong), var(--shadow-edge);
+  box-shadow: var(--shadow-rule), var(--shadow-edge);
 }
 
 .cond-col {
@@ -2739,7 +2739,7 @@ svg.scrub {
 .cal-pair.changed {
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--accent-base) 55%, transparent) inset,
-    0 0 14px var(--accent-glow);
+    var(--shadow-glow);
 }
 
 .cal-pair-side {
@@ -2969,7 +2969,7 @@ svg.scrub {
   background: color-mix(in srgb, var(--accent-base) 22%, var(--surface-raised));
   box-shadow:
     0 0 0 2px var(--accent-base) inset,
-    0 0 12px var(--accent-glow);
+    var(--shadow-glow);
 }
 
 /* The other side's day: labelled. */
@@ -3112,12 +3112,12 @@ svg.scrub {
 .actions > button.primary {
   background: linear-gradient(180deg, var(--effect-sheen), transparent 55%), var(--accent-base);
   color: var(--ink-on-accent);
-  box-shadow: inset 0 1px 0 var(--line-highlight), inset 0 -1px 0 var(--line-shade), var(--shadow-lift);
+  box-shadow: var(--shadow-bevel), var(--shadow-lift);
 }
 .btn.primary:active:not(:disabled),
 .actions > button.primary:active:not(:disabled) {
   background: color-mix(in srgb, var(--accent-base) 86%, var(--surface-page));
-  box-shadow: inset 0 1px 2px var(--line-shade);
+  box-shadow: var(--shadow-pressed);
 }
 
 /* 控えめ: words only; a pale face shows only while pressed. */
@@ -3529,7 +3529,7 @@ svg.scrub {
 }
 
 .swipe-hint.ready .swipe-hint-inner {
-  box-shadow: 0 0 0 1.5px var(--accent-base), 0 0 14px var(--accent-glow);
+  box-shadow: 0 0 0 1.5px var(--accent-base), var(--shadow-glow);
 }
 
 .swipe-hint-text {

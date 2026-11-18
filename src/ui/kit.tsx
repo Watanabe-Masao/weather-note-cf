@@ -8,6 +8,11 @@ import { type BandMark, barLook, barPath, type DataColor, type LineDay, type Lin
 import { dateLabel, digitsOf, monthDay, num, phraseBreak, weekdayOf } from "../design/format";
 
 /** A choice chip. `size="sm"` for filters inside sheets. */
+/** A legend's round bar (最高〜最低 の見本): 6 wide, its ends a full half-circle. */
+const PILL_W = 6;
+/** The axis's level bar beside a graph: 3 wide, round ends. */
+const BAR_W = 3;
+
 export function Chip({
   on,
   onClick,
@@ -304,7 +309,7 @@ export function LevelScale({ left, right, bands }: { left: number; right: number
     <g className="level-scale" aria-hidden>
       {bands.map((b, i) => (
         <g key={i}>
-          <rect x={left - 5} y={b.y1 + 0.5} width={3} height={Math.max(0, b.y2 - b.y1 - 1)} rx={1.5} fill={b.color} />
+          <rect x={left - 5} y={b.y1 + 0.5} width={BAR_W} height={Math.max(0, b.y2 - b.y1 - 1)} rx={BAR_W / 2} fill={b.color} />
           {i > 0 && <line x1={left} x2={right} y1={b.y2} y2={b.y2} className="chart-grid level" />}
         </g>
       ))}
@@ -651,7 +656,7 @@ export function RangeSample({ day, color = SAMPLE_INK }: { day: LineDay; color?:
   const b = barLook(day, color);
   return (
     <svg className="line-sample" width="10" height="14" aria-hidden>
-      <rect x="2" y="1" width="6" height="12" rx="3" fill={b.fill} stroke={b.stroke} strokeWidth={SHAPE.range.compareStroke} opacity={b.opacity} />
+      <rect x="2" y="1" width={PILL_W} height="12" rx={PILL_W / 2} fill={b.fill} stroke={b.stroke} strokeWidth={SHAPE.range.compareStroke} opacity={b.opacity} />
     </svg>
   );
 }

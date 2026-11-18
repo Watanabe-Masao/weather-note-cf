@@ -11,7 +11,7 @@ import { type Band, BANDS, type FeelSettings, hourlyBands } from "../../shared/f
 import { dayTone } from "../../shared/holidays";
 import type { WeatherStore } from "../data/store";
 import { feelOn } from "../feelSeason";
-import { BAND_LINES, BAND_MARKS, lineLook } from "../design/tokens";
+import { BAND_LINES, BAND_MARKS, lineLook, RADIUS } from "../design/tokens";
 import { niceTicks, signedDiff, tickLabel, monthDay, dateLabel } from "../design/format";
 import { Chip, ForecastHatch, GraphReadout, GuideLines, Mark, MarkIcon, LineSample, LevelScale } from "./kit";
 import { FeelContext, levelRanges } from "./FeelBar";
@@ -204,7 +204,7 @@ export function BandTrend({ store, station, target, partner, onStep }: Props) {
         </g>
         </g>
         {/* The selected day: a frame that stays while the days pass under it, as in the tables. */}
-        <rect x={x(centre) - step / 2 + 1} y={PAD.top} width={step - 2} height={H - PAD.top - PAD.bottom} rx={8} className="chart-center" />
+        <rect x={x(centre) - step / 2 + 1} y={PAD.top} width={step - 2} height={H - PAD.top - PAD.bottom} rx={RADIUS.md} className="chart-center" />
       </svg>
       </div>
       {/* Legend right under the graph, in the graph's own marks. */}

@@ -47,7 +47,7 @@ interface Palette {
   feelEdge: string[];
   bands: string[];
   shadow: Record<
-    "card" | "sheet" | "overlay" | "pinned" | "lift" | "float" | "edge",
+    "card" | "sheet" | "overlay" | "pinned" | "lift" | "float" | "edge" | keyof typeof SHARED_SHADOW,
     string
   >;
   effect: Record<
@@ -89,7 +89,21 @@ const DATA_KEYS = [
   "feel",
 ] as const;
 
+/**
+ * Shadows made of the theme's own lines and glow (the same in every theme, the colours come from the theme):
+ * the accent's glow round what is chosen or touched, a button's bevel and its press, a swatch's lit top,
+ * and the rule beside a pinned column.
+ */
+const SHARED_SHADOW = {
+  glow: "0 0 14px var(--accent-glow)",
+  bevel: "inset 0 1px 0 var(--line-highlight), inset 0 -1px 0 var(--line-shade)",
+  pressed: "inset 0 1px 2px var(--line-shade)",
+  swatchTop: "0 1px 0 var(--line-swatch) inset",
+  rule: "1px 0 0 var(--line-strong)",
+};
+
 const DARK_SHADOW = {
+  ...SHARED_SHADOW,
   card: "0 1px 0 rgba(255,255,255,0.04) inset, 0 6px 18px rgba(0,0,0,0.22)",
   sheet: "0 -1px 0 rgba(255,255,255,0.06) inset, 0 -10px 30px rgba(0,0,0,0.36)",
   overlay:
@@ -101,6 +115,7 @@ const DARK_SHADOW = {
 };
 // On a light face a shadow is a soft shade, and the lit edge is white.
 const lightShadow = (tint: string) => ({
+  ...SHARED_SHADOW,
   card: `0 1px 0 rgba(255,255,255,0.6) inset, 0 4px 14px rgba(${tint},0.10)`,
   sheet: `0 -1px 0 rgba(255,255,255,0.7) inset, 0 -8px 26px rgba(${tint},0.16)`,
   overlay: `0 -1px 0 rgba(255,255,255,0.8) inset, 0 -14px 40px rgba(${tint},0.24)`,
