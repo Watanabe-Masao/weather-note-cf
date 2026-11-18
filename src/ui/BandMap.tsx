@@ -17,6 +17,7 @@ import { CloseIcon } from "./icons";
 import { DayLabel, IconButton, SectionHead, Segmented } from "./kit";
 import { monthDay } from "../design/format";
 import { bandsFor, FeelContext, legendOf, levelColor, levelName } from "./FeelBar";
+import { feelEdgeOf } from "../design/tokens";
 
 interface Props {
   store: WeatherStore | null;
@@ -28,6 +29,9 @@ interface Props {
 }
 
 /** "6:39–8:49": when a band runs that day at the station (by the sun, shared/dayParts.ts). */
+/** A cell's fill and its inner edge (a few pixels of a lighter tone of the step, inside the frame). */
+const cellLook = (color: string) => ({ background: color, "--feel-edge": feelEdgeOf(color) ?? "transparent" }) as CSSProperties;
+
 export const bandSpan = (date: string, station: string, band: number) => {
   const w = dayParts(date, station)[band];
   return `${clockOf(w.from)}–${clockOf(w.to)}`;
@@ -186,7 +190,7 @@ function MapGrid({
     if (c.state === "empty") return <span className={cls + " none"}><span className="skeleton" /></span>;
     if (c.state === "error" || !cell || cell.feel == null) return <span className={cls + " none"}>—</span>;
     return (
-      <span className={cls} style={{ background: levelColor(cell.level!, settings.scale) }}>
+      <span className={cls} style={cellLook(levelColor(cell.level!, settings.scale))}>
         {side === "a" ? <b>{cell.feel.toFixed(0)}</b> : <small>{cell.feel.toFixed(0)}</small>}
       </span>
     );

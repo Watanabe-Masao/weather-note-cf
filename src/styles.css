@@ -2193,7 +2193,7 @@ svg.scrub {
   overflow: hidden;
   padding: 0;
   background: var(--surface-inset);
-  color: var(--ink-on-accent);
+  color: var(--ink-on-feel);
   box-shadow: var(--shadow-lift);
   transition: transform var(--motion-quick) var(--ease-standard);
 }
@@ -2219,8 +2219,13 @@ svg.scrub {
   font-variant-numeric: tabular-nums;
 }
 
+/* The inner edge: a few pixels of a lighter tone of the step, fading into the fill (肌感マップ, 2026-11-18). */
 .bm-a {
-  box-shadow: 0 1px 0 var(--line-swatch) inset;
+  box-shadow: 0 1px 0 var(--line-swatch) inset, inset 0 0 var(--feel-cell-edge-blur) var(--feel-cell-edge-spread) var(--feel-edge, transparent);
+}
+
+.bm-b {
+  box-shadow: inset 0 0 var(--feel-cell-edge-blur) calc(var(--feel-cell-edge-spread) / 2) var(--feel-edge, transparent);
 }
 
 .bm-a b {
