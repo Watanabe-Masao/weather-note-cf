@@ -406,13 +406,13 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         </p>
       )}
       {/* 凡例と ⓘ は1行に（2026-11-18：ⓘ が1行だけ離れていた）。開いた説明はその下に全幅で。 */}
-      <div className="legend-row">
+      <div className={other ? "legend-row" : "legend-row one"}>
       <p className="line-legend">
         {/* A tap on a line's name sets it aside (grey) or brings it back (design engine: dimmed lines keep their form). */}
-        <LegendLine on={!dim.main} onToggle={() => toggleDim("main")} look={lineLook("target", color, { dimmed: dim.main })} label={`対象 ${mainLabel}`} />
+        <LegendLine on={!dim.main} onToggle={() => toggleDim("main")} look={lineLook("target", color, { dimmed: dim.main })} label={other ? `対象 ${mainLabel}` : mainLabel} />
         {other && <LegendLine on={!dim.other} onToggle={() => toggleDim("other")} look={lineLook("compare", color, { dimmed: dim.other })} label={`比較 ${otherLabel}`} />}
         {avgMain && (
-          <LegendLine on={!dim.avgMain} onToggle={() => toggleDim("avgMain")} look={lineLook("target", color, { kind: "reference", dimmed: dim.avgMain })} label="対象の手前" />
+          <LegendLine on={!dim.avgMain} onToggle={() => toggleDim("avgMain")} look={lineLook("target", color, { kind: "reference", dimmed: dim.avgMain })} label={other ? "対象の手前" : "手前"} />
         )}
         {avgOther && (
           <LegendLine on={!dim.avgOther} onToggle={() => toggleDim("avgOther")} look={lineLook("compare", color, { kind: "reference", dimmed: dim.avgOther })} label="比較の手前" />

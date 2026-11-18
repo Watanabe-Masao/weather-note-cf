@@ -790,6 +790,11 @@ with sync_playwright() as p:
         # 項目の選び（値つき）は 24時間の見出しのすぐ下（2026-11-18）。肌感は見出しの下の1行で、押すと肌感マップ。
         check("SD4 グラフの項目：7つが24時間のグラフのすぐ上、肌感は上の1行", pg.locator(".hour-face .dd-pick .dd-value").count() == 7 and pg.locator(".dd-feel-line").count() == 1, pg.locator(".dd-value").count())
         if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day.png")
+        lr = pg.locator(".day-detail .legend-row")
+        if lr.count():
+            tops = pg.evaluate("[...document.querySelectorAll('.day-detail .legend-row .legend-line, .day-detail .legend-row .avg-window, .day-detail .legend-row .info-btn')].map(e => Math.round(e.getBoundingClientRect().top + e.getBoundingClientRect().height / 2))")
+            check("SD4h 1日：凡例・平均・ⓘ が1列（真ん中の高さがそろう）", max(tops) - min(tops) <= 2, tops)
+            if shots: lr.screenshot(path=f"{shots}-legend.png")
         # 天気図は予報の移り変わりと連動（2026-11-18）：「発表の時」は選んだ発表の直前の天気図と、その時の予想天気図。
         lead = txt(".wx-chart .wx-lead") if pg.locator(".wx-chart .wx-lead").count() else ""
         check("SD4b 天気図：「発表の時｜この日」、発表の時は選んだ発表の時刻の図（保存の無い予想天気図は無いと書く）", pg.locator(".wx-chart").count() == 1 and pg.locator(".wx-chart .seg button").count() == 2 and "の発表のときの空の形" in lead and "予想天気図はありません" in txt(".wx-chart"), lead)

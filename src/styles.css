@@ -1171,11 +1171,14 @@ button.label-feel:active { transform: scale(0.97); }
 }
 
 /* 凡例と ⓘ を1行に（ⓘ の説明は開くと下に全幅）。 */
-.legend-row { display: flex; flex-wrap: wrap; align-items: center; }
-.legend-row .line-legend { flex: 1 1 0; min-width: 0; }
+.legend-row { display: flex; flex-wrap: wrap; align-items: center; margin: var(--space-3) var(--space-3) 0; }
+.legend-row .line-legend { flex: 1 1 0; min-width: 0; margin: 0; }
 .legend-row .info-note { display: contents; }
-.legend-row .info-note > p { margin: var(--space-3) var(--space-3) 0 0; }
+.legend-row .info-note > p { margin: 0; display: inline-flex; align-items: center; }
+.legend-row .info-note > p .info-btn { margin: 0; }
 .legend-row .info-note .info-more { flex-basis: 100%; }
+/* 1日だけ：名前を短くして（日付・手前）凡例・平均・ⓘ を1列に（2026-11-18 渡辺さん「一列になりませんか」）。 */
+.legend-row.one .line-legend { column-gap: var(--space-5); white-space: nowrap; }
 
 /* Legends speak in the graph's own marks. */
 .line-legend,
