@@ -236,3 +236,41 @@ describe("毎朝の点検の題", () => {
     expect(idle.body).toBe("・天気図：この24時間に1回も動いていません");
   });
 });
+
+describe("定時処理の抜け（health.ts cronGaps、2026-11-18）", () => {
+  it("24時間の5分ごとの時刻のうち、記録の無いものを、続いた抜けにまとめる（新しい順）", async () => {
+    const { cronGaps } = await import("../worker/src/health");
+    const { gapText } = await import("../shared/healthJudge");
+    const now = Date.parse("2026-11-18T00:02:00Z");
+    const slot = (k: number) => new Date(Math.floor(now / 300_000) * 300_000 - k * 300_000).toISOString();
+    // 288 回のうち、1〜3つ前（今の回は数えない）は続けて抜け、10 は1回だけ抜け
+    const ats = Array.from({ length: 289 }, (_, k) => k).filter((k) => ![0, 1, 2, 3, 10].includes(k)).map(slot);
+    const g = cronGaps(ats, now);
+    expect(g.missing).toBe(4);
+    expect(g.gaps).toEqual([
+      { from: slot(3), to: slot(1), n: 3 },
+      { from: slot(10), to: slot(10), n: 1 },
+    ]);
+    // 日本時間で、大きい順
+    expect(gapText(g.gaps)).toBe("抜けた時間：11/18 8:45〜8:55（3回）・11/18 8:10。");
+    expect(cronGaps(Array.from({ length: 289 }, (_, k) => slot(k)), now)).toEqual({ missing: 0, gaps: [] });
+  });
+  it("毎朝の点検に、定時処理の回数と抜け、失敗の文言（管理者だけ）を書く", async () => {
+    const s = await setup();
+    const T7 = Date.parse("2026-11-18T07:10:00+09:00");
+    const { ensureHealthSchema } = await import("../worker/src/health");
+    await ensureHealthSchema(s.db);
+    for (let t = T7 - 24 * H + 5 * MIN; t < T7; t += 5 * MIN) {
+      if (t >= T7 - 3 * H && t < T7 - 2 * H) continue; // 1時間（12回）抜け
+      s.fetched(t);
+      s.db.raw.prepare("INSERT INTO cron_runs (at, stage, ms, ok) VALUES (?, 'notify', 100, 1)").run(new Date(Math.floor(t / (5 * MIN)) * 5 * MIN).toISOString());
+    }
+    s.db.raw.prepare("INSERT INTO app_errors (at, place, message) VALUES (?, '/api/reports/sync', 'Error: D1_ERROR: overloaded')").run(new Date(T7 - 2 * H).toISOString());
+    s.db.raw.prepare("INSERT INTO app_errors (at, place, message) VALUES (?, '/api/auth/me', 'Error: D1_ERROR: overloaded')").run(new Date(T7 - H).toISOString());
+    await s.look(T7);
+    const d = s.told.find((t) => t.title.startsWith("毎朝の点検"))!;
+    expect(d.body).toMatch(/・定時処理（5分ごと）：\d+回／288回。抜けた時間：11\/18 4:\d\d〜5:\d\d（12回）/);
+    expect(d.body).toContain("・アカウントの処理の失敗 2回（5:10〜6:10、");
+    expect(d.body).toContain("：Error: D1_ERROR: overloaded");
+  });
+});

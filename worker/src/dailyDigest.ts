@@ -6,8 +6,9 @@
 // 警告にはならない）。7〜10時のうちに見張りが1回も無かった日は送らない（昼に遅れて届かないように）。
 // 中身は記録の回数だけ（成功した回／全部の回、新しく保存した数）。表がまだ無い取得は行を出さない。
 
-import type { Finding } from "../../shared/healthJudge";
+import { type Finding, gapText } from "../../shared/healthJudge";
 import type { Db } from "./accounts";
+import { cronGaps } from "./health";
 import type { Message } from "./notify";
 
 /** 送る時間帯（日本時間の時）：7時から10時の前まで。 */
@@ -60,8 +61,41 @@ export async function digestLines(db: Db, now: number): Promise<DigestLine[]> {
   return out;
 }
 
+/**
+ * 定時処理の回数と抜け、アカウントの処理の失敗（いちばん多い文言3つまで、回数と時刻の幅）。失敗の文言は
+ * 公開の /api/health や GitHub の issue には出さず、管理者だけに届くこの知らせにだけ書く（原因を見るため）。
+ */
+export async function digestExtra(db: Db, now: number): Promise<string[]> {
+  const from = new Date(now - 24 * 3_600_000).toISOString();
+  const to = new Date(now).toISOString();
+  const out: string[] = [];
+  try {
+    const ats = (await db.prepare("SELECT DISTINCT at FROM cron_runs WHERE at >= ? AND at < ?").bind(from, to).all<{ at: string }>()).results.map((r) => r.at);
+    const g = cronGaps(ats, now);
+    out.push(`・定時処理（5分ごと）：${288 - g.missing}回／288回${g.missing ? `。${gapText(g.gaps)}` : ""}`);
+  } catch (e) {
+    if (!/no such table/i.test(String(e))) throw e;
+  }
+  try {
+    const errs = (
+      await db
+        .prepare("SELECT substr(message, 1, 80) AS m, COUNT(*) AS n, MIN(at) AS first, MAX(at) AS last, group_concat(DISTINCT place) AS places FROM app_errors WHERE at >= ? AND at < ? GROUP BY m ORDER BY n DESC LIMIT 3")
+        .bind(from, to)
+        .all<{ m: string; n: number; first: string; last: string; places: string }>()
+    ).results;
+    const clock = (iso: string) => {
+      const d = new Date(Date.parse(iso) + 9 * 3_600_000);
+      return `${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+    };
+    for (const e of errs) out.push(`・アカウントの処理の失敗 ${e.n}回（${clock(e.first)}〜${clock(e.last)}、${e.places.split(",").slice(0, 3).join("・")}）：${e.m}`);
+  } catch (e) {
+    if (!/no such table/i.test(String(e))) throw e;
+  }
+  return out;
+}
+
 /** まとめの文（純粋な関数）。題は異常・気づいたことの数で変える。 */
-export function digestMessage(lines: DigestLine[], problems: Finding[], notes: Finding[]): Message {
+export function digestMessage(lines: DigestLine[], problems: Finding[], notes: Finding[], extra: string[] = []): Message {
   const failing = lines.filter((l) => l.runs > 0 && l.ok < l.runs);
   const idle = lines.filter((l) => l.runs === 0);
   const title = problems.length
@@ -77,6 +111,7 @@ export function digestMessage(lines: DigestLine[], problems: Finding[], notes: F
       : `・${l.name}：${l.runs}回中${l.ok}回うまくいった${l.unit ? `（新しく${l.added}${l.unit}）` : ""}`;
   const body = [
     ...lines.map(row),
+    ...extra,
     ...problems.map((f) => `・異常：${f.text}`),
     ...notes.map((f) => `・気づいたこと：${f.text}`),
   ].join("\n");

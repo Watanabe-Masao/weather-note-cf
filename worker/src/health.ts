@@ -79,6 +79,45 @@ export async function timed(db: Db, at: string, stage: string, fn: () => Promise
   }
 }
 
+/**
+ * A run kept first thing (stage `start`, `ms` = how late it started after its scheduled time), so a run
+ * that started but was cut short before any stage ended is told apart from one never started (cronGaps).
+ */
+export async function markStart(db: Db, at: string, lateMs: number): Promise<void> {
+  try {
+    await ensureHealthSchema(db);
+    await db.prepare("INSERT OR REPLACE INTO cron_runs (at, stage, ms, ok) VALUES (?, 'start', ?, 1)").bind(at, Math.max(0, Math.round(lateMs))).run();
+  } catch (e) {
+    console.error("weather-note: cron_runs start", e);
+  }
+}
+
+/** The 5-minute runs (wrangler.jsonc: every 5 minutes, on the minute) in the 24 hours before `now`. */
+const SLOT_MS = 5 * 60_000;
+/**
+ * 定時処理の抜け (2026-11-18): the 5-minute times in the last 24 hours with no stage kept at all (cron_runs,
+ * keyed by the run's scheduled time), as runs of missing times — so a stretch (Cloudflare not starting
+ * them, a deploy) is told apart from runs missing here and there (one cut short before any stage ended).
+ * The newest first, at most `limit`; `missing` counts them all.
+ */
+export function cronGaps(ats: string[], now: number, limit = 6): { missing: number; gaps: { from: string; to: string; n: number }[] } {
+  const have = new Set(ats.map((a) => Math.floor(Date.parse(a) / SLOT_MS)));
+  const last = Math.floor(now / SLOT_MS) - 1; // the slot now may still be running
+  const first = Math.floor((now - 24 * 3_600_000) / SLOT_MS) + 1;
+  const gaps: { from: string; to: string; n: number }[] = [];
+  let missing = 0;
+  for (let k = last; k >= first; k--) {
+    if (have.has(k)) continue;
+    missing++;
+    const g = gaps.at(-1);
+    if (g && Date.parse(g.from) === (k + 1) * SLOT_MS) {
+      g.from = new Date(k * SLOT_MS).toISOString();
+      g.n++;
+    } else gaps.push({ from: new Date(k * SLOT_MS).toISOString(), to: new Date(k * SLOT_MS).toISOString(), n: 1 });
+  }
+  return { missing, gaps: gaps.slice(0, limit) };
+}
+
 /** A failure of an account request, kept for counting (the place and the error's first line). */
 export async function keepError(db: Db, place: string, message: string, now = Date.now()) {
   try {
@@ -215,6 +254,7 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
     dayAgo,
   );
   const runTotals = await one<{ runs: number }>(db, "SELECT COUNT(DISTINCT at) AS runs FROM cron_runs WHERE at >= ?", dayAgo);
+  const runTimes = (await all<{ at: string }>(db, "SELECT DISTINCT at FROM cron_runs WHERE at >= ?", dayAgo)).map((r) => r.at);
   const errors = await all<{ place: string; n: number; last: string }>(
     db,
     "SELECT place, COUNT(*) AS n, MAX(at) AS last FROM app_errors WHERE at >= ? GROUP BY place ORDER BY n DESC",
@@ -288,7 +328,9 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       r2: { bytes: r2Bytes, percentOfFree: pct(r2Bytes, PLAN.r2FreeBytes), chartsLastDay: r2.chartsDay?.n ?? 0, chartBytesLastDay: r2.chartsDay?.bytes ?? 0 },
       // Wall time (waiting on JMA, D1 and R2 included), not CPU: the stages run in two lines at once,
       // so their sum is no run's length. CPU against its limit is in `usage` (Cloudflare's count).
-      cron: { runsLastDay: runTotals?.runs ?? 0, longestStageMs: Math.max(0, ...stages.map((s) => s.max_ms)), stages },
+      // 抜け: the 5-minute times with no stage kept (cronGaps); the stage `start` (index.ts) is kept first
+      // thing, so a run that started and was cut short is not among them.
+      cron: { runsLastDay: runTotals?.runs ?? 0, longestStageMs: Math.max(0, ...stages.map((s) => s.max_ms)), stages, ...cronGaps(runTimes, now) },
     },
     // 無駄: what is kept or done for nothing, or not done.
     waste: {

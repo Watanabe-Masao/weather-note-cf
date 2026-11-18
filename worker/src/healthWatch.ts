@@ -21,7 +21,7 @@
 // Each look is kept in health_checks (counts and times only), and /api/health gives the last one.
 
 import { checkImport, judgeHealth, type Finding, type ImportReady } from "../../shared/healthJudge";
-import { claimDigest, digestLines, digestMessage } from "./dailyDigest";
+import { claimDigest, digestExtra, digestLines, digestMessage } from "./dailyDigest";
 import type { Db } from "./accounts";
 import { health } from "./health";
 import type { Message } from "./notify";
@@ -183,7 +183,7 @@ export async function watchHealth(
   let digest: string | null = null;
   const day = await claimDigest(db, now);
   if (day) {
-    const m = digestMessage(await digestLines(db, now), judged.problems, judged.notes);
+    const m = digestMessage(await digestLines(db, now), judged.problems, judged.notes, await digestExtra(db, now));
     const n = await tellAdmins(db, m, now, send);
     sent += n;
     digest = day;
