@@ -832,6 +832,27 @@ with sync_playwright() as p:
         if fb.count():
             fb.click(); pg.wait_for_timeout(500)
         st = small_text(); check("SD4c 11px より小さい文字がない（1日モード・天気図）", not st, str(st))
+        # 項目を切り替えても、項目の選び（とその上）は動かない（2026-11-18 渡辺さん「切り替えで画面がぶれるのが嫌い」）。
+        tops = []
+        for i in range(pg.locator(".dd-pick .dd-value").count()):
+            pg.locator(".dd-pick .dd-value").nth(i).click(); calm()
+            tops.append(pg.evaluate("Math.round(document.querySelector('.dd-pick').getBoundingClientRect().top - document.querySelector('.day-detail').getBoundingClientRect().top)"))
+            tops.append(pg.evaluate("Math.round(document.querySelector('.hour-face .readout-card').getBoundingClientRect().top - document.querySelector('.day-detail').getBoundingClientRect().top)"))
+        pick_tops, ro_tops = tops[0::2], tops[1::2]
+        check("SD4j 項目を切り替えても項目の選びと読み取りの枠の位置は変わらない", max(pick_tops) - min(pick_tops) <= 1 and max(ro_tops) - min(ro_tops) <= 1, (pick_tops, ro_tops))
+        pg.locator(".dd-pick .dd-value").first.click(); calm()
+        # 開いて閉じたら、開く前の位置に戻る（2026-11-18 渡辺さん「戻るときは戻る前の位置が基本」）：1日モードの下の方から開く物。
+        back = []
+        for name, opener in (("その日の要約", lambda: pg.locator(".dd-links .chip", has_text="その日の要約").first), ("肌感マップ", lambda: pg.locator(".dd-feel-line").first)):
+            el = opener()
+            if not el.count(): continue
+            pg.locator(".dd-links").scroll_into_view_if_needed(); calm()
+            el.scroll_into_view_if_needed(); calm()
+            y0 = pg.evaluate("scrollY")
+            el.click(); calm()
+            pg.keyboard.press("Escape"); pg.wait_for_timeout(700)
+            back.append((name, y0, pg.evaluate("scrollY")))
+        check("SD4k 1日モードから開いた物を閉じると、開く前の位置に戻る", back and all(abs(a - b) < 4 for _, a, b in back), back)
         pg.locator(".dd-value", has_text="降水").first.click(); calm()
         check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
         if shots: pg.screenshot(path=f"{shots}-single.png", full_page=True)
