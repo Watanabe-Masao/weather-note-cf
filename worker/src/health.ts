@@ -13,6 +13,7 @@ import { SHIROMATZ_SOURCE } from "../../shared/forecastShiromatz";
 import type { Db, Stmt } from "./accounts";
 import { importPosition } from "./forecastImport";
 import { monthUsage, scheduledRuns, type UsageEnv } from "./usage";
+import { readCompleteness } from "./completeness";
 
 export const HEALTH_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS cron_runs (
@@ -438,6 +439,8 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       // Not there until the saving has run once (a database without R2, or before the first run): not judged then.
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM radar_fetch_log"))?.n ? { radarLastOk: await lastOk("radar_fetch_log") } : {}),
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM longrange_fetch_log"))?.n ? { longRangeLastOk: await lastOk("longrange_fetch_log") } : {}),
+      // 欠けの発見（completeness.ts、#299）：定時の発表・30分ごとの時刻が1つずつそろっているか。数と時刻だけ。
+      completeness: await readCompleteness(db, now),
       warnings: {
         telegrams: warningCount?.n ?? 0,
         latest: Object.fromEntries(warningLatest.map((l) => [l.kind, l.issued_at])),

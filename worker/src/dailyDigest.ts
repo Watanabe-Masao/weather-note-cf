@@ -9,6 +9,7 @@
 import { type Finding, gapText } from "../../shared/healthJudge";
 import { runbookTag } from "../../shared/runbook";
 import type { Db } from "./accounts";
+import { readCompleteness } from "./completeness";
 import { cronGaps } from "./health";
 import type { Message } from "./notify";
 
@@ -120,6 +121,24 @@ export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns): Pro
     }
   } catch (e) {
     if (!/no such table/i.test(String(e))) throw e;
+  }
+  // 欠けの発見（completeness.ts）：予報の定時の発表が1回ずつそろっているか、続けて確かめられた位置、取り戻せない欠け。
+  try {
+    const c = await readCompleteness(db, now);
+    const NAME: Record<string, string> = { VPFD51: "府県天気予報", VPFW50: "府県週間天気予報", hrpns: "雨雲レーダー", rasrf: "解析雨量" };
+    const at = (iso: string) => {
+      const d = new Date(Date.parse(iso) + 9 * 3_600_000);
+      return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+    };
+    for (const [k, a] of Object.entries(c.forecast)) {
+      if (!a.expected) continue;
+      const gaps = [a.pendingCount ? `まだ取り戻せる ${a.pendingCount}（${a.pending.slice(0, 3).map(at).join("・")}）` : "", a.lostCount ? `取り戻せない ${a.lostCount}` : ""].filter(Boolean).join("・");
+      out.push(`・${NAME[k] ?? k}の定時の発表：${a.expected}回中${a.kept}回${a.watermark ? `（続けて確かめられた位置 ${at(a.watermark)}）` : ""}${gaps ? `。欠け：${gaps}` : ""}`);
+    }
+    const lostAll = c.lostAll.reduce((n, l) => n + l.n, 0);
+    if (lostAll) out.push(`・取り戻せない欠け（これまで）：${c.lostAll.map((l) => `${l.source.replace(/^(forecast|radar):/, "")} ${l.n}`).map((x) => x.replace(/^(\w+)/, (m) => NAME[m] ?? m)).join("・")}`);
+  } catch (e) {
+    console.error("weather-note: digest completeness", e);
   }
   try {
     const errs = (

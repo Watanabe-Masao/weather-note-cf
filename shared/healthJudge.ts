@@ -48,6 +48,11 @@ export interface HealthView {
     radarLastOk?: string | null;
     longRangeLastOk?: string | null;
     warnings?: { lastOk: string | null; fetchFailuresLastDay: number };
+    /** 欠けの発見（worker/src/completeness.ts）。pending は新しい順。 */
+    completeness?: {
+      forecast: Record<string, { pending: string[]; pendingCount: number; lostCount: number }>;
+      lostLastDay: { source: string; n: number }[];
+    };
     openAlerts: { key: string; since: string }[];
     accountErrorsLastDay: { place: string; n: number }[];
     forecastImport?: { lastTaken: string | null; next: string | null };
@@ -117,6 +122,20 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
       const a = ago(w.lastOk);
       if (a > 72) problem("warningStale", `警報・注意報の電文の保存が最後にうまくいったのは ${hours(a)}（7日を過ぎた分は取り戻せない）。`);
       else if (a > 24) note("warningStale", `警報・注意報の電文の保存が最後にうまくいったのは ${hours(a)}。`);
+    }
+    // 欠けの発見（#299）：最新が届いても、間の定時の発表が抜けていれば欠け。取り戻せるのは長い一覧の7日まで。
+    // まだ取り戻せる欠けが5日を過ぎたら異常（残り2日）、3時間を過ぎたら注意（次の回で取り戻せていない）。
+    // 取り戻せない欠けが24時間で新しく出たら注意（記録して説明する、R-11）。
+    const c = s.completeness;
+    if (c) {
+      const pend = Object.entries(c.forecast).flatMap(([k, a]) => a.pending.map((t) => ({ k, t })));
+      const oldest = pend.reduce<{ k: string; t: string } | null>((a, b) => (a == null || b.t < a.t ? b : a), null);
+      const NAME: Record<string, string> = { VPFD51: "府県天気予報", VPFW50: "府県週間天気予報" };
+      const say = (p: { k: string; t: string }) => `${NAME[p.k] ?? p.k}の ${jstClock(p.t)} の発表`;
+      if (oldest && ago(oldest.t) > 5 * 24) problem("forecastGap", `予報の電文の欠け：${say(oldest)}など ${pend.length}回が保存されていません（7日を過ぎると取り戻せない）。`);
+      else if (oldest && ago(oldest.t) > 3) note("forecastGap", `予報の電文の欠け：${say(oldest)}など ${pend.length}回が保存されていません（まだ取り戻せる）。`);
+      const lost = c.lostLastDay.reduce((n, l) => n + l.n, 0);
+      if (lost) note("dataLost", `取り戻せない欠けが24時間で ${lost} 件（${c.lostLastDay.map((l) => `${l.source} ${l.n}`).join("・")}）。`);
     }
     for (const a of s.openAlerts) problem(`alert:${a.key}`, `アプリの警告が開いたまま：${a.key}（${a.since} から）。`);
     const errs = s.accountErrorsLastDay.reduce((n, e) => n + e.n, 0);
