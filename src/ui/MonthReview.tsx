@@ -430,7 +430,8 @@ function FeelMonth({ store, station, days, daysB }: { store: WeatherStore | null
     if (!total) return <span className={`month-feel-bar${thin ? " thin" : ""} empty`} />;
     return (
       <span className={`month-feel-bar${thin ? " thin" : ""}`}>
-        {c.map((k, i) => (k ? <i key={i} style={{ flex: k, background: FEEL_SCALE_COLORS[scale][i] }} title={`${steps[i].label} ${k}日`} /> : null))}
+        {/* The days of each step written in it (not only in a title, #296). */}
+        {c.map((k, i) => (k ? <i key={i} style={{ flex: k, background: FEEL_SCALE_COLORS[scale][i] }} aria-label={`${steps[i].label} ${k}日`}>{k}</i> : null))}
       </span>
     );
   };
@@ -453,7 +454,7 @@ function FeelMonth({ store, station, days, daysB }: { store: WeatherStore | null
           </span>
         ))}
       </p>
-      <p className="chart-key-note">太い帯がこの月、細い帯が前の年の同じ月。帯の長さはその段の日数。</p>
+      <p className="chart-key-note">太い帯がこの月、細い帯が前の年の同じ月。帯の中の数字と長さはその段の日数。</p>
     </div>
   );
 }
@@ -1140,7 +1141,7 @@ function WeekDetail({
               {/* This month filled, 前年同曜日 outlined under it (the bars' rule: filled / outlined). */}
               <span className="week-detail-bar">
                 <i style={{ width: `${pct(c.a)}%`, background: color }} />
-                <em style={{ width: `${pct(c.b)}%`, borderColor: color }} title="前年同曜日" />
+                <em style={{ width: `${pct(c.b)}%`, borderColor: color }} aria-label="前年同曜日" />
               </span>
               <span className="week-detail-num">
                 <i style={{ color }}>

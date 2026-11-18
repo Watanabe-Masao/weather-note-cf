@@ -139,6 +139,7 @@ function Body(p: Props) {
         <span className={p.side === "target" ? "cal-pair-side picking" : "cal-pair-side"}>
           <small>対象</small>
           {dateLabel(pairTarget)}
+          {holidayName(pairTarget) && <small className="cal-pair-holiday">{holidayName(pairTarget)}</small>}
         </span>
         <span className="cal-pair-link" aria-hidden>
           <Glyph name="pair" size="14px" />
@@ -146,6 +147,7 @@ function Body(p: Props) {
         <span className={p.side === "compare" ? "cal-pair-side picking" : "cal-pair-side"}>
           <small>比較</small>
           {pairCompare ? dateLabel(pairCompare, { year: pairCompare.slice(0, 4) !== pairTarget.slice(0, 4) }) : "—"}
+          {pairCompare && holidayName(pairCompare) && <small className="cal-pair-holiday">{holidayName(pairCompare)}</small>}
         </span>
         <span className="cal-pair-interval">
           {intervalLabel(pairTarget, pairCompare)}

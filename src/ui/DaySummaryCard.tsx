@@ -45,7 +45,13 @@ export function DaySummaryCard({ store, station, ask, typhoons, onClose }: { sto
   }, [store, station, date, other]);
   const v = (row: WeatherRow | null, k: string, unit: string) => (row ? formatValue(row[k], unit) : "—");
   const d = (k: string, unit: string) => (a && b ? signedDiff(num(a[k]), num(b[k]), unit) : "");
-  const word = (row: WeatherRow | null) => (row ? (dayWeatherOf(row, station).text ?? "—") : "—");
+  // An estimated weather says so in its word, and why under the words (not only in a title, #296).
+  const word = (row: WeatherRow | null) => {
+    if (!row) return "—";
+    const w = dayWeatherOf(row, station);
+    return w.text == null ? "—" : w.estimated ? `${w.text}（推定）` : w.text;
+  };
+  const estimated = [a, other ? b : null].some((r) => r && dayWeatherOf(r, station).estimated);
   const rows: ReadoutRow[] = [
     { key: "wx", label: "天気", text: true, a: word(a), b: other ? word(b) : "—" },
     { key: "max", label: "最高", unit: "℃", color: DATA.hot, a: v(a, "max", "℃"), b: v(b, "max", "℃"), diff: d("max", "℃") },
@@ -89,6 +95,7 @@ export function DaySummaryCard({ store, station, ask, typhoons, onClose }: { sto
               ))}
             </p>
           )}
+          {estimated && <p className="ds-note">天気の「推定」は、日照と降水から決めたもの（気象庁の天気概況がまだ無い日）。</p>}
           {typhoon && (
             <button className="ds-typhoon" onClick={() => setTyOpen(true)}>
               <span>
