@@ -45,7 +45,9 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
       {summary && <CompareSummary store={store} station={station} target={target} other={compareDate} today={today} metric={metric} onStep={onStep} pick={pick} />}
       {summary && base === "temp" && <PartsOutlook store={store} station={station} date={target} today={today} />}
       <SectionHead title="24時間" as="p">
-        {base === "temp" && (
+        {/* 気温のときだけの切り替えだが、場所はいつも取っておく（項目を替えても下の物が上下に動かない、2026-11-18 渡辺さん）。
+            気温でないときは見えず、押せず、読み上げない。 */}
+        <span className={base === "temp" ? "seg-slot" : "seg-slot off"} aria-hidden={base !== "temp" || undefined} inert={base !== "temp" || undefined}>
           <Segmented
             label="気温の見方"
             value={feel ? "feel" : "air"}
@@ -57,7 +59,7 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
             // The selected 肌感（日なた/日かげ） tapped again switches sun and shade (the shared setting).
             onReselect={(v) => v === "feel" && onToggleSun?.()}
           />
-        )}
+        </span>
       </SectionHead>
       {top}
       <HourCompare store={store} station={station} date={target} other={compareDate} metricId={id} today={today} height={height} />

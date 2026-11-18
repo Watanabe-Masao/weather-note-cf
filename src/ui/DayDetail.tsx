@@ -122,11 +122,14 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
           );
         })}
       </div>
-      {pickedRest && (
-        <p className="dd-pick-rest">
-          <b>{picked!.label}</b> {pickedRest}
-        </p>
-      )}
+      {/* 残りの値の行は、無い項目でも行の高さを取っておく（切り替えで下の物が動かないように） */}
+      <p className="dd-pick-rest">
+        {pickedRest && (
+          <>
+            <b>{picked!.label}</b> {pickedRest}
+          </>
+        )}
+      </p>
     </div>
   );
 
