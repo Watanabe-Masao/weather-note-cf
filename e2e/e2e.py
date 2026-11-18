@@ -503,6 +503,23 @@ with sync_playwright() as p:
         check("U7 軽く押すとカードが残り×で閉じる", pg.locator(".sky-zoom-close").count() == 1)
         pg.click(".sky-zoom-close"); wait(200)
         check("U8 ×で閉じる", pg.locator(".sky-zoom").count() == 0)
+        d_start = pg.evaluate("document.querySelector('aside.sheet').dataset.detent")
+        # 2日の読み取りの枠（2026-11-18）：列の頭は日付だけの1行。言葉の行（明るさ・外に出たとき・空）はシートの高さで開閉し、
+        # 最大まで上げたら開き、中くらいでは畳む。
+        fb = ".sheet .readout-card .fold-btn"
+        pg.click(".metrics .chip:nth-child(4)"); calm()
+        heads = pg.evaluate("[...document.querySelectorAll('.sheet .readout-card .ro-col')].map(e => Math.round(e.getBoundingClientRect().height))")
+        pg.evaluate("__flick('.sheet-handle',600,120)"); calm(800)
+        pg.click(".sheet-handle"); calm(800)
+        mid = (pg.evaluate("document.querySelector('aside.sheet').dataset.detent"), pg.locator(fb).get_attribute("aria-expanded"))
+        pg.evaluate("__flick('.sheet-handle',-700,120)"); calm(1000)
+        top = (pg.evaluate("document.querySelector('aside.sheet').dataset.detent"), pg.locator(fb).get_attribute("aria-expanded"))
+        pg.evaluate("__flick('.sheet-handle',700,120)"); calm(1000)
+        back = (pg.evaluate("document.querySelector('aside.sheet').dataset.detent"), pg.locator(fb).get_attribute("aria-expanded"))
+        check("U2f 2日の読み取り：列の頭は1行、言葉の行は中くらいで畳み・最大で開き・戻すと畳む", max(heads) <= 20 and mid == ("mid", "false") and top == ("max", "true") and back[1] == "false", (heads, mid, top, back))
+        for _ in range(3):
+            if pg.evaluate("document.querySelector('aside.sheet').dataset.detent") == d_start: break
+            pg.click(".sheet-handle"); calm(800)
         pg.click(".metrics .chip:nth-child(1)"); calm()
         pg.click(".back-btn"); calm()
     step("U", uu)
