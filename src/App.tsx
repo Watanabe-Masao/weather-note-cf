@@ -1,5 +1,6 @@
 // Weather Note: compare a target day with a comparison day, around a 7-day centre-fixed strip.
 
+import { Brand } from "./ui/Brand";
 import { AfterAnswer } from "./beta/AfterAnswer";
 import { useSeasonDays } from "./feelSeason";
 import type { WeatherStore } from "./data/store";
@@ -335,7 +336,7 @@ export function App(_: { theme?: string } = {}) {
     >
       {!full && (
         <header className="app-head">
-          <h1>Weather Note</h1>
+          <Brand />
           <div className="app-head-actions">
             {/* 比較｜1日 (#247): whether the comparison day is shown; the rest of the screen stays. */}
             <Segmented

@@ -398,15 +398,14 @@ select.chip {
 }
 
 .app-head h1 {
-  font-size: var(--size-lg);
-  font-weight: var(--weight-bold);
-  letter-spacing: 0.01em;
   margin: 0 var(--space-1);
-  background: linear-gradient(90deg, var(--ink-primary), color-mix(in srgb, var(--accent-base) 45%, var(--ink-primary)));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
+
+/* ロゴ（Brand）：テーマの色のアイコンと、円弧と一点の乗った文字。文字は見出しの文字の色。 */
+.brand { display: flex; align-items: center; gap: var(--space-4); min-width: 0; color: var(--ink-primary); }
+.brand-icon { flex: none; display: block; width: 32px; height: 32px; }
+.brand-icon svg { display: block; width: 100%; height: 100%; }
+.brand-word { display: block; height: 30px; width: auto; aspect-ratio: 692 / 184; min-width: 0; }
 
 /* The six items fit the width: equal columns, no hidden seventh. */
 .metrics {
@@ -4796,6 +4795,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 
 /* 1日モード (#247): the selected day told under the target's week (src/ui/DayDetail.tsx). */
 .app-head h1 { white-space: nowrap; }
+@media (max-width: 370px) { .brand-word { height: 26px; } }
 .app-head-actions .seg button { padding: var(--space-2) var(--space-4); min-height: 26px; }
 @media (max-width: 374px) { .app-head-actions { gap: var(--space-3); } }
 .day-detail {

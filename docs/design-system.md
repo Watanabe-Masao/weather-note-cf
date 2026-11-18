@@ -176,6 +176,12 @@
 
 CSS の見張り（文字・角・重なり・色）は、`styles.css` だけでなく `src` の下のすべての CSS ファイルにかかる（2026-11-18 まで画面ごとの CSS が見張りの外だった）。
 
+## 4.0b ロゴとアイコン（2026-11-18）
+
+- 形：円弧と一点（空の動き）・丘の後ろの太陽・霧のかかった3つの丘。ロゴは「Weather Note」の文字の上に円弧と一点。絵は `src/design/brand.ts` の1か所だけ。
+- 色：テーマごとに3色（Midnight＝Deep Navy・Mist＝Mist Green・Daylight＝Warm White）。アプリの見出し（`Brand`）は使っているテーマの色。ホーム画面・ブラウザのタブは Midnight だけ（iPhone のホーム画面のアイコンは1つで、テーマでは替わらない）。`node scripts/brand-icons.ts` で `public/icons` を書き直す。
+- 文字：Poppins Medium（SIL Open Font License 1.1）の形を線に起こしたもの。書体は読み込まない。色は見出しの文字の色。
+
 ## 4.1 グラフの共通ルール
 
 - **背景は予報だけ。** 予報の日や時間は網かけにし、上端に「予報」と書く。選んでいる日は背景を塗らずに枠で囲む（表の中央の枠と同じ意味）。
