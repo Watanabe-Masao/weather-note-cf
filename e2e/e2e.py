@@ -687,6 +687,28 @@ with sync_playwright() as p:
         pg.evaluate("""() => { for (let i = 0; i < 20; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
         head = pg.evaluate("(document.querySelector('.sky-view.window .sky-heading') || {}).textContent || ''")
         h_win = pg.locator(".sky-view").first.bounding_box()["height"] if pg.locator(".sky-view").count() else 0
+        # 全画面（2026-11-19）：画面いっぱいの空と、下に時刻・動かす・カメラ・ずれ。閉じると元のシートに戻る。カメラのボタンもある。
+        cam_btn = pg.locator(".sky-sensor .btn", has_text="カメラ").count()
+        pg.locator(".sky-sensor .btn", has_text="全画面").click(); calm()
+        fb = pg.locator(".sky-full .sky-stage").bounding_box() if pg.locator(".sky-full").count() else None
+        full_ok = fb is not None and fb["width"] >= W - 1 and fb["height"] >= 843 and pg.locator(".sky-full .sun-slider").count() == 1
+        pg.locator(".sky-full .icon-btn[aria-label='全画面を閉じる']").click(); calm()
+        check("SS2f 全画面：画面いっぱいの空と時刻のつまみ、閉じると元に戻る。カメラのボタンがある", cam_btn >= 1 and full_ok and pg.locator(".sky-full").count() == 0 and pg.locator(".sun-sheet").count() == 1, (cam_btn, fb))
+        # コンパス補正（2026-11-19）：ボタンで目盛りが開き、左へなぞると方位が大きく（右へ）ずれる。キーでも動き、0°に戻せ、閉じられる。
+        deg = lambda: int(re.search(r"(\d+)°", pg.evaluate("(document.querySelector('.sky-view.window .sky-heading') || {}).textContent || ''")).group(1))
+        pg.locator(".sky-sensor .btn", has_text="コンパス補正").click(); calm()
+        d0 = deg(); sc = pg.locator(".compass-trim-scale").bounding_box()
+        pg.mouse.move(sc["x"] + sc["width"] / 2, sc["y"] + sc["height"] / 2); pg.mouse.down()
+        pg.mouse.move(sc["x"] + sc["width"] / 2 - 40, sc["y"] + sc["height"] / 2, steps=5); pg.mouse.up()
+        pg.evaluate("""() => { for (let i = 0; i < 20; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
+        v1 = pg.get_attribute(".compass-trim-scale", "aria-valuenow"); d1 = deg()
+        pg.locator(".compass-trim-scale").focus(); pg.keyboard.press("ArrowLeft"); calm()
+        v2 = pg.get_attribute(".compass-trim-scale", "aria-valuenow")
+        pg.locator(".compass-trim .btn", has_text="0°に").click(); calm()
+        v3 = pg.get_attribute(".compass-trim-scale", "aria-valuenow")
+        tap_ok = sc["height"] >= 44
+        pg.locator(".compass-trim .icon-btn[aria-label='コンパス補正を閉じる']").click(); calm()
+        check("SS2g コンパス補正：目盛りを左へなぞると方位が右へずれ、キーと 0°に で直せ、閉じられる", v1 == "10" and (d1 - d0) % 360 == 10 and v2 == "9" and v3 == "0" and tap_ok and pg.locator(".compass-trim").count() == 0, (d0, d1, v1, v2, v3, sc))
         pg.locator(".sky-sensor .btn", has_text="やめる").click(); calm()
         h_pan = pg.locator(".sky-view").first.bounding_box()["height"] if pg.locator(".sky-view").count() else 0
         check("SS2d 端末の向きで見る：南を向けると南を真ん中にした窓（上へ10°）、やめると戻る、絵の高さは同じ", head.startswith("南 180°") and "上へ 10°" in head and pg.locator(".sky-view.window").count() == 0 and abs(h_win - h_pan) < 1, (head, h_win, h_pan))

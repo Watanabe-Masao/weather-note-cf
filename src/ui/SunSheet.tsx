@@ -6,15 +6,19 @@ import { sunHours, type SunTimes } from "../data/sun";
 import { dateLabel, hoursMinutes } from "../design/format";
 import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
-import { Button, Glyph, IconButton, InfoNote, Segmented, Slider } from "./kit";
+import { Button, IconButton, InfoNote, Segmented, Slider } from "./kit";
 import { moonPhase, moonPosition, moonTimes } from "../../shared/moon";
 import { DEFAULT_LAT_LON, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
-import { magneticDeclination, placeIn } from "../../shared/skyLook";
+import { magneticDeclination, project } from "../../shared/skyLook";
+import { useCamera } from "./useCamera";
+import { createPortal } from "react-dom";
+import { CloseIcon } from "./icons";
 import { useSkyLook } from "./useSkyLook";
+import { CompassTrim } from "./CompassTrim";
 import { dirName, MoonGlyph } from "./moonParts";
 import { MoonSheet } from "./MoonSheet";
 import { ICON, RADIUS } from "../design/tokens";
-import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { type ReactNode, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 
 const W = 340;
@@ -84,10 +88,20 @@ export function SunSheet({
     const id = window.setInterval(() => setAt((a) => (a >= 1430 ? 0 : a + 10)), 90);
     return () => window.clearInterval(id);
   }, [playing]);
-  // 端末の向きで見る（センサー連動）：向けた方向を真ん中にした窓。ずれは手で直せる（2°ずつ）。
+  // 端末の向きで見る（センサー連動）：向けた方向を真ん中にした窓。ずれはコンパス補正の目盛りをなぞって直せる。
   const [offset, setOffset] = useState(0);
   const sensor = useSkyLook(magneticDeclination(ll.lat, ll.lon), offset);
+  const camera = useCamera();
+  const [full, setFull] = useState(false);
   const { state: sensorState, stop: stopSensor } = sensor;
+  const { state: cameraState, stop: stopCamera } = camera;
+  // 向きで見るのをやめたら、カメラも全画面も閉じる。
+  useEffect(() => {
+    if (sensorState === "off") {
+      if (cameraState !== "off") stopCamera();
+      setFull(false);
+    }
+  }, [sensorState, cameraState, stopCamera]);
   useEffect(() => {
     if (view !== "sky" && sensorState !== "off") stopSensor();
   }, [view, sensorState, stopSensor]);
@@ -138,27 +152,58 @@ export function SunSheet({
           { id: "sky", label: "空を見上げる" },
         ]}
       />
-      {view === "sky" && <SkyView look={sensor.state === "on" ? sensor.look : null} at={at} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} />}
+      {view === "sky" && !full && <SkyView look={sensor.state === "on" ? sensor.look : null} stream={camera.stream} at={at} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} />}
       {view === "sky" && (
         <div className="sky-sensor">
           <Button size="sm" aria-pressed={sensor.state !== "off"} onClick={() => (sensor.state === "off" ? void sensor.start() : sensor.stop())}>
             {sensor.state === "off" ? "端末の向きで見る" : "向きで見るのをやめる"}
           </Button>
           {sensor.state === "on" && (
-            <span className="sky-offset">
-              <IconButton size="sm" label="方位のずれを左へ2°" onClick={() => setOffset((o) => o - 2)}>
-                <Glyph name="minus" />
-              </IconButton>
-              <small>ずれ {offset > 0 ? `+${offset}` : offset}°</small>
-              <IconButton size="sm" label="方位のずれを右へ2°" onClick={() => setOffset((o) => o + 2)}>
-                <Glyph name="plus" />
-              </IconButton>
-            </span>
+            <>
+              <Button size="sm" aria-pressed={camera.state === "on"} onClick={() => (camera.state === "on" ? camera.stop() : void camera.start())}>
+                {camera.state === "on" ? "カメラを止める" : "カメラ"}
+              </Button>
+              <Button size="sm" onClick={() => setFull(true)}>
+                全画面
+              </Button>
+            </>
+          )}
+          {sensor.state === "on" && (
+            <CompassTrim value={offset} onChange={setOffset} heading={sensor.look?.azimuth ?? 0} />
           )}
           <small className="sky-sensor-state" aria-live="polite">
             {{ off: "", waiting: "向きを読んでいます…", on: "", denied: "向きのセンサーが許可されませんでした（設定で許可できます）", unsupported: "この端末では向きのセンサーを読めません", noHeading: "方位が読めません（傾きだけ）" }[sensor.state]}
+            {{ off: "", starting: "カメラを開いています…", on: "", denied: "カメラが許可されませんでした（設定で許可できます）", unsupported: "この端末ではカメラを使えません" }[camera.state]}
           </small>
         </div>
+      )}
+      {full && sensor.state === "on" && sensor.look && (
+        <SkyFull
+          onClose={() => setFull(false)}
+          sky={(w, h) => <SkyWindow full look={sensor.look!} stream={camera.stream} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} w={w} h={h} />}
+          controls={
+            <>
+              <p className="sky-full-read">
+                <b>{clockOf(at)}</b> {dirName(sensor.look.azimuth)} {Math.round(sensor.look.azimuth)}°・{sensor.look.altitude >= 0 ? `上へ ${Math.round(sensor.look.altitude)}°` : `下へ ${Math.round(-sensor.look.altitude)}°`}
+                <small>
+                  太陽 {altAt >= 0 ? `${dirName(sunAzAt)} ${Math.round(altAt)}°` : "地平線の下"}・月 {moonAt.altitude >= 0 ? `${dirName(moonAt.azimuth)} ${Math.round(moonAt.altitude)}°` : "地平線の下"}
+                </small>
+              </p>
+              <div className="sun-play">
+                <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[rise, set]} thumbs={[{ value: at, label: "時刻（10分ごと）", valueText: clockOf(at), onChange: setAt }]} />
+                <Button size="sm" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
+                  {playing ? "止める" : "動かす"}
+                </Button>
+              </div>
+              <div className="sky-sensor">
+                <Button size="sm" aria-pressed={camera.state === "on"} onClick={() => (camera.state === "on" ? camera.stop() : void camera.start())}>
+                  {camera.state === "on" ? "カメラを止める" : "カメラ"}
+                </Button>
+                <CompassTrim value={offset} onChange={setOffset} heading={sensor.look?.azimuth ?? 0} />
+              </div>
+            </>
+          }
+        />
       )}
       <svg
         ref={svg}
@@ -356,10 +401,10 @@ export function SunSheet({
  * 空を見上げる（2026-11-18 の見本）：地上に立って見た空を、方位（北・東・南・西・北）を横に、高さ（地平線〜天頂）を縦に
  * 広げた絵。南を真ん中に。太陽と月のその日の通り道（地平線より上）と、選んだ時刻の位置。空の色は選んだ時刻の模式の色。
  */
-function SkyView({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky }: { look?: { azimuth: number; altitude: number } | null; at: number; sunAlt: number; sunAz: number; moon: { altitude: number; azimuth: number }; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour }) {
+function SkyView({ look, stream, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky }: { look?: { azimuth: number; altitude: number } | null; stream?: MediaStream | null; at: number; sunAlt: number; sunAz: number; moon: { altitude: number; azimuth: number }; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour }) {
   const VW = 340;
   const VH = 230;
-  if (look) return <SkyWindow look={look} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} />;
+  if (look) return <SkyWindow look={look} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} stream={stream} />;
   const P = { l: 6, r: 6, t: 10, b: 34 };
   const gx = (az: number) => P.l + (((az % 360) + 360) % 360 / 360) * (VW - P.l - P.r);
   const top = 75;
@@ -422,33 +467,54 @@ function SkyView({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky }:
 }
 
 /**
- * 端末の向きで見る窓（センサー連動）：向けた方向を真ん中に、横 60° の空。地平線と高さの線、方位の名前、太陽と月の
- * 通り道と位置。窓の外にあるときは、その向きの端に矢印と名前（そちらを向くと見える）。
+ * 端末の向きで見る窓（センサー連動）：向けた方向を真ん中に、カメラと同じ見え方（透視）の空。地平線と高さの線、方位の名前、
+ * 太陽と月の通り道と位置。窓の外にあるときは、その向きの端に矢印と名前（そちらを向くと見える）。
+ * カメラ（AR 風、2026-11-19）を入れると、空の色の代わりに背面カメラの映像を下に敷く。
  */
 const FOV = 60;
-function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky, w, h }: { look: { azimuth: number; altitude: number }; sunAlt: number; sunAz: number; moon: { altitude: number; azimuth: number }; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour; w: number; h: number }) {
-  const at = (az: number, alt: number) => placeIn(look, { azimuth: az, altitude: alt }, FOV, w, h);
+/** 背面カメラ（1倍）の長い辺の画角（°）：iPhone の広角（26mm 相当、4:3）でおよそ 67°。映像を窓に「覆う」で合わせる。 */
+const CAMERA_LONG_FOV = 67;
+type SkyProps = { look: { azimuth: number; altitude: number }; sunAlt: number; sunAz: number; moon: { altitude: number; azimuth: number }; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour };
+function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky, w, h, stream, full }: SkyProps & { w: number; h: number; stream?: MediaStream | null; full?: boolean }) {
+  const video = useRef<HTMLVideoElement>(null);
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+  useEffect(() => {
+    const v = video.current;
+    if (!v) return;
+    v.srcObject = stream ?? null;
+    if (stream) void v.play().catch(() => {});
+  }, [stream]);
+  // 焦点（画面の px）：カメラのときは映像の長い辺の画角を、窓を覆う大きさに合わせる。無いときは横 60°。
+  const focal = (() => {
+    if (!stream) return w / 2 / Math.tan((FOV / 2) * (Math.PI / 180));
+    const vw = dims?.w ?? 3;
+    const vh = dims?.h ?? 4;
+    const scale = Math.max(w / vw, h / vh);
+    return (scale * Math.max(vw, vh)) / 2 / Math.tan((CAMERA_LONG_FOV / 2) * (Math.PI / 180));
+  })();
+  const at = (az: number, alt: number) => project(look, { azimuth: az, altitude: alt }, focal, w, h);
   const horizon = at(look.azimuth, 0).y;
-  const track = (pts: { alt: number; az: number }[]) => {
+  const line = (pts: { alt: number; az: number }[], above = true) => {
     let d = "";
-    let prev: { x: number; y: number } | null = null;
+    let prev = false;
     for (const p of pts) {
       const q = at(p.az, p.alt);
-      const ok = p.alt >= 0 && Math.abs(q.dx) < FOV;
+      const ok = (!above || p.alt >= 0) && q.front && q.x > -w && q.x < 2 * w && q.y > -h && q.y < 2 * h;
       if (!ok) {
-        prev = null;
+        prev = false;
         continue;
       }
       d += `${prev ? "L" : "M"}${q.x.toFixed(1)},${q.y.toFixed(1)} `;
-      prev = q;
+      prev = true;
     }
     return d;
   };
-  const dirs = Array.from({ length: 16 }, (_, i) => i * 22.5).filter((az) => Math.abs(at(az, 0).dx) <= FOV / 2);
+  const ring = (alt: number) => line(Array.from({ length: 61 }, (_, i) => ({ alt, az: look.azimuth - 90 + i * 3 })), false);
+  const dirs = Array.from({ length: 16 }, (_, i) => i * 22.5).map((az) => ({ az, q: at(az, 0) })).filter(({ q }) => q.front && q.x > 0 && q.x < w);
   const edge = (az: number, alt: number, name: string) => {
     const q = at(az, alt);
     if (q.inside || alt < 0) return null;
-    const ang = Math.atan2(-q.dy, q.dx);
+    const ang = Math.atan2(-q.sy, q.sx);
     const ex = w / 2 + Math.cos(ang) * (w / 2 - 22);
     const ey = h / 2 + Math.sin(ang) * (h / 2 - 16);
     return (
@@ -462,44 +528,74 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
   };
   const sun = at(sunAz, sunAlt);
   const mo = at(moon.azimuth, moon.altitude);
+  const big = full ? 1.6 : 1;
   return (
-    <svg className="sky-view window" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`端末を向けた方向の空：${dirName(look.azimuth)}・高さ${Math.round(look.altitude)}°`}>
-      <defs>
-        <linearGradient id="sky-window-bg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={sky.zenith} />
-          <stop offset="1" stopColor={sky.horizon} />
-        </linearGradient>
-        <clipPath id="sky-window-clip">
-          <rect width={w} height={h} rx={RADIUS.md} />
-        </clipPath>
-      </defs>
-      <g clipPath="url(#sky-window-clip)">
-        <rect width={w} height={h} fill="url(#sky-window-bg)" />
-        {horizon < h && <rect y={Math.max(0, horizon)} width={w} height={h - Math.max(0, horizon)} className="sky-ground" />}
-        {[30, 60].map((a) => {
-          const y = at(look.azimuth, a).y;
-          return y > 0 && y < h ? <line key={a} x1={0} x2={w} y1={y} y2={y} className="sky-alt" /> : null;
-        })}
+    <div className={`sky-stage${full ? " full" : ""}${stream ? " camera" : ""}`} style={full ? undefined : { aspectRatio: `${w} / ${h}` }}>
+      {stream && <video ref={video} className="sky-video" playsInline muted autoPlay onLoadedMetadata={(e) => setDims({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })} />}
+      <svg className="sky-view window" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="xMidYMid slice" role="img" aria-label={`端末を向けた方向の空：${dirName(look.azimuth)}・高さ${Math.round(look.altitude)}°`}>
+        <defs>
+          <linearGradient id="sky-window-bg" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={sky.zenith} />
+            <stop offset="1" stopColor={sky.horizon} />
+          </linearGradient>
+        </defs>
+        {!stream && <rect width={w} height={h} fill="url(#sky-window-bg)" />}
+        {!stream && horizon < h && <rect y={Math.max(0, horizon)} width={w} height={h - Math.max(0, horizon)} className="sky-ground" />}
+        {[30, 60].map((a) => (
+          <path key={a} d={ring(a)} className="sky-alt" />
+        ))}
         {horizon > 0 && horizon < h && <line x1={0} x2={w} y1={horizon} y2={horizon} className="sun-horizon" />}
-        {dirs.map((az) => (
-          <text key={az} x={at(az, 0).x} y={Math.min(h - 6, Math.max(14, horizon + 14))} textAnchor="middle" className="sun-tick sky-dir">
+        {dirs.map(({ az, q }) => (
+          <text key={az} x={q.x} y={Math.min(h - 6, Math.max(14, horizon + 14))} textAnchor="middle" className="sun-tick sky-dir">
             {dirName(az)}
           </text>
         ))}
-        <path d={track(sunTrack)} className="sun-curve day" style={{ stroke: ICON.sun }} />
-        <path d={track(moonTrack)} className="moon-curve" style={{ stroke: ICON.moon }} />
-        {sunAlt >= 0 && sun.inside && <circle cx={sun.x} cy={sun.y} r={12} style={{ fill: ICON.sun }} className="sky-sun" />}
+        <path d={line(sunTrack)} className="sun-curve day" style={{ stroke: ICON.sun }} />
+        <path d={line(moonTrack)} className="moon-curve" style={{ stroke: ICON.moon }} />
+        {sunAlt >= 0 && sun.inside && <circle cx={sun.x} cy={sun.y} r={12 * big} style={{ fill: ICON.sun }} className="sky-sun" />}
         {moon.altitude >= 0 && mo.inside && (
-          <g transform={`translate(${mo.x - 13} ${mo.y - 13})`}>
-            <MoonGlyph phase={phase} size={26} />
+          <g transform={`translate(${mo.x - 13 * big} ${mo.y - 13 * big})`}>
+            <MoonGlyph phase={phase} size={26 * big} />
           </g>
         )}
         {edge(sunAz, sunAlt, "太陽")}
         {edge(moon.azimuth, moon.altitude, "月")}
-        <text x={8} y={18} className="sun-tick sky-heading">
-          {dirName(look.azimuth)} {Math.round(look.azimuth)}°・{look.altitude >= 0 ? `上へ ${Math.round(look.altitude)}°` : `下へ ${Math.round(-look.altitude)}°`}
-        </text>
-      </g>
-    </svg>
+        {!full && (
+          <text x={8} y={18} className="sun-tick sky-heading">
+            {dirName(look.azimuth)} {Math.round(look.azimuth)}°・{look.altitude >= 0 ? `上へ ${Math.round(look.altitude)}°` : `下へ ${Math.round(-look.altitude)}°`}
+          </text>
+        )}
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * 全画面（2026-11-19）：端末の向きで見る空を画面いっぱいに。上に向いている方位と高さ・閉じる、下に時刻のつまみ・動かす・
+ * カメラ・ずれの手直し。閉じると太陽と月のシートの同じ所に戻る。
+ */
+function SkyFull({ sky, controls, onClose }: { sky: (w: number, h: number) => ReactNode; controls: ReactNode; onClose: () => void }) {
+  const [size, setSize] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
+  useEffect(() => {
+    const on = () => setSize({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", on);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", esc);
+    return () => {
+      window.removeEventListener("resize", on);
+      window.removeEventListener("keydown", esc);
+    };
+  }, [onClose]);
+  return createPortal(
+    <div className="sky-full" role="dialog" aria-modal="true" aria-label="空を見上げる（全画面）">
+      {sky(size.w, size.h)}
+      <div className="sky-full-top">
+        <IconButton label="全画面を閉じる" onClick={onClose}>
+          <CloseIcon />
+        </IconButton>
+      </div>
+      <div className="sky-full-bottom">{controls}</div>
+    </div>,
+    document.body,
   );
 }
