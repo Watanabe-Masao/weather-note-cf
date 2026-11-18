@@ -179,3 +179,27 @@ describe("警報・注意報：毎時の見張り（2026-11-18）", () => {
     expect(keys(undefined)).toEqual({ problems: [], notes: [] });
   });
 });
+
+// 障害テスト（#299 P0）：R2 に置けたのに D1 に書けなかった回・途中で切れた回のあとも、次の回で取り戻し、重ならない。
+import { faulty } from "./faults";
+describe("雨雲レーダー：障害のあと", () => {
+  const times = ["20261117130000", "20261117123000"];
+  it("D1 に書けなかったタイルは次の回でもう一度置き（R2 は同じ名前の上書き）、行は1つずつ", async () => {
+    const db = d1();
+    const b = bucket();
+    const now = Date.parse("2026-11-17T13:12:00Z");
+    const f = faulty(db, { failWrites: (q) => q.includes("INTO radar_saved"), times: 3 });
+    expect(await saveRadar(f.db, b, now, fetcher(list(times)).get, 9, HRPNS)).toMatchObject({ saved: 6, ok: false });
+    for (let k = 1; k <= 3; k++) await saveRadar(db, b, now + k * 300_000, fetcher(list(times)).get, 9, HRPNS);
+    expect(db.raw.prepare("SELECT COUNT(*) AS n, COUNT(DISTINCT key) AS d FROM radar_saved").get()).toEqual({ n: 18, d: 18 });
+    expect(b.files.size).toBe(18);
+  });
+  it("途中で切れた回のあと、次の回で残りを取る", async () => {
+    const db = d1();
+    const b = bucket();
+    const now = Date.parse("2026-11-17T13:12:00Z");
+    await saveRadar(faulty(db, { cutAfterWrites: 4 }).db, b, now, fetcher(list(times)).get, 9, HRPNS).catch(() => {});
+    for (let k = 1; k <= 3; k++) await saveRadar(db, b, now + k * 300_000, fetcher(list(times)).get, 9, HRPNS);
+    expect(db.raw.prepare("SELECT COUNT(*) AS n, COUNT(DISTINCT key) AS d FROM radar_saved").get()).toEqual({ n: 18, d: 18 });
+  });
+});

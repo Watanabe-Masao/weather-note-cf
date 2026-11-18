@@ -78,3 +78,17 @@ describe("長い先の予報の電文", () => {
     expect(db.raw.prepare("SELECT ok, error FROM longrange_fetch_log").get()).toEqual({ ok: 0, error: "Error: feed HTTP 503" });
   });
 });
+
+// 障害テスト（#299 P0）：D1 に書けない回・途中で切れた回のあとも、次の回で取り戻し、重ならない。
+import { faulty } from "./faults";
+describe("長い先の予報の電文：障害のあと", () => {
+  it("D1 に書けなかった回・途中で切れた回のあと、次の回（30分後）で取り戻し、1通ずつ", async () => {
+    for (const opts of [{ failWrites: (q: string) => q.includes("INTO longrange_telegrams"), times: 2 }, { cutAfterWrites: 1 }]) {
+      const db = d1();
+      const { b } = bucket();
+      await collectLongRange(faulty(db, opts).db, b, T0, server(NAMES).get).catch(() => {});
+      await collectLongRange(db, b, T0 + 31 * 60_000, server(NAMES).get);
+      expect(db.raw.prepare("SELECT COUNT(*) AS n, COUNT(DISTINCT id) AS d FROM longrange_telegrams").get()).toEqual({ n: 3, d: 3 });
+    }
+  });
+});

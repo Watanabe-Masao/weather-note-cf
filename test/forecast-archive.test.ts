@@ -91,3 +91,28 @@ describe("予報の履歴：集める", () => {
     expect(officeOf("47909")).toBe("460040"); // 名瀬：奄美
   });
 });
+
+// 障害テスト（#299 P0）：D1 に書けない回・途中で切れた回のあとも、次の回で欠けずに取り戻し、重ならない。
+import { faulty } from "./faults";
+describe("予報の履歴：障害のあと", () => {
+  const entries = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(Date.UTC(2026, 10, 16, 20, 0) - i * 6 * 3_600_000).toISOString();
+    return entry(`${d.slice(0, 19).replace(/[-:T]/g, "")}_0_VPFD51_390000`, "府県天気予報（Ｒ１）", d);
+  });
+  const count = (db: ReturnType<typeof d1>) => db.raw.prepare("SELECT COUNT(*) AS n, COUNT(DISTINCT id) AS d FROM forecast_telegrams").get();
+  it("電文の保存が D1 に書けなかった回のあと、次の回で取り戻し、1通ずつ", async () => {
+    const db = d1();
+    const f = faulty(db, { failWrites: (q) => q.includes("INTO forecast_telegrams"), times: 2 });
+    await collectForecasts(f.db, Date.parse("2026-11-17T06:00:00+09:00"), server(entries).get).catch(() => {});
+    await collectForecasts(db, Date.parse("2026-11-17T06:05:00+09:00"), server(entries).get);
+    expect(count(db)).toEqual({ n: 6, d: 6 });
+  });
+  it("途中で切れた回（記録も書けない）のあと、次の回で残りを取り、1通ずつ", async () => {
+    const db = d1();
+    const f = faulty(db, { cutAfterWrites: 2 });
+    await collectForecasts(f.db, Date.parse("2026-11-17T06:00:00+09:00"), server(entries).get).catch(() => {});
+    expect((count(db) as { n: number }).n).toBeLessThan(6);
+    await collectForecasts(db, Date.parse("2026-11-17T06:05:00+09:00"), server(entries).get);
+    expect(count(db)).toEqual({ n: 6, d: 6 });
+  });
+});

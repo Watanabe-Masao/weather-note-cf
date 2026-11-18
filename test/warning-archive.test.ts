@@ -185,3 +185,31 @@ describe("警報・注意報の電文：R2 の写しと health", () => {
     expect(h.tables.warning_telegrams).toEqual({ rows: KOCHI.length, lastDay: KOCHI.length });
   });
 });
+
+// 障害テスト（#299 P0）：D1 に書けない回・途中で切れた回のあとも、次の回で欠けずに取り戻し、重ならない。
+import { faulty } from "./faults";
+describe("警報・注意報の電文：障害のあと", () => {
+  it("電文の保存が D1 に書けなかった回のあと、次の回で取り戻し、1通ずつ", async () => {
+    const db = d1();
+    const f = faulty(db, { failWrites: (q) => q.includes("INTO warning_telegrams"), times: 3 });
+    const r = await collectWarnings(f.db, T0, server(KOCHI).get);
+    expect(r).toMatchObject({ ok: false, added: KOCHI.length - 3 });
+    expect(await collectWarnings(db, T0 + 5 * MIN, server(KOCHI).get)).toMatchObject({ ok: true, added: 3 });
+    expect(db.raw.prepare("SELECT COUNT(*) AS n, COUNT(DISTINCT id) AS d FROM warning_telegrams").get()).toEqual({ n: KOCHI.length, d: KOCHI.length });
+  });
+  it("途中で切れた回（記録も書けない）のあと、次の回で残りを取り、1通ずつ", async () => {
+    const db = d1();
+    const f = faulty(db, { cutAfterWrites: 4 });
+    await collectWarnings(f.db, T0, server(KOCHI).get).catch(() => {});
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM warning_telegrams").get()).toEqual({ n: 4 });
+    // 切れた回は記録が無い：次の回は前の「うまくいった回」が無いので長い一覧から読む
+    expect(await collectWarnings(db, T0 + 5 * MIN, server(KOCHI).get)).toMatchObject({ ok: true, added: KOCHI.length - 4, feed: FEED_LONG });
+    expect(db.raw.prepare("SELECT COUNT(*) AS n, COUNT(DISTINCT id) AS d FROM warning_telegrams").get()).toEqual({ n: KOCHI.length, d: KOCHI.length });
+  });
+  it("定時処理が何回か抜けても（短い一覧の届く間なら）、次の回で取り戻す", async () => {
+    const db = d1();
+    await collectWarnings(db, T0, server(KOCHI.slice(0, 2)).get);
+    // 1時間（12回）抜けた後
+    expect(await collectWarnings(db, T0 + 65 * MIN, server(KOCHI).get)).toMatchObject({ ok: true, added: KOCHI.length - 2, feed: FEED_SHORT });
+  });
+});
