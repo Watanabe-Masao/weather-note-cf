@@ -75,7 +75,9 @@ export function ShortHistoryBoard({ store, station, today, onClose }: { store: W
   };
 
   // The graph: 肌感 and S through the day, answers as dots on the 肌感.
-  const W = 340, H = 140, X0 = 30, X1 = W - 6, T = 8;
+  // One graph, two rows sharing the hours' axis (design-system 4.1): the row's name at its top-left, the
+  // hours once at the bottom.
+  const W = 340, H = 140, X0 = 30, X1 = W - 6, T = 16;
   const xs = (n: number) => X0 + ((n - 1) / 23) * (X1 - X0);
   const vals = hours.flatMap((h) => [valueOf(h.feel), valueOf(h.short)]).filter((v): v is number => v != null);
   const lo = vals.length ? Math.floor(Math.min(...vals) / 5) * 5 : 0;
@@ -94,7 +96,8 @@ export function ShortHistoryBoard({ store, station, today, onClose }: { store: W
   const ticks: number[] = [];
   for (let v = lo; v <= hi; v += 5) ticks.push(v);
   // The rate: bars around 0.
-  const H2 = 60, T2 = 10;
+  const H2 = 60, T2 = T + H + 24;
+  const BOTTOM = T2 + H2;
   const rmax = Math.max(1, Math.ceil(Math.max(0, ...hours.map((h) => Math.abs(valueOf(h.rate) ?? 0)))));
   const y2 = (v: number) => T2 + H2 / 2 - (v / rmax) * (H2 / 2);
   const bw = (X1 - X0) / 24 - 2;
@@ -131,12 +134,15 @@ export function ShortHistoryBoard({ store, station, today, onClose }: { store: W
           </p>
         </div>
 
-        <SectionHead title="肌感と短期の履歴" />
+        <SectionHead title="肌感と短期の履歴、変化の速さ" />
         {rowsDay.length === 0 ? (
           <p className="set-help">時間ごとのデータを読み込んでいます…</p>
         ) : (
           <>
-            <svg width="100%" viewBox={`0 0 ${W} ${T + H + 18}`} role="img" aria-label="肌感と短期の履歴 S の1日の推移、答えの時刻">
+            <svg width="100%" viewBox={`0 0 ${W} ${BOTTOM + 18}`} role="img" aria-label="肌感と短期の履歴 S の1日の推移と答えの時刻、肌感の変化の速さ（横の時刻は上下で共通）">
+              <text x={X0} y={T - 5} className="lt-axis">
+                肌感 ℃
+              </text>
               {ticks.map((v) => (
                 <g key={v}>
                   <line x1={X0} x2={X1} y1={ys(v)} y2={ys(v)} stroke="var(--line-soft)" />
@@ -145,32 +151,15 @@ export function ShortHistoryBoard({ store, station, today, onClose }: { store: W
                   </text>
                 </g>
               ))}
-              {/* JMA's hour n ends at n o'clock: 6時 under hour 6. The ends are left to the axis. */}
-              {[6, 12, 18].map((n) => (
-                <text key={n} x={xs(n)} y={T + H + 14} textAnchor="middle" className="lt-axis">
-                  {n}時
-                </text>
-              ))}
               <path d={path((h) => valueOf(h.short))} fill="none" stroke={LINE.reference} strokeOpacity={LINE.referenceOpacity} strokeWidth={1.6} />
               <path d={path((h) => valueOf(h.feel))} fill="none" stroke={DATA.feel} strokeWidth={2.2} />
               {answers.map((a) => {
                 const v = valueOf(at(a.hour)?.feel);
                 return v == null ? null : <circle key={a.r.id} cx={xs(a.hour)} cy={ys(v)} r={4.5} fill="var(--surface-overlay)" stroke="var(--ink-primary)" strokeWidth={2} />;
               })}
-            </svg>
-            <p className="sun-test-legend">
-              <Line color={DATA.feel} label={`肌感（${exposure === "sun" ? "日なた" : "日かげ"}）`} />
-              <Line color={LINE.reference} opacity={LINE.referenceOpacity} width={1.6} label="短期の履歴 S（半減3時間）" />
-              <span>
-                <svg width="22" height="10" aria-hidden>
-                  <circle cx="11" cy="5" r="4" fill="none" stroke="var(--ink-primary)" strokeWidth="2" />
-                </svg>
-                答えた時間
-              </span>
-            </p>
-
-            <SectionHead title="変化の速さ（3時間）" />
-            <svg width="100%" viewBox={`0 0 ${W} ${T2 + H2 + 10}`} role="img" aria-label="肌感の変化の速さ">
+              <text x={X0} y={T2 - 5} className="lt-axis">
+                変化の速さ（3時間）℃/時
+              </text>
               <line x1={X0} x2={X1} y1={y2(0)} y2={y2(0)} stroke="var(--ink-tertiary)" />
               <text x={X0 - 4} y={y2(rmax) + 3.5} textAnchor="end" className="lt-axis">
                 +{rmax}
@@ -182,8 +171,24 @@ export function ShortHistoryBoard({ store, station, today, onClose }: { store: W
                 const v = valueOf(h.rate);
                 return v == null ? null : <rect key={h.hour} x={xs(h.hour) - bw / 2} width={bw} y={Math.min(y2(0), y2(v))} height={Math.max(0.5, Math.abs(y2(v) - y2(0)))} fill={DATA.feel} opacity={0.65} />;
               })}
+              {/* JMA's hour n ends at n o'clock: 6時 under hour 6. The ends are left to the axis. Once, at the bottom. */}
+              {[6, 12, 18].map((n) => (
+                <text key={n} x={xs(n)} y={BOTTOM + 14} textAnchor="middle" className="lt-axis">
+                  {n}時
+                </text>
+              ))}
             </svg>
-            <p className="set-help">上は暖かくなっている途中、下は寒くなっている途中（℃/時）。</p>
+            <p className="sun-test-legend">
+              <Line color={DATA.feel} label={`肌感（${exposure === "sun" ? "日なた" : "日かげ"}）`} />
+              <Line color={LINE.reference} opacity={LINE.referenceOpacity} width={1.6} label="短期の履歴 S（半減3時間）" />
+              <span>
+                <svg width="22" height="10" aria-hidden>
+                  <circle cx="11" cy="5" r="4" fill="none" stroke="var(--ink-primary)" strokeWidth="2" />
+                </svg>
+                答えた時間
+              </span>
+            </p>
+            <p className="set-help">下の段は、上なら暖かくなっている途中、下なら寒くなっている途中（℃/時）。</p>
           </>
         )}
 
