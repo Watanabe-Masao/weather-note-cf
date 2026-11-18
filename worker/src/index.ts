@@ -23,7 +23,7 @@ import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { saveRadar } from "./radarArchive";
 import { collectLongRange } from "./longRangeArchive";
-import { health, timed } from "./health";
+import { health, markStart, timed } from "./health";
 import { claimHealthWatch, watchHealth } from "./healthWatch";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
@@ -230,6 +230,8 @@ export default {
     // Each stage's time and outcome is kept (health.ts: cron_runs), so the room left and a slow stage can be seen.
     const at = new Date(event.scheduledTime).toISOString();
     const stage = (name: string, fn: () => Promise<unknown>) => () => timed(db, at, name, fn);
+    // 定時処理の抜け (health.ts cronGaps): the run kept first, with how late it started.
+    ctx.waitUntil(markStart(db, at, Date.now() - event.scheduledTime));
     ctx.waitUntil(stage("notify", () => ensureSchema(db).then(() => runSchedule(db)))());
     // Apart from the notifications: a failure here never stops them (and is logged in its own table).
     // Then the sources are watched, and the administrators told when one stops (typhoonWatch.ts).

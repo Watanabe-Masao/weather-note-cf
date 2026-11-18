@@ -56,7 +56,7 @@ export interface HealthView {
     d1Size: { percent: number } | null;
     d1WritesMonth: { percent: number };
     r2: { percentOfFree: number };
-    cron: { runsLastDay: number; stages: Stage[] };
+    cron: { runsLastDay: number; stages: Stage[]; missing?: number; gaps?: { from: string; to: string; n: number }[] };
   };
   waste: {
     unparsed: number;
@@ -72,6 +72,18 @@ export interface HealthView {
 }
 
 const H = 3_600_000;
+
+/** 日本時間の「11/18 3:05」。 */
+const jstClock = (iso: string) => {
+  const d = new Date(Date.parse(iso) + 9 * H);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+};
+/** 定時処理の抜け（health.ts cronGaps）を言葉に：大きい順に3つまで。続いて抜けたか、ばらばらかが分かるように。 */
+export function gapText(gaps: { from: string; to: string; n: number }[] | undefined): string {
+  if (!gaps?.length) return "";
+  const big = [...gaps].sort((a, b) => b.n - a.n).slice(0, 3);
+  return `抜けた時間：${big.map((g) => (g.n === 1 ? `${jstClock(g.from)}` : `${jstClock(g.from)}〜${jstClock(g.to).split(" ")[1]}（${g.n}回）`)).join("・")}${gaps.length > 3 ? " ほか" : ""}。`;
+}
 
 /** Judges /api/health (null when it could not be read: only the record's note, if any). */
 export function judgeHealth(h: HealthView | null, now: number, importReady: ImportReady | null = null): Judged {
@@ -111,7 +123,7 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
     if (errs >= 3) problem("accountErrors", `アカウントの処理の失敗が24時間で ${errs} 回（${s.accountErrorsLastDay.map((e) => `${e.place} ${e.n}`).join("・")}）。`);
     else if (errs) note("accountErrors", `アカウントの処理の失敗が24時間で ${errs} 回。`);
     for (const st of room.cron.stages) if (st.failed >= 3) problem(`cronFailed:${st.stage}`, `定時処理「${st.stage}」が24時間で ${st.failed} 回失敗。`);
-    if (room.cron.runsLastDay < 250) note("cronRuns", `定時処理が24時間で ${room.cron.runsLastDay} 回（288回のはず）。`);
+    if (room.cron.runsLastDay < 250) note("cronRuns", `定時処理が24時間で ${room.cron.runsLastDay} 回（288回のはず）。${gapText(room.cron.gaps)}`);
     // 余裕
     if (room.d1Size && room.d1Size.percent >= 50) note("d1Size", `データベースの大きさが上限の ${room.d1Size.percent}%。`);
     if (room.d1WritesMonth.percent >= 50) note("d1Writes", `データベースの書き込み（月の見込み）が込みの量の ${room.d1WritesMonth.percent}%。`);
