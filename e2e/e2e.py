@@ -733,6 +733,15 @@ with sync_playwright() as p:
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-trend.png")
         check("SS2h 月のこよみ・満ち欠けと大きさ：同じ枠で替わり下が動かない、押すとその日、収まる", abs(y_next0 - y_next1) < 1 and t2 != t1 and mfit2[0] <= mfit2[1] + 1 and pg.locator(".moon-trend-mark").count() >= 1, (y_next0, y_next1, t2[:30], mfit2))
         pg.locator(".moon-sheet .seg button", has_text="カレンダー").click(); calm()
+        # 見え方のシミュレーション（2026-11-19）：時刻のつまみで、月の形・傾き・色・位置がその時刻に。地平線の下は色なし。
+        setm = lambda v: pg.evaluate("""(v) => { const r = document.querySelector('.moon-play input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, String(v)); r.dispatchEvent(new Event('input', { bubbles: true })); }""", v)
+        pg.locator(".moon-cal-day").nth(23).click(); calm()
+        setm(1380); calm(); t23 = txt(".moon-today"); tint23 = pg.locator(".moon-today .moon-sim filter").count()
+        setm(720); calm(); t12 = txt(".moon-today"); tint12 = pg.locator(".moon-today .moon-sim filter").count()
+        check("SS2i 月の見え方：23時は高い月（色つき・大きさ 0°33′）、正午は地平線の下（色なし）", "23:00" in t23 and "高さ 7" in t23 and "0°33′" in t23 and tint23 == 1 and "地平線の下" in t12 and tint12 == 0, (t23[:60], tint23, t12[:40], tint12))
+        if os.environ.get("WN_SUN"):
+            setm(1380); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim.png")
+            setm(1050); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim-low.png")
         pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)

@@ -2,13 +2,13 @@
 // 月齢・明るい部分・距離と見かけの大きさ・月の出／南中／月の入り）、下にその月のカレンダー（日ごとの形。月齢は押した日の上の欄で）と、同じ枠で替わる満ち欠けと見かけの大きさのグラフ、
 // いちばん下に次の新月・上弦・満月・下弦。日を押すとその日の月に替わる。計算は shared/moon.ts（Astronomy Engine、
 // 国立天文台の暦で確かめ済み）。時刻は正午の値（月齢・形）と、その日の出入り。1画面に収める。
-import { type PointerEvent, useMemo, useRef, useState } from "react";
+import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { daysOfMonth, monthOf } from "../../shared/dates";
 import { clockOf } from "../../shared/dayParts";
-import { dms, fullMoonName, moonDistance, moonMagnitude, moonPhase, moonQuarters, moonShapeName, moonTimes, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
+import { dms, fullMoonName, moonDistance, moonLimb, moonMagnitude, moonPhase, moonQuarters, moonShapeName, moonTimes, moonTint, moonTopo, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
 import { DEFAULT_LAT_LON, stationLatLon } from "../../shared/sunTimes";
 import { dateLabel } from "../design/format";
-import { Glyph, IconButton, InfoNote, Segmented } from "./kit";
+import { Button, Glyph, IconButton, InfoNote, Segmented, Slider } from "./kit";
 import { ICON } from "../design/tokens";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 import { ModalSheet } from "./ModalSheet";
@@ -29,9 +29,21 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
   const days = useMemo(() => daysOfMonth(month), [month]);
   const cells = useMemo(() => days.map((d) => ({ d, p: moonPhase(noonOf(d)), size: moonDistance(noonOf(d)).diameter })), [days]);
   const lead = (new Date(`${days[0]}T00:00:00Z`).getUTCDay() + 6) % 7; // 月曜はじまり
-  const p = moonPhase(noonOf(sel));
-  const name = moonShapeName(noonOf(sel));
-  const dist = moonDistance(noonOf(sel));
+  // 見え方のシミュレーション（2026-11-19）：時刻（10分ごと）を動かすと、上の月の形・傾き・色・大きさ・位置がその時刻の
+  // 観測地から見た値に替わる。はじめは今の時刻。日を替えても時刻はそのまま。
+  const [min, setMin] = useState(() => Math.floor(jst(Date.now()).min / 10) * 10);
+  const [playing, setPlaying] = useState(false);
+  useEffect(() => {
+    if (!playing) return;
+    const id = window.setInterval(() => setMin((a) => (a >= 1430 ? 0 : a + 10)), 90);
+    return () => window.clearInterval(id);
+  }, [playing]);
+  const ms = Date.parse(`${sel}T00:00:00+09:00`) + min * 60_000;
+  const p = moonPhase(ms);
+  const name = moonShapeName(ms);
+  const topo = moonTopo(ms, ll.lat, ll.lon);
+  const up = topo.altitude >= 0;
+  const limb = moonLimb(ms, ll.lat, ll.lon);
   const t = moonTimes(sel, ll.lat, ll.lon);
   const next = useMemo(() => moonQuarters(Date.parse(`${sel}T00:00:00+09:00`), 4), [sel]);
   // その日に新月・上弦・満月・下弦があれば、形の名前はそれ（時刻つき）。昔の呼び名は、その日に月相が無いときだけ。
@@ -40,7 +52,7 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
   // 満月の日は呼び名（ビーバームーンなど）、それ以外は昔の呼び名（十三夜など）を添える。
   const full = today?.kind === 2 ? fullMoonName(today.at) : null;
   const old = full ? `${full.name}${full.blue ? "・ブルームーン" : ""}` : today ? null : name.old;
-  const mag = moonMagnitude(noonOf(sel));
+  const mag = moonMagnitude(ms);
   const shapeOf = today ? (["新月", "上弦の月", "満月", "下弦の月"] as const)[today.kind] : name.shape;
   const shift = (n: number) => {
     const [y, m] = month.split("-").map(Number);
@@ -57,9 +69,13 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
   return (
     <ModalSheet title="月のこよみ" onClose={onClose} className="moon-sheet">
       <div className="moon-today">
-        <MoonGlyph phase={p} size={72} />
+        <span className={up ? "moon-sim" : "moon-sim below"}>
+          <MoonGlyph phase={p} size={72} limb={limb} tint={up ? moonTint(topo.altitude) : undefined} />
+        </span>
         <div className="moon-today-text">
-          <small>{dateLabel(sel)}（正午）</small>
+          <small>
+            {dateLabel(sel)} {clockOf(min)}・{up ? `${dirName(topo.azimuth)} 高さ ${Math.round(topo.altitude)}°` : "地平線の下"}
+          </small>
           <b>
             {title}
             {old && <span className="moon-old">{old}</span>}
@@ -68,20 +84,27 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
             月齢 {p.age.toFixed(1)}・明るい部分 {Math.round(p.illuminated * 100)}%
           </span>
           <small>
-            距離 {Math.round(dist.km / 1000) / 10}万km・大きさ {dms(dist.diameter)}
+            距離 {Math.round(topo.km / 1000) / 10}万km・大きさ {dms(topo.diameter)}
           </small>
-          <small>明るさ {mag.toFixed(1).replace("-", "−")} 等</small>
+          <InfoNote className="moon-note" more={
+            <>
+              {SHAPE_NOTE[shapeOf]}
+              {full && " 満月の呼び名はアメリカの農事暦の呼び方（秋分にいちばん近い満月がハーベストムーン、その次がハンターズムーン。同じ月の2回目の満月はブルームーン）。"}
+              {" 明るさは等級（小さいほど明るい。満月で約 −12.7）。大きさは観測地から見た直径（度・分・秒）で、月が高いほど少し大きい（最大約2%。地平線の月が大きく見えるのは目の錯覚）。"}
+              {" 上の月はつまみの時刻に空で見える形：光っている側の向き（傾き）と、高さで変わる色（低いほど大気で赤く、高いと白い。晴れた日の典型で計算し、煙やちりで青っぽく見える現象は入れていない）。"}
+              {" 月の計算：Astronomy Engine（国立天文台の暦と照らし合わせ済み）。地点：観測所の場所。"}
+            </>
+          }>
+            明るさ {mag.toFixed(1).replace("-", "−")} 等
+          </InfoNote>
         </div>
       </div>
-      <InfoNote className="moon-note" more={
-        <>
-          {SHAPE_NOTE[shapeOf]}
-          {full && " 満月の呼び名はアメリカの農事暦の呼び方（秋分にいちばん近い満月がハーベストムーン、その次がハンターズムーン。同じ月の2回目の満月はブルームーン）。"}
-          {" 明るさは等級（小さいほど明るい。満月で約 −12.7）。大きさは見かけの直径（度・分・秒）。"}
-        </>
-      }>
-        {shapeOf}について
-      </InfoNote>
+      <div className="sun-play moon-play">
+        <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[t.rise?.at, t.set?.at].filter((v): v is number => v != null).map(Math.round)} thumbs={[{ value: min, label: "時刻（10分ごと）", valueText: clockOf(min), onChange: setMin }]} />
+        <Button size="sm" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
+          {playing ? "止める" : "動かす"}
+        </Button>
+      </div>
       <div className="sun-keys moon">
         {ev("月の出", t.rise)}
         {ev("南中", t.transit, t.transit ? `高さ ${Math.round(t.transit.altitude)}°` : undefined)}
@@ -153,7 +176,6 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
           );
         })}
       </div>
-      <p className="moon-credit">月の計算：Astronomy Engine（国立天文台の暦と照らし合わせ済み）。地点：観測所の場所。</p>
     </ModalSheet>
   );
 }
