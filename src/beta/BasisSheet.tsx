@@ -10,6 +10,7 @@ import { DAYTIME_BANDS, daytimeFeel, feelOf, type FeelSettings, FORECAST_WIND_HE
 import type { WeatherRow } from "../../shared/types";
 import type { WeatherStore } from "../data/store";
 import { dateLabel, monthDay } from "../design/format";
+import { RADIUS } from "../design/tokens";
 import { FeelContext } from "../ui/FeelBar";
 import { Segmented } from "../ui/kit";
 import { ModalSheet } from "../ui/ModalSheet";
@@ -684,7 +685,7 @@ function CheckBasis({ store, station }: { store: WeatherStore | null; station: s
       <h5>確率の正直さ（PIT）</h5>
       <svg className="basis-pit" viewBox="0 0 200 60" role="img" aria-label={`PIT の度数 ${c.pit.join("・")}`}>
         {c.pit.map((k, i) => (
-          <rect key={i} x={i * 20 + 2} y={56 - (k / maxPit) * 52} width={16} height={(k / maxPit) * 52} rx={2} />
+          <rect key={i} x={i * 20 + 2} y={56 - (k / maxPit) * 52} width={16} height={(k / maxPit) * 52} rx={RADIUS.tick} />
         ))}
         <line x1={0} x2={200} y1={56 - (c.n / 10 / maxPit) * 52} y2={56 - (c.n / 10 / maxPit) * 52} className="basis-pit-even" />
       </svg>

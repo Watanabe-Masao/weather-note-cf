@@ -9,7 +9,7 @@
 
 import { useRef, type PointerEvent as RPointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "../useDrawnWidth";
-import { DATA, lineLook } from "../../design/tokens";
+import { DATA, lineLook, RADIUS } from "../../design/tokens";
 import { hourOf, md, primaryAt, type Slot, type V } from "../../../shared/forecastHistoryModel";
 import { vNum, Wx } from "./parts";
 
@@ -378,7 +378,7 @@ export function StepChart({
                 y={CELL_TOP}
                 width={gw}
                 height={CELL_H}
-                rx={2}
+                rx={RADIUS.tick}
                 className={`fh-step-gap ${gap?.state ?? ""}`}
               />
             );
@@ -400,7 +400,7 @@ export function StepChart({
                   y={CELL_TOP}
                   width={gw}
                   height={CELL_H}
-                  rx={2}
+                  rx={RADIUS.tick}
                   style={{ fill: p == null ? "transparent" : cell(p) }}
                   className={p == null ? "fh-step-none" : "fh-step-cell"}
                 />
@@ -439,7 +439,7 @@ export function StepChart({
           const x1 = xEnd(today[today.length - 1]) - 0.5;
           return (
             <g className="fh-step-today">
-              <rect x={x0} y={2} width={x1 - x0} height={AX - 2} rx={4} />
+              <rect x={x0} y={2} width={x1 - x0} height={AX - 2} rx={RADIUS.xs} />
             </g>
           );
         })()}
@@ -586,7 +586,7 @@ export function StepChart({
             transform={`translate(${PAD_L / 2 - 6}, ${BAND_Y - 17})`}
             aria-hidden="true"
           >
-            <rect x={-2} y={-2} width={16} height={16} rx={4} />
+            <rect x={-2} y={-2} width={16} height={16} rx={RADIUS.xs} />
             <path d="M3.5,10.5 V2 M1,4.5 L3.5,2 L6,4.5 M8.5,1.5 V10 M6,7.5 L8.5,10 L11,7.5" />
           </g>
         )}

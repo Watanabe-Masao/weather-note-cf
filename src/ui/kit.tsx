@@ -4,7 +4,7 @@
 import { type ButtonHTMLAttributes, type CSSProperties, Fragment, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { dayTone } from "../../shared/holidays";
 import type { Confidence } from "../../shared/confidence";
-import { type BandMark, barLook, barPath, type DataColor, type LineDay, type LineKind, type LineLook, lineLook, SHAPE } from "../design/tokens";
+import { type BandMark, barLook, barPath, type DataColor, type LineDay, type LineKind, type LineLook, lineLook, RADIUS, SHAPE } from "../design/tokens";
 import { dateLabel, digitsOf, monthDay, num, phraseBreak, weekdayOf } from "../design/format";
 
 /** A choice chip. `size="sm"` for filters inside sheets. */
@@ -381,7 +381,7 @@ export function GuideLines({
         // margin with a wide value would cut the tag: 19.7 shown as 9.7).
         return (
           <g key={`tag-${t.i}`} transform={`translate(${Math.max(0, left - 2 - w)}, ${t.ty - TAG_H / 2})`}>
-            <rect width={w} height={TAG_H} rx={4} fill={t.color} className="guide-tag" />
+            <rect width={w} height={TAG_H} rx={RADIUS.xs} fill={t.color} className="guide-tag" />
             <text x={w / 2} y={11} textAnchor="middle" className="guide-tag-text">
               {t.label}
             </text>

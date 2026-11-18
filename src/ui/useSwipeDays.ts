@@ -4,6 +4,7 @@
 // Vertical moves are left alone (the sheet scrolls and drags as usual).
 
 import { type CSSProperties, useEffect, useRef, useState } from "react";
+import { MOTION } from "../design/tokens";
 import { prefersReducedMotion, VelocityTracker } from "./sheetMotion";
 
 const SLOP = 8;
@@ -94,6 +95,6 @@ export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
     ? { transform: `translateX(${entering * 36}px)`, opacity: 0.4, transition: "none" }
     : dx
       ? { transform: `translateX(${dx}px)`, opacity: 1 - Math.min(0.5, Math.abs(dx) / 400), transition: "none" }
-      : { transform: "translateX(0)", opacity: 1, transition: "transform 260ms cubic-bezier(0.32, 0.72, 0, 1), opacity 200ms ease-out" };
+      : { transform: "translateX(0)", opacity: 1, transition: `transform ${MOTION.exit}ms ${MOTION.ease.sheet}, opacity 200ms ease-out` };
   return { ref, style, pull };
 }
