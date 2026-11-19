@@ -12,7 +12,7 @@
 // dark one), Mist Green and Warm White. A colour keeps its meaning in every theme (the same hue for an
 // item); its lightness is set per theme so it reads as strongly on that face: text 4.5:1 and graph
 // lines 3:1 against the faces it sits on, checked by test/ui/themes.test.ts. The accent is green in all
-// three (操作だけ, never data); 湿度 moved to teal so it stays apart from it (ΔE ≥ 10). Each graph role
+// three (操作だけ, never data); 湿度 is a yellow-green (2026-11-20: as a teal it had to be so dark on the light themes that it read as black) and stays ΔE ≥ 7 from it like every item. Each graph role
 // sits as far from the face in every theme (#243), the 肌感 steps as one diverging scale (4.4 … 2.4 … 4.4),
 // and Deep Navy's temperatures and 肌感 are matched by impression, not chroma (#244). Values: #241, #242.
 
@@ -193,8 +193,8 @@ const THEMES: Record<ThemeName, Palette> = {
       snow: "#cdd9ff",
       sun: "#f5c865",
       radiation: "#f2a15c",
-      humidity: "#8ee0cf",
-      humidityLow: "#1ba7a0",
+      humidity: "#c4dc72",
+      humidityLow: "#8fa83f",
       wind: "#a9c6de",
       gust: "#d6e6f4",
       pressure: "#d8b48d",
@@ -277,8 +277,8 @@ const THEMES: Record<ThemeName, Palette> = {
       snow: "#555e7f",
       sun: "#765000",
       radiation: "#934b12",
-      humidity: "#054a42",
-      humidityLow: "#214741",
+      humidity: "#435c00",
+      humidityLow: "#625c1e",
       wind: "#38556e",
       gust: "#53616d",
       pressure: "#765235",
@@ -351,8 +351,8 @@ const THEMES: Record<ThemeName, Palette> = {
       snow: "#616b8c",
       sun: "#8a6503",
       radiation: "#a5560e",
-      humidity: "#074a48",
-      humidityLow: "#224746",
+      humidity: "#556d00",
+      humidityLow: "#6a6424",
       wind: "#526f88",
       gust: "#5e6c79",
       pressure: "#88613e",
@@ -795,6 +795,11 @@ export function onSkyVars(): Record<string, string> {
     for (const [k, v] of Object.entries(values)) out[`--${group}-${kebab(k)}`] = v;
   return out;
 }
+/**
+ * 薄明の段の色（2026-11-20 渡辺さん「薄明を色分けする」）：太陽と月のグラフの下の端の帯と、薄明の表の見本で同じ色。
+ * 空の色の上に描くのでテーマによらない。市民＝夕焼けの残る暖かい色、航海＝青の時間、天文＝夜に近い藍。
+ */
+export const TWILIGHT_BAND = { civil: "#f0b37a", nautical: "#7f8fe8", astronomical: "#4a4fa8" } as const;
 /** 空の上の太陽と月の色（onSkyVars と同じ考え）。 */
 export const SKY_ICON: Palette["icon"] = THEMES.navy.icon;
 
