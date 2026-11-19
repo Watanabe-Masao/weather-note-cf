@@ -168,6 +168,21 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
         forecastHistory(db, station.blockNo, day),
       );
     }
+    case "/api/telegram": {
+      // 予報の電文の原文（2026-11-19、出どころのリンク）：アプリが保存した気象庁の電文（防災情報XML、公共データ）を1通。
+      // 気象庁の一覧からは7日で消えるが、保存した写しはここで開ける。中身は変わらないので1日共有。
+      const id = q.get("id") ?? "";
+      if (!/^[0-9A-Za-z_-]{10,80}$/.test(id)) throw new BadRequest("id を確認してください。");
+      if (!db) return jsonResponse({ v: 1, id, found: false }, 404);
+      return cachedFor(url.origin, `${CACHE_VERSION}/telegram/${id}`, 24 * 60 * 60, waitUntil, async () => {
+        const r = await db
+          .prepare("SELECT id, kind, office, url, issued_at, fetched_at, hash, xml FROM forecast_telegrams WHERE id = ?")
+          .bind(id)
+          .first<{ id: string; kind: string; office: string; url: string; issued_at: string; fetched_at: string; hash: string; xml: string }>();
+        if (!r) return { v: 1, id, found: false };
+        return { v: 1, found: true, id: r.id, kind: r.kind, office: r.office, url: r.url, issuedAt: r.issued_at, fetchedAt: r.fetched_at, hash: r.hash, xml: r.xml, source: "気象庁 防災情報XML（公共データ利用規約）" };
+      });
+    }
     case "/api/wxchart-forecast": {
       // 予想天気図 (#249): JMA's latest 24・48時間 charts, as its weather map page lists them, shared for 30 minutes.
       return cachedFor(url.origin, `${CACHE_VERSION}/wxchart-forecast`, TYPHOON_TTL, waitUntil, async () => {

@@ -7,6 +7,8 @@ import { WeatherIcon } from "../WeatherIcon";
 import type { ReactNode } from "react";
 import { type ActualDay, rangedTemps } from "./actual";
 import {
+  blanksOf,
+  hasNumbers,
   hourOf,
   KIND_SHORT,
   leadLabel,
@@ -16,6 +18,7 @@ import {
   STATE_TEXT,
 } from "../../../shared/forecastHistoryModel";
 import { Wx } from "./parts";
+import { InfoNote } from "../kit";
 
 type Num = { s: string; v?: unknown } | null | undefined;
 const numOf = (x: Num) => (x && x.s === "value" ? Number(x.v) : null);
@@ -71,6 +74,7 @@ export function SplitHeader({
   dayIcon?: ReactNode;
 }) {
   const ok = s.state === "ok" && !!s.values;
+  const blanks = ok ? blanksOf(s) : [];
   const v = s.values;
   const i = slots.indexOf(s);
   const prev =
@@ -135,6 +139,23 @@ export function SplitHeader({
             <span className="fh-lead">{leadLabel(s.lead)}</span>
             {rel && <span className="fh-lead">信頼度{rel}</span>}
           </div>
+          {/* 空欄の理由（2026-11-19）：取り損ねたのではなく、この発表にもともと無い値。府県天気予報の明後日は天気だけ */}
+          {ok && blanks.length > 0 && (
+            <InfoNote
+              className="fh-blanks"
+              more={blanks.map((b) => (
+                <span key={b.item} className="fh-blank">
+                  {b.item}：{b.reason}
+                </span>
+              ))}
+            >
+              {!hasNumbers(s)
+                ? s.kind === "VPFD51" && s.lead >= 2
+                  ? "降水確率・気温は無い発表（明後日は天気だけ）"
+                  : "降水確率・気温は無い発表"
+                : `空欄の理由（${blanks.length}）`}
+            </InfoNote>
+          )}
         </div>
         {/* 右：実績 */}
         <div className="fh-split-col actual">

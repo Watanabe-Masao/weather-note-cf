@@ -126,6 +126,8 @@ def api(path, q):
             "room": {"d1Size": {"bytes": 66480000, "percent": 0.6}, "d1WritesMonth": {"estimate": 635000, "percent": 1.3, "rowsLastDay": 7054}, "r2": {"bytes": 5138000, "percentOfFree": 0}, "cronRunsLastDay": 288, "cronMissing": 0},
             "lastAudit": {"at": "2026-11-10T01:05:00Z", "result": {"tables": [{"name": "forecast_entries", "rows": 182345}, {"name": "reports", "rows": 412}, {"name": "users", "rows": 3}], "links": [{"name": "予報の値で、もとの発表が無い", "n": 0}, {"name": "肌感の記録で、人がいない", "n": 0}]}},
             "lastDupCheck": {"at": "2026-11-10T01:00:00Z", "result": [{"name": "予報の電文（同じ中身）", "n": 0, "examples": []}, {"name": "予報の電文（同じ発表時刻に2通以上）", "n": 1, "examples": ["VPFD51 11/9 11:00（2通）"], "note": "訂正報で正しく2通のこともある"}, {"name": "肌感の記録（同じ人・時刻・中身が2件以上）", "n": 0, "examples": []}]}}
+    if path == "/api/telegram":
+        return {"v": 1, "found": True, "id": q.get("id", ""), "kind": "VPFD51", "office": "390000", "url": "https://www.data.jma.go.jp/developer/xml/data/x.xml", "issuedAt": "2026-11-10T11:00:00+09:00", "fetchedAt": "2026-11-10T02:03:00Z", "hash": "abcdef0123456789", "xml": "<?xml version=\"1.0\"?>\n<Report><Control><Title>府県天気予報（Ｒ１）</Title></Control></Report>", "source": "気象庁 防災情報XML（公共データ利用規約）"}
     if path == "/api/rain-now":
         return RAIN_NOW
     if path == "/api/wxchart-at":
@@ -963,6 +965,22 @@ with sync_playwright() as p:
         check("SD4g 予報の一覧：前の日の発表は畳まれていて、押すと開く", closed and opened, (closed, opened))
         if fb.count():
             fb.click(); pg.wait_for_timeout(500)
+        # 出どころのリンク（2026-11-19）：出典の ⓘ に、選んでいる発表の原文・実績（過去の気象データ）・今の予報。原文はシートで。
+        src = pg.locator(".fh-sources")
+        src.scroll_into_view_if_needed(); src.locator(".info-btn").click(); calm()
+        links = src.locator("a")
+        hrefs = [links.nth(i).get_attribute("href") for i in range(links.count())]
+        has_etrn = any("etrn/view/hourly_s1.php?prec_no=74&block_no=47893" in (h or "") for h in hrefs)
+        has_fc = any("area_code=390000" in (h or "") for h in hrefs)
+        src.locator("button", has_text="原文を見る").click(); calm()
+        settle(lambda: pg.locator(".telegram-sheet .tg-xml").count() == 1)
+        xml_ok = "<Report>" in (pg.locator(".telegram-sheet .tg-xml").inner_text() or "")
+        if os.environ.get("WN_SHOT"): pg.screenshot(path=f"{os.environ['WN_SHOT']}-telegram.png")
+        pg.locator(".telegram-sheet .icon-btn.close").click(); calm()
+        check("SD4k 出典の ⓘ：実績と今の予報のリンク（新しいタブ）、原文はシートで開いて閉じられる", has_etrn and has_fc and all(links.nth(i).get_attribute("target") == "_blank" for i in range(links.count())) and xml_ok and pg.locator(".telegram-sheet").count() == 0, (hrefs, xml_ok))
+        if os.environ.get("WN_SHOT"):
+            src.scroll_into_view_if_needed(); calm(); pg.locator(".fh").screenshot(path=f"{os.environ['WN_SHOT']}-fh-sources.png")
+        src.locator(".info-btn").click(); calm()
         st = small_text(); check("SD4c 11px より小さい文字がない（1日モード・天気図）", not st, str(st))
         # 項目を切り替えても、項目の選び（とその上）は動かない（2026-11-18 渡辺さん「切り替えで画面がぶれるのが嫌い」）。
         tops = []

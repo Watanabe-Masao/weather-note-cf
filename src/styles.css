@@ -4274,6 +4274,13 @@ select.chip.sm {
 .mt-list.small { gap: var(--space-2); font-size: var(--size-sm); color: var(--ink-secondary); }
 .mt-list li.warn { color: var(--status-warning); }
 .mt-fine { color: var(--ink-tertiary); }
+/* 発表の原文（forecastHistory/Sources.tsx） */
+.tg { display: grid; gap: var(--space-3); }
+.tg-meta { display: grid; grid-template-columns: auto 1fr; gap: var(--space-1) var(--space-4); margin: 0; font-size: var(--size-sm); }
+.tg-meta dt { color: var(--ink-tertiary); }
+.tg-meta dd { margin: 0; color: var(--ink-primary); overflow-wrap: anywhere; }
+.tg-id { font-family: var(--font-numeric); font-size: var(--size-xs); }
+.tg-xml { margin: 0; padding: var(--space-3); max-height: 60vh; overflow: auto; border-radius: var(--radius-sm); background: var(--surface-inset); font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-secondary); white-space: pre-wrap; word-break: break-all; }
 .mt-tables code { font-family: var(--font-numeric); color: var(--ink-primary); }
 .mt-errors code { font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-secondary); white-space: pre-wrap; word-break: break-all; }
 
