@@ -17,6 +17,7 @@ import { actualOf } from "./actual";
 import { DayRows } from "./DayRows";
 import { SplitHeader } from "./SplitHeader";
 import { StepChart } from "./StepChart";
+import { Sources } from "./Sources";
 import "./forecastHistory.css";
 
 type Loaded = { date: string; station: string; r: ForecastHistoryResponse } | { date: string; station: string; error: true };
@@ -120,7 +121,7 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
         </Chip>
       </div>
       <DayRows slots={slots} all={all} day={date} selected={focusKey} onSelect={setSel} onlyChanged={onlyChanged} />
-      <p className="fh-credit">出典：気象庁（府県天気予報・府県週間天気予報、防災情報XML）</p>
+      <Sources slot={focusSlot} station={station} day={date} office={res.r.supported ? res.r.places.office : null} />
     </div>
   );
 }

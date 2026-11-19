@@ -10,7 +10,7 @@
 import { useRef, type PointerEvent as RPointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "../useDrawnWidth";
 import { DATA, lineLook, RADIUS } from "../../design/tokens";
-import { hourOf, md, primaryAt, type Slot, type V } from "../../../shared/forecastHistoryModel";
+import { hourOf, md, primaryAt, type Slot, STATE_TEXT, type V } from "../../../shared/forecastHistoryModel";
 import { vNum, Wx } from "./parts";
 
 const W = 300;
@@ -653,6 +653,19 @@ export function StepChart({
           <i className="fh-step-swatch band" />
           予測範囲
         </span>
+        {/* 空いた所の見分け（2026-11-19）：発表にもともと無い値（点線）と、発表そのものが無い回（取れなかった・届いていない・記録なし） */}
+        <span>
+          <i className="fh-step-swatch none" />
+          発表に無い値
+        </span>
+        {(["failed", "notIssued", "missing"] as const)
+          .filter((st) => slots.some((z) => z.state === st))
+          .map((st) => (
+            <span key={st}>
+              <i className={`fh-step-swatch gap ${st}`} />
+              {STATE_TEXT[st]}
+            </span>
+          ))}
         <span>
           <svg width="26" height="10" aria-hidden="true">
             <path
