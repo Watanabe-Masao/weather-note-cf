@@ -914,6 +914,12 @@ with sync_playwright() as p:
         pg.locator(".moon-day-sheet .icon-btn.close").click(); pg.wait_for_timeout(600)
         y_after = pg.evaluate("document.querySelector('.moon-sheet .msheet-body').scrollTop")
         check("SS3a 月相の印が4つ前後、満月の日を押すとその日の月（満月の時刻・呼び名・出入り）、閉じると元の位置", 3 <= marks_n <= 5 and "満月（" in day_txt and "ムーン" in day_txt and "月の出" in day_txt and pg.locator(".moon-day-sheet").count() == 0 and abs(y_before - y_after) < 2 and pg.locator(".moon-next .phase-icon").count() == 4, (marks_n, day_txt[:60], y_before, y_after))
+        # 満月の呼び名のページ（11/20）：その年の満月の一覧、押した満月の由来が開く。その年だけのことは計算から（2026年は3/3 皆既月食・5/31 ブルームーン・12/24 いちばん近い）。
+        pg.locator(".moon-sheet .fm-open-row .btn").click(); calm()
+        fm_rows = pg.locator(".fm-row").count(); fm_txt = txt(".fm-sheet")
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-fullmoons.png")
+        pg.locator(".fm-sheet .icon-btn.close").click(); pg.wait_for_timeout(600)
+        check("SS3b 満月の呼び名：2026年は13回、開いた満月に由来、皆既月食・ブルームーン・いちばん近い満月を計算から", fm_rows == 13 and "名前の由来" in fm_txt and "ビーバームーン" in fm_txt and "皆既月食（" in fm_txt and "ブルームーン" in fm_txt and "いちばん近い" in fm_txt and pg.locator(".fm-sheet").count() == 0, (fm_rows, fm_txt[:80]))
         cal = pg.locator(".moon-cal-day").count()
         pick_day(23)
         t1 = txt(".moon-today")
