@@ -14,6 +14,13 @@ interface PermissionCapable {
 
 /** ならしの重み（新しい値の割合）：手の揺れを抑えつつ、向きを変えたら 0.3 秒ほどで追いつく。 */
 const SMOOTH = 0.25;
+/**
+ * コンパスとの差を測るのは、端末を立てて地平線の方へ向けている間だけ（11/19 実機：上へ 44°・48° に向けると、方位が
+ * 155° → 250° → 338° と大きくずれた。iPhone のコンパスの値は、見上げるほど当てにならない）。見上げている間は、
+ * 立てていたときに測った差のまま、向きのセンサー（ジャイロ）の回りだけで方位を出す。
+ */
+const CALIB_ALT = 20;
+const CALIB_ROLL = 20;
 
 /** 画面の向き（PWA は縦に固定なので、ふつうは 0）。 */
 const screenAngle = () => {
@@ -26,6 +33,8 @@ const screenAngle = () => {
 export function useSkyLook(declination: number, offset: number) {
   const [state, setState] = useState<SkyLookState>("off");
   const [look, setLook] = useState<Look | null>(null);
+  /** コンパスとの差を測れたか（まだなら、一度端末を立てて地平線の方へ向けてもらう）。 */
+  const [calibrated, setCalibrated] = useState(false);
   const last = useRef<Look | null>(null);
   const frame = useRef<number | null>(null);
   const listening = useRef(false);
@@ -52,7 +61,7 @@ export function useSkyLook(declination: number, offset: number) {
       const compass = o.webkitCompassHeading != null && Number.isFinite(o.webkitCompassHeading) ? o.webkitCompassHeading : null;
       if (m.azimuth != null && m.roll != null) {
         if (compass != null) {
-          if (Math.abs(m.roll) < 25 && Math.abs(m.altitude) < 60) {
+          if (Math.abs(m.roll) < CALIB_ROLL && Math.abs(m.altitude) < CALIB_ALT) {
             const d = azDiff(compass, m.azimuth);
             calib.current = calib.current == null ? d : calib.current + azDiff(d, calib.current) * 0.1;
           }
@@ -68,6 +77,7 @@ export function useSkyLook(declination: number, offset: number) {
       frame.current = requestAnimationFrame(() => {
         frame.current = null;
         setLook(last.current);
+        setCalibrated(calib.current != null);
         setState("on");
       });
   }, []);
@@ -82,6 +92,7 @@ export function useSkyLook(declination: number, offset: number) {
     frame.current = null;
     last.current = null;
     calib.current = null;
+    setCalibrated(false);
     setLook(null);
     setState("off");
   }, [onEvent]);
@@ -104,5 +115,5 @@ export function useSkyLook(declination: number, offset: number) {
   }, [onEvent]);
 
   useEffect(() => stop, [stop]);
-  return { state, look, start, stop };
+  return { state, look, start, stop, calibrated };
 }

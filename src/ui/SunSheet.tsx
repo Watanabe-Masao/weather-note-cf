@@ -251,6 +251,7 @@ export function SunSheet({
           )}
           <small className="sky-sensor-state" aria-live="polite">
             {aiming ? "本物の太陽か月を真ん中の＋に合わせて、画面をタップしてください" : aimNote}
+            {sensor.state === "on" && !sensor.calibrated && "方位を合わせるため、一度端末を立てて地平線の方へ向けてください（見上げている間はコンパスがずれやすい）"}
             {{ off: "", waiting: "向きを読んでいます…", on: "", denied: "向きのセンサーが許可されませんでした（設定で許可できます）", unsupported: "この端末では向きのセンサーを読めません", noHeading: "方位が読めません（傾きだけ）" }[sensor.state]}
             {{ off: "", starting: "カメラを開いています…", on: "", denied: "カメラが許可されませんでした（設定で許可できます）", unsupported: "この端末ではカメラを使えません" }[camera.state]}
           </small>
