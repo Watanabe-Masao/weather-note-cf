@@ -14,12 +14,11 @@ import { addDays } from "../../shared/dates";
 import type { WeatherRow } from "../../shared/types";
 import { dailyRadiation, hourlyExtreme } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
-import { clock, hourOfDay } from "../data/sun";
+import { shownClock, shownSun } from "../data/sun";
 import { lineLabel, num, signedDiff, UNIT, yearMark } from "../design/format";
 import type { DataColor } from "../design/tokens";
 import { Badge, Button, CheckGlyph, confidenceOfRow, DayLabel, Glyph, SwipeHint } from "./kit";
 import type { MetricId } from "../metrics";
-import { useSun } from "./HourCompare";
 import { useSwipeDays } from "./useSwipeDays";
 import { TyphoonTag } from "./TyphoonTag";
 import { DayWeatherIcon } from "./WeatherIcon";
@@ -66,12 +65,10 @@ function relative(date: string, today: string): "今日" | "昨日" | "明日" |
 }
 
 
-/** Sunrise difference in minutes, "+7分" / "−3分" / "±0". */
-function minutes(a: string | null, b: string | null): string {
-  const x = hourOfDay(a);
-  const y = hourOfDay(b);
-  if (x == null || y == null) return "";
-  const d = Math.round((x - y) * 60);
+/** Sunrise difference in minutes, "+7分" / "−3分" / "±0"：表に出す丸めた時刻どうしの差。 */
+function minutes(a: number | null, b: number | null): string {
+  if (a == null || b == null) return "";
+  const d = Math.round(a) - Math.round(b);
   return d === 0 ? "±0" : d > 0 ? `+${d}分` : `−${-d}分`;
 }
 
@@ -155,8 +152,9 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const hoursOf = (d: string | null) => (d ? (store?.getHours(station, d).rows ?? null) : null);
   const a = rowOf(target);
   const b = rowOf(other);
-  const sunA = useSun(station, target, today, a);
-  const sunB = useSun(station, other, today, b);
+  // 日の出・日の入りは計算の値（src/data/sun.ts shownSun、2026-11-19）。
+  const sunA = shownSun(target, station);
+  const sunB = other ? shownSun(other, station) : null;
   const years = !!other && other.slice(0, 4) !== target.slice(0, 4);
   // β: each day against its own recent past (最近の基準), in the air, in the sun and in the shade.
   const beta = useContext(BetaContext);
@@ -365,14 +363,14 @@ export function CompareSummary({ store, station, target, other, today, metric, o
 
       <div className="cs-row cs-sun">
         <span className="cs-val cs-a">
-          {clock(sunA?.sunrise ?? null)}–{clock(sunA?.sunset ?? null)}
+          {shownClock(sunA.rise)}–{shownClock(sunA.set)}
         </span>
         <span className="cs-mid cs-grid">
           <span className="cs-label">日の出</span>
-          <span className="cs-diff">{minutes(sunA?.sunrise ?? null, sunB?.sunrise ?? null)}</span>
+          <span className="cs-diff">{minutes(sunA.rise, sunB?.rise ?? null)}</span>
         </span>
         <span className="cs-val cs-b">
-          {clock(sunB?.sunrise ?? null)}–{clock(sunB?.sunset ?? null)}
+          {sunB ? `${shownClock(sunB.rise)}–${shownClock(sunB.set)}` : "—"}
         </span>
       </div>
 

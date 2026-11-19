@@ -805,6 +805,11 @@ with sync_playwright() as p:
         pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
+        # 画面の日の出入りは計算だけ（11/19）：太陽のシート・1日モードの行・比較のまとめで同じ時刻（どれも Open-Meteo の値を読まない）。
+        sheet_rise = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text(); sheet_set = pg.locator(".sun-keys:not(.moon) .sun-key b").nth(2).inner_text()
+        others = pg.evaluate("""() => ({ dd: [...document.querySelectorAll('.dd-sun b')].slice(0, 2).map(e => e.textContent), cs: (document.querySelector('.cs-sun .cs-a') || {}).textContent || null })""")
+        same = (not others["dd"] or others["dd"] == [sheet_rise, sheet_set]) and (others["cs"] is None or others["cs"].strip() == f"{sheet_rise}–{sheet_set}")
+        check("SS2o 日の出入りが太陽のシート・1日モード・比較のまとめで同じ", same and (others["dd"] or others["cs"]), (sheet_rise, sheet_set, others))
         # 現在地で計算（11/19）：位置を許可すると、太陽と月は現在地（0.01° に丸めた値）で。題に（現在地）、月のこよみは「現在地から見た」。
         # やめると観測所に戻る。ここでは札幌あたりの位置を流す（高知と日の出がはっきり違う）。
         rise0 = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text()

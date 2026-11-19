@@ -26,7 +26,7 @@ const readBands = (): Bands => {
 };
 import { StormMark, WeatherIcon } from "./WeatherIcon";
 import { stormLevel, type StormLevel } from "../../shared/storm";
-import { cachedSun, isNightAt, loadSun, sunAvailable, sunHours, type SunTimes } from "../data/sun";
+import { isNightAt, shownSunHours } from "../data/sun";
 import {
   axisRange,
   type DetailMetricId,
@@ -64,21 +64,6 @@ export const HOUR_TONE: Record<DetailMetricId, DataColor> = {
 
 export const shortDate = (d: string) => dateLabel(d, { year: true, weekday: false });
 
-/** Sunrise and sunset: from the forecast row when it has them, otherwise asked once. */
-export function useSun(station: string, date: string | null, today: string, row: WeatherRow | null | undefined): SunTimes | null {
-  const fromRow = row && typeof row.sunrise === "string" ? { sunrise: row.sunrise as string, sunset: (row.sunset as string) ?? null } : null;
-  const [sun, setSun] = useState<SunTimes | null>(() => (date ? (cachedSun(station, date) ?? null) : null));
-  useEffect(() => {
-    if (!date || fromRow || !sunAvailable(date, today)) return setSun(null);
-    setSun(cachedSun(station, date) ?? null);
-    let live = true;
-    void loadSun(station, date).then((s) => live && setSun(s));
-    return () => {
-      live = false;
-    };
-  }, [station, date, today, !!fromRow]); // eslint-disable-line react-hooks/exhaustive-deps
-  return fromRow ?? sun;
-}
 
 interface Props {
   store: WeatherStore | null;
@@ -96,18 +81,16 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const metric = detailMetric(metricId);
   const hours = store?.getHours(station, date);
   const otherHours = other ? store?.getHours(station, other) : null;
-  const sun = useSun(station, date, today, store?.getDay(station, date).row);
   // The parts of the day and the sun's height, by the sun at this station (shared/dayParts.ts).
   const day = useMemo(() => ({ parts: dayParts(date, station), edges: dayEdges(date, station), curve: altitudeCurve(date, station, 10) }), [date, station]);
   // Before sunrise or after sunset a clear sky is drawn as the moon (the readout and the weather row).
   // Each day's own sunrise and sunset (the comparison day may be another season), for drawing a
   // clear night as the moon in the readout and the weather rows.
-  const sunMain = sunHours(sun, day.edges);
+  // 画面の日の出入りは計算の値だけ（src/data/sun.ts shownSun、2026-11-19）。
+  const sunMain = useMemo(() => shownSunHours(date, station), [date, station]);
   // The plot's left edge (its axis column), reported by the graph: the parts under it line up with it.
   const [plotLeft, setPlotLeft] = useState(34);
-  const otherSunTimes = useSun(station, other, today, other ? store?.getDay(station, other).row : null);
-  const otherEdges = useMemo(() => (other ? dayEdges(other, station) : null), [other, station]);
-  const sunOther = other && otherEdges ? sunHours(otherSunTimes, otherEdges) : null;
+  const sunOther = useMemo(() => (other ? shownSunHours(other, station) : null), [other, station]);
 
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings, station), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings, station), [otherHours, metricId, settings]);
@@ -304,7 +287,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         dim={dim}
         ranges={levelRanges(bands === "you" && personal ? personal : dayFeel.thresholds, settings.scale)}
         guides={bands === "you" ? dayFeel.thresholds : undefined}
-        sun={sun}
+        sun={sunMain}
         day={day}
         nowHour={isToday ? nowHour : null}
         hour={shownHour}
@@ -322,7 +305,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         bandDates={[date, other ?? null]}
         onSun={() => setSunOpen(true)}
       />
-      {sunOpen && <SunSheet date={date} station={station} sun={sun} hour={shownHour} sky={skyStrip} onClose={() => setSunOpen(false)} />}
+      {sunOpen && <SunSheet date={date} station={station} hour={shownHour} sky={skyStrip} onClose={() => setSunOpen(false)} />}
       <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
       </div>
 
@@ -799,7 +782,8 @@ function HourChart({
   dim?: Record<LineId, boolean>;
   /** Coloured 肌感 ranges behind the feel graph (the chosen scale). */
   ranges: { from: number; to: number; color: string }[];
-  sun: SunTimes | null;
+  /** 日の出・日の入り（時、計算の値。src/data/sun.ts shownSunHours）。 */
+  sun: { rise: number; set: number };
   /** The five parts (by the sun's altitude), the day's edges, and the altitude through the day. */
   day: { parts: PartWindow[]; edges: DayEdges; curve: { min: number; deg: number }[] };
   nowHour: number | null;
@@ -832,8 +816,7 @@ function HourChart({
   // Hour n is the value at n o'clock: x runs from 0 to 24 o'clock.
   const xOf = (h: number) => left + (h / 24) * plotW;
   const yOf = (v: number) => PAD.top + ((hi - Math.min(hi, Math.max(lo, v))) * (H - PAD.top - PAD.bottom)) / (hi - lo);
-  // Sunrise and sunset from the sun API when known (the stored ones), else calculated.
-  const { rise, set } = sunHours(sun, day.edges);
+  const { rise, set } = sun;
   const plotTop = PAD.top;
   const plotBottom = H - PAD.bottom;
   // The sun's height in its own strip under the plot, the day's highest point at the strip's top.

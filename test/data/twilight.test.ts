@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dayEdges, twilights } from "../../shared/dayParts";
-import { isNightAt, sunHours } from "../../src/data/sun";
+import { isNightAt } from "../../src/data/sun";
 import { hoursMinutes, phraseBreak } from "../../src/design/format";
 
 const clock = (m: number | null) => (m == null ? null : `${Math.floor(m / 60)}:${String(Math.round(m % 60)).padStart(2, "0")}`);
@@ -36,12 +36,10 @@ describe("twilights where they do not happen, and the night rule (#151)", () => 
     expect(t.nautical.end!).toBeLessThan(t.astronomical.end!);
   });
   it("an hour is night by its middle: 6時 (5–6時) before a 6:20 sunrise, 7時 (6–7時) not", () => {
-    const h = sunHours(null, { rise: 6 * 60 + 20, set: 17 * 60 + 12 });
+    const h = { rise: (6 * 60 + 20) / 60, set: (17 * 60 + 12) / 60 };
     expect(isNightAt(6 - 0.5, h)).toBe(true);
     expect(isNightAt(7 - 0.5, h)).toBe(false);
     expect(isNightAt(18 - 0.5, h)).toBe(true);
-    // The API's sunrise wins over the calculated one.
-    expect(sunHours({ sunrise: "2026-11-10T06:40:00+09:00", sunset: null }, { rise: 391, set: 1032 }).rise).toBeCloseTo(6 + 40 / 60, 5);
   });
 });
 

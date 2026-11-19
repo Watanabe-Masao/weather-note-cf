@@ -2,7 +2,7 @@
 // against the horizon and the three twilights, and the times they begin and end.
 
 import { clockOf, dayEdges, dayParts, altitudeCurve, twilights, TWILIGHTS } from "../../shared/dayParts";
-import { sunHours, type SunTimes } from "../data/sun";
+import { shownClock, shownDayLength, shownSun } from "../data/sun";
 import { dateLabel, hoursMinutes } from "../design/format";
 import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
@@ -30,14 +30,12 @@ const PAD = { left: 38, right: 8, top: 10, bottom: 20 };
 export function SunSheet({
   date,
   station,
-  sun,
   hour,
   sky,
   onClose,
 }: {
   date: string;
   station: string;
-  sun: SunTimes | null;
   hour: number | null;
   /** The day's own sky every 10 minutes (the 太陽 strip's, from the day's weather), by hour; an hour
    *  without data falls back to a clear day's sky (#151: the strip and the sheet tell the same sky). */
@@ -68,11 +66,10 @@ export function SunSheet({
     const sunAz = curve.map((p) => solarAzimuth(date, p.min, ll.lat, ll.lon));
     return { moon, sunAz, times: moonTimes(date, ll.lat, ll.lon), day0 };
   }, [date, curve, ll.lat, ll.lon]);
-  // Sunrise and sunset by the same rule as the graph (data/sun sunHours), in minutes.
-  // 現在地のときは、観測所の記録の日の出入りではなく計算の値。
-  const { rise: riseH, set: setH } = sunHours(hereOn ? null : sun, e);
-  const rise = riseH * 60;
-  const set = setH * 60;
+  // 日の出・日の入り（分）：画面はどこも計算の値（src/data/sun.ts shownSun）。無い日は文字に「なし」、絵は区切りの代わりの値。
+  const shown = shownSun(date, place);
+  const rise = shown.rise ?? e.rise;
+  const set = shown.set ?? e.set;
   // 上端は太陽と月の高い方から決める（月が太陽より高く昇る日に、月の線が上端に張り付かないように）。
   const peak = Math.max(e.noonAltitude, ...sky3.moon.map((m) => m.altitude));
   const high = Math.min(90, Math.max(30, Math.ceil((peak + 8) / 10) * 10));
@@ -149,7 +146,7 @@ export function SunSheet({
     const m = ((sx - PAD.left) / (W - PAD.left - PAD.right)) * 1440;
     setAt(Math.min(1430, Math.max(0, Math.round(m / 10) * 10)));
   };
-  const length = set - rise;
+  const length = shownDayLength(shown);
 
   return (
     <ModalSheet title={`${dateLabel(date)}の太陽と月${hereOn ? "（現在地）" : ""}`} onClose={onClose} className="sun-sheet">
@@ -270,9 +267,10 @@ export function SunSheet({
         <path d={path} className="sun-curve" />
         {/* The sun above the horizon in the icons' sun colour, not 日照's data colour (it is no 日照 value). */}
         {dayPath && <path d={dayPath} className="sun-curve day" style={{ stroke: ICON.sun }} />}
-        {/* Where the sun crosses 0°, −6°, −12°, −18°: a dot on the curve, morning and evening. */}
-        {[rise, set, t.civil.start, t.civil.end, t.nautical.start, t.nautical.end, t.astronomical.start, t.astronomical.end].map((m, i) =>
-          m == null ? null : <circle key={i} cx={x(m)} cy={y(i < 2 ? 0 : TWILIGHTS[Math.floor((i - 2) / 2)].deg)} r={i < 2 ? 3.5 : 2.6} className={i < 2 ? "sun-mark rise" : "sun-mark"} />,
+        {/* 日の出入り（太陽の上端が地平線、中心は −0.833°）と −6°・−12°・−18° を曲線の上に点で。日の出入りの点は 0° の線（地平線）より
+            わずかに下：中心が 0° になるのは数分あと（定義の違い、11/19）。日の出入りの無い日は点を打たない。 */}
+        {[shown.rise, shown.set, t.civil.start, t.civil.end, t.nautical.start, t.nautical.end, t.astronomical.start, t.astronomical.end].map((m, i) =>
+          m == null ? null : <circle key={i} cx={x(m)} cy={y(i < 2 ? -0.833 : TWILIGHTS[Math.floor((i - 2) / 2)].deg)} r={i < 2 ? 3.5 : 2.6} className={i < 2 ? "sun-mark rise" : "sun-mark"} />,
         )}
         {/* 月：地平線より上の高さを点線で（色は天気の絵の月の色）、選んだ時刻の位置に丸。 */}
         {moonPath && <path d={moonPath} className="moon-curve" style={{ stroke: ICON.moon }} />}
@@ -334,13 +332,13 @@ export function SunSheet({
           3つの薄明は朝と夕の2列の表に、説明は ⓘ に。 */}
       <div className="sun-keys">
         {[
-          { label: "日の出", time: rise },
+          { label: "日の出", time: shown.rise, none: true },
           { label: "南中", time: e.noon, note: `高さ ${Math.round(e.noonAltitude)}°` },
-          { label: "日の入り", time: set },
+          { label: "日の入り", time: shown.set, none: true },
         ].map((k) => (
           <div key={k.label} className="sun-key">
             <small>{k.label}</small>
-            <b>{k.time == null ? "—" : clockOf(k.time)}</b>
+            <b>{"none" in k ? shownClock(k.time) : k.time == null ? "—" : clockOf(k.time)}</b>
             {k.note && <small>{k.note}</small>}
           </div>
         ))}
@@ -394,6 +392,7 @@ export function SunSheet({
         className="sun-info"
         more={
           <>
+            日の出・日の入りは、太陽の上端が地平線に接する時刻（大気差込み）の計算です（国立天文台の暦と1分以内）。グラフの点は太陽の中心の高さなので、0° の線（地平線）よりわずかに下にあります。
             左右になぞると10分ごとに動きます。空の色はこの日の天気（実績・予報）からの模式で、グラフの下の帯と同じです
             {filled > 0 ? "（データのない時間は晴れた日の空）" : ""}。地平線の下は、薄明が見やすいように広げて描いています。
             {TWILIGHTS.map((tw) => (
@@ -413,7 +412,7 @@ export function SunSheet({
       <small className="sun-here" aria-live="polite">
         {hereOn
           ? `太陽と月は現在地（${latLonText(hereOn.lat, hereOn.lon)}）で計算。空の色と天気は${stationName}`
-          : { off: `太陽と月は${stationName}（観測所）の場所で計算`, asking: "現在地を読んでいます…", denied: "位置情報が許可されませんでした（設定で許可できます）。観測所で計算しています", unavailable: "現在地を読めませんでした。観測所で計算しています" }[here.state.kind as "off" | "asking" | "denied" | "unavailable"]}
+          : { off: `太陽と月は${stationName}（観測所）の場所で計算`, asking: "現在地を読んでいます…", denied: "位置情報が許可されませんでした（設定で許可できます）。観測所で計算しています", unavailable: "現在地を読めませんでした。観測所で計算しています", outside: "現在地は日本の中だけ使えます。観測所で計算しています" }[here.state.kind as "off" | "asking" | "denied" | "unavailable" | "outside"]}
       </small>
     </ModalSheet>
   );
