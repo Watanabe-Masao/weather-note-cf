@@ -61,7 +61,7 @@ export function IssueWeekSheet({ station, issue, day, onClose }: { station: stri
   const title = `${md(jstDate(at))}（${weekday(jstDate(at))}）${hourOf(at)}時の${KIND_NAME[issue.kind as Kind] ?? "発表"}`;
   const rows = r && r.supported && r.found ? issueDays(r) : [];
   return createPortal(
-    <ModalSheet title={title} onClose={onClose} className="fh-week-sheet">
+    <ModalSheet title={title} onClose={onClose} className="fh-week-sheet" size="fit">
       {error ? (
         <p className="warn">この発表を読み込めませんでした。時間をおいて開き直してください。</p>
       ) : !r ? (
