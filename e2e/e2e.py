@@ -274,6 +274,13 @@ def step(name, fn):
         tb = [f"{f.lineno}" for f in traceback.extract_tb(e.__traceback__) if f.filename == __file__]
         print(f"  {name} stopped at e2e.py line {' > '.join(tb)}: {str(e).splitlines()[0][:200]}", flush=True)
         try:
+            # 開いているシートの文字と、時刻の操作があるか（写真を取りに行けないときの手がかり）。
+            print("  " + name + " page:", json.dumps(pg.evaluate("""() => { const m = [...document.querySelectorAll('.msheet')].pop();
+              return { sheet: m ? m.innerText.replace(/\\s+/g, ' ').slice(0, 700) : null, play: document.querySelectorAll('.sun-play').length,
+                btns: [...document.querySelectorAll('.sun-play .btn')].map(b => b.textContent.trim()), w: innerWidth, h: innerHeight }; }"""), ensure_ascii=False), flush=True)
+        except Exception:
+            pass
+        try:
             os.makedirs(os.path.join(os.path.dirname(__file__), "shots"), exist_ok=True)
             pg.screenshot(path=os.path.join(os.path.dirname(__file__), "shots", f"fail-{W}-{name}.png"), full_page=True)
         except Exception:
