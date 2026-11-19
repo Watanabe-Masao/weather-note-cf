@@ -17,6 +17,7 @@
 import type { Db } from "./accounts";
 import { feedEntries, telegramId, type FeedEntry } from "./typhoonArchive";
 import { doneOnce } from "./once";
+import { retryingFetch } from "./retry";
 
 export const WARNING_ARCHIVE_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS warning_telegrams (
@@ -73,7 +74,8 @@ async function sha256(s: string): Promise<string> {
 }
 
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
-const defaultFetch: Fetcher = (url) => fetch(url, { signal: AbortSignal.timeout(20_000) });
+// 一時的な失敗（5xx・429・接続の切れ）は、待ちを延ばしながら3回まで（retry.ts）。
+const defaultFetch: Fetcher = retryingFetch(20_000);
 
 const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureWarningSchema(db: Db): Promise<void> {
