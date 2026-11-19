@@ -709,6 +709,22 @@ with sync_playwright() as p:
         pg.evaluate("""() => { for (let i = 0; i < 20; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
         head = pg.evaluate("(document.querySelector('.sky-view.window .sky-heading') || {}).textContent || ''")
         h_win = pg.locator(".sky-view").first.bounding_box()["height"] if pg.locator(".sky-view").count() else 0
+        # 今に付いていく（11/19）：今日に端末の向きで見はじめると「今」が押された状態で、時刻が今（テストの時計 12:0x）に。
+        # つまみを動かすと止まり、「今」で戻る。太陽は本当の大きさ（窓 60° で半径 1.5〜3）に輪と名前。
+        now_on = pg.locator(".sun-play .btn", has_text="今").first.get_attribute("aria-pressed"); t_now = txt(".sun-now-time")
+        sun_r = pg.evaluate("(() => { const c = document.querySelector('.sky-view.window .sky-sun'); if (c) return +c.getAttribute('r'); const m = document.querySelector('.sky-view.window .sky-body .moon-glyph'); return m ? +m.getAttribute('width') / 2 : null; })()")
+        named = pg.locator(".sky-view.window .sky-body-name").count()
+        pg.evaluate("""() => { const r = document.querySelector('.sun-card ~ .sun-play input, .sun-play input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, '900'); r.dispatchEvent(new Event('input', { bubbles: true })); }"""); calm()
+        now_off = pg.locator(".sun-play .btn", has_text="今").first.get_attribute("aria-pressed"); t_moved = txt(".sun-now-time")
+        pg.locator(".sun-play .btn", has_text="今").first.click(); calm()
+        now_back = pg.locator(".sun-play .btn", has_text="今").first.get_attribute("aria-pressed"); t_back = txt(".sun-now-time")
+        if os.environ.get("WN_SUN"):
+            pg.evaluate("""() => { const r = document.querySelector('.sun-play input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, '930'); r.dispatchEvent(new Event('input', { bubbles: true })); }""")
+            pg.evaluate("""() => { for (let i = 0; i < 20; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 105, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 240 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(400)
+            pg.locator(".sky-stage").first.screenshot(path=os.environ["WN_SUN"] + "-true-size.png")
+            pg.locator(".sun-play .btn", has_text="今").first.click(); calm()
+            pg.evaluate("""() => { for (let i = 0; i < 200; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
+        check("SS2p 今に付いていく：向きで見ると今の時刻、つまみで止まり「今」で戻る。太陽は本当の大きさに名前", now_on == "true" and t_now.startswith("12:0") and now_off == "false" and t_moved == "15:00" and now_back == "true" and t_back.startswith("12:0") and sun_r is not None and 1.5 <= sun_r <= 4 and named >= 1, (now_on, t_now, now_off, t_moved, now_back, t_back, sun_r, named))
         # 全画面（2026-11-19）：画面いっぱいの空と、下に時刻・動かす・カメラ・ずれ。閉じると元のシートに戻る。カメラのボタンもある。
         cam_btn = pg.locator(".sky-sensor .btn", has_text="カメラ").count()
         pg.locator(".sky-sensor .btn", has_text="全画面").click(); calm()
