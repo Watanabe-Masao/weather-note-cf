@@ -6,7 +6,7 @@ import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { daysOfMonth, monthOf } from "../../shared/dates";
 import { altitudeCurve, clockOf } from "../../shared/dayParts";
 import { skyAt } from "../../shared/sky";
-import { dms, fullMoonName, moonDistance, moonLimb, moonMagnitude, moonPhase, moonQuarters, moonShapeName, moonTimes, moonTint, moonTopo, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
+import { dms, fullMoonName, MOON_MEAN_DIAMETER, moonDistance, moonLimb, moonMagnitude, moonNorth, moonPhase, moonQuarters, moonShapeName, moonTimes, moonTint, moonTopo, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
 import { DEFAULT_LAT_LON, stationLatLon } from "../../shared/sunTimes";
 import { dateLabel } from "../design/format";
 import { Button, Glyph, IconButton, InfoNote, Segmented, Slider } from "./kit";
@@ -40,11 +40,7 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
     return () => window.clearInterval(id);
   }, [playing]);
   const ms = Date.parse(`${sel}T00:00:00+09:00`) + min * 60_000;
-  const p = moonPhase(ms);
-  const name = moonShapeName(ms);
-  const topo = moonTopo(ms, ll.lat, ll.lon);
-  const up = topo.altitude >= 0;
-  const limb = moonLimb(ms, ll.lat, ll.lon);
+  const name = moonShapeName(noonOf(sel));
   const t = moonTimes(sel, ll.lat, ll.lon);
   // その日の月の高さ（10分ごと、観測地から）と見かけの大きさの幅。傾きは3時間ごと（グラフの小さな月）。
   const day = useMemo(() => {
@@ -65,7 +61,8 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
   // 満月の日は呼び名（ビーバームーンなど）、それ以外は昔の呼び名（十三夜など）を添える。
   const full = today?.kind === 2 ? fullMoonName(today.at) : null;
   const old = full ? `${full.name}${full.blue ? "・ブルームーン" : ""}` : today ? null : name.old;
-  const mag = moonMagnitude(ms);
+  const noon = moonPhase(noonOf(sel));
+  const mag = moonMagnitude(noonOf(sel));
   const shapeOf = today ? (["新月", "上弦の月", "満月", "下弦の月"] as const)[today.kind] : name.shape;
   const shift = (n: number) => {
     const [y, m] = month.split("-").map(Number);
@@ -81,37 +78,31 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
   );
   return (
     <ModalSheet title="月のこよみ" onClose={onClose} className="moon-sheet">
+      {/* 暦の上の月（2026-11-19 渡辺さん「一般的な予報と観測予測は分けて」）：その日の正午の値。どこで見ても同じ。 */}
       <div className="moon-today">
-        <span className={up ? "moon-sim" : "moon-sim below"}>
-          <MoonGlyph phase={p} size={72} limb={limb} tint={up ? moonTint(topo.altitude) : undefined} />
-        </span>
         <div className="moon-today-text">
-          <small>
-            {dateLabel(sel)} {clockOf(min)}・{up ? `${dirName(topo.azimuth)} 高さ ${Math.round(topo.altitude)}°` : "地平線の下"}
-          </small>
+          <small>{dateLabel(sel)}の月（暦）</small>
           <b>
             {title}
             {old && <span className="moon-old">{old}</span>}
           </b>
           <span>
-            月齢 {p.age.toFixed(1)}・明るい部分 {Math.round(p.illuminated * 100)}%
+            月齢 {noon.age.toFixed(1)}・明るい部分 {Math.round(noon.illuminated * 100)}%
           </span>
-          <small>
-            距離 {Math.round(topo.km / 1000) / 10}万km・大きさ {dms(topo.diameter)}
-          </small>
           <InfoNote className="moon-note" more={
             <>
               {SHAPE_NOTE[shapeOf]}
               {full && " 満月の呼び名はアメリカの農事暦の呼び方（秋分にいちばん近い満月がハーベストムーン、その次がハンターズムーン。同じ月の2回目の満月はブルームーン）。"}
-              {" 明るさは等級（小さいほど明るい。満月で約 −12.7）。大きさは観測地から見た直径（度・分・秒）で、月が高いほど少し大きい（最大約2%。地平線の月が大きく見えるのは目の錯覚）。"}
-              {" 上の月はつまみの時刻に空で見える形：光っている側の向き（傾き）と、高さで変わる色（低いほど大気で赤く、高いと白い。晴れた日の典型で計算し、煙やちりで青っぽく見える現象は入れていない）。"}
-              {" 月の計算：Astronomy Engine（国立天文台の暦と照らし合わせ済み）。地点：観測所の場所。"}
+              {" 暦の値はその日の正午（どこで見てもほぼ同じ）。明るさは等級（小さいほど明るい。満月で約 −12.7）。"}
+              {" 月の計算：Astronomy Engine（国立天文台の暦と照らし合わせ済み）。"}
             </>
           }>
             明るさ {mag.toFixed(1).replace("-", "−")} 等
           </InfoNote>
         </div>
       </div>
+      {/* 観測の予測：観測地から見た、つまみの時刻の月。見えない時刻（地平線の下）は月を描かない。 */}
+      <MoonObserve ms={ms} min={min} lat={ll.lat} lon={ll.lon} sel={sel} rise={t.rise} />
       <MoonDay day={day} min={min} onPick={setMin} />
       <div className="sun-play moon-play">
         <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[t.rise?.at, t.set?.at].filter((v): v is number => v != null).map(Math.round)} thumbs={[{ value: min, label: "時刻（10分ごと）", valueText: clockOf(min), onChange: setMin }]} />
@@ -119,14 +110,6 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
           {playing ? "止める" : "動かす"}
         </Button>
       </div>
-      <p className="moon-look">
-        <span>
-          傾き：光っている側は <b>{clockDir(limb)}</b> の向き
-        </span>
-        <span>
-          大きさ：見えている間 {dms(day.lo)}〜{dms(day.hi)}（高いほど大きい）
-        </span>
-      </p>
       <div className="sun-keys moon">
         {ev("月の出", t.rise)}
         {ev("南中", t.transit, t.transit ? `高さ ${Math.round(t.transit.altitude)}°` : undefined)}
@@ -312,6 +295,89 @@ function MoonTrend({ cells, sel, onPick }: { cells: { d: string; p: ReturnType<t
 }
 
 /** 光っている側の向き（上から反時計回りの角）を、時計の文字盤の向きで（右下 ≒ 4時）。 */
+/** 大きさの見せ方：実際の比（平均の輪と比べる）／違いを強める（平均との差を STRONG 倍）。 */
+const STRONG = 4;
+const BASE = 92; // 平均の大きさの直径（px）
+const STAGE = 132;
+const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+
+/**
+ * 観測の予測（2026-11-19 渡辺さん）：観測地から見た、つまみの時刻の月。傾き（光っている側）・模様の向き・高さの色・
+ * 見かけの大きさを大きな絵で。大きさは「実際の比」と「違いを強める」を切り替える（輪＝平均の大きさ）。
+ * 地平線の下の時刻は月を描かず「見えません」と、次に昇る時刻と方位。
+ */
+function MoonObserve({ ms, min, lat, lon, sel, rise }: { ms: number; min: number; lat: number; lon: number; sel: string; rise: { at: number; azimuth: number } | null }) {
+  const [scale, setScale] = useState<"real" | "strong">("real");
+  const p = moonPhase(ms);
+  const topo = moonTopo(ms, lat, lon);
+  const up = topo.altitude >= 0;
+  const limb = moonLimb(ms, lat, lon);
+  const north = moonNorth(ms, lat, lon);
+  const ratio = topo.diameter / MOON_MEAN_DIAMETER;
+  const size = Math.round(BASE * (scale === "real" ? ratio : 1 + STRONG * (ratio - 1)));
+  const pct = Math.round((ratio - 1) * 1000) / 10;
+  // 次に昇る：この日のうちならその時刻、過ぎていれば翌日の月の出。
+  const next = rise && rise.at > min ? { day: sel, ...rise } : (() => { const d = nextDay(sel); const r = moonTimes(d, lat, lon).rise; return r ? { day: d, ...r } : null; })();
+  return (
+    <div className="moon-obs">
+      <div
+        className={up ? "moon-obs-stage" : "moon-obs-stage below"}
+        role="img"
+        aria-label={up ? `${clockOf(min)}の月：${dirName(topo.azimuth)} 高さ ${Math.round(topo.altitude)}°、光っている側は ${clockDir(limb)} の向き、大きさは平均の ${(ratio * 100).toFixed(1)}%` : `${clockOf(min)}は月が地平線の下で見えません`}
+      >
+        <svg className="moon-obs-ring" width={STAGE} height={STAGE} viewBox={`0 0 ${STAGE} ${STAGE}`} aria-hidden>
+          <circle cx={STAGE / 2} cy={STAGE / 2} r={BASE / 2} />
+        </svg>
+        {up ? (
+          <MoonGlyph phase={p} size={size} limb={limb} north={north} tint={moonTint(topo.altitude)} />
+        ) : (
+          <span className="moon-obs-none">見えません</span>
+        )}
+      </div>
+      <div className="moon-obs-text">
+        <small>高知から見た {clockOf(min)}</small>
+        {up ? (
+          <>
+            <b>
+              {dirName(topo.azimuth)} 高さ {Math.round(topo.altitude)}°
+            </b>
+            <span>
+              傾き：光っている側は <b>{clockDir(limb)}</b> の向き
+            </span>
+            <span>
+              大きさ {dms(topo.diameter)}（平均より {pct >= 0 ? `+${pct}` : `${pct}`}%）
+            </span>
+            <span>距離 {Math.round(topo.km / 1000) / 10}万km</span>
+          </>
+        ) : (
+          <>
+            <b>地平線の下</b>
+            <span>{next ? `次は ${next.day === sel ? "" : "翌日 "}${clockOf(Math.round(next.at))} に${dirName(next.azimuth)}から` : "翌日まで昇らない"}</span>
+          </>
+        )}
+        <Segmented
+          label="大きさの見せ方"
+          value={scale}
+          onChange={setScale}
+          options={[
+            { id: "real", label: "実際の比" },
+            { id: "strong", label: "違いを強める" },
+          ]}
+        />
+        <InfoNote className="moon-note" more={
+          <>
+            {"上の月は、つまみの時刻に高知（観測所の場所）の空で見える形：光っている側の向き（傾き）・模様（海）の向き・高さで変わる色（低いほど大気で赤く、高いと白い。晴れた日の典型）。"}
+            {" 大きさは観測地から見た直径（度・分・秒）。点線の輪が平均の大きさ（0°31′05″）。"}
+            {scale === "strong" ? ` いまは違いを ${STRONG} 倍に強めて描いている（実際は1年で ±7% ほど。地平線の月が大きく見えるのは目の錯覚）。` : " 実際の比で描いている（1年で ±7% ほど。地平線の月が大きく見えるのは目の錯覚）。"}
+          </>
+        }>
+          見え方について
+        </InfoNote>
+      </div>
+    </div>
+  );
+}
+
 export const clockDir = (limb: number) => {
   const h = Math.round((((360 - limb) % 360) + 360) % 360 / 30) % 12;
   return `${h === 0 ? 12 : h}時`;

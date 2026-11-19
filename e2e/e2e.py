@@ -768,17 +768,29 @@ with sync_playwright() as p:
         # 見え方のシミュレーション（2026-11-19）：時刻のつまみで、月の形・傾き・色・位置がその時刻に。地平線の下は色なし。
         setm = lambda v: pg.evaluate("""(v) => { const r = document.querySelector('.moon-play input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, String(v)); r.dispatchEvent(new Event('input', { bubbles: true })); }""", v)
         pg.locator(".moon-cal-day").nth(23).click(); calm()
-        setm(1380); calm(); t23 = txt(".moon-today"); tint23 = pg.locator(".moon-today .moon-sim filter").count()
-        setm(720); calm(); t12 = txt(".moon-today"); tint12 = pg.locator(".moon-today .moon-sim filter").count()
-        check("SS2i 月の見え方：23時は高い月（色つき・大きさ 0°33′）、正午は地平線の下（色なし）", "23:00" in t23 and "高さ 7" in t23 and "0°33′" in t23 and tint23 == 1 and "地平線の下" in t12 and tint12 == 0, (t23[:60], tint23, t12[:40], tint12))
+        setm(1380); calm(); t23 = txt(".moon-obs"); tint23 = pg.locator(".moon-obs .moon-glyph filter").count(); d23 = pg.locator(".moon-obs .moon-glyph").bounding_box()
+        sb = pg.locator(".moon-obs-stage").bounding_box()
+        pg.locator(".moon-obs .seg button", has_text="違いを強める").click(); calm(); d23s = pg.locator(".moon-obs .moon-glyph").bounding_box(); sb2 = pg.locator(".moon-obs-stage").bounding_box()
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-strong.png")
+        pg.locator(".moon-obs .seg button", has_text="実際の比").click(); calm()
+        setm(720); calm(); t12 = txt(".moon-obs"); g12 = pg.locator(".moon-obs .moon-glyph").count()
+        today12 = txt(".moon-today")
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-below.png")
+        # 11/19：暦の上の月（その日）と観測の予測（その時刻）を分ける。見えない時刻は月を描かず「見えません」と次に昇る時刻。
+        # 大きさは実際の比／違いを強める（強めると大きく、舞台の枠は動かない）。
+        check("SS2i 観測の予測：23時は高い月（色つき・0°33′・平均より大きい）、強めるとさらに大きく枠は同じ、正午は描かず次に昇る時刻、暦は替わらない",
+              "23:00" in t23 and "高さ 7" in t23 and "0°33′" in t23 and "平均より +" in t23 and tint23 == 1 and d23s["width"] > d23["width"] + 4 and abs(sb["height"] - sb2["height"]) < 1
+              and "地平線の下" in t12 and "次は" in t12 and g12 == 0 and "満月" in today12, (t23[:80], tint23, d23["width"], d23s["width"], t12[:50], g12))
         # その日の月の高さ（2026-11-19）：グラフを押すとその時刻に。3時間ごとの小さな月、傾きと大きさの幅の行。
         db = pg.locator(".moon-day").bounding_box()
         pg.mouse.click(db["x"] + 30 * db["width"] / pg.evaluate("document.querySelector('.moon-day').viewBox.baseVal.width") + (db["width"] - (30 + 8) * db["width"] / pg.evaluate("document.querySelector('.moon-day').viewBox.baseVal.width")) / 2, db["y"] + db["height"] / 2); calm()
-        tday = txt(".moon-today"); look = txt(".moon-look")
-        check("SS2l 月の高さのグラフ：押すと正午に、小さな月がある、傾き（時の向き）と大きさの幅", "12:00" in tday and pg.locator(".moon-day .moon-glyph").count() >= 2 and "時 の向き" in look.replace("時の向き", "時 の向き") and "〜" in look, (tday[:30], look))
+        tday = txt(".moon-obs")
+        check("SS2l 月の高さのグラフ：押すと正午に、小さな月がある", "12:00" in tday and pg.locator(".moon-day .moon-glyph").count() >= 2, (tday[:30],))
         if os.environ.get("WN_SUN"):
             setm(1380); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim.png")
             setm(1050); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim-low.png")
+            pg.locator(".moon-cal-day").nth(12).click(); calm()
+            for m in (1000, 1080, 1140): setm(m); calm(); pg.locator(".moon-obs").screenshot(path=os.environ["WN_SUN"] + f"-moon-cres-{m}.png")
         pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
