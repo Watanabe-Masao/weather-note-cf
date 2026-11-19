@@ -867,6 +867,8 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
  * 全画面（2026-11-19）：端末の向きで見る空を画面いっぱいに。上に向いている方位と高さ・閉じる、下に時刻のつまみ・動かす・
  * カメラ・ずれの手直し。閉じると太陽と月のシートの同じ所に戻る。
  */
+/** 横向きの全画面で、右に寄せる操作の欄の幅（px）。 */
+const FULL_SIDE = 300;
 function SkyFull({ sky, controls, onClose }: { sky: (w: number, h: number) => ReactNode; controls: ReactNode; onClose: () => void }) {
   const [size, setSize] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
   useEffect(() => {
@@ -879,9 +881,15 @@ function SkyFull({ sky, controls, onClose }: { sky: (w: number, h: number) => Re
       window.removeEventListener("keydown", esc);
     };
   }, [onClose]);
+  // 横向き（11/19 渡辺さん「画面の横向きに対応できますか？」）：低い横長の画面では、操作を右の縦の欄に寄せ、空はその左に。
+  // 真ん中の＋や拡大の真ん中が欄の下に隠れないよう、空の幅は欄を除いた分にする。
+  const land = size.w > size.h && size.h < 520;
+  const skyW = land ? size.w - FULL_SIDE : size.w;
   return createPortal(
-    <div className="sky-full" role="dialog" aria-modal="true" aria-label="空を見上げる（全画面）">
-      {sky(size.w, size.h)}
+    <div className={land ? "sky-full land" : "sky-full"} role="dialog" aria-modal="true" aria-label="空を見上げる（全画面）">
+      <div className="sky-full-sky" style={land ? { right: FULL_SIDE } : undefined}>
+        {sky(skyW, size.h)}
+      </div>
       <div className="sky-full-top">
         <IconButton label="全画面を閉じる" onClick={onClose}>
           <CloseIcon />

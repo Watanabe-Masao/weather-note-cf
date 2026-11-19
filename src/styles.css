@@ -4434,6 +4434,12 @@ select.chip.sm {
 .sky-stage.camera .sky-dir, .sky-stage.camera .sky-heading, .sky-stage.camera .sky-edge text { fill: var(--ink-on-feel); paint-order: stroke; stroke: var(--surface-page); stroke-width: var(--stroke-focus); }
 .sky-full { position: fixed; inset: 0; z-index: var(--layer-popover); background: var(--surface-page); }
 .sky-stage.full { position: absolute; inset: 0; margin: 0; border-radius: 0; aspect-ratio: auto; height: 100%; }
+.sky-full-sky { position: absolute; inset: 0; }
+/* 横向き（11/19）：操作は右の縦の欄に（幅は SunSheet の FULL_SIDE と同じ 300px）。空はその左。 */
+.sky-full.land .sky-full-bottom { left: auto; top: 0; width: 300px; overflow-y: auto; align-content: start; padding: calc(env(safe-area-inset-top, 0px) + var(--space-9)) calc(env(safe-area-inset-right, 0px) + var(--space-5)) calc(env(safe-area-inset-bottom, 0px) + var(--space-5)) var(--space-5); border-radius: var(--radius-lg) 0 0 var(--radius-lg); }
+.sky-full.land .sky-full-bottom .sun-play { flex-wrap: wrap; }
+.sky-full.land .sky-full-bottom .sun-slider { flex: 1 1 100%; }
+.sky-full-top { z-index: 1; }
 .sky-full-top { position: absolute; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); right: calc(env(safe-area-inset-right, 0px) + var(--space-4)); }
 .sky-full-bottom { position: absolute; left: 0; right: 0; bottom: 0; display: grid; gap: var(--space-3); padding: var(--space-5) max(var(--space-7), env(safe-area-inset-right, 0px)) calc(env(safe-area-inset-bottom, 0px) + var(--space-5)) max(var(--space-7), env(safe-area-inset-left, 0px)); background: var(--surface-overlay); box-shadow: var(--shadow-float); border-radius: var(--radius-lg) var(--radius-lg) 0 0; }
 .sky-full-read { margin: 0; display: grid; gap: var(--space-1); font-size: var(--size-sm); color: var(--ink-primary); }

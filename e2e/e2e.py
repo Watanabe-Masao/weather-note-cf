@@ -749,6 +749,15 @@ with sync_playwright() as p:
         pg.locator(".sky-sensor .btn", has_text="全画面").click(); calm()
         pan_full = pg.locator(".sky-full .sky-pan").count()
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-pan-full.png")
+        # 全画面の横向き（11/19）：操作は右の欄に、空はその左（真ん中が欄に隠れない）。縦に戻すと下に戻る。
+        pg.set_viewport_size({"width": 844, "height": 390}); pg.wait_for_timeout(600)
+        land = pg.evaluate("""(() => { const p = document.querySelector('.sky-full-bottom').getBoundingClientRect(); const k = document.querySelector('.sky-full-sky').getBoundingClientRect();
+          const x = document.querySelector('.sky-full-top .icon-btn').getBoundingClientRect(); const hit = document.elementFromPoint(x.left + x.width / 2, x.top + x.height / 2);
+          return { close: !!hit && !!hit.closest('.sky-full-top'), land: !!document.querySelector('.sky-full.land'), px: Math.round(p.left), pw: Math.round(p.width), kw: Math.round(k.width), scroll: document.documentElement.scrollWidth }; })()""")
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-full-land.png")
+        pg.set_viewport_size({"width": W, "height": 844}); pg.wait_for_timeout(600)
+        back = pg.evaluate("(() => { const p = document.querySelector('.sky-full-bottom').getBoundingClientRect(); return [!!document.querySelector('.sky-full.land'), Math.round(p.left), Math.round(p.width)]; })()")
+        check("SS2w 全画面の横向き：操作は右の欄、空はその左。縦に戻すと下に戻る", land["land"] and land["close"] and land["px"] == 544 and land["kw"] == 544 and land["scroll"] <= 844 and back == [False, 0, W], (land, back))
         pg.locator(".sky-full .icon-btn[aria-label='全画面を閉じる']").click(); calm()
         check("SS2t 球の基準線と拡大：線がある、＋5回で 8倍・線が細かく、全画面でもなぞる窓、1画面に収まる", grid0 >= 4 and ztxt.startswith("8.0") and grid1 > grid0 and pan_full == 1 and sfit[0] <= sfit[1] + 1, (grid0, ztxt, grid1, pan_full, sfit))
         rotate_ok("SS2u", "太陽と月・空を見上げる")
