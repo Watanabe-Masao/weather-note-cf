@@ -326,6 +326,18 @@ export class WeatherStore {
     return { date, state: error ? "error" : "empty", rows: [], kind: null, error };
   }
 
+  /**
+   * Whether a day's hours that are not here yet are still coming this session (2026-11-20, the moon
+   * calendar's "読み込んでいます"): a day from today on comes with the forecast, which carries only its
+   * first few days, so once the forecast is in, a later day has no hours to wait for.
+   */
+  hoursComing(station: string, date: string): boolean {
+    if (!this.inRange(date)) return false;
+    const k = dayKey(station, date);
+    if (this.hours.has(k) || this.errors.has("h:" + k)) return false;
+    return date >= this.today ? !this.fresh.has(`forecast:${station}`) : !this.fresh.has(`hour:${station}:${date}`);
+  }
+
   getLatest(station: string): WeatherRow | null {
     return this.latest.get(station) ?? null;
   }

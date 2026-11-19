@@ -2,10 +2,13 @@
 // 月齢・明るい部分・距離と見かけの大きさ・月の出／南中／月の入り）、下にその月のカレンダー（日ごとの形。月齢は押した日の上の欄で）と、同じ枠で替わる満ち欠けと見かけの大きさのグラフ、
 // いちばん下に次の新月・上弦・満月・下弦。日を押すとその日の月に替わる。計算は shared/moon.ts（Astronomy Engine、
 // 国立天文台の暦で確かめ済み）。時刻は正午の値（月齢・形）と、その日の出入り。1画面に収める。
-import { type CSSProperties, Fragment, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, Fragment, type PointerEvent, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { daysOfMonth, monthOf } from "../../shared/dates";
 import { altitudeCurve, clockOf } from "../../shared/dayParts";
-import { skyAt, type SkyColour } from "../../shared/sky";
+import { daySky, skyAt, type SkyColour } from "../../shared/sky";
+import { skyHidden } from "../../shared/dayWeather";
+import type { WeatherRow } from "../../shared/types";
+import { FeelContext } from "./FeelBar";
 import { fullMoonInfo } from "../../shared/fullMoonNames";
 import { dms, fullMoonName, MOON_MEAN_DIAMETER, moonDistance, moonLimb, moonMagnitude, moonNorth, moonPhase, moonQuarters, moonShapeName, moonTimes, moonTint, moonTopo, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
 import { DEFAULT_LAT_LON, stationLatLon } from "../../shared/sunTimes";
@@ -27,10 +30,13 @@ const jst = (ms: number) => {
   return { date: d.toISOString().slice(0, 10), min: d.getUTCHours() * 60 + d.getUTCMinutes() };
 };
 
-/** その日の空の色（太陽と月のシートと同じ、天気から）。date の日だけ。10分ごと、無い時間は null。 */
-export type DaySky = { date: string; at: (min: number) => SkyColour | null };
+/**
+ * 日ごとの毎時の天気（観測所の、記録と予報。11/20 渡辺さん「別の日を選んだとき、その日の天気も読み込む」）：of はいま持って
+ * いる分（state "empty" は読み込み中）、want で選んだ日を読み込む（null で取り下げ）。
+ */
+export type MoonWeather = { of: (date: string) => { rows: WeatherRow[]; state: string }; want: (date: string | null) => void };
 
-export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { date: string; station: string; here?: { lat: number; lon: number } | null; onHere?: () => void; onClose: () => void; daySky?: DaySky }) {
+export function MoonSheet({ date, station, here, onHere, onClose, weather }: { date: string; station: string; here?: { lat: number; lon: number } | null; onHere?: () => void; onClose: () => void; weather?: MoonWeather }) {
   // 計算の地点（11/19）：太陽と月のシートで「現在地で計算」にしていれば現在地、ほかは観測所。
   const ll = here ?? stationLatLon(station) ?? DEFAULT_LAT_LON;
   const where = here ? "現在地" : ((stations as { blockNo: string; name: string }[]).find((x) => x.blockNo === station)?.name ?? "観測所");
@@ -99,10 +105,28 @@ export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { da
       .filter((q) => q.alt >= 0);
     return { pts, marks, lo: Math.min(...sizes), hi: Math.max(...sizes), sun: altitudeCurve(sel, ll, 10) };
   }, [sel, station, ll.lat, ll.lon]);
-  // 空の色（11/20）：太陽と月のシートと同じ日はその日の天気から、ほかの日・時間は晴れの空。
-  const ownSky = !!daySky && daySky.date === sel;
+  // 空の色（11/20）：選んだ日の天気から（太陽と月のシートの空と同じ計算、shared/sky.ts daySky）。天気の無い日・時間は晴れの空。
+  // 別の日を選ぶと、その日の天気を読み込む（読み込むまでは晴れの空）。
+  const alpha = useContext(FeelContext).alpha;
+  const want = useRef(weather?.want);
+  want.current = weather?.want;
+  useEffect(() => {
+    want.current?.(sel);
+    return () => want.current?.(null);
+  }, [sel]);
+  const wx = weather?.of(sel) ?? null;
+  const rows = wx?.rows ?? null;
+  const skyBy = useMemo(() => {
+    const sorted = [...(rows ?? [])].sort((a, b) => a.n - b.n);
+    const byHour = new Map(daySky(sorted, station, alpha).map((h) => [h.n, h.steps]));
+    return Array.from({ length: 24 }, (_, i) => byHour.get(i + 1) ?? null);
+  }, [rows, station, alpha]);
+  const ownSky = skyBy.some((h) => h != null);
+  const loading = !!weather && !ownSky && wx?.state === "empty";
+  // 雲で見えにくい（11/20 渡辺さん）：つまみの時刻の時間（JMA の時間 n は n−1〜n 時）の天気から。
+  const cloud = rows?.length ? skyHidden(rows, Math.min(24, Math.floor(min / 60) + 1), station) : null;
   const skyOfMin = (m: number): SkyColour => {
-    const own = ownSky ? daySky!.at(m) : null;
+    const own = skyBy[Math.min(23, Math.floor(m / 60))]?.[Math.floor((m % 60) / 10)] ?? null;
     const q = day.sun[Math.min(day.sun.length - 1, Math.round(m / 10))];
     return own ?? skyAt(q.deg, 1, 0, m > 720);
   };
@@ -154,10 +178,10 @@ export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { da
         </div>
       </div>
       {/* 観測の予測：観測地から見た、つまみの時刻の月。見えない時刻（地平線の下）は月を描かない。 */}
-      <MoonObserve ms={ms} min={min} lat={ll.lat} lon={ll.lon} where={where} sel={sel} rise={t.rise} here={!!here} onHere={onHere} sky={skyOfMin(min)} />
+      <MoonObserve ms={ms} min={min} lat={ll.lat} lon={ll.lon} where={where} sel={sel} rise={t.rise} here={!!here} onHere={onHere} sky={skyOfMin(min)} cloud={cloud?.hidden ? cloud : null} />
       <MoonDay day={day} min={min} onPick={move} skyOf={skyOfMin} />
       {/* 空の色（11/20 渡辺さん「天気を考慮した空の色にしないと統一感に欠ける」）：太陽と月のシートと同じ日なら、その日の天気から。 */}
-      <small className="set-help moon-sky-note">{ownSky ? "空の色は、この日の天気（日照・雨）から" : "この日は天気を使わず、晴れの空で描いています"}</small>
+      <small className="set-help moon-sky-note" aria-live="polite">{ownSky ? "空の色は、この日の天気（日照・雨）から" : loading ? "この日の天気を読み込んでいます（それまでは晴れの空）" : "この日は天気が無いので、晴れの空で描いています"}</small>
       <TimeBar className="moon-play" value={min} onChange={move} ticks={[t.rise?.at, t.set?.at].filter((v): v is number => v != null).map(Math.round)} valueText={clockOf(min)} follow={follow} onFollow={() => (follow ? setFollow(false) : toNow())} playing={playing} onPlay={() => (setFollow(false), setPlaying(!playing))} />
       <div className="sun-keys moon">
         {/* 時刻の順に（11/19：0時台の月の入りは前の晩に昇った月。出・南中・入りの順だと翌日と読み違えやすい）。 */}
@@ -444,7 +468,7 @@ const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_00
  * 見かけの大きさを大きな絵で。大きさは「実際の比」と「違いを強める」を切り替える（輪＝平均の大きさ）。
  * 地平線の下の時刻は月を描かず「見えません」と、次に昇る時刻と方位。
  */
-function MoonObserve({ ms, min, lat, lon, where, sel, rise, here, onHere, sky }: { ms: number; min: number; lat: number; lon: number; where: string; sel: string; here?: boolean; onHere?: () => void; rise: { at: number; azimuth: number } | null; sky: SkyColour }) {
+function MoonObserve({ ms, min, lat, lon, where, sel, rise, here, onHere, sky, cloud }: { ms: number; min: number; lat: number; lon: number; where: string; sel: string; here?: boolean; onHere?: () => void; rise: { at: number; azimuth: number } | null; sky: SkyColour; cloud?: { text: string; hour: number } | null }) {
   const [scale, setScale] = useState<"real" | "strong">("real");
   // 描き方（11/19 渡辺さん）：「見え方」＝球の陰影（暗い側は描かない、空で見える形）。「月の全体」＝暗い側も描く
   // （見えていない側も含めて、月の向き・回転を確かめるための絵）。
@@ -467,12 +491,18 @@ function MoonObserve({ ms, min, lat, lon, where, sel, rise, here, onHere, sky }:
           // 月の後ろはその時刻の空の色（11/20）：天頂から地平へ。線と文字は空の上の色（テーマによらない）。
           style={{ ...(onSkyVars() as CSSProperties), background: `linear-gradient(${sky.zenith}, ${sky.horizon})` }}
           role="img"
-          aria-label={up ? `${clockOf(min)}の月：${dirName(topo.azimuth)} 高さ ${Math.round(topo.altitude)}°、光っている側は ${clockDir(limb)} の向き、大きさは平均の ${(ratio * 100).toFixed(1)}%${look === "whole" ? "（暗い側も描いた月の全体）" : ""}` : `${clockOf(min)}は月が地平線の下で見えません`}
+          aria-label={up ? `${clockOf(min)}の月：${dirName(topo.azimuth)} 高さ ${Math.round(topo.altitude)}°、光っている側は ${clockDir(limb)} の向き、大きさは平均の ${(ratio * 100).toFixed(1)}%${look === "whole" ? "（暗い側も描いた月の全体）" : ""}${cloud ? `。${cloudWhy(cloud)}` : ""}` : `${clockOf(min)}は月が地平線の下で見えません`}
         >
           <svg className="moon-obs-ring" width={STAGE} height={STAGE} viewBox={`0 0 ${STAGE} ${STAGE}`} aria-hidden>
             <circle cx={STAGE / 2} cy={STAGE / 2} r={BASE / 2} />
           </svg>
           {up ? <MoonSphere phase={p} size={size} limb={limb} north={north} tint={moonTint(topo.altitude)} dark={look === "whole"} /> : <span className="moon-obs-none">見えません</span>}
+          {/* 雲で見えにくい（11/20 渡辺さん）：月が出ていて、その時間の天気が晴れの入らない曇り・雨など。形は描いたまま。 */}
+          {up && cloud && (
+            <span className="moon-obs-cloud" aria-hidden>
+              雲で見えにくい
+            </span>
+          )}
         </div>
         <Segmented
           label="月の描き方"
@@ -538,6 +568,9 @@ function MoonObserve({ ms, min, lat, lon, where, sel, rise, here, onHere, sky }:
     </div>
   );
 }
+
+/** 「21時台 曇りで、雲で見えにくい」：見えにくい理由（その時間の天気。前後の時間から借りたときはその時間）。 */
+export const cloudWhy = (c: { text: string; hour: number }) => `${c.hour - 1}時台 ${c.text}で、雲で見えにくい`;
 
 export const clockDir = (limb: number) => {
   const h = Math.round((((360 - limb) % 360) + 360) % 360 / 30) % 12;

@@ -4,7 +4,7 @@
 import { clockOf, dayEdges, dayParts, altitudeCurve, twilights, TWILIGHTS } from "../../shared/dayParts";
 import { shownClock, shownDayLength, shownSun } from "../data/sun";
 import { dateLabel, hoursMinutes, num } from "../design/format";
-import { hoursWeather } from "../../shared/dayWeather";
+import { hoursWeather, skyHidden } from "../../shared/dayWeather";
 import type { WeatherRow } from "../../shared/types";
 import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
@@ -22,7 +22,7 @@ import { CompassTrim } from "./CompassTrim";
 import { dirName, MoonGlyph, MoonSphere } from "./moonParts";
 import { latLonText, useHere } from "./useHere";
 import stations from "../../shared/stations.json";
-import { MoonSheet } from "./MoonSheet";
+import { cloudWhy, MoonSheet, type MoonWeather } from "./MoonSheet";
 import { onSkyVars, SKY_ICON, TWILIGHT_BAND } from "../design/tokens";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
@@ -42,6 +42,7 @@ export function SunSheet({
   hour,
   sky,
   rows,
+  weather,
   onClose,
 }: {
   date: string;
@@ -49,6 +50,8 @@ export function SunSheet({
   hour: number | null;
   /** その日の毎時の記録・予報（空の色の元を1行で添えるため、11/20）。 */
   rows?: WeatherRow[];
+  /** 日ごとの毎時の天気（月のこよみで別の日を選んだとき読み込む、11/20）。 */
+  weather?: MoonWeather;
   /** The day's own sky every 10 minutes (the 太陽 strip's, from the day's weather), by hour; an hour
    *  without data falls back to a clear day's sky (#151: the strip and the sheet tell the same sky). */
   sky?: (SkyColour[] | null)[];
@@ -210,6 +213,7 @@ export function SunSheet({
     const parts = [wx, altAt > 0 && sun != null ? `日照 ${Math.round(sun * 60)}分` : null, rain != null ? `雨 ${rain.toFixed(1)}mm` : "雨 記録なし"].filter(Boolean);
     return `空の色：${n - 1}時台 ${parts.join("・")}（${row.type === "forecast" ? "予報" : "実績"}）`;
   })();
+  const moonCloud = rows?.length ? skyHidden(rows, Math.min(24, Math.floor(at / 60) + 1), station) : null;
   const msAt = sky3.day0 + at * 60_000;
   const topoAt = moonTopo(msAt, ll.lat, ll.lon);
   // 空を見上げるの月：見かけの大きさ・光っている側・模様の向き・高さの色も（11/19 レビュー）。
@@ -418,7 +422,15 @@ export function SunSheet({
           <MoonGlyph phase={phaseAt} size={28} />
         )}
         <span className="sun-now-phase">
-          月 {moonAt.altitude >= 0 ? `地平線の上 ${Math.round(moonAt.altitude)}°・${dirName(moonAt.azimuth)}` : "地平線の下"}
+          <span>
+            月 {moonAt.altitude >= 0 ? `地平線の上 ${Math.round(moonAt.altitude)}°・${dirName(moonAt.azimuth)}` : "地平線の下"}
+            {/* 雲で見えにくい（11/20 渡辺さん）：月が出ていて、その時間の天気が晴れの入らない曇り・雨など。 */}
+            {moonAt.altitude >= 0 && moonCloud?.hidden && (
+              <em className="sun-now-cloud" aria-label={cloudWhy(moonCloud)}>
+                雲で見えにくい
+              </em>
+            )}
+          </span>
           <small>
             月齢 {phaseAt.age.toFixed(1)}・明るい部分 {Math.round(phaseAt.illuminated * 100)}%
           </small>
@@ -427,7 +439,7 @@ export function SunSheet({
           月のこよみ
         </Button>
       </div>
-      {moonOpen && <MoonSheet date={date} station={station} here={hereOn} onHere={() => (hereOn || here.state.kind === "asking" ? here.stop() : here.ask())} onClose={() => setMoonOpen(false)} daySky={{ date, at: (m) => sky?.[Math.floor(m / 60)]?.[Math.floor((m % 60) / 10)] ?? null }} />}
+      {moonOpen && <MoonSheet date={date} station={station} here={hereOn} onHere={() => (hereOn || here.state.kind === "asking" ? here.stop() : here.ask())} onClose={() => setMoonOpen(false)} weather={weather} />}
       </div>
 
       {/* 太陽と月の出入り（11/19 レビュー「6枚のカードを太陽と月の2行に」）：1行ずつ、時刻の順に。月はその日の暦どおり
