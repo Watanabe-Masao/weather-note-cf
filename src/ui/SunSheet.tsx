@@ -16,6 +16,8 @@ import { CloseIcon } from "./icons";
 import { useSkyLook } from "./useSkyLook";
 import { CompassTrim } from "./CompassTrim";
 import { dirName, MoonGlyph } from "./moonParts";
+import { latLonText, useHere } from "./useHere";
+import stations from "../../shared/stations.json";
 import { MoonSheet } from "./MoonSheet";
 import { ICON, RADIUS } from "../design/tokens";
 import { type ReactNode, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
@@ -42,17 +44,24 @@ export function SunSheet({
   sky?: (SkyColour[] | null)[];
   onClose: () => void;
 }) {
+  // 計算の地点（11/19）：観測所か、現在地（太陽と月の計算だけ。天気は観測所のまま）。
+  const here = useHere();
+  const hereOn = here.state.kind === "on" ? here.state : null;
+  const place = hereOn ? { lat: hereOn.lat, lon: hereOn.lon } : station;
+  const placeKey = hereOn ? `${hereOn.lat},${hereOn.lon}` : station;
+  const stationName = (stations as { blockNo: string; name: string }[]).find((x) => x.blockNo === station)?.name ?? "観測所";
   // The day's sun, worked out once per day and place (not on every move of the finger).
   const { e, t, curve, skies, filled } = useMemo(() => {
-    const c = altitudeCurve(date, station, 10);
+    const c = altitudeCurve(date, place, 10);
     // Each 10 minutes: the day's own sky when its hour has data, else a clear day's (and how many were clear).
     const own = (min: number) => sky?.[Math.floor(min / 60)]?.[Math.floor((min % 60) / 10)] ?? null;
     const skies = c.map((p) => own(p.min) ?? skyAt(p.deg, 1, 0, p.min > 720));
     const filled = c.slice(0, -1).filter((p) => !own(p.min)).length;
-    return { e: dayEdges(date, station), t: twilights(date, station), curve: c, skies, filled };
-  }, [date, station, sky]);
+    return { e: dayEdges(date, place), t: twilights(date, place), curve: c, skies, filled };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- place は placeKey で見る（毎回作る物なので）
+  }, [date, placeKey, sky]);
   // 月（2026-11-18、shared/moon.ts・Astronomy Engine）：10分ごとの高さと方位、その日の出・南中・入り。太陽の方位も。
-  const ll = stationLatLon(station) ?? DEFAULT_LAT_LON;
+  const ll = hereOn ? { lat: hereOn.lat, lon: hereOn.lon } : (stationLatLon(station) ?? DEFAULT_LAT_LON);
   const sky3 = useMemo(() => {
     const day0 = Date.parse(`${date}T00:00:00+09:00`);
     const moon = curve.map((p) => moonPosition(day0 + p.min * 60_000, ll.lat, ll.lon));
@@ -60,7 +69,8 @@ export function SunSheet({
     return { moon, sunAz, times: moonTimes(date, ll.lat, ll.lon), day0 };
   }, [date, curve, ll.lat, ll.lon]);
   // Sunrise and sunset by the same rule as the graph (data/sun sunHours), in minutes.
-  const { rise: riseH, set: setH } = sunHours(sun, e);
+  // 現在地のときは、観測所の記録の日の出入りではなく計算の値。
+  const { rise: riseH, set: setH } = sunHours(hereOn ? null : sun, e);
   const rise = riseH * 60;
   const set = setH * 60;
   // 上端は太陽と月の高い方から決める（月が太陽より高く昇る日に、月の線が上端に張り付かないように）。
@@ -111,7 +121,7 @@ export function SunSheet({
   // The sun's state in words that never clash with the app's five parts (朝・日中・昼・夕方・夜,
   // shared/dayParts): those are named beside it, so 19:00 reads 航海薄明 ・ 時間帯は夜.
   const phase = altAt >= 0 ? "日の出ている間" : altAt >= -6 ? "市民薄明" : altAt >= -12 ? "航海薄明" : altAt >= -18 ? "天文薄明" : "暗い夜空";
-  const part = dayParts(date, station).find((p) => p.id !== "night" && at >= p.from && at < p.to)?.label ?? "夜";
+  const part = dayParts(date, place).find((p) => p.id !== "night" && at >= p.from && at < p.to)?.label ?? "夜";
   const skyNow = skies[Math.min(skies.length - 1, Math.round(at / 10))];
   const idx = Math.min(curve.length - 1, Math.round(at / 10));
   const moonAt = sky3.moon[idx];
@@ -142,7 +152,7 @@ export function SunSheet({
   const length = set - rise;
 
   return (
-    <ModalSheet title={`${dateLabel(date)}の太陽と月`} onClose={onClose} className="sun-sheet">
+    <ModalSheet title={`${dateLabel(date)}の太陽と月${hereOn ? "（現在地）" : ""}`} onClose={onClose} className="sun-sheet">
       {/* Reading the sun: a sunk face (数字を読む所), as the graph readouts. */}
       <div className="sun-card">
       <Segmented
@@ -317,7 +327,7 @@ export function SunSheet({
           月のこよみ
         </Button>
       </div>
-      {moonOpen && <MoonSheet date={date} station={station} onClose={() => setMoonOpen(false)} />}
+      {moonOpen && <MoonSheet date={date} station={station} here={hereOn} onClose={() => setMoonOpen(false)} />}
       </div>
 
       {/* 1画面に収める（2026-11-18 渡辺さん「スクロールしなくていいサイズまで」）：日の出・南中・日の入りを3枚に、
@@ -379,6 +389,7 @@ export function SunSheet({
           </tr>
         </tfoot>
       </table>
+      <div className="sun-foot">
       <InfoNote
         className="sun-info"
         more={
@@ -395,6 +406,15 @@ export function SunSheet({
       >
         空の色は模式・なぞると10分ごと
       </InfoNote>
+        <Button size="sm" aria-pressed={!!hereOn} onClick={() => (hereOn || here.state.kind === "asking" ? here.stop() : here.ask())}>
+          現在地で計算
+        </Button>
+      </div>
+      <small className="sun-here" aria-live="polite">
+        {hereOn
+          ? `太陽と月は現在地（${latLonText(hereOn.lat, hereOn.lon)}）で計算。空の色と天気は${stationName}`
+          : { off: `太陽と月は${stationName}（観測所）の場所で計算`, asking: "現在地を読んでいます…", denied: "位置情報が許可されませんでした（設定で許可できます）。観測所で計算しています", unavailable: "現在地を読めませんでした。観測所で計算しています" }[here.state.kind as "off" | "asking" | "denied" | "unavailable"]}
+      </small>
     </ModalSheet>
   );
 }

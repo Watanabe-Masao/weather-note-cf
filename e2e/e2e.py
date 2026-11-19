@@ -805,6 +805,19 @@ with sync_playwright() as p:
         pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
+        # 現在地で計算（11/19）：位置を許可すると、太陽と月は現在地（0.01° に丸めた値）で。題に（現在地）、月のこよみは「現在地から見た」。
+        # やめると観測所に戻る。ここでは札幌あたりの位置を流す（高知と日の出がはっきり違う）。
+        rise0 = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text()
+        pg.context.grant_permissions(["geolocation"]); pg.context.set_geolocation({"latitude": 43.0621, "longitude": 141.3544})
+        pg.locator(".sun-foot .btn", has_text="現在地で計算").click(); pg.wait_for_timeout(600)
+        rise1 = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text(); here_t = txt(".sun-here"); title1 = txt(".sun-sheet .msheet-head h2")
+        pg.locator(".moon-open").click(); calm(); mo_here = txt(".moon-obs"); pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-here.png")
+        fit2 = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); return [b.scrollHeight, b.clientHeight]; })()")
+        pg.locator(".sun-foot .btn", has_text="現在地で計算").click(); calm()
+        rise2 = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text()
+        check("SS2n 現在地で計算：日の出が替わる、題に（現在地）、丸めた座標、月は現在地から、収まる、やめると戻る",
+              rise1 != rise0 and "（現在地）" in title1 and "北緯 43.06°・東経 141.35°" in here_t and "現在地から見た" in mo_here and fit2[0] <= fit2[1] + 1 and rise2 == rise0, (rise0, rise1, rise2, title1, here_t, mo_here[:20], fit2))
         pg.evaluate("""() => { const r = document.querySelector('.sun-slider input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
           set.call(r, '370'); r.dispatchEvent(new Event('input', { bubbles: true })); }"""); wait(300)
         check("SS3 スライダーで 6:10 に（10分ごと）", txt(".sun-now-time") == "6:10", txt(".sun-now"))
