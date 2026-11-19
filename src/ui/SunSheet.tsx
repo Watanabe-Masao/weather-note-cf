@@ -6,7 +6,8 @@ import { shownClock, shownDayLength, shownSun } from "../data/sun";
 import { dateLabel, hoursMinutes } from "../design/format";
 import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
-import { Button, Glyph, IconButton, InfoNote, Segmented, Slider } from "./kit";
+import { Button, Fold, IconButton, InfoNote, Segmented } from "./kit";
+import { TimeBar } from "./TimeBar";
 import { moonLimb, moonNorth, moonPhase, moonPosition, moonTimes, moonTint, moonTopo } from "../../shared/moon";
 import { DEFAULT_LAT_LON, solarAltitude, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
 import { jstToday } from "../../shared/dates";
@@ -25,7 +26,7 @@ import { type ReactNode, useEffect, useMemo, useRef, useState, type PointerEvent
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 
 const W = 340;
-const H = 230;
+const H = 270; // 11/19：出入りを2行に詰めた分、グラフ（主役）を大きく
 const PAD = { left: 38, right: 8, top: 10, bottom: 20 };
 
 export function SunSheet({
@@ -91,6 +92,7 @@ export function SunSheet({
   const [at, setAt] = useState(() => Math.min(1430, hour != null ? hour * 60 : Math.round(e.noon / 10) * 10));
   const [view, setView] = useState<"graph" | "sky">("graph");
   const [moonOpen, setMoonOpen] = useState(false);
+  const [twOpen, setTwOpen] = useState(false);
   // 今に付いていく（11/19 渡辺さん「時間帯を今に追跡する機能と、ここからどう変わるかを見る時間帯変更の両方」）：今日のときだけ。
   // 端末の向きで見はじめると付いていき（20秒ごとに今の分へ）、つまみ・グラフ・動かすで時刻を動かすと止まる。「今」で戻る。
   const isToday = date === jstToday();
@@ -231,32 +233,6 @@ export function SunSheet({
         ]}
       />
       {view === "sky" && !full && <SkyView look={sensor.state === "on" ? sensorLook : null} stream={camera.stream} tap={tap} zoom={zoom} onZoom={setZoom} panView={panView} onPan={setPanView} at={at} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} />}
-      {view === "sky" && (
-        <div className="sky-sensor">
-          {/* ボタンは短い言葉で、押している（使っている）ものは選んでいる色（11/19 渡辺さん「ごちゃごちゃしている」）。 */}
-          <Button size="sm" aria-pressed={sensor.state !== "off"} onClick={() => (sensor.state === "off" ? void sensor.start() : sensor.stop())}>
-            端末の向き
-          </Button>
-          <Button size="sm" onClick={() => setFull(true)}>
-            全画面
-          </Button>
-          {sensor.state === "on" && (
-            <>
-              <Button size="sm" aria-pressed={camera.state === "on"} onClick={() => (camera.state === "on" ? camera.stop() : void camera.start())}>
-                カメラ
-              </Button>
-              <span className="sky-sensor-break" aria-hidden />
-              {trim}
-            </>
-          )}
-          <small className="sky-sensor-state" aria-live="polite">
-            {aiming ? "本物の太陽か月を真ん中の＋に合わせて、画面をタップしてください" : aimNote}
-            {sensor.state === "on" && !sensor.calibrated && "方位を合わせるため、一度端末を立てて地平線の方へ向けてください（見上げている間はコンパスがずれやすい）"}
-            {{ off: "", waiting: "向きを読んでいます…", on: "", denied: "向きのセンサーが許可されませんでした（設定で許可できます）", unsupported: "この端末では向きのセンサーを読めません", noHeading: "方位が読めません（傾きだけ）" }[sensor.state]}
-            {{ off: "", starting: "カメラを開いています…", on: "", denied: "カメラが許可されませんでした（設定で許可できます）", unsupported: "この端末ではカメラを使えません" }[camera.state]}
-          </small>
-        </div>
-      )}
       {full && view === "sky" && (sensor.state !== "on" || sensorLook) && (
         <SkyFull
           onClose={() => setFull(false)}
@@ -269,17 +245,7 @@ export function SunSheet({
                   太陽 {altAt >= 0 ? `${dirName(sunAzAt)} ${Math.round(altAt)}°` : "地平線の下"}・月 {moonAt.altitude >= 0 ? `${dirName(moonAt.azimuth)} ${Math.round(moonAt.altitude)}°` : "地平線の下"}
                 </small>
               </p>
-              <div className="sun-play">
-                <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[rise, set]} thumbs={[{ value: at, label: "時刻（10分ごと）", valueText: clockOf(at), onChange: move }]} />
-                {isToday && (
-                  <Button size="sm" aria-pressed={follow} onClick={() => (follow ? setFollow(false) : (setPlaying(false), setFollow(true)))}>
-                    今
-                  </Button>
-                )}
-                <Button size="sm" aria-pressed={playing} onClick={play}>
-                  {playing ? "止める" : "動かす"}
-                </Button>
-              </div>
+              <TimeBar value={at} onChange={move} ticks={[rise, set]} valueText={clockOf(at)} follow={isToday ? follow : undefined} onFollow={() => (follow ? setFollow(false) : (setPlaying(false), setFollow(true)))} playing={playing} onPlay={play} />
               {sensor.state === "on" && (
                 <div className="sky-sensor">
                   <Button size="sm" aria-pressed={camera.state === "on"} onClick={() => (camera.state === "on" ? camera.stop() : void camera.start())}>
@@ -366,24 +332,34 @@ export function SunSheet({
         ))}
       </svg>
       {/* The same slider as 条件から選ぶ (kit Slider): ticks at sunrise and sunset, no span (a moment, not an amount). */}
-      <div className="sun-play">
-      <Slider
-        className="sun-slider"
-        min={0}
-        max={1430}
-        step={10}
-        ticks={[rise, set]}
-        thumbs={[{ value: at, label: "時刻（10分ごと）", valueText: `${clockOf(at)} ${phase}`, onChange: move }]}
-      />
-      {isToday && (
-        <Button size="sm" aria-pressed={follow} onClick={() => (follow ? setFollow(false) : (setPlaying(false), setFollow(true)))}>
-          今
-        </Button>
+      {/* 時刻の操作（TimeBar）：◀ つまみ ▶、現在時刻（付いていく・もう一度でやめる）、▶／⏸。 */}
+      <TimeBar value={at} onChange={move} ticks={[rise, set]} valueText={`${clockOf(at)} ${phase}`} follow={isToday ? follow : undefined} onFollow={() => (follow ? setFollow(false) : (setPlaying(false), setFollow(true)))} playing={playing} onPlay={play} />
+      {view === "sky" && (
+        <div className="sky-sensor">
+          {/* ボタンは短い言葉で、押している（使っている）ものは選んでいる色（11/19 渡辺さん「ごちゃごちゃしている」）。 */}
+          <Button size="sm" aria-pressed={sensor.state !== "off"} onClick={() => (sensor.state === "off" ? void sensor.start() : sensor.stop())}>
+            端末の向き
+          </Button>
+          <Button size="sm" onClick={() => setFull(true)}>
+            全画面
+          </Button>
+          {sensor.state === "on" && (
+            <>
+              <Button size="sm" aria-pressed={camera.state === "on"} onClick={() => (camera.state === "on" ? camera.stop() : void camera.start())}>
+                カメラ
+              </Button>
+              <span className="sky-sensor-break" aria-hidden />
+              {trim}
+            </>
+          )}
+          <small className="sky-sensor-state" aria-live="polite">
+            {aiming ? "本物の太陽か月を真ん中の＋に合わせて、画面をタップしてください" : aimNote}
+            {sensor.state === "on" && !sensor.calibrated && "方位を合わせるため、一度端末を立てて地平線の方へ向けてください（見上げている間はコンパスがずれやすい）"}
+            {{ off: "", waiting: "向きを読んでいます…", on: "", denied: "向きのセンサーが許可されませんでした（設定で許可できます）", unsupported: "この端末では向きのセンサーを読めません", noHeading: "方位が読めません（傾きだけ）" }[sensor.state]}
+            {{ off: "", starting: "カメラを開いています…", on: "", denied: "カメラが許可されませんでした（設定で許可できます）", unsupported: "この端末ではカメラを使えません" }[camera.state]}
+          </small>
+        </div>
       )}
-      <Button size="sm" aria-pressed={playing} onClick={play}>
-        {playing ? "止める" : "動かす"}
-      </Button>
-      </div>
       {/* The moment: its time, which part of the day, the sun's height, and the sky's colour then. */}
       <div className="sun-now">
         <i className="sun-now-sky" style={{ background: `linear-gradient(${skyNow.zenith}, ${skyNow.horizon})` }} />
@@ -414,12 +390,13 @@ export function SunSheet({
       {moonOpen && <MoonSheet date={date} station={station} here={hereOn} onHere={() => (hereOn || here.state.kind === "asking" ? here.stop() : here.ask())} onClose={() => setMoonOpen(false)} />}
       </div>
 
-      {/* 1画面に収める（2026-11-18 渡辺さん「スクロールしなくていいサイズまで」）：日の出・南中・日の入りを3枚に、
-          3つの薄明は朝と夕の2列の表に、説明は ⓘ に。 */}
+      {/* 太陽と月の出入り（11/19 レビュー「6枚のカードを太陽と月の2行に」）：1行ずつ、時刻の順に。月はその日の暦どおり
+          （0時台の月の入りは、前の晩に昇った月）。薄明と昼の長さは畳む（開くと3つの薄明の表）。 */}
       <div className="sun-keys">
+        <span className="sun-keys-name">太陽</span>
         {[
           { label: "日の出", time: shown.rise, none: true },
-          { label: "南中", time: e.noon, note: `高さ ${Math.round(e.noonAltitude)}°` },
+          { label: "南中", time: e.noon, note: `${Math.round(e.noonAltitude)}°` },
           { label: "日の入り", time: shown.set, none: true },
         ].map((k) => (
           <div key={k.label} className="sun-key">
@@ -430,18 +407,22 @@ export function SunSheet({
         ))}
       </div>
       <div className="sun-keys moon">
+        <span className="sun-keys-name">月</span>
         {[
           { label: "月の出", ev: sky3.times.rise },
-          { label: "月の南中", ev: sky3.times.transit, note: sky3.times.transit ? `高さ ${Math.round(sky3.times.transit.altitude)}°` : undefined },
+          { label: "南中", ev: sky3.times.transit, note: sky3.times.transit ? `${Math.round(sky3.times.transit.altitude)}°` : undefined },
           { label: "月の入り", ev: sky3.times.set },
-        ].map((k) => (
-          <div key={k.label} className="sun-key">
-            <small>{k.label}</small>
-            <b>{k.ev ? clockOf(Math.round(k.ev.at)) : "—"}</b>
-            <small>{k.ev ? (k.note ?? dirName(k.ev.azimuth)) : "この日は無し"}</small>
-          </div>
-        ))}
+        ]
+          .sort((a, b) => (a.ev?.at ?? 9e9) - (b.ev?.at ?? 9e9))
+          .map((k) => (
+            <div key={k.label} className="sun-key">
+              <small>{k.label}</small>
+              <b>{k.ev ? clockOf(Math.round(k.ev.at)) : "—"}</b>
+              <small>{k.ev ? (k.note ?? dirName(k.ev.azimuth)) : "この日は無し"}</small>
+            </div>
+          ))}
       </div>
+      <Fold open={twOpen} onToggle={() => setTwOpen(!twOpen)} openLabel={`薄明と昼の長さ（昼 ${hoursMinutes(length)}）`} closeLabel="薄明と昼の長さを閉じる">
       <table className="sun-tw">
         <thead>
           <tr>
@@ -473,6 +454,7 @@ export function SunSheet({
           </tr>
         </tfoot>
       </table>
+      </Fold>
       <div className="sun-foot">
       <InfoNote
         className="sun-info"
@@ -527,8 +509,8 @@ const PAN_FOV = 90;
 function SkyPan({ w, h, zoom, onZoom, view, onView, full, ...p }: Omit<SkyProps, "look"> & { w: number; h: number; zoom: number; onZoom: (z: number) => void; view: { azimuth: number; altitude: number } | null; onView: (v: { azimuth: number; altitude: number }) => void; full?: boolean }) {
   const auto =
     p.sunAlt >= 0 ? { azimuth: p.sunAz, altitude: p.sunAlt } : p.moon.altitude >= 0 ? { azimuth: p.moon.azimuth, altitude: p.moon.altitude } : { azimuth: 180, altitude: 15 };
-  // 地平線（方位の名前）が窓に入る高さで：天体より少し下を真ん中に（縦の画角は約 68°）。
-  const look = view ?? { azimuth: auto.azimuth, altitude: Math.max(10, Math.min(28, auto.altitude - 10)) };
+  // 地平線は窓の下の端近くに（下の地面が空白にならないよう。縦の画角は約 80°、真ん中を 33° 上にすると地平線は下から 1/7 ほど）。
+  const look = view ?? { azimuth: auto.azimuth, altitude: Math.max(33, Math.min(45, auto.altitude - 5)) };
   const drag = useRef<{ x: number; y: number; az: number; alt: number; k: number } | null>(null);
   const pinch = usePinch(zoom, onZoom);
   const norm = (a: number) => ((a % 360) + 360) % 360;
@@ -747,6 +729,8 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
       onPointerMove={pan ? undefined : (e) => void pinch.move(e)}
       onPointerUp={pan ? undefined : (e) => pinch.up(e)}
       onPointerCancel={pan ? undefined : (e) => pinch.up(e)}
+      // パソコンのトラックパッドでつまむ（ctrl + ホイール）とき
+      onWheel={onZoom ? (e) => e.ctrlKey && onZoom(clampZoom(zoom * Math.exp(-e.deltaY / 200))) : undefined}
     >
       {stream && <video ref={video} className="sky-video" style={zoom > 1 ? { transform: `scale(${zoom})` } : undefined} playsInline muted autoPlay onLoadedMetadata={(e) => setDims({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })} />}
       <svg
@@ -846,18 +830,11 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
           </text>
         )}
       </svg>
+      {/* 倍率（11/19 渡辺さん「倍率のボタンは無くし、2本指で。画面にチップで倍率を」）。 */}
       {onZoom && (
-        <div className="sky-mag">
-          <IconButton size="sm" label="縮める" disabled={zoom <= 1} onClick={() => onZoom(clampZoom(zoom / 1.5))}>
-            <Glyph name="minus" />
-          </IconButton>
-          <span className="sky-mag-value" aria-live="polite">
-            {zoom >= 10 ? Math.round(zoom) : zoom.toFixed(1)}倍
-          </span>
-          <IconButton size="sm" label="拡大する" disabled={zoom >= ZOOM_MAX} onClick={() => onZoom(clampZoom(zoom * 1.5))}>
-            <Glyph name="plus" />
-          </IconButton>
-        </div>
+        <span className="sky-mag" aria-live="polite">
+          {zoom >= 10 ? Math.round(zoom) : zoom.toFixed(1)}倍
+        </span>
       )}
     </div>
   );

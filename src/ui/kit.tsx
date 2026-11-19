@@ -109,7 +109,7 @@ export function Button({
  * chooses, so the same button looks centred on one phone and low on another. A drawn mark is
  * centred in its own box. Sized in em so it follows the text beside it; colour is the text's.
  */
-export type GlyphName = "prev" | "next" | "plus" | "minus" | "pair" | "dot" | "ring" | "down" | "up";
+export type GlyphName = "prev" | "next" | "plus" | "minus" | "pair" | "dot" | "ring" | "down" | "up" | "play" | "pause";
 const GLYPH: Record<GlyphName, ReactNode> = {
   prev: <path d="M9 1.5 2.5 6 9 10.5z" fill="currentColor" strokeLinejoin="round" />,
   next: <path d="M3 1.5 9.5 6 3 10.5z" fill="currentColor" strokeLinejoin="round" />,
@@ -120,6 +120,8 @@ const GLYPH: Record<GlyphName, ReactNode> = {
   pair: <path d="M3.8 3.5 1.5 6l2.3 2.5M8.2 3.5 10.5 6 8.2 8.5M1.8 6h8.4" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />,
   dot: <circle cx="6" cy="6" r="3.5" fill="currentColor" />,
   ring: <circle cx="6" cy="6" r="3" fill="none" stroke="currentColor" strokeWidth="1.2" />,
+  play: <path d="M3.5 1.8 10 6l-6.5 4.2z" fill="currentColor" strokeLinejoin="round" />,
+  pause: <path d="M3 2h2.2v8H3zM6.8 2H9v8H6.8z" fill="currentColor" />,
 };
 export function Glyph({ name, size = "0.85em" }: { name: GlyphName; size?: string }) {
   return (
