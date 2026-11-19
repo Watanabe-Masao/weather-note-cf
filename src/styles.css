@@ -4513,8 +4513,20 @@ select.chip.sm {
 .sky-edge path { fill: var(--ink-primary); }
 .sky-edge text { fill: var(--ink-primary); font-size: var(--size-xs); }
 .sky-heading { fill: var(--ink-primary); font-size: var(--size-xs); }
-.sky-alt { fill: none; stroke: var(--line-soft); stroke-width: var(--stroke-hair); stroke-dasharray: 2 4; }
+.sky-alt { fill: none; stroke: var(--line-strong); stroke-width: var(--stroke-hair); stroke-dasharray: 2 4; }
+/* 球の基準線（11/19）：高さの輪と方位の線。45° ごとの方位の線は少し濃く。 */
+.sky-grid { fill: none; stroke: var(--line-strong); stroke-width: var(--stroke-hair); opacity: 0.6; }
+.sky-grid.major { stroke: var(--ink-tertiary); }
+.sky-stage.camera .sky-grid { stroke: var(--ink-on-feel); opacity: 0.35; }
 .sky-alt-label, .sky-dir { font-size: var(--size-xs); }
+.sky-alt-label { fill: var(--ink-secondary); }
+.sky-stage.camera .sky-alt-label { fill: var(--ink-on-feel); paint-order: stroke; stroke: var(--surface-page); stroke-width: var(--stroke-focus); }
+/* 拡大（11/19）：窓の右下に − 倍 ＋。全画面では左上。 */
+.sky-aim line, .sky-aim circle { fill: none; stroke: var(--accent-base); stroke-width: var(--stroke-focus); }
+.sky-mag { position: absolute; right: var(--space-2); bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-1); border-radius: var(--radius-pill); background: var(--surface-raised); box-shadow: var(--shadow-lift); }
+.sky-stage.full .sky-mag { right: auto; bottom: auto; left: calc(env(safe-area-inset-left, 0px) + var(--space-4)); top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); }
+.sky-mag-value { min-width: 3.2em; text-align: center; font-size: var(--size-xs); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+.sky-pan.full { position: absolute; inset: 0; }
 .sky-sun { stroke: none; }
 /* 本当の大きさの太陽と月に添える輪と名前（11/19）：小さくても見つけられるように */
 .sky-view.window.aiming { cursor: crosshair; outline: var(--stroke-focus) dashed var(--accent-base); outline-offset: calc(-1 * var(--stroke-focus)); }
