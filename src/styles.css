@@ -4274,6 +4274,7 @@ select.chip.sm {
 .mt-list.small { gap: var(--space-2); font-size: var(--size-sm); color: var(--ink-secondary); }
 .mt-list li.warn { color: var(--status-warning); }
 .mt-fine { color: var(--ink-tertiary); }
+.mt-tables code { font-family: var(--font-numeric); color: var(--ink-primary); }
 .mt-errors code { font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-secondary); white-space: pre-wrap; word-break: break-all; }
 
 /* The research analysis (#55, in the app): aggregates as small tables. */

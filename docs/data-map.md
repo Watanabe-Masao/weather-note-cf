@@ -138,7 +138,9 @@ D1 は1つ（バインディング `DB`）、原本のファイルは R2（`ARCH
 | --- | --- | --- |
 | 気象 | `forecast_telegrams`・`forecast_issues`・`forecast_entries`・`forecast_fetch_log`・`forecast_imports`・`forecast_alerts`・`typhoon_telegrams`・`typhoon_fetch_log`・`typhoon_json_log`・`typhoon_alerts`・`warning_telegrams`・`warning_fetch_log`・`longrange_telegrams`・`longrange_fetch_log`・`radar_saved`・`radar_fetch_log`・`wxchart_saved`・`wxchart_fetch_log`・`archive_copies`・`source_listed`・`data_gaps`・`data_absent` | 公開の気象情報と、その取得の記録・欠け。人を指す列は持たない |
 | ユーザー | `users`・`sessions`・`session_reauth`・`schema_version`・`reports`・`consents`・`research_withdrawals`・`push_subscriptions`・`server_keys`・`notify_settings`・`notify_log`・`typhoon_notify_settings`・`typhoon_notify_log`・`export_log`・`export_tokens` | アカウント・肌感の記録・同意・通知。研究に出すときは研究用の番号で（#55） |
-| 運用 | `cron_runs`・`health_checks`・`health_alerts`・`app_errors`・`refetch_log` | 定時処理・見張り・エラー・取り直しの記録。数と時刻が主。エラーの文言と押した管理者は管理者の画面だけに出す |
+| 運用 | `cron_runs`・`health_checks`・`health_alerts`・`app_errors`・`refetch_log`・`schema_migrations` | 定時処理・見張り・エラー・取り直しの記録。数と時刻が主。エラーの文言と押した管理者は管理者の画面だけに出す |
+
+**表の作りの変更**（2026-11-19）：表は各ファイルの `CREATE TABLE IF NOT EXISTS` で作り、作ったあとの変更（列を足すなど）は `worker/src/migrate.ts` の `migrate` で部分ごとの版として1回ずつ当て、`schema_migrations` に残す。版は足すだけで、当て終わった版は書き換えない（直すときは次の版）。消す・作り直す変更は元に戻せないので、個別に確かめてから。アカウントの `schema_version`（v1）は前からのもので、そのまま。
 
 エラーの記録は、Cloudflare のログ（アプリから読めず、数日で消える）ではなく、ここ（`app_errors`・`cron_runs.error`）を正にします（#341・#344）。時刻の書き方は 2 章の「時刻の決まり（要件 R4）」のとおりで、書き換えません。
 

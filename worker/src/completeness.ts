@@ -17,6 +17,7 @@
 import type { Db } from "./accounts";
 import { FORECAST_GRACE_MS, FORECAST_SCHEDULE, FORECAST_WATCH_OFFICE } from "./forecastWatch";
 import { doneOnce } from "./once";
+import { migrate } from "./migrate";
 
 export const AUDIT_DAYS = 14;
 const H = 3_600_000;
@@ -44,13 +45,8 @@ const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts�
 export function ensureCompletenessSchema(db: Db): Promise<void> {
   return doneOnce(done, db, async () => {
     for (const q of COMPLETENESS_SCHEMA) await db.prepare(q).run();
-    // 取り戻した印（2026-11-19、DB 設計の提案の Recovered）：欠けた事実は消さず、後で埋まったら日と手段を付ける。
-    for (const col of ["recovered_at TEXT", "recovered_by TEXT"])
-      try {
-        await db.prepare(`ALTER TABLE data_gaps ADD COLUMN ${col}`).run();
-      } catch (e) {
-        if (!/duplicate column/i.test(String(e))) throw e;
-      }
+    // 作ったあとの変更は版で（migrate.ts）：v1 取り戻した印（2026-11-19、DB 設計の提案の Recovered）。
+    await migrate(db, "completeness", [["ALTER TABLE data_gaps ADD COLUMN recovered_at TEXT", "ALTER TABLE data_gaps ADD COLUMN recovered_by TEXT"]]);
   });
 }
 
@@ -258,11 +254,14 @@ const short = (a: SeriesAudit) => ({ ...a, pending: a.pending.slice(-6).reverse(
  * auditCompleteness）。表がまだ無いときは、その部分を空で返す。
  */
 export async function readCompleteness(db: Db, now: number) {
+  // 版の変更（取り戻した印の列）を、読む前にも当てる（2026-11-19）：以前は毎時の見張りが当てるまで、公開後しばらく
+  // 新しい列が無く、/api/health とデータの保守が「no such column」で失敗していた。表がまだ無い DB では何もしない。
+  await ensureCompletenessSchema(db).catch((e) => console.error("weather-note: completeness schema", e));
   const safe = async <T>(f: () => Promise<T>, empty: T): Promise<T> => {
     try {
       return await f();
     } catch (e) {
-      if (/no such table/i.test(String(e))) return empty;
+      if (/no such table|no such column/i.test(String(e))) return empty;
       throw e;
     }
   };

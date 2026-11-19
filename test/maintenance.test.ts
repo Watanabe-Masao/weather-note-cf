@@ -66,3 +66,38 @@ describe("取り直しのボタンは要る段だけ", () => {
     expect((await refetchSummary(db, NOW, true)).stages[0].why).toEqual(["取り残し 18"]);
   });
 });
+
+import { tableAudit } from "../worker/src/maintenance";
+import { ensureForecastParseSchema } from "../worker/src/forecastParse";
+describe("表の点検（読むだけ）", () => {
+  it("表ごとの行数と、つながりの切れを数え、何も消さない。結果は保守の画面に残る", async () => {
+    const db = d1();
+    await ensureSchema(db);
+    await ensureForecastParseSchema(db);
+    db.raw.prepare("INSERT INTO forecast_issues (issue_id, source, office, kind, issued_at, preferred, parser, entries) VALUES ('x1', 'jma-xml', '390000', 'VPFD51', '2026-11-18T11:00:00+09:00', 1, 1, 0)").run();
+    const r = await tableAudit(db, NOW, "admin1");
+    expect(r.tables.find((t) => t.name === "forecast_issues")?.rows).toBe(1);
+    expect(r.links.find((l) => l.name.startsWith("自前の発表で"))?.n).toBe(1); // 電文の無い発表
+    expect(r.links.find((l) => l.name.startsWith("肌感の記録で"))?.n).toBe(0);
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM forecast_issues").get()).toEqual({ n: 1 });
+    expect((await maintenanceSummary(db, NOW, { hasBucket: true })).lastAudit?.result.links.length).toBe(r.links.length);
+  });
+});
+
+import { readCompleteness } from "../worker/src/completeness";
+describe("公開直後（新しい列がまだ無い）でも読める", () => {
+  it("取り戻した印の列が無い古い data_gaps でも、readCompleteness が版を当てて読む", async () => {
+    const db = d1();
+    db.raw.exec("CREATE TABLE data_gaps (source TEXT NOT NULL, item TEXT NOT NULL, found_at TEXT NOT NULL, detail TEXT NOT NULL, PRIMARY KEY (source, item))");
+    db.raw.prepare("INSERT INTO data_gaps VALUES ('radar:hrpns', '2026-11-18T07:00:00+09:00', 'x', 'y')").run();
+    const c = await readCompleteness(db, NOW);
+    expect(c.lostAll).toEqual([{ source: "radar:hrpns", n: 1 }]);
+  });
+  it("データの保守は、1つの部分が失敗しても残りを出し、失敗した部分と文言を並べる", async () => {
+    const db = d1();
+    const broken = { ...db, prepare: (q: string) => (/FROM refetch_log WHERE stage = 'audit'/.test(q) ? { bind: () => ({ all: async () => Promise.reject(new Error("D1_ERROR: boom")) }) } : db.prepare(q)) } as never;
+    const s = await maintenanceSummary(broken, NOW, { hasBucket: true });
+    expect(s.failed).toEqual([{ part: "表の点検", message: "Error: D1_ERROR: boom" }]);
+    expect(s.refetch.stages.length).toBe(4);
+  });
+});

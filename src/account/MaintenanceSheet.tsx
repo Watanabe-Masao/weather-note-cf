@@ -2,7 +2,7 @@
 //
 // 毎日の運用の順に並べる：①今の状態（見張りと同じ判定。異常・注意の行と手順の番号）と「まとめてコピー」（このまま
 // メインのスレッドに貼れる）、②取得の様子（取り直しのボタンは要る段だけ）、③欠け、④エラーの記録（文言つき、コピーできる）、
-// ⑤重なりを確かめる（読むだけ）、⑥大きさ。何も消さない。サーバーは worker/src/maintenance.ts・refetch.ts。
+// ⑤重なりを確かめる（読むだけ）、⑥表の点検（行数とつながり、読むだけ）、⑦大きさ。何も消さない。サーバーは worker/src/maintenance.ts・refetch.ts。
 
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -15,12 +15,14 @@ type Series = { expected: number; kept: number; pendingCount: number; lostCount:
 type Dup = { name: string; n: number; examples: string[]; note?: string };
 type Summary = {
   at: string;
+  failed?: { part: string; message: string }[];
   judged: { problems: { key: string; text: string }[]; notes: { key: string; text: string }[] };
   refetch: { perHour: number; stages: Stage[] };
   completeness?: { forecast: Record<string, Series>; radar: Record<string, Series>; lostAll: { source: string; n: number }[]; absentAll?: { source: string; n: number }[] };
   errors: { at: string; where: string; message: string }[];
-  room: { d1Size: { bytes: number; percent: number } | null; d1WritesMonth: { estimate: number; percent: number; rowsLastDay: number }; r2: { bytes: number; percentOfFree: number }; cronRunsLastDay: number; cronMissing: number };
+  room: null | { d1Size: { bytes: number; percent: number } | null; d1WritesMonth: { estimate: number; percent: number; rowsLastDay: number }; r2: { bytes: number; percentOfFree: number }; cronRunsLastDay: number; cronMissing: number };
   lastDupCheck: { at: string; result: Dup[] } | null;
+  lastAudit?: { at: string; result: { tables: { name: string; rows: number }[]; links: { name: string; n: number }[] } } | null;
 };
 
 const NAME: Record<string, string> = { VPFD51: "府県天気予報", VPFW50: "府県週間天気予報", hrpns: "雨雲レーダー", rasrf: "解析雨量" };
@@ -47,7 +49,8 @@ function digest(s: Summary): string {
   if (notes.length) out.push(`注意 ${notes.length}：`, ...notes.map((p) => `・${p.text}`));
   out.push("取得：", ...s.refetch.stages.map((x) => `・${x.name}：最後に取れた ${x.lastOk ? clock(x.lastOk) : "—"}${x.waiting ? `・取り残し ${x.waiting}` : ""}${x.needed ? `（${x.why.join("・")}）` : ""}`));
   if (s.errors.length) out.push(`エラー（新しい順、${Math.min(10, s.errors.length)}件）：`, ...s.errors.slice(0, 10).map((e) => `・${clock(e.at)} ${e.where}：${e.message}`));
-  out.push(`大きさ：DB ${s.room.d1Size ? `${mb(s.room.d1Size.bytes)}（${s.room.d1Size.percent}%）` : "—"}・月の書き込み見込み ${s.room.d1WritesMonth.percent}%・R2 ${mb(s.room.r2.bytes)}・定時処理 ${s.room.cronRunsLastDay}/288`);
+  if (s.failed?.length) out.push("読めなかった部分：", ...s.failed.map((f) => `・${f.part}：${f.message}`));
+  if (s.room) out.push(`大きさ：DB ${s.room.d1Size ? `${mb(s.room.d1Size.bytes)}（${s.room.d1Size.percent}%）` : "—"}・月の書き込み見込み ${s.room.d1WritesMonth.percent}%・R2 ${mb(s.room.r2.bytes)}・定時処理 ${s.room.cronRunsLastDay}/288`);
   return out.join("\n");
 }
 
@@ -58,6 +61,7 @@ function Body() {
   const [copied, setCopied] = useState<string | null>(null);
   const [openErrors, setOpenErrors] = useState(false);
   const [openGaps, setOpenGaps] = useState(false);
+  const [openTables, setOpenTables] = useState(false);
   const load = useCallback(() => {
     api<Summary>("/api/admin/maintenance")
       .then(setS)
@@ -84,8 +88,15 @@ function Body() {
       .catch((e) => setError((e as Error).message))
       .finally(() => setBusy(null));
   };
+  const audit = () => {
+    setBusy("audit");
+    api("/api/admin/audit", {})
+      .then(load)
+      .catch((e) => setError((e as Error).message))
+      .finally(() => setBusy(null));
+  };
   const { problems, notes } = s.judged;
-  const level = problems.length ? "bad" : notes.length ? "note" : "ok";
+  const level = problems.length || s.failed?.length ? "bad" : notes.length ? "note" : "ok";
   const series = s.completeness ? [...Object.entries(s.completeness.forecast), ...Object.entries(s.completeness.radar)].filter(([, a]) => a.expected) : [];
   const gaps = series.reduce((n, [, a]) => n + a.pendingCount + a.lostCount, 0);
   return (
@@ -100,6 +111,13 @@ function Body() {
             {p.text}
           </p>
         ))}
+        {s.failed?.length
+          ? s.failed.map((f) => (
+              <p key={f.part} className="mt-line bad">
+                読めなかった部分：{f.part}（{f.message}）
+              </p>
+            ))
+          : null}
         <small className="set-help">{clock(s.at)} の時点。毎時の見張りと同じ判定です。手順の番号は障害の手引き（docs/runbook.md）。</small>
         <div className="actions tight">
           <Button size="sm" onClick={() => void copy(digest(s)).then((ok) => say("まとめ", ok))}>
@@ -229,7 +247,42 @@ function Body() {
         </div>
       </section>
 
-      {/* ⑥ 大きさ */}
+      {/* ⑥ 表の点検（読むだけ） */}
+      <section className="set-group" aria-labelledby="mt-audit">
+        <h3 id="mt-audit">表の点検</h3>
+        {s.lastAudit ? (
+          <>
+            <ul className="mt-list small">
+              {s.lastAudit.result.links.map((l) => (
+                <li key={l.name} className={l.n ? "warn" : undefined}>
+                  {l.name}：{l.n}
+                </li>
+              ))}
+            </ul>
+            <Fold open={openTables} onToggle={() => setOpenTables(!openTables)} openLabel={`表ごとの行数（${s.lastAudit.result.tables.length}表）`} closeLabel="閉じる">
+              <ul className="mt-list small mt-tables">
+                {s.lastAudit.result.tables.map((t) => (
+                  <li key={t.name}>
+                    <code>{t.name}</code> {t.rows.toLocaleString()}
+                  </li>
+                ))}
+              </ul>
+            </Fold>
+            <small className="set-help">{clock(s.lastAudit.at)} に点検した結果。</small>
+          </>
+        ) : (
+          <small className="set-help">まだ点検していません。</small>
+        )}
+        <small className="set-help">表ごとの行数と、表どうしのつながり（値 → 発表 → 電文、記録 → 人）が切れていないかを数えます。読むだけで、何も消しません。</small>
+        <div className="actions tight">
+          <Button size="sm" busy={busy === "audit"} disabled={!!busy} onClick={audit}>
+            {busy === "audit" ? "点検しています…" : "表を点検する"}
+          </Button>
+        </div>
+      </section>
+
+      {/* ⑦ 大きさ */}
+      {s.room ? (
       <section className="set-group" aria-labelledby="mt-room">
         <h3 id="mt-room">大きさ</h3>
         <ul className="mt-list">
@@ -243,6 +296,7 @@ function Body() {
           </li>
         </ul>
       </section>
+      ) : null}
       {error ? <p className="warn">{error}</p> : null}
     </div>
   );
