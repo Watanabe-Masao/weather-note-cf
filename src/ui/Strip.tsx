@@ -9,6 +9,8 @@ import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRe
 import { centerIndex, COLUMNS, scrollFor } from "../compare";
 
 const SETTLE_MS = 140;
+/** 幅が変わってからこの間（ms）の、指でないスクロールはなぞったことにしない。 */
+const RESIZE_QUIET_MS = 400;
 
 /** Shared between linked strips. */
 export class StripSync {
@@ -43,6 +45,10 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     lastLeft: 0,
     /** Where a programmatic scroll is heading. */
     goal: 0,
+    /** The column width the strip was last put on its centre with (a new width means the position means another day). */
+    col: 0,
+    /** When the strip's width last changed (performance.now()). */
+    resizedAt: 0,
   });
   const latest = useRef({ dates, center, onSettle, onGesture, selectable, columns });
   latest.current = { dates, center, onSettle, onGesture, selectable, columns };
@@ -50,7 +56,10 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
   // Column width = a seventh of the visible strip.
   useLayoutEffect(() => {
     const el = ref.current!;
-    const measure = () => setCol(el.clientWidth / columns);
+    const measure = () => {
+      state.current.resizedAt = performance.now();
+      setCol(el.clientWidth / columns);
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -72,11 +81,15 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     const s = state.current;
     const moved = s.firstDate !== dates[0];
     s.firstDate = dates[0];
+    // 幅が変わった（横向き・縦向き、2026-11-19）：同じスクロール位置が別の日を指すので、なぞっている途中とみなさず、
+    // 選んでいる日に置き直す。幅が変わったときのスクロールの知らせを「なぞった」と取ると、別の日を選び直してしまう。
+    const resized = s.col !== 0 && s.col !== col;
+    s.col = col;
     // The finger is in charge — unless the days themselves changed under it (連動/個別 switched,
     // or the rule changed, mid-glide): then the position means another day, so the gesture is
     // dropped and the strip is put on its centre at once instead of settling on a wrong day.
     if (s.active) {
-      if (!moved) return;
+      if (!moved && !resized) return;
       s.active = false;
       window.clearTimeout(s.timer);
       latest.current.onGesture(false);
@@ -86,7 +99,7 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     const target = scrollFor(index, col);
     if (Math.abs(el.scrollLeft - target) < 1) return;
     // A new window (moved range) or first layout jumps; anything else glides.
-    const jump = moved || el.scrollLeft === 0;
+    const jump = moved || resized || el.scrollLeft === 0;
     s.programmatic = true;
     s.goal = target;
     if (sync) sync.leader = null;
@@ -179,6 +192,11 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     const el = ref.current!;
     const s = state.current;
     if (sync && sync.leader && sync.leader !== id) return; // following another strip
+    // 幅が変わった直後の（指でない）スクロールは、ブラウザが位置を合わせ直しただけ：なぞったことにしない。
+    if (!s.active && !s.programmatic && !s.touching && performance.now() - s.resizedAt < RESIZE_QUIET_MS) {
+      s.lastLeft = el.scrollLeft;
+      return;
+    }
     if (!s.active && !s.programmatic) begin(); // trackpad or wheel without a touch
     if (edges && col && s.active) {
       // Past the last (or first) day by more than half a column: stop there. Setting the position

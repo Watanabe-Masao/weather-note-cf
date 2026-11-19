@@ -5,7 +5,7 @@
 #       WN_CHROME=/path/to/chrome to use a given browser; exits 1 when a check fails (CI).
 import re
 import time
-import json, re, sys, datetime, random, threading, http.server, functools, os
+import json, re, sys, datetime, random, threading, http.server, functools, os, traceback
 from playwright.sync_api import sync_playwright
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -270,6 +270,21 @@ def step(name, fn):
         fn()
     except Exception as e:
         results.append((False, name, "EXCEPTION " + str(e).splitlines()[0][:160])); print(str(e)[:1500]) if os.environ.get("WN_DEBUG") else None
+        # 止まった行と、そのときの画面（CI では e2e/shots が成果物に残る。手元で再現しないときの手がかり）。
+        tb = [f"{f.lineno}" for f in traceback.extract_tb(e.__traceback__) if f.filename == __file__]
+        print(f"  {name} stopped at e2e.py line {' > '.join(tb)}: {str(e).splitlines()[0][:200]}", flush=True)
+        try:
+            # 開いているシートの文字と、時刻の操作があるか（写真を取りに行けないときの手がかり）。
+            print("  " + name + " page:", json.dumps(pg.evaluate("""() => { const m = [...document.querySelectorAll('.msheet')].pop();
+              return { sheet: m ? m.innerText.replace(/\\s+/g, ' ').slice(0, 700) : null, play: document.querySelectorAll('.sun-play').length,
+                btns: [...document.querySelectorAll('.sun-play .btn')].map(b => b.textContent.trim()), w: innerWidth, h: innerHeight }; }"""), ensure_ascii=False), flush=True)
+        except Exception:
+            pass
+        try:
+            os.makedirs(os.path.join(os.path.dirname(__file__), "shots"), exist_ok=True)
+            pg.screenshot(path=os.path.join(os.path.dirname(__file__), "shots", f"fail-{W}-{name}.png"), full_page=True)
+        except Exception:
+            pass
     TIMES.append((name, time.monotonic() - t0))
 
 errors = []
@@ -367,11 +382,13 @@ with sync_playwright() as p:
         with open(os.environ["WN_TAPS"], "a") as f: f.write(json.dumps({"where": where, "rows": rows}, ensure_ascii=False) + "\n")
     def rotate_ok(code, where):
         # 横向きにして縦へ戻す（11/19 実機：戻すと画面の幅が広がったまま、中身が左に寄った）。
-        w0 = pg.evaluate("document.documentElement.scrollWidth")
+        # 選んでいる日も変わらない（11/19 CI：幅が変わったときのスクロールを「なぞった」と取り、別の日を選び直していた）。
+        day = lambda: pg.evaluate("[...document.querySelectorAll('.strip-col')].map((c, i) => c.classList.contains('is-center') ? i : -1).filter(i => i >= 0).join(',')")
+        w0 = pg.evaluate("document.documentElement.scrollWidth"); d0 = day()
         pg.set_viewport_size({"width": 844, "height": 390}); pg.wait_for_timeout(600)
         pg.set_viewport_size({"width": W, "height": 844}); pg.wait_for_timeout(800)
-        r = pg.evaluate("[document.documentElement.scrollWidth, innerWidth]")
-        check(f"{code} 横向きにして縦に戻しても、画面の幅が広がらない（{where}）", r[1] == W and r[0] <= r[1] and r[0] == w0, (w0, r))
+        r = pg.evaluate("[document.documentElement.scrollWidth, innerWidth]"); d1 = day()
+        check(f"{code} 横向きにして縦に戻しても、画面の幅が広がらず、選んでいる日も変わらない（{where}）", r[1] == W and r[0] <= r[1] and r[0] == w0 and d0 == d1, (w0, r, d0, d1))
 
     def layout_ok(code, where):
         snap_styles(f"{code} {where}")
