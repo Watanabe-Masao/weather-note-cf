@@ -5,7 +5,8 @@
 //     マーク）＝ 見る範囲の初めから、欠けの無い最後の時刻。
 // 欠けは2つに分ける：
 //   pending  まだ取り戻せる（提供元の一覧に載っている間）。次の回で取れるはず
-//   lost     取り戻せない（一覧から外れた）。data_gaps に1度だけ残し、消さない（明示する）
+//   lost     取り戻せない（一覧から外れた）。data_gaps に1度だけ残し、消さない（明示する）。後で埋まったら
+//            recovered_at・recovered_by を付ける（recoverGaps。欠けた事実は残す）
 //   absent   提供元が出していない（2026-11-19、#299 P1）：一覧を読めた回があったのに、その時刻が一度も載らなかった。
 //            証拠は listed.ts の source_listed（載っていた時刻）と、取得の記録（読めた回）。証拠を取り始める前の時刻は
 //            分けられないので lost のまま。data_absent に1度だけ残す。欠けではないので、続けて確かめられた位置は止めない。
@@ -43,7 +44,51 @@ const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts�
 export function ensureCompletenessSchema(db: Db): Promise<void> {
   return doneOnce(done, db, async () => {
     for (const q of COMPLETENESS_SCHEMA) await db.prepare(q).run();
+    // 取り戻した印（2026-11-19、DB 設計の提案の Recovered）：欠けた事実は消さず、後で埋まったら日と手段を付ける。
+    for (const col of ["recovered_at TEXT", "recovered_by TEXT"])
+      try {
+        await db.prepare(`ALTER TABLE data_gaps ADD COLUMN ${col}`).run();
+      } catch (e) {
+        if (!/duplicate column/i.test(String(e))) throw e;
+      }
   });
+}
+
+/**
+ * 取り戻せない欠けのうち、後で埋まったものに印を付ける（欠けた行は消さない）。埋まった手段：
+ *   予報の電文 … 自前の電文（同じ回が後から保存された）か、過去の記録（shiromatz）の取り込み
+ *   雨雲・解析雨量 … その時刻の9枚がそろった
+ * 新しく印を付けた数を返す。
+ */
+export async function recoverGaps(db: Db, now: number): Promise<number> {
+  const open = (await db.prepare("SELECT source, item FROM data_gaps WHERE recovered_at IS NULL ORDER BY item DESC LIMIT 200").all<{ source: string; item: string }>()).results;
+  let n = 0;
+  const day = (iso: string) => `${iso.slice(0, 10)}%`;
+  for (const g of open) {
+    const [kind, name] = g.source.split(":");
+    const t = Date.parse(g.item);
+    const within = (iso: string) => Date.parse(iso) >= t && Date.parse(iso) < t + H;
+    let by: string | null = null;
+    try {
+      if (kind === "forecast") {
+        const own = (await db.prepare("SELECT issued_at FROM forecast_telegrams WHERE office = ? AND kind = ? AND issued_at LIKE ?").bind(FORECAST_WATCH_OFFICE, name, day(g.item)).all<{ issued_at: string }>()).results;
+        if (own.some((r) => within(r.issued_at))) by = "自前の電文";
+        else {
+          const rec = (await db.prepare("SELECT issued_at FROM forecast_issues WHERE source = 'shiromatz' AND office = ? AND kind = ? AND issued_at LIKE ?").bind(FORECAST_WATCH_OFFICE, name, day(g.item)).all<{ issued_at: string }>()).results;
+          if (rec.some((r) => within(r.issued_at))) by = "過去の記録（shiromatz）";
+        }
+      } else if (kind === "radar") {
+        const c = await db.prepare("SELECT COUNT(*) AS n FROM radar_saved WHERE key LIKE ? AND valid_at = ?").bind(`radar/${name}/%`, g.item).first<{ n: number }>();
+        if ((c?.n ?? 0) >= 9) by = "保存";
+      }
+    } catch (e) {
+      if (!/no such table/i.test(String(e))) throw e;
+    }
+    if (!by) continue;
+    await db.prepare("UPDATE data_gaps SET recovered_at = ?, recovered_by = ? WHERE source = ? AND item = ?").bind(new Date(now).toISOString(), by, g.source, g.item).run();
+    n++;
+  }
+  return n;
 }
 
 /** 日本時間の ISO（+09:00）。 */
@@ -201,7 +246,8 @@ export async function auditCompleteness(db: Db, now: number) {
         .run();
       newlyLost += r.meta.changes ?? 0;
     }
-  return { forecast, radar, newlyLost };
+  const newlyRecovered = await recoverGaps(db, now);
+  return { forecast, radar, newlyLost, newlyRecovered };
 }
 
 /** 長い一覧を短く（新しい順に6つまで）。 */
@@ -226,7 +272,9 @@ export async function readCompleteness(db: Db, now: number) {
     async () => (await db.prepare("SELECT source, COUNT(*) AS n FROM data_gaps WHERE found_at >= ? GROUP BY source").bind(new Date(now - 24 * H).toISOString()).all<{ source: string; n: number }>()).results,
     [],
   );
-  const lostAll = await safe(async () => (await db.prepare("SELECT source, COUNT(*) AS n FROM data_gaps GROUP BY source").all<{ source: string; n: number }>()).results, []);
+  // これまでの取り戻せない欠け（まだ埋まっていないもの）と、後で取り戻したもの。
+  const lostAll = await safe(async () => (await db.prepare("SELECT source, COUNT(*) AS n FROM data_gaps WHERE recovered_at IS NULL GROUP BY source").all<{ source: string; n: number }>()).results, []);
+  const recoveredAll = await safe(async () => (await db.prepare("SELECT source, COUNT(*) AS n FROM data_gaps WHERE recovered_at IS NOT NULL GROUP BY source").all<{ source: string; n: number }>()).results, []);
   // 提供元が出していない回（欠けではない）：これまでの数。
   const absentAll = await safe(async () => (await db.prepare("SELECT source, COUNT(*) AS n FROM data_absent GROUP BY source").all<{ source: string; n: number }>()).results, []);
   return {
@@ -234,6 +282,7 @@ export async function readCompleteness(db: Db, now: number) {
     radar: Object.fromEntries(Object.entries(radar).map(([k, v]) => [k, short(v)])),
     lostLastDay,
     lostAll,
+    recoveredAll,
     absentAll,
   };
 }

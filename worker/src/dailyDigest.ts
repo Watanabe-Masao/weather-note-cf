@@ -137,6 +137,8 @@ export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns): Pro
     }
     const absentAll = c.absentAll.reduce((n, l) => n + l.n, 0);
     if (absentAll) out.push(`・気象庁が出していない回（これまで、欠けではない）：${c.absentAll.map((l) => `${l.source.replace(/^(forecast|radar):/, "")} ${l.n}`).map((x) => x.replace(/^(\w+)/, (m) => NAME[m] ?? m)).join("・")}`);
+    const recoveredAll = (c.recoveredAll ?? []).reduce((n, l) => n + l.n, 0);
+    if (recoveredAll) out.push(`・後で取り戻した欠け（これまで）：${c.recoveredAll.map((l) => `${l.source.replace(/^(forecast|radar):/, "")} ${l.n}`).map((x) => x.replace(/^(\w+)/, (m) => NAME[m] ?? m)).join("・")}`);
     const lostAll = c.lostAll.reduce((n, l) => n + l.n, 0);
     if (lostAll) out.push(`・取り戻せない欠け（これまで）：${c.lostAll.map((l) => `${l.source.replace(/^(forecast|radar):/, "")} ${l.n}`).map((x) => x.replace(/^(\w+)/, (m) => NAME[m] ?? m)).join("・")}`);
   } catch (e) {

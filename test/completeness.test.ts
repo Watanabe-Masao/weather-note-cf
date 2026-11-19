@@ -51,7 +51,7 @@ describe("予報の電文：定時の発表が1回ずつそろっているか", 
   it("保存を始める前の時刻・今から1時間以内の回は数えない。表が無いときは空", async () => {
     const db = await withForecasts(["2026-11-18T05:00:00"]);
     expect((await auditForecasts(db, J("2026-11-18T11:30:00"))).VPFD51).toMatchObject({ expected: 1, kept: 1, pending: [] });
-    expect(await readCompleteness(d1(), J("2026-11-18T11:30:00"))).toEqual({ forecast: {}, radar: {}, lostLastDay: [], lostAll: [], absentAll: [] });
+    expect(await readCompleteness(d1(), J("2026-11-18T11:30:00"))).toEqual({ forecast: {}, radar: {}, lostLastDay: [], lostAll: [], recoveredAll: [], absentAll: [] });
   });
 });
 
@@ -146,3 +146,30 @@ describe("雨雲：一覧に無かった時刻は「出ていない」", () => {
 import { LISTED_OFFICE } from "../worker/src/forecastArchive";
 import { FORECAST_WATCH_OFFICE } from "../worker/src/forecastWatch";
 it("一覧の印を残す予報区は、見張る予報区と同じ", () => expect(LISTED_OFFICE).toBe(FORECAST_WATCH_OFFICE));
+
+// 取り戻した印（2026-11-19、DB 設計の提案の Recovered）：欠けた事実は消さず、後で埋まったら日と手段を付ける。
+import { ensureForecastParseSchema } from "../worker/src/forecastParse";
+describe("後で取り戻した欠け", () => {
+  it("自前の電文が後から入った回・過去の記録で埋まった回に印を付け、行は残す。取り戻せない数からは外れる", async () => {
+    const db = await withForecasts(["2026-11-10T05:00:00", "2026-11-10T17:00:00"]);
+    const now = J("2026-11-18T06:30:00");
+    await auditCompleteness(db, now); // 11/10 11:00・11/11 05:00 が取り戻せない
+    db.raw
+      .prepare("INSERT INTO forecast_telegrams (id, kind, office, url, issued_at, fetched_at, hash, xml) VALUES ('late', 'VPFD51', '390000', 'u', '2026-11-10T11:02:00+09:00', 'f', 'h9', 'x')")
+      .run();
+    await ensureForecastParseSchema(db);
+    db.raw
+      .prepare("INSERT INTO forecast_issues (issue_id, source, office, kind, issued_at, preferred, parser, entries) VALUES ('s1', 'shiromatz', '390000', 'VPFD51', '2026-11-11T05:00:00+09:00', 0, 1, 10)")
+      .run();
+    const r = await auditCompleteness(db, now + 3_600_000);
+    expect(r.newlyRecovered).toBe(2);
+    expect(db.raw.prepare("SELECT item, recovered_by FROM data_gaps ORDER BY item").all()).toEqual([
+      { item: "2026-11-10T11:00:00+09:00", recovered_by: "自前の電文" },
+      { item: "2026-11-11T05:00:00+09:00", recovered_by: "過去の記録（shiromatz）" },
+    ]);
+    const c = await readCompleteness(db, now + 3_600_000);
+    expect(c.lostAll).toEqual([]);
+    expect(c.recoveredAll).toEqual([{ source: "forecast:VPFD51", n: 2 }]);
+    expect((await auditCompleteness(db, now + 7_200_000)).newlyRecovered).toBe(0);
+  });
+});
