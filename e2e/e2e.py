@@ -739,6 +739,9 @@ with sync_playwright() as p:
         check("SS2 薄明は 市民→航海→天文 の順（朝は早く・夕は遅く）、日の出→南中→日の入り", mins, (keys, tw))
         moon = pg.locator(".sun-keys.moon .sun-key").count()
         check("SS2c 月：月の出・南中・月の入りの3枚と、選んだ時刻の月（高さ・方位・月齢・明るい部分）", moon == 3 and "月齢" in txt(".sun-now.moon"), txt(".sun-now.moon"))
+        # 11/20 渡辺さん：空の色の元（その時間の天気・日照・雨、実績か予報か）を1行で。
+        src = txt(".sun-now-from")
+        check("SS2z 空の色の元を1行で（時間・雨・実績／予報）", src.startswith("空の色：") and ("時台" in src or "晴れの空" in src) and ("実績" in src or "予報" in src or "晴れの空" in src), src)
         # 11/19 渡辺さん「この回転や傾きをこっちにも」：月の行の絵は、出ている間は月のこよみと同じ球の絵（傾き・模様の向き）。
         up_now = "地平線の上" in txt(".sun-now.moon")
         check("SS2y 月の行：出ている間は傾きのある球の絵、下にあるときは暦の形", pg.locator(".sun-now.moon .sun-now-moon canvas").count() == (1 if up_now else 0) and pg.locator(".sun-now.moon > .moon-glyph").count() == (0 if up_now else 1), (up_now, txt(".sun-now.moon")))
