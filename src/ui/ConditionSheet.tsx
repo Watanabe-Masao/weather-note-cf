@@ -422,7 +422,7 @@ function Face({ store, station, target, compareDate, onPick, preset }: Omit<Prop
                   </span>
                   <span className={origin.max == null ? "num tone-hot" : "num grid tone-hot"}>{origin.max == null ? "—" : t1(origin.max)}</span>
                   <span className={origin.min == null ? "num tone-cold" : "num grid tone-cold"}>{origin.min == null ? "—" : t1(origin.min)}</span>
-                  <span className="num tone-rain">{rainCell(num(originRow?.rain) ?? 0, null)}</span>
+                  <span className="num tone-rain">{rainCell(num(originRow?.rain), null)}</span>
                   {(c.rain.strength ?? 0) > 0 && c.rain.mode === "wet" && <span className="num tone-rain">{num(originRow?.rainHour) == null ? "—" : num(originRow?.rainHour)!.toFixed(0)}</span>}
                   {typhoonOn && <span className="num">—</span>}
                 </div>
@@ -478,10 +478,11 @@ function Face({ store, station, target, compareDate, onPick, preset }: Omit<Prop
   );
 }
 
-/** The parts that had rain when known (朝昼), else the day's amount; "—" for a dry day. */
-function rainCell(mm: number, wet: Set<Part> | null): string {
+/** The parts that had rain when known (朝昼), else the day's amount; "—" for a dry day; 「記録なし」when the day has no rain record (#368). */
+function rainCell(mm: number | null, wet: Set<Part> | null): string {
+  if (mm == null && !(wet && wet.size)) return "記録なし";
   if (wet && wet.size) return PARTS.filter((p) => wet.has(p.id)).map((p) => p.label).join("");
-  if (mm >= 0.5) return wet ? "深夜" : mm.toFixed(1);
+  if (mm != null && mm >= 0.5) return wet ? "深夜" : mm.toFixed(1);
   return "—";
 }
 

@@ -93,6 +93,14 @@ describe("conditions: rain by part of the day", () => {
     // Hours at hand decide even when the day's total says otherwise.
     expect(rainPasses({ mode: "wet", parts: ["evening"] }, day("2025-11-01", 20, 10, 0), h)).toBe(true);
   });
+  it("a day with no rain record is neither dry nor wet (#368: not read as 0 mm)", () => {
+    const blank = { ...day("2025-11-01", 20, 10), rain: null } as unknown as WeatherRow;
+    const dry = { mode: "dry" as const, parts: ["morning", "day", "evening", "night"] as const };
+    expect(needsHours({ ...dry, parts: [...dry.parts] }, blank)).toBe(false);
+    expect(rainPasses({ ...dry, parts: [...dry.parts] }, blank, null)).toBe(false);
+    expect(rainPasses({ mode: "wet", parts: ["day"] }, blank, null)).toBe(false);
+    expect(rainPasses({ mode: "any", parts: ["day"] }, blank, null)).toBe(true);
+  });
 });
 
 describe("conditions: where to look", () => {

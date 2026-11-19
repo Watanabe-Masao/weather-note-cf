@@ -206,7 +206,8 @@ const allParts = (parts: readonly Part[]) => PARTS.every((p) => parts.includes(p
 
 /** Whether the rain test needs the day's hours: a day with no rain at all passes or fails on its own. */
 export function needsHours(c: RainCondition, row: WeatherRow): boolean {
-  return c.mode !== "any" && (num(row.rain) ?? 0) >= RAIN_MM;
+  const total = num(row.rain);
+  return c.mode !== "any" && total != null && total >= RAIN_MM;
 }
 
 /**
@@ -216,6 +217,9 @@ export function needsHours(c: RainCondition, row: WeatherRow): boolean {
  */
 export function rainPasses(c: RainCondition, row: WeatherRow, hours: WeatherRow[] | null): boolean | null {
   if (c.mode === "any") return true;
+  // 雨の記録がない日（#368）：降ったとも降らなかったとも言えないので、雨の条件ではどちらにも入れない。
+  // 0 mm と読むと「降らない」に入ってしまう（取れなかったものを「ない」と見せない）。
+  if (num(row.rain) == null) return false;
   const strength = c.mode === "wet" ? (c.strength ?? 0) : 0;
   if (strength > 0) {
     // A day whose total is under the strength cannot have an hour that reaches it.
@@ -250,7 +254,8 @@ export interface ConditionMatch {
   max: number;
   min: number;
   /** The day's precipitation (mm). */
-  rain: number;
+  /** その日の降水量（mm）。記録がない日は null（0 と読まない、#368）。 */
+  rain: number | null;
   /** The parts that had rain, or null when the day's hours are not loaded. */
   wet: Set<Part> | null;
   /** The day's strongest hour (mm), when known. */
@@ -321,7 +326,7 @@ export function searchConditions(
         date,
         max,
         min,
-        rain: num(row.rain) ?? 0,
+        rain: num(row.rain),
         wet: hours ? wetParts(hours) : null,
         top: num(row.rainHour) ?? (hours ? strongestHour(hours, PARTS.map((p) => p.id)) : null),
         typhoon: ty ? ty : null,
