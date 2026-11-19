@@ -11,6 +11,7 @@ import type { Db } from "./accounts";
 import type { Bucket } from "./r2Archive";
 import { doneOnce } from "./once";
 import { FEED_REACH_MS } from "./completeness";
+import { noteListed } from "./listed";
 
 export const RADAR_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS radar_saved (
@@ -112,6 +113,8 @@ export async function saveRadar(db: Db, bucket: Bucket, now = Date.now(), get: F
       const r = await get(p.list);
       if (!r.ok) throw new Error(`${p.name} list ${r.status}`);
       pairs = p.pick(JSON.parse(await r.text()) as RadarListItem[]);
+      // 一覧に載っていた時刻（取れなかった／出ていない、の見分けの証拠。listed.ts）
+      await noteListed(db, `radar:${p.name}`, pairs.map((x) => jstOfRadarTime(x.t)), now);
     } catch (e) {
       error = String(e instanceof Error ? e.message : e).slice(0, 300);
     }

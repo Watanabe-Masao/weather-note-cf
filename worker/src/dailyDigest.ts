@@ -133,8 +133,10 @@ export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns): Pro
     for (const [k, a] of Object.entries(c.forecast)) {
       if (!a.expected) continue;
       const gaps = [a.pendingCount ? `まだ取り戻せる ${a.pendingCount}（${a.pending.slice(0, 3).map(at).join("・")}）` : "", a.lostCount ? `取り戻せない ${a.lostCount}` : ""].filter(Boolean).join("・");
-      out.push(`・${NAME[k] ?? k}の定時の発表：${a.expected}回中${a.kept}回${a.watermark ? `（続けて確かめられた位置 ${at(a.watermark)}）` : ""}${gaps ? `。欠け：${gaps}` : ""}`);
+      out.push(`・${NAME[k] ?? k}の定時の発表：${a.expected}回中${a.kept}回${a.watermark ? `（続けて確かめられた位置 ${at(a.watermark)}）` : ""}${gaps ? `。欠け：${gaps}` : ""}${a.absentCount ? `。気象庁が出していない回 ${a.absentCount}（${a.absent.slice(0, 3).map(at).join("・")}）` : ""}`);
     }
+    const absentAll = c.absentAll.reduce((n, l) => n + l.n, 0);
+    if (absentAll) out.push(`・気象庁が出していない回（これまで、欠けではない）：${c.absentAll.map((l) => `${l.source.replace(/^(forecast|radar):/, "")} ${l.n}`).map((x) => x.replace(/^(\w+)/, (m) => NAME[m] ?? m)).join("・")}`);
     const lostAll = c.lostAll.reduce((n, l) => n + l.n, 0);
     if (lostAll) out.push(`・取り戻せない欠け（これまで）：${c.lostAll.map((l) => `${l.source.replace(/^(forecast|radar):/, "")} ${l.n}`).map((x) => x.replace(/^(\w+)/, (m) => NAME[m] ?? m)).join("・")}`);
   } catch (e) {

@@ -13,6 +13,11 @@ import stationList from "../../shared/stations.json";
 import type { Db } from "./accounts";
 import { feedEntries, telegramId, type FeedEntry } from "./typhoonArchive";
 import { doneOnce } from "./once";
+import { noteListed } from "./listed";
+
+/** 一覧に載っていた印を残す予報区：見張る高知（forecastWatch.ts の FORECAST_WATCH_OFFICE と同じ。読み込みが輪にならないよう、ここにも）。 */
+export const LISTED_OFFICE = "390000";
+const jstOf = (iso: string) => `${new Date(Date.parse(iso) + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
 
 export const FORECAST_ARCHIVE_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS forecast_telegrams (
@@ -139,6 +144,11 @@ export async function collectForecasts(db: Db, now = Date.now(), get: Fetcher = 
   }
   const offices = await officesInUse(db, now);
   const wanted = entries.filter((e) => (FORECAST_KINDS as readonly string[]).includes(kindOf(e.url)) && offices.has(officeOfUrl(e.url)));
+  // 見張る予報区（高知）の電文が一覧に載っていた時刻（取れなかった／出ていない、の見分けの証拠。listed.ts）
+  for (const kind of FORECAST_KINDS) {
+    const items = wanted.filter((e) => kindOf(e.url) === kind && officeOfUrl(e.url) === LISTED_OFFICE).map((e) => jstOf(e.updated));
+    await noteListed(db, `forecast:${kind}`, items, now);
+  }
   const fresh: FeedEntry[] = [];
   for (const e of wanted) if (!(await db.prepare("SELECT 1 FROM forecast_telegrams WHERE id = ?").bind(telegramId(e.url)).first())) fresh.push(e);
   // The newest first: a long backlog is caught up from today backwards.
