@@ -1,7 +1,7 @@
 // 雨雲レーダーと解析雨量の保存 (RD-01/02, KC-01, 2026-11-17): every 30 minutes, the tiles around Kochi (shared/radar.ts)
 // put in R2 as JMA gives them — the radar's 実況 under radar/hrpns/<JST month>/<JMA's UTC name>/<z>/<x>/<y>.png,
 // the 解析雨量 under radar/rasrf/<JST month>/<JMA's UTC name>/<member>/<z>/<x>/<y>.png (its list holds about 12 hours). JMA's list holds about
-// 3 hours, so a time missed by one run is taken by a later one while it is listed (a time that drops out
+// 3 hours, so a time missed by one run is taken by a later one while it is listed — the ones about to drop out first (RADAR_RESCUE_MS); a time that drops out
 // of the list unsaved is lost: the hourly look tells when the saving stops, healthJudge.ts).
 // Each saved tile is a row (radar_saved, its time in JST); each run's outcome is logged (radar_fetch_log).
 // 出典：気象庁ホームページ「雨雲の動き」。
@@ -10,6 +10,7 @@ import { isKeptRadarTime, jstOfRadarTime, RADAR_LIST_URL, radarTiles, radarTileU
 import type { Db } from "./accounts";
 import type { Bucket } from "./r2Archive";
 import { doneOnce } from "./once";
+import { FEED_REACH_MS } from "./completeness";
 
 export const RADAR_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS radar_saved (
@@ -35,6 +36,12 @@ export const RADAR_SCHEMA = [
 
 /** Tiles saved in one run: one time's 3×3 (a backlog of earlier times is taken over the next runs). */
 export const RADAR_PER_RUN = 9;
+/**
+ * 取り戻しの順（#299 P1、2026-11-19）：一覧から間もなく消える時刻（一覧の長さ − この幅より古い）を先に、古い順で。
+ * それ以外は新しい順のまま。止まったあとに新しい順だけで取ると、消えかけの古い時刻を取り逃すため。
+ * 1回の枚数は増やさない（無料枠の外への問い合わせは1回の起動で 50 まで、ほかの段と分け合う）。
+ */
+export const RADAR_RESCUE_MS = 60 * 60_000;
 const LOG_DAYS = 400;
 
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; arrayBuffer(): Promise<ArrayBuffer>; text(): Promise<string> }>;
@@ -56,7 +63,7 @@ export const rasrfKey = (jmaTime: string, member: string, z: number, x: number, 
 
 /** What is kept: the radar (雨雲の動き, an intensity) and the 解析雨量 (an amount), each from its own list. */
 interface Product {
-  name: string;
+  name: "hrpns" | "rasrf";
   list: string;
   /** The listed (time, member) pairs to keep, newest first. */
   pick: (list: RadarListItem[]) => { t: string; member: string }[];
@@ -119,7 +126,13 @@ export async function saveRadar(db: Db, bucket: Bucket, now = Date.now(), get: F
           ).results.map((r) => r.key)
         : [],
     );
-    const todo = want.filter((w) => !saved.has(w.key));
+    const left = want.filter((w) => !saved.has(w.key));
+    // 間もなく一覧から消える時刻を先に（古い順）、残りは新しい順のまま。
+    const ms = (t: string) => Date.parse(jstOfRadarTime(t));
+    const newest = pairs.length ? Math.max(...pairs.map((x) => ms(x.t))) : 0;
+    const edge = newest - (FEED_REACH_MS[p.name] - RADAR_RESCUE_MS);
+    const soon = left.filter((w) => ms(w.t) < edge).sort((a, b) => ms(a.t) - ms(b.t));
+    const todo = [...soon, ...left.filter((w) => ms(w.t) >= edge)];
     let mine = 0;
     for (const w of todo.slice(0, limit)) {
       const name = `${p.name} ${w.t}/${w.z}/${w.x}/${w.y}`;
