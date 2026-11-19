@@ -406,6 +406,17 @@ select.chip {
 .brand-icon { flex: none; display: block; width: 32px; height: 32px; }
 .brand-icon svg { display: block; width: 100%; height: 100%; }
 .brand-word { display: block; height: 30px; width: auto; aspect-ratio: 692 / 184; min-width: 0; }
+/* 空のイベントの日の帯（11/20）：文字の所だけ替える（アイコンは替えない）。高さは文字と同じくらい、押すと説明。 */
+.brand-event { display: block; flex: 0 1 auto; min-width: 0; width: calc(30px * 692 / 184); aspect-ratio: 448 / 100; padding: 0; border: 0; background: none; border-radius: var(--radius-pill); cursor: pointer; }
+.brand-event svg { display: block; width: 100%; height: 100%; }
+/* 押せる範囲は 44px 以上（絵は低いので、上下に見えない範囲を足す）。 */
+.brand-event { position: relative; }
+.brand-event::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-min); transform: translateY(-50%); }
+.event-when { margin: 0; font-size: var(--size-base); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; }
+.event-lead, .event-gloss { margin: var(--space-2) 0 0; font-size: var(--size-sm); line-height: 1.6; color: var(--ink-secondary); }
+.event-warn { margin: var(--space-2) 0 0; font-size: var(--size-sm); line-height: 1.6; color: var(--status-warning); }
+.event-tags { margin-top: var(--space-3); }
+.event-sheet .fm-open-btn { display: flex; margin: var(--space-3) 0 var(--space-2); }
 
 /* The six items fit the width: equal columns, no hidden seventh. */
 .metrics {
