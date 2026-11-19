@@ -10,8 +10,9 @@ export const dirName = (az: number) => DIRS[Math.round(((az % 360) + 360) % 360 
  * 月の満ち欠けの絵：照らされている割合（輝面比）と、満ちていくか欠けていくか（月齢 14.8 日の前か後か）から。
  * 北半球で見た形（満ちていくときは右が明るい）。
  */
-export function MoonGlyph({ phase, size, limb, tint, north }: { phase: { age: number; illuminated: number }; size: number; limb?: number; tint?: string; north?: number }) {
-  const r = size / 2 - 1;
+/** seen：空で見える形（暗い側は描かない。空を見上げるの月、11/19）。 */
+export function MoonGlyph({ phase, size, limb, tint, north, seen }: { phase: { age: number; illuminated: number }; size: number; limb?: number; tint?: string; north?: number; seen?: boolean }) {
+  const r = seen ? size / 2 : size / 2 - 1;
   const c = size / 2;
   const k = Math.min(1, Math.max(0, phase.illuminated));
   // limb（光っている側の向き、上から反時計回り）があれば、満ちていく形（右が光る＝270°）で描いて回す。
@@ -41,10 +42,10 @@ export function MoonGlyph({ phase, size, limb, tint, north }: { phase: { age: nu
           </filter>
         )}
       </defs>
-      <circle cx={c} cy={c} r={r} className="moon-dark" />
+      {!seen && <circle cx={c} cy={c} r={r} className="moon-dark" />}
       <g filter={tint ? `url(#${id}tint)` : undefined}>
         {/* north（模様の向き、shared/moon.ts moonNorth）があれば、北が上の絵をその角だけ反時計回りに回す。光る側の切り抜きは回さない。 */}
-        <image href={moonUrl} x={c - r} y={c - r} width={2 * r} height={2 * r} className="moon-shade" transform={spin} />
+        {!seen && <image href={moonUrl} x={c - r} y={c - r} width={2 * r} height={2 * r} className="moon-shade" transform={spin} />}
         <g clipPath={`url(#${id}lit)`}>
           <image href={moonUrl} x={c - r} y={c - r} width={2 * r} height={2 * r} transform={spin} />
         </g>

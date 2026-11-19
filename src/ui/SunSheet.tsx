@@ -7,8 +7,9 @@ import { dateLabel, hoursMinutes } from "../design/format";
 import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
 import { Button, IconButton, InfoNote, Segmented, Slider } from "./kit";
-import { moonPhase, moonPosition, moonTimes } from "../../shared/moon";
-import { DEFAULT_LAT_LON, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
+import { moonLimb, moonNorth, moonPhase, moonPosition, moonTimes, moonTint, moonTopo } from "../../shared/moon";
+import { DEFAULT_LAT_LON, solarAltitude, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
+import { jstToday } from "../../shared/dates";
 import { magneticDeclination, project } from "../../shared/skyLook";
 import { useCamera } from "./useCamera";
 import { createPortal } from "react-dom";
@@ -90,8 +91,30 @@ export function SunSheet({
   const [at, setAt] = useState(() => Math.min(1430, hour != null ? hour * 60 : Math.round(e.noon / 10) * 10));
   const [view, setView] = useState<"graph" | "sky">("graph");
   const [moonOpen, setMoonOpen] = useState(false);
+  // 今に付いていく（11/19 渡辺さん「時間帯を今に追跡する機能と、ここからどう変わるかを見る時間帯変更の両方」）：今日のときだけ。
+  // 端末の向きで見はじめると付いていき（20秒ごとに今の分へ）、つまみ・グラフ・動かすで時刻を動かすと止まる。「今」で戻る。
+  const isToday = date === jstToday();
+  const [follow, setFollow] = useState(false);
+  useEffect(() => {
+    if (!follow) return;
+    const tick = () => {
+      const d = new Date(Date.now() + 9 * 3_600_000);
+      setAt(d.getUTCHours() * 60 + d.getUTCMinutes());
+    };
+    tick();
+    const id = window.setInterval(tick, 20_000);
+    return () => window.clearInterval(id);
+  }, [follow]);
+  const move = (m: number) => {
+    setFollow(false);
+    setAt(m);
+  };
   // 時間の動きを見る（再生）：10分ずつ進め、24時で頭に戻る。もう一度押すと止まる。
   const [playing, setPlaying] = useState(false);
+  const play = () => {
+    setFollow(false);
+    setPlaying(!playing);
+  };
   useEffect(() => {
     if (!playing) return;
     const id = window.setInterval(() => setAt((a) => (a >= 1430 ? 0 : a + 10)), 90);
@@ -114,15 +137,24 @@ export function SunSheet({
   useEffect(() => {
     if (view !== "sky" && sensorState !== "off") stopSensor();
   }, [view, sensorState, stopSensor]);
-  const altAt = curve.reduce((a, p) => (Math.abs(p.min - at) < Math.abs(a.min - at) ? p : a)).deg;
+  useEffect(() => {
+    if (sensorState === "on" && isToday) {
+      setPlaying(false);
+      setFollow(true);
+    }
+  }, [sensorState, isToday]);
+  // その時刻の太陽と月（分まで。10分ごとの点から拾わない：太陽は10分で約2.5°動く）。
+  const altAt = solarAltitude(date, at, ll.lat, ll.lon);
   // The sun's state in words that never clash with the app's five parts (朝・日中・昼・夕方・夜,
   // shared/dayParts): those are named beside it, so 19:00 reads 航海薄明 ・ 時間帯は夜.
   const phase = altAt >= 0 ? "日の出ている間" : altAt >= -6 ? "市民薄明" : altAt >= -12 ? "航海薄明" : altAt >= -18 ? "天文薄明" : "暗い夜空";
   const part = dayParts(date, place).find((p) => p.id !== "night" && at >= p.from && at < p.to)?.label ?? "夜";
   const skyNow = skies[Math.min(skies.length - 1, Math.round(at / 10))];
-  const idx = Math.min(curve.length - 1, Math.round(at / 10));
-  const moonAt = sky3.moon[idx];
-  const sunAzAt = sky3.sunAz[idx];
+  const msAt = sky3.day0 + at * 60_000;
+  const topoAt = moonTopo(msAt, ll.lat, ll.lon);
+  // 空を見上げるの月：見かけの大きさ・光っている側・模様の向き・高さの色も（11/19 レビュー）。
+  const moonAt = { altitude: topoAt.altitude, azimuth: topoAt.azimuth, diameter: topoAt.diameter, limb: moonLimb(msAt, ll.lat, ll.lon), north: moonNorth(msAt, ll.lat, ll.lon), tint: moonTint(topoAt.altitude) };
+  const sunAzAt = solarAzimuth(date, at, ll.lat, ll.lon);
   const phaseAt = moonPhase(sky3.day0 + at * 60_000);
   // 月の線（地平線より上だけ）を x・y の関数でつなぐ：下に入るとそこで切る。方位の線では 360°→0° をまたぐ所でも切る。
   const pathOf = (pts: { x: number; y: number; up: boolean }[], wrap = false) =>
@@ -144,7 +176,7 @@ export function SunSheet({
     const box = svg.current!.getBoundingClientRect();
     const sx = ((ev.clientX - box.left) / box.width) * W;
     const m = ((sx - PAD.left) / (W - PAD.left - PAD.right)) * 1440;
-    setAt(Math.min(1430, Math.max(0, Math.round(m / 10) * 10)));
+    move(Math.min(1430, Math.max(0, Math.round(m / 10) * 10)));
   };
   const length = shownDayLength(shown);
 
@@ -199,8 +231,13 @@ export function SunSheet({
                 </small>
               </p>
               <div className="sun-play">
-                <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[rise, set]} thumbs={[{ value: at, label: "時刻（10分ごと）", valueText: clockOf(at), onChange: setAt }]} />
-                <Button size="sm" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
+                <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[rise, set]} thumbs={[{ value: at, label: "時刻（10分ごと）", valueText: clockOf(at), onChange: move }]} />
+                {isToday && (
+                  <Button size="sm" aria-pressed={follow} onClick={() => (follow ? setFollow(false) : (setPlaying(false), setFollow(true)))}>
+                    今
+                  </Button>
+                )}
+                <Button size="sm" aria-pressed={playing} onClick={play}>
                   {playing ? "止める" : "動かす"}
                 </Button>
               </div>
@@ -292,9 +329,14 @@ export function SunSheet({
         max={1430}
         step={10}
         ticks={[rise, set]}
-        thumbs={[{ value: at, label: "時刻（10分ごと）", valueText: `${clockOf(at)} ${phase}`, onChange: setAt }]}
+        thumbs={[{ value: at, label: "時刻（10分ごと）", valueText: `${clockOf(at)} ${phase}`, onChange: move }]}
       />
-      <Button size="sm" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
+      {isToday && (
+        <Button size="sm" aria-pressed={follow} onClick={() => (follow ? setFollow(false) : (setPlaying(false), setFollow(true)))}>
+          今
+        </Button>
+      )}
+      <Button size="sm" aria-pressed={playing} onClick={play}>
         {playing ? "止める" : "動かす"}
       </Button>
       </div>
@@ -422,7 +464,7 @@ export function SunSheet({
  * 空を見上げる（2026-11-18 の見本）：地上に立って見た空を、方位（北・東・南・西・北）を横に、高さ（地平線〜天頂）を縦に
  * 広げた絵。南を真ん中に。太陽と月のその日の通り道（地平線より上）と、選んだ時刻の位置。空の色は選んだ時刻の模式の色。
  */
-function SkyView({ look, stream, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky }: { look?: { azimuth: number; altitude: number } | null; stream?: MediaStream | null; at: number; sunAlt: number; sunAz: number; moon: { altitude: number; azimuth: number }; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour }) {
+function SkyView({ look, stream, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky }: { look?: { azimuth: number; altitude: number } | null; stream?: MediaStream | null; at: number; sunAlt: number; sunAz: number; moon: SkyMoon; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour }) {
   const VW = 340;
   const VH = 230;
   if (look) return <SkyWindow look={look} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} stream={stream} />;
@@ -493,9 +535,13 @@ function SkyView({ look, stream, sunAlt, sunAz, moon, phase, sunTrack, moonTrack
  * カメラ（AR 風、2026-11-19）を入れると、空の色の代わりに背面カメラの映像を下に敷く。
  */
 const FOV = 60;
+/** 空を見上げるの月：位置と、見かけの大きさ（直径°）・光っている側・模様の向き（どちらも天頂から反時計回り）・高さの色。 */
+type SkyMoon = { altitude: number; azimuth: number; diameter?: number; limb?: number; north?: number; tint?: string };
+/** 太陽の見かけの大きさ（直径°、年の平均）。 */
+const SUN_DIAMETER = 0.533;
 /** 背面カメラ（1倍）の長い辺の画角（°）：iPhone の広角（26mm 相当、4:3）でおよそ 67°。映像を窓に「覆う」で合わせる。 */
 const CAMERA_LONG_FOV = 67;
-type SkyProps = { look: { azimuth: number; altitude: number; roll?: number }; sunAlt: number; sunAz: number; moon: { altitude: number; azimuth: number }; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour };
+type SkyProps = { look: { azimuth: number; altitude: number; roll?: number }; sunAlt: number; sunAz: number; moon: SkyMoon; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour };
 function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky, w, h, stream, full }: SkyProps & { w: number; h: number; stream?: MediaStream | null; full?: boolean }) {
   const video = useRef<HTMLVideoElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -584,6 +630,15 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
   const sun = at(sunAz, sunAlt);
   const mo = at(moon.azimuth, moon.altitude);
   const big = full ? 1.6 : 1;
+  // 見かけの大きさ（半径、画面の単位）：2·焦点·tan(直径/2) の半分。
+  const radiusOf = (deg: number) => Math.max(1.5, focal * Math.tan((deg / 2) * (Math.PI / 180)));
+  const sunR = radiusOf(SUN_DIAMETER);
+  const moonR = radiusOf(moon.diameter ?? 0.518);
+  // 月のところで、天頂の向きが画面の上から何度回っているか（反時計回り）。
+  const upAt = (() => {
+    const q = at(moon.azimuth, moon.altitude + 1);
+    return (Math.atan2(-(q.x - mo.x), -(q.y - mo.y)) * 180) / Math.PI;
+  })();
   return (
     <div className={`sky-stage${full ? " full" : ""}${stream ? " camera" : ""}`} style={full ? undefined : { aspectRatio: `${w} / ${h}` }}>
       {stream && <video ref={video} className="sky-video" playsInline muted autoPlay onLoadedMetadata={(e) => setDims({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })} />}
@@ -607,10 +662,26 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
         ))}
         <path d={line(sunTrack)} className="sun-curve day" style={{ stroke: ICON.sun }} />
         <path d={line(moonTrack)} className="moon-curve" style={{ stroke: ICON.moon }} />
-        {sunAlt >= 0 && sun.inside && <circle cx={sun.x} cy={sun.y} r={12 * big} style={{ fill: ICON.sun }} className="sky-sun" />}
+        {/* 本当の大きさ（11/19 レビュー）：見かけの直径 × 焦点。小さくて見つけにくいので、細い輪と名前を添える。 */}
+        {sunAlt >= 0 && sun.inside && (
+          <g className="sky-body">
+            <circle cx={sun.x} cy={sun.y} r={sunR} style={{ fill: ICON.sun }} className="sky-sun" />
+            <circle cx={sun.x} cy={sun.y} r={sunR + 7 * big} className="sky-body-ring" />
+            <text x={sun.x} y={sun.y - sunR - 10 * big} textAnchor="middle" className="sun-tick sky-body-name">
+              太陽
+            </text>
+          </g>
+        )}
         {moon.altitude >= 0 && mo.inside && (
-          <g transform={`translate(${mo.x - 13 * big} ${mo.y - 13 * big})`}>
-            <MoonGlyph phase={phase} size={26 * big} />
+          <g className="sky-body">
+            {/* 傾き：光っている側と模様の向きは天頂から測った角なので、画面の上と天頂の向きの差（ロール）を足す。 */}
+            <g transform={`translate(${(mo.x - moonR).toFixed(1)} ${(mo.y - moonR).toFixed(1)})`}>
+              <MoonGlyph phase={phase} size={moonR * 2} limb={moon.limb != null ? moon.limb + upAt : undefined} north={moon.north != null ? moon.north + upAt : undefined} tint={moon.tint} seen />
+            </g>
+            <circle cx={mo.x} cy={mo.y} r={moonR + 7 * big} className="sky-body-ring" />
+            <text x={mo.x} y={mo.y - moonR - 10 * big} textAnchor="middle" className="sun-tick sky-body-name">
+              月
+            </text>
           </g>
         )}
         {edge(sunAz, sunAlt, "太陽")}
