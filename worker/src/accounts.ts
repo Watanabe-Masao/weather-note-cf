@@ -51,6 +51,7 @@ import {
 } from "./notify";
 import { importShiromatzMonth, importSummary } from "./forecastImport";
 import { type Bucket, r2Summary } from "./r2Archive";
+import { RefetchRefused, refetchNow, refetchSummary } from "./refetch";
 import { keepError } from "./health";
 import { archiveSummary } from "./typhoonArchive";
 import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
@@ -846,6 +847,17 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       // 予報の履歴 (#250, R2): the record of JMA's forecasts, taken a month at a time by hand.
       if (path === "/api/admin/forecast-import" && !post) return json(await importSummary(db));
       if (path === "/api/admin/archive" && !post) return json(await r2Summary(db));
+      // 今すぐ取り直す（refetch.ts、#299 P1）：段ごとの様子と、1回だけ動かす（1時間に3回まで、記録を残す）。
+      if (path === "/api/admin/refetch" && !post) return json(await refetchSummary(db, now, !!env.ARCHIVE));
+      if (path === "/api/admin/refetch" && post) {
+        const b = await body(req);
+        try {
+          return json(await refetchNow(db, env.ARCHIVE, typeof b.stage === "string" ? b.stage : "", u.id, now));
+        } catch (e) {
+          if (e instanceof RefetchRefused) throw new Refused(e.message, 429);
+          throw e;
+        }
+      }
       if (path === "/api/admin/forecast-import" && post) {
         const b = await body(req);
         try {

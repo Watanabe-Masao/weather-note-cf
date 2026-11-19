@@ -11,6 +11,7 @@ import { ResearchSheet } from "./ResearchSheet";
 import { MIN_PEOPLE } from "../research/analysis";
 import { api, needsReauth } from "./account";
 import { ReauthForm } from "./ReauthForm";
+import { Button } from "../ui/kit";
 
 interface Row {
   id: string;
@@ -185,6 +186,65 @@ function ForecastImport() {
   );
 }
 
+type RefetchStage = { id: string; name: string; reach: string; lastOk: string | null; waiting: number | null; usedLastHour: number; left: number; available: boolean; last: { at: string; ok: boolean; detail: string } | null };
+const clockJa = (iso: string) => {
+  const d = new Date(Date.parse(iso) + 9 * 3_600_000);
+  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
+};
+
+/**
+ * 今すぐ取り直す（#299 P1、2026-11-19）：定時処理を待たずに、取得の段を1回だけ動かす。提供元の一覧から間もなく
+ * 消える欠けがあるとき（雨雲は約3時間）のため。段ごとに1時間に3回まで。押した記録はサーバーに残る。
+ */
+function Refetch() {
+  const [state, setState] = useState<{ perHour: number; stages: RefetchStage[] } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(() => {
+    api<{ perHour: number; stages: RefetchStage[] }>("/api/admin/refetch")
+      .then(setState)
+      .catch((e) => setError((e as Error).message));
+  }, []);
+  useEffect(load, [load]);
+  if (!state) return error ? <p className="warn">{error}</p> : null;
+  const run = (id: string) => {
+    setBusy(id);
+    setError(null);
+    api<{ ok: boolean; detail: string }>("/api/admin/refetch", { stage: id })
+      .then(load)
+      .catch((e) => setError((e as Error).message))
+      .finally(() => setBusy(null));
+  };
+  return (
+    <>
+      <ul className="admin-refetch">
+        {state.stages.map((s) => (
+          <li key={s.id}>
+            <b>{s.name}</b>
+            <small className="set-help">
+              最後に取れた {s.lastOk ? clockJa(s.lastOk) : "—"}
+              {s.waiting != null ? `・取り残し ${s.waiting}` : ""}・一覧に載るのは {s.reach}
+            </small>
+            {s.last ? (
+              <small className={s.last.ok ? "set-help" : "set-help warn"}>
+                前回押した {clockJa(s.last.at)}：{s.last.detail}
+              </small>
+            ) : null}
+            {!s.available ? <small className="set-help warn">保存先（R2）がつながっていないため押せません。</small> : null}
+            <div className="actions tight">
+              <Button size="sm" busy={busy === s.id} disabled={!!busy || !s.left || !s.available} onClick={() => run(s.id)}>
+                {busy === s.id ? "取っています…" : `今すぐ取り直す（あと${s.left}回）`}
+              </Button>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <small className="set-help">定時処理（5分ごと）と同じ取り方を1回だけ動かします。重なって保存されることはありません。1つの段は1時間に{state.perHour}回まで。</small>
+      {error ? <p className="warn">{error}</p> : null}
+    </>
+  );
+}
+
 function Body() {
   const [users, setUsers] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -341,6 +401,12 @@ function Body() {
           <ExportToken />
         </details>
         <ExportLog />
+      </section>
+
+      <section className="set-group" aria-labelledby="admin-refetch">
+        <h3 id="admin-refetch">データの取り直し</h3>
+        <p className="set-lead">取り戻せる欠けがあるとき（毎朝の点検や知らせで「まだ取り戻せる」と出たとき）、定時処理を待たずに取りに行きます。</p>
+        <Refetch />
       </section>
 
       <section className="set-group" aria-labelledby="admin-forecast-import">

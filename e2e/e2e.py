@@ -111,6 +111,13 @@ def api(path, q):
         return {"users": [{"id": "u1", "login_id": "masao", "name": "渡辺", "role": "admin", "created_at": 1762800000000, "last_login": 1762800000000, "disabled_at": None, "reports": 0, "research": None}, {"id": "u2", "login_id": "tanaka", "name": None, "role": "user", "created_at": 1762800000000, "last_login": None, "disabled_at": None, "reports": 3, "research": 1}]}
     if path == "/api/admin/forecast-import":
         return {"first": "2025-01", "last": "2026-11", "next": {"month": "2025-02", "expected": "2025-03-02", "available": False}, "parser": {"telegram": 1, "record": 1}, "months": [{"office": "390000", "month": "2025-01", "commit_sha": "abc", "fetched_at": "2026-11-17T03:00:00Z", "rows": 4791, "issues": 186, "empty_days": [], "overlaps": 0, "differ": 0, "license": "CC BY-SA 4.0"}]}
+    if path == "/api/admin/refetch":
+        st = lambda i, n, r, ok, w, left, last=None: {"id": i, "name": n, "reach": r, "lastOk": ok, "waiting": w, "usedLastHour": 3 - left, "left": left, "available": True, "last": last}
+        return {"perHour": 3, "stages": [
+            st("radar", "雨雲レーダー・解析雨量", "雨雲 約3時間・解析雨量 約12時間", "2026-11-10T02:55:00Z", 27, 2, {"at": "2026-11-10T02:50:00Z", "ok": True, "detail": "18枚を保存・残り27枚"}),
+            st("forecast", "予報の電文", "7日", "2026-11-10T02:55:00Z", 0, 3),
+            st("warning", "警報・注意報の電文", "7日", "2026-11-10T02:55:00Z", 0, 3),
+            st("typhoon", "台風の電文", "7日", "2026-11-10T02:55:00Z", None, 0)]}
     if path == "/api/rain-now":
         return RAIN_NOW
     if path == "/api/wxchart-at":
@@ -855,6 +862,12 @@ with sync_playwright() as p:
         check("J5c 次の月が記録にまだ無いときは押せず、入る見込みの日を出す", btn.count() == 1 and btn.is_disabled() and "2025年3月2日の夜の見込み" in sec.inner_text(), sec.inner_text()[:200])
         layout_ok("J5b", "ユーザー管理")
         if os.environ.get("WN_SHOT"): sec.screenshot(path=f"{os.environ['WN_SHOT']}-admin-import.png")
+        # データの取り直し（#299 P1）：段ごとの様子と「今すぐ取り直す（あと○回）」。使い切った段は押せない。
+        rf = pg.locator("section[aria-labelledby='admin-refetch']")
+        rf.scroll_into_view_if_needed(); calm()
+        rb = rf.locator("button", has_text="今すぐ取り直す")
+        check("J6 管理：データの取り直し（4つの段、残りの回数、使い切った段は押せない、前回の結果）", rb.count() == 4 and "あと2回" in rb.nth(0).inner_text() and rb.nth(3).is_disabled() and "18枚を保存" in rf.inner_text() and "取り残し 27" in rf.inner_text(), rf.inner_text()[:200])
+        if os.environ.get("WN_SHOT"): rf.screenshot(path=f"{os.environ['WN_SHOT']}-admin-refetch.png")
         esc()
         esc()
     step("J", j)

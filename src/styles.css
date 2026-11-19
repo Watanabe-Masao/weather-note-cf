@@ -4262,6 +4262,9 @@ select.chip.sm {
 .admin-exports ul { margin: var(--space-3) 0 0; padding-left: 18px; }
 .admin-imports { margin: 0; padding-left: 18px; font-size: var(--size-base); color: var(--ink-secondary); display: grid; gap: var(--space-3); }
 .admin-imports li { overflow-wrap: anywhere; }
+/* データの取り直し（#299 P1）：段ごとに、名前・様子・ボタンの順（どの段も同じ並び） */
+.admin-refetch { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-5); }
+.admin-refetch li { display: grid; gap: var(--space-1); }
 
 /* The research analysis (#55, in the app): aggregates as small tables. */
 .research { display: grid; gap: var(--space-4); }
