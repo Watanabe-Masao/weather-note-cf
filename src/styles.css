@@ -4477,6 +4477,8 @@ select.chip.sm {
 .moon-obs-stage { position: relative; flex: none; display: grid; place-items: center; width: 132px; height: 132px; border-radius: var(--radius-md); background: var(--surface-inset); }
 .moon-obs-stage > * { grid-area: 1 / 1; }
 /* 月の舞台と、その下の描き方の切り替え（見え方／月の全体） */
+.sun-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.sun-here { display: block; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .moon-obs-side { display: grid; gap: var(--space-2); flex: none; width: 132px; }
 .moon-obs-side .seg { margin-top: 0; }
 .moon-obs-ring { pointer-events: none; }

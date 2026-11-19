@@ -13,6 +13,7 @@ import { Button, Glyph, IconButton, InfoNote, Segmented, Slider } from "./kit";
 import { ICON } from "../design/tokens";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 import { ModalSheet } from "./ModalSheet";
+import stations from "../../shared/stations.json";
 import { dirName, MoonGlyph, MoonSphere } from "./moonParts";
 
 const noonOf = (d: string) => Date.parse(`${d}T12:00:00+09:00`);
@@ -22,8 +23,10 @@ const jst = (ms: number) => {
   return { date: d.toISOString().slice(0, 10), min: d.getUTCHours() * 60 + d.getUTCMinutes() };
 };
 
-export function MoonSheet({ date, station, onClose }: { date: string; station: string; onClose: () => void }) {
-  const ll = stationLatLon(station) ?? DEFAULT_LAT_LON;
+export function MoonSheet({ date, station, here, onClose }: { date: string; station: string; here?: { lat: number; lon: number } | null; onClose: () => void }) {
+  // 計算の地点（11/19）：太陽と月のシートで「現在地で計算」にしていれば現在地、ほかは観測所。
+  const ll = here ?? stationLatLon(station) ?? DEFAULT_LAT_LON;
+  const where = here ? "現在地" : ((stations as { blockNo: string; name: string }[]).find((x) => x.blockNo === station)?.name ?? "観測所");
   const [sel, setSel] = useState(date);
   const [month, setMonth] = useState(monthOf(date));
   const [view, setView] = useState<"cal" | "trend">("cal");
@@ -52,7 +55,7 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
     const marks = [0, 180, 360, 540, 720, 900, 1080, 1260, 1440]
       .map((m) => ({ min: m, alt: pts[m / 10].altitude, limb: moonLimb(t0 + m * 60_000, ll.lat, ll.lon), p: moonPhase(t0 + m * 60_000) }))
       .filter((q) => q.alt >= 0);
-    return { pts, marks, lo: Math.min(...sizes), hi: Math.max(...sizes), sun: altitudeCurve(sel, station, 10) };
+    return { pts, marks, lo: Math.min(...sizes), hi: Math.max(...sizes), sun: altitudeCurve(sel, ll, 10) };
   }, [sel, station, ll.lat, ll.lon]);
   const next = useMemo(() => moonQuarters(Date.parse(`${sel}T00:00:00+09:00`), 4), [sel]);
   // その日に新月・上弦・満月・下弦があれば、形の名前はそれ（時刻つき）。昔の呼び名は、その日に月相が無いときだけ。
@@ -102,7 +105,7 @@ export function MoonSheet({ date, station, onClose }: { date: string; station: s
         </div>
       </div>
       {/* 観測の予測：観測地から見た、つまみの時刻の月。見えない時刻（地平線の下）は月を描かない。 */}
-      <MoonObserve ms={ms} min={min} lat={ll.lat} lon={ll.lon} sel={sel} rise={t.rise} />
+      <MoonObserve ms={ms} min={min} lat={ll.lat} lon={ll.lon} where={where} sel={sel} rise={t.rise} />
       <MoonDay day={day} min={min} onPick={setMin} />
       <div className="sun-play moon-play">
         <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[t.rise?.at, t.set?.at].filter((v): v is number => v != null).map(Math.round)} thumbs={[{ value: min, label: "時刻（10分ごと）", valueText: clockOf(min), onChange: setMin }]} />
@@ -306,7 +309,7 @@ const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_00
  * 見かけの大きさを大きな絵で。大きさは「実際の比」と「違いを強める」を切り替える（輪＝平均の大きさ）。
  * 地平線の下の時刻は月を描かず「見えません」と、次に昇る時刻と方位。
  */
-function MoonObserve({ ms, min, lat, lon, sel, rise }: { ms: number; min: number; lat: number; lon: number; sel: string; rise: { at: number; azimuth: number } | null }) {
+function MoonObserve({ ms, min, lat, lon, where, sel, rise }: { ms: number; min: number; lat: number; lon: number; where: string; sel: string; rise: { at: number; azimuth: number } | null }) {
   const [scale, setScale] = useState<"real" | "strong">("real");
   // 描き方（11/19 渡辺さん）：「見え方」＝球の陰影（暗い側は描かない、空で見える形）。「月の全体」＝暗い側も描く
   // （見えていない側も含めて、月の向き・回転を確かめるための絵）。
@@ -345,7 +348,9 @@ function MoonObserve({ ms, min, lat, lon, sel, rise }: { ms: number; min: number
         />
       </div>
       <div className="moon-obs-text">
-        <small>高知から見た {clockOf(min)}</small>
+        <small>
+          {where}から見た {clockOf(min)}
+        </small>
         {up ? (
           <>
             <b>
@@ -376,7 +381,7 @@ function MoonObserve({ ms, min, lat, lon, sel, rise }: { ms: number; min: number
         />
         <InfoNote className="moon-note" more={
           <>
-            {"見え方は、つまみの時刻に高知（観測所の場所）の空で見える形：光っている側の向き（傾き）・模様（海）の向き・高さで変わる色（低いほど大気で赤く、高いと白い。晴れた日の典型）。"}
+            {`見え方は、つまみの時刻に${where === "現在地" ? "現在地" : `${where}（観測所の場所）`}の空で見える形：`}{"光っている側の向き（傾き）・模様（海）の向き・高さで変わる色（低いほど大気で赤く、高いと白い。晴れた日の典型）。"}
             {" 月の全体は、暗い側（実際にはほとんど見えない）も描いて、月の向き・回転を確かめるための絵。"}
             {" 大きさは観測地から見た直径（度・分・秒）。点線の輪が平均の大きさ（0°31′05″）。"}
             {scale === "strong" ? ` いまは違いを ${STRONG} 倍に強めて描いている（実際は1年で ±7% ほど。地平線の月が大きく見えるのは目の錯覚）。` : " 実際の比で描いている（1年で ±7% ほど。地平線の月が大きく見えるのは目の錯覚）。"}
