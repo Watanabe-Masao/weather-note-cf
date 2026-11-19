@@ -111,6 +111,20 @@ def api(path, q):
         return {"users": [{"id": "u1", "login_id": "masao", "name": "渡辺", "role": "admin", "created_at": 1762800000000, "last_login": 1762800000000, "disabled_at": None, "reports": 0, "research": None}, {"id": "u2", "login_id": "tanaka", "name": None, "role": "user", "created_at": 1762800000000, "last_login": None, "disabled_at": None, "reports": 3, "research": 1}]}
     if path == "/api/admin/forecast-import":
         return {"first": "2025-01", "last": "2026-11", "next": {"month": "2025-02", "expected": "2025-03-02", "available": False}, "parser": {"telegram": 1, "record": 1}, "months": [{"office": "390000", "month": "2025-01", "commit_sha": "abc", "fetched_at": "2026-11-17T03:00:00Z", "rows": 4791, "issues": 186, "empty_days": [], "overlaps": 0, "differ": 0, "license": "CC BY-SA 4.0"}]}
+    if path == "/api/admin/maintenance":
+        st = lambda i, n, r, ok, w, left, needed, why, last=None: {"id": i, "name": n, "reach": r, "lastOk": ok, "waiting": w, "left": left, "available": True, "needed": needed, "why": why, "last": last}
+        ser = lambda e, k, p, l, pend=[], lost=[]: {"expected": e, "kept": k, "pendingCount": p, "lostCount": l, "absentCount": 0, "pending": pend, "lost": lost, "absent": [], "watermark": None}
+        return {"at": "2026-11-10T03:00:00Z",
+            "judged": {"problems": [], "notes": [{"key": "radarStale", "text": "雨雲レーダーの保存が1時間止まっています（手順 R-03・S1）。"}]},
+            "refetch": {"perHour": 3, "stages": [
+                st("radar", "雨雲レーダー・解析雨量", "雨雲 約3時間・解析雨量 約12時間", "2026-11-10T02:00:00Z", 27, 2, True, ["取り残し 27", "最後に取れてから間が空いている", "まだ取り戻せる欠け 2"], {"at": "2026-11-10T02:50:00Z", "ok": False, "detail": "0枚を保存・残り27枚（一部取れなかった）"}),
+                st("forecast", "予報の電文", "7日", "2026-11-10T02:55:00Z", 0, 3, False, []),
+                st("warning", "警報・注意報の電文", "7日", "2026-11-10T02:55:00Z", 0, 3, False, []),
+                st("typhoon", "台風の電文", "7日", "2026-11-10T02:55:00Z", None, 3, False, [])]},
+            "completeness": {"forecast": {"VPFD51": ser(6, 6, 0, 0), "VPFW50": ser(4, 4, 0, 0)}, "radar": {"hrpns": ser(48, 46, 2, 0, ["2026-11-10T11:00:00+09:00", "2026-11-10T11:30:00+09:00"]), "rasrf": ser(48, 48, 0, 0)}, "lostAll": [], "lostLastDay": [], "absentAll": []},
+            "errors": [{"at": "2026-11-10T02:50:00Z", "where": "雨雲の保存", "message": "hrpns 20261110023000/8/222/102: HTTP 503"}, {"at": "2026-11-09T14:43:17Z", "where": "アカウント /api/reports/sync", "message": "Error: This promise was created by a request that has since ended, so it can never settle."}],
+            "room": {"d1Size": {"bytes": 66480000, "percent": 0.6}, "d1WritesMonth": {"estimate": 635000, "percent": 1.3, "rowsLastDay": 7054}, "r2": {"bytes": 5138000, "percentOfFree": 0}, "cronRunsLastDay": 288, "cronMissing": 0},
+            "lastDupCheck": {"at": "2026-11-10T01:00:00Z", "result": [{"name": "予報の電文（同じ中身）", "n": 0, "examples": []}, {"name": "予報の電文（同じ発表時刻に2通以上）", "n": 1, "examples": ["VPFD51 11/9 11:00（2通）"], "note": "訂正報で正しく2通のこともある"}, {"name": "肌感の記録（同じ人・時刻・中身が2件以上）", "n": 0, "examples": []}]}}
     if path == "/api/rain-now":
         return RAIN_NOW
     if path == "/api/wxchart-at":
@@ -855,6 +869,18 @@ with sync_playwright() as p:
         check("J5c 次の月が記録にまだ無いときは押せず、入る見込みの日を出す", btn.count() == 1 and btn.is_disabled() and "2025年3月2日の夜の見込み" in sec.inner_text(), sec.inner_text()[:200])
         layout_ok("J5b", "ユーザー管理")
         if os.environ.get("WN_SHOT"): sec.screenshot(path=f"{os.environ['WN_SHOT']}-admin-import.png")
+        pg.locator(".admin-sheet .icon-btn.close").click(); calm()
+        # データの保守（#299 P1、2026-11-19）：今の状態・取得（取り直しは要る段だけ）・欠け・エラー（コピー）・重なり・大きさ。
+        pg.locator(".msheet.settings button", has_text="データの保守").click(); calm()
+        settle(lambda: pg.locator(".maintenance-sheet .mt-list").count() >= 3)
+        ms = pg.locator(".maintenance-sheet")
+        rb = ms.locator("button", has_text="今すぐ取り直す")
+        check("J6 データの保守：注意の行、取り直しは要る段（雨雲）だけ、ほかは「必要ありません」、エラー2件、重なりの疑い", ms.locator(".mt-badge", has_text="注意 1").count() == 1 and rb.count() == 1 and "あと2回" in rb.inner_text() and ms.locator(".mt-fine", has_text="今は取り直す必要はありません").count() == 3 and "2件" in ms.inner_text() and "訂正報" in ms.inner_text(), ms.inner_text()[:300])
+        layout_ok("J6b", "データの保守")
+        if os.environ.get("WN_SHOT"):
+            pg.set_viewport_size({"width": W, "height": 2200}); calm()
+            ms.screenshot(path=f"{os.environ['WN_SHOT']}-maintenance.png")
+            pg.set_viewport_size({"width": W, "height": 844}); calm()
         esc()
         esc()
     step("J", j)

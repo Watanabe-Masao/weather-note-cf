@@ -53,12 +53,14 @@ const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts�
 export function ensureHealthSchema(db: Db): Promise<void> {
   return doneOnce(done, db, async () => {
     for (const q of HEALTH_SCHEMA) await db.prepare(q).run();
-    // d1_ms (2026-11-18): added to a table that may already be there; "duplicate column" means it is.
-    try {
-      await db.prepare("ALTER TABLE cron_runs ADD COLUMN d1_ms INTEGER").run();
-    } catch (e) {
-      if (!/duplicate column/i.test(String(e))) throw e;
-    }
+    // d1_ms (2026-11-18) and error (2026-11-19, the failing stage's message for the maintenance screen): added to a
+    // table that may already be there; "duplicate column" means it is.
+    for (const col of ["d1_ms INTEGER", "error TEXT"])
+      try {
+        await db.prepare(`ALTER TABLE cron_runs ADD COLUMN ${col}`).run();
+      } catch (e) {
+        if (!/duplicate column/i.test(String(e))) throw e;
+      }
   });
 }
 
@@ -114,17 +116,19 @@ export async function timed(db: Db, at: string, stage: string, fn: (db: Db) => P
   const t = Date.now();
   const m = meterOf(db, stage);
   let ok = 1;
+  let error: string | null = null;
   try {
     await fn(m.db);
   } catch (e) {
     ok = 0;
+    error = (e instanceof Error ? `${e.name}: ${e.message}` : String(e)).slice(0, 300);
     console.error(`weather-note: ${stage}`, e);
   }
   const ms = Date.now() - t;
   console.log(JSON.stringify({ wn: "cron-stage", at, stage, ms, d1Ms: m.ms(), ok }));
   try {
     await ensureHealthSchema(db);
-    await db.prepare("INSERT OR REPLACE INTO cron_runs (at, stage, ms, ok, d1_ms) VALUES (?, ?, ?, ?, ?)").bind(at, stage, ms, ok, m.ms()).run();
+    await db.prepare("INSERT OR REPLACE INTO cron_runs (at, stage, ms, ok, d1_ms, error) VALUES (?, ?, ?, ?, ?, ?)").bind(at, stage, ms, ok, m.ms(), error).run();
   } catch (e) {
     console.error("weather-note: cron_runs", e);
   }
