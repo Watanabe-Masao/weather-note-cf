@@ -81,7 +81,8 @@ const vec = (az: number, alt: number) => [Math.cos(alt * RAD) * Math.sin(az * RA
  * 画面の位置へ。端末はまっすぐ立てている（左右に傾けていない）とする。後ろ側（90°より外）は front=false。
  * focal は、縦の画角 vfov（°）を高さ h に合わせると (h/2)/tan(vfov/2)。
  */
-export function project(look: { azimuth: number; altitude: number; roll?: number }, body: { azimuth: number; altitude: number }, focal: number, w: number, h: number) {
+/** 向いている方向（look）の、前・右・上の単位ベクトル（project と unproject で同じもの）。 */
+function basisOf(look: { azimuth: number; altitude: number; roll?: number }) {
   const f = vec(look.azimuth, look.altitude);
   const up0 = [0, 0, 1];
   // 右 = 前 × 上、上 = 右 × 前（真上・真下を向いたときは方位から右を決める）
@@ -97,6 +98,15 @@ export function project(look: { azimuth: number; altitude: number; roll?: number
     r = r.map((v, i) => v * c - u[i] * sn);
     u = u2;
   }
+  return { f, r, u };
+}
+
+/**
+ * カメラと同じ見え方（透視、2026-11-19）：向いている方向（look）を真ん中に、focal（画面の上の1単位＝px）で、天体の方向を
+ * 画面の位置へ。後ろ側（90°より外）は front=false。focal は、縦の画角 vfov（°）を高さ h に合わせると (h/2)/tan(vfov/2)。
+ */
+export function project(look: { azimuth: number; altitude: number; roll?: number }, body: { azimuth: number; altitude: number }, focal: number, w: number, h: number) {
+  const { f, r, u } = basisOf(look);
   const v = vec(body.azimuth, body.altitude);
   const dot = (a: number[], b: number[]) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   const z = dot(v, f);
@@ -104,6 +114,26 @@ export function project(look: { azimuth: number; altitude: number; roll?: number
   const x = w / 2 + (dot(v, r) / Math.max(z, 1e-3)) * focal;
   const y = h / 2 - (dot(v, u) / Math.max(z, 1e-3)) * focal;
   return { x, y, front, inside: front && x >= 0 && x <= w && y >= 0 && y <= h, sx: dot(v, r), sy: dot(v, u) };
+}
+
+/** project の逆（11/19）：画面の点（x, y）が指す空の方向（方位・高さ°）。 */
+export function unproject(look: { azimuth: number; altitude: number; roll?: number }, x: number, y: number, focal: number, w: number, h: number) {
+  const { f, r, u } = basisOf(look);
+  const a = (x - w / 2) / focal;
+  const b = -(y - h / 2) / focal;
+  const d = [0, 1, 2].map((i) => f[i] + r[i] * a + u[i] * b);
+  const n = Math.hypot(d[0], d[1], d[2]);
+  const azimuth = ((Math.atan2(d[0], d[1]) / RAD) % 360 + 360) % 360;
+  return { azimuth, altitude: Math.asin(d[2] / n) / RAD };
+}
+
+/**
+ * 本物を押して直す（11/19）：カメラに写った本物の天体を押した点と、計算の方向との差。方位の差はコンパスのずれ
+ * （補正にそのまま足す：dAz を足すと、描いた天体が押した点に来る）。高さの差は確かめのために返すだけ（傾きは加速度で、ずれにくい）。
+ */
+export function tapCorrection(look: { azimuth: number; altitude: number; roll?: number }, tap: { x: number; y: number }, body: { azimuth: number; altitude: number }, focal: number, w: number, h: number) {
+  const seen = unproject(look, tap.x, tap.y, focal, w, h);
+  return { dAz: azDiff(body.azimuth, seen.azimuth), dAlt: body.altitude - seen.altitude };
 }
 
 /** 縦の画角（°）から、高さ h の画面での focal。 */
