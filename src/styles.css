@@ -4471,8 +4471,23 @@ select.chip.sm {
 .moon-day-up { fill: none; stroke-width: 2.5; stroke-linecap: round; }
 .moon-look { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-5); margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-secondary); }
 .moon-look b { color: var(--ink-primary); font-weight: var(--weight-bold); }
-.moon-sim { display: block; flex: none; }
-.moon-sim.below { opacity: 0.45; }
+.moon-today { display: block; }
+/* 観測の予測（11/19）：大きな月の舞台（大きさが替わっても枠は動かない）と、その時刻の読み。 */
+.moon-obs { display: flex; align-items: flex-start; gap: var(--space-4); margin-top: var(--space-3); }
+.moon-obs-stage { position: relative; flex: none; display: grid; place-items: center; width: 132px; height: 132px; border-radius: var(--radius-md); background: var(--surface-inset); }
+.moon-obs-stage > * { grid-area: 1 / 1; }
+/* 月の舞台と、その下の描き方の切り替え（見え方／月の全体） */
+.moon-obs-side { display: grid; gap: var(--space-2); flex: none; width: 132px; }
+.moon-obs-side .seg { margin-top: 0; }
+.moon-obs-ring { pointer-events: none; }
+
+.moon-obs-ring circle { fill: none; stroke: var(--line-strong); stroke-width: var(--stroke-hair); stroke-dasharray: 2 3; }
+.moon-obs-none { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.moon-obs-text { display: grid; gap: var(--space-1); min-width: 0; font-size: var(--size-xs); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+.moon-obs-text small { color: var(--ink-tertiary); }
+.moon-obs-text > b { font-size: var(--size-sm); color: var(--ink-primary); }
+.moon-obs-text span b { color: var(--ink-primary); }
+.moon-obs-text .seg { margin-top: var(--space-1); }
 .moon-next-name { white-space: nowrap; }
 .moon-next small { font-size: var(--size-xs); color: var(--ink-tertiary); }
 .moon-next b { font-size: var(--size-sm); font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -0.02em; }
