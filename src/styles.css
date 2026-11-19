@@ -4421,6 +4421,8 @@ select.chip.sm {
 .sky-view { width: 100%; height: auto; display: block; margin-top: var(--space-3); }
 .sky-ground { fill: var(--surface-inset); }
 .sky-stage { position: relative; width: 100%; margin-top: var(--space-3); border-radius: var(--radius-md); overflow: hidden; background: var(--surface-inset); }
+.sky-pan { touch-action: none; cursor: grab; border-radius: var(--radius-md); }
+.sky-pan:active { cursor: grabbing; }
 .sky-stage .sky-view { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; }
 .sky-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .sky-stage.camera .sun-horizon, .sky-stage.camera .sky-alt { stroke: var(--ink-on-feel); }

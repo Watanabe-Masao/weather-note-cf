@@ -704,6 +704,16 @@ with sync_playwright() as p:
         # 端末の向きで見る（センサー連動、2026-11-18）：作ったセンサーの値（iPhone の方位 187.6°＝偏角を引いて南）を流すと、
         # 南を真ん中にした窓になり、やめると広げた絵に戻る。
         pg.locator(".sun-card .seg button", has_text="空を見上げる").click(); calm()
+        # なぞって見る窓（11/19）：横 90° の窓。はじめは太陽を真ん中に（12時の太陽は南）。左へなぞると右（西寄り）へ回り、← キーで戻る。
+        pan_head = lambda: pg.evaluate("(document.querySelector('.sky-pan .sky-heading') || {}).textContent || ''")
+        az_of = lambda t: int(re.search(r"(\d+)°", t).group(1)) if re.search(r"(\d+)°", t) else None
+        h0 = pan_head(); pb = pg.locator(".sky-pan").bounding_box()
+        pg.mouse.move(pb["x"] + pb["width"] / 2, pb["y"] + pb["height"] / 2); pg.mouse.down()
+        pg.mouse.move(pb["x"] + pb["width"] / 2 - pb["width"] / 3, pb["y"] + pb["height"] / 2, steps=6); pg.mouse.up(); calm()
+        h1 = pan_head()
+        pg.locator(".sky-pan").focus(); pg.keyboard.press("ArrowLeft"); calm(); h2 = pan_head()
+        if os.environ.get("WN_SUN"): pg.locator(".sun-card").screenshot(path=os.environ["WN_SUN"] + "-pan.png")
+        check("SS2r なぞって見る窓：はじめは太陽（南）、左へ 1/3 なぞると約 30° 西へ、← で 5° 戻る", h0.startswith("南") and az_of(h1) is not None and 25 <= az_of(h1) - az_of(h0) <= 35 and az_of(h1) - az_of(h2) == 5 and pg.locator(".sky-view.window").count() == 0, (h0, h1, h2))
         pg.evaluate("DeviceOrientationEvent.requestPermission = async () => 'granted'")  # iPhone のように許可を求める形（許可された）
         pg.locator(".sky-sensor .btn", has_text="端末の向きで見る").click(); calm()
         pg.evaluate("""() => { for (let i = 0; i < 20; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
