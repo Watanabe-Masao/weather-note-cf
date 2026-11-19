@@ -4511,9 +4511,11 @@ select.chip.sm {
 .sky-alt-label, .sky-dir { font-size: var(--size-xs); }
 .sky-sun { stroke: none; }
 /* 本当の大きさの太陽と月に添える輪と名前（11/19）：小さくても見つけられるように */
+.sky-view.window.aiming { cursor: crosshair; outline: var(--stroke-focus) dashed var(--accent-base); outline-offset: calc(-1 * var(--stroke-focus)); }
 .sky-body-ring { fill: none; stroke: var(--ink-primary); stroke-width: var(--stroke-hair); opacity: 0.7; }
 .sky-body-name { fill: var(--ink-primary); font-size: var(--size-xs); }
-.sky-stage.camera .sky-body-ring { stroke: var(--ink-on-feel); }
+.sky-stage.camera .sky-view.window.aiming { cursor: crosshair; outline: var(--stroke-focus) dashed var(--accent-base); outline-offset: calc(-1 * var(--stroke-focus)); }
+.sky-body-ring { stroke: var(--ink-on-feel); }
 .sky-stage.camera .sky-body-name { fill: var(--ink-on-feel); paint-order: stroke; stroke: var(--surface-page); stroke-width: var(--stroke-focus); }
 .sun-card .seg { width: 100%; margin-bottom: var(--space-2); }
 .sun-keys { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-4); }

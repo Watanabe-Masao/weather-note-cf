@@ -46,7 +46,7 @@ describe("ならしと窓の中の位置", () => {
   });
 });
 
-import { focalOf, project } from "../../shared/skyLook";
+import { focalOf, project, tapCorrection, unproject } from "../../shared/skyLook";
 describe("カメラと同じ見え方（透視）", () => {
   const look = { azimuth: 180, altitude: 20 };
   const f = focalOf(60, 800);
@@ -94,5 +94,29 @@ describe("project のロール（縦に固定した画面を傾けて持つ）",
     const b = project({ azimuth: 30, altitude: 20, roll: 0 }, { azimuth: 40, altitude: 25 }, 300, 400, 800);
     expect(b.x).toBeCloseTo(a.x, 6);
     expect(b.y).toBeCloseTo(a.y, 6);
+  });
+});
+
+describe("本物を押して直す（11/19）", () => {
+  it("unproject は project の逆（ロールがあっても）", () => {
+    const look = { azimuth: 121, altitude: 17, roll: 8 };
+    for (const body of [{ azimuth: 113, altitude: 24.9 }, { azimuth: 140, altitude: 5 }, { azimuth: 100, altitude: 35 }]) {
+      const p = project(look, body, 990, 984, 665);
+      const back = unproject(look, p.x, p.y, 990, 984, 665);
+      expect(back.azimuth).toBeCloseTo(body.azimuth, 6);
+      expect(back.altitude).toBeCloseTo(body.altitude, 6);
+    }
+  });
+  it("コンパスが 4° 大きく読んでいると、押した点から −4° を出す（補正に足すと合う）", () => {
+    const truth = { azimuth: 117, altitude: 17, roll: 3 };
+    const shown = { ...truth, azimuth: truth.azimuth + 4 };
+    const moon = { azimuth: 113.2, altitude: 24.9 };
+    const real = project(truth, moon, 990, 984, 665); // カメラに写る本物の位置
+    const c = tapCorrection(shown, real, moon, 990, 984, 665);
+    expect(c.dAz).toBeCloseTo(-4, 1);
+    expect(Math.abs(c.dAlt)).toBeLessThan(0.3);
+    // 直したあとの向きで描くと、本物の位置に来る
+    const fixed = project({ ...shown, azimuth: shown.azimuth + c.dAz }, moon, 990, 984, 665);
+    expect(Math.hypot(fixed.x - real.x, fixed.y - real.y)).toBeLessThan(5);
   });
 });

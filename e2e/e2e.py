@@ -724,6 +724,30 @@ with sync_playwright() as p:
             pg.locator(".sky-stage").first.screenshot(path=os.environ["WN_SUN"] + "-true-size.png")
             pg.locator(".sun-play .btn", has_text="今").first.click(); calm()
             pg.evaluate("""() => { for (let i = 0; i < 200; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
+        # 本物を押して直す（11/19）：カメラ（テストでは作った映像）のときだけ「本物に合わせる」。押して、描いた太陽の右 30px を押すと、
+        # 方位の補正が入り、描いた太陽がその点へ動く。
+        pg.evaluate("""() => { navigator.mediaDevices.getUserMedia = async () => { const c = document.createElement('canvas'); c.width = 480; c.height = 640; c.getContext('2d').fillRect(0, 0, 480, 640); return c.captureStream(5); }; }""")
+        look_up = lambda n=200: pg.evaluate("""(n) => { for (let i = 0; i < n; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 125, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }""", n)
+        look_up(); pg.wait_for_timeout(300)
+        pg.locator(".sky-sensor .btn", has_text="カメラ").first.click(); pg.wait_for_timeout(800)
+        aim_btn = pg.locator(".sky-sensor .btn", has_text="本物に合わせる").count()
+        sun0 = pg.locator(".sky-view.window .sky-sun").first.bounding_box() if pg.locator(".sky-view.window .sky-sun").count() else None
+        moved_ok = None
+        if aim_btn and sun0:
+            pg.locator(".sky-sensor .btn", has_text="本物に合わせる").click(); calm()
+            tx, ty = sun0["x"] + sun0["width"] / 2 + 30, sun0["y"] + sun0["height"] / 2
+            pg.mouse.click(tx, ty); calm(); look_up(); pg.wait_for_timeout(300)
+            sun1 = pg.locator(".sky-view.window .sky-sun").first.bounding_box()
+            note = txt(".sky-sensor-state")
+            moved_ok = (abs(sun1["x"] + sun1["width"] / 2 - tx) < 4, note)
+            if os.environ.get("WN_SUN"): pg.locator(".sun-card").screenshot(path=os.environ["WN_SUN"] + "-aim.png")
+        pg.locator(".sky-sensor .btn", has_text="カメラを止める").first.click(); calm()
+        check("SS2q 本物に合わせる：カメラのときだけ出て、押した点に描いた太陽が来る（方位の補正）、何をしたかを出す", aim_btn == 1 and moved_ok is not None and moved_ok[0] and "太陽に合わせました" in moved_ok[1], (aim_btn, sun0, moved_ok))
+        # 補正を 0 に戻す（あとのコンパス補正の確かめのため）
+        pg.locator(".sky-sensor .btn", has_text="コンパス補正").click(); calm()
+        if pg.locator(".compass-trim .btn", has_text="0°に").count(): pg.locator(".compass-trim .btn", has_text="0°に").click(); calm()
+        pg.locator(".compass-trim .icon-btn[aria-label='コンパス補正を閉じる']").click(); calm()
+        pg.evaluate("""() => { for (let i = 0; i < 200; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
         check("SS2p 今に付いていく：向きで見ると今の時刻、つまみで止まり「今」で戻る。太陽は本当の大きさに名前", now_on == "true" and t_now.startswith("12:0") and now_off == "false" and t_moved == "15:00" and now_back == "true" and t_back.startswith("12:0") and sun_r is not None and 1.5 <= sun_r <= 4 and named >= 1, (now_on, t_now, now_off, t_moved, now_back, t_back, sun_r, named))
         # 全画面（2026-11-19）：画面いっぱいの空と、下に時刻・動かす・カメラ・ずれ。閉じると元のシートに戻る。カメラのボタンもある。
         cam_btn = pg.locator(".sky-sensor .btn", has_text="カメラ").count()
