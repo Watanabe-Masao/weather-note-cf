@@ -696,6 +696,11 @@ with sync_playwright() as p:
         check("SS2 薄明は 市民→航海→天文 の順（朝は早く・夕は遅く）、日の出→南中→日の入り", mins, (keys, tw))
         moon = pg.locator(".sun-keys.moon .sun-key").count()
         check("SS2c 月：月の出・南中・月の入りの3枚と、選んだ時刻の月（高さ・方位・月齢・明るい部分）", moon == 3 and "月齢" in txt(".sun-now.moon"), txt(".sun-now.moon"))
+        # 11/19：月が太陽より高く昇る日も、月の線がグラフの上端に張り付かない（上端は太陽と月の高い方から）。
+        mt = pg.evaluate("""() => { const c = document.querySelector('.sun-chart'); const r = c && c.querySelector('rect'); const m = c && c.querySelector('.moon-curve');
+          if (!r || !m) return null; const top = +r.getAttribute('y'); const ys = (m.getAttribute('d').match(/-?[\\d.]+,-?[\\d.]+/g) || []).map(p => +p.split(',')[1]);
+          return { top, min: Math.min(...ys), atTop: ys.filter(y => y <= top + 0.5).length }; }""")
+        check("SS2d 月の線がグラフの上端に張り付かない", mt is None or mt["atTop"] == 0, str(mt))
         # 端末の向きで見る（センサー連動、2026-11-18）：作ったセンサーの値（iPhone の方位 187.6°＝偏角を引いて南）を流すと、
         # 南を真ん中にした窓になり、やめると広げた絵に戻る。
         pg.locator(".sun-card .seg button", has_text="空を見上げる").click(); calm()

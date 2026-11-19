@@ -63,7 +63,9 @@ export function SunSheet({
   const { rise: riseH, set: setH } = sunHours(sun, e);
   const rise = riseH * 60;
   const set = setH * 60;
-  const high = Math.max(30, Math.ceil((e.noonAltitude + 8) / 10) * 10);
+  // 上端は太陽と月の高い方から決める（月が太陽より高く昇る日に、月の線が上端に張り付かないように）。
+  const peak = Math.max(e.noonAltitude, ...sky3.moon.map((m) => m.altitude));
+  const high = Math.min(90, Math.max(30, Math.ceil((peak + 8) / 10) * 10));
   const x = (min: number) => PAD.left + (min / 1440) * (W - PAD.left - PAD.right);
   // Above the horizon the axis is even (half the height); below it, it eases off smoothly
   // (1 − e^(−depth/25°)) so the three twilights near the horizon get room and the deep night less.
