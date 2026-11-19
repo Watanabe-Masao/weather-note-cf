@@ -4498,11 +4498,14 @@ select.chip.sm {
 .sky-sensor { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin-top: var(--space-3); }
 .sky-sensor-state { font-size: var(--size-xs); color: var(--ink-tertiary); }
 /* コンパス補正（2026-11-19）：開くと行いっぱいの目盛り。真ん中の線が今の方位。 */
-.compass-trim { flex: 1 1 100%; display: grid; justify-items: center; gap: var(--space-2); min-width: 0; }
-.compass-trim-value { padding: var(--space-1) var(--space-4); border-radius: var(--radius-pill); background: var(--surface-inset); font-size: var(--size-xs); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
-.compass-trim-row { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-width: 0; }
-.compass-trim-scale { flex: 1 1 auto; min-width: 0; height: var(--tap-min); overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-inset); touch-action: none; cursor: ew-resize; display: grid; align-items: center; }
-.compass-trim-scale svg { display: block; width: 100%; }
+/* 方位を直す（11/19）：長押しの間だけ、窓の下の端に重ねて目盛りを開く。離すとすっと閉じる。 */
+.sky-sensor { position: relative; }
+.sky-sensor-break { flex-basis: 100%; height: 0; }
+.compass-hold { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+.compass-pop { position: absolute; left: 0; right: 0; bottom: calc(100% + var(--space-2)); display: grid; justify-items: center; gap: var(--space-1); padding: var(--space-2) 0; border-radius: var(--radius-md); background: var(--surface-raised); box-shadow: var(--shadow-lift); opacity: 0; transform: translateY(var(--space-2)); transition: opacity var(--motion-quick) var(--ease-standard), transform var(--motion-quick) var(--ease-standard); pointer-events: none; z-index: 2; }
+.compass-pop.open { opacity: 1; transform: none; }
+.compass-pop svg { display: block; width: 100%; }
+.compass-pop-value { font-size: var(--size-xs); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
 .compass-trim-tick { stroke: var(--ink-tertiary); stroke-width: var(--stroke-hair); }
 .compass-trim-dir { fill: var(--ink-secondary); font-size: var(--size-xs); }
 .compass-trim-center { stroke: var(--ink-primary); stroke-width: var(--stroke-focus); }
@@ -4514,6 +4517,7 @@ select.chip.sm {
 .sky-sun { stroke: none; }
 /* 本当の大きさの太陽と月に添える輪と名前（11/19）：小さくても見つけられるように */
 .sky-view.window.aiming { cursor: crosshair; outline: var(--stroke-focus) dashed var(--accent-base); outline-offset: calc(-1 * var(--stroke-focus)); }
+.sky-ground-note { fill: var(--ink-secondary); font-size: var(--size-xs); }
 .sky-body-ring { fill: none; stroke: var(--ink-primary); stroke-width: var(--stroke-hair); opacity: 0.7; }
 .sky-body-name { fill: var(--ink-primary); font-size: var(--size-xs); }
 .sky-stage.camera .sky-view.window.aiming { cursor: crosshair; outline: var(--stroke-focus) dashed var(--accent-base); outline-offset: calc(-1 * var(--stroke-focus)); }

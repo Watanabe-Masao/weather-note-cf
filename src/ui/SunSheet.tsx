@@ -125,11 +125,6 @@ export function SunSheet({
   // 本物を押して直す（11/19）：カメラに写った本物の月か太陽を押すと、方位のずれをコンパス補正に足す。
   const [aiming, setAiming] = useState(false);
   const [aimNote, setAimNote] = useState("");
-  const aimBtn = (
-    <Button size="sm" aria-pressed={aiming} onClick={() => (setAiming(!aiming), setAimNote(""))}>
-      本物に合わせる
-    </Button>
-  );
   const tap = {
     armed: aiming,
     onTap: (c: { dAz: number; dAlt: number; name: string }) => {
@@ -141,6 +136,17 @@ export function SunSheet({
   };
   const sensor = useSkyLook(magneticDeclination(ll.lat, ll.lon), offset);
   const camera = useCamera();
+  // 方位を直す（11/19）：ボタン1つ。長押しでなぞって直す、短く押すとカメラのときは本物に合わせる、ほかは使い方を出す。
+  const trim = (
+    <CompassTrim
+      value={offset}
+      onChange={setOffset}
+      heading={sensor.look?.azimuth ?? 0}
+      pressed={aiming}
+      onTap={camera.state === "on" ? () => (setAiming(!aiming), setAimNote("")) : undefined}
+      onHint={() => setAimNote("長押ししたまま左右になぞると方位を直せます。カメラを付けると、短く押して本物の月か太陽に合わせられます")}
+    />
+  );
   const [full, setFull] = useState(false);
   const { state: sensorState, stop: stopSensor } = sensor;
   const { state: cameraState, stop: stopCamera } = camera;
@@ -216,22 +222,21 @@ export function SunSheet({
       {view === "sky" && !full && <SkyView look={sensor.state === "on" ? sensor.look : null} stream={camera.stream} tap={tap} at={at} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} />}
       {view === "sky" && (
         <div className="sky-sensor">
+          {/* ボタンは短い言葉で、押している（使っている）ものは選んでいる色（11/19 渡辺さん「ごちゃごちゃしている」）。 */}
           <Button size="sm" aria-pressed={sensor.state !== "off"} onClick={() => (sensor.state === "off" ? void sensor.start() : sensor.stop())}>
-            {sensor.state === "off" ? "端末の向きで見る" : "向きで見るのをやめる"}
+            端末の向き
           </Button>
           {sensor.state === "on" && (
             <>
               <Button size="sm" aria-pressed={camera.state === "on"} onClick={() => (camera.state === "on" ? camera.stop() : void camera.start())}>
-                {camera.state === "on" ? "カメラを止める" : "カメラ"}
+                カメラ
               </Button>
               <Button size="sm" onClick={() => setFull(true)}>
                 全画面
               </Button>
+              <span className="sky-sensor-break" aria-hidden />
+              {trim}
             </>
-          )}
-          {sensor.state === "on" && camera.state === "on" && aimBtn}
-          {sensor.state === "on" && (
-            <CompassTrim value={offset} onChange={setOffset} heading={sensor.look?.azimuth ?? 0} />
           )}
           <small className="sky-sensor-state" aria-live="polite">
             {aiming ? "カメラに写っている本物の月か太陽を押してください（近い方に合わせます）" : aimNote}
@@ -265,10 +270,9 @@ export function SunSheet({
               </div>
               <div className="sky-sensor">
                 <Button size="sm" aria-pressed={camera.state === "on"} onClick={() => (camera.state === "on" ? camera.stop() : void camera.start())}>
-                  {camera.state === "on" ? "カメラを止める" : "カメラ"}
+                  カメラ
                 </Button>
-                {camera.state === "on" && aimBtn}
-                <CompassTrim value={offset} onChange={setOffset} heading={sensor.look?.azimuth ?? 0} />
+                {trim}
               </div>
               <small className="sky-sensor-state" aria-live="polite">
                 {aiming ? "写っている本物の月か太陽を押してください" : aimNote}
@@ -648,6 +652,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
   };
   const sun = at(sunAz, sunAlt);
   const mo = at(moon.azimuth, moon.altitude);
+  const together = !sun.inside && !mo.inside && sunAlt >= 0 && moon.altitude >= 0 && Math.abs(Math.atan2(-sun.sy, sun.sx) - Math.atan2(-mo.sy, mo.sx)) < 0.25;
   const big = full ? 1.6 : 1;
   // 見かけの大きさ（半径、画面の単位）：2·焦点·tan(直径/2) の半分。
   const radiusOf = (deg: number) => Math.max(1.5, focal * Math.tan((deg / 2) * (Math.PI / 180)));
@@ -698,7 +703,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
         ))}
         <line x1={hp1.x - hx} y1={hp1.y - hy} x2={hp2.x + hx} y2={hp2.y + hy} className="sun-horizon" />
         {dirs.map(({ az, q }) => (
-          <text key={az} transform={`translate(${q.x.toFixed(1)} ${(Math.abs(tilt) < 20 ? Math.min(h - 20, Math.max(0, q.y)) : q.y).toFixed(1)}) rotate(${tilt.toFixed(1)})`} y={14} textAnchor="middle" className="sun-tick sky-dir">
+          <text key={az} transform={`translate(${q.x.toFixed(1)} ${(Math.abs(tilt) < 20 ? Math.min(h - 20, Math.max(full || pan ? 0 : 24, q.y)) : q.y).toFixed(1)}) rotate(${tilt.toFixed(1)})`} y={14} textAnchor="middle" className="sun-tick sky-dir">
             {dirName(az)}
           </text>
         ))}
@@ -726,8 +731,15 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
             </text>
           </g>
         )}
-        {edge(sunAz, sunAlt, "太陽")}
-        {edge(moon.azimuth, moon.altitude, "月")}
+        {/* 下を向いて地平線が窓より上にあるとき（11/19 IMG_2663）：何も無い面に見えないよう、地面だと書く。 */}
+        {!stream && hp1.y < 0 && hp2.y < 0 && (
+          <text x={w / 2} y={h / 2} textAnchor="middle" className="sun-tick sky-ground-note">
+            地面の方を向いています（上へ向けると空）
+          </text>
+        )}
+        {/* 太陽と月が同じ向きの外にあるとき（新月の前後）は、矢印を1つにまとめて名前を重ねない（11/19）。 */}
+        {together ? edge(sunAz, sunAlt, "太陽と月") : edge(sunAz, sunAlt, "太陽")}
+        {!together && edge(moon.azimuth, moon.altitude, "月")}
         {!full && (
           <text x={8} y={18} className="sun-tick sky-heading">
             {dirName(look.azimuth)} {Math.round(look.azimuth)}°・{look.altitude >= 0 ? `上へ ${Math.round(look.altitude)}°` : `下へ ${Math.round(-look.altitude)}°`}
