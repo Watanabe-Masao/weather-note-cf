@@ -178,3 +178,27 @@
 .fh-ctab .c.span4 ~ .c, .fh-ctab .rh.ac ~ .c { height: 3em; }
 .fh-days { gap: var(--space-3); }
 .fh-rows-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }
+
+/* その発表の週間天気予報（11/19）：日ごとに2段。左に日付と天気の絵、右に最高／最低、下の段に降水確率とどの発表か。 */
+.fh-week { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.fh-week-row {
+  display: grid;
+  grid-template-columns: 4.8em calc(var(--space-6) * 2) minmax(0, 1fr) auto;
+  grid-template-areas: "day wx name temp" "day wx pop src";
+  align-items: center;
+  column-gap: var(--space-3);
+  row-gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  border-bottom: var(--stroke-hair) solid var(--line-soft);
+}
+.fh-week-row.on { background: var(--accent-wash); }
+.fh-week-day { grid-area: day; display: grid; line-height: 1.2; }
+.fh-week-day b { font-size: var(--size-base); font-variant-numeric: tabular-nums; }
+.fh-week-day small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.fh-week-mark { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.fh-week-wx { grid-area: wx; display: grid; place-items: center; }
+.fh-week-name { grid-area: name; font-size: var(--size-sm); min-width: 0; }
+.fh-week-temp { grid-area: temp; font-size: var(--size-base); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
+.fh-week-pop { grid-area: pop; font-size: var(--size-sm); font-variant-numeric: tabular-nums; }
+.fh-week-src { grid-area: src; font-size: var(--size-xs); color: var(--ink-secondary); text-align: right; white-space: nowrap; }

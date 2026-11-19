@@ -18,7 +18,7 @@ import { activeTyphoons } from "./typhoon";
 import { collectForecasts } from "./forecastArchive";
 import { collectWarnings } from "./warningArchive";
 import { parseForecasts } from "./forecastParse";
-import { forecastHistory } from "./forecastHistory";
+import { forecastHistory, forecastIssue } from "./forecastHistory";
 import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { saveRadar } from "./radarArchive";
@@ -167,6 +167,15 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
       return cachedFor(url.origin, `${CACHE_VERSION}/forecast-history/${station.blockNo}/${day}`, HISTORY_TTL, waitUntil, () =>
         forecastHistory(db, station.blockNo, day),
       );
+    }
+    case "/api/forecast-issue": {
+      // 1つの発表の先の日ぜんぶ（11/19）：発表の一覧の行から開く「その発表の週間天気予報」。発表の中身は変わらないが、
+      // 訂正の電文で優先が替わることがあるので、予報の履歴と同じ長さだけ共有する。
+      const station = findStation(q.get("station"));
+      const id = q.get("id") ?? "";
+      if (!/^[0-9A-Za-z_:.+-]{6,120}$/.test(id)) throw new BadRequest("id を確認してください。");
+      if (!db) return jsonResponse({ v: 1, station: station.blockNo, supported: false });
+      return cachedFor(url.origin, `${CACHE_VERSION}/forecast-issue/${station.blockNo}/${encodeURIComponent(id)}`, HISTORY_TTL, waitUntil, () => forecastIssue(db, station.blockNo, id));
     }
     case "/api/telegram": {
       // 予報の電文の原文（2026-11-19、出どころのリンク）：アプリが保存した気象庁の電文（防災情報XML、公共データ）を1通。

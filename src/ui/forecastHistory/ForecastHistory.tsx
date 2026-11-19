@@ -18,6 +18,7 @@ import { DayRows } from "./DayRows";
 import { SplitHeader } from "./SplitHeader";
 import { StepChart } from "./StepChart";
 import { Sources } from "./Sources";
+import { IssueWeekSheet } from "./IssueWeek";
 import "./forecastHistory.css";
 
 type Loaded = { date: string; station: string; r: ForecastHistoryResponse } | { date: string; station: string; error: true };
@@ -61,6 +62,8 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
   const [scrub, setScrub] = useState<string | null>(null);
   const [pop, setPop] = useState<"detail" | "simple">("simple");
   const [onlyChanged, setOnlyChanged] = useState(false);
+  // 行を押すと、その発表の週間天気予報（11/19）
+  const [weekKey, setWeekKey] = useState<string | null>(null);
   useEffect(() => setSel(null), [station, date]);
 
   // 回は「今」までの分を並べる（最後に記録のある発表まで、ではない）：記録の無い回も「記録なし」として出す（R5-1）。
@@ -120,7 +123,11 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
           変わった発表だけ
         </Chip>
       </div>
-      <DayRows slots={slots} all={all} day={date} selected={focusKey} onSelect={setSel} onlyChanged={onlyChanged} />
+      <DayRows slots={slots} all={all} day={date} selected={focusKey} onSelect={setSel} onOpen={setWeekKey} onlyChanged={onlyChanged} />
+      {(() => {
+        const w = slots.find((s) => s.key === weekKey);
+        return w?.shown ? <IssueWeekSheet station={station} issue={w.shown} day={date} onClose={() => setWeekKey(null)} /> : null;
+      })()}
       <Sources slot={focusSlot} station={station} day={date} office={res.r.supported ? res.r.places.office : null} />
     </div>
   );

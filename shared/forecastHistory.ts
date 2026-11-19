@@ -77,3 +77,18 @@ export type ForecastHistoryResponse =
       fetchLog: HistoryFetchLog[];
     }
   | { v: 1; station: string; date: string; supported: false };
+
+/** 1つの発表の先の日ぜんぶ（/api/forecast-issue）。府県のときは、その時点の週間（weekly）も。 */
+export type ForecastIssueResponse =
+  | {
+      v: 1;
+      station: string;
+      supported: true;
+      found: true;
+      places: { office: string; area: string; point: string };
+      issue: HistoryIssue;
+      weekly: HistoryIssue | null;
+      entries: HistoryEntry[];
+    }
+  | { v: 1; station: string; supported: true; found: false }
+  | { v: 1; station: string; supported: false };
