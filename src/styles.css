@@ -1191,6 +1191,11 @@ button.label-feel:active { transform: scale(0.97); }
 .legend-row .info-note .info-more { flex-basis: 100%; }
 /* 1日だけ：名前を短くして（日付・手前）凡例・平均・ⓘ を1列に（2026-11-18 渡辺さん「一列になりませんか」）。 */
 .legend-row.one .line-legend { column-gap: var(--space-5); white-space: nowrap; }
+/* 幅の狭い画面（360px）：1日モードの列を枠の幅に収めた（11/19）ので、凡例の間を詰めて1列のままにする。 */
+@media (max-width: 374px) {
+  .legend-row.one .line-legend { column-gap: var(--space-3); }
+  .legend-row.one .avg-window { padding: 0 var(--space-3); }
+}
 
 /* Legends speak in the graph's own marks. */
 .line-legend,
@@ -4968,6 +4973,8 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
   border-radius: var(--radius-lg);
   padding: var(--space-6) var(--space-6) var(--space-7);
   display: grid;
+  /* 列は枠の幅まで（11/19 実機：横向きで描いた絵の幅に列が合わせて広がり、縦に戻しても広いままだった）。 */
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
 }
 .dd-hero { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: var(--space-6); align-items: center; }

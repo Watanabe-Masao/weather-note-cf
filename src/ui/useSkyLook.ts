@@ -21,6 +21,9 @@ const SMOOTH = 0.25;
  */
 const CALIB_ALT = 20;
 const CALIB_ROLL = 20;
+const OUTLIER_DEG = 25;
+/** 向きのセンサーはおよそ 60 回／秒：120 回で約2秒。 */
+const OUTLIER_SAMPLES = 120;
 
 /** 画面の向き（PWA は縦に固定なので、ふつうは 0）。 */
 const screenAngle = () => {
@@ -46,6 +49,7 @@ export function useSkyLook(declination: number, offset: number) {
   // 足す。コンパスは横に傾けると端末の上の向きに引っ張られ（実機：横で約 −88° ずれた）、そのままは使えないため。
   // 差が測れる前に傾けていたら、今までどおりコンパスの値を使う。真上・真下では方位とロールを保つ。
   const calib = useRef<number | null>(null);
+  const outlier = useRef(0);
   const onEvent = useCallback((ev: Event) => {
     const e = ev as DeviceOrientationEvent & { webkitCompassHeading?: number };
     const o: Orientation = { alpha: e.alpha, beta: e.beta, gamma: e.gamma, webkitCompassHeading: e.webkitCompassHeading ?? null, absolute: e.absolute || ev.type === "deviceorientationabsolute" };
@@ -63,7 +67,12 @@ export function useSkyLook(declination: number, offset: number) {
         if (compass != null) {
           if (Math.abs(m.roll) < CALIB_ROLL && Math.abs(m.altitude) < CALIB_ALT) {
             const d = azDiff(compass, m.azimuth);
-            calib.current = calib.current == null ? d : calib.current + azDiff(d, calib.current) * 0.1;
+            // 大きく外れた値（25° より）は、2秒ほど続くまで覚えない：傾けたあとしばらくコンパスがずれたままのことがあり、
+            // それを覚えると角度を戻してもずれたままになる（11/19 実機）。続くなら本当に変わったので受け入れる。
+            const off = calib.current != null && Math.abs(azDiff(d, calib.current)) > OUTLIER_DEG;
+            outlier.current = off ? outlier.current + 1 : 0;
+            if (calib.current == null) calib.current = d;
+            else if (!off || outlier.current > OUTLIER_SAMPLES) calib.current = calib.current + azDiff(d, calib.current) * 0.1;
           }
           if (calib.current != null) l = { azimuth: (((m.azimuth + calib.current - decl) % 360) + 360) % 360, altitude: m.altitude, roll: m.roll };
           else l = { ...base, roll: m.roll };

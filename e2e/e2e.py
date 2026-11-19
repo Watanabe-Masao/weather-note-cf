@@ -365,6 +365,14 @@ with sync_playwright() as p:
             if (w < 43.5 || h < 43.5) out.push([e.tagName.toLowerCase() + '.' + [...e.classList].join('.'), (e.getAttribute('aria-label') || e.textContent || '').trim().slice(0, 16), Math.round(w), Math.round(h)]); }
           return out; }""")
         with open(os.environ["WN_TAPS"], "a") as f: f.write(json.dumps({"where": where, "rows": rows}, ensure_ascii=False) + "\n")
+    def rotate_ok(code, where):
+        # 横向きにして縦へ戻す（11/19 実機：戻すと画面の幅が広がったまま、中身が左に寄った）。
+        w0 = pg.evaluate("document.documentElement.scrollWidth")
+        pg.set_viewport_size({"width": 844, "height": 390}); pg.wait_for_timeout(600)
+        pg.set_viewport_size({"width": W, "height": 844}); pg.wait_for_timeout(800)
+        r = pg.evaluate("[document.documentElement.scrollWidth, innerWidth]")
+        check(f"{code} 横向きにして縦に戻しても、画面の幅が広がらない（{where}）", r[1] == W and r[0] <= r[1] and r[0] == w0, (w0, r))
+
     def layout_ok(code, where):
         snap_styles(f"{code} {where}")
         tap_audit(f"{code} {where}")
@@ -743,6 +751,7 @@ with sync_playwright() as p:
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-pan-full.png")
         pg.locator(".sky-full .icon-btn[aria-label='全画面を閉じる']").click(); calm()
         check("SS2t 球の基準線と拡大：線がある、＋5回で 8倍・線が細かく、全画面でもなぞる窓、1画面に収まる", grid0 >= 4 and ztxt.startswith("8.0") and grid1 > grid0 and pan_full == 1 and sfit[0] <= sfit[1] + 1, (grid0, ztxt, grid1, pan_full, sfit))
+        rotate_ok("SS2u", "太陽と月・空を見上げる")
         pg.evaluate("DeviceOrientationEvent.requestPermission = async () => 'granted'")  # iPhone のように許可を求める形（許可された）
         pg.locator(".sky-sensor .btn", has_text="端末の向き").click(); calm()
         pg.evaluate("""() => { for (let i = 0; i < 20; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
@@ -763,10 +772,19 @@ with sync_playwright() as p:
             pg.locator(".sky-stage").first.screenshot(path=os.environ["WN_SUN"] + "-true-size.png")
             pg.locator(".sun-play .btn", has_text="今").first.click(); calm()
             pg.evaluate("""() => { for (let i = 0; i < 200; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
+        # 見上げるとコンパスが当てにならない（11/19 実機：上へ 44°・48° で方位が 155°→250°→338°）：立てている間に測った差のまま、
+        # 見上げている間はコンパスがずれても方位は変わらない。戻せばそのまま合っている。
+        ev2 = lambda b, c, n=200: pg.evaluate("""([b, c, n]) => { for (let i = 0; i < n; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: b, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: c }); window.dispatchEvent(e); } }""", [b, c, n])
+        hd = lambda: pg.evaluate("(document.querySelector('.sky-view.window .sky-heading') || {}).textContent || ''")
+        ev2(100, 187.6); pg.wait_for_timeout(300); up0 = hd()
+        ev2(135, 280); pg.wait_for_timeout(300); up1 = hd()
+        ev2(100, 187.6); pg.wait_for_timeout(300); up2 = hd()
+        check("SS2v 見上げてコンパスがずれても方位は変わらず、戻しても合っている", up0.startswith("南 180°") and up1.startswith("南 180°") and "上へ 45°" in up1 and up2.startswith("南 180°"), (up0, up1, up2))
         # 本物に合わせる（11/19）：カメラ（テストでは作った映像）のとき「方位を直す」を短く押すと真ん中に＋。本物の太陽を＋に合わせて
         # 画面をタップすると、方位と高さの補正が入り、描いた太陽が真ん中（＋）に来る。ここでは向きを 10° 西・上へ 35° にずらしておく。
         pg.evaluate("""() => { navigator.mediaDevices.getUserMedia = async () => { const c = document.createElement('canvas'); c.width = 480; c.height = 640; c.getContext('2d').fillRect(0, 0, 480, 640); return c.captureStream(5); }; }""")
-        look_up = lambda n=200: pg.evaluate("""(n) => { for (let i = 0; i < n; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 125, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 197.6 }); window.dispatchEvent(e); } }""", n)
+        # コンパスとの差は立てている間（上下 20° 以内）だけ測るので、立てて 10° ずれたコンパスを読ませてから見上げる。
+        look_up = lambda n=200: pg.evaluate("""(n) => { const go = (b) => { for (let i = 0; i < n; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: b, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 197.6 }); window.dispatchEvent(e); } }; go(100); go(125); }""", n)
         look_up(); pg.wait_for_timeout(300)
         pg.locator(".sky-sensor .btn", has_text="カメラ").first.click(); pg.wait_for_timeout(800)
         aim_btn = pg.locator(".sky-sensor .compass-hold").count()
@@ -820,13 +838,13 @@ with sync_playwright() as p:
               pop_open == 1 and pop_closed and "+10°" in lab1 and (d1 - d0) % 360 == 10 and "+9°" in lab2 and lab3.strip() == "方位を直す" and tap_ok and "長押し" in hint, (hint, d0, d1, lab1, lab2, lab3, pop_open))
         # 横・斜めに持つ（2026-11-19、実機の値）：立てている間にコンパスとの差を測り、横に持っても方位が合う。地平線が傾く。
         ev = lambda a, b, g, c, n: pg.evaluate("""([a, b, g, c, n]) => { for (let i = 0; i < n; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: a, beta: b, gamma: g }); Object.defineProperty(e, 'webkitCompassHeading', { value: c }); window.dispatchEvent(e); } }""", [a, b, g, c, n])
-        ev(283.0, 94.8, 81.3, 348.7, 60); pg.wait_for_timeout(300)
+        ev(283.0, 94.8, 81.3, 348.7, 150); pg.wait_for_timeout(300)  # 別の日の実機の値なので、外れ値として2秒ぶん続けて受け入れさせる
         ev(79.1, 4.8, -89.0, 283.4, 60); pg.wait_for_timeout(400)
         head2 = pg.evaluate("(document.querySelector('.sky-view.window .sky-heading') || {}).textContent || ''")
         hl = pg.evaluate("(() => { const l = document.querySelector('.sky-view.window .sun-horizon'); return l ? [+l.getAttribute('x1'), +l.getAttribute('y1'), +l.getAttribute('x2'), +l.getAttribute('y2')] : null; })()")
         if os.environ.get("WN_SUN"): pg.locator(".sky-stage").first.screenshot(path=os.environ["WN_SUN"] + "-roll.png")
         steep = hl is not None and abs(hl[3] - hl[1]) > 5 * abs(hl[2] - hl[0])
-        ev(283.0, 94.8, 81.3, 348.7, 60); pg.wait_for_timeout(300)
+        ev(283.0, 94.8, 81.3, 348.7, 150); pg.wait_for_timeout(300)  # 別の日の実機の値なので、外れ値として2秒ぶん続けて受け入れさせる
         check("SS2k 横に持つ：方位は北のまま（コンパスの横ずれを使わない）、地平線が縦に傾く", head2.startswith("北") and steep, (head2, hl))
         pg.locator(".sky-sensor .btn", has_text="端末の向き").click(); calm()
         h_pan = pg.locator(".sky-view").first.bounding_box()["height"] if pg.locator(".sky-view").count() else 0
@@ -1137,6 +1155,7 @@ with sync_playwright() as p:
             src.scroll_into_view_if_needed(); calm(); pg.locator(".fh").screenshot(path=f"{os.environ['WN_SHOT']}-fh-sources.png")
         src.locator(".info-btn").click(); calm()
         st = small_text(); check("SD4c 11px より小さい文字がない（1日モード・天気図）", not st, str(st))
+        rotate_ok("SD4r", "1日モード")
         # 項目を切り替えても、項目の選び（とその上）は動かない（2026-11-18 渡辺さん「切り替えで画面がぶれるのが嫌い」）。
         tops = []
         for i in range(pg.locator(".dd-pick .dd-value").count()):
@@ -1698,6 +1717,11 @@ with sync_playwright() as p:
         TYPHOON_ON["old"] = False
         reload()
     step("TY", ty)
+
+    def rot():
+        # 比較の表で横向きにして縦に戻す（11/19）。あとの確かめに響かないよう最後に。
+        rotate_ok("RO1", "比較の表")
+    step("RO", rot)
 
     if os.environ.get("WN_SEEN"):
         with open(os.environ["WN_SEEN"], "w") as f: f.write("\n".join(sorted(SMALL_SEEN)))
