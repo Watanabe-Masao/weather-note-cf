@@ -70,12 +70,12 @@ describe("監視と管理", () => {
     const h = await health(db, NOW);
     expect(h.state.accountErrorKindsLastDay).toEqual([
       { kind: "promise", n: 2 },
-      { kind: "schema", n: 1 },
+      { kind: "schema:d1", n: 1 },
       { kind: "network", n: 1 },
     ]);
     expect(JSON.stringify(h)).not.toContain("has since ended");
     const j = judgeHealth(h, NOW);
-    expect(j.problems.find((p) => p.key === "accountErrors")?.text).toContain("種類：要求をまたいだ待ち 2・表の作成 1・接続の切れ 1");
+    expect(j.problems.find((p) => p.key === "accountErrors")?.text).toContain("種類：要求をまたいだ待ち 2・表の作成（データベース） 1・接続の切れ 1");
   });
 
   it("says the room left and what is kept twice: the XML in the database that R2 already has", async () => {
@@ -130,3 +130,19 @@ describe("監視と管理", () => {
   });
 });
 
+
+import { failureKind, failureKindName } from "../shared/healthJudge";
+describe("失敗の種類：場所と原因を分ける（独立レビュー 2026-11-19）", () => {
+  it.each([
+    ["Error: schema: CREATE TABLE IF NOT EXISTS users — Error: D1_ERROR: Network connection lost.", "schema:network", "表の作成（接続の切れ）"],
+    ["Error: schema: CREATE TABLE IF NOT EXISTS users — Error: D1_ERROR: busy", "schema:d1", "表の作成（データベース）"],
+    ["Error: schema: CREATE TABLE x", "schema:other", "表の作成（その他）"],
+    ["AbortError: The operation was aborted", "aborted", "中断"],
+    ["TimeoutError: The operation timed out", "timeout", "時間切れ"],
+    ["Error: This promise was created by a request that has since ended", "promise", "要求をまたいだ待ち"],
+    ["Error: the database said something odd", "other", "その他"],
+  ])("%s", (m, kind, name) => {
+    expect(failureKind(m)).toBe(kind);
+    expect(failureKindName(kind)).toBe(name);
+  });
+});

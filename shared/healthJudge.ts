@@ -141,7 +141,7 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
     }
     for (const a of s.openAlerts) problem(`alert:${a.key}`, `アプリの警告が開いたまま：${a.key}（${a.since} から）。`);
     const errs = s.accountErrorsLastDay.reduce((n, e) => n + e.n, 0);
-    const kinds = s.accountErrorKindsLastDay?.length ? `。種類：${s.accountErrorKindsLastDay.map((k) => `${FAILURE_KIND_NAME[k.kind] ?? k.kind} ${k.n}`).join("・")}` : "";
+    const kinds = s.accountErrorKindsLastDay?.length ? `。種類：${s.accountErrorKindsLastDay.map((k) => `${failureKindName(k.kind)} ${k.n}`).join("・")}` : "";
     if (errs >= 3) problem("accountErrors", `アカウントの処理の失敗が24時間で ${errs} 回（${s.accountErrorsLastDay.map((e) => `${e.place} ${e.n}`).join("・")}）${kinds}。`);
     else if (errs) note("accountErrors", `アカウントの処理の失敗が24時間で ${errs} 回。`);
     for (const st of room.cron.stages) if (st.failed >= 3) problem(`cronFailed:${st.stage}`, `定時処理「${st.stage}」が24時間で ${st.failed} 回失敗。`);
@@ -209,24 +209,37 @@ export async function checkImport(
 
 /**
  * アカウントの処理の失敗の種類（#292、2026-11-19）：公開の health には文言を出さず、種類ごとの数だけを出す。
- * 毎朝の見張りが、ログを探さずに原因の見当をつけられるように。上から順に当てはめる（表の作成の中の D1 の失敗は「表の作成」）。
+ * 毎朝の見張りが、ログを探さずに原因の見当をつけられるように。
+ * 場所と原因を分ける（2026-11-19 の独立レビュー）：表の作成の中で起きた失敗は「schema:原因」（例 schema:d1 ＝
+ * 表の作成の中でデータベースが失敗）。原因は包まれた中の文言から見る。上から順に当てはめる。
  */
 export const FAILURE_KINDS = [
   ["promise", /created by a request that has since ended|cross_request_promise/i],
-  ["schema", /^\w*Error: schema:/],
-  ["timeout", /timed? ?out|TimeoutError|AbortError/i],
-  ["network", /network connection|Network connection lost|fetch failed/i],
-  ["d1", /D1_|D1 |SQLITE_|database/i],
+  ["timeout", /timed? ?out|TimeoutError/i],
+  ["aborted", /AbortError|aborted/i],
+  ["network", /network connection|connection (was )?reset|fetch failed/i],
+  ["d1", /D1_|SQLITE_/],
 ] as const;
 export const FAILURE_KIND_NAME: Record<string, string> = {
   promise: "要求をまたいだ待ち",
-  schema: "表の作成",
   timeout: "時間切れ",
+  aborted: "中断",
   network: "接続の切れ",
   d1: "データベース",
   other: "その他",
 };
+/** 種類の名前（表の作成の中なら「表の作成（原因）」）。 */
+export const failureKindName = (k: string) => (k.startsWith("schema:") ? `表の作成（${FAILURE_KIND_NAME[k.slice(7)] ?? k.slice(7)}）` : (FAILURE_KIND_NAME[k] ?? k));
 export function failureKind(message: string): string {
-  for (const [k, re] of FAILURE_KINDS) if (re.test(message)) return k;
-  return "other";
+  const schema = /^\w*Error: schema:/.test(message);
+  // ensureSchema は「schema: <文> — <元の失敗>」と包む。原因は包まれた中で見る。
+  const at = message.indexOf(" — ");
+  const inner = schema && at >= 0 ? message.slice(at + 3) : message;
+  let cause = "other";
+  for (const [k, re] of FAILURE_KINDS)
+    if (re.test(inner)) {
+      cause = k;
+      break;
+    }
+  return schema ? `schema:${cause}` : cause;
 }

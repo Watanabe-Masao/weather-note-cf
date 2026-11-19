@@ -153,6 +153,9 @@ export async function tableAudit(db: Db, now: number, adminId: string): Promise<
     ["ログインで、人がいない", "SELECT COUNT(*) AS n FROM sessions s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = s.user_id)"],
     ["通知の設定で、人がいない", "SELECT COUNT(*) AS n FROM notify_settings s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = s.user_id)"],
     ["通知の端末で、人がいない", "SELECT COUNT(*) AS n FROM push_subscriptions s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = s.user_id)"],
+    // 独立レビュー（2026-11-19）：schema_version に1行の制約は無い（D1 は書き込みを順に処理し、1文の INSERT … WHERE NOT EXISTS
+    // は割り込まれないので実害は無い見込み）。表を作り直す代わりに、1行かどうかを見張る。1行なら 0、違えばその行数。
+    ["アカウントの表の版（schema_version）が1行でない", "SELECT CASE WHEN COUNT(*) = 1 THEN 0 ELSE COUNT(*) END AS n FROM schema_version"],
   ];
   const links: AuditResult["links"] = [];
   for (const [name, q] of LINKS) {
