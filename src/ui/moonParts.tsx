@@ -10,7 +10,7 @@ export const dirName = (az: number) => DIRS[Math.round(((az % 360) + 360) % 360 
  * 月の満ち欠けの絵：照らされている割合（輝面比）と、満ちていくか欠けていくか（月齢 14.8 日の前か後か）から。
  * 北半球で見た形（満ちていくときは右が明るい）。
  */
-export function MoonGlyph({ phase, size, limb, tint }: { phase: { age: number; illuminated: number }; size: number; limb?: number; tint?: string }) {
+export function MoonGlyph({ phase, size, limb, tint, north }: { phase: { age: number; illuminated: number }; size: number; limb?: number; tint?: string; north?: number }) {
   const r = size / 2 - 1;
   const c = size / 2;
   const k = Math.min(1, Math.max(0, phase.illuminated));
@@ -23,6 +23,7 @@ export function MoonGlyph({ phase, size, limb, tint }: { phase: { age: number; i
   const bulge = waxing ? (k > 0.5 ? 1 : 0) : k > 0.5 ? 0 : 1;
   const d = `M${c},${c - r} A${r},${r} 0 0 ${side} ${c},${c + r} A${rx},${r} 0 0 ${bulge} ${c},${c - r} Z`;
   const id = useId();
+  const spin = north ? `rotate(${(-north).toFixed(1)} ${c} ${c})` : undefined;
   // 月の絵（渡辺さんの絵、2026-11-19）：照らされた側は絵そのまま、影の側は同じ絵を暗く（地球照のように模様がうっすら）。
   // tint（高さの色）があれば、絵の色みを抜いてその色を掛ける。
   return (
@@ -42,8 +43,11 @@ export function MoonGlyph({ phase, size, limb, tint }: { phase: { age: number; i
       </defs>
       <circle cx={c} cy={c} r={r} className="moon-dark" />
       <g filter={tint ? `url(#${id}tint)` : undefined}>
-        <image href={moonUrl} x={c - r} y={c - r} width={2 * r} height={2 * r} className="moon-shade" />
-        <image href={moonUrl} x={c - r} y={c - r} width={2 * r} height={2 * r} clipPath={`url(#${id}lit)`} />
+        {/* north（模様の向き、shared/moon.ts moonNorth）があれば、北が上の絵をその角だけ反時計回りに回す。光る側の切り抜きは回さない。 */}
+        <image href={moonUrl} x={c - r} y={c - r} width={2 * r} height={2 * r} className="moon-shade" transform={spin} />
+        <g clipPath={`url(#${id}lit)`}>
+          <image href={moonUrl} x={c - r} y={c - r} width={2 * r} height={2 * r} transform={spin} />
+        </g>
       </g>
     </svg>
   );

@@ -188,6 +188,29 @@ export function moonLimb(ms: number, lat: number, lon: number): number {
 }
 
 /**
+ * 月の模様の向き（°）：空を見上げて、月の真上（天頂の方向）から反時計回りに測った、天の北極の方向（moonLimb と同じ測り方）。
+ * 月の絵（北が上）をこの角だけ反時計回りに回すと、その時刻に見える模様（海）の向きになる。
+ * 南中のときはおよそ 0（北が上）、東の空ではおよそ北が左へ、西の空では右へ傾く（北半球）。
+ */
+export function moonNorth(ms: number, lat: number, lon: number): number {
+  const obs = new Observer(lat, lon, 0);
+  const t = new AstroTime(new Date(ms));
+  const eq = Equator(Body.Moon, t, obs, true, true);
+  const h = Horizon(t, obs, eq.ra, eq.dec, "normal");
+  const m = enu(h.azimuth, h.altitude);
+  const up = along([0, 0, 1], m);
+  const n = Math.hypot(up[0], up[1], up[2]) || 1;
+  const u = up.map((v) => v / n);
+  const r = cross(m, u);
+  const p = along(enu(0, lat), m); // 天の北極（北の方位、高さ＝緯度）
+  const deg = (Math.atan2(-dot(p, r), dot(p, u)) * 180) / Math.PI;
+  return (deg + 360) % 360;
+}
+
+/** 見かけの大きさ（直径）の平均（°）：31′05″（月までの平均距離 384,400 km）。 */
+export const MOON_MEAN_DIAMETER = (2 * Math.asin(MOON_RADIUS_KM / 384_400) * 180) / Math.PI;
+
+/**
  * 高さごとの月の色（白の基準＝天頂の月、晴れた日の典型 β 0.05）。調査の表（太陽の光×月の反射×大気の透過→sRGB）。
  * 青っぽく見える現象（煙・ちり）はデータが無いので入れない。地平線の下は地平線の色。
  */

@@ -2,7 +2,7 @@
 // 出典：国立天文台 暦計算室「各地のこよみ」高知（緯度 33.5500°・経度 133.5333°・標高 0m）2026年11月の月の出入り。
 // 表の時刻は分の位で丸めてあるので、出入り・南中は2分以内、方位は1°以内、南中の高さは0.5°以内、月齢（正午）は0.1日以内。
 import { describe, expect, it } from "vitest";
-import { dms, fullMoonName, moonDistance, moonLimb, moonMagnitude, moonTint, moonTopo, moonPhase, moonQuarters, moonTimes } from "../../shared/moon";
+import { dms, fullMoonName, MOON_MEAN_DIAMETER, moonDistance, moonLimb, moonNorth, moonMagnitude, moonTint, moonTopo, moonPhase, moonQuarters, moonTimes } from "../../shared/moon";
 
 const LAT = 33.55;
 const LON = 133.5333;
@@ -126,6 +126,14 @@ describe("月の見え方", () => {
     ];
     for (const [iso, want] of rows) expect(Math.abs(((moonLimb(Date.parse(iso), ...KOCHI) - want + 540) % 360) - 180)).toBeLessThan(0.5);
   });
+  it("模様の向き：南中で北が上、出の頃は北が左、入りの頃は右へ（北半球）", () => {
+    const at = (iso: string) => moonNorth(Date.parse(iso), ...KOCHI);
+    const signed = (d: number) => ((d + 540) % 360) - 180;
+    expect(Math.abs(signed(at("2026-11-24T23:48:00+09:00")))).toBeLessThan(3);
+    expect(signed(at("2026-11-24T16:30:00+09:00"))).toBeGreaterThan(30);
+    expect(signed(at("2026-11-25T06:00:00+09:00"))).toBeLessThan(-30);
+  });
+  it("平均の大きさは 31′05″", () => expect(dms(MOON_MEAN_DIAMETER)).toBe("0°31′05″"));
   it("観測地から見た大きさは高いほど大きい（11/24 23時 33.68′）", () => {
     const t = moonTopo(Date.parse("2026-11-24T23:00:00+09:00"), ...KOCHI);
     expect(t.diameter * 60).toBeCloseTo(33.68, 1);
