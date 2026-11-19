@@ -901,8 +901,21 @@ with sync_playwright() as p:
         # 今に付いていく（11/19）：今日を開くと「今」が押された状態で、観測の予測は今の時刻（テストの時計 12:0x）。
         mnow = pg.locator(".moon-play .btn", has_text="現在時刻").get_attribute("aria-pressed"); mobs = txt(".moon-obs")
         check("SS2s 月のこよみ：今日を開くと今に付いていく（「今」が押された状態・今の時刻）、地点の切り替えがある", mnow == "true" and "12:0" in mobs and pg.locator(".moon-obs .btn", has_text="現在地").count() == 1, (mnow, mobs[:30]))
+        # 日を押すと、その日の月のモーダルが開く（11/20）。ここでは選ぶだけなので、開いたら閉じる。
+        def pick_day(i):
+            pg.locator(".moon-cal-day").nth(i).click(); calm()
+            if pg.locator(".moon-day-sheet").count(): pg.locator(".moon-day-sheet .icon-btn.close").click(); pg.wait_for_timeout(500)
+        # 月相の印とその日のモーダル（11/20 渡辺さん）：新月・上弦・満月・下弦の日にアイコンと名前。満月の日を押すと、その日の月（呼び名つき）。閉じると元の位置。
+        marks_n = pg.locator(".moon-cal-mark").count(); full_d = pg.locator(".moon-cal-day:has(.moon-cal-mark.k2)")
+        y_before = pg.evaluate("document.querySelector('.moon-sheet .msheet-body').scrollTop")
+        full_d.first.click(); calm()
+        day_txt = txt(".moon-day-sheet") if pg.locator(".moon-day-sheet").count() else ""
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-day.png")
+        pg.locator(".moon-day-sheet .icon-btn.close").click(); pg.wait_for_timeout(600)
+        y_after = pg.evaluate("document.querySelector('.moon-sheet .msheet-body').scrollTop")
+        check("SS3a 月相の印が4つ前後、満月の日を押すとその日の月（満月の時刻・呼び名・出入り）、閉じると元の位置", 3 <= marks_n <= 5 and "満月（" in day_txt and "ムーン" in day_txt and "月の出" in day_txt and pg.locator(".moon-day-sheet").count() == 0 and abs(y_before - y_after) < 2 and pg.locator(".moon-next .phase-icon").count() == 4, (marks_n, day_txt[:60], y_before, y_after))
         cal = pg.locator(".moon-cal-day").count()
-        pg.locator(".moon-cal-day").nth(23).click(); calm()
+        pick_day(23)
         t1 = txt(".moon-today")
         mfit = pg.evaluate("(() => { const b = document.querySelector('.moon-sheet .msheet-body'); return [b.scrollHeight, b.clientHeight]; })()")
         check("SS2e 月のこよみ：月齢と形、カレンダーの日が30、次の月相4つ、日を押すと替わる、スクロールしないで収まる", "月齢" in t0 and cal == 30 and pg.locator(".moon-next span").count() == 4 and t1 != t0 and "11/24" in t1 and mfit[0] <= mfit[1] + 1, (t0[:40], cal, t1[:40], mfit))
@@ -920,7 +933,7 @@ with sync_playwright() as p:
         pg.locator(".moon-sheet .seg button", has_text="カレンダー").click(); calm()
         # 見え方のシミュレーション（2026-11-19）：時刻のつまみで、月の形・傾き・色・位置がその時刻に。地平線の下は色なし。
         setm = lambda v: pg.evaluate("""(v) => { const r = document.querySelector('.moon-play input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, String(v)); r.dispatchEvent(new Event('input', { bubbles: true })); }""", v)
-        pg.locator(".moon-cal-day").nth(23).click(); calm()
+        pick_day(23)
         setm(1380); calm(); t23 = txt(".moon-obs"); tint23 = pg.locator(".moon-obs canvas.moon-glyph").count(); d23 = pg.locator(".moon-obs .moon-glyph").bounding_box()
         sb = pg.locator(".moon-obs-stage").bounding_box()
         pg.locator(".moon-obs .seg button", has_text="違いを強める").click(); calm(); d23s = pg.locator(".moon-obs .moon-glyph").bounding_box(); sb2 = pg.locator(".moon-obs-stage").bounding_box()
@@ -948,10 +961,10 @@ with sync_playwright() as p:
         if os.environ.get("WN_SUN"):
             setm(1380); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim.png")
             setm(1050); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim-low.png")
-            pg.locator(".moon-cal-day").nth(12).click(); calm()
+            pick_day(12)
             for m in (1000, 1080, 1140): setm(m); calm(); pg.locator(".moon-obs").screenshot(path=os.environ["WN_SUN"] + f"-moon-cres-{m}.png")
             for day, m in ((12, 1080), (23, 1380), (16, 1260)):
-                pg.locator(".moon-cal-day").nth(day).click(); calm(); setm(m); calm()
+                pick_day(day); setm(m); calm()
                 for L in ("見え方", "月の全体"):
                     pg.locator(".moon-obs-side .seg button", has_text=L).click(); calm(); pg.locator(".moon-obs").screenshot(path=os.environ["WN_SUN"] + f"-bc-{day}-{L}.png")
                 pg.locator(".moon-obs-side .seg button", has_text="見え方").click(); calm()

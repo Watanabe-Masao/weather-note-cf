@@ -15,7 +15,8 @@ import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 import { ModalSheet } from "./ModalSheet";
 import { TimeBar } from "./TimeBar";
 import stations from "../../shared/stations.json";
-import { dirName, MoonGlyph, MoonSphere } from "./moonParts";
+import { dirName, MoonGlyph, MoonSphere, PhaseIcon } from "./moonParts";
+import { createPortal } from "react-dom";
 
 const noonOf = (d: string) => Date.parse(`${d}T12:00:00+09:00`);
 const WEEK = ["月", "火", "水", "木", "金", "土", "日"];
@@ -37,6 +38,14 @@ export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { da
   const days = useMemo(() => daysOfMonth(month), [month]);
   const cells = useMemo(() => days.map((d) => ({ d, p: moonPhase(noonOf(d)), size: moonDistance(noonOf(d)).diameter })), [days]);
   const lead = (new Date(`${days[0]}T00:00:00Z`).getUTCDay() + 6) % 7; // 月曜はじまり
+  // その月の新月・上弦・満月・下弦の日（日本時間の日付ごと、11/20 渡辺さん「カレンダーにアイコン」）。
+  const marks = useMemo(() => {
+    const out = new Map<string, { kind: 0 | 1 | 2 | 3; at: number }>();
+    for (const q of moonQuarters(Date.parse(`${days[0]}T00:00:00+09:00`) - 86_400_000, 6)) out.set(jst(q.at).date, q);
+    return out;
+  }, [days]);
+  // 日を押すと、その日の月をモーダルで（11/20 渡辺さん）。閉じると元の位置のまま。
+  const [info, setInfo] = useState<string | null>(null);
   // 見え方のシミュレーション（2026-11-19）：時刻（10分ごと）を動かすと、上の月の形・傾き・色・大きさ・位置がその時刻の
   // 観測地から見た値に替わる。はじめは今の時刻。日を替えても時刻はそのまま。
   const [min, setMin] = useState(() => Math.floor(jst(Date.now()).min / 10) * 10);
@@ -196,11 +205,20 @@ export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { da
                 type="button"
                 className={d === sel ? "moon-cal-day on" : "moon-cal-day"}
                 aria-pressed={d === sel}
-                aria-label={`${dateLabel(d)}、月齢 ${cp.age.toFixed(1)}、明るい部分 ${Math.round(cp.illuminated * 100)}%`}
-                onClick={() => pickDay(d)}
+                aria-label={`${dateLabel(d)}${marks.get(d) ? `、${QUARTER_NAME[marks.get(d)!.kind]}` : ""}、月齢 ${cp.age.toFixed(1)}、明るい部分 ${Math.round(cp.illuminated * 100)}%`}
+                onClick={() => {
+                  pickDay(d);
+                  setInfo(d);
+                }}
               >
                 <span className="moon-cal-n">{Number(d.slice(8))}</span>
                 <MoonGlyph phase={cp} size={22} />
+                {marks.get(d) && (
+                  <span className={`moon-cal-mark k${marks.get(d)!.kind}`}>
+                    <PhaseIcon kind={marks.get(d)!.kind} size={12} />
+                    {QUARTER_NAME[marks.get(d)!.kind]}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -215,7 +233,10 @@ export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { da
           const j = jst(q.at);
           return (
             <span key={q.at}>
-              <small>{QUARTER_NAME[q.kind]}</small>
+              <small className="moon-next-kind">
+                <PhaseIcon kind={q.kind} size={12} />
+                {QUARTER_NAME[q.kind]}
+              </small>
               <b>
                 {Number(j.date.slice(5, 7))}/{Number(j.date.slice(8))} {clockOf(j.min)}
               </b>
@@ -224,6 +245,61 @@ export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { da
           );
         })}
       </div>
+      {info && createPortal(<MoonDaySheet date={info} lat={ll.lat} lon={ll.lon} where={where} mark={marks.get(info) ?? null} onClose={() => setInfo(null)} />, document.body)}
+    </ModalSheet>
+  );
+}
+
+/**
+ * その日の月（2026-11-20 渡辺さん「カレンダーをタップすると月の情報が表示されるモーダル」）：形と月相の時刻、月齢・明るい部分、
+ * 呼び名（満月）・昔の呼び名、月の出・南中・月の入り（観測地から）、正午の大きさと距離。暦の値と観測地の値を分けて書く。
+ */
+function MoonDaySheet({ date, lat, lon, where, mark, onClose }: { date: string; lat: number; lon: number; where: string; mark: { kind: 0 | 1 | 2 | 3; at: number } | null; onClose: () => void }) {
+  const p = moonPhase(noonOf(date));
+  const name = moonShapeName(noonOf(date));
+  const t = moonTimes(date, lat, lon);
+  const dist = moonDistance(noonOf(date));
+  const pct = Math.round((dist.diameter / MOON_MEAN_DIAMETER - 1) * 1000) / 10;
+  const full = mark?.kind === 2 ? fullMoonName(mark.at) : null;
+  const rows = [
+    { label: "月の出", e: t.rise, note: t.rise ? `${dirName(t.rise.azimuth)} ${Math.round(t.rise.azimuth)}°` : null },
+    { label: "南中", e: t.transit, note: t.transit ? `高さ ${Math.round(t.transit.altitude)}°` : null },
+    { label: "月の入り", e: t.set, note: t.set ? `${dirName(t.set.azimuth)} ${Math.round(t.set.azimuth)}°` : null },
+  ].sort((a, b) => (a.e?.at ?? 9e9) - (b.e?.at ?? 9e9));
+  return (
+    <ModalSheet title={`${dateLabel(date)}の月`} onClose={onClose} className="moon-day-sheet" size="fit">
+      <div className="moon-day-head">
+        <MoonGlyph phase={p} size={56} />
+        <div>
+          <b className="moon-day-title">
+            {mark && <PhaseIcon kind={mark.kind} size={16} />}
+            {mark ? `${QUARTER_NAME[mark.kind]}（${clockOf(jst(mark.at).min)}）` : name.shape}
+          </b>
+          {full && (
+            <span className="moon-day-full">
+              {full.name}
+              {full.blue ? "・ブルームーン" : ""}
+            </span>
+          )}
+          {!mark && name.old && <small>{name.old}</small>}
+          <small>
+            月齢 {p.age.toFixed(1)}・明るい部分 {Math.round(p.illuminated * 100)}%（正午、暦）
+          </small>
+        </div>
+      </div>
+      <div className="sun-keys moon">
+        {rows.map((r) => (
+          <div key={r.label} className="sun-key">
+            <small>{r.label}</small>
+            <b>{r.e ? clockOf(Math.round(r.e.at)) : "—"}</b>
+            <small>{r.note ?? "この日は無し"}</small>
+          </div>
+        ))}
+      </div>
+      <p className="moon-day-size">
+        大きさ {dms(dist.diameter)}（平均より {pct >= 0 ? `+${pct}` : `${pct}`}%）・距離 {(dist.km / 10000).toFixed(1)}万km（正午）
+      </p>
+      <small className="set-help">月の出・南中・月の入りは{where}から見た時刻です。</small>
     </ModalSheet>
   );
 }
