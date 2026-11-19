@@ -382,11 +382,13 @@ with sync_playwright() as p:
         with open(os.environ["WN_TAPS"], "a") as f: f.write(json.dumps({"where": where, "rows": rows}, ensure_ascii=False) + "\n")
     def rotate_ok(code, where):
         # 横向きにして縦へ戻す（11/19 実機：戻すと画面の幅が広がったまま、中身が左に寄った）。
-        w0 = pg.evaluate("document.documentElement.scrollWidth")
+        # 選んでいる日も変わらない（11/19 CI：幅が変わったときのスクロールを「なぞった」と取り、別の日を選び直していた）。
+        day = lambda: pg.evaluate("[...document.querySelectorAll('.strip-col')].map((c, i) => c.classList.contains('is-center') ? i : -1).filter(i => i >= 0).join(',')")
+        w0 = pg.evaluate("document.documentElement.scrollWidth"); d0 = day()
         pg.set_viewport_size({"width": 844, "height": 390}); pg.wait_for_timeout(600)
         pg.set_viewport_size({"width": W, "height": 844}); pg.wait_for_timeout(800)
-        r = pg.evaluate("[document.documentElement.scrollWidth, innerWidth]")
-        check(f"{code} 横向きにして縦に戻しても、画面の幅が広がらない（{where}）", r[1] == W and r[0] <= r[1] and r[0] == w0, (w0, r))
+        r = pg.evaluate("[document.documentElement.scrollWidth, innerWidth]"); d1 = day()
+        check(f"{code} 横向きにして縦に戻しても、画面の幅が広がらず、選んでいる日も変わらない（{where}）", r[1] == W and r[0] <= r[1] and r[0] == w0 and d0 == d1, (w0, r, d0, d1))
 
     def layout_ok(code, where):
         snap_styles(f"{code} {where}")
