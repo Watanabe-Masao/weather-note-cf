@@ -20,7 +20,7 @@ import { dirName, MoonGlyph } from "./moonParts";
 import { latLonText, useHere } from "./useHere";
 import stations from "../../shared/stations.json";
 import { MoonSheet } from "./MoonSheet";
-import { ICON, RADIUS } from "../design/tokens";
+import { ICON } from "../design/tokens";
 import { type ReactNode, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 
@@ -494,64 +494,54 @@ function SkyView({ look, stream, tap, sunAlt, sunAz, moon, phase, sunTrack, moon
   const VW = 340;
   const VH = 230;
   if (look) return <SkyWindow look={look} tap={tap} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} stream={stream} />;
-  const P = { l: 6, r: 6, t: 10, b: 34 };
-  const gx = (az: number) => P.l + (((az % 360) + 360) % 360 / 360) * (VW - P.l - P.r);
-  const top = 75;
-  const gy = (alt: number) => P.t + (1 - Math.max(-8, Math.min(top, alt)) / top) * (VH - P.t - P.b - 12);
-  const horizon = gy(0);
-  const track = (pts: { alt: number; az: number }[]) => {
-    let d = "";
-    pts.forEach((p, i) => {
-      if (p.alt < 0) return;
-      const q = pts[i - 1];
-      const start = !q || q.alt < 0 || Math.abs(gx(p.az) - gx(q.az)) > VW / 2;
-      d += `${start ? "M" : "L"}${gx(p.az).toFixed(1)},${gy(p.alt).toFixed(1)} `;
-    });
-    return d;
-  };
-  const lbl = [
-    [0, "北"],
-    [90, "東"],
-    [180, "南"],
-    [270, "西"],
-    [360, "北"],
-  ] as const;
+  return <SkyPan sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} />;
+}
+
+/** なぞって見る窓の横の画角（°）。 */
+const PAN_FOV = 90;
+
+/**
+ * なぞって見る窓（2026-11-19 渡辺さん「東西南北が一列ではなく、横スクロールで向いている視野を」）：端末の向きで見るときと同じ
+ * 透視の窓（横 90°）を、指で左右（と上下）になぞって回す。はじめは、地平線の上の太陽、なければ月、なければ南を真ん中に
+ * （なぞるまでは時刻に合わせて付いていく）。←→ で 5°、↑↓ で高さ。
+ */
+function SkyPan({ w, h, ...p }: Omit<SkyProps, "look"> & { w: number; h: number }) {
+  const [view, setView] = useState<{ azimuth: number; altitude: number } | null>(null);
+  const auto =
+    p.sunAlt >= 0 ? { azimuth: p.sunAz, altitude: p.sunAlt } : p.moon.altitude >= 0 ? { azimuth: p.moon.azimuth, altitude: p.moon.altitude } : { azimuth: 180, altitude: 15 };
+  // 地平線（方位の名前）が窓に入る高さで：天体より少し下を真ん中に（縦の画角は約 68°）。
+  const look = view ?? { azimuth: auto.azimuth, altitude: Math.max(10, Math.min(28, auto.altitude - 10)) };
+  const drag = useRef<{ x: number; y: number; az: number; alt: number; k: number } | null>(null);
+  const norm = (a: number) => ((a % 360) + 360) % 360;
+  const clampAlt = (a: number) => Math.max(0, Math.min(80, a));
   return (
-    <svg className="sky-view" viewBox={`0 0 ${VW} ${VH}`} role="img" aria-label={`空を見上げた絵。太陽は${sunAlt >= 0 ? `${dirName(sunAz)}の高さ${Math.round(sunAlt)}°` : "地平線の下"}、月は${moon.altitude >= 0 ? `${dirName(moon.azimuth)}の高さ${Math.round(moon.altitude)}°` : "地平線の下"}`}>
-      <defs>
-        <linearGradient id="sky-view-bg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={sky.zenith} />
-          <stop offset="1" stopColor={sky.horizon} />
-        </linearGradient>
-      </defs>
-      <rect x={P.l} y={P.t} width={VW - P.l - P.r} height={horizon - P.t} fill="url(#sky-view-bg)" rx={RADIUS.xs} />
-      <rect x={P.l} y={horizon} width={VW - P.l - P.r} height={gy(-8) - horizon} className="sky-ground" />
-      {[30, 60].map((a) => (
-        <g key={a}>
-          <line x1={P.l} x2={VW - P.r} y1={gy(a)} y2={gy(a)} className="sky-alt" />
-          <text x={P.l + 3} y={gy(a) - 3} className="sun-tick sky-alt-label">
-            {a}°
-          </text>
-        </g>
-      ))}
-      <line x1={P.l} x2={VW - P.r} y1={horizon} y2={horizon} className="sun-horizon" />
-      {lbl.map(([az, t]) => (
-        <g key={az}>
-          <line x1={gx(az)} x2={gx(az)} y1={horizon} y2={horizon + 4} className="sun-horizon" />
-          <text x={gx(az)} y={gy(-8) + 14} textAnchor={az === 0 ? "start" : az === 360 ? "end" : "middle"} className="sun-tick sky-dir">
-            {t}
-          </text>
-        </g>
-      ))}
-      <path d={track(sunTrack)} className="sun-curve day" style={{ stroke: ICON.sun }} />
-      <path d={track(moonTrack)} className="moon-curve" style={{ stroke: ICON.moon }} />
-      {sunAlt >= 0 && <circle cx={gx(sunAz)} cy={gy(sunAlt)} r={9} style={{ fill: ICON.sun }} className="sky-sun" />}
-      {moon.altitude >= 0 && (
-        <g transform={`translate(${gx(moon.azimuth) - 10} ${gy(moon.altitude) - 10})`}>
-          <MoonGlyph phase={phase} size={20} />
-        </g>
-      )}
-    </svg>
+    <div
+      className="sky-pan"
+      data-no-sheet-drag
+      tabIndex={0}
+      role="group"
+      aria-label={`空を見上げた窓：${dirName(look.azimuth)}・高さ${Math.round(look.altitude)}°。左右になぞると向きが回る`}
+      onPointerDown={(e) => {
+        e.stopPropagation();
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+        drag.current = { x: e.clientX, y: e.clientY, az: look.azimuth, alt: look.altitude, k: PAN_FOV / (e.currentTarget.clientWidth || w) };
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (!d) return;
+        setView({ azimuth: norm(d.az - (e.clientX - d.x) * d.k), altitude: clampAlt(d.alt + (e.clientY - d.y) * d.k) });
+      }}
+      onPointerUp={() => (drag.current = null)}
+      onPointerCancel={() => (drag.current = null)}
+      onKeyDown={(e) => {
+        const step = { ArrowLeft: [-5, 0], ArrowRight: [5, 0], ArrowUp: [0, 5], ArrowDown: [0, -5] }[e.key];
+        if (!step) return;
+        e.preventDefault();
+        setView({ azimuth: norm(look.azimuth + step[0]), altitude: clampAlt(look.altitude + step[1]) });
+      }}
+    >
+      <SkyWindow {...p} look={{ ...look, roll: 0 }} w={w} h={h} fov={PAN_FOV} pan />
+    </div>
   );
 }
 
@@ -570,7 +560,7 @@ const CAMERA_LONG_FOV = 67;
 type SkyProps = { look: { azimuth: number; altitude: number; roll?: number }; sunAlt: number; sunAz: number; moon: SkyMoon; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour };
 /** 本物を押して直す：armed の間に窓を押すと、近い方の天体（地平線の上の太陽か月）との方位・高さの差を返す。 */
 type SkyTap = { armed: boolean; onTap: (c: { dAz: number; dAlt: number; name: string }) => void };
-function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky, w, h, stream, full, tap }: SkyProps & { w: number; h: number; stream?: MediaStream | null; full?: boolean; tap?: SkyTap }) {
+function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky, w, h, stream, full, tap, fov = FOV, pan }: SkyProps & { w: number; h: number; stream?: MediaStream | null; full?: boolean; tap?: SkyTap; fov?: number; pan?: boolean }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -582,7 +572,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
   }, [stream]);
   // 焦点（画面の px）：カメラのときは映像の長い辺の画角を、窓を覆う大きさに合わせる。無いときは横 60°。
   const focal = (() => {
-    if (!stream) return w / 2 / Math.tan((FOV / 2) * (Math.PI / 180));
+    if (!stream) return w / 2 / Math.tan((fov / 2) * (Math.PI / 180));
     const vw = dims?.w ?? 3;
     const vh = dims?.h ?? 4;
     const scale = Math.max(w / vw, h / vh);
@@ -673,7 +663,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
       {stream && <video ref={video} className="sky-video" playsInline muted autoPlay onLoadedMetadata={(e) => setDims({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })} />}
       <svg
         ref={svgRef}
-        className={`sky-view window${tap?.armed ? " aiming" : ""}`}
+        className={`sky-view ${pan ? "pan" : "window"}${tap?.armed ? " aiming" : ""}`}
         onPointerUp={(e) => {
           if (!tap?.armed || !svgRef.current) return;
           // 押した点を窓の座標へ（slice で拡大・切り抜きしていても、画面の行列の逆で戻す）
