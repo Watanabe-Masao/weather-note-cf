@@ -15,6 +15,7 @@ import { importPosition } from "./forecastImport";
 import { monthUsage, scheduledRuns, type UsageEnv } from "./usage";
 import { readCompleteness } from "./completeness";
 import { doneOnce } from "./once";
+import { failureKind } from "../../shared/healthJudge";
 
 export const HEALTH_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS cron_runs (
@@ -321,6 +322,13 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
     "SELECT place, COUNT(*) AS n, MAX(at) AS last FROM app_errors WHERE at >= ? GROUP BY place ORDER BY n DESC",
     dayAgo,
   );
+  // 失敗の種類ごとの数（文言そのものは出さない。shared/healthJudge.ts failureKind）。
+  const kindCount = new Map<string, number>();
+  for (const r of await all<{ message: string }>(db, "SELECT message FROM app_errors WHERE at >= ?", dayAgo)) {
+    const k = failureKind(r.message);
+    kindCount.set(k, (kindCount.get(k) ?? 0) + 1);
+  }
+  const errorKinds = [...kindCount].map(([kind, n]) => ({ kind, n })).sort((a, b) => b.n - a.n);
   const unparsed = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM forecast_telegrams WHERE parser = 0");
   const parseFailed = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM forecast_telegrams WHERE parsed LIKE '{\"error\"%'");
   // Each source on its own (a table not made yet counts as none, and does not hide the others).
@@ -444,6 +452,7 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       kochiLatest: Object.fromEntries(latest.map((l) => [l.kind, l.issued_at])),
       openAlerts: openAlerts.map((a) => ({ key: a.key, since: a.opened_at })),
       accountErrorsLastDay: errors.map((e) => ({ place: e.place, n: e.n, last: e.last })),
+      accountErrorKindsLastDay: errorKinds,
       forecastImport: importPosition(imported.map((r) => r.month)),
       watch: look
         ? { at: look.at, finished: look.done_at != null, problems: look.problems, notes: look.notes, opened: look.opened, closed: look.closed, sent: look.sent }

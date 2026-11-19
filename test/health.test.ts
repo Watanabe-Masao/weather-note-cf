@@ -7,6 +7,7 @@ import { ensureSchema } from "../worker/src/accounts";
 import { ensureForecastSchema } from "../worker/src/forecastArchive";
 import { ensureForecastImportSchema } from "../worker/src/forecastImport";
 import { health, keepError, timed } from "../worker/src/health";
+import { judgeHealth } from "../shared/healthJudge";
 import { copyTelegrams, ensureR2Schema } from "../worker/src/r2Archive";
 import { ensureTyphoonSchema } from "../worker/src/typhoonArchive";
 import { d1 } from "./d1";
@@ -57,6 +58,24 @@ describe("監視と管理", () => {
       ["/api/admin/users", 2],
       ["/api/reports/sync", 1],
     ]);
+  });
+
+  it("失敗の種類ごとの数だけを出す（文言は出さない、#292）", async () => {
+    const db = await setup();
+    const promise = "Error: This promise was created by a request that has since ended, so it can never settle.";
+    await keepError(db, "/api/reports/sync", promise, NOW - 60_000);
+    await keepError(db, "/api/auth/me", promise, NOW - 60_000);
+    await keepError(db, "/api/me/notify", "Error: schema: CREATE TABLE IF NOT EXISTS users — Error: D1_ERROR: busy", NOW - 30_000);
+    await keepError(db, "/api/me/notify", "Error: D1_ERROR: network connection lost", NOW);
+    const h = await health(db, NOW);
+    expect(h.state.accountErrorKindsLastDay).toEqual([
+      { kind: "promise", n: 2 },
+      { kind: "schema", n: 1 },
+      { kind: "network", n: 1 },
+    ]);
+    expect(JSON.stringify(h)).not.toContain("has since ended");
+    const j = judgeHealth(h, NOW);
+    expect(j.problems.find((p) => p.key === "accountErrors")?.text).toContain("種類：要求をまたいだ待ち 2・表の作成 1・接続の切れ 1");
   });
 
   it("says the room left and what is kept twice: the XML in the database that R2 already has", async () => {
