@@ -14,6 +14,7 @@ import { STATION_PLACES } from "../../shared/stationPlaces";
 import type { Db } from "./accounts";
 import { type Bucket, gunzip, gzip } from "./r2Archive";
 import { feedEntries, telegramId, type FeedEntry } from "./typhoonArchive";
+import { doneOnce } from "./once";
 
 export const LONG_RANGE_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS longrange_telegrams (
@@ -67,19 +68,11 @@ export const longRangeKey = (id: string, issuedAt: string | null) => `telegrams/
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 const defaultFetch: Fetcher = (url) => fetch(url, { signal: AbortSignal.timeout(20_000) });
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureLongRangeSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      for (const q of LONG_RANGE_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    for (const q of LONG_RANGE_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 /** One scheduled run: every 30 minutes, read the regular feed and keep the new long-range telegrams in R2. */

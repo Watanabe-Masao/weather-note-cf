@@ -12,6 +12,7 @@
 
 import type { Db } from "./accounts";
 import { FORECAST_GRACE_MS, FORECAST_SCHEDULE, FORECAST_WATCH_OFFICE } from "./forecastWatch";
+import { doneOnce } from "./once";
 
 export const AUDIT_DAYS = 14;
 const H = 3_600_000;
@@ -27,19 +28,11 @@ export const COMPLETENESS_SCHEMA = [
     PRIMARY KEY (source, item)
   )`,
 ];
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureCompletenessSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      for (const q of COMPLETENESS_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    for (const q of COMPLETENESS_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 /** 日本時間の ISO（+09:00）。 */

@@ -14,6 +14,7 @@ import type { Db, Stmt } from "./accounts";
 import { importPosition } from "./forecastImport";
 import { monthUsage, scheduledRuns, type UsageEnv } from "./usage";
 import { readCompleteness } from "./completeness";
+import { doneOnce } from "./once";
 
 export const HEALTH_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS cron_runs (
@@ -47,25 +48,17 @@ export const PLAN = {
 
 const KEEP_DAYS = 30;
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureHealthSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      for (const q of HEALTH_SCHEMA) await db.prepare(q).run();
-      // d1_ms (2026-11-18): added to a table that may already be there; "duplicate column" means it is.
-      try {
-        await db.prepare("ALTER TABLE cron_runs ADD COLUMN d1_ms INTEGER").run();
-      } catch (e) {
-        if (!/duplicate column/i.test(String(e))) throw e;
-      }
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    for (const q of HEALTH_SCHEMA) await db.prepare(q).run();
+    // d1_ms (2026-11-18): added to a table that may already be there; "duplicate column" means it is.
+    try {
+      await db.prepare("ALTER TABLE cron_runs ADD COLUMN d1_ms INTEGER").run();
+    } catch (e) {
+      if (!/duplicate column/i.test(String(e))) throw e;
+    }
+  });
 }
 
 /**

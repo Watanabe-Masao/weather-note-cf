@@ -19,6 +19,7 @@ import { compareWithTelegram, parseShiromatzCsv, SHIROMATZ_PARSER, SHIROMATZ_REP
 import type { Db } from "./accounts";
 import { officesInUse } from "./forecastArchive";
 import { choosePreferred, ensureForecastParseSchema } from "./forecastParse";
+import { doneOnce } from "./once";
 
 export const FORECAST_IMPORT_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS forecast_imports (
@@ -51,20 +52,12 @@ const ENTRIES_PER_STATEMENT = 400;
 type Fetcher = (url: string, init?: RequestInit) => Promise<{ ok: boolean; status: number; text(): Promise<string>; arrayBuffer(): Promise<ArrayBuffer> }>;
 const defaultFetch: Fetcher = (url, init) => fetch(url, { ...init, signal: AbortSignal.timeout(60_000) });
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureForecastImportSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      await ensureForecastParseSchema(db);
-      for (const q of FORECAST_IMPORT_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    await ensureForecastParseSchema(db);
+    for (const q of FORECAST_IMPORT_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 async function sha256(s: string): Promise<string> {

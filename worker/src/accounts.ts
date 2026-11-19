@@ -55,6 +55,7 @@ import { keepError } from "./health";
 import { archiveSummary } from "./typhoonArchive";
 import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
 import { alertSummary } from "./typhoonWatch";
+import { doneOnce } from "./once";
 
 // ---- schema ----------------------------------------------------------------------------------
 
@@ -213,7 +214,7 @@ export function forResearch(report: Record<string, unknown>): Record<string, unk
   return rest;
 }
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA, ...TYPHOON_NOTIFY_SCHEMA, ...RESEARCH_SCHEMA];
 
 /** An error as one line: its name, message and cause (what the log of a failure needs). */
@@ -225,24 +226,18 @@ export function describe(e: unknown): string {
 
 /** Creates the tables once per database (idempotent: safe on every cold start). */
 export function ensureSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      for (const q of ALL_SCHEMA)
-        await db
-          .prepare(q)
-          .run()
-          .catch((e: unknown) => {
-            // Which statement failed, so a failure here can be read in the log (it stops every account request).
-            throw new Error(`schema: ${q.replace(/\s+/g, " ").slice(0, 80)} — ${describe(e)}`, { cause: e });
-          });
-      const row = await db.prepare("SELECT v FROM schema_version").first<{ v: number }>();
-      if (!row) await db.prepare("INSERT INTO schema_version (v) VALUES (?)").bind(SCHEMA_VERSION).run();
-    })();
-    p.catch(() => ready.delete(db));
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    for (const q of ALL_SCHEMA)
+      await db
+        .prepare(q)
+        .run()
+        .catch((e: unknown) => {
+          // Which statement failed, so a failure here can be read in the log (it stops every account request).
+          throw new Error(`schema: ${q.replace(/\s+/g, " ").slice(0, 80)} — ${describe(e)}`, { cause: e });
+        });
+    // 重なった要求がそれぞれ作っても1行だけ（読んでから書くと、間に別の要求が入ると2行になる）。
+    await db.prepare("INSERT INTO schema_version (v) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM schema_version)").bind(SCHEMA_VERSION).run();
+  });
 }
 
 // ---- secrets ---------------------------------------------------------------------------------

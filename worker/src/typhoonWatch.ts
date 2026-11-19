@@ -18,6 +18,7 @@ import { runbookTag } from "../../shared/runbook";
 import { type Message, sendToUser } from "./notify";
 import { ensureTyphoonSchema } from "./typhoonArchive";
 import { sendPush } from "./webpush";
+import { doneOnce } from "./once";
 
 export const TYPHOON_WATCH_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS typhoon_json_log (
@@ -41,20 +42,12 @@ export const JSON_FAILS = 3;
 export const FRESH_MS = 6 * 3_600_000;
 const LOG_DAYS = 400;
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureWatchSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      await ensureTyphoonSchema(db);
-      for (const q of TYPHOON_WATCH_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    await ensureTyphoonSchema(db);
+    for (const q of TYPHOON_WATCH_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 /** One read of JMA's typhoon JSON by /api/typhoon (a cache miss): whether it read, and the typhoons it had. */
