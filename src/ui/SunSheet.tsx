@@ -21,9 +21,12 @@ import { dirName, MoonGlyph, MoonSphere } from "./moonParts";
 import { latLonText, useHere } from "./useHere";
 import stations from "../../shared/stations.json";
 import { MoonSheet } from "./MoonSheet";
-import { ICON } from "../design/tokens";
-import { type ReactNode, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
+import { onSkyVars, SKY_ICON } from "../design/tokens";
+import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
+
+/** 空の色の上に描くもの（#241、11/20）：テーマによらず暗い地に合わせた色で。 */
+const ON_SKY = onSkyVars() as CSSProperties;
 
 const W = 340;
 const H = 270; // 11/19：出入りを2行に詰めた分、グラフ（主役）を大きく
@@ -300,30 +303,33 @@ export function SunSheet({
             </g>
           );
         })}
+        {/* 目盛りの文字はページの地の上（テーマの色）、線は空の上（ON_SKY）。 */}
         {[0, ...TWILIGHTS.map((tw) => tw.deg)].map((d) => (
-          <g key={d}>
-            <line x1={PAD.left} x2={W - PAD.right} y1={y(d)} y2={y(d)} className={d === 0 ? "sun-horizon" : "sun-depth"} />
-            <text x={PAD.left - 4} y={y(d) + 3.5} textAnchor="end" className="sun-tick" fontSize={tick}>
-              {d === 0 ? "0°" : `−${-d}°`}
-            </text>
-          </g>
+          <text key={d} x={PAD.left - 4} y={y(d) + 3.5} textAnchor="end" className="sun-tick" fontSize={tick}>
+            {d === 0 ? "0°" : `−${-d}°`}
+          </text>
         ))}
         <text x={PAD.left - 4} y={y(high) + 8} textAnchor="end" className="sun-tick" fontSize={tick}>
           {high}°
         </text>
+        <g style={ON_SKY}>
+        {[0, ...TWILIGHTS.map((tw) => tw.deg)].map((d) => (
+          <line key={d} x1={PAD.left} x2={W - PAD.right} y1={y(d)} y2={y(d)} className={d === 0 ? "sun-horizon" : "sun-depth"} />
+        ))}
         <path d={path} className="sun-curve" />
         {/* The sun above the horizon in the icons' sun colour, not 日照's data colour (it is no 日照 value). */}
-        {dayPath && <path d={dayPath} className="sun-curve day" style={{ stroke: ICON.sun }} />}
+        {dayPath && <path d={dayPath} className="sun-curve day" style={{ stroke: SKY_ICON.sun }} />}
         {/* 日の出入り（太陽の上端が地平線、中心は −0.833°）と −6°・−12°・−18° を曲線の上に点で。日の出入りの点は 0° の線（地平線）より
             わずかに下：中心が 0° になるのは数分あと（定義の違い、11/19）。日の出入りの無い日は点を打たない。 */}
         {[shown.rise, shown.set, t.civil.start, t.civil.end, t.nautical.start, t.nautical.end, t.astronomical.start, t.astronomical.end].map((m, i) =>
           m == null ? null : <circle key={i} cx={x(m)} cy={y(i < 2 ? -0.833 : TWILIGHTS[Math.floor((i - 2) / 2)].deg)} r={i < 2 ? 3.5 : 2.6} className={i < 2 ? "sun-mark rise" : "sun-mark"} />,
         )}
         {/* 月：地平線より上の高さを点線で（色は天気の絵の月の色）、選んだ時刻の位置に丸。 */}
-        {moonPath && <path d={moonPath} className="moon-curve" style={{ stroke: ICON.moon }} />}
-        {moonAt.altitude >= 0 && <circle cx={x(at)} cy={y(moonAt.altitude)} r={4.5} className="moon-dot" style={{ fill: ICON.moon }} />}
+        {moonPath && <path d={moonPath} className="moon-curve" style={{ stroke: SKY_ICON.moon }} />}
+        {moonAt.altitude >= 0 && <circle cx={x(at)} cy={y(moonAt.altitude)} r={4.5} className="moon-dot" style={{ fill: SKY_ICON.moon }} />}
         <line x1={x(at)} x2={x(at)} y1={PAD.top} y2={H - PAD.bottom} className="sun-cursor" />
         <circle cx={x(at)} cy={y(altAt)} r={5} className={altAt >= 0 ? "sun-dot day" : "sun-dot"} />
+        </g>
         {/* Hours as on the hour graph: bare numbers every 3 hours. */}
         {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
           <text key={h} x={x(h * 60)} y={H - 5} textAnchor={h === 24 ? "end" : "middle"} className="sun-tick" fontSize={tick}>
@@ -731,7 +737,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
   return (
     <div
       className={`sky-stage${full ? " full" : ""}${stream ? " camera" : ""}`}
-      style={full ? undefined : { aspectRatio: `${w} / ${h}` }}
+      style={full ? ON_SKY : { ...ON_SKY, aspectRatio: `${w} / ${h}` }}
       // 2本指でつまむと拡大（なぞって見る窓は SkyPan が受ける）
       onPointerDown={pan ? undefined : (e) => void pinch.down(e)}
       onPointerMove={pan ? undefined : (e) => void pinch.move(e)}
@@ -792,12 +798,12 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
             {dirName(az)}
           </text>
         ))}
-        <path d={line(sunTrack)} className="sun-curve day" style={{ stroke: ICON.sun }} />
-        <path d={line(moonTrack)} className="moon-curve" style={{ stroke: ICON.moon }} />
+        <path d={line(sunTrack)} className="sun-curve day" style={{ stroke: SKY_ICON.sun }} />
+        <path d={line(moonTrack)} className="moon-curve" style={{ stroke: SKY_ICON.moon }} />
         {/* 本当の大きさ（11/19 レビュー）：見かけの直径 × 焦点。小さくて見つけにくいので、細い輪と名前を添える。 */}
         {sunAlt >= 0 && sun.inside && (
           <g className="sky-body">
-            <circle cx={sun.x} cy={sun.y} r={sunR} style={{ fill: ICON.sun }} className="sky-sun" />
+            <circle cx={sun.x} cy={sun.y} r={sunR} style={{ fill: SKY_ICON.sun }} className="sky-sun" />
             <circle cx={sun.x} cy={sun.y} r={sunR + 7 * big} className="sky-body-ring" />
             <text x={sun.x} y={sun.y - sunR - 10 * big} textAnchor="middle" className="sun-tick sky-body-name">
               太陽

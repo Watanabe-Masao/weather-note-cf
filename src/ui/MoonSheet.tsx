@@ -2,7 +2,7 @@
 // 月齢・明るい部分・距離と見かけの大きさ・月の出／南中／月の入り）、下にその月のカレンダー（日ごとの形。月齢は押した日の上の欄で）と、同じ枠で替わる満ち欠けと見かけの大きさのグラフ、
 // いちばん下に次の新月・上弦・満月・下弦。日を押すとその日の月に替わる。計算は shared/moon.ts（Astronomy Engine、
 // 国立天文台の暦で確かめ済み）。時刻は正午の値（月齢・形）と、その日の出入り。1画面に収める。
-import { Fragment, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, Fragment, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { daysOfMonth, monthOf } from "../../shared/dates";
 import { altitudeCurve, clockOf } from "../../shared/dayParts";
 import { skyAt } from "../../shared/sky";
@@ -10,7 +10,7 @@ import { dms, fullMoonName, MOON_MEAN_DIAMETER, moonDistance, moonLimb, moonMagn
 import { DEFAULT_LAT_LON, stationLatLon } from "../../shared/sunTimes";
 import { dateLabel } from "../design/format";
 import { Button, Glyph, IconButton, InfoNote, Segmented } from "./kit";
-import { ICON } from "../design/tokens";
+import { ICON, onSkyVars, SKY_ICON } from "../design/tokens";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 import { ModalSheet } from "./ModalSheet";
 import { TimeBar } from "./TimeBar";
@@ -500,8 +500,6 @@ function MoonDay({ day, min, onPick }: { day: { pts: { min: number; altitude: nu
         </linearGradient>
       </defs>
       <rect x={L} y={top} width={W - L - R} height={y(0) - top} fill="url(#moon-day-sky)" />
-      <rect x={L} y={y(0)} width={W - L - R} height={bottom - y(0)} className="sky-ground" />
-      <line x1={L} x2={W - R} y1={y(0)} y2={y(0)} className="sun-horizon" />
       {[90, 45, 0, -90].map((a) => (
         <text key={a} x={L - 4} y={y(a) + 4} textAnchor="end" className="sun-tick" fontSize={fs}>
           {a}°
@@ -512,9 +510,14 @@ function MoonDay({ day, min, onPick }: { day: { pts: { min: number; altitude: nu
           {hh}
         </text>
       ))}
-      <path d={seg(false)} className="moon-curve" style={{ stroke: ICON.moon }} />
-      <path d={seg(true)} className="moon-day-up" style={{ stroke: ICON.moon }} />
-      <line x1={x(min)} x2={x(min)} y1={top} y2={bottom} className="sun-cursor" />
+      {/* 空の色の上は、テーマによらず暗い地に合わせた色（#241、11/20）。 */}
+      <g style={onSkyVars() as CSSProperties}>
+        <rect x={L} y={y(0)} width={W - L - R} height={bottom - y(0)} className="sky-ground" />
+        <line x1={L} x2={W - R} y1={y(0)} y2={y(0)} className="sun-horizon" />
+        <path d={seg(false)} className="moon-curve" style={{ stroke: SKY_ICON.moon }} />
+        <path d={seg(true)} className="moon-day-up" style={{ stroke: SKY_ICON.moon }} />
+        <line x1={x(min)} x2={x(min)} y1={top} y2={bottom} className="sun-cursor" />
+      </g>
       {day.marks.map((q) => (
         <g key={q.min} transform={`translate(${(x(q.min) - G / 2).toFixed(1)} ${(y(q.alt) - G / 2).toFixed(1)})`}>
           <MoonGlyph phase={q.p} size={G} limb={q.limb} tint={moonTint(q.alt)} />

@@ -1,7 +1,7 @@
 // The 24 hours of one day next to its partner day, for one hourly item.
 // Shared by the day detail and the sheet's 時間帯 tab, so both look and behave the same.
 
-import { type ReactNode, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, type ReactNode, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useDrawnWidth } from "./useDrawnWidth";
 import { addDays, jstHour } from "../../shared/dates";
 import { altitudeCurve, type DayEdges, dayEdges, dayParts, type PartWindow } from "../../shared/dayParts";
@@ -37,7 +37,7 @@ import {
   initialHour,
   signedDiff,
 } from "../dayDetail";
-import { barLook, barPath, type DataColor, DATA, LIGHT_LEVELS, LINE, type LineLook, lineLook } from "../design/tokens";
+import { barLook, barPath, type DataColor, DATA, LIGHT_LEVELS, LINE, type LineLook, lineLook, onSkyVars } from "../design/tokens";
 import { type AverageWindow, AVERAGE_WINDOWS, daysBefore, meanByHour, nextWindow, WINDOW_LABEL } from "../hourAverage";
 import { Priority } from "../data/plan";
 import { axisWidth, dateLabel, niceTicks, shortDay, tickLabel } from "../design/format";
@@ -989,8 +989,11 @@ function HourChart({
         )}
         {/* Over the sky, the sun's line (the primary ink) rides on a dark edge (#173: on a clear noon sky white alone
             stood only 1.5–2.8 : 1 from it; with the edge it reads on every sky). */}
-        {sunPath && skyStops && <path d={sunPath} className="day-sun-casing" />}
-        {sunPath && <path d={sunPath} className={skyStops ? "day-sun over-sky" : "day-sun"} />}
+        {/* 空の色の上は、テーマによらず暗い地に合わせた色（#241、11/20）。 */}
+        <g style={skyStops ? (onSkyVars() as CSSProperties) : undefined}>
+          {sunPath && skyStops && <path d={sunPath} className="day-sun-casing" />}
+          {sunPath && <path d={sunPath} className={skyStops ? "day-sun over-sky" : "day-sun"} />}
+        </g>
         {/* The five parts of the day (by the sun's height), named along the top. */}
         {day.parts.map((p) => {
           const from = clip(p.from);
@@ -1082,6 +1085,8 @@ function HourChart({
         </text>
         <path d={`M${left - 9} ${stripBottom - 11}l3.5 3.5-3.5 3.5`} className="day-sun-chevron" />
         {/* The highest point, under the peak (the line is open, so nothing runs through it). */}
+        {/* 帯の上の文字も空の上なので、空の帯があるときはテーマによらず暗い地に合わせた色（#241、11/20）。 */}
+        <g style={skyStops ? (onSkyVars() as CSSProperties) : undefined}>
         <text x={xOf(day.edges.noon / 60)} y={stripBottom - 2} textAnchor="middle" className="day-sun-label">
           南中 {Math.round(day.edges.noonAltitude)}°
         </text>
@@ -1090,6 +1095,7 @@ function HourChart({
         <text x={xOf(24) - 4} y={stripBottom - 2} textAnchor="end" className="day-sun-label day-sun-model">
           空は模式
         </text>
+        </g>
         {[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => (
           <text key={h} x={xOf(h)} y={H + SUN_H - 8} textAnchor="middle" className="chart-x">
             {h}
