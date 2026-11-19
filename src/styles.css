@@ -4481,6 +4481,7 @@ select.chip.sm {
 /* 月の舞台と、その下の描き方の切り替え（見え方／月の全体） */
 .sun-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
 .sun-here { display: block; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.moon-obs-foot { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .moon-obs-side { display: grid; gap: var(--space-2); flex: none; width: 132px; }
 .moon-obs-side .seg { margin-top: 0; }
 .moon-obs-ring { pointer-events: none; }

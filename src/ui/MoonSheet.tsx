@@ -23,7 +23,7 @@ const jst = (ms: number) => {
   return { date: d.toISOString().slice(0, 10), min: d.getUTCHours() * 60 + d.getUTCMinutes() };
 };
 
-export function MoonSheet({ date, station, here, onClose }: { date: string; station: string; here?: { lat: number; lon: number } | null; onClose: () => void }) {
+export function MoonSheet({ date, station, here, onHere, onClose }: { date: string; station: string; here?: { lat: number; lon: number } | null; onHere?: () => void; onClose: () => void }) {
   // 計算の地点（11/19）：太陽と月のシートで「現在地で計算」にしていれば現在地、ほかは観測所。
   const ll = here ?? stationLatLon(station) ?? DEFAULT_LAT_LON;
   const where = here ? "現在地" : ((stations as { blockNo: string; name: string }[]).find((x) => x.blockNo === station)?.name ?? "観測所");
@@ -37,6 +37,31 @@ export function MoonSheet({ date, station, here, onClose }: { date: string; stat
   // 観測地から見た値に替わる。はじめは今の時刻。日を替えても時刻はそのまま。
   const [min, setMin] = useState(() => Math.floor(jst(Date.now()).min / 10) * 10);
   const [playing, setPlaying] = useState(false);
+  // 今に付いていく（11/19 渡辺さん）：今日を開いたら、時刻が今に付いていく（20秒ごと）。つまみ・グラフ・動かす・ほかの日で止まり、
+  // 「今」で今日の今へ戻る。
+  const nowDay = jst(Date.now()).date;
+  const [follow, setFollow] = useState(sel === nowDay);
+  useEffect(() => {
+    if (!follow) return;
+    const tick = () => setMin(jst(Date.now()).min);
+    tick();
+    const id = window.setInterval(tick, 20_000);
+    return () => window.clearInterval(id);
+  }, [follow]);
+  const move = (m: number) => {
+    setFollow(false);
+    setMin(m);
+  };
+  const pickDay = (d: string) => {
+    if (d !== nowDay) setFollow(false);
+    setSel(d);
+  };
+  const toNow = () => {
+    setPlaying(false);
+    setSel(nowDay);
+    setMonth(monthOf(nowDay));
+    setFollow(true);
+  };
   useEffect(() => {
     if (!playing) return;
     const id = window.setInterval(() => setMin((a) => (a >= 1430 ? 0 : a + 10)), 90);
@@ -105,11 +130,14 @@ export function MoonSheet({ date, station, here, onClose }: { date: string; stat
         </div>
       </div>
       {/* 観測の予測：観測地から見た、つまみの時刻の月。見えない時刻（地平線の下）は月を描かない。 */}
-      <MoonObserve ms={ms} min={min} lat={ll.lat} lon={ll.lon} where={where} sel={sel} rise={t.rise} />
-      <MoonDay day={day} min={min} onPick={setMin} />
+      <MoonObserve ms={ms} min={min} lat={ll.lat} lon={ll.lon} where={where} sel={sel} rise={t.rise} here={!!here} onHere={onHere} />
+      <MoonDay day={day} min={min} onPick={move} />
       <div className="sun-play moon-play">
-        <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[t.rise?.at, t.set?.at].filter((v): v is number => v != null).map(Math.round)} thumbs={[{ value: min, label: "時刻（10分ごと）", valueText: clockOf(min), onChange: setMin }]} />
-        <Button size="sm" aria-pressed={playing} onClick={() => setPlaying(!playing)}>
+        <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[t.rise?.at, t.set?.at].filter((v): v is number => v != null).map(Math.round)} thumbs={[{ value: min, label: "時刻（10分ごと）", valueText: clockOf(min), onChange: move }]} />
+        <Button size="sm" aria-pressed={follow} onClick={() => (follow ? setFollow(false) : toNow())}>
+          今
+        </Button>
+        <Button size="sm" aria-pressed={playing} onClick={() => (setFollow(false), setPlaying(!playing))}>
           {playing ? "止める" : "動かす"}
         </Button>
       </div>
@@ -157,7 +185,7 @@ export function MoonSheet({ date, station, here, onClose }: { date: string; stat
                 className={d === sel ? "moon-cal-day on" : "moon-cal-day"}
                 aria-pressed={d === sel}
                 aria-label={`${dateLabel(d)}、月齢 ${cp.age.toFixed(1)}、明るい部分 ${Math.round(cp.illuminated * 100)}%`}
-                onClick={() => setSel(d)}
+                onClick={() => pickDay(d)}
               >
                 <span className="moon-cal-n">{Number(d.slice(8))}</span>
                 <MoonGlyph phase={cp} size={22} />
@@ -166,7 +194,7 @@ export function MoonSheet({ date, station, here, onClose }: { date: string; stat
           </div>
         </div>
         <div className={view === "trend" ? "moon-pane" : "moon-pane off"} aria-hidden={view !== "trend"} inert={view !== "trend"}>
-          <MoonTrend cells={cells} sel={sel} onPick={setSel} />
+          <MoonTrend cells={cells} sel={sel} onPick={pickDay} />
         </div>
       </div>
 
@@ -309,7 +337,7 @@ const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_00
  * 見かけの大きさを大きな絵で。大きさは「実際の比」と「違いを強める」を切り替える（輪＝平均の大きさ）。
  * 地平線の下の時刻は月を描かず「見えません」と、次に昇る時刻と方位。
  */
-function MoonObserve({ ms, min, lat, lon, where, sel, rise }: { ms: number; min: number; lat: number; lon: number; where: string; sel: string; rise: { at: number; azimuth: number } | null }) {
+function MoonObserve({ ms, min, lat, lon, where, sel, rise, here, onHere }: { ms: number; min: number; lat: number; lon: number; where: string; sel: string; here?: boolean; onHere?: () => void; rise: { at: number; azimuth: number } | null }) {
   const [scale, setScale] = useState<"real" | "strong">("real");
   // 描き方（11/19 渡辺さん）：「見え方」＝球の陰影（暗い側は描かない、空で見える形）。「月の全体」＝暗い側も描く
   // （見えていない側も含めて、月の向き・回転を確かめるための絵）。
@@ -379,6 +407,13 @@ function MoonObserve({ ms, min, lat, lon, where, sel, rise }: { ms: number; min:
             { id: "strong", label: "違いを強める" },
           ]}
         />
+        <span className="moon-obs-foot">
+        {/* 地点（11/19）：太陽と月のシートの「現在地で計算」と同じ切り替え。 */}
+        {onHere && (
+          <Button size="sm" aria-pressed={here} onClick={onHere}>
+            現在地
+          </Button>
+        )}
         <InfoNote className="moon-note" more={
           <>
             {`見え方は、つまみの時刻に${where === "現在地" ? "現在地" : `${where}（観測所の場所）`}の空で見える形：`}{"光っている側の向き（傾き）・模様（海）の向き・高さで変わる色（低いほど大気で赤く、高いと白い。晴れた日の典型）。"}
@@ -387,8 +422,9 @@ function MoonObserve({ ms, min, lat, lon, where, sel, rise }: { ms: number; min:
             {scale === "strong" ? ` いまは違いを ${STRONG} 倍に強めて描いている（実際は1年で ±7% ほど。地平線の月が大きく見えるのは目の錯覚）。` : " 実際の比で描いている（1年で ±7% ほど。地平線の月が大きく見えるのは目の錯覚）。"}
           </>
         }>
-          見え方について
+          見え方
         </InfoNote>
+        </span>
       </div>
     </div>
   );

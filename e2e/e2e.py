@@ -804,6 +804,9 @@ with sync_playwright() as p:
         # 月のこよみ（2026-11-19）：選んだ日の月・出入り・その月のカレンダー・次の4つの月相。日を押すとその日に。1画面に収まる。
         pg.locator(".moon-open").click(); calm()
         t0 = txt(".moon-today")
+        # 今に付いていく（11/19）：今日を開くと「今」が押された状態で、観測の予測は今の時刻（テストの時計 12:0x）。
+        mnow = pg.locator(".moon-play .btn", has_text="今").get_attribute("aria-pressed"); mobs = txt(".moon-obs")
+        check("SS2s 月のこよみ：今日を開くと今に付いていく（「今」が押された状態・今の時刻）、地点の切り替えがある", mnow == "true" and "12:0" in mobs and pg.locator(".moon-obs .btn", has_text="現在地").count() == 1, (mnow, mobs[:30]))
         cal = pg.locator(".moon-cal-day").count()
         pg.locator(".moon-cal-day").nth(23).click(); calm()
         t1 = txt(".moon-today")
