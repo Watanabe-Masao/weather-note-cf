@@ -33,6 +33,8 @@ const ALLOWED: Record<string, number> = {
   "ui/DayDetail.tsx": 5,
   // 月のこよみ：カレンダーの日のマス（マスそのものを押す、カレンダーと同じ）。
   "ui/MoonSheet.tsx": 1,
+  // 満月の呼び名：一覧の行（行そのものを押して開く、予報の一覧の行と同じ）。
+  "ui/FullMoonSheet.tsx": 1,
   "ui/DaySummaryCard.tsx": 1,
   "ui/CompareSummary.tsx": 3,
   "ui/StatusBar.tsx": 1,

@@ -4,7 +4,7 @@
 // 時刻は分（その日の 0:00 JST から）。出・入りが無い日（月の出入りは毎日約50分ずつ遅れ、ひと月に1回ずつ無い日がある）は
 // null で、計算できなかったのとは分ける（none：その日に無い）。
 
-import { AstroTime, Body, Equator, GeoMoon, Horizon, Illumination, MoonPhase, NextMoonQuarter, Observer, SearchHourAngle, SearchMoonPhase, SearchMoonQuarter, SearchRiseSet, Seasons } from "astronomy-engine";
+import { AstroTime, Body, EclipseKind, Equator, GeoMoon, Horizon, Illumination, MoonPhase, NextMoonQuarter, Observer, SearchHourAngle, SearchLunarEclipse, SearchMoonPhase, SearchMoonQuarter, SearchRiseSet, Seasons } from "astronomy-engine";
 
 const DAY_MS = 86_400_000;
 const startOf = (date: string) => Date.parse(`${date}T00:00:00+09:00`);
@@ -233,4 +233,50 @@ export function moonTint(altitude: number): string {
   const f = (h - h0) / (h1 - h0);
   const hex = c0.map((v, j) => Math.round(v + (c1[j] - v) * f).toString(16).padStart(2, "0")).join("");
   return `#${hex}`;
+}
+
+/** 満月の日の、その年だけのこと（2026-11-20：文にせず計算で出す。どの年でも同じ仕組み）。 */
+export interface FullMoonFacts {
+  at: number;
+  name: string;
+  blue: boolean;
+  /** その満月の月食（あれば）。見えるかは観測地で月が地平線の上にあるか（最大のとき）。 */
+  eclipse: { kind: "皆既月食" | "部分月食" | "半影月食"; peak: number; visible: boolean } | null;
+  /** その年の満月でいちばん近い（大きく見える）・いちばん遠い。 */
+  nearest: boolean;
+  farthest: boolean;
+  diameter: number;
+}
+
+/** その年（日本時間）の満月をすべて、その年だけのことと一緒に。 */
+export function fullMoonsOfYear(year: number, lat: number, lon: number): FullMoonFacts[] {
+  const start = Date.parse(`${year}-01-01T00:00:00+09:00`);
+  const end = Date.parse(`${year + 1}-01-01T00:00:00+09:00`);
+  const list: { at: number; km: number; diameter: number }[] = [];
+  let t = start;
+  for (;;) {
+    const f = SearchMoonPhase(180, new AstroTime(new Date(t)), 40);
+    if (!f) break;
+    const at = f.date.getTime();
+    if (at >= end) break;
+    const d = moonDistance(at);
+    list.push({ at, km: d.km, diameter: d.diameter });
+    t = at + 20 * DAY_MS;
+  }
+  const minKm = Math.min(...list.map((x) => x.km));
+  const maxKm = Math.max(...list.map((x) => x.km));
+  return list.map((x) => {
+    const n = fullMoonName(x.at);
+    const e = SearchLunarEclipse(new Date(x.at - 2 * DAY_MS));
+    const peak = e.peak.date.getTime();
+    const eclipse =
+      Math.abs(peak - x.at) < DAY_MS
+        ? {
+            kind: (e.kind === EclipseKind.Total ? "皆既月食" : e.kind === EclipseKind.Partial ? "部分月食" : "半影月食") as "皆既月食" | "部分月食" | "半影月食",
+            peak,
+            visible: moonTopo(peak, lat, lon).altitude > 0,
+          }
+        : null;
+    return { at: x.at, name: n.name, blue: n.blue, eclipse, nearest: x.km === minKm, farthest: x.km === maxKm, diameter: x.diameter };
+  });
 }

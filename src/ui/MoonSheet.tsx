@@ -6,6 +6,7 @@ import { type CSSProperties, Fragment, type PointerEvent, useEffect, useMemo, us
 import { daysOfMonth, monthOf } from "../../shared/dates";
 import { altitudeCurve, clockOf } from "../../shared/dayParts";
 import { skyAt, type SkyColour } from "../../shared/sky";
+import { fullMoonInfo } from "../../shared/fullMoonNames";
 import { dms, fullMoonName, MOON_MEAN_DIAMETER, moonDistance, moonLimb, moonMagnitude, moonNorth, moonPhase, moonQuarters, moonShapeName, moonTimes, moonTint, moonTopo, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
 import { DEFAULT_LAT_LON, stationLatLon } from "../../shared/sunTimes";
 import { dateLabel } from "../design/format";
@@ -17,6 +18,7 @@ import { TimeBar } from "./TimeBar";
 import stations from "../../shared/stations.json";
 import { dirName, MoonGlyph, MoonSphere, PhaseIcon } from "./moonParts";
 import { createPortal } from "react-dom";
+import { FullMoonSheet } from "./FullMoonSheet";
 
 const noonOf = (d: string) => Date.parse(`${d}T12:00:00+09:00`);
 const WEEK = ["月", "火", "水", "木", "金", "土", "日"];
@@ -46,6 +48,8 @@ export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { da
   }, [days]);
   // 日を押すと、その日の月をモーダルで（11/20 渡辺さん）。閉じると元の位置のまま。
   const [info, setInfo] = useState<string | null>(null);
+  // 満月の呼び名のページ（11/20 渡辺さん）：開いた満月の時刻。
+  const [names, setNames] = useState<number | null>(null);
   // 見え方のシミュレーション（2026-11-19）：時刻（10分ごと）を動かすと、上の月の形・傾き・色・大きさ・位置がその時刻の
   // 観測地から見た値に替わる。はじめは今の時刻。日を替えても時刻はそのまま。
   const [min, setMin] = useState(() => Math.floor(jst(Date.now()).min / 10) * 10);
@@ -245,7 +249,15 @@ export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { da
           );
         })}
       </div>
-      {info && createPortal(<MoonDaySheet date={info} lat={ll.lat} lon={ll.lon} where={where} mark={marks.get(info) ?? null} onClose={() => setInfo(null)} />, document.body)}
+      {/* 満月の呼び名のページへ（次の満月から）。 */}
+      <div className="fm-open-row">
+        <Button size="sm" onClick={() => setNames(next.find((q) => q.kind === 2)?.at ?? Date.now())}>
+          満月の呼び名
+          <Glyph name="next" />
+        </Button>
+      </div>
+      {info && createPortal(<MoonDaySheet date={info} lat={ll.lat} lon={ll.lon} where={where} mark={marks.get(info) ?? null} onClose={() => setInfo(null)} onNames={(a) => setNames(a)} />, document.body)}
+      {names != null && createPortal(<FullMoonSheet at={names} lat={ll.lat} lon={ll.lon} where={where} onClose={() => setNames(null)} />, document.body)}
     </ModalSheet>
   );
 }
@@ -254,7 +266,7 @@ export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { da
  * その日の月（2026-11-20 渡辺さん「カレンダーをタップすると月の情報が表示されるモーダル」）：形と月相の時刻、月齢・明るい部分、
  * 呼び名（満月）・昔の呼び名、月の出・南中・月の入り（観測地から）、正午の大きさと距離。暦の値と観測地の値を分けて書く。
  */
-function MoonDaySheet({ date, lat, lon, where, mark, onClose }: { date: string; lat: number; lon: number; where: string; mark: { kind: 0 | 1 | 2 | 3; at: number } | null; onClose: () => void }) {
+function MoonDaySheet({ date, lat, lon, where, mark, onClose, onNames }: { date: string; lat: number; lon: number; where: string; mark: { kind: 0 | 1 | 2 | 3; at: number } | null; onClose: () => void; onNames: (at: number) => void }) {
   const p = moonPhase(noonOf(date));
   const name = moonShapeName(noonOf(date));
   const t = moonTimes(date, lat, lon);
@@ -281,6 +293,7 @@ function MoonDaySheet({ date, lat, lon, where, mark, onClose }: { date: string; 
               {full.blue ? "・ブルームーン" : ""}
             </span>
           )}
+          {full && fullMoonInfo(full.name) && <small>{fullMoonInfo(full.name)!.short}</small>}
           {!mark && name.old && <small>{name.old}</small>}
           <small>
             月齢 {p.age.toFixed(1)}・明るい部分 {Math.round(p.illuminated * 100)}%（正午、暦）
@@ -300,6 +313,12 @@ function MoonDaySheet({ date, lat, lon, where, mark, onClose }: { date: string; 
         大きさ {dms(dist.diameter)}（平均より {pct >= 0 ? `+${pct}` : `${pct}`}%）・距離 {(dist.km / 10000).toFixed(1)}万km（正午）
       </p>
       <small className="set-help">月の出・南中・月の入りは{where}から見た時刻です。</small>
+      {mark?.kind === 2 && (
+        <Button size="sm" className="fm-open-btn" onClick={() => onNames(mark.at)}>
+          {full?.name}の由来と、この年の満月
+          <Glyph name="next" />
+        </Button>
+      )}
     </ModalSheet>
   );
 }

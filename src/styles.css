@@ -4480,6 +4480,23 @@ select.chip.sm {
 .moon-day-full { font-size: var(--size-base); color: var(--ink-primary); }
 .moon-day-head small { font-size: var(--size-xs); color: var(--ink-secondary); }
 .moon-day-size { margin: var(--space-3) 0 var(--space-2); font-size: var(--size-sm); color: var(--ink-secondary); }
+/* 満月の呼び名のページ（11/20） */
+.fm-open-btn { margin-top: var(--space-3); }
+.fm-open-row { display: flex; justify-content: flex-end; margin-top: var(--space-2); padding-bottom: var(--space-3); }
+.fm-note { margin-bottom: var(--space-2); }
+.fm-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.fm-row { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: start; gap: var(--space-3); width: 100%; min-height: var(--tap-min); padding: var(--space-3); border: var(--stroke-hair) solid var(--line-soft); border-radius: var(--radius-md); background: var(--surface-inset); color: var(--ink-primary); text-align: left; }
+.fm-row.on { border-color: var(--accent-base); }
+.fm-when { font-size: var(--size-sm); font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--ink-secondary); }
+.fm-name { display: grid; gap: var(--space-1); }
+.fm-name b { font-size: var(--size-base); }
+.fm-name small { font-size: var(--size-xs); color: var(--ink-secondary); }
+.fm-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.fm-tags em { font-style: normal; font-size: var(--size-xs); padding: 0 var(--space-2); border-radius: var(--radius-pill); background: var(--surface-raised); color: var(--ink-primary); }
+.fm-open { padding: var(--space-2) var(--space-3) var(--space-3); }
+.fm-detail h5 { margin: var(--space-3) 0 var(--space-1); font-size: var(--size-sm); color: var(--ink-primary); }
+.fm-detail p, .fm-eclipse { margin: 0 0 var(--space-2); font-size: var(--size-sm); line-height: 1.6; color: var(--ink-secondary); }
+.fm-gloss { color: var(--ink-primary) !important; }
 /* 月のこよみ：カレンダーと推移のグラフは同じ枠に重ね、高いほうの高さを取る（切り替えで下の月相が動かない） */
 .moon-sheet .seg { margin-top: var(--space-4); }
 .moon-body { display: grid; }
