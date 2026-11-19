@@ -397,7 +397,7 @@ export function SunSheet({
           月のこよみ
         </Button>
       </div>
-      {moonOpen && <MoonSheet date={date} station={station} here={hereOn} onClose={() => setMoonOpen(false)} />}
+      {moonOpen && <MoonSheet date={date} station={station} here={hereOn} onHere={() => (hereOn || here.state.kind === "asking" ? here.stop() : here.ask())} onClose={() => setMoonOpen(false)} />}
       </div>
 
       {/* 1画面に収める（2026-11-18 渡辺さん「スクロールしなくていいサイズまで」）：日の出・南中・日の入りを3枚に、
