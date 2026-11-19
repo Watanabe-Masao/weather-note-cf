@@ -84,6 +84,23 @@ describe("雨雲レーダー：保存", () => {
       { ok: 1, saved: 0, waiting: 0 },
     ]);
   });
+  it("止まったあとは、一覧から間もなく消える時刻を先に（古い順）、残りは新しい順（#299 P1）", async () => {
+    const db = d1();
+    const b = bucket();
+    // 10:00〜13:00 UTC の30分ごと（一覧は約3時間）。11:00 より古い 10:00・10:30 は1時間以内に消える。
+    const long = ["20261117130000", "20261117123000", "20261117120000", "20261117113000", "20261117110000", "20261117103000", "20261117100000"];
+    const f = fetcher(list(long));
+    const now = Date.parse("2026-11-17T13:02:00Z");
+    const firstTime = async (n: number) => {
+      const before = new Set(b.files.keys());
+      await saveRadar(db, b, now + n * 300_000, f.get, 9, HRPNS);
+      return [...new Set([...b.files.keys()].filter((k) => !before.has(k)).map((k) => k.split("/")[3]))];
+    };
+    expect(await firstTime(0)).toEqual(["20261117100000"]);
+    expect(await firstTime(1)).toEqual(["20261117103000"]);
+    expect(await firstTime(2)).toEqual(["20261117130000"]);
+    expect(await firstTime(3)).toEqual(["20261117123000"]);
+  });
   it("logs a failed tile and takes it on a later run", async () => {
     const db = d1();
     const b = bucket();
