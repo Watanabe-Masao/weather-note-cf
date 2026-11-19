@@ -299,7 +299,6 @@ function MoonTrend({ cells, sel, onPick }: { cells: { d: string; p: ReturnType<t
 const STRONG = 4;
 const BASE = 92; // 平均の大きさの直径（px）
 const STAGE = 132;
-const LOOK_NAME = { A: "A 今の形", B: "B 球の陰影", C: "C 球の陰影＋暗い側" } as const;
 const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
 
 /**
@@ -309,8 +308,9 @@ const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_00
  */
 function MoonObserve({ ms, min, lat, lon, sel, rise }: { ms: number; min: number; lat: number; lon: number; sel: string; rise: { at: number; azimuth: number } | null }) {
   const [scale, setScale] = useState<"real" | "strong">("real");
-  // 描き方の試し（11/19「ABCテストを」）：月の絵を押すと A 今の形 → B 球の陰影 → C 球の陰影＋暗い側。決まったら外す。
-  const [look, setLook] = useState<"A" | "B" | "C">("A");
+  // 描き方（11/19 渡辺さん）：「見え方」＝球の陰影（暗い側は描かない、空で見える形）。「月の全体」＝暗い側も描く
+  // （見えていない側も含めて、月の向き・回転を確かめるための絵）。
+  const [look, setLook] = useState<"seen" | "whole">("seen");
   const p = moonPhase(ms);
   const topo = moonTopo(ms, lat, lon);
   const up = topo.altitude >= 0;
@@ -323,28 +323,27 @@ function MoonObserve({ ms, min, lat, lon, sel, rise }: { ms: number; min: number
   const next = rise && rise.at > min ? { day: sel, ...rise } : (() => { const d = nextDay(sel); const r = moonTimes(d, lat, lon).rise; return r ? { day: d, ...r } : null; })();
   return (
     <div className="moon-obs">
-      <button
-        type="button"
-        className={up ? "moon-obs-stage" : "moon-obs-stage below"}
-        onClick={() => setLook(look === "A" ? "B" : look === "B" ? "C" : "A")}
-        aria-label={`${up ? `${clockOf(min)}の月：${dirName(topo.azimuth)} 高さ ${Math.round(topo.altitude)}°、光っている側は ${clockDir(limb)} の向き、大きさは平均の ${(ratio * 100).toFixed(1)}%` : `${clockOf(min)}は月が地平線の下で見えません`}。描き方 ${LOOK_NAME[look]}（押すと替わる・試し）`}
-      >
-        <svg className="moon-obs-ring" width={STAGE} height={STAGE} viewBox={`0 0 ${STAGE} ${STAGE}`} aria-hidden>
-          <circle cx={STAGE / 2} cy={STAGE / 2} r={BASE / 2} />
-        </svg>
-        {up ? (
-          look === "A" ? (
-            <MoonGlyph phase={p} size={size} limb={limb} north={north} tint={moonTint(topo.altitude)} />
-          ) : (
-            <MoonSphere phase={p} size={size} limb={limb} north={north} tint={moonTint(topo.altitude)} dark={look === "C"} />
-          )
-        ) : (
-          <span className="moon-obs-none">見えません</span>
-        )}
-        <small className="moon-obs-look" aria-hidden>
-          {look}
-        </small>
-      </button>
+      <div className="moon-obs-side">
+        <div
+          className={up ? "moon-obs-stage" : "moon-obs-stage below"}
+          role="img"
+          aria-label={up ? `${clockOf(min)}の月：${dirName(topo.azimuth)} 高さ ${Math.round(topo.altitude)}°、光っている側は ${clockDir(limb)} の向き、大きさは平均の ${(ratio * 100).toFixed(1)}%${look === "whole" ? "（暗い側も描いた月の全体）" : ""}` : `${clockOf(min)}は月が地平線の下で見えません`}
+        >
+          <svg className="moon-obs-ring" width={STAGE} height={STAGE} viewBox={`0 0 ${STAGE} ${STAGE}`} aria-hidden>
+            <circle cx={STAGE / 2} cy={STAGE / 2} r={BASE / 2} />
+          </svg>
+          {up ? <MoonSphere phase={p} size={size} limb={limb} north={north} tint={moonTint(topo.altitude)} dark={look === "whole"} /> : <span className="moon-obs-none">見えません</span>}
+        </div>
+        <Segmented
+          label="月の描き方"
+          value={look}
+          onChange={setLook}
+          options={[
+            { id: "seen", label: "見え方" },
+            { id: "whole", label: "月の全体" },
+          ]}
+        />
+      </div>
       <div className="moon-obs-text">
         <small>高知から見た {clockOf(min)}</small>
         {up ? (
@@ -377,7 +376,8 @@ function MoonObserve({ ms, min, lat, lon, sel, rise }: { ms: number; min: number
         />
         <InfoNote className="moon-note" more={
           <>
-            {"上の月は、つまみの時刻に高知（観測所の場所）の空で見える形：光っている側の向き（傾き）・模様（海）の向き・高さで変わる色（低いほど大気で赤く、高いと白い。晴れた日の典型）。"}
+            {"見え方は、つまみの時刻に高知（観測所の場所）の空で見える形：光っている側の向き（傾き）・模様（海）の向き・高さで変わる色（低いほど大気で赤く、高いと白い。晴れた日の典型）。"}
+            {" 月の全体は、暗い側（実際にはほとんど見えない）も描いて、月の向き・回転を確かめるための絵。"}
             {" 大きさは観測地から見た直径（度・分・秒）。点線の輪が平均の大きさ（0°31′05″）。"}
             {scale === "strong" ? ` いまは違いを ${STRONG} 倍に強めて描いている（実際は1年で ±7% ほど。地平線の月が大きく見えるのは目の錯覚）。` : " 実際の比で描いている（1年で ±7% ほど。地平線の月が大きく見えるのは目の錯覚）。"}
           </>

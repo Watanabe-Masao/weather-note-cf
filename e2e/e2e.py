@@ -768,17 +768,17 @@ with sync_playwright() as p:
         # 見え方のシミュレーション（2026-11-19）：時刻のつまみで、月の形・傾き・色・位置がその時刻に。地平線の下は色なし。
         setm = lambda v: pg.evaluate("""(v) => { const r = document.querySelector('.moon-play input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, String(v)); r.dispatchEvent(new Event('input', { bubbles: true })); }""", v)
         pg.locator(".moon-cal-day").nth(23).click(); calm()
-        setm(1380); calm(); t23 = txt(".moon-obs"); tint23 = pg.locator(".moon-obs .moon-glyph filter").count(); d23 = pg.locator(".moon-obs .moon-glyph").bounding_box()
+        setm(1380); calm(); t23 = txt(".moon-obs"); tint23 = pg.locator(".moon-obs canvas.moon-glyph").count(); d23 = pg.locator(".moon-obs .moon-glyph").bounding_box()
         sb = pg.locator(".moon-obs-stage").bounding_box()
         pg.locator(".moon-obs .seg button", has_text="違いを強める").click(); calm(); d23s = pg.locator(".moon-obs .moon-glyph").bounding_box(); sb2 = pg.locator(".moon-obs-stage").bounding_box()
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-strong.png")
         pg.locator(".moon-obs .seg button", has_text="実際の比").click(); calm()
-        # 描き方の試し（11/19）：月の絵を押すと A（絵）→ B（球の陰影、canvas）→ C（球の陰影＋暗い側）→ A。枠は動かない。
-        looks = []
-        for _ in range(3):
-            pg.locator(".moon-obs-stage").click(); calm()
-            looks.append((txt(".moon-obs-look"), pg.locator(".moon-obs-stage canvas").count(), round(pg.locator(".moon-obs-stage").bounding_box()["height"])))
-        check("SS2m 描き方の試し：押すと B → C → A、B・C は canvas、枠の高さは同じ", [l[:2] for l in looks] == [("B", 1), ("C", 1), ("A", 0)] and len({l[2] for l in looks}) == 1, looks)
+        # 描き方（11/19）：見え方（暗い側は描かない）と月の全体（暗い側も）を切り替える。枠は動かない。
+        h0 = pg.locator(".moon-obs-stage").bounding_box()["height"]
+        pg.locator(".moon-obs-side .seg button", has_text="月の全体").click(); calm()
+        lab = pg.locator(".moon-obs-stage").get_attribute("aria-label"); h1 = pg.locator(".moon-obs-stage").bounding_box()["height"]
+        pg.locator(".moon-obs-side .seg button", has_text="見え方").click(); calm()
+        check("SS2m 描き方：見え方／月の全体を切り替え、絵は canvas、枠の高さは同じ", "月の全体" in lab and pg.locator(".moon-obs-stage canvas").count() == 1 and abs(h0 - h1) < 1, (lab, h0, h1))
         setm(720); calm(); t12 = txt(".moon-obs"); g12 = pg.locator(".moon-obs .moon-glyph").count()
         today12 = txt(".moon-today")
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-below.png")
@@ -799,8 +799,9 @@ with sync_playwright() as p:
             for m in (1000, 1080, 1140): setm(m); calm(); pg.locator(".moon-obs").screenshot(path=os.environ["WN_SUN"] + f"-moon-cres-{m}.png")
             for day, m in ((12, 1080), (23, 1380), (16, 1260)):
                 pg.locator(".moon-cal-day").nth(day).click(); calm(); setm(m); calm()
-                for L in "ABC":
-                    pg.locator(".moon-obs-stage").screenshot(path=os.environ["WN_SUN"] + f"-abc-{day}-{L}.png"); pg.locator(".moon-obs-stage").click(); calm()
+                for L in ("見え方", "月の全体"):
+                    pg.locator(".moon-obs-side .seg button", has_text=L).click(); calm(); pg.locator(".moon-obs").screenshot(path=os.environ["WN_SUN"] + f"-bc-{day}-{L}.png")
+                pg.locator(".moon-obs-side .seg button", has_text="見え方").click(); calm()
         pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
