@@ -27,7 +27,7 @@ import { kindLabel } from "./CompareBoard";
 import { DaySummaryContext } from "./daySummaryPress";
 import { FeelContext, levelColor, levelName } from "./FeelBar";
 import { HourFace } from "./HourFace";
-import { useSun } from "./HourCompare";
+import { shownClock, shownDayLength, shownSun } from "../data/sun";
 import { Chip, Conf, CONF_TEXT, confidenceOfRow, Glyph, SectionHead } from "./kit";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
 import { WxChart } from "./WxChart";
@@ -47,10 +47,6 @@ interface Props {
 }
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
-const minutesOf = (hhmm: string | null | undefined) => {
-  const m = hhmm?.match(/(\d{1,2}):(\d{2})/);
-  return m ? +m[1] * 60 + +m[2] : null;
-};
 
 export function DayDetail({ store, station, date, today, metric, onMetric, onOpenFeel, onToggleSun }: Props) {
   const feel = useContext(FeelContext);
@@ -194,7 +190,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
 
       <div className="dd-sec">
         <SectionHead title="1日の流れ" as="h3" />
-        <SunLine store={store} station={station} date={date} today={today} />
+        <SunLine station={station} date={date} />
         <Parts store={store} station={station} date={date} />
         <HourFace
           store={store}
@@ -227,21 +223,17 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   );
 }
 
-/** 日の出・日の入り・昼の長さ: the day's own, as the 時間帯 sheet reads them. */
-function SunLine({ store, station, date, today }: { store: WeatherStore | null; station: string; date: string; today: string }) {
-  const sun = useSun(station, date, today, store?.getDay(station, date).row);
-  const e = useMemo(() => dayEdges(date, station), [date, station]);
-  // The station's own published times when there are any; else the sun's, computed (the parts' own).
-  const rise = minutesOf(sun?.sunrise) ?? e.rise;
-  const set = minutesOf(sun?.sunset) ?? e.set;
-  const len = Math.round(set - rise);
+/** 日の出・日の入り・昼の長さ：画面はどこも計算の値（src/data/sun.ts shownSun、2026-11-19）。 */
+function SunLine({ station, date }: { station: string; date: string }) {
+  const s = useMemo(() => shownSun(date, station), [date, station]);
+  const len = shownDayLength(s);
   return (
     <p className="dd-sun">
       <span>
-        日の出 <b>{clockOf(rise)}</b>
+        日の出 <b>{shownClock(s.rise)}</b>
       </span>
       <span>
-        日の入り <b>{clockOf(set)}</b>
+        日の入り <b>{shownClock(s.set)}</b>
       </span>
       <span>
         昼の長さ <b>{`${Math.floor(len / 60)}時間${len % 60}分`}</b>

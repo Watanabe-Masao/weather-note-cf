@@ -10,7 +10,15 @@ export type HereState =
   | { kind: "asking" }
   | { kind: "on"; lat: number; lon: number }
   | { kind: "denied" }
-  | { kind: "unavailable" };
+  | { kind: "unavailable" }
+  | { kind: "outside" };
+
+/**
+ * 日本の中か（2026-11-19 渡辺さん：海外の現在地は使わない）。太陽と月の計算と画面は日本時間の1日を前提にしているので、
+ * 外の位置は観測所に戻す。だいたいの四角（北緯 20〜46°・東経 122〜154°、与那国島・南鳥島・沖ノ鳥島・択捉島を含む）。
+ * 四角なので朝鮮半島やウラジオストクの一部も入るが、朝鮮半島は日本と同じ時間帯（ずれるのはウラジオストクの1時間だけ）。
+ */
+export const inJapan = (lat: number, lon: number) => lat >= 20 && lat <= 46 && lon >= 122 && lon <= 154;
 
 const KEY = "wn.sunHere";
 const round = (v: number) => Math.round(v * 100) / 100;
@@ -44,8 +52,14 @@ export function useHere() {
     navigator.geolocation.getCurrentPosition(
       (p) => {
         if (mine !== turn.current) return;
+        const [lat, lon] = [round(p.coords.latitude), round(p.coords.longitude)];
+        if (!inJapan(lat, lon)) {
+          remember(false);
+          setState({ kind: "outside" });
+          return;
+        }
         remember(true);
-        setState({ kind: "on", lat: round(p.coords.latitude), lon: round(p.coords.longitude) });
+        setState({ kind: "on", lat, lon });
       },
       (e) => {
         if (mine !== turn.current) return;
