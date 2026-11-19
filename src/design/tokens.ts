@@ -782,6 +782,22 @@ export function cssVariables(): Record<string, string> {
   return out;
 }
 
+/**
+ * 空の色の上に描くもの（2026-11-20 渡辺さんの実機、#241）：太陽と月のグラフ・空を見上げる・時間帯の太陽の帯は、地が
+ * 空の色（shared/sky.ts）で、どのテーマでも同じ（夜は紺）。その上の線・点・文字をページの地に合わせたテーマの色で描くと、
+ * 明るいテーマでは濃い線が紺の空に溶ける（「線は乗っている面に対して 3:1」の面は、ページではなく空）。そこで空の上だけは
+ * テーマによらず Deep Navy の色（暗い地に合わせた色）を使う。style に渡すと、その中の文字・線・面の色の変数が置き換わる。
+ */
+export function onSkyVars(): Record<string, string> {
+  const out: Record<string, string> = {};
+  const n = THEMES.navy;
+  for (const [group, values] of [["ink", n.ink], ["line", n.line], ["surface", n.surface]] as const)
+    for (const [k, v] of Object.entries(values)) out[`--${group}-${kebab(k)}`] = v;
+  return out;
+}
+/** 空の上の太陽と月の色（onSkyVars と同じ考え）。 */
+export const SKY_ICON: Palette["icon"] = THEMES.navy.icon;
+
 /** Write the tokens onto :root (once, before the first render). */
 /**
  * Puts a theme in use: the colour objects SVG reads are filled in place, and every token is written

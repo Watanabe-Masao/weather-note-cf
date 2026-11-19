@@ -259,3 +259,20 @@ describe("putting a theme in use", () => {
     }
   });
 });
+
+// 空の色の上（太陽と月のグラフ・空を見上げる・時間帯の太陽の帯、11/20）：地は空の色でどのテーマでも同じなので、
+// 線と文字はテーマによらず暗い地に合わせた色。夜の空（紺）に対して線が 3:1 以上。
+import { onSkyVars, SKY_ICON } from "../../src/design/tokens";
+import { skyAt } from "../../shared/sky";
+describe("on the sky (#241, 11/20)", () => {
+  it("the lines over the sky are the same in every theme and stand out from the night sky", () => {
+    const before = JSON.stringify(onSkyVars());
+    for (const name of ["mist", "warm", "navy"] as const) {
+      applyTheme(name, { style: { setProperty() {} }, dataset: {} } as unknown as HTMLElement);
+      expect(JSON.stringify(onSkyVars())).toBe(before);
+    }
+    const night = skyAt(-30, 1, 0, false).zenith;
+    expect(contrast(onSkyVars()["--ink-tertiary"], night)).toBeGreaterThanOrEqual(3);
+    expect(contrast(SKY_ICON.moon, night)).toBeGreaterThanOrEqual(3);
+  });
+});
