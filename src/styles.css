@@ -412,6 +412,12 @@ select.chip {
 /* 押せる範囲は 44px 以上（絵は低いので、上下に見えない範囲を足す）。 */
 .brand-event { position: relative; }
 .brand-event::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-min); transform: translateY(-50%); }
+/* 空のイベントの日の絵（11/20 渡辺さん「左側のロゴも無くして広げる」）：アイコンと文字の場所に1枚（横4：縦1）。
+   高さはアイコンより少し高い 36px まで（見出しの高さを変えない、e2e/event.py）。押せる範囲は 44px 以上。 */
+.brand-art { position: relative; display: block; flex: none; height: calc(32px + var(--space-2)); width: auto; aspect-ratio: 4 / 1; padding: 0; border: 0; background: none; cursor: pointer; }
+.brand-art img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-md); }
+.brand-art-word { position: absolute; right: 6%; top: 50%; height: 56%; width: auto; aspect-ratio: 692 / 184; transform: translateY(-50%); color: var(--ink-primary); }
+.brand-art::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-min); transform: translateY(-50%); }
 .event-when { margin: 0; font-size: var(--size-base); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; }
 .event-lead, .event-gloss { margin: var(--space-2) 0 0; font-size: var(--size-sm); line-height: 1.6; color: var(--ink-secondary); }
 .event-warn { margin: var(--space-2) 0 0; font-size: var(--size-sm); line-height: 1.6; color: var(--status-warning); }
