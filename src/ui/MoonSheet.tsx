@@ -13,7 +13,7 @@ import { Button, Glyph, IconButton, InfoNote, Segmented, Slider } from "./kit";
 import { ICON } from "../design/tokens";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 import { ModalSheet } from "./ModalSheet";
-import { dirName, MoonGlyph } from "./moonParts";
+import { dirName, MoonGlyph, MoonSphere } from "./moonParts";
 
 const noonOf = (d: string) => Date.parse(`${d}T12:00:00+09:00`);
 const WEEK = ["月", "火", "水", "木", "金", "土", "日"];
@@ -299,6 +299,7 @@ function MoonTrend({ cells, sel, onPick }: { cells: { d: string; p: ReturnType<t
 const STRONG = 4;
 const BASE = 92; // 平均の大きさの直径（px）
 const STAGE = 132;
+const LOOK_NAME = { A: "A 今の形", B: "B 球の陰影", C: "C 球の陰影＋暗い側" } as const;
 const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
 
 /**
@@ -308,6 +309,8 @@ const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_00
  */
 function MoonObserve({ ms, min, lat, lon, sel, rise }: { ms: number; min: number; lat: number; lon: number; sel: string; rise: { at: number; azimuth: number } | null }) {
   const [scale, setScale] = useState<"real" | "strong">("real");
+  // 描き方の試し（11/19「ABCテストを」）：月の絵を押すと A 今の形 → B 球の陰影 → C 球の陰影＋暗い側。決まったら外す。
+  const [look, setLook] = useState<"A" | "B" | "C">("A");
   const p = moonPhase(ms);
   const topo = moonTopo(ms, lat, lon);
   const up = topo.altitude >= 0;
@@ -320,20 +323,28 @@ function MoonObserve({ ms, min, lat, lon, sel, rise }: { ms: number; min: number
   const next = rise && rise.at > min ? { day: sel, ...rise } : (() => { const d = nextDay(sel); const r = moonTimes(d, lat, lon).rise; return r ? { day: d, ...r } : null; })();
   return (
     <div className="moon-obs">
-      <div
+      <button
+        type="button"
         className={up ? "moon-obs-stage" : "moon-obs-stage below"}
-        role="img"
-        aria-label={up ? `${clockOf(min)}の月：${dirName(topo.azimuth)} 高さ ${Math.round(topo.altitude)}°、光っている側は ${clockDir(limb)} の向き、大きさは平均の ${(ratio * 100).toFixed(1)}%` : `${clockOf(min)}は月が地平線の下で見えません`}
+        onClick={() => setLook(look === "A" ? "B" : look === "B" ? "C" : "A")}
+        aria-label={`${up ? `${clockOf(min)}の月：${dirName(topo.azimuth)} 高さ ${Math.round(topo.altitude)}°、光っている側は ${clockDir(limb)} の向き、大きさは平均の ${(ratio * 100).toFixed(1)}%` : `${clockOf(min)}は月が地平線の下で見えません`}。描き方 ${LOOK_NAME[look]}（押すと替わる・試し）`}
       >
         <svg className="moon-obs-ring" width={STAGE} height={STAGE} viewBox={`0 0 ${STAGE} ${STAGE}`} aria-hidden>
           <circle cx={STAGE / 2} cy={STAGE / 2} r={BASE / 2} />
         </svg>
         {up ? (
-          <MoonGlyph phase={p} size={size} limb={limb} north={north} tint={moonTint(topo.altitude)} />
+          look === "A" ? (
+            <MoonGlyph phase={p} size={size} limb={limb} north={north} tint={moonTint(topo.altitude)} />
+          ) : (
+            <MoonSphere phase={p} size={size} limb={limb} north={north} tint={moonTint(topo.altitude)} dark={look === "C"} />
+          )
         ) : (
           <span className="moon-obs-none">見えません</span>
         )}
-      </div>
+        <small className="moon-obs-look" aria-hidden>
+          {look}
+        </small>
+      </button>
       <div className="moon-obs-text">
         <small>高知から見た {clockOf(min)}</small>
         {up ? (

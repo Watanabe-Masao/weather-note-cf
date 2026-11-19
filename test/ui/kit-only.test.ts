@@ -30,7 +30,7 @@ const ALLOWED: Record<string, number> = {
   "ui/CalendarModal.tsx": 4,
   "ui/DayDetail.tsx": 5,
   // 月のこよみ：カレンダーの日のマス（マスそのものを押す、カレンダーと同じ）。
-  "ui/MoonSheet.tsx": 1,
+  "ui/MoonSheet.tsx": 2, // カレンダーの日・描き方の試し（11/19、決まったら 1 に戻す）
   "ui/DaySummaryCard.tsx": 1,
   "ui/CompareSummary.tsx": 3,
   "ui/StatusBar.tsx": 1,

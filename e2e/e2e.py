@@ -773,6 +773,12 @@ with sync_playwright() as p:
         pg.locator(".moon-obs .seg button", has_text="違いを強める").click(); calm(); d23s = pg.locator(".moon-obs .moon-glyph").bounding_box(); sb2 = pg.locator(".moon-obs-stage").bounding_box()
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-strong.png")
         pg.locator(".moon-obs .seg button", has_text="実際の比").click(); calm()
+        # 描き方の試し（11/19）：月の絵を押すと A（絵）→ B（球の陰影、canvas）→ C（球の陰影＋暗い側）→ A。枠は動かない。
+        looks = []
+        for _ in range(3):
+            pg.locator(".moon-obs-stage").click(); calm()
+            looks.append((txt(".moon-obs-look"), pg.locator(".moon-obs-stage canvas").count(), round(pg.locator(".moon-obs-stage").bounding_box()["height"])))
+        check("SS2m 描き方の試し：押すと B → C → A、B・C は canvas、枠の高さは同じ", [l[:2] for l in looks] == [("B", 1), ("C", 1), ("A", 0)] and len({l[2] for l in looks}) == 1, looks)
         setm(720); calm(); t12 = txt(".moon-obs"); g12 = pg.locator(".moon-obs .moon-glyph").count()
         today12 = txt(".moon-today")
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-below.png")
@@ -791,6 +797,10 @@ with sync_playwright() as p:
             setm(1050); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim-low.png")
             pg.locator(".moon-cal-day").nth(12).click(); calm()
             for m in (1000, 1080, 1140): setm(m); calm(); pg.locator(".moon-obs").screenshot(path=os.environ["WN_SUN"] + f"-moon-cres-{m}.png")
+            for day, m in ((12, 1080), (23, 1380), (16, 1260)):
+                pg.locator(".moon-cal-day").nth(day).click(); calm(); setm(m); calm()
+                for L in "ABC":
+                    pg.locator(".moon-obs-stage").screenshot(path=os.environ["WN_SUN"] + f"-abc-{day}-{L}.png"); pg.locator(".moon-obs-stage").click(); calm()
         pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
