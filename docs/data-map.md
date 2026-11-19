@@ -123,7 +123,26 @@ gantt
 | 天気分布予報（5km） | 今は追わない（地図が要る使い道が出たら）。地域時系列予報の JSON は府県天気予報の電文と同じ中身と見て、別に貯めない（#283） |
 | 暑さ指数（環境省） | 利用規約に同意して使う仕組み。過去分は後から取れるので、夏の前に決める |
 
-## 5. 出典
+## 5. データベースの表の置き場所（2026-11-19）
+
+D1 は1つ（バインディング `DB`）、原本のファイルは R2（`ARCHIVE`）です。気象用とユーザー用を別の D1 に分ける案（「データベース最適化・分離設計提案書 v1.0」）は、**今は分けない**と決めました（渡辺さん OK）。理由は3つです。容量と書き込みに余裕がある（11/19 で 63MB・月の書き込み 1.3%）。1つの Worker が両方につながる限り、権限の切り分けはほとんど進まない。動いているまま移し替える手間とリスクが大きい。
+
+代わりに、次の3つを進めます。表を下の3つに分け、読み書きの入口もこの分け方にそろえる（いつか分けるときの準備）。取り戻せない欠けを後で埋めたら「取り戻した」の印を付ける（欠けた事実は消さない）。表の作りの変更に版を付ける。
+
+**分けるのを考え直す目安**：次のどれかになったら、提案書の第2段階以降を検討します。
+- データベースが 2GB を超えた。
+- 研究協力者などが増え、ユーザー情報を別に守る必要が出た。
+- 気象とユーザーで、元に戻す単位（Time Travel）を分ける必要が出た。
+
+| 分け | 表 | 中身 |
+| --- | --- | --- |
+| 気象 | `forecast_telegrams`・`forecast_issues`・`forecast_entries`・`forecast_fetch_log`・`forecast_imports`・`forecast_alerts`・`typhoon_telegrams`・`typhoon_fetch_log`・`typhoon_json_log`・`typhoon_alerts`・`warning_telegrams`・`warning_fetch_log`・`longrange_telegrams`・`longrange_fetch_log`・`radar_saved`・`radar_fetch_log`・`wxchart_saved`・`wxchart_fetch_log`・`archive_copies`・`source_listed`・`data_gaps`・`data_absent` | 公開の気象情報と、その取得の記録・欠け。人を指す列は持たない |
+| ユーザー | `users`・`sessions`・`session_reauth`・`schema_version`・`reports`・`consents`・`research_withdrawals`・`push_subscriptions`・`server_keys`・`notify_settings`・`notify_log`・`typhoon_notify_settings`・`typhoon_notify_log`・`export_log`・`export_tokens` | アカウント・肌感の記録・同意・通知。研究に出すときは研究用の番号で（#55） |
+| 運用 | `cron_runs`・`health_checks`・`health_alerts`・`app_errors`・`refetch_log` | 定時処理・見張り・エラー・取り直しの記録。数と時刻が主。エラーの文言と押した管理者は管理者の画面だけに出す |
+
+エラーの記録は、Cloudflare のログ（アプリから読めず、数日で消える）ではなく、ここ（`app_errors`・`cron_runs.error`）を正にします（#341・#344）。時刻の書き方は 2 章の「時刻の決まり（要件 R4）」のとおりで、書き換えません。
+
+## 6. 出典
 
 - 気象庁：過去の気象データ、アメダス、防災情報XML（予報・台風・警報・気象防災速報の電文）、気象庁ホームページ（天気図・雨雲の動き・解析雨量・台風情報、公共データ利用規約 第1.0版）、RSMC Tokyo ベストトラック
 - 予報の記録：shiromatz/Japan-Meteorological-Agency-Weather-Forecast（気象庁の予報 JSON の記録、CC BY-SA 4.0）
