@@ -22,6 +22,8 @@ const ALLOWED: Record<string, number> = {
   "ui/TyphoonSheet.tsx": 4,
   "ui/ShortHistoryBoard.tsx": 2,
   "ui/forecastHistory/DayRows.tsx": 1,
+  // 週間天気予報の表：日の列を押す（列そのものを押す、カレンダーと同じ）。
+  "ui/forecastHistory/IssueWeek.tsx": 1,
   "ui/SunTestBoard.tsx": 3,
   "ui/MonthReview.tsx": 6,
   "ui/ModalSheet.tsx": 1,

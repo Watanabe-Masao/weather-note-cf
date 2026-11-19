@@ -179,26 +179,18 @@
 .fh-days { gap: var(--space-3); }
 .fh-rows-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }
 
-/* その発表の週間天気予報（11/19）：日ごとに2段。左に日付と天気の絵、右に最高／最低、下の段に降水確率とどの発表か。 */
-.fh-week { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
-.fh-week-row {
-  display: grid;
-  grid-template-columns: 4.8em calc(var(--space-6) * 2) minmax(0, 1fr) auto;
-  grid-template-areas: "day wx name temp" "day wx pop src";
-  align-items: center;
-  column-gap: var(--space-3);
-  row-gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  border-bottom: var(--stroke-hair) solid var(--line-soft);
-}
-.fh-week-row.on { background: var(--accent-wash); }
-.fh-week-day { grid-area: day; display: grid; line-height: 1.2; }
-.fh-week-day b { font-size: var(--size-base); font-variant-numeric: tabular-nums; }
-.fh-week-day small { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.fh-week-mark { color: var(--ink-primary); font-weight: var(--weight-bold); }
-.fh-week-wx { grid-area: wx; display: grid; place-items: center; }
-.fh-week-name { grid-area: name; font-size: var(--size-sm); min-width: 0; }
-.fh-week-temp { grid-area: temp; font-size: var(--size-base); font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; }
-.fh-week-pop { grid-area: pop; font-size: var(--size-sm); font-variant-numeric: tabular-nums; }
-.fh-week-src { grid-area: src; font-size: var(--size-xs); color: var(--ink-secondary); text-align: right; white-space: nowrap; }
+/* その発表の週間天気予報（11/19）：横に日が並ぶ表（気象庁の週間天気予報と同じ向き）。左の列は項目名で、横に送っても残る。 */
+.fh-week-sheet { --wk-col: 40px; }
+.fh-wk-scroll { overflow-x: auto; margin: 0 calc(-1 * var(--space-2)); padding: 0 var(--space-2); }
+.fh-wk { display: grid; align-items: center; row-gap: var(--space-1); font-variant-numeric: tabular-nums; }
+.fh-wk-h { position: sticky; left: 0; z-index: 1; padding-right: var(--space-3); background: var(--surface-overlay); font-size: var(--size-xs); color: var(--ink-tertiary); white-space: nowrap; }
+.fh-wk-band { text-align: center; padding: var(--space-1) 0; border-radius: var(--radius-xs); font-size: var(--size-xs); color: var(--ink-secondary); background: var(--surface-inset); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 0 0 var(--stroke-hair) var(--surface-overlay); }
+.fh-wk-day { display: grid; justify-items: center; min-height: var(--tap-min); padding: var(--space-1) 0; border: none; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: none; color: var(--ink-primary); font: inherit; cursor: pointer; }
+.fh-wk-day b { font-size: var(--size-sm); }
+.fh-wk-day small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.fh-wk-day.target b::after { content: "・この日"; display: none; }
+.fh-wk-day.target { box-shadow: inset 0 calc(-1 * var(--stroke-focus)) 0 var(--ink-primary); }
+.fh-wk-c { display: grid; place-items: center; min-height: var(--space-7); font-size: var(--size-sm); }
+.fh-wk-day.on, .fh-wk-c.on { background: var(--accent-wash); }
+.fh-wk-day.on { color: var(--accent-base); }
+.fh-wk-detail { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-4); margin: var(--space-4) 0 var(--space-2); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--surface-inset); font-size: var(--size-sm); }

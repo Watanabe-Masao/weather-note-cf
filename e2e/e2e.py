@@ -1151,15 +1151,17 @@ with sync_playwright() as p:
         if fd:
             fd.scroll_into_view_if_needed()
             fd.click(); calm()
-            settle(lambda: pg.locator(".fh-week-sheet .fh-week-row").count() >= 3)
+            settle(lambda: pg.locator(".fh-week-sheet .fh-wk-day").count() >= 3)
             # 行を選ぶと上の枠の中身が替わる（今まで通り）。シートを開いて閉じても、開いていた間の位置に戻ることを見る。
             y0 = pg.evaluate("document.querySelector('.day-detail-scroll, .page')?.scrollTop ?? scrollY")
-            wk = (pg.locator(".fh-week-sheet .fh-week-row").count(), txt(".fh-week-sheet .msheet-head h2"), pg.locator(".fh-week-sheet .fh-week-src .fh-kchip").count(), pg.locator(".fh-week-sheet .fh-week-row.on").count())
+            d0 = txt(".fh-week-sheet .fh-wk-detail")
+            pg.locator(".fh-week-sheet .fh-wk-day").last.click(); calm(); d1 = txt(".fh-week-sheet .fh-wk-detail")
+            wk = (pg.locator(".fh-week-sheet .fh-wk-day").count(), txt(".fh-week-sheet .msheet-head h2"), pg.locator(".fh-week-sheet .fh-wk-band").count(), pg.locator(".fh-week-sheet .fh-wk-day.target").count(), "この日" in d0 and d1 != d0)
             if os.environ.get("WN_SHOT"): pg.screenshot(path=f"{os.environ['WN_SHOT']}-issue-week.png")
             pg.locator(".fh-week-sheet .icon-btn.close").click(); calm()
             y1 = pg.evaluate("document.querySelector('.day-detail-scroll, .page')?.scrollTop ?? scrollY")
-        check("SD4l 発表の行を押すと、その発表の週間天気予報（府県の3日＋週間で先を埋める・どの発表か・この日に印）、閉じられる",
-              wk is not None and wk[0] >= 7 and "時の府県天気予報" in wk[1] and wk[2] >= 1 and wk[3] == 1 and pg.locator(".fh-week-sheet").count() == 0 and abs(y0 - y1) <= 2, (wk, fd is not None, y0, y1, pg.locator(".fh-week-sheet").count()))
+        check("SD4l 発表の行を押すと、その発表の週間天気予報を横の表で（府県＋週間の帯・この日に印・列を押すと下に詳しく）、閉じられる",
+              wk is not None and wk[0] >= 7 and "時の府県天気予報" in wk[1] and wk[2] == 2 and wk[3] == 1 and wk[4] and pg.locator(".fh-week-sheet").count() == 0 and abs(y0 - y1) <= 2, (wk, fd is not None, y0, y1, pg.locator(".fh-week-sheet").count()))
         # 出どころのリンク（2026-11-19）：出典の ⓘ に、選んでいる発表の原文・実績（過去の気象データ）・今の予報。原文はシートで。
         src = pg.locator(".fh-sources")
         src.scroll_into_view_if_needed(); src.locator(".info-btn").click(); calm()
