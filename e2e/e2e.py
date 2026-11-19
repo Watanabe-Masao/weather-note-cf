@@ -5,7 +5,7 @@
 #       WN_CHROME=/path/to/chrome to use a given browser; exits 1 when a check fails (CI).
 import re
 import time
-import json, re, sys, datetime, random, threading, http.server, functools, os
+import json, re, sys, datetime, random, threading, http.server, functools, os, traceback
 from playwright.sync_api import sync_playwright
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -270,6 +270,14 @@ def step(name, fn):
         fn()
     except Exception as e:
         results.append((False, name, "EXCEPTION " + str(e).splitlines()[0][:160])); print(str(e)[:1500]) if os.environ.get("WN_DEBUG") else None
+        # 止まった行と、そのときの画面（CI では e2e/shots が成果物に残る。手元で再現しないときの手がかり）。
+        tb = [f"{f.lineno}" for f in traceback.extract_tb(e.__traceback__) if f.filename == __file__]
+        print(f"  {name} stopped at e2e.py line {' > '.join(tb)}: {str(e).splitlines()[0][:200]}", flush=True)
+        try:
+            os.makedirs(os.path.join(os.path.dirname(__file__), "shots"), exist_ok=True)
+            pg.screenshot(path=os.path.join(os.path.dirname(__file__), "shots", f"fail-{W}-{name}.png"), full_page=True)
+        except Exception:
+            pass
     TIMES.append((name, time.monotonic() - t0))
 
 errors = []
