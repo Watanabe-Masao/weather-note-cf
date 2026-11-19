@@ -17,7 +17,7 @@ import { createPortal } from "react-dom";
 import { CloseIcon } from "./icons";
 import { useSkyLook } from "./useSkyLook";
 import { CompassTrim } from "./CompassTrim";
-import { dirName, MoonGlyph } from "./moonParts";
+import { dirName, MoonGlyph, MoonSphere } from "./moonParts";
 import { latLonText, useHere } from "./useHere";
 import stations from "../../shared/stations.json";
 import { MoonSheet } from "./MoonSheet";
@@ -376,7 +376,15 @@ export function SunSheet({
         </span>
       </div>
       <div className="sun-now moon">
-        <MoonGlyph phase={phaseAt} size={28} />
+        {/* 11/19 渡辺さん「この回転や傾きをこっちにも」：出ている間は月のこよみの「見え方」と同じ（光っている側の傾き・模様の向き・
+            高さの色）。地平線の下は暦の形のまま。 */}
+        {moonAt.altitude >= 0 ? (
+          <span className="sun-now-moon" aria-hidden>
+            <MoonSphere phase={phaseAt} size={28} limb={moonAt.limb} north={moonAt.north} tint={moonAt.tint} dark={false} />
+          </span>
+        ) : (
+          <MoonGlyph phase={phaseAt} size={28} />
+        )}
         <span className="sun-now-phase">
           月 {moonAt.altitude >= 0 ? `地平線の上 ${Math.round(moonAt.altitude)}°・${dirName(moonAt.azimuth)}` : "地平線の下"}
           <small>
