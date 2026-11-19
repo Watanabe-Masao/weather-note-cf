@@ -109,13 +109,11 @@ describe.each(THEME_NAMES)("%s", (name) => {
       ),
     ).toEqual([]);
   });
-  it("keeps the green accent apart from the data: 湿度 (the green-teal item) by ΔE ≥ 10, every other item ≥ 7", () => {
+  // 湿度は 2026-11-20 に緑みの黄へ（明るいテーマで黒に近く見えたため）。緑青の項目ではなくなったので、ほかと同じ ΔE ≥ 7。
+  it("keeps the green accent apart from the data: every item by ΔE ≥ 7", () => {
     expect(
       Object.entries(t.data)
-        .filter(
-          ([k, c]) =>
-            deltaE(c, t.accent.base) < (k.startsWith("humidity") ? 10 : 7),
-        )
+        .filter(([, c]) => deltaE(c, t.accent.base) < 7)
         .map(([k]) => k),
     ).toEqual([]);
   });

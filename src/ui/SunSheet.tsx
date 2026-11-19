@@ -21,12 +21,14 @@ import { dirName, MoonGlyph, MoonSphere } from "./moonParts";
 import { latLonText, useHere } from "./useHere";
 import stations from "../../shared/stations.json";
 import { MoonSheet } from "./MoonSheet";
-import { onSkyVars, SKY_ICON } from "../design/tokens";
+import { onSkyVars, SKY_ICON, TWILIGHT_BAND } from "../design/tokens";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 
 /** 空の色の上に描くもの（#241、11/20）：テーマによらず暗い地に合わせた色で。 */
 const ON_SKY = onSkyVars() as CSSProperties;
+/** 薄明の帯の高さ（グラフの単位）。 */
+const TW_STRIP = 6;
 
 const W = 340;
 const H = 270; // 11/19：出入りを2行に詰めた分、グラフ（主役）を大きく
@@ -313,6 +315,12 @@ export function SunSheet({
           {high}°
         </text>
         <g style={ON_SKY}>
+        {/* 薄明の段（11/20 渡辺さん）：下の端に、市民・航海・天文の帯。空はなめらかなまま、段の区切りをここで読む。色は薄明の表の見本と同じ。 */}
+        {curve.slice(0, -1).map((p) => {
+          const mid = (p.deg + (curve[curve.indexOf(p) + 1]?.deg ?? p.deg)) / 2;
+          const k = mid > 0 || mid <= -18 ? null : mid > -6 ? TWILIGHT_BAND.civil : mid > -12 ? TWILIGHT_BAND.nautical : TWILIGHT_BAND.astronomical;
+          return k ? <rect key={`tw${p.min}`} x={x(p.min)} width={x(p.min + 10) - x(p.min) + 0.4} y={H - PAD.bottom - TW_STRIP} height={TW_STRIP} fill={k} className="sun-tw-strip" /> : null;
+        })}
         {[0, ...TWILIGHTS.map((tw) => tw.deg)].map((d) => (
           <line key={d} x1={PAD.left} x2={W - PAD.right} y1={y(d)} y2={y(d)} className={d === 0 ? "sun-horizon" : "sun-depth"} />
         ))}
@@ -451,8 +459,8 @@ export function SunSheet({
             return (
               <tr key={tw.id}>
                 <th>
-                  {/* The sky low over the land in the middle of this twilight (a clear evening). */}
-                  <i className="sun-swatch" style={{ background: skyAt(tw.deg + 3, 1, 0, true).horizon }} />
+                  {/* グラフの下の端の帯と同じ色（11/20）。 */}
+                  <i className="sun-swatch" style={{ background: TWILIGHT_BAND[tw.id] }} />
                   {tw.label.replace("薄明", "")}
                 </th>
                 <td>{span.start == null ? "—" : clockOf(span.start)}</td>

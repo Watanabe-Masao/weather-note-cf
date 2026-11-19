@@ -179,10 +179,12 @@ function hueTurn(a: Lin, b: Lin, t: number, dir: 1 | -1): Lin {
 }
 
 /** The clear sky's tint (luminance 1) at the sun's altitude, zenith and horizon. Cached by 0.1°. */
-export function clearTint(alt: number): { z: Lin; h: Lin } {
-  const key = Math.round(alt * 10);
+export function clearTint(altitude: number): { z: Lin; h: Lin } {
+  const key = Math.round(altitude * 10);
   const hit = tintCache.get(key);
   if (hit) return hit;
+  // 0.1° に丸めた高さで計算する（2026-11-20）：最初に呼んだ高さで作ると、呼ぶ順番で同じキーの色が変わる。
+  const alt = key / 10;
   const above = (a: number) => {
     // The horizon is taken across from the sun (90° away: the pale blue one sees), not the mean over
     // azimuths, which the low sun's side tints yellow-green (Preetham's known bias). The low sun's
@@ -294,12 +296,16 @@ const GLOW_TINT: Lin = unit(fromHex("#9aa3b8"));
 
 /**
  * How light the sky's colour is drawn, from its apparent luminance (cd/m²), on a log scale and narrow:
- * 0.0001 cd/m² (a dark night) → 0.33, each tenfold +0.05, up to 0.74 (a bright daytime sky). The eye
+ * 0.0001 cd/m² (a dark night) → NIGHT_LIGHTNESS (0.22), evenly in log up to 0.74 at 10⁴ cd/m² (a bright
+ * daytime sky). 2026-11-20 渡辺さん「夜はもっと黒い方が自然」：the floor was 0.33 (a greyish navy); at 0.22
+ * the night reads as night and the lines over it stand out more. The eye
  * adapts, so a night sky is seen as navy, not as a dark grey (渡辺さん, 2026-11-13: "グレースケールを
  * 重ねて明るさを表現するとおかしくなる"): the colour shows the sky; how bright it is, the level line
  * and the card's numbers.
  */
-export const skyLightness = (cdm2: number) => Math.min(0.74, Math.max(0.33, 0.33 + 0.05 * Math.log10(Math.max(1e-4, cdm2) / 1e-4)));
+export const NIGHT_LIGHTNESS = 0.22;
+export const skyLightness = (cdm2: number) =>
+  Math.min(0.74, Math.max(NIGHT_LIGHTNESS, NIGHT_LIGHTNESS + ((0.74 - NIGHT_LIGHTNESS) * Math.log10(Math.max(1e-4, cdm2) / 1e-4)) / 8.2));
 
 /** One step of how a sky colour was made, for tracing it to its formula and source. */
 export interface SkyStep {
@@ -385,7 +391,7 @@ function compute(alt: number, factor: number, rainMm: number, evening: boolean, 
   const day = Math.max(0, Math.min(1, (alt + 4) / 10));
   const glow = (1 - c) * Math.max(0, 1 - Math.abs(alt + 1) / 6);
   const sun = Math.max(0, Math.min(1, (index - 3) / 3));
-  const Lz = Math.max(0.3, base - (0.05 + 0.08 * sun) * (1 - c) * day + 0.02 * c);
+  const Lz = Math.max(NIGHT_LIGHTNESS - 0.03, base - (0.05 + 0.08 * sun) * (1 - c) * day + 0.02 * c);
   const Lh = Math.min(0.86, base + 0.06 * (1 - c) * day - 0.03 * c + 0.08 * glow + 0.03 * lit);
   trace?.push({
     key: "light",
@@ -393,7 +399,7 @@ function compute(alt: number, factor: number, rainMm: number, evening: boolean, 
     zenith: placeTint(z, Lz),
     horizon: placeTint(h, Lh),
     note: `空の輝度 ${luminanceText(sky)} → 明度 ${base.toFixed(2)}（天頂 ${Lz.toFixed(2)}・地平 ${Lh.toFixed(2)}）。地上は ${luxText(lux)}`,
-    source: "空の輝度＝地上の照度÷π と街の明かり（Kyba 2011）の大きい方。明度は対数で 0.33〜0.74（仮）",
+    source: "空の輝度＝地上の照度÷π と街の明かり（Kyba 2011）の大きい方。明度は対数で 0.22〜0.74（仮）",
     provisional: true,
   });
 
