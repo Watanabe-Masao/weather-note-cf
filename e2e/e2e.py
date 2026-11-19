@@ -124,6 +124,7 @@ def api(path, q):
             "completeness": {"forecast": {"VPFD51": ser(6, 6, 0, 0), "VPFW50": ser(4, 4, 0, 0)}, "radar": {"hrpns": ser(48, 46, 2, 0, ["2026-11-10T11:00:00+09:00", "2026-11-10T11:30:00+09:00"]), "rasrf": ser(48, 48, 0, 0)}, "lostAll": [], "lostLastDay": [], "absentAll": []},
             "errors": [{"at": "2026-11-10T02:50:00Z", "where": "雨雲の保存", "message": "hrpns 20261110023000/8/222/102: HTTP 503"}, {"at": "2026-11-09T14:43:17Z", "where": "アカウント /api/reports/sync", "message": "Error: This promise was created by a request that has since ended, so it can never settle."}],
             "room": {"d1Size": {"bytes": 66480000, "percent": 0.6}, "d1WritesMonth": {"estimate": 635000, "percent": 1.3, "rowsLastDay": 7054}, "r2": {"bytes": 5138000, "percentOfFree": 0}, "cronRunsLastDay": 288, "cronMissing": 0},
+            "lastAudit": {"at": "2026-11-10T01:05:00Z", "result": {"tables": [{"name": "forecast_entries", "rows": 182345}, {"name": "reports", "rows": 412}, {"name": "users", "rows": 3}], "links": [{"name": "予報の値で、もとの発表が無い", "n": 0}, {"name": "肌感の記録で、人がいない", "n": 0}]}},
             "lastDupCheck": {"at": "2026-11-10T01:00:00Z", "result": [{"name": "予報の電文（同じ中身）", "n": 0, "examples": []}, {"name": "予報の電文（同じ発表時刻に2通以上）", "n": 1, "examples": ["VPFD51 11/9 11:00（2通）"], "note": "訂正報で正しく2通のこともある"}, {"name": "肌感の記録（同じ人・時刻・中身が2件以上）", "n": 0, "examples": []}]}}
     if path == "/api/rain-now":
         return RAIN_NOW
@@ -875,7 +876,7 @@ with sync_playwright() as p:
         settle(lambda: pg.locator(".maintenance-sheet .mt-list").count() >= 3)
         ms = pg.locator(".maintenance-sheet")
         rb = ms.locator("button", has_text="今すぐ取り直す")
-        check("J6 データの保守：注意の行、取り直しは要る段（雨雲）だけ、ほかは「必要ありません」、エラー2件、重なりの疑い", ms.locator(".mt-badge", has_text="注意 1").count() == 1 and rb.count() == 1 and "あと2回" in rb.inner_text() and ms.locator(".mt-fine", has_text="今は取り直す必要はありません").count() == 3 and "2件" in ms.inner_text() and "訂正報" in ms.inner_text(), ms.inner_text()[:300])
+        check("J6 データの保守：注意の行、取り直しは要る段（雨雲）だけ、ほかは「必要ありません」、エラー2件、重なりの疑い", ms.locator(".mt-badge", has_text="注意 1").count() == 1 and rb.count() == 1 and "あと2回" in rb.inner_text() and ms.locator(".mt-fine", has_text="今は取り直す必要はありません").count() == 3 and "2件" in ms.inner_text() and "訂正報" in ms.inner_text() and "表ごとの行数（3表）" in ms.inner_text(), ms.inner_text()[:300])
         layout_ok("J6b", "データの保守")
         if os.environ.get("WN_SHOT"):
             pg.set_viewport_size({"width": W, "height": 2200}); calm()

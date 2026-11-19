@@ -15,6 +15,7 @@ import { importPosition } from "./forecastImport";
 import { monthUsage, scheduledRuns, type UsageEnv } from "./usage";
 import { readCompleteness } from "./completeness";
 import { doneOnce } from "./once";
+import { migrate } from "./migrate";
 import { failureKind } from "../../shared/healthJudge";
 
 export const HEALTH_SCHEMA = [
@@ -53,14 +54,8 @@ const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts�
 export function ensureHealthSchema(db: Db): Promise<void> {
   return doneOnce(done, db, async () => {
     for (const q of HEALTH_SCHEMA) await db.prepare(q).run();
-    // d1_ms (2026-11-18) and error (2026-11-19, the failing stage's message for the maintenance screen): added to a
-    // table that may already be there; "duplicate column" means it is.
-    for (const col of ["d1_ms INTEGER", "error TEXT"])
-      try {
-        await db.prepare(`ALTER TABLE cron_runs ADD COLUMN ${col}`).run();
-      } catch (e) {
-        if (!/duplicate column/i.test(String(e))) throw e;
-      }
+    // 作ったあとの変更は版で（migrate.ts）：v1 d1_ms（2026-11-18）、v2 error（2026-11-19、データの保守の段の失敗の文言）。
+    await migrate(db, "health", [["ALTER TABLE cron_runs ADD COLUMN d1_ms INTEGER"], ["ALTER TABLE cron_runs ADD COLUMN error TEXT"]]);
   });
 }
 

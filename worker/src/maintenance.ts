@@ -53,17 +53,33 @@ const pendingOf = (c: { forecast?: Record<string, { pendingCount?: number }>; ra
 
 /** 管理画面「データの保守」の中身（読むだけ）。 */
 export async function maintenanceSummary(db: Db, now: number, env: UsageEnv & { hasBucket: boolean }) {
-  const h = await health(db, now, env);
-  const judged = judgeHealth(h as never, now);
-  const lastDup = await rows<{ at: string; detail: string }>(db, "SELECT at, detail FROM refetch_log WHERE stage = 'dupcheck' ORDER BY id DESC LIMIT 1");
+  // 1つが失敗しても画面は出す（2026-11-19、実機で全体が「処理に失敗しました」になった）：部分ごとに受け止め、
+  // 失敗した部分と文言を failed に並べる（それ自体が保守の手がかり）。
+  const failed: { part: string; message: string }[] = [];
+  const part = async <T>(name: string, f: () => Promise<T>, empty: T): Promise<T> => {
+    try {
+      return await f();
+    } catch (e) {
+      failed.push({ part: name, message: (e instanceof Error ? `${e.name}: ${e.message}` : String(e)).slice(0, 300) });
+      return empty;
+    }
+  };
+  const h = await part("今の状態", () => health(db, now, env), null);
+  const judged = h ? await part("判定", async () => judgeHealth(h as never, now), { problems: [], notes: [] } as ReturnType<typeof judgeHealth>) : { problems: [], notes: [] };
+  const lastDup = await part("重なり", () => rows<{ at: string; detail: string }>(db, "SELECT at, detail FROM refetch_log WHERE stage = 'dupcheck' ORDER BY id DESC LIMIT 1"), []);
+  const lastAudit = await part("表の点検", () => rows<{ at: string; detail: string }>(db, "SELECT at, detail FROM refetch_log WHERE stage = 'audit' ORDER BY id DESC LIMIT 1"), []);
+  const refetch = await part("取得の様子", () => refetchSummary(db, now, env.hasBucket, pendingOf(h?.state.completeness)), { perHour: 0, stages: [] } as Awaited<ReturnType<typeof refetchSummary>>);
+  const errors = await part("エラーの記録", () => recentErrors(db, now), [] as ErrorRow[]);
   return {
     at: new Date(now).toISOString(),
+    failed,
     judged,
-    refetch: await refetchSummary(db, now, env.hasBucket, pendingOf(h.state.completeness)),
-    completeness: h.state.completeness,
-    errors: await recentErrors(db, now),
-    room: { d1Size: h.room.d1Size, d1WritesMonth: h.room.d1WritesMonth, r2: { bytes: h.room.r2.bytes, percentOfFree: h.room.r2.percentOfFree }, cronRunsLastDay: h.room.cron.runsLastDay, cronMissing: h.room.cron.missing },
+    refetch,
+    completeness: h?.state.completeness,
+    errors,
+    room: h ? { d1Size: h.room.d1Size, d1WritesMonth: h.room.d1WritesMonth, r2: { bytes: h.room.r2.bytes, percentOfFree: h.room.r2.percentOfFree }, cronRunsLastDay: h.room.cron.runsLastDay, cronMissing: h.room.cron.missing } : null,
     lastDupCheck: lastDup[0] ? { at: lastDup[0].at, result: JSON.parse(lastDup[0].detail) as DupItem[] } : null,
+    lastAudit: lastAudit[0] ? { at: lastAudit[0].at, result: JSON.parse(lastAudit[0].detail) as AuditResult } : null,
   };
 }
 
@@ -110,5 +126,41 @@ export async function dupCheck(db: Db, now: number, adminId: string): Promise<Du
   out.push({ name: "肌感の記録（同じ人・時刻・中身が2件以上）", n: rep.length, examples: rep.slice(0, 3).map((x) => `${short(x.at)}（${x.n}件）`) });
   await ensureRefetchSchema(db);
   await db.prepare("INSERT INTO refetch_log (at, admin_id, stage, ok, detail) VALUES (?, ?, 'dupcheck', ?, ?)").bind(new Date(now).toISOString(), adminId, out.some((x) => x.n && !x.note) ? 0 : 1, JSON.stringify(out)).run();
+  return out;
+}
+
+export type AuditResult = { tables: { name: string; rows: number }[]; links: { name: string; n: number }[] };
+
+/**
+ * 表の点検（読むだけ、DB 設計の提案への回答④「現状監査」）：表ごとの行数と、表どうしのつながりが切れていないか。
+ * つながり：予報の値 → その発表、自前の発表 → その電文、R2 の写しの記録 → その電文、肌感の記録・ログイン・通知の設定・
+ * 端末 → その人。全部の表を数えるので、ボタンで押したときだけ（毎回は読まない）。
+ */
+export async function tableAudit(db: Db, now: number, adminId: string): Promise<AuditResult> {
+  const names = (await rows<{ name: string }>(db, "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY name")).map((r) => r.name);
+  const tables: AuditResult["tables"] = [];
+  for (const name of names) {
+    const r = await rows<{ n: number }>(db, `SELECT COUNT(*) AS n FROM "${name.replace(/"/g, "")}"`);
+    tables.push({ name, rows: r[0]?.n ?? 0 });
+  }
+  const LINKS: [string, string][] = [
+    ["予報の値で、もとの発表が無い", "SELECT COUNT(*) AS n FROM forecast_entries e WHERE NOT EXISTS (SELECT 1 FROM forecast_issues i WHERE i.issue_id = e.issue_id)"],
+    ["自前の発表で、もとの電文が無い", "SELECT COUNT(*) AS n FROM forecast_issues i WHERE i.source = 'jma-xml' AND NOT EXISTS (SELECT 1 FROM forecast_telegrams t WHERE t.id = i.issue_id)"],
+    ["R2 の写しの記録で、もとの電文が無い（予報）", "SELECT COUNT(*) AS n FROM archive_copies c WHERE c.source = 'forecast' AND NOT EXISTS (SELECT 1 FROM forecast_telegrams t WHERE t.id = c.id)"],
+    ["R2 の写しの記録で、もとの電文が無い（台風）", "SELECT COUNT(*) AS n FROM archive_copies c WHERE c.source = 'typhoon' AND NOT EXISTS (SELECT 1 FROM typhoon_telegrams t WHERE t.id = c.id)"],
+    ["R2 の写しの記録で、もとの電文が無い（警報）", "SELECT COUNT(*) AS n FROM archive_copies c WHERE c.source = 'warning' AND NOT EXISTS (SELECT 1 FROM warning_telegrams t WHERE t.id = c.id)"],
+    ["肌感の記録で、人がいない", "SELECT COUNT(*) AS n FROM reports r WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = r.user_id)"],
+    ["ログインで、人がいない", "SELECT COUNT(*) AS n FROM sessions s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = s.user_id)"],
+    ["通知の設定で、人がいない", "SELECT COUNT(*) AS n FROM notify_settings s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = s.user_id)"],
+    ["通知の端末で、人がいない", "SELECT COUNT(*) AS n FROM push_subscriptions s WHERE NOT EXISTS (SELECT 1 FROM users u WHERE u.id = s.user_id)"],
+  ];
+  const links: AuditResult["links"] = [];
+  for (const [name, q] of LINKS) {
+    const r = await rows<{ n: number }>(db, q);
+    if (r.length) links.push({ name, n: r[0].n });
+  }
+  const out = { tables, links };
+  await ensureRefetchSchema(db);
+  await db.prepare("INSERT INTO refetch_log (at, admin_id, stage, ok, detail) VALUES (?, ?, 'audit', ?, ?)").bind(new Date(now).toISOString(), adminId, links.some((l) => l.n) ? 0 : 1, JSON.stringify(out)).run();
   return out;
 }
