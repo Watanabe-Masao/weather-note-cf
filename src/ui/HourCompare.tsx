@@ -415,7 +415,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           </span>
         )}
       </p>
-      <InfoNote more={<>時刻の下の天気は、その時刻の前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}。薄いのは日照と降水からの推定です。凡例の線の名前を押すと、その線を薄くできます。</>} />
+      <InfoNote more={<>時刻の下の天気は、その時刻の前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}。薄いのは日照と降水からの推定です。「—」は、その時刻の前後に気象庁の天気の記録が無い時間です（取り損ねではありません。夜は日照も無いので推定もしません。先の時間は予報が出ていれば予報の天気）。凡例の線の名前を押すと、その線を薄くできます。</>} />
       </div>
     </div>
   );
@@ -482,7 +482,7 @@ function BandWeatherIcons({ main, other, night, otherNight, dates }: { main: Ban
         {w.storm && <StormMark level={w.storm} why={w.why} />}
       </span>
     ) : (
-      <span className={`${cls} none`}>—</span>
+      <span className={`${cls} none`} aria-label="天気の記録なし（気象庁の記録が無い時間）">—</span>
     );
   return (
     <>
