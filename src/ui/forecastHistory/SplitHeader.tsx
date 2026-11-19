@@ -187,6 +187,12 @@ export function SplitHeader({
                 {hours.length ? `${hours[hours.length - 1].h}時まで` : "まだ"}
               </span>
             )}
+            {/* 「—」の理由（2026-11-19）：その範囲がまだ終わっていない（取り損ねではない） */}
+            {!done && a && aMax == null && (
+              <span className="fh-lead">
+                {ranged ? "日中の最高は18時まで決まらない" : "最高はその日が終わるまで決まらない"}
+              </span>
+            )}
           </div>
           {/* 予報との差（実績 − 選んだ発表の予報）。▲▼（前の発表からの変化）と取り違えないよう、符号つきの数字と「差」の札で */}
           <div className="fh-gap">
