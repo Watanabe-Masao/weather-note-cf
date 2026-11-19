@@ -16,6 +16,10 @@ import { monthUsage, scheduledRuns, type UsageEnv } from "./usage";
 import { readCompleteness } from "./completeness";
 import { doneOnce } from "./once";
 import { migrate } from "./migrate";
+import { transientD1 } from "./retry";
+
+/** 段をやり直すまでの待ち（一時的な D1 の失敗のとき、1回だけ）。 */
+export const STAGE_RETRY_MS = 1_000;
 import { failureKind } from "../../shared/healthJudge";
 
 export const HEALTH_SCHEMA = [
@@ -112,15 +116,26 @@ export async function timed(db: Db, at: string, stage: string, fn: (db: Db) => P
   const m = meterOf(db, stage);
   let ok = 1;
   let error: string | null = null;
+  let retried = false;
   try {
-    await fn(m.db);
+    try {
+      await fn(m.db);
+    } catch (e) {
+      // 一時的な D1 の失敗なら、1秒待って段を1回だけやり直す（段は重ならない作り。retry.ts）。
+      if (!transientD1(e)) throw e;
+      retried = true;
+      console.error(`weather-note: ${stage} (retrying)`, e);
+      await new Promise((r) => setTimeout(r, STAGE_RETRY_MS));
+      await fn(m.db);
+    }
   } catch (e) {
     ok = 0;
     error = (e instanceof Error ? `${e.name}: ${e.message}` : String(e)).slice(0, 300);
     console.error(`weather-note: ${stage}`, e);
   }
+  if (retried && ok) error = "（一時的な D1 の失敗のあと、やり直して済んだ）";
   const ms = Date.now() - t;
-  console.log(JSON.stringify({ wn: "cron-stage", at, stage, ms, d1Ms: m.ms(), ok }));
+  console.log(JSON.stringify({ wn: "cron-stage", at, stage, ms, d1Ms: m.ms(), ok, ...(retried ? { retried } : {}) }));
   try {
     await ensureHealthSchema(db);
     await db.prepare("INSERT OR REPLACE INTO cron_runs (at, stage, ms, ok, d1_ms, error) VALUES (?, ?, ?, ?, ?, ?)").bind(at, stage, ms, ok, m.ms(), error).run();

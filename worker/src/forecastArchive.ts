@@ -14,6 +14,7 @@ import type { Db } from "./accounts";
 import { feedEntries, telegramId, type FeedEntry } from "./typhoonArchive";
 import { doneOnce } from "./once";
 import { noteListed } from "./listed";
+import { retryingFetch } from "./retry";
 
 /** 一覧に載っていた印を残す予報区：見張る高知（forecastWatch.ts の FORECAST_WATCH_OFFICE と同じ。読み込みが輪にならないよう、ここにも）。 */
 export const LISTED_OFFICE = "390000";
@@ -110,7 +111,8 @@ async function sha256(s: string): Promise<string> {
 }
 
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
-const defaultFetch: Fetcher = (url) => fetch(url, { signal: AbortSignal.timeout(20_000) });
+// 一時的な失敗（5xx・429・接続の切れ）は、待ちを延ばしながら3回まで（retry.ts）。
+const defaultFetch: Fetcher = retryingFetch(20_000);
 
 const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureForecastSchema(db: Db): Promise<void> {

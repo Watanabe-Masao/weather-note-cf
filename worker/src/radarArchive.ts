@@ -12,6 +12,7 @@ import type { Bucket } from "./r2Archive";
 import { doneOnce } from "./once";
 import { FEED_REACH_MS } from "./completeness";
 import { noteListed } from "./listed";
+import { retryingFetch } from "./retry";
 
 export const RADAR_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS radar_saved (
@@ -46,7 +47,8 @@ export const RADAR_RESCUE_MS = 60 * 60_000;
 const LOG_DAYS = 400;
 
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; arrayBuffer(): Promise<ArrayBuffer>; text(): Promise<string> }>;
-const defaultFetch: Fetcher = (url) => fetch(url, { signal: AbortSignal.timeout(20_000) });
+// 一時的な失敗（5xx・429・接続の切れ）は、待ちを延ばしながら3回まで（retry.ts）。
+const defaultFetch: Fetcher = retryingFetch(20_000);
 
 const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureRadarSchema(db: Db): Promise<void> {

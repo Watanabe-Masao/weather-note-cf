@@ -15,6 +15,7 @@
 import { CHART_HOURS, forecastCharts, quickChartUrl } from "../../shared/wxchart";
 import type { Db } from "./accounts";
 import { doneOnce } from "./once";
+import { retryingFetch } from "./retry";
 
 /** The part of R2's bucket used here (the binding ARCHIVE; a Map stands in for it in the tests). */
 export interface Bucket {
@@ -70,7 +71,8 @@ const SOURCES = [
 ] as const;
 
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; arrayBuffer(): Promise<ArrayBuffer>; json?(): Promise<unknown>; text(): Promise<string> }>;
-const defaultFetch: Fetcher = (url) => fetch(url, { signal: AbortSignal.timeout(20_000) });
+// 一時的な失敗（5xx・429・接続の切れ）は、待ちを延ばしながら3回まで（retry.ts）。
+const defaultFetch: Fetcher = retryingFetch(20_000);
 
 const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureR2Schema(db: Db): Promise<void> {

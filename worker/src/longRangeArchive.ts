@@ -15,6 +15,7 @@ import type { Db } from "./accounts";
 import { type Bucket, gunzip, gzip } from "./r2Archive";
 import { feedEntries, telegramId, type FeedEntry } from "./typhoonArchive";
 import { doneOnce } from "./once";
+import { retryingFetch } from "./retry";
 
 export const LONG_RANGE_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS longrange_telegrams (
@@ -66,7 +67,8 @@ const sha256 = async (b: Uint8Array<ArrayBuffer>) => hex(await crypto.subtle.dig
 export const longRangeKey = (id: string, issuedAt: string | null) => `telegrams/longrange/${issuedAt ? issuedAt.slice(0, 7) : "unknown"}/${id}.xml.gz`;
 
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
-const defaultFetch: Fetcher = (url) => fetch(url, { signal: AbortSignal.timeout(20_000) });
+// 一時的な失敗（5xx・429・接続の切れ）は、待ちを延ばしながら3回まで（retry.ts）。
+const defaultFetch: Fetcher = retryingFetch(20_000);
 
 const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureLongRangeSchema(db: Db): Promise<void> {
