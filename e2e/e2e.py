@@ -739,6 +739,9 @@ with sync_playwright() as p:
         check("SS2 薄明は 市民→航海→天文 の順（朝は早く・夕は遅く）、日の出→南中→日の入り", mins, (keys, tw))
         moon = pg.locator(".sun-keys.moon .sun-key").count()
         check("SS2c 月：月の出・南中・月の入りの3枚と、選んだ時刻の月（高さ・方位・月齢・明るい部分）", moon == 3 and "月齢" in txt(".sun-now.moon"), txt(".sun-now.moon"))
+        # 11/19 渡辺さん「この回転や傾きをこっちにも」：月の行の絵は、出ている間は月のこよみと同じ球の絵（傾き・模様の向き）。
+        up_now = "地平線の上" in txt(".sun-now.moon")
+        check("SS2y 月の行：出ている間は傾きのある球の絵、下にあるときは暦の形", pg.locator(".sun-now.moon .sun-now-moon canvas").count() == (1 if up_now else 0) and pg.locator(".sun-now.moon > .moon-glyph").count() == (0 if up_now else 1), (up_now, txt(".sun-now.moon")))
         # 11/19：月が太陽より高く昇る日も、月の線がグラフの上端に張り付かない（上端は太陽と月の高い方から）。
         mt = pg.evaluate("""() => { const c = document.querySelector('.sun-chart'); const r = c && c.querySelector('rect'); const m = c && c.querySelector('.moon-curve');
           if (!r || !m) return null; const top = +r.getAttribute('y'); const ys = (m.getAttribute('d').match(/-?[\\d.]+,-?[\\d.]+/g) || []).map(p => +p.split(',')[1]);

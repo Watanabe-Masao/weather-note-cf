@@ -4426,6 +4426,8 @@ select.chip.sm {
 .time-row .sun-slider { flex: 1; min-width: 0; }
 .time-acts { display: flex; align-items: center; gap: var(--space-3); margin-left: auto; }
 .sun-now.moon { margin-top: var(--space-2); }
+.sun-now-moon { display: block; flex: none; width: 28px; height: 28px; }
+.sun-now-moon canvas { display: block; }
 .sun-now-alt small { display: block; text-align: right; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sun-keys.moon { margin-top: var(--space-2); }
 .sky-view { width: 100%; height: auto; display: block; margin-top: var(--space-3); }
