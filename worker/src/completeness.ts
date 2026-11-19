@@ -6,6 +6,9 @@
 // 欠けは2つに分ける：
 //   pending  まだ取り戻せる（提供元の一覧に載っている間）。次の回で取れるはず
 //   lost     取り戻せない（一覧から外れた）。data_gaps に1度だけ残し、消さない（明示する）
+//   absent   提供元が出していない（2026-11-19、#299 P1）：一覧を読めた回があったのに、その時刻が一度も載らなかった。
+//            証拠は listed.ts の source_listed（載っていた時刻）と、取得の記録（読めた回）。証拠を取り始める前の時刻は
+//            分けられないので lost のまま。data_absent に1度だけ残す。欠けではないので、続けて確かめられた位置は止めない。
 // 一覧に載っている長さ：予報の電文 7日（長い一覧）、雨雲レーダー 約3時間、解析雨量 約12時間（docs/runbook.md）。
 // 見る範囲：保存を始めた時刻から、最大 AUDIT_DAYS 日前まで（それより前の lost は data_gaps に残っている）。
 // 今から猶予（予報 60分＝forecastWatch と同じ、雨雲 60分）以内の回は、まだ途中かもしれないので数えない。
@@ -17,9 +20,17 @@ import { doneOnce } from "./once";
 export const AUDIT_DAYS = 14;
 const H = 3_600_000;
 export const FEED_REACH_MS = { forecast: 7 * 24 * H, hrpns: 3 * H, rasrf: 12 * H } as const;
+/** 予報の短い一覧の長さ（約10時間。forecastArchive.ts の SHORT_REACH_MS と同じ、控えめに8時間）。 */
+const FEED_SHORT_REACH_MS = 8 * H;
 const RADAR_GRACE_MS = H;
 
 export const COMPLETENESS_SCHEMA = [
+  `CREATE TABLE IF NOT EXISTS data_absent (
+    source TEXT NOT NULL,
+    item TEXT NOT NULL,
+    found_at TEXT NOT NULL,
+    PRIMARY KEY (source, item)
+  )`,
   `CREATE TABLE IF NOT EXISTS data_gaps (
     source TEXT NOT NULL,
     item TEXT NOT NULL,
@@ -48,6 +59,8 @@ export interface SeriesAudit {
   watermark: string | null;
   pending: string[];
   lost: string[];
+  /** 提供元が出していない（欠けではない）。 */
+  absent: string[];
 }
 
 /** 予報の定時の発表の時刻（日本時間の ISO）を、from〜to の間で古い順に。 */
@@ -62,9 +75,10 @@ export function scheduledTimes(kind: keyof typeof FORECAST_SCHEDULE, fromMs: num
   return out;
 }
 
-const audit = (times: string[], have: (t: string) => boolean, lostBefore: number): SeriesAudit => {
+const audit = (times: string[], have: (t: string) => boolean, lostBefore: number, notIssued: (t: string) => boolean = () => false): SeriesAudit => {
   const pending: string[] = [];
   const lost: string[] = [];
+  const absent: string[] = [];
   let watermark: string | null = null;
   let broken = false;
   for (const t of times) {
@@ -72,10 +86,43 @@ const audit = (times: string[], have: (t: string) => boolean, lostBefore: number
       if (!broken) watermark = t;
       continue;
     }
+    if (Date.parse(t) < lostBefore && notIssued(t)) {
+      absent.push(t); // 出ていない回は欠けではない（続けて確かめられた位置は止めない）
+      if (!broken) watermark = t;
+      continue;
+    }
     broken = true;
     (Date.parse(t) < lostBefore ? lost : pending).push(t);
   }
-  return { from: times[0] ?? null, to: times.at(-1) ?? null, expected: times.length, kept: times.length - pending.length - lost.length, watermark, pending, lost };
+  return { from: times[0] ?? null, to: times.at(-1) ?? null, expected: times.length - absent.length, kept: times.length - pending.length - lost.length - absent.length, watermark, pending, lost, absent };
+};
+
+/** 一覧に載っていた時刻（ms）。表がまだ無ければ空。 */
+async function listedOf(db: Db, source: string, fromIso: string): Promise<number[]> {
+  try {
+    return (await db.prepare("SELECT item FROM source_listed WHERE source = ? AND item >= ?").bind(source, fromIso).all<{ item: string }>()).results.map((r) => Date.parse(r.item));
+  } catch (e) {
+    if (/no such table/i.test(String(e))) return [];
+    throw e;
+  }
+}
+/** 一覧を読めた回の時刻（ms）と、その回の一覧の長さ。 */
+async function okReads(db: Db, table: "forecast_fetch_log" | "radar_fetch_log", fromIso: string, reachOf: (feed: string | null) => number): Promise<{ at: number; reach: number }[]> {
+  const col = table === "forecast_fetch_log" ? "feed" : "NULL AS feed";
+  return (await db.prepare(`SELECT at, ${col} FROM ${table} WHERE ok = 1 AND at >= ?`).bind(fromIso).all<{ at: string; feed: string | null }>()).results.map((r) => ({ at: Date.parse(r.at), reach: reachOf(r.feed) }));
+}
+/**
+ * 提供元が出していない、と言える回か：証拠を取り始めた後で、その時刻を載せるはずの間（猶予の後〜一覧から外れる前）に
+ * 一覧を読めた回があり、それでも一度も載らなかった。
+ */
+const notIssuedBy = (listed: number[], reads: { at: number; reach: number }[], grace: number, window: number) => {
+  const since = listed.length ? Math.min(...listed) : Infinity;
+  return (t: string) => {
+    const ms = Date.parse(t);
+    if (ms < since) return false;
+    if (listed.some((l) => l >= ms && l < ms + window)) return false;
+    return reads.some((r) => r.at >= ms + grace && r.at <= ms + r.reach);
+  };
 };
 
 /** 予報の電文の定時の発表が、1回ずつ保存されているか（種類ごと）。保存を始める前の時刻は数えない。 */
@@ -87,7 +134,7 @@ export async function auditForecasts(db: Db, now: number): Promise<Record<string
       .bind(FORECAST_WATCH_OFFICE, kind)
       .first<{ t: string | null }>();
     if (!first?.t) {
-      out[kind] = { from: null, to: null, expected: 0, kept: 0, watermark: null, pending: [], lost: [] };
+      out[kind] = { from: null, to: null, expected: 0, kept: 0, watermark: null, pending: [], lost: [], absent: [] };
       continue;
     }
     const fromMs = Math.max(Date.parse(first.t), now - AUDIT_DAYS * 24 * H);
@@ -100,7 +147,9 @@ export async function auditForecasts(db: Db, now: number): Promise<Record<string
     ).results.map((r) => Date.parse(r.issued_at));
     // その時刻から1時間の内に発表されたものがあれば、その回は保存されている（訂正などで数分ずれても）。
     const have = (t: string) => kept.some((k) => k >= Date.parse(t) && k < Date.parse(t) + H);
-    out[kind] = audit(times, have, now - FEED_REACH_MS.forecast);
+    const listed = await listedOf(db, `forecast:${kind}`, jstIso(fromMs - H));
+    const reads = await okReads(db, "forecast_fetch_log", new Date(fromMs).toISOString(), (feed) => (feed === "long" ? FEED_REACH_MS.forecast : FEED_SHORT_REACH_MS));
+    out[kind] = audit(times, have, now - FEED_REACH_MS.forecast, notIssuedBy(listed, reads, FORECAST_GRACE_MS, H));
   }
   return out;
 }
@@ -111,7 +160,7 @@ export async function auditRadar(db: Db, now: number): Promise<Record<"hrpns" | 
   for (const product of ["hrpns", "rasrf"] as const) {
     const first = await db.prepare("SELECT MIN(valid_at) AS t FROM radar_saved WHERE key LIKE ?").bind(`radar/${product}/%`).first<{ t: string | null }>();
     if (!first?.t) {
-      out[product] = { from: null, to: null, expected: 0, kept: 0, watermark: null, pending: [], lost: [] };
+      out[product] = { from: null, to: null, expected: 0, kept: 0, watermark: null, pending: [], lost: [], absent: [] };
       continue;
     }
     const fromMs = Math.max(Date.parse(first.t), Math.ceil((now - AUDIT_DAYS * 24 * H) / (H / 2)) * (H / 2));
@@ -128,7 +177,9 @@ export async function auditRadar(db: Db, now: number): Promise<Record<"hrpns" | 
         .filter((r) => r.n >= 9)
         .map((r) => r.valid_at),
     );
-    out[product] = audit(times, (t) => full.has(t), now - FEED_REACH_MS[product]);
+    const listed = await listedOf(db, `radar:${product}`, jstIso(fromMs));
+    const reads = await okReads(db, "radar_fetch_log", new Date(fromMs).toISOString(), () => FEED_REACH_MS[product] - H / 2);
+    out[product] = audit(times, (t) => full.has(t), now - FEED_REACH_MS[product], notIssuedBy(listed, reads, H / 2, 60_000));
   }
   return out;
 }
@@ -141,6 +192,8 @@ export async function auditCompleteness(db: Db, now: number) {
   const at = new Date(now).toISOString();
   let newlyLost = 0;
   for (const [source, a] of [...Object.entries(forecast).map(([k, v]) => [`forecast:${k}`, v] as const), ...Object.entries(radar).map(([k, v]) => [`radar:${k}`, v] as const)])
+    for (const item of a.absent) await db.prepare("INSERT OR IGNORE INTO data_absent (source, item, found_at) VALUES (?, ?, ?)").bind(source, item, at).run();
+  for (const [source, a] of [...Object.entries(forecast).map(([k, v]) => [`forecast:${k}`, v] as const), ...Object.entries(radar).map(([k, v]) => [`radar:${k}`, v] as const)])
     for (const item of a.lost) {
       const r = await db
         .prepare("INSERT OR IGNORE INTO data_gaps (source, item, found_at, detail) VALUES (?, ?, ?, ?)")
@@ -152,7 +205,7 @@ export async function auditCompleteness(db: Db, now: number) {
 }
 
 /** 長い一覧を短く（新しい順に6つまで）。 */
-const short = (a: SeriesAudit) => ({ ...a, pending: a.pending.slice(-6).reverse(), lost: a.lost.slice(-6).reverse(), pendingCount: a.pending.length, lostCount: a.lost.length });
+const short = (a: SeriesAudit) => ({ ...a, pending: a.pending.slice(-6).reverse(), lost: a.lost.slice(-6).reverse(), absent: a.absent.slice(-6).reverse(), pendingCount: a.pending.length, lostCount: a.lost.length, absentCount: a.absent.length });
 
 /**
  * /api/health と毎朝の点検のための、数と時刻だけのまとめ（読むだけ。data_gaps に書くのは毎時の見張りの
@@ -174,11 +227,14 @@ export async function readCompleteness(db: Db, now: number) {
     [],
   );
   const lostAll = await safe(async () => (await db.prepare("SELECT source, COUNT(*) AS n FROM data_gaps GROUP BY source").all<{ source: string; n: number }>()).results, []);
+  // 提供元が出していない回（欠けではない）：これまでの数。
+  const absentAll = await safe(async () => (await db.prepare("SELECT source, COUNT(*) AS n FROM data_absent GROUP BY source").all<{ source: string; n: number }>()).results, []);
   return {
     forecast: Object.fromEntries(Object.entries(forecast).map(([k, v]) => [k, short(v)])),
     radar: Object.fromEntries(Object.entries(radar).map(([k, v]) => [k, short(v)])),
     lostLastDay,
     lostAll,
+    absentAll,
   };
 }
 export type Completeness = Awaited<ReturnType<typeof readCompleteness>>;
