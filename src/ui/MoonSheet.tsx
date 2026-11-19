@@ -2,7 +2,7 @@
 // 月齢・明るい部分・距離と見かけの大きさ・月の出／南中／月の入り）、下にその月のカレンダー（日ごとの形。月齢は押した日の上の欄で）と、同じ枠で替わる満ち欠けと見かけの大きさのグラフ、
 // いちばん下に次の新月・上弦・満月・下弦。日を押すとその日の月に替わる。計算は shared/moon.ts（Astronomy Engine、
 // 国立天文台の暦で確かめ済み）。時刻は正午の値（月齢・形）と、その日の出入り。1画面に収める。
-import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { daysOfMonth, monthOf } from "../../shared/dates";
 import { altitudeCurve, clockOf } from "../../shared/dayParts";
 import { skyAt } from "../../shared/sky";
@@ -142,9 +142,16 @@ export function MoonSheet({ date, station, here, onHere, onClose }: { date: stri
         </Button>
       </div>
       <div className="sun-keys moon">
-        {ev("月の出", t.rise)}
-        {ev("南中", t.transit, t.transit ? `高さ ${Math.round(t.transit.altitude)}°` : undefined)}
-        {ev("月の入り", t.set)}
+        {/* 時刻の順に（11/19：0時台の月の入りは前の晩に昇った月。出・南中・入りの順だと翌日と読み違えやすい）。 */}
+        {[
+          { at: t.rise?.at, node: ev("月の出", t.rise) },
+          { at: t.transit?.at, node: ev("南中", t.transit, t.transit ? `高さ ${Math.round(t.transit.altitude)}°` : undefined) },
+          { at: t.set?.at, node: ev("月の入り", t.set) },
+        ]
+          .sort((a, b) => (a.at ?? 9e9) - (b.at ?? 9e9))
+          .map((x, i) => (
+            <Fragment key={i}>{x.node}</Fragment>
+          ))}
       </div>
 
       <div className="moon-cal-head">

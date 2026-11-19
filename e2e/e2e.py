@@ -714,6 +714,7 @@ with sync_playwright() as p:
         tw = pg.locator(".sun-tw tbody tr").all_inner_texts()
         check("SS1 太陽のシート：日の出・南中・日の入りの3枚、薄明3つ（朝・夕）、昼の長さ", pg.locator(".sun-sheet").count() == 1 and len(keys) == 3 and len(tw) == 3 and "時間" in txt(".sun-tw tfoot"), (keys, tw))
         st = small_text(); check("SS1b 11px より小さい文字がない（太陽のシート）", not st, str(st))
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-sheet.png")
         tm = lambda x: int(x.split(":")[0]) * 60 + int(x.split(":")[1])
         cells = [c.split() for c in tw]
         morning = [tm(c[1]) for c in cells]; evening = [tm(c[2]) for c in cells]
@@ -729,6 +730,7 @@ with sync_playwright() as p:
         # 端末の向きで見る（センサー連動、2026-11-18）：作ったセンサーの値（iPhone の方位 187.6°＝偏角を引いて南）を流すと、
         # 南を真ん中にした窓になり、やめると広げた絵に戻る。
         pg.locator(".sun-card .seg button", has_text="空を見上げる").click(); calm()
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-sheet-sky.png")
         # なぞって見る窓（11/19）：横 90° の窓。はじめは太陽を真ん中に（12時の太陽は南）。左へなぞると右（西寄り）へ回り、← キーで戻る。
         pan_head = lambda: pg.evaluate("(document.querySelector('.sky-pan .sky-heading') || {}).textContent || ''")
         az_of = lambda t: int(re.search(r"(\d+)°", t).group(1)) if re.search(r"(\d+)°", t) else None
