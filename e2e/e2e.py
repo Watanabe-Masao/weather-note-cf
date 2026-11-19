@@ -744,10 +744,13 @@ with sync_playwright() as p:
         # 球の基準線と拡大（11/19）：高さの輪・方位の線がある。＋で 1.5倍、細かい線に。全画面でもなぞる窓。空を見上げても1画面に収まる。
         grid0 = pg.locator(".sky-pan .sky-grid").count()
         sfit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); return [b.scrollHeight, b.clientHeight]; })()")
-        for _ in range(5): pg.locator(".sky-pan .sky-mag .icon-btn[aria-label='拡大する']").click(); calm()
-        ztxt = txt(".sky-pan .sky-mag-value"); grid1 = pg.locator(".sky-pan .sky-grid").count()
+        # 倍率のボタンは無く（11/19）、2本指でつまむ（ここでは同じ働きのキー ＋ −）。倍率は窓のチップに。
+        mag_btns = pg.locator(".sky-pan .sky-mag button").count()
+        pg.locator(".sky-pan").focus()
+        for _ in range(5): pg.keyboard.press("+"); calm()
+        ztxt = txt(".sky-pan .sky-mag"); grid1 = pg.locator(".sky-pan .sky-grid").count()
         if os.environ.get("WN_SUN"): pg.locator(".sun-card").screenshot(path=os.environ["WN_SUN"] + "-zoom.png")
-        while pg.locator(".sky-pan .sky-mag .icon-btn[aria-label='縮める']").is_enabled(): pg.locator(".sky-pan .sky-mag .icon-btn[aria-label='縮める']").click(); calm()
+        for _ in range(8): pg.keyboard.press("-"); calm()
         pg.locator(".sky-sensor .btn", has_text="全画面").click(); calm()
         pan_full = pg.locator(".sky-full .sky-pan").count()
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-pan-full.png")
@@ -761,7 +764,7 @@ with sync_playwright() as p:
         back = pg.evaluate("(() => { const p = document.querySelector('.sky-full-bottom').getBoundingClientRect(); return [!!document.querySelector('.sky-full.land'), Math.round(p.left), Math.round(p.width)]; })()")
         check("SS2w 全画面の横向き：操作は右の欄、空はその左。縦に戻すと下に戻る", land["land"] and land["close"] and land["px"] == 544 and land["kw"] == 544 and land["scroll"] <= 844 and back == [False, 0, W], (land, back))
         pg.locator(".sky-full .icon-btn[aria-label='全画面を閉じる']").click(); calm()
-        check("SS2t 球の基準線と拡大：線がある、＋5回で 8倍・線が細かく、全画面でもなぞる窓、1画面に収まる", grid0 >= 4 and ztxt.startswith("8.0") and grid1 > grid0 and pan_full == 1 and sfit[0] <= sfit[1] + 1, (grid0, ztxt, grid1, pan_full, sfit))
+        check("SS2t 球の基準線と拡大：線がある、＋5回で 8倍・線が細かく、全画面でもなぞる窓、1画面に収まる", grid0 >= 4 and mag_btns == 0 and ztxt.startswith("8.0") and grid1 > grid0 and pan_full == 1 and sfit[0] <= sfit[1] + 1, (grid0, ztxt, grid1, pan_full, sfit))
         rotate_ok("SS2u", "太陽と月・空を見上げる")
         pg.evaluate("DeviceOrientationEvent.requestPermission = async () => 'granted'")  # iPhone のように許可を求める形（許可された）
         pg.locator(".sky-sensor .btn", has_text="端末の向き").click(); calm()
@@ -770,18 +773,18 @@ with sync_playwright() as p:
         h_win = pg.locator(".sky-view").first.bounding_box()["height"] if pg.locator(".sky-view").count() else 0
         # 今に付いていく（11/19）：今日に端末の向きで見はじめると「今」が押された状態で、時刻が今（テストの時計 12:0x）に。
         # つまみを動かすと止まり、「今」で戻る。太陽は本当の大きさ（窓 60° で半径 1.5〜3）に輪と名前。
-        now_on = pg.locator(".sun-play .btn", has_text="今").first.get_attribute("aria-pressed"); t_now = txt(".sun-now-time")
+        now_on = pg.locator(".sun-play .btn", has_text="現在時刻").first.get_attribute("aria-pressed"); t_now = txt(".sun-now-time")
         sun_r = pg.evaluate("(() => { const c = document.querySelector('.sky-view.window .sky-sun'); if (c) return +c.getAttribute('r'); const m = document.querySelector('.sky-view.window .sky-body .moon-glyph'); return m ? +m.getAttribute('width') / 2 : null; })()")
         named = pg.locator(".sky-view.window .sky-body-name").count()
         pg.evaluate("""() => { const r = document.querySelector('.sun-card ~ .sun-play input, .sun-play input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, '900'); r.dispatchEvent(new Event('input', { bubbles: true })); }"""); calm()
-        now_off = pg.locator(".sun-play .btn", has_text="今").first.get_attribute("aria-pressed"); t_moved = txt(".sun-now-time")
-        pg.locator(".sun-play .btn", has_text="今").first.click(); calm()
-        now_back = pg.locator(".sun-play .btn", has_text="今").first.get_attribute("aria-pressed"); t_back = txt(".sun-now-time")
+        now_off = pg.locator(".sun-play .btn", has_text="現在時刻").first.get_attribute("aria-pressed"); t_moved = txt(".sun-now-time")
+        pg.locator(".sun-play .btn", has_text="現在時刻").first.click(); calm()
+        now_back = pg.locator(".sun-play .btn", has_text="現在時刻").first.get_attribute("aria-pressed"); t_back = txt(".sun-now-time")
         if os.environ.get("WN_SUN"):
             pg.evaluate("""() => { const r = document.querySelector('.sun-play input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set; set.call(r, '930'); r.dispatchEvent(new Event('input', { bubbles: true })); }""")
             pg.evaluate("""() => { for (let i = 0; i < 20; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 105, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 240 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(400)
             pg.locator(".sky-stage").first.screenshot(path=os.environ["WN_SUN"] + "-true-size.png")
-            pg.locator(".sun-play .btn", has_text="今").first.click(); calm()
+            pg.locator(".sun-play .btn", has_text="現在時刻").first.click(); calm()
             pg.evaluate("""() => { for (let i = 0; i < 200; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
         # 見上げるとコンパスが当てにならない（11/19 実機：上へ 44°・48° で方位が 155°→250°→338°）：立てている間に測った差のまま、
         # 見上げている間はコンパスがずれても方位は変わらない。戻せばそのまま合っている。
@@ -816,6 +819,14 @@ with sync_playwright() as p:
         # 補正を 0 に戻す（あとのコンパス補正の確かめのため）
         if pg.locator(".sky-sensor .btn", has_text="0°に").count(): pg.locator(".sky-sensor .btn", has_text="0°に").click(); calm()
         pg.evaluate("""() => { for (let i = 0; i < 200; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: 100, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 187.6 }); window.dispatchEvent(e); } }"""); pg.wait_for_timeout(300)
+        # 「現在時刻」をもう一度押すと付いていくのをやめる。つまみの両側の ◀ ▶ で 10分ずつ（11/19 渡辺さん）。
+        pg.locator(".sun-play .btn", has_text="現在時刻").first.click(); calm()
+        now_off2 = pg.locator(".sun-play .btn", has_text="現在時刻").first.get_attribute("aria-pressed")
+        tA = txt(".sun-now-time"); pg.locator(".sun-play .icon-btn[aria-label='10分先へ']").first.click(); calm(); tB = txt(".sun-now-time")
+        pg.locator(".sun-play .icon-btn[aria-label='10分前へ']").first.click(); pg.locator(".sun-play .icon-btn[aria-label='10分前へ']").first.click(); calm(); tC = txt(".sun-now-time")
+        tm2 = lambda x: int(x.split(":")[0]) * 60 + int(x.split(":")[1])
+        check("SS2x 現在時刻をもう一度押すとやめる・◀ ▶ で 10分ずつ", now_off2 == "false" and tm2(tB) - (tm2(tA) // 10 * 10) == 10 and tm2(tB) - tm2(tC) == 20, (now_off2, tA, tB, tC))
+        pg.locator(".sun-play .btn", has_text="現在時刻").first.click(); calm()
         check("SS2p 今に付いていく：向きで見ると今の時刻、つまみで止まり「今」で戻る。太陽は本当の大きさに名前", now_on == "true" and t_now.startswith("12:0") and now_off == "false" and t_moved == "15:00" and now_back == "true" and t_back.startswith("12:0") and sun_r is not None and 1.5 <= sun_r <= 4 and named >= 1, (now_on, t_now, now_off, t_moved, now_back, t_back, sun_r, named))
         # 全画面（2026-11-19）：画面いっぱいの空と、下に時刻・動かす・カメラ・ずれ。閉じると元のシートに戻る。カメラのボタンもある。
         cam_btn = pg.locator(".sky-sensor .btn", has_text="カメラ").count()
@@ -865,7 +876,7 @@ with sync_playwright() as p:
         pg.locator(".moon-open").click(); calm()
         t0 = txt(".moon-today")
         # 今に付いていく（11/19）：今日を開くと「今」が押された状態で、観測の予測は今の時刻（テストの時計 12:0x）。
-        mnow = pg.locator(".moon-play .btn", has_text="今").get_attribute("aria-pressed"); mobs = txt(".moon-obs")
+        mnow = pg.locator(".moon-play .btn", has_text="現在時刻").get_attribute("aria-pressed"); mobs = txt(".moon-obs")
         check("SS2s 月のこよみ：今日を開くと今に付いていく（「今」が押された状態・今の時刻）、地点の切り替えがある", mnow == "true" and "12:0" in mobs and pg.locator(".moon-obs .btn", has_text="現在地").count() == 1, (mnow, mobs[:30]))
         cal = pg.locator(".moon-cal-day").count()
         pg.locator(".moon-cal-day").nth(23).click(); calm()

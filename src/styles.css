@@ -3161,6 +3161,8 @@ svg.scrub {
   color: var(--ink-primary);
   transition: transform var(--motion-quick) var(--ease-standard), background-color var(--motion-quick) var(--ease-standard);
 }
+/* 使っている・付いている間（aria-pressed）は選んでいる色（11/19 渡辺さん「時間追跡中は分かるように色を変える」）。 */
+.btn[aria-pressed="true"] { background: var(--accent-wash); color: var(--accent-base); border-color: var(--accent-base); }
 .btn.sm {
   min-height: 32px;
   min-width: 64px;
@@ -4418,8 +4420,11 @@ select.chip.sm {
 /* 影の側：同じ絵をうっすら（明るい側との差で形が読める） */
 .moon-shade { opacity: 0.16; }
 .moon-glyph { display: block; flex: none; }
-.sun-play { display: flex; align-items: center; gap: var(--space-4); }
-.sun-play .sun-slider { flex: 1; min-width: 0; }
+.sun-play { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-4); }
+/* 時刻の操作（11/19）：◀ つまみ ▶ の行と、現在時刻・▶ の組。狭い画面では2段に。 */
+.time-row { display: flex; align-items: center; gap: var(--space-2); flex: 1 1 220px; min-width: 0; }
+.time-row .sun-slider { flex: 1; min-width: 0; }
+.time-acts { display: flex; align-items: center; gap: var(--space-3); margin-left: auto; }
 .sun-now.moon { margin-top: var(--space-2); }
 .sun-now-alt small { display: block; text-align: right; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .sun-keys.moon { margin-top: var(--space-2); }
@@ -4534,9 +4539,8 @@ select.chip.sm {
 .sky-stage.camera .sky-alt-label { fill: var(--ink-on-feel); paint-order: stroke; stroke: var(--surface-page); stroke-width: var(--stroke-focus); }
 /* 拡大（11/19）：窓の右下に − 倍 ＋。全画面では左上。 */
 .sky-aim line, .sky-aim circle { fill: none; stroke: var(--accent-base); stroke-width: var(--stroke-focus); }
-.sky-mag { position: absolute; right: var(--space-2); bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-1); border-radius: var(--radius-pill); background: var(--surface-raised); box-shadow: var(--shadow-lift); }
-.sky-stage.full .sky-mag { right: auto; bottom: auto; left: calc(env(safe-area-inset-left, 0px) + var(--space-4)); top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); }
-.sky-mag-value { min-width: 3.2em; text-align: center; font-size: var(--size-xs); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+.sky-mag { position: absolute; right: var(--space-3); top: var(--space-3); padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill); background: var(--surface-overlay); font-size: var(--size-xs); color: var(--ink-secondary); font-variant-numeric: tabular-nums; pointer-events: none; }
+.sky-stage.full .sky-mag { right: auto; left: calc(env(safe-area-inset-left, 0px) + var(--space-4)); top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); }
 .sky-pan.full { position: absolute; inset: 0; }
 .sky-sun { stroke: none; }
 /* 本当の大きさの太陽と月に添える輪と名前（11/19）：小さくても見つけられるように */
@@ -4550,6 +4554,7 @@ select.chip.sm {
 .sun-card .seg { width: 100%; margin-bottom: var(--space-2); }
 /* 太陽と月の出入り（11/19）：1行ずつ。左に名前、時刻の順に3つ。行が1枚の面。 */
 .sun-keys { display: grid; grid-template-columns: 2.4em repeat(3, minmax(0, 1fr)); align-items: center; gap: var(--space-2); margin-top: var(--space-4); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--surface-inset); }
+.moon-sheet .sun-keys { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .sun-keys-name { font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }
 .sun-key { display: grid; justify-items: center; gap: 0; padding: var(--space-1) 0; }
 .sun-keys .fold { margin-top: var(--space-2); }

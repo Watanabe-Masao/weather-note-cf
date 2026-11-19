@@ -9,10 +9,11 @@ import { skyAt } from "../../shared/sky";
 import { dms, fullMoonName, MOON_MEAN_DIAMETER, moonDistance, moonLimb, moonMagnitude, moonNorth, moonPhase, moonQuarters, moonShapeName, moonTimes, moonTint, moonTopo, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
 import { DEFAULT_LAT_LON, stationLatLon } from "../../shared/sunTimes";
 import { dateLabel } from "../design/format";
-import { Button, Glyph, IconButton, InfoNote, Segmented, Slider } from "./kit";
+import { Button, Glyph, IconButton, InfoNote, Segmented } from "./kit";
 import { ICON } from "../design/tokens";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
 import { ModalSheet } from "./ModalSheet";
+import { TimeBar } from "./TimeBar";
 import stations from "../../shared/stations.json";
 import { dirName, MoonGlyph, MoonSphere } from "./moonParts";
 
@@ -132,15 +133,7 @@ export function MoonSheet({ date, station, here, onHere, onClose }: { date: stri
       {/* 観測の予測：観測地から見た、つまみの時刻の月。見えない時刻（地平線の下）は月を描かない。 */}
       <MoonObserve ms={ms} min={min} lat={ll.lat} lon={ll.lon} where={where} sel={sel} rise={t.rise} here={!!here} onHere={onHere} />
       <MoonDay day={day} min={min} onPick={move} />
-      <div className="sun-play moon-play">
-        <Slider className="sun-slider" min={0} max={1430} step={10} ticks={[t.rise?.at, t.set?.at].filter((v): v is number => v != null).map(Math.round)} thumbs={[{ value: min, label: "時刻（10分ごと）", valueText: clockOf(min), onChange: move }]} />
-        <Button size="sm" aria-pressed={follow} onClick={() => (follow ? setFollow(false) : toNow())}>
-          今
-        </Button>
-        <Button size="sm" aria-pressed={playing} onClick={() => (setFollow(false), setPlaying(!playing))}>
-          {playing ? "止める" : "動かす"}
-        </Button>
-      </div>
+      <TimeBar className="moon-play" value={min} onChange={move} ticks={[t.rise?.at, t.set?.at].filter((v): v is number => v != null).map(Math.round)} valueText={clockOf(min)} follow={follow} onFollow={() => (follow ? setFollow(false) : toNow())} playing={playing} onPlay={() => (setFollow(false), setPlaying(!playing))} />
       <div className="sun-keys moon">
         {/* 時刻の順に（11/19：0時台の月の入りは前の晩に昇った月。出・南中・入りの順だと翌日と読み違えやすい）。 */}
         {[
