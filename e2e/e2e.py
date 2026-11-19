@@ -138,6 +138,23 @@ def api(path, q):
             with open(os.path.join(HERE, "forecast-history.json"), encoding="utf-8") as f:
                 return json.load(f)
         return {"v": 1, "station": "47893", "date": q.get("date"), "supported": True, "places": {"office": "390000", "area": "390010", "point": "74182"}, "issues": [], "entries": [], "fetchLog": []}
+    if path == "/api/forecast-issue":
+        # その発表の週間天気予報（11/19）: made-up — 上の1日分から、その発表の行を、対象日から先の日へずらして並べる。
+        with open(os.path.join(HERE, "forecast-history.json"), encoding="utf-8") as f:
+            h = json.load(f)
+        iss = next((i for i in h["issues"] if i["issue_id"] == q.get("id")), None)
+        if not iss: return {"v": 1, "station": "47893", "supported": True, "found": False}
+        def shift(e, n):
+            d = lambda t: (datetime.datetime.fromisoformat(t) + datetime.timedelta(days=n)).isoformat()
+            return dict(e, valid_from=d(e["valid_from"]), valid_to=d(e["valid_to"]))
+        mine = [e for e in h["entries"] if e["issue_id"] == iss["issue_id"]]
+        days = 7 if iss["kind"] == "VPFW50" else 3
+        weekly = None
+        ents = [shift(e, n) for n in range(days) for e in mine]
+        if iss["kind"] == "VPFD51":
+            weekly = next((i for i in reversed(h["issues"]) if i["kind"] == "VPFW50" and i["issued_at"] <= iss["issued_at"]), None)
+            if weekly: ents += [shift(e, n) for n in range(7) for e in h["entries"] if e["issue_id"] == weekly["issue_id"]]
+        return {"v": 1, "station": "47893", "supported": True, "found": True, "places": h["places"], "issue": iss, "weekly": weekly, "entries": ents}
     if path == "/api/stations":
         return [{"precNo": 74, "blockNo": "47893", "name": "高知", "prefecture": "高知県", "lat": [33, 33.8], "lon": [133, 33.1]}]
     if path == "/api/daily":
@@ -1084,6 +1101,25 @@ with sync_playwright() as p:
         check("SD4g 予報の一覧：前の日の発表は畳まれていて、押すと開く", closed and opened, (closed, opened))
         if fb.count():
             fb.click(); pg.wait_for_timeout(500)
+        # その発表の週間天気予報（11/19）：発表のある行を押すと、シートでその発表の先の日ぜんぶ。府県のときは週間で先を埋め、
+        # どの発表かを添える。この日の行に印。閉じると元の位置。
+        rows_ok = pg.locator(".fh-days .fh-drow:not(.gap)")
+        fd = None
+        for i in range(rows_ok.count()):
+            if rows_ok.nth(i).is_visible() and "府県" in rows_ok.nth(i).inner_text(): fd = rows_ok.nth(i); break
+        wk = None
+        if fd:
+            fd.scroll_into_view_if_needed()
+            fd.click(); calm()
+            settle(lambda: pg.locator(".fh-week-sheet .fh-week-row").count() >= 3)
+            # 行を選ぶと上の枠の中身が替わる（今まで通り）。シートを開いて閉じても、開いていた間の位置に戻ることを見る。
+            y0 = pg.evaluate("document.querySelector('.day-detail-scroll, .page')?.scrollTop ?? scrollY")
+            wk = (pg.locator(".fh-week-sheet .fh-week-row").count(), txt(".fh-week-sheet .msheet-head h2"), pg.locator(".fh-week-sheet .fh-week-src .fh-kchip").count(), pg.locator(".fh-week-sheet .fh-week-row.on").count())
+            if os.environ.get("WN_SHOT"): pg.screenshot(path=f"{os.environ['WN_SHOT']}-issue-week.png")
+            pg.locator(".fh-week-sheet .icon-btn.close").click(); calm()
+            y1 = pg.evaluate("document.querySelector('.day-detail-scroll, .page')?.scrollTop ?? scrollY")
+        check("SD4l 発表の行を押すと、その発表の週間天気予報（府県の3日＋週間で先を埋める・どの発表か・この日に印）、閉じられる",
+              wk is not None and wk[0] >= 7 and "時の府県天気予報" in wk[1] and wk[2] >= 1 and wk[3] == 1 and pg.locator(".fh-week-sheet").count() == 0 and abs(y0 - y1) <= 2, (wk, fd is not None, y0, y1, pg.locator(".fh-week-sheet").count()))
         # 出どころのリンク（2026-11-19）：出典の ⓘ に、選んでいる発表の原文・実績（過去の気象データ）・今の予報。原文はシートで。
         src = pg.locator(".fh-sources")
         src.scroll_into_view_if_needed(); src.locator(".info-btn").click(); calm()

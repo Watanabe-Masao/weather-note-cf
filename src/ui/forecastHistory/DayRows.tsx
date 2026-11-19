@@ -15,11 +15,13 @@ function Row({
   prev,
   selected,
   onSelect,
+  onOpen,
 }: {
   s: Slot;
   prev: Slot | null;
   selected: boolean;
   onSelect: (k: string) => void;
+  onOpen?: (k: string) => void;
 }) {
   const v = s.values;
   const ok = s.state === "ok" && !!v;
@@ -31,8 +33,13 @@ function Row({
   return (
     <button
       className={`fh-drow${selected ? " on" : ""}${ok ? "" : " gap"}${compared && !ch.length ? " quiet" : ""}`}
-      onClick={() => onSelect(s.key)}
+      onClick={() => {
+        onSelect(s.key);
+        // 発表のある行は、その発表の週間天気予報をシートで開く（11/19）
+        if (ok) onOpen?.(s.key);
+      }}
       aria-pressed={selected}
+      aria-haspopup={ok ? "dialog" : undefined}
     >
       <span className="fh-drow-t">
         <b>{hourOf(s.at)}時</b>
@@ -130,6 +137,7 @@ export function DayRows({
   day,
   selected,
   onSelect,
+  onOpen,
   onlyChanged = false,
   all,
 }: {
@@ -139,6 +147,8 @@ export function DayRows({
   day: string;
   selected: string | null;
   onSelect: (k: string) => void;
+  /** 行を押したとき、その発表の週間天気予報を開く（11/19）。 */
+  onOpen?: (k: string) => void;
   onlyChanged?: boolean;
 }) {
   // 前の同じ種類の発表（値のあるもの）。表に出ていない種類の回も比べる相手にはなる（model と同じ）。
@@ -182,6 +192,7 @@ export function DayRows({
                 prev={prevOfS(s)}
                 selected={selected === s.key}
                 onSelect={onSelect}
+                onOpen={onOpen}
               />
             ))}
           </section>
