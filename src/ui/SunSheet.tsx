@@ -3,7 +3,9 @@
 
 import { clockOf, dayEdges, dayParts, altitudeCurve, twilights, TWILIGHTS } from "../../shared/dayParts";
 import { shownClock, shownDayLength, shownSun } from "../data/sun";
-import { dateLabel, hoursMinutes } from "../design/format";
+import { dateLabel, hoursMinutes, num } from "../design/format";
+import { hoursWeather } from "../../shared/dayWeather";
+import type { WeatherRow } from "../../shared/types";
 import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
 import { Button, Fold, IconButton, InfoNote, Segmented } from "./kit";
@@ -39,11 +41,14 @@ export function SunSheet({
   station,
   hour,
   sky,
+  rows,
   onClose,
 }: {
   date: string;
   station: string;
   hour: number | null;
+  /** その日の毎時の記録・予報（空の色の元を1行で添えるため、11/20）。 */
+  rows?: WeatherRow[];
   /** The day's own sky every 10 minutes (the 太陽 strip's, from the day's weather), by hour; an hour
    *  without data falls back to a clear day's sky (#151: the strip and the sheet tell the same sky). */
   sky?: (SkyColour[] | null)[];
@@ -194,6 +199,17 @@ export function SunSheet({
   const phase = altAt >= 0 ? "日の出ている間" : altAt >= -6 ? "市民薄明" : altAt >= -12 ? "航海薄明" : altAt >= -18 ? "天文薄明" : "暗い夜空";
   const part = dayParts(date, place).find((p) => p.id !== "night" && at >= p.from && at < p.to)?.label ?? "夜";
   const skyNow = skies[Math.min(skies.length - 1, Math.round(at / 10))];
+  // 空の色の元（11/20）：JMA の時間 n は n−1〜n 時。記録も予報もない時間は晴れの空で描いている。
+  const skyFrom = (() => {
+    const n = Math.min(24, Math.floor(at / 60) + 1);
+    const row = rows?.find((r) => r.n === n) ?? null;
+    if (!row) return "空の色：この時間は天気がないので晴れの空";
+    const wx = hoursWeather(rows ?? [], [n], station, 1).text;
+    const sun = num(row.sun);
+    const rain = num(row.rain);
+    const parts = [wx, altAt > 0 && sun != null ? `日照 ${Math.round(sun * 60)}分` : null, rain != null ? `雨 ${rain.toFixed(1)}mm` : "雨 記録なし"].filter(Boolean);
+    return `空の色：${n - 1}時台 ${parts.join("・")}（${row.type === "forecast" ? "予報" : "実績"}）`;
+  })();
   const msAt = sky3.day0 + at * 60_000;
   const topoAt = moonTopo(msAt, ll.lat, ll.lon);
   // 空を見上げるの月：見かけの大きさ・光っている側・模様の向き・高さの色も（11/19 レビュー）。
@@ -389,6 +405,8 @@ export function SunSheet({
           <small>{dirName(sunAzAt)}</small>
         </span>
       </div>
+      {/* 空の色の元（11/20 渡辺さん「空の色に天気が反映しているのに天気の情報が出ていない」）：その時間の天気・日照・雨と、実績か予報か。 */}
+      <p className="sun-now-from">{skyFrom}</p>
       <div className="sun-now moon">
         {/* 11/19 渡辺さん「この回転や傾きをこっちにも」：出ている間は月のこよみの「見え方」と同じ（光っている側の傾き・模様の向き・
             高さの色）。地平線の下は暦の形のまま。 */}
@@ -409,7 +427,7 @@ export function SunSheet({
           月のこよみ
         </Button>
       </div>
-      {moonOpen && <MoonSheet date={date} station={station} here={hereOn} onHere={() => (hereOn || here.state.kind === "asking" ? here.stop() : here.ask())} onClose={() => setMoonOpen(false)} />}
+      {moonOpen && <MoonSheet date={date} station={station} here={hereOn} onHere={() => (hereOn || here.state.kind === "asking" ? here.stop() : here.ask())} onClose={() => setMoonOpen(false)} daySky={{ date, at: (m) => sky?.[Math.floor(m / 60)]?.[Math.floor((m % 60) / 10)] ?? null }} />}
       </div>
 
       {/* 太陽と月の出入り（11/19 レビュー「6枚のカードを太陽と月の2行に」）：1行ずつ、時刻の順に。月はその日の暦どおり

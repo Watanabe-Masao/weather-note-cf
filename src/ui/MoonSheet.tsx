@@ -5,7 +5,7 @@
 import { type CSSProperties, Fragment, type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { daysOfMonth, monthOf } from "../../shared/dates";
 import { altitudeCurve, clockOf } from "../../shared/dayParts";
-import { skyAt } from "../../shared/sky";
+import { skyAt, type SkyColour } from "../../shared/sky";
 import { dms, fullMoonName, MOON_MEAN_DIAMETER, moonDistance, moonLimb, moonMagnitude, moonNorth, moonPhase, moonQuarters, moonShapeName, moonTimes, moonTint, moonTopo, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
 import { DEFAULT_LAT_LON, stationLatLon } from "../../shared/sunTimes";
 import { dateLabel } from "../design/format";
@@ -24,7 +24,10 @@ const jst = (ms: number) => {
   return { date: d.toISOString().slice(0, 10), min: d.getUTCHours() * 60 + d.getUTCMinutes() };
 };
 
-export function MoonSheet({ date, station, here, onHere, onClose }: { date: string; station: string; here?: { lat: number; lon: number } | null; onHere?: () => void; onClose: () => void }) {
+/** その日の空の色（太陽と月のシートと同じ、天気から）。date の日だけ。10分ごと、無い時間は null。 */
+export type DaySky = { date: string; at: (min: number) => SkyColour | null };
+
+export function MoonSheet({ date, station, here, onHere, onClose, daySky }: { date: string; station: string; here?: { lat: number; lon: number } | null; onHere?: () => void; onClose: () => void; daySky?: DaySky }) {
   // 計算の地点（11/19）：太陽と月のシートで「現在地で計算」にしていれば現在地、ほかは観測所。
   const ll = here ?? stationLatLon(station) ?? DEFAULT_LAT_LON;
   const where = here ? "現在地" : ((stations as { blockNo: string; name: string }[]).find((x) => x.blockNo === station)?.name ?? "観測所");
@@ -83,6 +86,13 @@ export function MoonSheet({ date, station, here, onHere, onClose }: { date: stri
       .filter((q) => q.alt >= 0);
     return { pts, marks, lo: Math.min(...sizes), hi: Math.max(...sizes), sun: altitudeCurve(sel, ll, 10) };
   }, [sel, station, ll.lat, ll.lon]);
+  // 空の色（11/20）：太陽と月のシートと同じ日はその日の天気から、ほかの日・時間は晴れの空。
+  const ownSky = !!daySky && daySky.date === sel;
+  const skyOfMin = (m: number): SkyColour => {
+    const own = ownSky ? daySky!.at(m) : null;
+    const q = day.sun[Math.min(day.sun.length - 1, Math.round(m / 10))];
+    return own ?? skyAt(q.deg, 1, 0, m > 720);
+  };
   const next = useMemo(() => moonQuarters(Date.parse(`${sel}T00:00:00+09:00`), 4), [sel]);
   // その日に新月・上弦・満月・下弦があれば、形の名前はそれ（時刻つき）。昔の呼び名は、その日に月相が無いときだけ。
   const today = next.find((q) => jst(q.at).date === sel);
@@ -131,8 +141,10 @@ export function MoonSheet({ date, station, here, onHere, onClose }: { date: stri
         </div>
       </div>
       {/* 観測の予測：観測地から見た、つまみの時刻の月。見えない時刻（地平線の下）は月を描かない。 */}
-      <MoonObserve ms={ms} min={min} lat={ll.lat} lon={ll.lon} where={where} sel={sel} rise={t.rise} here={!!here} onHere={onHere} />
-      <MoonDay day={day} min={min} onPick={move} />
+      <MoonObserve ms={ms} min={min} lat={ll.lat} lon={ll.lon} where={where} sel={sel} rise={t.rise} here={!!here} onHere={onHere} sky={skyOfMin(min)} />
+      <MoonDay day={day} min={min} onPick={move} skyOf={skyOfMin} />
+      {/* 空の色（11/20 渡辺さん「天気を考慮した空の色にしないと統一感に欠ける」）：太陽と月のシートと同じ日なら、その日の天気から。 */}
+      <small className="set-help moon-sky-note">{ownSky ? "空の色は、この日の天気（日照・雨）から" : "この日は天気を使わず、晴れの空で描いています"}</small>
       <TimeBar className="moon-play" value={min} onChange={move} ticks={[t.rise?.at, t.set?.at].filter((v): v is number => v != null).map(Math.round)} valueText={clockOf(min)} follow={follow} onFollow={() => (follow ? setFollow(false) : toNow())} playing={playing} onPlay={() => (setFollow(false), setPlaying(!playing))} />
       <div className="sun-keys moon">
         {/* 時刻の順に（11/19：0時台の月の入りは前の晩に昇った月。出・南中・入りの順だと翌日と読み違えやすい）。 */}
@@ -337,7 +349,7 @@ const nextDay = (d: string) => new Date(Date.parse(`${d}T00:00:00Z`) + 86_400_00
  * 見かけの大きさを大きな絵で。大きさは「実際の比」と「違いを強める」を切り替える（輪＝平均の大きさ）。
  * 地平線の下の時刻は月を描かず「見えません」と、次に昇る時刻と方位。
  */
-function MoonObserve({ ms, min, lat, lon, where, sel, rise, here, onHere }: { ms: number; min: number; lat: number; lon: number; where: string; sel: string; here?: boolean; onHere?: () => void; rise: { at: number; azimuth: number } | null }) {
+function MoonObserve({ ms, min, lat, lon, where, sel, rise, here, onHere, sky }: { ms: number; min: number; lat: number; lon: number; where: string; sel: string; here?: boolean; onHere?: () => void; rise: { at: number; azimuth: number } | null; sky: SkyColour }) {
   const [scale, setScale] = useState<"real" | "strong">("real");
   // 描き方（11/19 渡辺さん）：「見え方」＝球の陰影（暗い側は描かない、空で見える形）。「月の全体」＝暗い側も描く
   // （見えていない側も含めて、月の向き・回転を確かめるための絵）。
@@ -357,6 +369,8 @@ function MoonObserve({ ms, min, lat, lon, where, sel, rise, here, onHere }: { ms
       <div className="moon-obs-side">
         <div
           className={up ? "moon-obs-stage" : "moon-obs-stage below"}
+          // 月の後ろはその時刻の空の色（11/20）：天頂から地平へ。線と文字は空の上の色（テーマによらない）。
+          style={{ ...(onSkyVars() as CSSProperties), background: `linear-gradient(${sky.zenith}, ${sky.horizon})` }}
           role="img"
           aria-label={up ? `${clockOf(min)}の月：${dirName(topo.azimuth)} 高さ ${Math.round(topo.altitude)}°、光っている側は ${clockDir(limb)} の向き、大きさは平均の ${(ratio * 100).toFixed(1)}%${look === "whole" ? "（暗い側も描いた月の全体）" : ""}` : `${clockOf(min)}は月が地平線の下で見えません`}
         >
@@ -440,7 +454,7 @@ export const clockDir = (limb: number) => {
  * 地平線の下は点線）を、空の色（太陽の高さから）の上に描く。3時間ごとに、その時刻の傾き・色の小さな月。つまみの時刻に縦線。
  * 押す・なぞると時刻を選ぶ。
  */
-function MoonDay({ day, min, onPick }: { day: { pts: { min: number; altitude: number }[]; marks: { min: number; alt: number; limb: number; p: ReturnType<typeof moonPhase> }[]; sun: { min: number; deg: number }[] }; min: number; onPick: (m: number) => void }) {
+function MoonDay({ day, min, onPick, skyOf }: { day: { pts: { min: number; altitude: number }[]; marks: { min: number; alt: number; limb: number; p: ReturnType<typeof moonPhase> }[]; sun: { min: number; deg: number }[] }; min: number; onPick: (m: number) => void; skyOf: (min: number) => SkyColour }) {
   const box = useRef<SVGSVGElement>(null);
   const W = useDrawnWidth(box, [], 340) || 340;
   const H = 150;
@@ -494,8 +508,8 @@ function MoonDay({ day, min, onPick }: { day: { pts: { min: number; altitude: nu
     >
       <defs>
         <linearGradient id="moon-day-sky" x1="0" y1="0" x2="1" y2="0">
-          {day.sun.filter((_, i) => i % 3 === 0).map((q) => (
-            <stop key={q.min} offset={q.min / 1440} stopColor={skyAt(q.deg, 1, 0, q.min > 720).zenith} />
+          {day.sun.map((q) => (
+            <stop key={q.min} offset={q.min / 1440} stopColor={skyOf(q.min).zenith} />
           ))}
         </linearGradient>
       </defs>
