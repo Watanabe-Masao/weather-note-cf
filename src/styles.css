@@ -4262,9 +4262,19 @@ select.chip.sm {
 .admin-exports ul { margin: var(--space-3) 0 0; padding-left: 18px; }
 .admin-imports { margin: 0; padding-left: 18px; font-size: var(--size-base); color: var(--ink-secondary); display: grid; gap: var(--space-3); }
 .admin-imports li { overflow-wrap: anywhere; }
-/* データの取り直し（#299 P1）：段ごとに、名前・様子・ボタンの順（どの段も同じ並び） */
-.admin-refetch { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-5); }
-.admin-refetch li { display: grid; gap: var(--space-1); }
+/* データの保守（MaintenanceSheet）：毎日の運用の順に、今の状態 → 取得 → 欠け → エラー → 重なり → 大きさ */
+.mt { display: grid; gap: var(--space-5); }
+.mt-badge { display: inline-block; margin-left: var(--space-2); padding: 0 var(--space-3); border-radius: var(--radius-pill); font-size: var(--size-xs); font-weight: var(--weight-bold); vertical-align: middle; border: var(--stroke-hair) solid currentColor; color: var(--ink-secondary); }
+.mt-badge.note { color: var(--status-warning); }
+.mt-badge.bad { color: var(--status-error); }
+.mt-line { margin: 0; font-size: var(--size-base); color: var(--ink-primary); line-height: 1.5; overflow-wrap: anywhere; }
+.mt-line.bad { color: var(--status-error); }
+.mt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); font-size: var(--size-base); color: var(--ink-primary); }
+.mt-list li { display: grid; gap: var(--space-1); overflow-wrap: anywhere; }
+.mt-list.small { gap: var(--space-2); font-size: var(--size-sm); color: var(--ink-secondary); }
+.mt-list li.warn { color: var(--status-warning); }
+.mt-fine { color: var(--ink-tertiary); }
+.mt-errors code { font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-secondary); white-space: pre-wrap; word-break: break-all; }
 
 /* The research analysis (#55, in the app): aggregates as small tables. */
 .research { display: grid; gap: var(--space-4); }

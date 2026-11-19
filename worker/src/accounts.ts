@@ -52,6 +52,7 @@ import {
 import { importShiromatzMonth, importSummary } from "./forecastImport";
 import { type Bucket, r2Summary } from "./r2Archive";
 import { RefetchRefused, refetchNow, refetchSummary } from "./refetch";
+import { dupCheck, maintenanceSummary } from "./maintenance";
 import { keepError } from "./health";
 import { archiveSummary } from "./typhoonArchive";
 import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
@@ -849,6 +850,9 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       if (path === "/api/admin/archive" && !post) return json(await r2Summary(db));
       // 今すぐ取り直す（refetch.ts、#299 P1）：段ごとの様子と、1回だけ動かす（1時間に3回まで、記録を残す）。
       if (path === "/api/admin/refetch" && !post) return json(await refetchSummary(db, now, !!env.ARCHIVE));
+      // データの保守（maintenance.ts）：今の状態・取得の様子・欠け・エラーの記録（文言つき）・大きさ。重なりはボタンで（読むだけ）。
+      if (path === "/api/admin/maintenance" && !post) return json(await maintenanceSummary(db, now, { ...env, hasBucket: !!env.ARCHIVE }));
+      if (path === "/api/admin/dupcheck" && post) return json({ items: await dupCheck(db, now, u.id) });
       if (path === "/api/admin/refetch" && post) {
         const b = await body(req);
         try {

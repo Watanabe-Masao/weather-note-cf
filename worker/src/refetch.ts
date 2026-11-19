@@ -109,7 +109,10 @@ async function one<T>(db: Db, q: string, ...v: unknown[]): Promise<T | null> {
 }
 
 /** 管理画面に出す、段ごとの今の様子：最後に取れた時刻・取り残し・この1時間に押した回数・最後に押した結果。 */
-export async function refetchSummary(db: Db, now: number, hasBucket: boolean) {
+/** 取り直しが要るかの目安：最後に取れてから空いた長さ（雨雲は5分ごとに保存、ほかは5分ごとに一覧を読む）。 */
+const STALE_MS: Record<string, number> = { radar: 15 * 60_000, forecast: 30 * 60_000, warning: 30 * 60_000, typhoon: 30 * 60_000 };
+
+export async function refetchSummary(db: Db, now: number, hasBucket: boolean, pending: Record<string, number> = {}) {
   await ensureRefetchSchema(db);
   const out = [];
   for (const s of REFETCH_STAGES) {
@@ -117,8 +120,16 @@ export async function refetchSummary(db: Db, now: number, hasBucket: boolean) {
     const latest = s.waiting ? await one<{ n: number }>(db, `SELECT ${s.waiting} AS n FROM ${s.log} ORDER BY at DESC LIMIT 1`) : null;
     const used = await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM refetch_log WHERE stage = ? AND at >= ?", s.id, hourAgo(now));
     const last = await one<{ at: string; ok: number; detail: string }>(db, "SELECT at, ok, detail FROM refetch_log WHERE stage = ? ORDER BY id DESC LIMIT 1", s.id);
+    // 要るとき（どれか）：取り残しがある・最後に取れてから空いている・まだ取り戻せる欠けがある。
+    const why = [
+      latest?.n ? `取り残し ${latest.n}` : "",
+      !lastOk?.at || now - Date.parse(lastOk.at) > (STALE_MS[s.id] ?? 30 * 60_000) ? "最後に取れてから間が空いている" : "",
+      pending[s.id] ? `まだ取り戻せる欠け ${pending[s.id]}` : "",
+    ].filter(Boolean);
     out.push({
       id: s.id,
+      needed: why.length > 0,
+      why,
       name: s.name,
       reach: s.reach,
       lastOk: lastOk?.at ?? null,
