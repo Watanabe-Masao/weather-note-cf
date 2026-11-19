@@ -4468,6 +4468,18 @@ select.chip.sm {
 .moon-cal-day { display: grid; justify-items: center; gap: 0; min-height: var(--tap-min); padding: var(--space-1) 0; border: var(--stroke-hair) solid transparent; border-radius: var(--radius-sm); background: none; color: var(--ink-primary); }
 .moon-cal-day.on { border-color: var(--accent-base); background: var(--accent-wash); }
 .moon-cal-n { font-size: var(--size-xs); font-variant-numeric: tabular-nums; }
+/* 月相の印（11/20）：新月・上弦・満月・下弦の日に、アイコンと短い名前。 */
+.moon-cal-mark { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.2; white-space: nowrap; }
+.moon-cal-mark.k2 { color: var(--ink-primary); font-weight: var(--weight-bold); }
+.phase-icon { display: inline-block; flex: none; vertical-align: -1px; }
+.phase-icon-dark { fill: var(--surface-inset); }
+.moon-next-kind { display: inline-flex; align-items: center; gap: var(--space-1); }
+.moon-day-head { display: flex; align-items: center; gap: var(--space-4); }
+.moon-day-head > div { display: grid; gap: var(--space-1); }
+.moon-day-title { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--size-lg); }
+.moon-day-full { font-size: var(--size-base); color: var(--ink-primary); }
+.moon-day-head small { font-size: var(--size-xs); color: var(--ink-secondary); }
+.moon-day-size { margin: var(--space-3) 0 var(--space-2); font-size: var(--size-sm); color: var(--ink-secondary); }
 /* 月のこよみ：カレンダーと推移のグラフは同じ枠に重ね、高いほうの高さを取る（切り替えで下の月相が動かない） */
 .moon-sheet .seg { margin-top: var(--space-4); }
 .moon-body { display: grid; }
@@ -4558,7 +4570,7 @@ select.chip.sm {
 .sun-card .seg { width: 100%; margin-bottom: var(--space-2); }
 /* 太陽と月の出入り（11/19）：1行ずつ。左に名前、時刻の順に3つ。行が1枚の面。 */
 .sun-keys { display: grid; grid-template-columns: 2.4em repeat(3, minmax(0, 1fr)); align-items: center; gap: var(--space-2); margin-top: var(--space-4); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--surface-inset); }
-.moon-sheet .sun-keys { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.moon-sheet .sun-keys, .moon-day-sheet .sun-keys { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .sun-keys-name { font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }
 .sun-key { display: grid; justify-items: center; gap: 0; padding: var(--space-1) 0; }
 .sun-keys .fold { margin-top: var(--space-2); }

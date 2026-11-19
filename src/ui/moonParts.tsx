@@ -1,4 +1,5 @@
 // 月と方位の小さな部品（太陽と月のシート・月のシートで使う）。
+import { ICON } from "../design/tokens";
 import { useEffect, useId, useRef, useState } from "react";
 import moonUrl from "../assets/moon.webp";
 
@@ -152,4 +153,22 @@ export function MoonSphere({ phase, size, limb, north, tint, dark }: { phase: { 
     g.drawImage(t, 0, 0);
   }, [tex, size, phase.illuminated, limb, north, tint, dark]);
   return <canvas ref={ref} className="moon-glyph" style={{ width: size, height: size }} aria-hidden />;
+}
+
+/**
+ * 月相のアイコン（2026-11-20 渡辺さん「満月・新月・下弦・上弦にそれぞれアイコン、一目でどれか分かるように」）：
+ * 0 新月＝暗い丸に輪、1 上弦＝右半分が明るい、2 満月＝明るい丸に光の輪、3 下弦＝左半分が明るい（北半球で見た形）。
+ */
+export function PhaseIcon({ kind, size = 14 }: { kind: 0 | 1 | 2 | 3; size?: number }) {
+  const c = 7;
+  const r = 5.6;
+  const lit = ICON.moon;
+  return (
+    <svg className="phase-icon" width={size} height={size} viewBox="0 0 14 14" aria-hidden>
+      {kind === 2 && <circle cx={c} cy={c} r={6.6} fill="none" stroke={lit} strokeOpacity={0.45} strokeWidth={0.9} />}
+      <circle cx={c} cy={c} r={r} className="phase-icon-dark" style={kind === 2 ? { fill: lit } : undefined} stroke={lit} strokeWidth={kind === 0 ? 1.1 : 0.8} />
+      {kind === 1 && <path d={`M${c},${c - r} A${r},${r} 0 0 1 ${c},${c + r} Z`} fill={lit} />}
+      {kind === 3 && <path d={`M${c},${c - r} A${r},${r} 0 0 0 ${c},${c + r} Z`} fill={lit} />}
+    </svg>
+  );
 }
