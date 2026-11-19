@@ -18,6 +18,7 @@
 import { FORECAST_XML_PARSER, parseForecastXml, type ForecastIssue } from "../../shared/forecastXml";
 import type { Db } from "./accounts";
 import { ensureForecastSchema } from "./forecastArchive";
+import { doneOnce } from "./once";
 
 export const FORECAST_PARSE_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS forecast_issues (
@@ -64,20 +65,12 @@ export const FORECAST_PARSE_SCHEMA = [
  */
 export const PARSE_PER_RUN = 5;
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureForecastParseSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      await ensureForecastSchema(db);
-      for (const q of FORECAST_PARSE_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    await ensureForecastSchema(db);
+    for (const q of FORECAST_PARSE_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 /** The statements that put one read issue in place of what was read of it before (one batch, one transaction). */

@@ -30,6 +30,7 @@ import type { Message } from "./notify";
 import { tellAdmins } from "./typhoonWatch";
 import type { UsageEnv } from "./usage";
 import { sendPush } from "./webpush";
+import { doneOnce } from "./once";
 
 export const HEALTH_WATCH_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS health_checks (
@@ -63,19 +64,11 @@ export const toldElsewhere = (key: string) => key === "forecastStale" || key.sta
 export const HEALTH_WATCH_EVERY_MS = 60 * 60_000;
 const KEEP_DAYS = 30;
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureHealthWatchSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      for (const q of HEALTH_WATCH_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    for (const q of HEALTH_WATCH_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 /** Whether this run takes the hour's look (and, if so, it is taken: kept in health_checks). */

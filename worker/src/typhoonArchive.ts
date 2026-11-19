@@ -12,6 +12,7 @@
 
 import { parseTyphoonXml, TYPHOON_XML_PARSER } from "../../shared/typhoonXml";
 import type { Db } from "./accounts";
+import { doneOnce } from "./once";
 
 export const TYPHOON_ARCHIVE_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS typhoon_telegrams (
@@ -83,19 +84,11 @@ const defaultFetch: Fetcher = (url) =>
   fetch(url, { signal: AbortSignal.timeout(20_000) });
 
 // Once per database per isolate (a test makes a database of its own).
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureTyphoonSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      for (const q of TYPHOON_ARCHIVE_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    for (const q of TYPHOON_ARCHIVE_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 /** One scheduled run: read the feed, keep the new typhoon telegrams, log the run. */

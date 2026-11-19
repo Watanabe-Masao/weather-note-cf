@@ -32,6 +32,7 @@ import { ensureForecastSchema } from "./forecastArchive";
 import type { Message } from "./notify";
 import { tellAdmins } from "./typhoonWatch";
 import { sendPush } from "./webpush";
+import { doneOnce } from "./once";
 
 export const FORECAST_WATCH_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS forecast_alerts (
@@ -63,20 +64,12 @@ const KIND_NAME: Record<WatchedKind, string> = {
 /** Runs failed in a row before `fetch` is told. */
 export const FORECAST_FETCH_FAILS = 3;
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureForecastWatchSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      await ensureForecastSchema(db);
-      for (const q of FORECAST_WATCH_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    await ensureForecastSchema(db);
+    for (const q of FORECAST_WATCH_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 type Send = typeof sendPush;

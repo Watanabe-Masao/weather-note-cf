@@ -12,6 +12,7 @@
 import stationList from "../../shared/stations.json";
 import type { Db } from "./accounts";
 import { feedEntries, telegramId, type FeedEntry } from "./typhoonArchive";
+import { doneOnce } from "./once";
 
 export const FORECAST_ARCHIVE_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS forecast_telegrams (
@@ -106,19 +107,11 @@ async function sha256(s: string): Promise<string> {
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
 const defaultFetch: Fetcher = (url) => fetch(url, { signal: AbortSignal.timeout(20_000) });
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureForecastSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      for (const q of FORECAST_ARCHIVE_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    for (const q of FORECAST_ARCHIVE_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 /** One scheduled run: read the regular feed, keep the new forecast telegrams of the offices in use, log the run. */

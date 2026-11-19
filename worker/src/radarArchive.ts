@@ -9,6 +9,7 @@
 import { isKeptRadarTime, jstOfRadarTime, RADAR_LIST_URL, radarTiles, radarTileUrl, RASRF_LIST_URL, rasrfTileUrl, type RadarListItem } from "../../shared/radar";
 import type { Db } from "./accounts";
 import type { Bucket } from "./r2Archive";
+import { doneOnce } from "./once";
 
 export const RADAR_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS radar_saved (
@@ -39,19 +40,11 @@ const LOG_DAYS = 400;
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; arrayBuffer(): Promise<ArrayBuffer>; text(): Promise<string> }>;
 const defaultFetch: Fetcher = (url) => fetch(url, { signal: AbortSignal.timeout(20_000) });
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureRadarSchema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      for (const q of RADAR_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    for (const q of RADAR_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");

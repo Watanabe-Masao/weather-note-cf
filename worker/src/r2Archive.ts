@@ -14,6 +14,7 @@
 
 import { CHART_HOURS, forecastCharts, quickChartUrl } from "../../shared/wxchart";
 import type { Db } from "./accounts";
+import { doneOnce } from "./once";
 
 /** The part of R2's bucket used here (the binding ARCHIVE; a Map stands in for it in the tests). */
 export interface Bucket {
@@ -71,19 +72,11 @@ const SOURCES = [
 type Fetcher = (url: string) => Promise<{ ok: boolean; status: number; arrayBuffer(): Promise<ArrayBuffer>; json?(): Promise<unknown>; text(): Promise<string> }>;
 const defaultFetch: Fetcher = (url) => fetch(url, { signal: AbortSignal.timeout(20_000) });
 
-const ready = new WeakMap<Db, Promise<void>>();
+const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
 export function ensureR2Schema(db: Db): Promise<void> {
-  let p = ready.get(db);
-  if (!p) {
-    p = (async () => {
-      for (const q of R2_ARCHIVE_SCHEMA) await db.prepare(q).run();
-    })().catch((e) => {
-      ready.delete(db);
-      throw e;
-    });
-    ready.set(db, p);
-  }
-  return p;
+  return doneOnce(done, db, async () => {
+    for (const q of R2_ARCHIVE_SCHEMA) await db.prepare(q).run();
+  });
 }
 
 const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
