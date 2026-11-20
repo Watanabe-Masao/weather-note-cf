@@ -94,6 +94,20 @@ with sync_playwright() as p:
               return { h2: (s.querySelector('.bk-front h2') || {}).textContent, info: s.querySelectorAll('.ms-info .event-moment-card, .ms-info .event-night').length, chapters: s.querySelectorAll('.ms-chapter').length, caps: s.querySelectorAll('.ms-world .ms-cap').length, svg: s.querySelectorAll('.ms-world svg.bw .bw-stick').length,
                        text: s.textContent.includes('冬が来る前に、小さな枝を一本ずつ') && s.textContent.includes('ビーバームーンの名前のひみつ') && s.textContent.includes('自然と科学') && s.textContent.includes('はらり、はらり。') && !s.querySelector('.ms-epilogue') && s.textContent.includes('満月の物語の本棚') && s.querySelectorAll('.ms-shelf .ms-spine').length === 13 && s.querySelectorAll('.ms-shelf .ms-spine-gap').length === 1,
                        scroll: s.scrollHeight - s.clientHeight, gsap: !!document.querySelector('.moon-story.ready') } }""")
+            # 絵本の形（11/21 承認C の PR-3）：順番は 絵本 → あとがき → 自然と科学 → 今夜の月 → 本棚。物語の終わり（ページ送りの
+            # 最後の区切り）はあとがき。物語の月は今夜の情報へ移さない。「物語をとばす」はあとがきへ、そこから↑で絵本へ戻れる。
+            order = pg.evaluate("""() => { const s = document.querySelector('.moon-story'); const at = (q) => { const e = s.querySelector(q); return e ? [...s.querySelectorAll('section')].indexOf(e.closest('section')) : -1 };
+              const texts = [...s.querySelectorAll('.ms-text')].map((e) => [...s.querySelectorAll('section')].indexOf(e));
+              return { after: texts[0], science: texts[1], info: at('.ms-info'), shelf: at('.ms-tonight'), end: at('[data-story-end]'), fly: s.querySelectorAll('.ms-flymoon').length, kicker: (s.querySelector('.ms-paper-kicker') || {}).textContent } }""")
+            check("満月の物語（絵本の形）：あとがき → 自然と科学 → 今夜の月 → 本棚、物語の終わりはあとがき、物語の月は移さない",
+                  order["after"] >= 0 and order["after"] < order["science"] < order["info"] < order["shelf"] and order["end"] == order["after"] and order["fly"] == 0 and order["kicker"] == "物語のあとがき", order)
+            pg.locator(".moon-story .ms-skip .btn").click()
+            pg.wait_for_function("(() => { const s = document.querySelector('.moon-story'); const e = s.querySelector('[data-story-end]'); return Math.abs(s.scrollTop - e.offsetTop) < 4 })()", timeout=45000)
+            pg.wait_for_timeout(400)
+            top0 = pg.evaluate("document.querySelector('.moon-story').scrollTop")
+            pg.keyboard.press("ArrowUp"); pg.wait_for_timeout(9000)
+            top1 = pg.evaluate("document.querySelector('.moon-story').scrollTop")
+            check("満月の物語（絵本の形）：「物語をとばす」であとがきの頭へ、↑で絵本の最後のページへ戻る", top1 < top0 - 100, (top0, top1))
             pg.evaluate("document.querySelector('.moon-story').scrollTo(0, 1e6)"); pg.wait_for_timeout(600)
             end = pg.locator(".moon-story .ms-end .btn", has_text="閉じる").count()
             pg.locator(".moon-story .ms-close .icon-btn").click(); pg.wait_for_timeout(500)
