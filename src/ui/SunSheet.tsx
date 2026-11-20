@@ -120,8 +120,10 @@ export function SunSheet({
     const id = window.setInterval(tick, 20_000);
     return () => window.clearInterval(id);
   }, [follow]);
+  // 時刻を動かすと、付いていくのも再生も止まる（11/20 渡辺さん「再生のときも同じように止める」）。
   const move = (m: number) => {
     setFollow(false);
+    setPlaying(false);
     setAt(m);
   };
   // 時間の動きを見る（再生）：10分ずつ進め、24時で頭に戻る。もう一度押すと止まる。
@@ -545,7 +547,8 @@ export function SunSheet({
 function SkyView({ look, stream, tap, zoom, onZoom, panView, onPan, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky }: { look?: { azimuth: number; altitude: number } | null; stream?: MediaStream | null; tap?: SkyTap; zoom: number; onZoom: (z: number) => void; panView: { azimuth: number; altitude: number } | null; onPan: (v: { azimuth: number; altitude: number }) => void; at: number; sunAlt: number; sunAz: number; moon: SkyMoon; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour }) {
   // 窓の大きさ（11/19 渡辺さん「画面をもっと大きく使いたい」）：340×230 から縦に伸ばして 340×300。
   const VW = 340;
-  const VH = 300;
+  // 窓を少し大きく（11/20 渡辺さん「画面が小さいので指が外れる」）：縦を 300 → 340（正方形）。
+  const VH = 340;
   if (look) return <SkyWindow look={look} tap={tap} zoom={zoom} onZoom={onZoom} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} stream={stream} />;
   return <SkyPan zoom={zoom} onZoom={onZoom} view={panView} onView={onPan} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} />;
 }
@@ -619,6 +622,55 @@ function SkyPan({ w, h, zoom, onZoom, view, onView, full, ...p }: Omit<SkyProps,
 const ZOOM_MAX = 20;
 const clampZoom = (z: number) => Math.max(1, Math.min(ZOOM_MAX, Math.round(z * 10) / 10));
 
+/**
+ * 空の窓の上で2本指でつまんだとき、iPhone の画面そのものが拡大されないようにする（11/20 渡辺さん「iPhone 自体の拡大になる」）。
+ * iOS の Safari は touch-action だけでは止まらないことがあるので、つまむ動き（gesture*）と2本指の touchmove を止める。
+ * 拡大はアプリの中（usePinch、Pointer Events）で受ける。
+ */
+function useNoPageZoom(ref: { current: HTMLElement | null }) {
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    // 指が空の窓の中で触れはじめたら、その指が全部離れるまで、画面のどこで動いても iPhone の拡大・パンを止める
+    // （11/20 渡辺さん「指が窓の外に外れると iPhone 本体のパン・ピンチが発火する」）。窓の外で始めた操作はふだんどおり。
+    const stop = (e: Event) => e.preventDefault();
+    const two = (e: TouchEvent) => {
+      if (e.touches.length > 1) e.preventDefault();
+    };
+    let on = false;
+    const end = (e: TouchEvent) => {
+      if (e.touches.length > 0 || !on) return;
+      on = false;
+      document.removeEventListener("gesturestart", stop);
+      document.removeEventListener("gesturechange", stop);
+      document.removeEventListener("touchmove", two);
+      document.removeEventListener("touchend", end);
+      document.removeEventListener("touchcancel", end);
+    };
+    const start = () => {
+      if (on) return;
+      on = true;
+      document.addEventListener("gesturestart", stop, { passive: false });
+      document.addEventListener("gesturechange", stop, { passive: false });
+      document.addEventListener("touchmove", two, { passive: false });
+      document.addEventListener("touchend", end);
+      document.addEventListener("touchcancel", end);
+    };
+    el.addEventListener("touchstart", start, { passive: true });
+    el.addEventListener("gesturestart", stop);
+    el.addEventListener("gesturechange", stop);
+    el.addEventListener("touchmove", two, { passive: false });
+    return () => {
+      el.removeEventListener("touchstart", start);
+      el.removeEventListener("gesturestart", stop);
+      el.removeEventListener("gesturechange", stop);
+      el.removeEventListener("touchmove", two);
+      on = true;
+      end({ touches: [] as unknown as TouchList } as TouchEvent);
+    };
+  }, [ref]);
+}
+
 /** 2本指でつまむ（11/19）：2本目が置かれたら、指の間の長さの比で拡大する。down・move は、つまんでいる間 true を返す。 */
 function usePinch(zoom: number, onZoom: (z: number) => void) {
   const pts = useRef(new Map<number, { x: number; y: number }>());
@@ -664,6 +716,8 @@ type SkyProps = { look: { azimuth: number; altitude: number; roll?: number }; su
 type SkyTap = { armed: boolean; onTap: (c: { dAz: number; dAlt: number; name: string }) => void };
 function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky, w, h, stream, full, tap, fov = FOV, pan, zoom = 1, onZoom }: SkyProps & { w: number; h: number; stream?: MediaStream | null; full?: boolean; tap?: SkyTap; fov?: number; pan?: boolean; zoom?: number; onZoom?: (z: number) => void }) {
   const pinch = usePinch(zoom, onZoom ?? (() => {}));
+  const stageRef = useRef<HTMLDivElement>(null);
+  useNoPageZoom(stageRef);
   const svgRef = useRef<SVGSVGElement>(null);
   const video = useRef<HTMLVideoElement>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -774,6 +828,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
   })();
   return (
     <div
+      ref={stageRef}
       className={`sky-stage${full ? " full" : ""}${stream ? " camera" : ""}`}
       style={full ? ON_SKY : { ...ON_SKY, aspectRatio: `${w} / ${h}` }}
       // 2本指でつまむと拡大（なぞって見る窓は SkyPan が受ける）
