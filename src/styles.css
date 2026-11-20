@@ -460,18 +460,43 @@ img.event-pic { object-fit: contain; }
 @keyframes ev-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.6; } }
 @keyframes ev-halo { 0%, 100% { box-shadow: 0 0 0 var(--stroke-hair) var(--ev-glow) inset, 0 0 var(--space-2) var(--ev-glow); } 50% { box-shadow: 0 0 0 var(--stroke-hair) var(--ev-glow) inset, 0 0 var(--space-6) var(--ev-glow); } }
 @media (prefers-reduced-motion: reduce) {
-  .event-stars i, .event-shoot, .event-stage-pic, .event-glow, .event-stage-text, .event-stage-time, .event-count.now { animation: none; }
+  .event-stars i, .event-shoot, .event-stage-pic, .event-glow, .event-stage-text, .event-stage-time, .event-count.now, .event-path-peak .halo { animation: none; }
   .event-shoot { display: none; }
 }
-.event-symbols { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
-.event-symbols em { font-style: normal; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--surface-inset); color: var(--ink-secondary); }
-.event-h { margin: var(--space-5) 0 0; font-size: var(--size-sm); color: var(--ink-secondary); }
-.event-sheet .event-keys { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--space-2); }
-.event-sky { margin: var(--space-2) 0 0; font-size: var(--size-sm); line-height: 1.6; color: var(--ink-secondary); }
-.event-sky b { color: var(--ink-primary); }
-.event-when { margin: 0; font-size: var(--size-base); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; }
-.event-lead, .event-gloss { margin: var(--space-2) 0 0; font-size: var(--size-sm); line-height: 1.6; color: var(--ink-secondary); }
-.event-warn { margin: var(--space-2) 0 0; font-size: var(--size-sm); line-height: 1.6; color: var(--status-warning); }
+/* 物語（11/20「ここの工夫」）：引用のように。左に細い線、象徴の札を添える。 */
+.event-story { margin: 0 0 var(--space-4); padding: var(--space-1) 0 var(--space-1) var(--space-4); border-left: var(--stroke-focus) solid var(--line-soft); }
+.event-story p { margin: 0; font-size: var(--size-base); line-height: 1.7; color: var(--ink-primary); }
+.event-story p + p { margin-top: var(--space-2); }
+.event-symbols { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.event-story .event-symbols { margin-top: var(--space-2); }
+.event-symbols em { font-style: normal; font-size: var(--size-xs); padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--surface-inset); color: var(--ink-secondary); }
+/* その夜の空：舞台と同じ夜空に、通り道と見込み。 */
+.event-night { margin: 0 0 var(--space-4); padding: var(--space-4) var(--space-4) var(--space-3); border-radius: var(--radius-lg); color: var(--ink-primary); box-shadow: var(--shadow-card); }
+.event-night-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.event-night-head h4 { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
+.event-verdict { padding: var(--space-1) var(--space-4); border-radius: var(--radius-pill); box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-primary); }
+.event-verdict.good { box-shadow: 0 0 0 var(--stroke-hair) var(--ev-glow) inset, 0 0 var(--space-4) var(--ev-glow); }
+.event-verdict.unknown { font-weight: var(--weight-regular); color: var(--ink-tertiary); }
+.event-path { display: block; width: 100%; height: auto; margin-top: var(--space-2); overflow: visible; }
+.event-path-ground { stroke: var(--line-soft); stroke-width: var(--stroke-hair); }
+.event-path-mark { fill: var(--ink-secondary); }
+.event-path-tick { stroke: var(--line-soft); stroke-width: var(--stroke-hair); }
+.event-path-label { fill: var(--ink-tertiary); }
+.event-path-label.strong { fill: var(--ink-primary); font-weight: var(--weight-bold); }
+.event-path-line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.event-path-line.clear { stroke: var(--ev-glow); stroke-width: var(--stroke-focus); filter: drop-shadow(0 0 var(--space-2) var(--ev-glow)); }
+.event-path-line.cloud { stroke: var(--ink-tertiary); stroke-width: var(--stroke-select); stroke-dasharray: 2 5; }
+.event-path-line.unknown { stroke: var(--ink-secondary); stroke-width: var(--stroke-select); opacity: 0.6; }
+.event-path-line.span { stroke-width: calc(var(--stroke-focus) * 2); }
+.event-path-peak .dot { fill: var(--ev-glow); }
+.event-path-peak .halo { fill: var(--ev-glow); opacity: 0.35; animation: ev-pulse 2.7s ease-in-out infinite; }
+.event-night-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: var(--space-1) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.event-night-legend span::before { content: ""; display: inline-block; width: var(--space-6); height: 0; margin-right: var(--space-2); vertical-align: middle; border-top: var(--stroke-focus) solid var(--ev-glow); }
+.event-night-legend .cloud::before { border-top: var(--stroke-select) dotted var(--ink-tertiary); }
+.event-night-legend .unknown::before { border-top: var(--stroke-select) solid var(--ink-secondary); opacity: 0.6; }
+.event-sheet .event-keys { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.event-night .event-keys { margin-top: var(--space-3); background: transparent; box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; }
+.event-night-wx { display: block; margin-top: var(--space-2); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .event-tags { margin-top: var(--space-3); }
 .event-sheet .fm-open-btn { display: flex; margin: var(--space-3) 0 var(--space-2); }
 

@@ -18,6 +18,7 @@ import { eventBannerSvg, eventGlow } from "../design/eventLogo";
 import { BRAND } from "../design/brand";
 import { currentTheme, onSkyVars } from "../design/tokens";
 import { dirName } from "./moonParts";
+import { EventPath, pathDays } from "./EventPath";
 import { factTags, FullMoonSheet } from "./FullMoonSheet";
 import { ModalSheet } from "./ModalSheet";
 import { Button, Glyph } from "./kit";
@@ -106,10 +107,11 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
   // 見え方の天気（高知の観測所の記録・予報）：満月なら月が出ている夜の時間、食なら食の間。
   useEffect(() => {
     if (!store) return;
-    store.wantHours(STATION, [date], Priority.Visible, "event-sheet");
+    store.wantHours(STATION, pathDays(date), Priority.Visible, "event-sheet");
     return () => store.wantHours(STATION, [], Priority.Visible, "event-sheet");
   }, [store, date]);
   const rows = store?.getHours(STATION, date).rows ?? [];
+  const nextRows = store?.getHours(STATION, addDays(date, 1)).rows ?? [];
   const sky = useMemo(() => {
     if (!rows.length) return null;
     // 見る時間（その日の JMA の時間 n）：満月は月が地平線の上にある 17〜24時、食はその間。
@@ -173,35 +175,52 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
         </div>
       </div>
 
-      {/* 物語（呼び名の短い紹介、または食の説明）。 */}
-      {full ? (
-        <>
-          {event.blue && <p className="event-lead">{BLUE_MOON.short}{event.name ? `（月の呼び名は${event.name}）` : ""}</p>}
-          {info && <p className="event-lead">{info.short}</p>}
-          {info && (
-            <p className="event-symbols">
-              {info.symbols.map((s) => (
-                <em key={s}>{s}</em>
-              ))}
+      {/* 物語（11/20 渡辺さん「ここの工夫」）：呼び名の紹介を引用のように、象徴の札を添えて。食はその説明と注意。 */}
+      <div className="event-story">
+        {full ? (
+          <>
+            {event.blue && <p>{BLUE_MOON.short}{event.name ? `（月の呼び名は${event.name}）` : ""}</p>}
+            {info && <p>{info.short}</p>}
+            {info && (
+              <p className="event-symbols">
+                {info.symbols.map((s) => (
+                  <em key={s}>{s}</em>
+                ))}
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <p>
+              {solar
+                ? `${WHERE}から見える${SKY_EVENT_NAME[event.kind]}です。いちばん深いとき、太陽は地平線の上 ${Math.round(peakAlt)}° にあります。`
+                : `${WHERE}から見える${SKY_EVENT_NAME[event.kind]}です。いちばん深いとき、月は地平線の上 ${Math.round(peakAlt)}° にあります。${event.name ? `この満月は${event.name}。` : ""}`}
+              {event.obscuration != null && event.obscuration > 0 ? `欠ける割合は ${Math.round(event.obscuration * 100)}%。` : ""}
             </p>
-          )}
-        </>
-      ) : (
-        <>
-          <p className="event-lead">
-            {solar
-              ? `${WHERE}から見える${SKY_EVENT_NAME[event.kind]}です。いちばん深いとき、太陽は地平線の上 ${Math.round(peakAlt)}° にあります。`
-              : `${WHERE}から見える${SKY_EVENT_NAME[event.kind]}です。いちばん深いとき、月は地平線の上 ${Math.round(peakAlt)}° にあります。${event.name ? `この満月は${event.name}。` : ""}`}
-            {event.obscuration != null && event.obscuration > 0 ? `欠ける割合は ${Math.round(event.obscuration * 100)}%。` : ""}
-          </p>
-          {solar && <p className="event-warn">太陽を直接見たり、カメラや双眼鏡で見たりしないでください。日食グラスなど専用の道具を使います。</p>}
-          {event.kind === "lunar-total" && <p className="event-lead">皆既のあいだ、地球の大気を通って曲がった赤い光が月に届き、月が赤銅色に見えることがあります。</p>}
-        </>
-      )}
+            {event.kind === "lunar-total" && <p>皆既のあいだ、地球の大気を通って曲がった赤い光が月に届き、月が赤銅色に見えることがあります。</p>}
+          </>
+        )}
+      </div>
+      {solar && <p className="event-warn">太陽を直接見たり、カメラや双眼鏡で見たりしないでください。日食グラスなど専用の道具を使います。</p>}
 
-      {/* その日の見え方：満月は月の出・いちばん高い・月の入り、食は始め・最大・終わり。 */}
-      <h4 className="event-h">{solar ? "その日の見え方" : `${jst(event.at).md} の夜の月（${WHERE}）`}</h4>
-      <div className="sun-keys event-keys">
+      {/* その夜の空（11/20 渡辺さん「ここの工夫」）：舞台と同じ夜空に、月（日食は太陽）の通り道を天気で描き分け、
+          見込みを札で。下に出・いちばん高い・入り（食は始め・いちばん深い・終わり）。 */}
+      <div className="event-night" style={{ ...(onSkyVars() as CSSProperties), background: `linear-gradient(${BRAND.navy.bg[1]}, ${BRAND.navy.bg[0]})`, ["--ev-glow" as string]: eventGlow(event.kind, event.blue) }}>
+        <div className="event-night-head">
+          <h4>{solar ? `${jst(event.at).md} の太陽（${WHERE}）` : `${jst(event.at).md} の夜の月（${WHERE}）`}</h4>
+          <span className={sky ? (sky.good ? "event-verdict good" : "event-verdict") : "event-verdict unknown"} role="status">
+            {sky ? sky.verdict : "天気は予報待ち"}
+          </span>
+        </div>
+        <EventPath event={event} date={date} lat={lat} lon={lon} weather={{ rows: { [date]: rows, [addDays(date, 1)]: nextRows }, station: STATION }}
+          ends={{ from: night?.rise ? `${clockOf(Math.round(night.rise.at))} 出` : null, to: night?.set ? `${night.set.next ? "翌" : ""}${clockOf(Math.round(night.set.at))} 入` : null }}
+        />
+        <p className="event-night-legend" aria-hidden>
+          <span className="clear">晴れ間</span>
+          <span className="cloud">雲で見えにくい</span>
+          <span className="unknown">天気がまだ無い</span>
+        </p>
+        <div className="sun-keys event-keys">
         {event.span ? (
           <>
             <div className="sun-key">
@@ -240,15 +259,12 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
           </>
         )}
       </div>
-      <p className={sky?.good ? "event-sky good" : "event-sky"} role="status">
-        {sky ? (
-          <>
-            <b>{sky.verdict}</b>（{WHERE}の{sky.forecast ? "予報" : "記録"}：{sky.text}）
-          </>
-        ) : (
-          `${WHERE}の天気は、予報が出たらここに出ます。`
+        {sky && (
+          <small className="event-night-wx">
+            {WHERE}の{sky.forecast ? "予報" : "記録"}：{sky.text}
+          </small>
         )}
-      </p>
+      </div>
 
       {facts && factTags(facts, WHERE).length > 0 && (
         <p className="fm-tags event-tags">

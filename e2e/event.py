@@ -82,7 +82,7 @@ with sync_playwright() as p:
         check(f"[{theme}] 説明：主役は文字の無い四角い絵と名前（ロゴ入りの帯は出さない）、満月の時刻とあと何時間、月の出入り",
               pic and "/event/beaver-icon.webp" in pic["src"] and pic["w"] > 0 and pg.locator(".event-sheet .event-stage-text b", has_text="ビーバームーン").count() == 1
               and pg.locator(".event-sheet img[src*='-navy.webp'], .event-sheet img[src*='-warm.webp'], .event-sheet img[src*='-mist.webp']").count() == 0
-              and "23:54" in sheet and "あと" in sheet and "月の出" in sheet, (pic, sheet[:60]))
+              and "23:54" in sheet and "あと" in sheet and "月の出" in sheet and pg.locator(".event-sheet svg.event-path .event-path-line").count() >= 1 and pg.locator(".event-sheet .event-path-peak").count() == 1, (pic, sheet[:60]))
         pg.locator(".event-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
         check(f"[{theme}] 押すと説明（ビーバームーン）、閉じると消える", "ビーバームーン" in sheet and pg.locator(".event-sheet").count() == 0, sheet[:40])
         ctx.close()
