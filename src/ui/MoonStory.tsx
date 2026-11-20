@@ -11,6 +11,7 @@
 // 月の色や見え方とは別（ページの終わりに断る）。GSAP と ScrollTrigger は、このページを開いたときだけ読み込む。
 import {
   type CSSProperties,
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -227,11 +228,16 @@ function Letters({ text }: { text: string }) {
     <>
       <span className="ms-sr">{text}</span>
       <span aria-hidden>
-        {[...text].map((c, i) => (
-          <span key={i} className="ms-ch">
-            {c}
-          </span>
-        ))}
+        {/* 改行（絵本の形のページの行の切れ目）は列を改める。字の番号（読む時刻）をずらさないよう、同じ組に入れる。 */}
+        {[...text].map((c, i) =>
+          c === "\n" ? (
+            <br key={i} className="ms-ch" />
+          ) : (
+            <span key={i} className="ms-ch">
+              {c}
+            </span>
+          ),
+        )}
       </span>
     </>
   );
@@ -290,8 +296,8 @@ export function MoonStory({
   const pic = eventIcon(event) ?? eventArt(event, "navy")?.src ?? null;
   const wide = !eventIcon(event);
   // 絵本の場面（一文が一コマ）。場面の無い満月は、本の表紙と文だけ。
-  // 絵本の形（book）を持つ満月は、そのページから（1ページ＝1コマ。行はいまは一つの字幕にまとめる）。
-  const lines = story?.book ? story.book.pages.map((p) => p.lines.join("")) : (story?.tale?.lines ?? []);
+  // 絵本の形（book）を持つ満月は、そのページから（1ページ＝1コマ。行は改行で区切り、縦書きの列を改める）。
+  const lines = story?.book ? story.book.pages.map((p) => p.lines.join("\n")) : (story?.tale?.lines ?? []);
   const linesKey = lines.join("\n");
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 文の中身が同じなら同じ重み（配列は毎回作られる）
   const weights = useMemo(() => beatWeights(lines), [linesKey]);
@@ -706,7 +712,7 @@ export function MoonStory({
           );
           // 場面から締めくくりへ移るとき、外の金の枠は背景の色へ溶けて消える（11/20 22:11 渡辺さん）。枠の出入りは場面の
           // タイムラインが枠（.ms-world-frame）の不透明度で持つので、ここは中の絵（svg）の不透明度で（同じ値を二つで動かさない）。
-          const ep = el.querySelector(".ms-epilogue");
+          const ep = el.querySelector(".ms-epilogue") ?? el.querySelector(".ms-info");
           if (ep)
             gsap.fromTo(
               ".ms-world-frame > svg",
@@ -990,38 +996,6 @@ export function MoonStory({
               },
             },
           );
-        // 物語から今夜の情報へ移る間の一言：画面の下から入ると現れ、真ん中を過ぎると消える（ずれは少し、文字は動かしすぎない）。
-        // 物語から今夜の情報へ移る間の一言（11/20 21:16 渡辺さん「すっと現れて、滲みながら消える」）：くっきり現れ、
-        // 消えるときは一字ずつ滲んで溶ける（端の字から少し先に、字間がわずかに開く）。滲みは控えめ（iPhone で重くしない）。
-        const herald = el.querySelector(".ms-herald-text");
-        const hl = gsap.utils.toArray<HTMLElement>(".ms-herald-text .ms-hl");
-        if (herald && hl.length) {
-          const mid = (hl.length - 1) / 2;
-          gsap
-            .timeline({
-              scrollTrigger: {
-                trigger: herald,
-                scroller,
-                start: "top 88%",
-                end: "bottom 18%",
-                scrub: 0.4,
-              },
-            })
-            .fromTo(
-              herald,
-              { opacity: 0, y: 12 },
-              { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" },
-            )
-            .to(herald, { opacity: 1, duration: 0.25 })
-            .to(hl, {
-              opacity: 0,
-              filter: "blur(5px)",
-              x: (i: number) => (i - mid) * 1.6,
-              duration: 0.32,
-              ease: "power1.in",
-              stagger: { each: 0.016, from: "edges" },
-            });
-        }
         // 区切りのドットは、場面の動きではなく、ページ送りの「いまの区切り」で灯す（storyPager の onIndex）。
       });
       // 明朝の字が読み込まれると高さが変わるので、測り直す。
@@ -1275,7 +1249,8 @@ export function MoonStory({
       )}
 
       {/* 締めくくり（16:27 のレビュー「最後の余韻」）：ひと言をもう一度。ここから今夜の情報へつなぐ。 */}
-      {scene && story?.tale && (
+      {/* 絵本の形（book）を持つ満月は、9ページで物語が終わるので出さない（11/21 承認：余韻を分けない）。 */}
+      {scene && story?.tale && !story.book && (
         <section className="ms-chapter ms-epilogue">
           {/* きらめき（11/20 20:42 渡辺さん「ここにもちょっとキラッとしたエフェクトを」）：飾りの線の真ん中の菱形と、
               文のまわりに小さな星が、間をおいて一つずつ瞬く。動きを減らす設定では出さない。 */}
@@ -1315,18 +1290,6 @@ export function MoonStory({
         </section>
       )}
 
-      {/* 物語から今夜の情報へ移る間の一言（11/20 20:45 渡辺さん）：スクロールに合わせて、すっと現れ、すっと消える。 */}
-      {scene && story?.tale?.herald && (
-        <section className="ms-herald" aria-label={story.tale.herald}>
-          <p className="ms-herald-text">
-            {[...story.tale.herald].map((c, i) => (
-              <span key={i} className="ms-hl">
-                {c}
-              </span>
-            ))}
-          </p>
-        </section>
-      )}
 
       {/* 2. 季節の物語（場面の無い満月）：ひと言と、物語の一段落ずつ。物語の無い呼び名は、象徴の文だけ。 */}
       {story && !scene && (
@@ -1363,6 +1326,8 @@ export function MoonStory({
             />
           </div>
         </div>
+        {/* 窓の外の月の一言：締めくくりを出さない満月（book）は、今夜の情報の中で。 */}
+        {story?.book && windowLine && <p className="ms-window ms-rise">{windowLine}</p>}
         {/* 今夜の情報から空へ（11/21 渡辺さん「アイデアも採用」）：月のこよみのその夜（見え方・空の明るさ）を開く。 */}
         {onSky && (
           <Button size="sm" className="ms-sky-btn ms-rise" onClick={onSky}>
@@ -1385,10 +1350,21 @@ export function MoonStory({
         (
           [
             // 絵本の形を持つ満月は、あとがき・自然と科学を book から（無ければ、名前の由来・自然との関係）。
-            [story.book?.afterword.title ?? "名前の由来", story.book?.afterword.paragraphs ?? story.origin, false],
-            [story.book?.science.title ?? "自然との関係", story.book?.science.sections.map((x) => x.text) ?? story.nature, true],
+            // 節は { heading?, text }（自然と科学は小見出しつき）。あとがきの上には小さく「物語のあとがき」。
+            [
+              story.book?.afterword.title ?? "名前の由来",
+              (story.book?.afterword.paragraphs ?? story.origin).map((text) => ({ heading: undefined as string | undefined, text })),
+              false,
+              story.book ? "物語のあとがき" : null,
+            ],
+            [
+              story.book?.science.title ?? "自然との関係",
+              story.book?.science.sections ?? story.nature.map((text) => ({ heading: undefined as string | undefined, text })),
+              true,
+              null,
+            ],
           ] as const
-        ).map(([head, paras, last]) => (
+        ).map(([head, paras, last, kicker]) => (
           <section key={head} className="ms-chapter ms-text">
             {/* 紙のページ（11/20 21:14 渡辺さん：四隅は角の丸い枠と唐草にそろえる）。見出しまわりはページごと：
                 名前の由来は上に月の満ち欠けと菱形の飾り、自然との関係は小枝の線と象徴の言葉の札。 */}
@@ -1413,12 +1389,14 @@ export function MoonStory({
                   className="ms-phases"
                 />
               )}
+              {kicker && <small className="ms-paper-kicker">{kicker}</small>}
               <h3>{head}</h3>
               {last ? <LeafRule className="ms-leafrule" /> : <Flourish />}
               {paras.map((t, i) => (
-                <p key={i} className={i === 0 ? "lead" : undefined}>
-                  {t}
-                </p>
+                <Fragment key={i}>
+                  {t.heading && <h4 className="ms-paper-sub">{t.heading}</h4>}
+                  <p className={i === 0 ? "lead" : undefined}>{t.text}</p>
+                </Fragment>
               ))}
               {last && (
                 <p className="ms-symbols">

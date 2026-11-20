@@ -38,6 +38,8 @@ def make(src: str, out: str, chars):
     subset.save_font(f, str(OUT / out), opts)
     print(out, (OUT / out).stat().st_size // 1024, "KB", len(chars), "字")
 
+# 入れた字の一覧（テストで、物語の文の字がすべて入っているかを確かめる。test/data/story-book.test.ts）。
+(OUT / "chars.txt").write_text("".join(ja), encoding="utf-8")
 make("ShipporiMincho-Medium.ttf", "shippori-mincho-500.woff2", ja)
 make("ShipporiMincho-SemiBold.ttf", "shippori-mincho-600.woff2", ja)
 make("ZenOldMincho-Bold.ttf", "zen-old-mincho-700.woff2", ja)
