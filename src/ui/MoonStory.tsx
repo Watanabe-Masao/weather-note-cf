@@ -28,6 +28,10 @@ import {
   fullMoonsOfYear,
 } from "../../shared/moon";
 import { eventNight, skyEventOn, skyEventShown, type SkyEvent } from "../../shared/skyEvents";
+import { BOOK } from "../design/story/palette";
+import { skyHidden } from "../../shared/dayWeather";
+import { windowMoonLine } from "../../shared/windowMoon";
+import { dirName } from "./moonParts";
 import { DEFAULT_LAT_LON } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
 import { eventArt, eventIcon } from "../design/eventAssets";
@@ -63,6 +67,8 @@ import { CloseIcon } from "./icons";
 import { Button, Glyph, IconButton } from "./kit";
 
 const WHERE = "高知";
+/** いまの雲を見る観測所（高知、今夜の情報のカードと同じ）。 */
+const SKY_STATION = "47893";
 /** 開いた本（見開き）を画面に収める縮め方（表紙は画面の幅の 84% まで大きく、見開きはその 2 倍の幅）。 */
 const SPREAD = 0.56;
 const HOUR_MS = 3_600_000;
@@ -209,6 +215,7 @@ const jst = (ms: number) => {
   const d = new Date(ms + 9 * HOUR_MS);
   return {
     date: d.toISOString().slice(0, 10),
+    min: d.getUTCHours() * 60 + d.getUTCMinutes(),
     m: d.getUTCMonth() + 1,
     d: d.getUTCDate(),
   };
@@ -235,12 +242,15 @@ export function MoonStory({
   store,
   onClose,
   onList,
+  onSky,
   onNext,
 }: {
   at: number;
   store?: WeatherStore | null;
   onClose: () => void;
   onList?: () => void;
+  /** 今夜の月を見る（月のこよみのその夜を開く。11/21 渡辺さん「アイデアも採用」）。 */
+  onSky?: () => void;
   onNext?: (at: number) => void;
 }) {
   const { lat, lon } = DEFAULT_LAT_LON;
@@ -386,6 +396,18 @@ export function MoonStory({
     const n = eventNight(event);
     return `${Number(n.slice(5, 7))}/${Number(n.slice(8))} の夜の`;
   }, [event, lat, lon]);
+  // 窓の外の月（11/21 渡辺さん「アイデアも採用」、shared/windowMoon.ts）：締めくくりに、いまの空の具合で一言。
+  // 雲は高知の観測所のいまの時間（読めていなければ分からないとして言い切らない）。
+  const windowLine = useMemo(() => {
+    const now = Date.now();
+    const t = jst(now);
+    const rows = store?.getHours(SKY_STATION, t.date).rows ?? [];
+    const h = rows.length ? skyHidden(rows, Math.floor(t.min / 60) + 1, SKY_STATION) : null;
+    return windowMoonLine(now, event, lat, lon, h ? h.hidden : null, dirName);
+  }, [event, lat, lon, store]);
+  // 読み終わりのしおり（11/21）：次の物語までの日数（日本時間の日付で数える）。
+  const daysTo = (ms: number) =>
+    Math.round((Date.parse(`${jst(ms).date}T00:00:00+09:00`) - Date.parse(`${jst(Date.now()).date}T00:00:00+09:00`)) / 86_400_000);
 
   // 閉じる：Esc と、開いている間は後ろをスクロールさせない。
   useEffect(() => {
@@ -908,6 +930,65 @@ export function MoonStory({
             onLeaveBack: () => tl.reverse(),
           });
         });
+        // 空の色が進む（11/21 渡辺さん「アイデアも採用」）：表紙のあたりは夕方の色、場面を読み進めるうちに夜へ、締めくくり
+        // から先は深夜へ。地の色（.moon-story の --sky-0 / --sky-1）だけを、スクロールに合わせて変える。
+        const after = el.querySelector(".ms-epilogue") ?? el.querySelector(".ms-info");
+        gsap.fromTo(
+          el,
+          { "--sky-0": BOOK.dusk[0], "--sky-1": BOOK.dusk[1] },
+          {
+            "--sky-0": BOOK.night[0],
+            "--sky-1": BOOK.night[1],
+            ease: "none",
+            scrollTrigger: {
+              trigger: el.querySelector(".ms-world") ?? el.querySelector(".ms-book"),
+              scroller,
+              start: "top bottom",
+              end: "bottom bottom",
+              scrub: true,
+            },
+          },
+        );
+        if (after)
+          gsap.fromTo(
+            el,
+            { "--sky-0": BOOK.night[0], "--sky-1": BOOK.night[1] },
+            {
+              "--sky-0": BOOK.deep[0],
+              "--sky-1": BOOK.deep[1],
+              ease: "none",
+              immediateRender: false,
+              scrollTrigger: {
+                trigger: after,
+                scroller,
+                start: "top bottom",
+                endTrigger: el.querySelector(".ms-tonight") ?? after,
+                end: "top bottom",
+                scrub: true,
+              },
+            },
+          );
+        // 読み終わりのしおり（11/21）：本棚が見えると、読んでいた本の抜けた所に金のしおりが上から下りて、少し揺れて止まる。
+        const mark = el.querySelector(".ms-bookmark");
+        if (mark)
+          gsap.fromTo(
+            mark,
+            { scaleY: 0, rotate: 0 },
+            {
+              keyframes: [
+                { scaleY: 1, duration: 0.9, ease: "power2.out" },
+                { rotate: 4, duration: 0.35, ease: "sine.inOut" },
+                { rotate: -2, duration: 0.4, ease: "sine.inOut" },
+                { rotate: 0, duration: 0.5, ease: "sine.out" },
+              ],
+              scrollTrigger: {
+                trigger: el.querySelector(".ms-shelf"),
+                scroller,
+                start: "top 70%",
+                toggleActions: "play none none reverse",
+              },
+            },
+          );
         // 物語から今夜の情報へ移る間の一言：画面の下から入ると現れ、真ん中を過ぎると消える（ずれは少し、文字は動かしすぎない）。
         // 物語から今夜の情報へ移る間の一言（11/20 21:16 渡辺さん「すっと現れて、滲みながら消える」）：くっきり現れ、
         // 消えるときは一字ずつ滲んで溶ける（端の字から少し先に、字間がわずかに開く）。滲みは控えめ（iPhone で重くしない）。
@@ -1229,6 +1310,7 @@ export function MoonStory({
           <small className="ms-rise">{title}</small>
           {/* 小さな金の枯れ枝（11/20 21:05 渡辺さん）：名前の下にそっと。 */}
           <Twig className="ms-twig ms-rise" />
+          {windowLine && <p className="ms-window ms-rise">{windowLine}</p>}
         </section>
       )}
 
@@ -1280,6 +1362,13 @@ export function MoonStory({
             />
           </div>
         </div>
+        {/* 今夜の情報から空へ（11/21 渡辺さん「アイデアも採用」）：月のこよみのその夜（見え方・空の明るさ）を開く。 */}
+        {onSky && (
+          <Button size="sm" className="ms-sky-btn ms-rise" onClick={onSky}>
+            {when}月を見る
+            <Glyph name="next" />
+          </Button>
+        )}
         {tags.length > 0 && (
           <p className="fm-tags ms-rise">
             {tags.map((t) => (
@@ -1374,7 +1463,10 @@ export function MoonStory({
                   <span
                     className="ms-spine-gap"
                     aria-label={`${bk.name}（いま読んでいる本）`}
-                  />
+                  >
+                    {/* 読み終わりのしおり（11/21）：本棚が見えると、抜けた所に金のしおりがすっと下りる。 */}
+                    <span className="ms-bookmark" aria-hidden />
+                  </span>
                 ) : (
                   <button
                     type="button"
@@ -1437,7 +1529,9 @@ export function MoonStory({
         </div>
         {next && (
           <p className="ms-shelf-hint ms-rise">
-            次の満月は {jst(next.at).m}/{jst(next.at).d}
+            次の物語は{next.blue ? "ブルームーン" : next.name}（{jst(next.at).m}/
+            {jst(next.at).d}）
+            {daysTo(next.at) > 0 ? `、あと${daysTo(next.at)}日` : ""}
             。背を押すと、その本を取り出して開きます。
           </p>
         )}

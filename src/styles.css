@@ -492,14 +492,15 @@ img.event-pic { object-fit: contain; }
 .event-stage:not(.light) .event-count { box-shadow: 0 0 0 var(--stroke-select) var(--ev-glow) inset; }
 /* 満月の物語（11/20 渡辺さん「GSAP + ScrollTrigger Apple風の複雑なスクロール演出」）：全画面・テーマによらず夜の色
    （onSkyVars）。動きは src/ui/MoonStory.tsx（GSAP）。動きを減らす設定では、全部を最初から見せる。 */
-.moon-story { position: fixed; inset: 0; z-index: var(--layer-story); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: linear-gradient(var(--bk-night-0), var(--bk-night-1)); background-attachment: local; color: var(--ink-primary); outline: none; }
+.moon-story { position: fixed; inset: 0; z-index: var(--layer-story); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: linear-gradient(var(--sky-0, var(--bk-night-0)), var(--sky-1, var(--bk-night-1))); background-attachment: local; color: var(--ink-primary); outline: none; }
+/* 空の色が進む（11/21）：--sky-0 / --sky-1 を物語のスクロールで夕方 → 夜 → 深夜へ（MoonStory）。動きを減らす設定では夜のまま。 */
 .ms-close { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); right: var(--space-4); z-index: 3; }
 .ms-topband { position: fixed; inset: 0 0 auto; z-index: 2; height: calc(env(safe-area-inset-top, 0px) + var(--space-4) * 2 + var(--tap-min) + var(--space-4)); background: linear-gradient(var(--bk-night-1), transparent); opacity: 0.85; pointer-events: none; }
 /* 満月の物語の書体（11/20 19:52 渡辺さん「システムフォントは雰囲気台無し」）：しっぽり明朝と Cormorant Garamond（どちらも OFL）。
    物語で使う字だけに絞った woff2（scripts/story-fonts.py）。物語を開いたときだけ読む（/event/ の下、版つき）。 */
-@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-500.woff2?v=4") format("woff2"); font-weight: 400 500; font-display: block; }
-@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-600.woff2?v=4") format("woff2"); font-weight: 600 700; font-display: block; }
-@font-face { font-family: "Story Engrave"; src: url("/event/story/fonts/zen-old-mincho-700.woff2?v=3") format("woff2"); font-weight: 400 900; font-display: block; }
+@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-500.woff2?v=5") format("woff2"); font-weight: 400 500; font-display: block; }
+@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-600.woff2?v=5") format("woff2"); font-weight: 600 700; font-display: block; }
+@font-face { font-family: "Story Engrave"; src: url("/event/story/fonts/zen-old-mincho-700.woff2?v=4") format("woff2"); font-weight: 400 900; font-display: block; }
 @font-face { font-family: "Story Garamond"; src: url("/event/story/fonts/cormorant-garamond.woff2?v=1") format("woff2"); font-weight: 300 700; font-style: normal; font-display: block; }
 @font-face { font-family: "Story Garamond"; src: url("/event/story/fonts/cormorant-garamond-italic.woff2?v=1") format("woff2"); font-weight: 300 700; font-style: italic; font-display: block; }
 /* 本（11/20 渡辺さんの見本：紺の革の表紙・金の飾り・生成りの紙）。テーマによらず一つ（色は src/design/story）。
@@ -508,7 +509,7 @@ img.event-pic { object-fit: contain; }
    収まる。開くほど表紙は暗く、ページに落ちた表紙の影が消える。 */
 .ms-book { position: relative; height: 420svh; }
 /* 本の舞台は、下から上がってくる場面の上に重ね（地は夜の色で塞ぐ）、本の終わりに消す。 */
-.ms-book > .ms-sticky { z-index: 1; background: linear-gradient(var(--bk-night-0), var(--bk-night-1)); }
+.ms-book > .ms-sticky { z-index: 1; background: linear-gradient(var(--sky-0, var(--bk-night-0)), var(--sky-1, var(--bk-night-1))); }
 /* 高さは今の画面の高さ（dvh）：iPhone の Safari で svh だと下に隙間ができ、次の場面の空が見えていた（11/20 23:45 渡辺さん）。 */
 .ms-sticky { position: sticky; top: 0; height: 100svh; height: 100dvh; overflow: hidden; display: grid; place-items: center; }
 .bk { position: relative; width: min(84vw, 340px); aspect-ratio: 5 / 7; will-change: transform; }
@@ -584,6 +585,8 @@ img.event-pic { object-fit: contain; }
 /* 締めくくり：ひと言をもう一度（明朝、余白を大きく）。 */
 .ms-epilogue { padding-top: 26svh; padding-bottom: 10svh; gap: var(--space-5); }
 .ms-epilogue p { margin: 0; font-family: var(--font-story); font-size: var(--size-xl); line-height: 2; letter-spacing: 0.12em; color: var(--bk-paper-0); text-wrap: balance; }
+/* 窓の外の月（11/21）：締めくくりの下に小さく、いまの空の一言。 */
+.ms-epilogue p.ms-window { margin-top: var(--space-4); font-size: var(--size-md); line-height: 1.9; letter-spacing: 0.1em; color: var(--bk-gold-0); opacity: 0.9; }
 .ms-epilogue small { font-family: var(--font-story); font-size: var(--size-sm); letter-spacing: 0.5em; color: var(--bk-gold-0); }
 /* 物語から今夜の情報へ移る間の一言（11/20 20:45）：金の箔の明朝。動きを減らす設定では、そのまま見せる。 */
 .ms-herald { display: grid; place-items: center; min-height: 34svh; padding: 0 var(--space-6); }
@@ -617,6 +620,7 @@ img.event-pic { object-fit: contain; }
 .ms-beat.on { opacity: 1; transform: scale(1.5); }
 /* 今夜の情報（16:23「物語の最後には情報も」）：イベントの説明と同じカードを、物語の夜の上に。 */
 .ms-info { gap: var(--space-4); }
+.ms-info .ms-sky-btn { align-self: center; }
 .ms-info h3 { font-family: var(--font-story); font-weight: var(--weight-regular); letter-spacing: 0.1em; }
 .ms-card { width: 100%; text-align: left; }
 /* 紙を重ねる（11/21）：外が沈み、内が滑り込む。後の紙ほど上に重なる（文書の順に描く）。 */
@@ -736,7 +740,10 @@ img.event-pic { object-fit: contain; }
 .ms-spine:hover:not(:disabled) { transform: translateY(calc(var(--space-2) * -1)); }
 .ms-spine:focus-visible { outline: var(--stroke-focus) solid var(--bk-gold-0); outline-offset: var(--stroke-focus); }
 .ms-spine:disabled { opacity: 0.4; cursor: default; }
-.ms-spine-gap { display: block; width: 100%; min-width: var(--tap-min); height: 94%; border-radius: var(--radius-sm) var(--radius-sm) 0 0; box-shadow: inset 0 0 0 var(--stroke-hair) var(--bk-gold-1); opacity: 0.4; }
+.ms-spine-gap { position: relative; display: block; width: 100%; min-width: var(--tap-min); height: 94%; }
+.ms-spine-gap::before { content: ""; position: absolute; inset: 0; border-radius: var(--radius-sm) var(--radius-sm) 0 0; box-shadow: inset 0 0 0 var(--stroke-hair) var(--bk-gold-1); opacity: 0.4; }
+/* 読み終わりのしおり（11/21）：抜けた所の上から下りる金の細い帯（先は燕尾）。 */
+.ms-bookmark { position: absolute; left: 50%; top: 0; width: 26%; height: 62%; margin-left: -13%; background: linear-gradient(90deg, var(--bk-gold-deep), var(--bk-bookmark) 45%, var(--bk-gold-0) 60%, var(--bk-bookmark)); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 86%, 0 100%); transform-origin: 50% 0; filter: drop-shadow(0 var(--stroke-hair) var(--space-1) var(--bk-engrave)); }
 .ms-shelf-hint { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
 .ms-flybook { position: fixed; left: 0; top: 0; z-index: 3; display: grid; place-content: center; justify-items: center; gap: var(--space-3); transform-origin: 0 0; border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-sm); background: var(--bk-leather), radial-gradient(circle at 40% 30%, var(--spine), var(--bk-cover-1) 85%); background-size: 180px 180px, auto; background-blend-mode: multiply, normal; color: var(--bk-gold-0); box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1); pointer-events: none; will-change: transform; }
 .ms-flybook b { font-family: var(--font-engrave); font-size: var(--size-title); font-weight: var(--weight-bold); letter-spacing: 0.06em; }

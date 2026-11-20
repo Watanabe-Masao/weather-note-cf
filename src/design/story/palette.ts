@@ -26,6 +26,11 @@ export const BOOK = {
   ink: "#3a2c1c",
   /** 夜の地（物語のページの背景）。 */
   night: ["#0a1430", "#050b1c"] as [string, string],
+  /** 空の色が進む（11/21）：表紙のあたりの夕方（上・下）と、締めくくりから先の深夜（上・下）。 */
+  dusk: ["#2a2752", "#5b3c5c"] as [string, string],
+  deep: ["#04081a", "#01030a"] as [string, string],
+  /** 読み終わりのしおり（金の細い帯の地）。 */
+  bookmark: "#c99a45",
   /** 浮かぶ月（物語の月から今夜の情報の月へ移る）：明るい・中・縁。 */
   moon: ["#fff6d8", "#f6dc98", "#d9b062"] as [string, string, string],
   /** 型押しの月（本の背の上の丸、明るい・暗い）。 */
