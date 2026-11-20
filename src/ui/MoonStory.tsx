@@ -96,7 +96,7 @@ export function tateNum(t: string): string {
  * 各コマで止まる所（コマの頭から 0〜1）。文が出そろい（〜0.6）、絵の動きが落ち着いた（場面の動きは 0.75 までに終える、
  * docs/moon-story.md 5章）あと、文が消えはじめる（0.84）前（11/20 22:06 渡辺さん「止まる所が描画とリンクしていない」）。
  */
-const BEAT_REST = 0.78;
+export const BEAT_REST = 0.78;
 /** 締めくくりのきらめき：[横 %, 縦 %, 大きさ（倍）, 遅れ（秒）]。文のまわりに散らし、同時には一つ二つだけ光る。 */
 const GLINTS: [number, number, number, number][] = [
   [18, 30, 0.9, 0.4],
@@ -138,9 +138,45 @@ export function readingTimes(text: string): { at: number[]; total: number } {
   }
   return { at, total: t };
 }
-/** コマごとの秒数（朗読の時間から）。 */
-export function beatSeconds(lines: string[]): number[] {
-  return lines.map((t) => Math.max(MIN_BEAT_SEC, readingTimes(tateNum(t)).total / (REVEAL_END - REVEAL_START)));
+/**
+ * コマごとの秒数（朗読の時間から）。rests は、そのページを読み終えてから絵だけを見せる秒（絵本の形のページの rest、
+ * 11/21 絵コンテ v0.3：6ページ 2.5 秒・9ページ 3 秒など）。読む時間に足す。
+ */
+export function beatSeconds(lines: string[], rests: number[] = [], holdLast = false): number[] {
+  return lines.map((t, i) => {
+    const read = readingTimes(tateNum(t)).total;
+    // 最後のページで文だけ先に消す（holdLast）：読み終えて LAST_TAIL 秒おいて文が消え、止まる所まで絵だけが rest 秒。
+    if (holdLast && i === lines.length - 1)
+      return Math.max(MIN_BEAT_SEC, (read + LAST_TAIL + (rests[i] ?? 0)) / (BEAT_REST - 2 * REVEAL_START));
+    return Math.max(MIN_BEAT_SEC, read / (REVEAL_END - REVEAL_START)) + (rests[i] ?? 0);
+  });
+}
+/** 最後のページで、読み終えてから文が消えはじめるまでの秒。 */
+export const LAST_TAIL = 1.6;
+/**
+ * 一字ずつ出る時刻（コマの中の 0〜1）。朗読の速さのまま（コマの秒数で割る）。lineAt があれば、行ごとにその所から
+ * 出しはじめる（前の行が出そろう前には始めない）。行の切れ目は改行（\n）。
+ */
+export function revealTimes(text: string, seconds: number, lineAt?: number[]): number[] {
+  const r = readingTimes(text);
+  const chars = [...text];
+  const out: number[] = [];
+  let line = 0;
+  let base = REVEAL_START;
+  let lineStart = 0;
+  let last = REVEAL_START;
+  chars.forEach((c, k) => {
+    if (k === 0 || chars[k - 1] === "\n") {
+      if (k > 0) line++;
+      base = Math.max(lineAt?.[line] ?? last, last);
+      lineStart = r.at[k];
+    }
+    const t = base + (r.at[k] - lineStart) / seconds;
+    out.push(t);
+    last = t + READ_CHAR / seconds;
+    void c;
+  });
+  return out;
 }
 /** コマごとのスクロールの重み（秒数に比例）。 */
 /**
@@ -148,8 +184,8 @@ export function beatSeconds(lines: string[]): number[] {
  * スクロールの量は秒数の平方根で縮める（長い文でも 1.6 まで、短い文は 0.9 から）。指でなぞったときに長すぎないように。
  * 自動で運ぶときは時間で進むので、字は朗読の速さどおりに出る（スクロールの量には左右されない）。
  */
-export function beatWeights(lines: string[]): number[] {
-  return beatSeconds(lines).map((s) => Math.min(1.6, Math.max(0.9, Math.sqrt(s / SEC_PER_BEAT))));
+export function beatWeights(lines: string[], rests: number[] = [], holdLast = false): number[] {
+  return beatSeconds(lines, rests, holdLast).map((s) => Math.min(1.6, Math.max(0.9, Math.sqrt(s / SEC_PER_BEAT))));
 }
 /** 場面の時間（コマの番号 i ＋ コマの中の 0〜1）を、スクロールの割合（0〜1）に。 */
 export function beatToProgress(w: number[], time: number): number {
@@ -299,11 +335,13 @@ export function MoonStory({
   // 絵本の場面（一文が一コマ）。場面の無い満月は、本の表紙と文だけ。
   // 絵本の形（book）を持つ満月は、そのページから（1ページ＝1コマ。行は改行で区切り、縦書きの列を改める）。
   const lines = story?.book ? story.book.pages.map((p) => p.lines.join("\n")) : (story?.tale?.lines ?? []);
-  const linesKey = lines.join("\n");
+  // 読み終えてから絵だけを見せる秒（絵本の形のページの rest）。
+  const rests = story?.book ? story.book.pages.map((p) => p.rest ?? 0) : [];
+  const linesKey = lines.join("\n") + rests.join(",");
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 文の中身が同じなら同じ重み（配列は毎回作られる）
-  const weights = useMemo(() => beatWeights(lines), [linesKey]);
+  const weights = useMemo(() => beatWeights(lines, rests, !!story?.book), [linesKey]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 同上
-  const beatSecs = useMemo(() => beatSeconds(lines), [linesKey]);
+  const beatSecs = useMemo(() => beatSeconds(lines, rests, !!story?.book), [linesKey]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 同上
   const readings = useMemo(() => lines.map((t) => readingTimes(tateNum(t))), [linesKey]);
   // 場面は呼び名で引く（ブルームーンは「ブルームーン」で）。
@@ -658,8 +696,15 @@ export function MoonStory({
             0,
           );
           const loop = scene.build(gsap as never, el, world as never);
-          lines.forEach((_, i) => {
+          lines.forEach((text, i) => {
             const cap = `.ms-cap[data-i="${i}"]`;
+            const secs = beatSecs[i] ?? SEC_PER_BEAT;
+            // 絵本の形のページ（11/21 絵コンテ v0.3）：字は朗読の速さのまま出し、読み終えたあとは rest の秒だけ絵を見せる。
+            // 行を出す所が決まっているページ（6 月が昇る）は、絵の動きに合わせて行ごとに。
+            const times = story?.book ? revealTimes(tateNum(text), secs, scene.lineAt?.[i]) : null;
+            // 最後のページ（9）は、文だけが先に消え、止まる所では絵だけが rest の秒残る（絵コンテ「文が消えて絵が残る」）。
+            const lastBook = !!story?.book && i === lines.length - 1;
+            const fadeAt = lastBook ? REVEAL_START + ((readings[i]?.total ?? 0) + LAST_TAIL) / secs : 0.84;
             world
               .set(cap, { opacity: 1 }, i + REVEAL_START)
               .fromTo(
@@ -673,6 +718,7 @@ export function MoonStory({
                   ease: "power1.out",
                   // 朗読の間：一字ずつ、読む時刻に合わせて（読点・句点で間をおく）。
                   stagger: (k: number) => {
+                    if (times) return (times[k] ?? REVEAL_END) - REVEAL_START;
                     const r = readings[i];
                     return r && r.total > 0 ? ((r.at[k] ?? r.total) / r.total) * (REVEAL_END - REVEAL_START - 0.12) : 0;
                   },
@@ -683,12 +729,12 @@ export function MoonStory({
                 cap,
                 {
                   opacity: 0,
-                  y: -12,
+                  y: lastBook ? 0 : -12,
                   filter: "blur(2px)",
-                  duration: 0.16,
+                  duration: lastBook ? 0.06 : 0.16,
                   ease: "power1.in",
                 },
-                i + 0.84,
+                i + fadeAt,
               )
               .set(cap, { y: 0, filter: "blur(0px)" }, i + 1);
           });

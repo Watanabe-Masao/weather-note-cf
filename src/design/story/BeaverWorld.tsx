@@ -22,6 +22,11 @@ import {
 
 /** 物語の一文の数（場面の数）。 */
 export const BEAVER_BEATS = 9;
+/**
+ * 行を出しはじめる所（11/21 絵コンテ v0.3）：6ページ（コマ 5）は、丘の向こうが明るんでから1行目「ふわりと、森の向こうが
+ * 明るくなって。」、月の縁が丘の上に出てから2行目「大きな、まんまるのお月さま。」（月は 5〜5.72 で昇る）。
+ */
+export const BEAVER_LINE_AT: Record<number, number[]> = { 5: [0.06, 0.3] };
 
 /** 渡辺さんの素材（src/design/story/storyAssets.ts の beaver）。 */
 const A = (name: string) => storyAsset("beaver", name);
