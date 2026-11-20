@@ -40,6 +40,12 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
       file: "design-src/story/beaver/pack/hero-move.png",
       width: 400,
     },
+    // A-01（11/21 渡辺さんの素材、承認済み）：泳ぎながら細い枝をくわえた姿。beaver-swim は置き換えず、別に足す。
+    // 絵本の2・3・7ページ（Project「ビーバームーン_絵コンテと本文」v0.3）。尾と枝が入るぶん、beaver-swim より横に広い。
+    "beaver-swim-branch": {
+      file: "design-src/story/beaver/pack/hero-move-branch.png",
+      width: 480,
+    },
     "beaver-nest": {
       file: "design-src/story/beaver/pack/prop.png",
       width: 480,
