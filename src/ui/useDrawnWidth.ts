@@ -10,7 +10,11 @@ import { TYPE_SIZE } from "../design/tokens";
  * first paint, so a drawing does not show at the assumed width and jump. Every drawing that is laid out
  * by its width uses this, not a ResizeObserver of its own.
  */
-export function useDrawnWidth(ref: RefObject<Element | null>, deps: unknown[] = [], initial = 0): number {
+export function useDrawnWidth(
+  ref: RefObject<Element | null>,
+  deps: unknown[] = [],
+  initial = 0,
+): number {
   const [w, setW] = useState(initial);
   useLayoutEffect(() => {
     const el = ref.current;
@@ -28,8 +32,17 @@ export function useDrawnWidth(ref: RefObject<Element | null>, deps: unknown[] = 
  * `n` screen px in the units of a drawing `viewWidth` wide shown at `drawnPx` (until it is measured,
  * as if shown at `assumedPx`).
  */
-export const svgUnits = (n: number, viewWidth: number, drawnPx: number, assumedPx = viewWidth) => (n * viewWidth) / (drawnPx || assumedPx);
+export const svgUnits = (
+  n: number,
+  viewWidth: number,
+  drawnPx: number,
+  assumedPx = viewWidth,
+) => (n * viewWidth) / (drawnPx || assumedPx);
 
 /** A step of the type scale on screen, in the drawing's units. */
-export const svgTextSize = (step: keyof typeof TYPE_SIZE, viewWidth: number, drawnPx: number, assumedPx = viewWidth) =>
-  svgUnits(TYPE_SIZE[step], viewWidth, drawnPx, assumedPx);
+export const svgTextSize = (
+  step: keyof typeof TYPE_SIZE,
+  viewWidth: number,
+  drawnPx: number,
+  assumedPx = viewWidth,
+) => svgUnits(TYPE_SIZE[step], viewWidth, drawnPx, assumedPx);

@@ -1,9 +1,9 @@
 // 満月の物語の「ページ送り」（11/20 20:17 渡辺さん「慣性スクロール・スナップ改善」）。
 // 物語の部分（本の表紙 → 見開き → 場面の一コマずつ → 締めくくり → 今夜の情報の頭）だけ、指の動きをこちらで受け持つ：
 //   - 指が触れている間は、指と一緒に 1:1 で動かす（ブラウザの慣性は使わない）。
-//   - 離したら、指の速さと向きから行き先の区切りを決める。軽く払えば向きの次の区切り、強く払えば、その勢いで届く
+//   - 短く払ったときだけ、指の速さと向きから行き先の区切りを決める（ゆっくりのスクロールは、指のまま・惰性だけ）。軽く払えば向きの次の区切り、強く払えば、その勢いで届く
 //     区切り（ただし一度に最大 MAX_STEP 個まで。意図しない飛び越しを防ぐ）。
-//   - 行き先へは「指を離した速さ」から始まる減速（臨界減衰のばね）で運ぶ。跳ね返らないよう、ばねの強さを速さに合わせる。
+//   - 行き先へは、指を離した速さを引き継いで、減速だけでゆっくり止まる（1.1〜1.8 秒、行き過ぎない）。
 //     requestAnimationFrame で動かすので、端末のリフレッシュレート（120Hz の iPhone も）に合わせて描く。
 //   - 動いている間に指が触れたら、その場で止めて指に返す。
 //   - マウスのホイール・トラックパッドは、一つの操作（間が空くまで）で一つ進む。
@@ -22,9 +22,13 @@ type Opts = {
 const MAX_STEP = 3;
 /** 指を離した速さから「届く距離」を見積もる（iOS のスクロールの減速と同じ考え：距離 ≒ 速さ × 0.5 秒）。 */
 const PROJECT_S = 0.5;
-/** 軽く払った、とみなす速さ（px/秒）と、動かした距離（px）。これより小さければ、元の区切りへ戻す。 */
+/** 軽く払った、とみなす速さ（px/秒）。 */
 const FLICK_V = 120;
-const DRAG_MIN = 14;
+/** 短く払った、とみなす触れていた時間（ms）と、動かした距離（px）。これより長い・遠いのは、ゆっくりのスクロール。 */
+const FLICK_MS = 280;
+const FLICK_PX = 140;
+/** ゆっくりのスクロールで離したあとの惰性（ブラウザのスクロールに近い減速、時定数 秒）。 */
+const COAST_S = 0.33;
 
 export type Pager = {
   /** 区切りの位置を測り直す（大きさが変わったとき）。 */
@@ -63,40 +67,67 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     target = null;
   };
 
-  // 臨界減衰のばね：x(t) = to + (A + B t) e^{-ωt}、A = x0 - to、B = v0 + ω A。
-  // 速さの向きが行き先へ向いているとき B が A と同じ符号なら行き過ぎない：ω ≥ |v0| / |A| にする。
+  // 減速しながら止まる（11/20 22:06 渡辺さん「もっとゆっくり流れて、減速しながら止まって」）：
+  // x(t) = x0 + D·(1 − (1 − t/T)^p)。始めがいちばん速く、あとは減速だけで、T でぴたりと止まる（行き過ぎない）。
+  //   - T（かかる時間）：距離に応じて 1.1〜1.8 秒（動きを減らす設定は 0.45 秒）。場面の絵がゆっくり進むように。
+  //   - p（始めの速さ ＝ p·D/T）：指を離した速さに合わせる（1.8〜4）。軽く払えばやわらかく、強く払えば勢いを引き継ぐ。
   const glide = (to: number, v0 = 0) => {
     stop();
     const x0 = el.scrollTop;
-    const A = x0 - to;
-    if (Math.abs(A) < 0.5) {
+    const D = to - x0;
+    if (Math.abs(D) < 0.5) {
       el.scrollTop = to;
       report(to, true);
       return;
     }
-    const base = o.reduced?.() ? 18 : 11;
-    const toward = Math.sign(v0) === Math.sign(-A);
-    let w = Math.max(base, toward ? Math.abs(v0) / Math.abs(A) : 0);
-    w = Math.min(w, 30);
-    // 行き先と逆向きの速さは、いったん捨てる（指を戻しながら離したとき）。
-    const v = toward ? v0 : 0;
-    const B = v + w * A;
+    const T = o.reduced?.()
+      ? 0.45
+      : Math.min(1.8, Math.max(1.1, 0.9 + Math.abs(D) / 2500));
+    const toward = Math.sign(v0) === Math.sign(D);
+    const p = Math.min(
+      4,
+      Math.max(1.8, toward ? (Math.abs(v0) * T) / Math.abs(D) : 0),
+    );
     // 最初のコマから進める（rAF の時刻はコマの始まりなので、始めの時刻を半コマ前に取る）。
     let t0 = -1;
     target = to;
     const tick = (now: number) => {
       if (t0 < 0) t0 = now - 8;
-      const t = (now - t0) / 1000;
-      const d = (A + B * t) * Math.exp(-w * t);
-      if (Math.abs(d) < 0.6 && t > 0.05) {
+      const k = Math.min(1, (now - t0) / 1000 / T);
+      if (k >= 1) {
         el.scrollTop = to;
         raf = 0;
         target = null;
         report(to, true);
         return;
       }
-      el.scrollTop = to + d;
-      report(to + d, false);
+      const y = x0 + D * (1 - Math.pow(1 - k, p));
+      el.scrollTop = y;
+      report(y, false);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+  };
+
+  /** ゆっくりのスクロールで離したとき：節目へは運ばず、離した速さのまま少し進んで減速して止まる。 */
+  const coast = (v: number) => {
+    stop();
+    if (Math.abs(v) < 40) return;
+    const x0 = el.scrollTop;
+    const D = Math.max(-x0, Math.min(last() - x0, v * COAST_S));
+    let t0 = -1;
+    const tick = (now: number) => {
+      if (t0 < 0) t0 = now - 8;
+      const t = (now - t0) / 1000;
+      const k = 1 - Math.exp(-t / COAST_S);
+      if (k > 0.995) {
+        el.scrollTop = x0 + D;
+        raf = 0;
+        report(x0 + D, true);
+        return;
+      }
+      el.scrollTop = x0 + D * k;
+      report(x0 + D * k, false);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
@@ -119,6 +150,7 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
   let decided = false;
   let startY = 0;
   let startTop = 0;
+  let startT = 0;
   let samples: { t: number; y: number }[] = [];
   const inStory = (top: number, dy: number) =>
     top < last() - 1 || (top <= last() + 1 && dy > 0);
@@ -131,6 +163,7 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     decided = false;
     startY = e.touches[0].clientY;
     startTop = el.scrollTop;
+    startT = e.timeStamp;
     samples = [{ t: e.timeStamp, y: startY }];
     // 動いている途中で触れて止めただけなら、その場で離してもそこに残らないよう、最初の動きで判断する。
     if (wasMoving) decided = false;
@@ -156,29 +189,32 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
   const onEnd = (e: TouchEvent) => {
     if (!tracking) return;
     tracking = false;
-    if (!decided) {
-      // 触れただけ（タップ）：止めた所が区切りの途中なら、近い区切りへ戻す。
-      const n = stops[nearest(el.scrollTop)];
-      if (el.scrollTop < last() - 1 && Math.abs(n - el.scrollTop) > 1) glide(n);
-      return;
-    }
+    // 触れただけ（タップ）：動かさない（場面を押したときの「次のコマへ」は、押した側の処理）。
+    if (!decided) return;
     // 離す直前 100ms の速さ（スクロールの向き、px/秒）。
     const end = samples[samples.length - 1];
     const first = samples.find((s) => end.t - s.t <= 100) ?? samples[0];
     const dt = Math.max(1, end.t - first.t);
-    const stale = e.timeStamp - end.t > 80; // 指を止めてから離した
+    const stale = e.timeStamp - end.t > 100; // 指を止めてから離した
     const v = stale ? 0 : (-(end.y - first.y) / dt) * 1000;
     const top = el.scrollTop;
     const moved = top - startTop;
     if (top > last() + 1 && v >= 0) return; // 今夜の情報へ入った：そのまま
-    const dir: 1 | -1 =
-      Math.abs(v) > FLICK_V ? (v > 0 ? 1 : -1) : moved >= 0 ? 1 : -1;
-    if (Math.abs(v) <= FLICK_V && Math.abs(moved) < DRAG_MIN) {
-      glide(stops[nearest(top)]);
+    // 短く払った（11/20 22:09 渡辺さん「短いストロークのときだけ節目で止める。ゆっくりスクロールしているときは発動しない」）：
+    // 触れていた時間が短く、動かした距離も短く、離すときに勢いがある。それ以外は、指の動きのまま（節目へ運ばない）。
+    const flick =
+      e.timeStamp - startT < FLICK_MS &&
+      Math.abs(moved) < FLICK_PX &&
+      Math.abs(v) > FLICK_V;
+    if (!flick) {
+      coast(v);
       return;
     }
+    const dir: 1 | -1 = v > 0 ? 1 : -1;
     // 届く距離から何個先か（最低 1、最大 MAX_STEP）。始めの区切りから数える。
-    const origin = stops[nearest(startTop)];
+    const near0 = stops[nearest(startTop)];
+    // 区切りから払ったときはその区切りから数え、ゆっくり動かして途中に居たときは今いる所から数える。
+    const origin = Math.abs(near0 - startTop) <= 2 ? near0 : startTop;
     const projected = top + v * PROJECT_S;
     let n = 1;
     while (
@@ -189,7 +225,6 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     )
       n++;
     let to = stepFrom(origin, dir, n);
-    // 指で区切りを越えて引いたのに、勢いが無い：越えた先の区切りへ（戻さない）。
     if ((dir > 0 && to < top) || (dir < 0 && to > top))
       to = stepFrom(top, dir, 1);
     glide(to, v);

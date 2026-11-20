@@ -3,9 +3,16 @@
 // 状態：off（使っていない）・on（読めている）・waiting（許可は出たが値がまだ）・denied（許可されなかった）・
 // unsupported（この端末やブラウザでは読めない）・noHeading（傾きは読めるが方位が無い）。読めないのと許可されないのは分ける。
 import { useCallback, useEffect, useRef, useState } from "react";
-import { azDiff, deviceLook, lookFrom, type Orientation, smooth } from "../../shared/skyLook";
+import {
+  azDiff,
+  deviceLook,
+  lookFrom,
+  type Orientation,
+  smooth,
+} from "../../shared/skyLook";
 
-export type SkyLookState = "off" | "waiting" | "on" | "denied" | "unsupported" | "noHeading";
+export type SkyLookState =
+  "off" | "waiting" | "on" | "denied" | "unsupported" | "noHeading";
 type Look = { azimuth: number; altitude: number; roll: number };
 
 interface PermissionCapable {
@@ -27,7 +34,10 @@ const OUTLIER_SAMPLES = 120;
 
 /** 画面の向き（PWA は縦に固定なので、ふつうは 0）。 */
 const screenAngle = () => {
-  const o = typeof screen !== "undefined" ? (screen.orientation as ScreenOrientation | undefined) : undefined;
+  const o =
+    typeof screen !== "undefined"
+      ? (screen.orientation as ScreenOrientation | undefined)
+      : undefined;
   if (o && typeof o.angle === "number") return o.angle;
   const w = (window as unknown as { orientation?: number }).orientation;
   return typeof w === "number" ? (w + 360) % 360 : 0;
@@ -52,7 +62,13 @@ export function useSkyLook(declination: number, offset: number) {
   const outlier = useRef(0);
   const onEvent = useCallback((ev: Event) => {
     const e = ev as DeviceOrientationEvent & { webkitCompassHeading?: number };
-    const o: Orientation = { alpha: e.alpha, beta: e.beta, gamma: e.gamma, webkitCompassHeading: e.webkitCompassHeading ?? null, absolute: e.absolute || ev.type === "deviceorientationabsolute" };
+    const o: Orientation = {
+      alpha: e.alpha,
+      beta: e.beta,
+      gamma: e.gamma,
+      webkitCompassHeading: e.webkitCompassHeading ?? null,
+      absolute: e.absolute || ev.type === "deviceorientationabsolute",
+    };
     const decl = params.current.declination - params.current.offset;
     const base = lookFrom(o, decl);
     if (!base) {
@@ -62,26 +78,54 @@ export function useSkyLook(declination: number, offset: number) {
     let l: Look = { ...base, roll: last.current?.roll ?? 0 };
     if (e.alpha != null && e.beta != null && e.gamma != null) {
       const m = deviceLook(e.alpha, e.beta, e.gamma, screenAngle());
-      const compass = o.webkitCompassHeading != null && Number.isFinite(o.webkitCompassHeading) ? o.webkitCompassHeading : null;
+      const compass =
+        o.webkitCompassHeading != null &&
+        Number.isFinite(o.webkitCompassHeading)
+          ? o.webkitCompassHeading
+          : null;
       if (m.azimuth != null && m.roll != null) {
         if (compass != null) {
-          if (Math.abs(m.roll) < CALIB_ROLL && Math.abs(m.altitude) < CALIB_ALT) {
+          if (
+            Math.abs(m.roll) < CALIB_ROLL &&
+            Math.abs(m.altitude) < CALIB_ALT
+          ) {
             const d = azDiff(compass, m.azimuth);
             // 大きく外れた値（25° より）は、2秒ほど続くまで覚えない：傾けたあとしばらくコンパスがずれたままのことがあり、
             // それを覚えると角度を戻してもずれたままになる（11/19 実機）。続くなら本当に変わったので受け入れる。
-            const off = calib.current != null && Math.abs(azDiff(d, calib.current)) > OUTLIER_DEG;
+            const off =
+              calib.current != null &&
+              Math.abs(azDiff(d, calib.current)) > OUTLIER_DEG;
             outlier.current = off ? outlier.current + 1 : 0;
             if (calib.current == null) calib.current = d;
-            else if (!off || outlier.current > OUTLIER_SAMPLES) calib.current = calib.current + azDiff(d, calib.current) * 0.1;
+            else if (!off || outlier.current > OUTLIER_SAMPLES)
+              calib.current = calib.current + azDiff(d, calib.current) * 0.1;
           }
-          if (calib.current != null) l = { azimuth: (((m.azimuth + calib.current - decl) % 360) + 360) % 360, altitude: m.altitude, roll: m.roll };
+          if (calib.current != null)
+            l = {
+              azimuth: (((m.azimuth + calib.current - decl) % 360) + 360) % 360,
+              altitude: m.altitude,
+              roll: m.roll,
+            };
           else l = { ...base, roll: m.roll };
-        } else if (o.absolute) l = { azimuth: (((m.azimuth - decl) % 360) + 360) % 360, altitude: m.altitude, roll: m.roll };
-      } else l = { azimuth: last.current?.azimuth ?? base.azimuth, altitude: m.altitude, roll: last.current?.roll ?? 0 };
+        } else if (o.absolute)
+          l = {
+            azimuth: (((m.azimuth - decl) % 360) + 360) % 360,
+            altitude: m.altitude,
+            roll: m.roll,
+          };
+      } else
+        l = {
+          azimuth: last.current?.azimuth ?? base.azimuth,
+          altitude: m.altitude,
+          roll: last.current?.roll ?? 0,
+        };
     }
     const prev = last.current;
     const sm = smooth(prev, l, SMOOTH);
-    last.current = { ...sm, roll: prev ? prev.roll + azDiff(l.roll, prev.roll) * SMOOTH : l.roll };
+    last.current = {
+      ...sm,
+      roll: prev ? prev.roll + azDiff(l.roll, prev.roll) * SMOOTH : l.roll,
+    };
     if (frame.current == null)
       frame.current = requestAnimationFrame(() => {
         frame.current = null;
@@ -108,8 +152,13 @@ export function useSkyLook(declination: number, offset: number) {
 
   /** 押されたときに呼ぶ（iPhone は押した操作の中でしか許可を求められない）。 */
   const start = useCallback(async () => {
-    if (typeof window === "undefined" || typeof DeviceOrientationEvent === "undefined") return setState("unsupported");
-    const ask = (DeviceOrientationEvent as unknown as PermissionCapable).requestPermission;
+    if (
+      typeof window === "undefined" ||
+      typeof DeviceOrientationEvent === "undefined"
+    )
+      return setState("unsupported");
+    const ask = (DeviceOrientationEvent as unknown as PermissionCapable)
+      .requestPermission;
     if (typeof ask === "function") {
       try {
         if ((await ask()) !== "granted") return setState("denied");

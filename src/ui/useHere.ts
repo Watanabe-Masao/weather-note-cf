@@ -18,7 +18,8 @@ export type HereState =
  * 外の位置は観測所に戻す。だいたいの四角（北緯 20〜46°・東経 122〜154°、与那国島・南鳥島・沖ノ鳥島・択捉島を含む）。
  * 四角なので朝鮮半島やウラジオストクの一部も入るが、朝鮮半島は日本と同じ時間帯（ずれるのはウラジオストクの1時間だけ）。
  */
-export const inJapan = (lat: number, lon: number) => lat >= 20 && lat <= 46 && lon >= 122 && lon <= 154;
+export const inJapan = (lat: number, lon: number) =>
+  lat >= 20 && lat <= 46 && lon >= 122 && lon <= 154;
 
 const KEY = "wn.sunHere";
 const round = (v: number) => Math.round(v * 100) / 100;
@@ -52,7 +53,10 @@ export function useHere() {
     navigator.geolocation.getCurrentPosition(
       (p) => {
         if (mine !== turn.current) return;
-        const [lat, lon] = [round(p.coords.latitude), round(p.coords.longitude)];
+        const [lat, lon] = [
+          round(p.coords.latitude),
+          round(p.coords.longitude),
+        ];
         if (!inJapan(lat, lon)) {
           remember(false);
           setState({ kind: "outside" });
@@ -82,4 +86,5 @@ export function useHere() {
 }
 
 /** 画面に出す座標（丸めた値、北緯・東経）。 */
-export const latLonText = (lat: number, lon: number) => `${lat >= 0 ? "北緯" : "南緯"} ${Math.abs(lat).toFixed(2)}°・${lon >= 0 ? "東経" : "西経"} ${Math.abs(lon).toFixed(2)}°`;
+export const latLonText = (lat: number, lon: number) =>
+  `${lat >= 0 ? "北緯" : "南緯"} ${Math.abs(lat).toFixed(2)}°・${lon >= 0 ? "東経" : "西経"} ${Math.abs(lon).toFixed(2)}°`;

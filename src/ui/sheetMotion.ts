@@ -13,11 +13,20 @@ export const SHEET_EASE = MOTION.ease.sheet;
 
 /** Duration for a move of `distance` px: short moves are quick, long ones never drag on. */
 export function moveDuration(distance: number): number {
-  return Math.round(Math.min(MOTION.settleMax, Math.max(MOTION.settleMin, 180 + Math.abs(distance) * 0.9)));
+  return Math.round(
+    Math.min(
+      MOTION.settleMax,
+      Math.max(MOTION.settleMin, 180 + Math.abs(distance) * 0.9),
+    ),
+  );
 }
 
 /** Where a release at `position` with `velocity` (px/ms, same direction as position) would come to rest. */
-export function project(position: number, velocity: number, deceleration = 0.99): number {
+export function project(
+  position: number,
+  velocity: number,
+  deceleration = 0.99,
+): number {
   return position + (velocity * deceleration) / (1 - deceleration);
 }
 
@@ -42,10 +51,18 @@ export const FLICK = 0.4;
  * reaches at least the next detent in its direction (a short quick flick moves one step).
  * `velocity` is positive when the height grows (finger moving up).
  */
-export function releaseTarget<T extends string>(height: number, velocity: number, heights: Record<T, number>): T {
-  const keys = (Object.keys(heights) as T[]).sort((a, b) => heights[a] - heights[b]);
+export function releaseTarget<T extends string>(
+  height: number,
+  velocity: number,
+  heights: Record<T, number>,
+): T {
+  const keys = (Object.keys(heights) as T[]).sort(
+    (a, b) => heights[a] - heights[b],
+  );
   const goal = project(height, velocity);
-  let target = keys.reduce((best, d) => (Math.abs(heights[d] - goal) < Math.abs(heights[best] - goal) ? d : best));
+  let target = keys.reduce((best, d) =>
+    Math.abs(heights[d] - goal) < Math.abs(heights[best] - goal) ? d : best,
+  );
   if (velocity > FLICK) {
     const next = keys.find((d) => heights[d] > height + 1);
     if (next && heights[target] < heights[next]) target = next;
@@ -68,7 +85,8 @@ export class VelocityTracker {
   add(value: number, t = performance.now()) {
     this.samples.push({ t, v: value });
     const from = t - this.window;
-    while (this.samples.length > 2 && this.samples[0].t < from) this.samples.shift();
+    while (this.samples.length > 2 && this.samples[0].t < from)
+      this.samples.shift();
   }
 
   /** px/ms over the recent window; 0 when there is too little to tell. */
