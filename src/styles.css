@@ -418,6 +418,20 @@ select.chip {
 .brand-art img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: var(--radius-md); }
 .brand-art-word { position: absolute; right: 6%; top: 50%; height: 56%; width: auto; aspect-ratio: 692 / 184; transform: translateY(-50%); color: var(--ink-primary); }
 .brand-art::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-min); transform: translateY(-50%); }
+/* 押せると気づかせる（11/21 渡辺さん「ロゴがクリックできるようにさりげない工夫」）：絵の月のあたりが数秒に一度ふわっと
+   明るむ（呼吸）。まだ開いていないイベントは右上に小さな金の星。押すと少し沈んで、月がきらっと光る。 */
+.brand-tap { transition: transform 0.18s var(--ease-standard); -webkit-tap-highlight-color: transparent; }
+.brand-tap::before { content: ""; position: absolute; left: 2%; top: -10%; width: 32%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle, var(--brand-glow) 0, transparent 62%); opacity: 0; mix-blend-mode: screen; pointer-events: none; }
+.brand-tap.fresh > .brand-star { opacity: 1; }
+.brand-tap:active { transform: scale(0.96); }
+.brand-tap:active::before { opacity: 0.9; transition: opacity 0.1s; }
+.brand-star { position: absolute; right: calc(var(--space-1) * -1); top: calc(var(--space-1) * -1); width: var(--space-4); aspect-ratio: 1; background: var(--brand-glow); clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); filter: drop-shadow(0 0 var(--space-1) var(--brand-glow)); opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .brand-tap::before { animation: brand-breath 5.5s var(--ease-standard) 1.5s infinite; }
+  .brand-tap.fresh > .brand-star { animation: ms-glint 3.6s var(--ease-standard) infinite; animation-name: brand-twinkle; }
+}
+@keyframes brand-breath { 0%, 100% { opacity: 0; } 45% { opacity: 0.55; } }
+@keyframes brand-twinkle { 0%, 100% { opacity: 0.55; transform: scale(0.7) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
 /* イベントの見出しの確かめ（11/20、管理者だけ、docs/event-banner.md 5章）。帯は見出しと同じ大きさ（.brand のまま）。 */
 .ev-h { margin: var(--space-6) 0 var(--space-2); font-size: var(--size-sm); color: var(--ink-secondary); }
 .ev-day { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
