@@ -964,6 +964,18 @@ with sync_playwright() as p:
         pg.mouse.click(db["x"] + 30 * db["width"] / pg.evaluate("document.querySelector('.moon-day').viewBox.baseVal.width") + (db["width"] - (30 + 8) * db["width"] / pg.evaluate("document.querySelector('.moon-day').viewBox.baseVal.width")) / 2, db["y"] + db["height"] / 2); calm()
         tday = txt(".moon-obs")
         check("SS2l 月の高さのグラフ：押すと正午に、小さな月がある", "12:00" in tday and pg.locator(".moon-day .moon-glyph").count() >= 2, (tday[:30],))
+        # 別の日の天気と雲（11/20 渡辺さん）：別の日を選ぶとその日の天気を読み込み、空の色に。予報の先で毎時の天気が無い日（11/17）は
+        # 「天気が無い」。10/30 は 21時台に月が出ていて、テストの天気は 20〜21時台が雨：前後の時間の天気から「雲で見えにくい」。
+        # 23時台は前後2時間に天気が無いので出さない。
+        pick_day(16); pg.wait_for_timeout(800); calm(); c_none = txt(".moon-sky-note")
+        pg.locator(".moon-cal-head .icon-btn[aria-label='前の月']").click(); calm()
+        pick_day(29); setm(1290); pg.wait_for_timeout(800); calm()
+        c_note = txt(".moon-sky-note"); c_n = pg.locator(".moon-obs-cloud").count(); c_lab = pg.locator(".moon-obs-stage").get_attribute("aria-label") or ""
+        if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-cloud.png")
+        setm(1430); calm(); c_n2 = pg.locator(".moon-obs-cloud").count()
+        cfit = pg.evaluate("(() => { const b = document.querySelector('.moon-sheet .msheet-body'); return [b.scrollHeight, b.clientHeight]; })()")
+        check("SS3c 別の日を選ぶとその日の天気を読み込み空の色に（無い日は無いと）、雨の頃の月は「雲で見えにくい」、天気の分からない時間は出さない、収まる",
+              "天気が無い" in c_none and "この日の天気" in c_note and c_n == 1 and "20時台 雨" in c_lab and c_n2 == 0 and cfit[0] <= cfit[1] + 1, (c_none, c_note, c_n, c_lab[-30:], c_n2, cfit))
         if os.environ.get("WN_SUN"):
             setm(1380); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim.png")
             setm(1050); calm(); pg.screenshot(path=os.environ["WN_SUN"] + "-moon-sim-low.png")

@@ -91,6 +91,17 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   // The plot's left edge (its axis column), reported by the graph: the parts under it line up with it.
   const [plotLeft, setPlotLeft] = useState(34);
   const sunOther = useMemo(() => (other ? shownSunHours(other, station) : null), [other, station]);
+  // 月のこよみで選んだ日の毎時の天気（11/20 渡辺さん「別の日を選んだとき、その日の天気も読み込む」）。
+  // of は呼んだ時に store から読む（読み込まれると画面ごと描き直されるので、その時の分が出る）。
+  const moonWeather = {
+    of: (d: string) => {
+      const h = store?.getHours(station, d);
+      // まだ来ていない日は、この後来るなら「読み込み中」（empty）、来ないなら「無い」（none）。
+      const state = h?.state === "empty" && !store?.hoursComing(station, d) ? "none" : (h?.state ?? "outside");
+      return { rows: h?.rows ?? [], state };
+    },
+    want: (d: string | null) => store?.wantHours(station, d ? [d] : [], Priority.Visible, "moon-sheet"),
+  };
 
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings, station), [hours, metricId, settings]);
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings, station), [otherHours, metricId, settings]);
@@ -305,7 +316,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         bandDates={[date, other ?? null]}
         onSun={() => setSunOpen(true)}
       />
-      {sunOpen && <SunSheet date={date} station={station} hour={shownHour} sky={skyStrip} rows={hours?.rows} onClose={() => setSunOpen(false)} />}
+      {sunOpen && <SunSheet date={date} station={station} hour={shownHour} sky={skyStrip} rows={hours?.rows} weather={moonWeather} onClose={() => setSunOpen(false)} />}
       <HourStatus state={hours?.state} error={hours?.error} onRetry={() => store?.retryDay(station, date)} />
       </div>
 

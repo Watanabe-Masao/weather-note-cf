@@ -93,3 +93,26 @@ export function weatherGroup(text: unknown): "sun" | "cloud" | "rain" | null {
   if (/曇|霧/.test(first)) return "cloud";
   return /雨|雪/.test(text) ? "rain" : null;
 }
+
+/** 雲で月や星が見えにくい天気（晴れの入らない曇り・霧・雨・雪・雷）。「曇時々晴」は見える時間があるので入れない。 */
+export const hidesSky = (text: string | null): boolean => !!text && !/晴/.test(text) && /曇|くもり|霧|雨|雪|雷/.test(text);
+
+/** How far (hours) an hour without its own weather looks for a neighbour's (as the sky's colour does, shared/brightness.ts dayLights). */
+const NEAR_HOURS = 2;
+
+/**
+ * 空が雲で見えにくいか（2026-11-20 渡辺さん「雲の多い時間に、月を「雲で見えにくい」と出す」）：JMA の時間 n（n−1〜n 時）の
+ * 天気（天気の文、無ければ雨・雪、日のある間は日照から）。その時間で分からない夜は、前後 NEAR_HOURS 時間の天気から
+ * （夕方の最後の日照が宵の雲を、朝の最初が明け方の雲を言う。空の色と同じ考え）。分からないときは null。
+ */
+export function skyHidden(rows: WeatherRow[], n: number, station: Where): { hidden: boolean; text: string; hour: number } | null {
+  const has = (h: number) => rows.some((r) => r.n === h);
+  for (let k = 0; k <= NEAR_HOURS; k++) {
+    for (const h of k ? [n - k, n + k] : [n]) {
+      if (h < 1 || h > 24 || !has(h)) continue;
+      const text = hoursWeather(rows, [h], station, 1).text;
+      if (text) return { hidden: hidesSky(text), text, hour: h };
+    }
+  }
+  return null;
+}
