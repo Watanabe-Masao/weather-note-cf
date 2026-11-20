@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { skyEventOn, type SkyEvent } from "../../shared/skyEvents";
+import { skyEventOn, skyEventShown, type SkyEvent } from "../../shared/skyEvents";
 
 const KOCHI = { lat: 33.567, lon: 133.548 };
 const on = (d: string) => skyEventOn(d, KOCHI.lat, KOCHI.lon);
@@ -55,4 +55,25 @@ describe("skyEventsBetween（確認ページの一覧）", () => {
     }
     for (const { date, event } of skyEventsBetween("2026-11-20", "2041-11-19", lat, lon).filter((x) => x.event.kind !== "full")) same(event, skyEventOn(date, lat, lon), date);
   }, 60_000);
+});
+
+describe("見出しに出す期間（11/21 渡辺さん「前日＋当日」）", () => {
+  const at = (iso: string) => {
+    const r = skyEventShown(Date.parse(iso), KOCHI.lat, KOCHI.lon);
+    return r ? `${r.phase}:${r.event.name}` : null;
+  };
+  it("夜の満月（11/24 23:54）：前日は予告、当日は今夜、翌朝5時でしまう", () => {
+    expect(at("2026-11-22T12:00:00+09:00")).toBeNull();
+    expect(at("2026-11-23T08:00:00+09:00")).toBe("eve:ビーバームーン");
+    expect(at("2026-11-24T00:30:00+09:00")).toBe("eve:ビーバームーン"); // 23日の夜の続き
+    expect(at("2026-11-24T12:00:00+09:00")).toBe("tonight:ビーバームーン");
+    expect(at("2026-11-25T03:00:00+09:00")).toBe("tonight:ビーバームーン");
+    expect(at("2026-11-25T06:00:00+09:00")).toBeNull();
+  });
+  it("明け方の満月（5/2 2:23）は前の晩（5/1）が当日", () => {
+    expect(at("2026-04-30T12:00:00+09:00")).toMatch(/^eve:/);
+    expect(at("2026-05-01T20:00:00+09:00")).toMatch(/^tonight:/);
+    expect(at("2026-05-02T03:00:00+09:00")).toMatch(/^tonight:/);
+    expect(at("2026-05-02T12:00:00+09:00")).toBeNull();
+  });
 });

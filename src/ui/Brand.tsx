@@ -10,32 +10,40 @@ import { brandIconSvg, type BrandTheme, WORDMARK } from "../design/brand";
 import { eventBannerSvg, eventStage } from "../design/eventLogo";
 import { EVENT_ART_SIZE, eventArt } from "../design/eventAssets";
 import { currentTheme } from "../design/tokens";
-import { addDays, jstToday } from "../../shared/dates";
-import { skyEventOn, SKY_EVENT_NAME, type SkyEvent } from "../../shared/skyEvents";
+import { skyEventOn, skyEventShown, SKY_EVENT_NAME, type SkyEvent, type SkyEventPhase } from "../../shared/skyEvents";
 import { DEFAULT_LAT_LON } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
 import { EventSheet } from "./EventSheet";
 import { usePreviewDate } from "./eventPreview";
 
 export function Brand({ store }: { store?: WeatherStore | null }) {
-  const today = jstToday();
-  // 「この日として見出しを表示」（確認用、src/ui/eventPreview.ts）：見出しだけその日に。
+  const now = Date.now();
+  // 「この日として見出しを表示」（確認用、src/ui/eventPreview.ts）：見出しだけその日（の夜）に。
   const preview = usePreviewDate();
-  const day = preview ?? today;
-  // 観測地は高知（見出しは観測所を持たないので、太陽と月の既定の地点）。日が替われば計算し直す。
-  const event = useMemo(() => skyEventOn(day, DEFAULT_LAT_LON.lat, DEFAULT_LAT_LON.lon), [day]);
+  // 出す期間（11/21 渡辺さん「前日＋当日」、shared/skyEvents.ts の skyEventShown）：イベントの夜の前日と当日。夜明け
+  // （5時）で日が替わる扱いなので、その単位で計算し直す。観測地は高知（見出しは観測所を持たないので、既定の地点）。
+  const span = Math.floor((now + 4 * 3_600_000) / 86_400_000);
+  const shown = useMemo(() => {
+    const { lat, lon } = DEFAULT_LAT_LON;
+    if (!preview) return skyEventShown(now, lat, lon);
+    const e = skyEventOn(preview, lat, lon);
+    return skyEventShown(Date.parse(`${preview}T20:00:00+09:00`), lat, lon) ?? (e ? { event: e, phase: "tonight" as const } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [preview, span]);
+  const event = shown?.event ?? null;
+  const phase = shown?.phase ?? "tonight";
   const [open, setOpen] = useState(false);
   const theme = currentTheme();
   // 前日に読んでおく（docs/event-banner.md 7章）：翌日の絵を、開いて少ししてから。当日に電波が弱くても出る。
   useEffect(() => {
-    const next = skyEventOn(addDays(today, 1), DEFAULT_LAT_LON.lat, DEFAULT_LAT_LON.lon);
-    const a = next ? eventArt(next, theme) : null;
+    const next = skyEventShown(Date.now() + 86_400_000, DEFAULT_LAT_LON.lat, DEFAULT_LAT_LON.lon)?.event;
+    const a = next && next.at !== event?.at ? eventArt(next, theme) : null;
     if (!a) return;
     const id = window.setTimeout(() => {
       new Image().src = a.src;
     }, PREFETCH_DELAY_MS);
     return () => window.clearTimeout(id);
-  }, [today, theme]);
+  }, [span, theme, event]);
   // 押せると気づかせる印（11/21 渡辺さん「ロゴがクリックできるようにさりげない工夫」）：まだ開いていないイベントには、
   // 右上に小さな金の星（✦）を灯す。一度開けば、そのイベントの間は消える（この端末だけの覚え）。
   const [seen, setSeen] = useState(() => (event ? readSeen() === event.at : true));
@@ -49,8 +57,8 @@ export function Brand({ store }: { store?: WeatherStore | null }) {
   };
   return (
     <h1 className="brand" aria-label="Weather Note">
-      <BrandMark event={event} theme={theme} id="wn-head" onOpen={openSheet} fresh={!seen} />
-      {open && event && createPortal(<EventSheet event={event} store={store} onClose={() => setOpen(false)} />, document.body)}
+      <BrandMark event={event} theme={theme} id="wn-head" onOpen={openSheet} fresh={!seen} phase={phase} />
+      {open && event && createPortal(<EventSheet event={event} phase={phase} store={store} onClose={() => setOpen(false)} />, document.body)}
     </h1>
   );
 }
@@ -59,7 +67,7 @@ export function Brand({ store }: { store?: WeatherStore | null }) {
  * 見出しの中身：ふだんはアイコンと文字。イベントの日は絵の帯（台帳に絵があるとき、アイコンなし）か、アイコンと手描きの帯。
  * 確認ページの一覧（EventPreviewSheet）も、これで見出しと同じ物を描く。id はページの中で重ならない接頭辞。
  */
-export function BrandMark({ event, theme, id, onOpen, fresh = false }: { event: SkyEvent | null; theme: BrandTheme; id: string; onOpen?: () => void; fresh?: boolean }) {
+export function BrandMark({ event, theme, id, onOpen, fresh = false, phase = "tonight" }: { event: SkyEvent | null; theme: BrandTheme; id: string; onOpen?: () => void; fresh?: boolean; phase?: SkyEventPhase }) {
   const art = event ? eventArt(event, theme) : null;
   // 読めなかった絵（その URL）。読めなければ手描きの帯に戻る。
   const [failed, setFailed] = useState<string | null>(null);
@@ -72,6 +80,7 @@ export function BrandMark({ event, theme, id, onOpen, fresh = false }: { event: 
       <path d={WORDMARK.text} fill="currentColor" />
     </svg>
   );
+  const when = phase === "eve" ? (event?.kind.startsWith("solar") ? "明日は" : "明日の夜は") : "今日は";
   // 月の呼吸（11/21）：絵の月のあたりが数秒に一度ふわっと明るむ。光の色はイベントの舞台と同じ（eventStage の glow）。
   const glow = event ? ({ ["--brand-glow" as string]: eventStage(event.kind, event.blue, theme).glow } as CSSProperties) : undefined;
   const cls = (base: string) => [base, "brand-tap", fresh ? "fresh" : ""].filter(Boolean).join(" ");
@@ -79,12 +88,16 @@ export function BrandMark({ event, theme, id, onOpen, fresh = false }: { event: 
     <>
       {!showArt && <span className="brand-icon" aria-hidden dangerouslySetInnerHTML={{ __html: brandIconSvg(theme, { rx: 112, id }) }} />}
       {event && art && showArt ? (
-        <button type="button" className={cls("brand-art")} style={glow} aria-label={`今日は${label}`} onClick={onOpen}>
+        <button type="button" className={cls("brand-art")} style={glow} aria-label={`${when}${label}`} onClick={onOpen}>
           <img src={art.src} alt="" width={EVENT_ART_SIZE.width} height={EVENT_ART_SIZE.height} decoding="async" onError={() => setFailed(art.src)} />
           {art.text === "overlay" && word("brand-art-word")}
+          <span className="brand-star" aria-hidden />
         </button>
       ) : event ? (
-        <button type="button" className={cls("brand-event")} style={glow} aria-label={`今日は${label}`} onClick={onOpen} dangerouslySetInnerHTML={{ __html: eventBannerSvg(theme, event.kind, event.name, event.blue, `${id}-ev`) }} />
+        <button type="button" className={cls("brand-event")} style={glow} aria-label={`${when}${label}`} onClick={onOpen}>
+          <span className="brand-event-art" aria-hidden dangerouslySetInnerHTML={{ __html: eventBannerSvg(theme, event.kind, event.name, event.blue, `${id}-ev`) }} />
+          <span className="brand-star" aria-hidden />
+        </button>
       ) : (
         word("brand-word")
       )}

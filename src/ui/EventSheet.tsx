@@ -2,11 +2,11 @@
 // この専用モーダルに」）。11/20 渡辺さん「全然特別感が伝わってきません」：文字だけの説明をやめ、その日の帯の絵を大きく
 // 見せる → 瞬間の時刻とあと何時間 → 今夜（その日）の見え方（月の出・いちばん高い・月の入り、または食の始め・最大・終わり）
 // と高知の天気 → 呼び名の話と、その年だけのこと → 呼び名のページ、の順にする。観測地は高知（天気も高知の観測所）。
-import { useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { BLUE_MOON, fullMoonInfo } from "../../shared/fullMoonNames";
 import { fullMoonAlias, fullMoonsOfYear, moonTopo } from "../../shared/moon";
-import { SKY_EVENT_NAME, type SkyEvent } from "../../shared/skyEvents";
+import { SKY_EVENT_NAME, type SkyEvent, type SkyEventPhase } from "../../shared/skyEvents";
 import { DEFAULT_LAT_LON, solarAltitude } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
 import { eventArt, EVENT_ART_SIZE, eventIcon, EVENT_ICON_SIZE } from "../design/eventAssets";
@@ -17,7 +17,7 @@ import { factTags, FullMoonSheet } from "./FullMoonSheet";
 import { MoonStory } from "./MoonStory";
 import { STARS } from "./eventBits";
 import { ModalSheet } from "./ModalSheet";
-import { Button, Glyph } from "./kit";
+import { Glyph } from "./kit";
 
 const WHERE = "高知";
 const HOUR_MS = 3_600_000;
@@ -30,7 +30,7 @@ const jst = (ms: number) => {
 
 
 /** day：確認ページの一覧から開くときの日付（見出しを「11/24 はビーバームーン」に）。ふだんは「今日は」。 */
-export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; onClose: () => void; day?: string; store?: WeatherStore | null }) {
+export function EventSheet({ event, onClose, day, store, phase = "tonight" }: { event: SkyEvent; onClose: () => void; day?: string; store?: WeatherStore | null; phase?: SkyEventPhase }) {
   const { lat, lon } = DEFAULT_LAT_LON;
   const [names, setNames] = useState(false);
   // 満月の物語（全画面のスクロール、11/20）。
@@ -44,7 +44,8 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
   const info = event.name ? fullMoonInfo(event.name) : null;
   const what = event.kind === "full" ? (event.blue ? "ブルームーン" : event.name) : SKY_EVENT_NAME[event.kind];
   // 見出しは日付だけ（名前は下の主役で大きく）。
-  const title = day ? `${Number(day.slice(5, 7))}/${Number(day.slice(8))} の空` : "今日の空";
+  // 前日の予告（11/21 渡辺さん「前日＋当日」）は「明日の夜の空」（日食は「明日の空」）。
+  const title = day ? `${Number(day.slice(5, 7))}/${Number(day.slice(8))} の空` : phase === "eve" ? (solar ? "明日の空" : "明日の夜の空") : "今日の空";
   const kicker = full ? `${Number(date.slice(5, 7))}月の満月${event.blue ? "（ひと月に2回目）" : ""}` : solar ? "日食" : "月食";
   // 舞台の色：紺は夜空、白と緑はそのテーマの地（14:24 渡辺さん「ダークにはいいですが、こっちには向きませんね」）。
   const stage = eventStage(event.kind, event.blue, currentTheme());
@@ -113,10 +114,9 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
         </p>
       )}
       {!solar && (
-        <Button size="sm" className="fm-open-btn" onClick={() => setStory(event.at)}>
-          {event.blue ? "ブルームーンの物語" : event.name ? `${event.name}の物語` : "満月の物語"}
-          <Glyph name="next" />
-        </Button>
+        // 物語の入口（11/21 渡辺さん「物語のボタンの UI 案」）：小さな本。左に表紙（主役の四角い絵を金の縁の本に）、右に
+        // 名前と「絵本をひらく」。画面に入ると、表紙に金の光が一度だけ走る（StoryBookButton）。
+        <StoryBookButton event={event} stage={stage} onOpen={() => setStory(event.at)} />
       )}
       <small className="set-help">時刻と見え方は{WHERE}で計算しています。天気は{WHERE}の観測所の記録・予報です。</small>
       {story != null && createPortal(<MoonStory key={story} at={story} store={store} onClose={() => setStory(null)} onNext={setStory} onList={() => { setStory(null); setNames(true); }} />, document.body)}
@@ -144,3 +144,43 @@ function EventPicture({ event }: { event: SkyEvent }) {
   return <span className="event-pic crop hand" aria-hidden dangerouslySetInnerHTML={{ __html: eventBannerSvg(theme, event.kind, event.name, event.blue, "ev-pic") }} />;
 }
 
+
+/** 物語の入口の小さな本（11/21）。光は、画面に入ったときに一度だけ（動きを減らす設定では走らない、styles.css）。 */
+function StoryBookButton({ event, stage, onOpen }: { event: SkyEvent; stage: ReturnType<typeof eventStage>; onOpen: () => void }) {
+  const ref = useRef<HTMLButtonElement>(null);
+  const [seen, setSeen] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return setSeen(true);
+    const io = new IntersectionObserver(
+      (es) => {
+        if (es.some((e) => e.isIntersecting)) {
+          setSeen(true);
+          io.disconnect();
+        }
+      },
+      { threshold: 0.8 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  const name = event.blue ? "ブルームーン" : (event.name ?? "満月");
+  return (
+    <button
+      ref={ref}
+      type="button"
+      className={seen ? "fm-book-btn seen" : "fm-book-btn"}
+      style={{ ["--ev-line" as string]: stage.line, ["--ev-glow" as string]: stage.glow } as CSSProperties}
+      onClick={onOpen}
+    >
+      <span className="fm-book-cover" aria-hidden>
+        <EventPicture event={event} />
+      </span>
+      <span className="fm-book-text">
+        <b>{name}の物語</b>
+        <small>絵本をひらく</small>
+      </span>
+      <Glyph name="next" />
+    </button>
+  );
+}

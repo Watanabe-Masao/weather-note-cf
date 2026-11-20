@@ -27,7 +27,7 @@ import {
   fullMoonName,
   fullMoonsOfYear,
 } from "../../shared/moon";
-import { skyEventOn, type SkyEvent } from "../../shared/skyEvents";
+import { eventNight, skyEventOn, skyEventShown, type SkyEvent } from "../../shared/skyEvents";
 import { DEFAULT_LAT_LON } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
 import { eventArt, eventIcon } from "../design/eventAssets";
@@ -379,6 +379,13 @@ export function MoonStory({
     );
     a.onfinish = () => onNext(target);
   };
+  // 情報の見出し（11/21 渡辺さん「前日＋当日」）：見出しに出ている間は「今夜の」「明日の夜の」、それ以外は「◯/◯ の夜の」。
+  const when = useMemo(() => {
+    const shown = skyEventShown(Date.now(), lat, lon);
+    if (shown && shown.event.at === event.at) return shown.phase === "eve" ? "明日の夜の" : "今夜の";
+    const n = eventNight(event);
+    return `${Number(n.slice(5, 7))}/${Number(n.slice(8))} の夜の`;
+  }, [event, lat, lon]);
 
   // 閉じる：Esc と、開いている間は後ろをスクロールさせない。
   useEffect(() => {
@@ -1256,7 +1263,7 @@ export function MoonStory({
         <small className="ms-rise">
           {j.m}月{j.d}日
         </small>
-        <h3 className="ms-rise">今夜の{title}</h3>
+        <h3 className="ms-rise">{when}{title}</h3>
         {/* 紙を重ねる見せ方（11/21 渡辺さん「おすすめで」）：外の .ms-sheet が奥へ沈み、内の .ms-sheet-in が傾いて滑り込む。 */}
         <div className="ms-sheet">
           <div className="ms-sheet-in ms-card">

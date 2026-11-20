@@ -409,6 +409,7 @@ select.chip {
 /* 空のイベントの日の帯（11/20）：文字の所だけ替える（アイコンは替えない）。高さは文字と同じくらい、押すと説明。 */
 .brand-event { display: block; flex: 0 1 auto; min-width: 0; width: calc(30px * 692 / 184); aspect-ratio: 448 / 100; padding: 0; border: 0; background: none; border-radius: var(--radius-pill); cursor: pointer; }
 .brand-event svg { display: block; width: 100%; height: 100%; }
+.brand-event-art { display: block; width: 100%; height: 100%; }
 /* 押せる範囲は 44px 以上（絵は低いので、上下に見えない範囲を足す）。 */
 .brand-event { position: relative; }
 .brand-event::after { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: var(--tap-min); transform: translateY(-50%); }
@@ -807,6 +808,23 @@ img.event-pic { object-fit: contain; }
 .event-night-wx { display: block; margin-top: var(--space-2); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .event-tags { margin-top: var(--space-3); }
 .event-sheet .fm-open-btn { display: flex; margin: var(--space-3) 0 var(--space-2); }
+/* 物語の入口の小さな本（11/21 渡辺さん「物語のボタンの UI 案」）：左に金の縁の小さな本（表紙は主役の四角い絵、左に背の影）、
+   右に名前と「絵本をひらく」。画面に入ると表紙に光が一度だけ走る。押すと少し沈む。 */
+.fm-book-btn { position: relative; display: flex; align-items: center; gap: var(--space-5); width: 100%; min-height: var(--tap-min); margin: var(--space-4) 0 var(--space-3); padding: var(--space-3) var(--space-5) var(--space-3) var(--space-4); border: var(--stroke-hair) solid var(--line-soft); border-radius: var(--radius-lg); background: var(--surface-raised); color: var(--ink-primary); font: inherit; text-align: left; cursor: pointer; transition: transform 0.18s var(--ease-standard); -webkit-tap-highlight-color: transparent; }
+.fm-book-btn:active { transform: scale(0.98); }
+.fm-book-btn > svg:last-child { flex: none; margin-left: auto; color: var(--ev-line); }
+.fm-book-cover { position: relative; flex: none; width: calc(var(--tap-min) * 1.15); aspect-ratio: 3 / 4; overflow: hidden; border-radius: var(--radius-xs) var(--radius-sm) var(--radius-sm) var(--radius-xs); box-shadow: 0 0 0 var(--stroke-select) var(--ev-line), 0 var(--space-1) var(--space-3) var(--line-shade); transform: rotate(-4deg); }
+.fm-book-cover .event-pic { width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+.fm-book-cover .event-pic.crop img, .fm-book-cover .event-pic.crop svg { margin-left: -40%; }
+.fm-book-cover::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 14%; z-index: 1; background: linear-gradient(90deg, var(--line-shade), transparent); pointer-events: none; }
+.fm-book-cover::after { content: ""; position: absolute; inset: 0; z-index: 2; background: linear-gradient(105deg, transparent 35%, var(--ev-glow) 50%, transparent 65%) no-repeat; background-size: 300% 100%; background-position: 100% 0; mix-blend-mode: screen; opacity: 0.8; pointer-events: none; }
+.fm-book-text { display: grid; gap: var(--space-1); min-width: 0; }
+.fm-book-text b { font-size: var(--size-md); font-weight: var(--weight-bold); letter-spacing: 0.06em; }
+.fm-book-text small { font-size: var(--size-sm); letter-spacing: 0.12em; color: var(--ev-line); }
+@media (prefers-reduced-motion: no-preference) {
+  .fm-book-btn.seen .fm-book-cover::after { animation: fm-book-sheen 1.6s var(--ease-standard) 0.3s 1 both; }
+}
+@keyframes fm-book-sheen { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
 /* The six items fit the width: equal columns, no hidden seventh. */
 .metrics {
