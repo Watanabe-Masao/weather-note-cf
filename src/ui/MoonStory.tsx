@@ -102,16 +102,37 @@ const GLINTS: [number, number, number, number][] = [
 ];
 
 /**
- * コマの長さ（11/20 22:43 渡辺さん「一コマの長さを固定せず、文字の数に合わせて。10文字と20文字では倍の時間、一文字一文字の
- * 現れるタイミングを合わせる」）：コマの長さ（スクロールの量・運ぶ時間）を、その文の字の数に比例させる。
- * CH_PER_BEAT 字で 1（スクロール 110svh）。短すぎる文も絵の動きが見えるよう MIN_CH 字ぶんは取る。
+ * 朗読の速さ（11/20 23:14 渡辺さん「朗読するように再生しましょう」、22:43「文字の数や動きに合わせて一コマの長さを」）：
+ * 文は一字ずつ、朗読の速さ（約 5.5 字/秒）で現れ、読点ではひと呼吸、句点ではもう少し長く間をおく。
+ * コマの長さ（運ぶ秒数・スクロールの量）は、その文を読む時間から決める（読む時間が倍なら倍）。
+ *   - 一字 READ_CHAR 秒、読点・中黒などに +PAUSE_COMMA、句点・！？に +PAUSE_STOP。
+ *   - 文はコマの 0.06〜REVEAL_END で出そろう（その間を読む時間に合わせる）。そのあと止まる所（0.78）まで、文を読み終える間。
+ *   - スクロールの量は SEC_PER_BEAT 秒で 1（110svh）。
  */
-const CH_PER_BEAT = 16;
-const MIN_CH = 14;
-/** 一コマ（1）を運ぶ秒数（文が出そろうのは、その 0.6 ほど）。 */
-const SEC_PER_BEAT = 1.6;
+const READ_CHAR = 0.18;
+const PAUSE_COMMA = 0.35;
+const PAUSE_STOP = 0.6;
+const REVEAL_START = 0.06;
+const REVEAL_END = 0.66;
+const MIN_BEAT_SEC = 3.2;
+const SEC_PER_BEAT = 3.2;
+/** 一字ずつの、読みはじめからの時刻（秒）と、読み終わり（秒）。 */
+export function readingTimes(text: string): { at: number[]; total: number } {
+  const at: number[] = [];
+  let t = 0;
+  for (const c of [...text]) {
+    at.push(t);
+    t += READ_CHAR + ("、，・".includes(c) ? PAUSE_COMMA : "。！？".includes(c) ? PAUSE_STOP : 0);
+  }
+  return { at, total: t };
+}
+/** コマごとの秒数（朗読の時間から）。 */
+export function beatSeconds(lines: string[]): number[] {
+  return lines.map((t) => Math.max(MIN_BEAT_SEC, readingTimes(tateNum(t)).total / (REVEAL_END - REVEAL_START)));
+}
+/** コマごとのスクロールの重み（秒数に比例）。 */
 export function beatWeights(lines: string[]): number[] {
-  return lines.map((t) => Math.max(MIN_CH, [...t].length) / CH_PER_BEAT);
+  return beatSeconds(lines).map((s) => s / SEC_PER_BEAT);
 }
 /** 場面の時間（コマの番号 i ＋ コマの中の 0〜1）を、スクロールの割合（0〜1）に。 */
 export function beatToProgress(w: number[], time: number): number {
@@ -155,7 +176,7 @@ function storyStops(
     firstBeat = px.length;
     for (let i = 0; i < scene.beats; i++) {
       px.push(w.offsetTop + beatToProgress(weights, i + BEAT_REST) * r);
-      secs[px.length - 1] = SEC_PER_BEAT * (weights[i] ?? 1);
+      secs[px.length - 1] = SEC_PER_BEAT * (weights[i] ?? 1); // ＝ そのコマの朗読の秒数
     }
     // 場面の終わり（一枚の絵）：月が今夜の情報へ移りはじめる位置のわずか手前（丸めで移りはじめないように）。
     px.push(w.offsetTop + r - 2);
@@ -247,6 +268,8 @@ export function MoonStory({
   const linesKey = lines.join("\n");
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 文の中身が同じなら同じ重み（配列は毎回作られる）
   const weights = useMemo(() => beatWeights(lines), [linesKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 同上
+  const readings = useMemo(() => lines.map((t) => readingTimes(tateNum(t))), [linesKey]);
   // 場面は呼び名で引く（ブルームーンは「ブルームーン」で）。
   const sceneKey = event.blue ? "ブルームーン" : event.name;
   const scene =
@@ -557,7 +580,7 @@ export function MoonStory({
           lines.forEach((_, i) => {
             const cap = `.ms-cap[data-i="${i}"]`;
             world
-              .set(cap, { opacity: 1 }, i + 0.06)
+              .set(cap, { opacity: 1 }, i + REVEAL_START)
               .fromTo(
                 `${cap} .ms-ch`,
                 { opacity: 0, y: 10, filter: "blur(3px)" },
@@ -567,9 +590,13 @@ export function MoonStory({
                   filter: "blur(0px)",
                   duration: 0.12,
                   ease: "power1.out",
-                  stagger: { amount: 0.42 },
+                  // 朗読の間：一字ずつ、読む時刻に合わせて（読点・句点で間をおく）。
+                  stagger: (k: number) => {
+                    const r = readings[i];
+                    return r && r.total > 0 ? ((r.at[k] ?? r.total) / r.total) * (REVEAL_END - REVEAL_START - 0.12) : 0;
+                  },
                 },
-                i + 0.06,
+                i + REVEAL_START,
               )
               .to(
                 cap,
@@ -783,6 +810,9 @@ export function MoonStory({
         reduced: () =>
           window.matchMedia("(prefers-reduced-motion: reduce)").matches,
         seconds: (i) => secs[i],
+        // 本編（場面）の頭より前は区切りへ運ばない。場面の無い満月は、本の後ろ（文の章）から。
+        freeBefore: () =>
+          (el.querySelector<HTMLElement>(".ms-world")?.offsetTop ?? 0) - 1,
         onIndex: (i) =>
           dots.forEach((d, k) =>
             d.classList.toggle("on", firstBeat >= 0 && k === i - firstBeat),
@@ -802,7 +832,7 @@ export function MoonStory({
       mm?.revert();
       unPager();
     };
-  }, [scene, weights]);
+  }, [scene, weights, readings]);
 
   const style = {
     ...(onSkyVars() as CSSProperties),
