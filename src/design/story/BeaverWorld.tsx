@@ -85,15 +85,56 @@ export const BEAVER_SKY = cssSky(SKY.dusk);
  * 巣の上のビーバー。文字は表紙の側（HTML）で重ねる（素材の README「絵の中の文字は作り直す」）。並べ方は CSS（.bca-*）。
  */
 export function BeaverCoverArt(): ReactElement {
+  // 11/20 19:52 渡辺さんの見本（素材の book_cover）：大きな満月、重なる山、針葉樹と紅葉、川の月の道、巣の上のビーバー。
+  // 山・森・川は物語の場面と同じ平たい描き方（19:53「山・森・川はあれがいい。絵本っぽさをメインでない部分で」）。
+  const r = rand(19);
+  const pines = Array.from({ length: 22 }, (_, i) => pine(i * 15 + r() * 6 - 8, 186 + r() * 5, 16 + r() * 14, "#16224a", `cp${i}`));
+  const sparks = Array.from({ length: 9 }, (_, i) => <circle key={i} cx={(r() * 300).toFixed(0)} cy={(8 + r() * 70).toFixed(0)} r={0.6 + r() * 0.9} fill={GOLD} opacity={0.5 + r() * 0.4} />);
   return (
-    <span className="bca" aria-hidden>
-      <img className="bca-moon" src={A("moon")} alt="" />
-      <img className="bca-ref" src={A("reflection")} alt="" />
-      <img className="bca-tree l" src={A("tree")} alt="" />
-      <img className="bca-tree r" src={A("tree")} alt="" />
-      <img className="bca-beaver" src={A("beaver-nest")} alt="" />
-      <img className="bca-reed" src={A("reed")} alt="" />
-    </span>
+    <svg className="bca" viewBox="0 0 300 260" preserveAspectRatio="xMidYMid slice" aria-hidden>
+      <defs>
+        <MoonDefs p="bca" />
+        <linearGradient id="bca-water" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={WATER[0]} />
+          <stop offset="1" stopColor={WATER[2]} />
+        </linearGradient>
+        {/* 絵の四方を革へ溶かす */}
+        <radialGradient id="bca-fade" cx="0.5" cy="0.5" r="0.62">
+          <stop offset="0.72" stopColor="#ffffff" />
+          <stop offset="1" stopColor="#000000" />
+        </radialGradient>
+        <mask id="bca-mask">
+          <rect width={300} height={260} fill="url(#bca-fade)" />
+        </mask>
+        <linearGradient id="bca-top" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#000000" />
+          <stop offset="0.3" stopColor="#ffffff" />
+        </linearGradient>
+        <mask id="bca-mask-top">
+          <rect width={300} height={260} fill="url(#bca-top)" />
+        </mask>
+      </defs>
+      <g mask="url(#bca-mask)">
+        <g>{sparks}</g>
+        <circle cx={150} cy={96} r={150} fill="url(#bca-moon-glow)" mask="url(#bca-mask-top)" />
+        <image href={A("moon")} x={92} y={38} width={116} height={116} />
+        {/* 遠い山・近い丘 */}
+        <path d="M-10 168 L 30 128 L 62 146 L 104 112 L 150 150 L 196 118 L 236 146 L 270 124 L 310 156 L 310 196 L -10 196 Z" fill="#2a3a6e" />
+        <path d="M-10 176 C 50 158 110 170 160 162 C 210 154 260 166 310 160 L 310 200 L -10 200 Z" fill="#22305e" />
+        <g>{pines}</g>
+        <image href={A("tree")} x={-6} y={120} width={58} height={86} />
+        <image href={A("tree")} x={34} y={146} width={34} height={50} opacity={0.9} />
+        <image href={A("tree-big")} x={236} y={128} width={80} height={75} />
+        {/* 川と月の道 */}
+        <path d="M-10 196 C 60 192 120 200 180 196 C 240 192 280 198 310 195 L 310 270 L -10 270 Z" fill="url(#bca-water)" />
+        <image href={A("reflection")} x={94} y={198} width={112} height={39} />
+        <path d="M14 222 q 16 -3 32 0 M220 236 q 20 -3 40 0 M40 248 q 18 -3 36 0" stroke="#9fb7e6" strokeWidth={0.8} opacity={0.45} fill="none" />
+        {/* 巣の上のビーバー */}
+        <image href={A("nest")} x={150} y={184} width={118} height={76} />
+        <image href={A("beaver-branch")} x={162} y={140} width={86} height={86} />
+        <image href={A("reed")} x={-8} y={206} width={70} height={54} opacity={0.85} />
+      </g>
+    </svg>
   );
 }
 

@@ -17,9 +17,11 @@ export type StoryScene = {
   CoverArt?: () => ReactElement;
   /** 本棚の背の、型押しの月と紋の絵（素材）。 */
   spineArt?: { moon: string; emblem: string };
+  /** 表紙の上の二隅に置く飾りの枝（素材。左は返して使う）。 */
+  coverCorner?: string;
   build: typeof buildBeaverScene;
 };
 
 export const STORY_SCENES: Record<string, StoryScene> = {
-  ビーバームーン: { beats: BEAVER_BEATS, World: BeaverWorld, Window: BeaverWindow, sky: BEAVER_SKY, CoverArt: BeaverCoverArt, spineArt: { moon: storyAsset("beaver", "emboss"), emblem: storyAsset("beaver", "beaver") }, build: buildBeaverScene },
+  ビーバームーン: { beats: BEAVER_BEATS, World: BeaverWorld, Window: BeaverWindow, sky: BEAVER_SKY, CoverArt: BeaverCoverArt, spineArt: { moon: storyAsset("beaver", "emboss"), emblem: storyAsset("beaver", "beaver") }, coverCorner: storyAsset("beaver", "branch"), build: buildBeaverScene },
 };

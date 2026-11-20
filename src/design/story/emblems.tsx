@@ -170,3 +170,21 @@ export function Sprig({ flip, className }: { flip?: boolean; className?: string 
     </svg>
   );
 }
+
+/**
+ * 本の背の欧文（11/20 19:52 渡辺さんの見本の背：英語の呼び名を二行、日付と月の英語の略）。背の幅に合わせて縮むよう SVG の字で、
+ * 長い語は幅に収める（textLength）。書体は CSS（.sp-latin、物語の欧文の書体）。
+ */
+export function SpineLatin({ lines, className }: { lines: string[]; className?: string }): ReactElement {
+  const W = 40;
+  const fs = 9;
+  return (
+    <svg className={className} viewBox={`0 0 ${W} ${lines.length * fs * 1.1 + 2}`} aria-hidden>
+      {lines.map((t, i) => (
+        <text key={i} x={W / 2} y={fs * (i + 1) * 1.1 - 1} fontSize={fs} textAnchor="middle" fill="currentColor" {...(t.length * fs * 0.5 > W - 4 ? { textLength: W - 4, lengthAdjust: "spacingAndGlyphs" } : {})}>
+          {t}
+        </text>
+      ))}
+    </svg>
+  );
+}

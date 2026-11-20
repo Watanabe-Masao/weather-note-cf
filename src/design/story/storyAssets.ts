@@ -24,6 +24,8 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
   // どの満月にも使う物。本棚（11/20 18:50 渡辺さんの絵、1199×1312、外は透けている）。
   common: {
     shelf: { file: "design-src/story/shelf.png", width: 720, quality: 0.8 },
+    // 本の背の型押しの月（どの満月の本にも。11/20 19:52 渡辺さんの見本の背）。
+    emboss: { file: "design-src/story/common/emboss.png", width: 160 },
   },
   beaver: {
     // 11/20 19:41 渡辺さんの素材（weather_note_beaver_assets_cleaned：透けている一枚ずつの PNG、要求書の名前）。

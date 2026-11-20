@@ -18,8 +18,9 @@ import type { WeatherStore } from "../data/store";
 import { eventArt, eventIcon } from "../design/eventAssets";
 import { eventStage } from "../design/eventLogo";
 import { bookVars, Flourish, GoldFrame, spineVar } from "../design/story/Book";
-import { CloudMark, MoonEmblem, SpineHills, Sprig } from "../design/story/emblems";
+import { CloudMark, MoonEmblem, SpineHills, SpineLatin, Sprig } from "../design/story/emblems";
 import { STORY_SCENES } from "../design/story/scenes";
+import { storyAsset } from "../design/story/storyAssets";
 import { onSkyVars } from "../design/tokens";
 import { EventMomentCard, EventNightCard } from "./EventInfo";
 import { STARS } from "./eventBits";
@@ -30,6 +31,7 @@ import { Button, Glyph, IconButton } from "./kit";
 const WHERE = "高知";
 /** 開いた本（見開き）を画面に収める縮め方（表紙は画面の幅の 84% まで大きく、見開きはその 2 倍の幅）。 */
 const SPREAD = 0.56;
+const MONTH_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const HOUR_MS = 3_600_000;
 const jst = (ms: number) => {
   const d = new Date(ms + 9 * HOUR_MS);
@@ -393,6 +395,12 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
                   型押しの満月（絵を革に押したように）、ひと言、The Story of the Full Moon。 */}
               <div className="bk-front">
                 <GoldFrame />
+                {scene?.coverCorner && (
+                  <>
+                    <img className="bk-corner l" src={scene.coverCorner} alt="" aria-hidden />
+                    <img className="bk-corner r" src={scene.coverCorner} alt="" aria-hidden />
+                  </>
+                )}
                 <span className="bk-mark">
                   <CloudMark className="bk-cloud" />
                   <small>Weather Note</small>
@@ -559,18 +567,10 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
                 ) : (
                   <button type="button" className={bk.next ? "ms-spine next" : "ms-spine"} style={spineVar(i)} disabled={!bk.at || !onNext} onClick={(e) => pull(e, bk)} aria-label={bk.at ? `${bk.name}の物語を開く（${jst(bk.at).m}/${jst(bk.at).d}）${bk.next ? "、次の満月" : ""}` : `${bk.name}（5年以内に無し）`}>
                     <span className="sp-band" aria-hidden />
-                    {STORY_SCENES[bk.name]?.spineArt ? (
-                      // 素材の型押しの月と、紋の代わりの絵（11/20 18:42 渡辺さんの素材）。
-                      <>
-                        <img className="sp-moon art" src={STORY_SCENES[bk.name]!.spineArt!.moon} alt="" />
-                        <img className="sp-emblem art" src={STORY_SCENES[bk.name]!.spineArt!.emblem} alt="" />
-                      </>
-                    ) : (
-                      <>
-                        <span className="sp-moon" aria-hidden />
-                        <MoonEmblem name={bk.name} className="sp-emblem" />
-                      </>
-                    )}
+                    {/* 背（11/20 19:52 渡辺さんの見本の背）：型押しの月、英語の呼び名、日本語の呼び名、紋、日付、山並み。 */}
+                    <img className="sp-moon art" src={STORY_SCENES[bk.name]?.spineArt?.moon ?? storyAsset("common", "emboss")} alt="" />
+                    <SpineLatin className="sp-latin" lines={bk.en.split(" ")} />
+                    <span className="sp-rule" aria-hidden />
                     {/* 「〇〇／ムーン」の二列（見本の背と同じ）。 */}
                     <b>
                       {bk.name.endsWith("ムーン") ? (
@@ -583,7 +583,9 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
                         bk.name
                       )}
                     </b>
+                    {STORY_SCENES[bk.name]?.spineArt ? <img className="sp-emblem art" src={STORY_SCENES[bk.name]!.spineArt!.emblem} alt="" /> : <MoonEmblem name={bk.name} className="sp-emblem" />}
                     {bk.at && <small>{jst(bk.at).m}/{jst(bk.at).d}</small>}
+                    {bk.at && <SpineLatin className="sp-latin sp-month" lines={[MONTH_EN[jst(bk.at).m - 1]]} />}
                     <SpineHills className="sp-hills" />
                     <span className="sp-band" aria-hidden />
                     {bk.next && <span className="sp-ribbon" aria-hidden />}
