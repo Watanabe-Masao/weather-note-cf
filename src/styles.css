@@ -479,48 +479,76 @@ img.event-pic { object-fit: contain; }
    （onSkyVars）。動きは src/ui/MoonStory.tsx（GSAP）。動きを減らす設定では、全部を最初から見せる。 */
 .moon-story { position: fixed; inset: 0; z-index: var(--layer-story); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; background: linear-gradient(var(--bk-night-0), var(--bk-night-1)); background-attachment: local; color: var(--ink-primary); outline: none; }
 .ms-close { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); right: var(--space-4); z-index: 2; }
-/* 本（11/20 渡辺さんの見本：紺の革の表紙・金の飾り・生成りの紙・しおり）。テーマによらず一つ（色は src/design/story）。 */
-.ms-book { position: relative; height: 320svh; }
+/* 本（11/20 渡辺さんの見本：紺の革の表紙・金の飾り・生成りの紙）。テーマによらず一つ（色は src/design/story）。
+   16:23 渡辺さん「カタカナがドンと見えるのがダサい」：表紙の主役は英語の名前を細い欧文の斜体で、日本語は小さく字間を
+   広く。光のにじみは使わない。「ページが離れていく動きが不自然」：表紙は背（左の端）でつながったまま開き、見開きが画面に
+   収まる。開くほど表紙は暗く、ページに落ちた表紙の影が消える。 */
+.ms-book { position: relative; height: 420svh; }
 .ms-sticky { position: sticky; top: 0; height: 100svh; overflow: hidden; display: grid; place-items: center; }
-.ms-book-stage { perspective: 1400px; }
-.bk { position: relative; width: min(68vw, 300px); aspect-ratio: 5 / 7; transform-style: preserve-3d; will-change: transform; }
-.bk-page, .bk-front, .bk-back { position: absolute; inset: 0; border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-sm); }
-.bk-page { background: radial-gradient(circle at 50% 40%, var(--bk-paper-0) 55%, var(--bk-paper-1)); color: var(--bk-ink); box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1); display: grid; place-items: center; }
+.bk { position: relative; width: min(84vw, 340px); aspect-ratio: 5 / 7; will-change: transform; }
+.bk-page, .bk-front, .bk-back { position: absolute; inset: 0; border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-sm); overflow: hidden; }
+.bk-page { background: radial-gradient(circle at 50% 40%, var(--bk-paper-0) 55%, var(--bk-paper-1)); color: var(--bk-ink); box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1), inset var(--space-3) 0 var(--space-4) calc(var(--space-3) * -1) var(--bk-paper-1); }
+.bk-inner { position: absolute; inset: 0; display: grid; place-items: center; }
 .bk-page-text { display: grid; justify-items: center; gap: var(--space-4); padding: var(--space-7); text-align: center; font-family: var(--font-story); }
-.bk-page-text small { font-size: var(--size-sm); letter-spacing: 0.2em; color: var(--bk-gold-1); }
-.bk-page-text h3 { margin: 0; font-size: var(--size-xl); font-weight: var(--weight-bold); line-height: 1.7; text-wrap: balance; }
-.bk-page-text span { font-size: var(--size-sm); letter-spacing: 0.3em; color: var(--bk-gold-1); }
-.bk-cover { position: absolute; inset: 0; transform-origin: left center; transform-style: preserve-3d; will-change: transform; }
-.bk-front { backface-visibility: hidden; display: grid; justify-items: center; align-content: center; gap: var(--space-3); padding: var(--space-7) var(--space-6); text-align: center; font-family: var(--font-story); color: var(--bk-gold-0); background: radial-gradient(circle at 40% 30%, var(--bk-cover-0), var(--bk-cover-1) 75%); box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1), inset var(--space-2) 0 var(--space-3) var(--bk-night-1); }
-.bk-front small { font-size: var(--size-xs); letter-spacing: 0.4em; }
-.ms-book .bk-front h2 { margin: 0; font-size: var(--size-title); font-weight: var(--weight-bold); letter-spacing: 0.08em; text-shadow: 0 0 var(--space-5) var(--bk-gold-1); }
-.bk-en { font-size: var(--size-sm); letter-spacing: 0.3em; color: var(--bk-gold-1); }
-.bk-front p { margin: 0; font-size: var(--size-xs); letter-spacing: 0.1em; color: var(--bk-paper-1); }
-.bk-back { transform: rotateY(180deg); backface-visibility: hidden; background: linear-gradient(90deg, var(--bk-paper-1), var(--bk-paper-0)); }
+.bk-page-text small { font-size: var(--size-xs); letter-spacing: 0.3em; color: var(--bk-gold-1); }
+.bk-page-text h3 { margin: 0; font-size: var(--size-lg); font-weight: var(--weight-regular); line-height: 2; letter-spacing: 0.08em; text-wrap: balance; }
+.bk-page-text span { font-size: var(--size-xs); letter-spacing: 0.4em; color: var(--bk-gold-1); }
+.bk-page-shadow { position: absolute; inset: 0; background: linear-gradient(90deg, var(--bk-night-1), transparent 75%); opacity: 0; pointer-events: none; }
+.bk-cover { position: absolute; inset: 0; transform-origin: left center; will-change: transform; }
+.bk-front { display: grid; justify-items: center; align-content: center; gap: var(--space-3); padding: var(--space-7) var(--space-6); text-align: center; color: var(--bk-gold-0); background: radial-gradient(circle at 40% 30%, var(--bk-cover-0), var(--bk-cover-1) 75%); box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1), inset var(--space-2) 0 var(--space-3) var(--bk-night-1); }
+.bk-series { font-family: var(--font-latin); font-style: italic; font-size: var(--size-xs); letter-spacing: 0.12em; color: var(--bk-gold-1); }
+.ms-book .bk-front h2 { margin: 0; font-family: var(--font-latin); font-style: italic; font-size: var(--size-title); font-weight: var(--weight-regular); letter-spacing: 0.02em; line-height: 1.1; }
+.bk-ja { font-family: var(--font-story); font-size: var(--size-sm); letter-spacing: 0.5em; margin-right: -0.5em; }
+.bk-sub { font-family: var(--font-story); font-size: var(--size-xs); letter-spacing: 0.2em; color: var(--bk-paper-1); opacity: 0.7; }
+.bk-cover-shade { position: absolute; inset: 0; background: var(--bk-night-1); opacity: 0; pointer-events: none; }
+.bk-back { left: auto; right: 100%; width: 100%; transform-origin: right center; transform: scaleX(0); will-change: transform; border-radius: var(--radius-lg) var(--radius-sm) var(--radius-sm) var(--radius-lg); display: grid; place-items: center; background: radial-gradient(circle at 60% 40%, var(--bk-cover-0), var(--bk-cover-1) 80%); box-shadow: inset calc(var(--space-3) * -1) 0 var(--space-4) var(--bk-night-1); }
+.bk-back img { width: 58%; aspect-ratio: 1; border-radius: 50%; object-fit: cover; opacity: 0.85; box-shadow: 0 0 0 var(--stroke-hair) var(--bk-gold-0), 0 0 0 var(--space-2) var(--bk-cover-1), 0 0 0 calc(var(--space-2) + var(--stroke-hair)) var(--bk-gold-1); }
+.bk-back img.wide { object-position: 12% center; }
+.bk-back-shade { position: absolute; inset: 0; background: var(--bk-night-1); opacity: 0; pointer-events: none; }
 .bk-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.bk-flourish { width: 8em; height: auto; }
-.bk-medal { position: relative; width: 58%; aspect-ratio: 1; display: grid; place-items: center; margin: var(--space-2) 0; }
+.bk-flourish { width: 7em; height: auto; }
+.bk-medal { position: relative; width: 56%; aspect-ratio: 1; display: grid; place-items: center; margin: var(--space-2) 0; }
 .bk-medal img { width: 76%; height: 76%; border-radius: 50%; object-fit: cover; }
 .bk-medal img.wide { object-position: 12% center; }
 .bk-medal-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
 .bk-medal-glow { position: absolute; inset: -18%; border-radius: 50%; background: radial-gradient(circle, var(--bk-gold-0) 0, transparent 62%); opacity: 0.35; }
-.bk-ribbon { position: absolute; right: 18%; bottom: calc(var(--space-6) * -1); width: var(--space-4); height: var(--space-8); background: var(--bk-ribbon); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 82%, 0 100%); transform: translateZ(-1px); }
 .ms-book-dive { position: absolute; inset: 0; background: var(--bk-night-0); opacity: 0; pointer-events: none; }
 .ms-book.into-paper .ms-book-dive { background: var(--bk-paper-0); }
-/* 絵本の場面：一文ごとに一コマ。前の本の終わり（紙の色）に重ねて始める。 */
+/* 絵本の場面：一文ごとに一コマ。前の本の終わり（紙の色）に重ねて始め、紙が真ん中から溶けて絵が現れる。
+   文（16:23「物語部分のフォントやエフェクトの見直し」）：明朝の縦書きで空に置き、一字ずつにじみから浮かぶ。 */
 .ms-world { position: relative; height: calc(var(--beats) * 110svh + 100svh); margin-top: -100svh; }
 .ms-world-stage { background: var(--bk-night-1); }
 .ms-world-stage .bw { position: absolute; inset: 0; width: 100%; height: 100%; }
-.ms-world-paper { position: absolute; inset: 0; background: var(--bk-paper-0); pointer-events: none; }
+.ms-world-paper { --reveal: 0%; position: absolute; inset: 0; background: var(--bk-paper-0); -webkit-mask-image: radial-gradient(circle at 50% 55%, transparent calc(var(--reveal) - 25%), black var(--reveal)); mask-image: radial-gradient(circle at 50% 55%, transparent calc(var(--reveal) - 25%), black var(--reveal)); pointer-events: none; }
 .ms-world-frame { position: absolute; inset: var(--space-3); opacity: 0; pointer-events: none; }
-.ms-caps { position: absolute; left: 0; right: 0; bottom: 0; display: grid; padding: var(--space-8) var(--space-6) calc(env(safe-area-inset-bottom, 0px) + var(--space-8)); background: linear-gradient(transparent, var(--bk-night-1) 70%); }
-.ms-cap { grid-area: 1 / 1; align-self: end; margin: 0 auto; max-width: 22em; opacity: 0; font-family: var(--font-story); font-size: var(--size-lg); font-weight: var(--weight-bold); line-height: 1.9; color: var(--bk-paper-0); text-align: center; text-wrap: balance; text-shadow: 0 0 var(--space-3) var(--bk-night-1); }
-.ms-beats { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-4)); display: flex; justify-content: center; gap: var(--space-3); }
+.ms-caps { position: absolute; top: calc(env(safe-area-inset-top, 0px) + var(--space-8) + var(--space-6)); right: var(--space-6); height: 44svh; width: 60%; pointer-events: none; }
+.ms-cap { position: absolute; top: 0; right: 0; height: 100%; margin: 0; opacity: 0; writing-mode: vertical-rl; font-family: var(--font-story); font-size: var(--size-lg); font-weight: var(--weight-regular); line-height: 2.1; letter-spacing: 0.14em; color: var(--bk-paper-0); text-shadow: 0 0 var(--space-3) var(--bk-night-1), 0 0 var(--space-1) var(--bk-night-1); }
+.ms-ch { display: inline-block; }
+/* 文の後ろの薄い夜（16:27 のレビュー「文章が背景に埋もれている」）：空が明るい夕暮れでも読める。 */
+.ms-caps-veil { position: absolute; top: 0; right: 0; width: 80%; height: 64svh; background: radial-gradient(ellipse at 78% 34%, var(--bk-night-1), transparent 68%); opacity: 0.6; pointer-events: none; }
+/* 物語をとばす（今夜の情報へ）。 */
+.ms-skip { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); left: var(--space-4); z-index: 2; transition: opacity var(--motion-quick) var(--ease-standard); }
+.ms-skip.gone { opacity: 0; pointer-events: none; }
+/* 締めくくり：ひと言をもう一度（明朝、余白を大きく）。 */
+.ms-epilogue { padding-top: 26svh; padding-bottom: 10svh; gap: var(--space-5); }
+.ms-epilogue p { margin: 0; font-family: var(--font-story); font-size: var(--size-xl); line-height: 2; letter-spacing: 0.12em; color: var(--bk-paper-0); text-wrap: balance; }
+.ms-epilogue small { font-family: var(--font-story); font-size: var(--size-sm); letter-spacing: 0.5em; color: var(--bk-gold-0); }
+.ms-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.ms-beats { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-5)); display: flex; justify-content: center; gap: var(--space-3); }
 .ms-beat { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--bk-gold-0); opacity: 0.3; }
+/* 今夜の情報（16:23「物語の最後には情報も」）：イベントの説明と同じカードを、物語の夜の上に。 */
+.ms-info { gap: var(--space-4); }
+.ms-info h3 { font-family: var(--font-story); font-weight: var(--weight-regular); letter-spacing: 0.1em; }
+.ms-card { width: 100%; text-align: left; }
+.ms-card .event-moment-card { margin-top: 0; }
+.ms-card .emc-time { text-shadow: 0 0 var(--space-5) var(--ev-glow); }
+.ms-card .emc-clouds path { fill: var(--ink-tertiary); opacity: 0.35; }
+.ms-card .event-count { box-shadow: 0 0 0 var(--stroke-select) var(--ev-glow) inset; }
+.ms-card .event-night { margin: 0; }
 /* 知識の章：生成りの紙に金の二重線（本のページ）。 */
 .ms-paper { position: relative; display: grid; gap: var(--space-4); justify-items: center; width: 100%; padding: var(--space-7) var(--space-6); border-radius: var(--radius-lg); background: radial-gradient(circle at 50% 30%, var(--bk-paper-0) 60%, var(--bk-paper-1)); color: var(--bk-ink); font-family: var(--font-story); box-shadow: 0 0 0 var(--stroke-hair) var(--bk-gold-1) inset, 0 0 0 var(--space-2) var(--bk-paper-0) inset, 0 0 0 calc(var(--space-2) + var(--stroke-hair)) var(--bk-gold-1) inset, 0 var(--space-5) var(--space-7) var(--bk-night-1); }
-.ms-paper h3 { color: var(--bk-ink); }
-.ms-text .ms-paper p { margin: 0; font-size: var(--size-lg); line-height: 1.9; color: var(--bk-ink); text-align: left; }
+.ms-paper h3 { color: var(--bk-ink); font-weight: var(--weight-regular); letter-spacing: 0.1em; }
+.ms-text .ms-paper p { margin: 0; font-size: var(--size-md); line-height: 2; color: var(--bk-ink); text-align: left; }
 .ms-paper .ms-symbols em { color: var(--bk-ink); box-shadow: 0 0 0 var(--stroke-hair) var(--bk-gold-1) inset; }
 .ms-tale, .ms-tale-line { font-family: var(--font-story); }
 .ms-hero-hint { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-5)); display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--size-xs); letter-spacing: 0.2em; color: var(--ink-tertiary); }
@@ -557,13 +585,13 @@ img.event-pic { object-fit: contain; }
 @media (prefers-reduced-motion: reduce) {
   .ms-book { height: auto; }
   .ms-book .ms-sticky { position: relative; height: auto; padding: 16svh var(--space-5) var(--space-7); }
-  .bk-page, .ms-hero-hint, .ms-book-dive, .ms-world-paper, .ms-beats { display: none; }
+  .bk-page, .ms-hero-hint, .ms-book-dive, .ms-world-paper, .ms-beats, .ms-caps-veil { display: none; }
   .bk-cover { position: relative; aspect-ratio: 5 / 7; }
   .ms-world { height: auto; margin-top: 0; }
   .ms-world-stage { position: relative; height: auto; display: block; }
   .ms-world-stage .bw { position: relative; display: block; height: 100svh; }
-  .ms-caps { position: relative; display: grid; gap: var(--space-5); background: var(--bk-night-1); }
-  .ms-cap { grid-area: auto; opacity: 1; }
+  .ms-caps { position: relative; top: auto; right: auto; width: auto; height: auto; display: grid; gap: var(--space-5); padding: var(--space-7) var(--space-6); background: var(--bk-night-1); }
+  .ms-cap { position: relative; height: auto; opacity: 1; writing-mode: horizontal-tb; }
 }
 @keyframes ev-twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.95; } }
 @keyframes ev-shoot { 0% { opacity: 0; transform: translateX(0) rotate(16deg); } 2% { opacity: 1; } 9% { opacity: 0; transform: translateX(260%) rotate(16deg); } 100% { opacity: 0; transform: translateX(260%) rotate(16deg); } }

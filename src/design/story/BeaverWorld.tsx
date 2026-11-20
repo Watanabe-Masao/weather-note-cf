@@ -202,6 +202,9 @@ export function BeaverWorld(): ReactElement {
           <stop offset="0.6" stopColor="#000000" stopOpacity={0} />
           <stop offset="1" stopColor="#000000" stopOpacity={0.55} />
         </radialGradient>
+        <filter id="bw-soft" x="-50%" y="-20%" width="200%" height="140%">
+          <feGaussianBlur stdDeviation="1.6" />
+        </filter>
         <clipPath id="bw-above">
           <rect x={-200} y={-900} width={800} height={900} />
         </clipPath>
@@ -224,6 +227,8 @@ export function BeaverWorld(): ReactElement {
             <circle cx={-34} cy={6} r={3} />
           </g>
         </g>
+        {/* 月の出の前の明るみ（丘の向こう） */}
+        <ellipse className="bw-moonrise" cx={150} cy={540} rx={170} ry={90} fill="url(#bw-moon-glow)" opacity={0} />
         {/* 遠い山 */}
         <path d="M-40 560 L 20 500 L 70 530 L 130 470 L 190 520 L 250 480 L 310 525 L 370 490 L 440 540 L 440 600 L -40 600 Z" fill="#2a3a6e" />
         <path d="M-40 575 C 40 545 120 560 200 548 C 280 536 360 552 440 545 L 440 610 L -40 610 Z" fill="#22305e" />
@@ -236,7 +241,8 @@ export function BeaverWorld(): ReactElement {
         <g>{midPines}</g>
         {/* 川 */}
         <path d="M-40 618 C 60 610 140 626 220 620 C 300 614 360 622 440 616 L 440 740 L -40 740 Z" fill="url(#bw-water)" />
-        <g className="bw-road" opacity={0}>
+        <path className="bw-water-night" d="M-40 618 C 60 610 140 626 220 620 C 300 614 360 622 440 616 L 440 740 L -40 740 Z" fill="#081230" opacity={0} />
+        <g className="bw-road" opacity={0} filter="url(#bw-soft)">
           <rect x={132} y={622} width={36} height={112} fill="url(#bw-road)" />
           {Array.from({ length: 9 }, (_, i) => (
             <ellipse key={i} cx={150 + (i % 2 ? 4 : -4)} cy={628 + i * 12} rx={26 - i * 2} ry={1.4} fill={MOON.light} opacity={0.7 - i * 0.06} />
@@ -245,6 +251,8 @@ export function BeaverWorld(): ReactElement {
         <g className="bw-ripples" stroke="#9fb7e6" strokeWidth={1} opacity={0.5} fill="none">
           <path d="M20 650 q 20 -4 40 0 M110 690 q 26 -5 52 0 M250 700 q 22 -4 44 0 M320 660 q 18 -3 36 0" />
         </g>
+        {/* 霧（住みかとビーバーの奥） */}
+        <rect className="bw-fog" x={-200} y={586} width={800} height={48} fill="url(#bw-fog)" opacity={0} />
         {/* 住みかと、水に蓄えた枝 */}
         <g transform="translate(292 652)">
           <g transform="translate(-8 4)">
@@ -262,8 +270,6 @@ export function BeaverWorld(): ReactElement {
         <g className="bw-sit" transform="translate(262 612)" opacity={0}>
           <BeaverSitting />
         </g>
-        {/* 霧 */}
-        <rect className="bw-fog" x={-60} y={590} width={520} height={60} fill="url(#bw-fog)" opacity={0} />
         {/* 手前の岸と葦 */}
         <path d="M-300 740 C 60 726 160 736 230 732 C 300 728 360 736 700 728 L 700 1300 L -300 1300 Z" fill="#0b1328" />
         <g fill="#0e1830">
@@ -304,13 +310,13 @@ type Gsap = {
 };
 
 /**
- * 場面の動き。tl は物語の長さ（BEAVER_BEATS 拍）で、スクロールに合わせて進める。caption(i) はその拍の文の要素の選び方。
+ * 場面の動き。tl は物語の長さ（BEAVER_BEATS 拍）で、スクロールに合わせて進める（文はページの側で重ねる）。
  * 落ち葉・雪・泳ぎの揺れ・波はくり返す動き（スクロールと別）で、一つのタイムラインにまとめて返す（場面が画面に
  * 無い間は止める。GSAP 公式スキル gsap-performance「見えない動きは止める」「別々の遅れより stagger」）。
  */
-export function buildBeaverScene(gsap: Gsap, root: Element, tl: Tween, caption: (i: number) => string, loops = true): Loop | null {
+export function buildBeaverScene(gsap: Gsap, root: Element, tl: Tween, loops = true): Loop | null {
   const q = (s: string) => root.querySelectorAll(s);
-  buildBeats(tl, q, caption);
+  buildBeats(tl, q);
   return loops ? startLoops(gsap, root) : null;
 }
 
@@ -330,40 +336,38 @@ function startLoops(gsap: Gsap, root: Element): Loop {
   return loop;
 }
 
-function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>, caption: (i: number) => string) {
-  // 文（キャプション）：拍ごとに現れて消える。
-  for (let i = 0; i < BEAVER_BEATS; i++) {
-    tl.fromTo(caption(i), { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: 0.25 }, i + 0.08).to(caption(i), { opacity: 0, y: -16, duration: 0.2 }, i + 0.8);
-  }
-
+function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
   // 1 秋の森：森に寄ったカメラ、葉が落ちる。
-  tl.fromTo(".bw-camera", { scale: 1.45, x: -60, y: -173, transformOrigin: "50% 50%" }, { scale: 1.2, x: -10, y: -126, duration: 1, ease: "none" }, 0);
+  tl.fromTo(".bw-camera", { scale: 1.45, x: -60, y: -93, transformOrigin: "50% 50%" }, { scale: 1.2, x: -10, y: -46, duration: 1, ease: "none" }, 0);
   // 2 川へ：カメラが川へ降り、ビーバーが泳いで来る。
-  tl.to(".bw-camera", { scale: 1.3, x: 20, y: -144, duration: 1, ease: "none" }, 1).fromTo(".bw-swim", { x: -80 }, { x: 196, duration: 1.4, ease: "none" }, 1);
+  tl.to(".bw-camera", { scale: 1.3, x: 20, y: -64, duration: 1, ease: "none" }, 1).fromTo(".bw-swim", { x: -80 }, { x: 196, duration: 1.4, ease: "none" }, 1);
   // 3 住みかを組む：泥の土台、枝が一本ずつ、水に蓄える枝。泳ぐ姿から住みかの上へ。
   tl.fromTo(".bw-mud", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 2)
     .fromTo(q(".bw-stick"), { strokeDasharray: 1, strokeDashoffset: 1 }, { strokeDashoffset: 0, duration: 0.05, stagger: 0.016 }, 2.05)
     .to(".bw-swim", { opacity: 0, duration: 0.2 }, 2.4)
     .to(".bw-sit", { opacity: 1, duration: 0.25 }, 2.5)
     .to(".bw-stash", { opacity: 1, duration: 0.4 }, 2.6)
-    .to(".bw-camera", { scale: 1.5, x: -150, y: -182, duration: 1, ease: "none" }, 2);
-  // 4 日が落ちる：空が薄明から夜へ、星が一つずつ、紅葉が暗く。
-  tl.to(".bw-sky-twi", { opacity: 1, duration: 0.5 }, 3)
-    .to(".bw-sky-night", { opacity: 1, duration: 0.6 }, 3.4)
-    .fromTo(q(".bw-star"), { opacity: 0 }, { opacity: 0.9, duration: 0.05, stagger: 0.008 }, 3.3)
-    .to(".bw-autumn", { opacity: 0.55, duration: 0.6 }, 3.3)
-    .to(".bw-leaves", { opacity: 0.3, duration: 0.6 }, 3.3)
-    .to(".bw-camera", { scale: 1.15, x: 0, y: -116, duration: 1, ease: "none" }, 3);
+    .to(".bw-camera", { scale: 1.5, x: -150, y: -102, duration: 1, ease: "none" }, 2);
+  // 4〜5 日が落ちる（16:27 のレビュー「昼から夜への移り変わりが急」）：空・水面・紅葉・星を時間差で、二つの文にまたがって。
+  tl.to(".bw-sky-twi", { opacity: 1, duration: 0.9, ease: "sine.inOut" }, 2.9)
+    .to(".bw-sky-night", { opacity: 1, duration: 1.2, ease: "sine.inOut" }, 3.5)
+    .to(".bw-water-night", { opacity: 1, duration: 1.2, ease: "sine.inOut" }, 3.6)
+    .fromTo(q(".bw-star"), { opacity: 0 }, { opacity: 0.9, duration: 0.1, stagger: { amount: 1.3, from: "random" } }, 3.4)
+    .to(".bw-autumn", { opacity: 0.55, duration: 1.2 }, 3.4)
+    .to(".bw-leaves", { opacity: 0.3, duration: 1 }, 3.6)
+    .to(".bw-camera", { scale: 1.15, x: 0, y: -36, duration: 1, ease: "none" }, 3)
+    // 月が昇る前に、丘の向こうが明るくなる。
+    .to(".bw-moonrise", { opacity: 1, duration: 0.8, ease: "sine.in" }, 4.3);
   // 5 仕上がる：住みかに寄る（枝の影が深く）。
-  tl.to(".bw-camera", { scale: 1.35, x: -90, y: -154, duration: 1, ease: "none" }, 4);
+  tl.to(".bw-camera", { scale: 1.35, x: -90, y: -74, duration: 1, ease: "none" }, 4);
   // 6 満月が昇る：カメラが引き、丘の向こうから大きな月。
-  tl.to(".bw-camera", { scale: 1, x: 0, y: -88, duration: 1, ease: "none" }, 5)
-    .to(".bw-moon", { attr: { transform: "translate(150 300)" }, duration: 1.1, ease: "power1.out" }, 5)
+  tl.to(".bw-camera", { scale: 1, x: 0, y: -8, duration: 1, ease: "none" }, 5)
+    .to(".bw-moon", { attr: { transform: "translate(150 380)" }, duration: 1.1, ease: "power1.out" }, 5)
     .to(".bw-leaves", { opacity: 0, duration: 0.4 }, 5);
   // 7 月の道と霧。
   tl.to(".bw-road", { opacity: 1, duration: 0.5 }, 6).to(".bw-fog", { opacity: 1, duration: 0.6 }, 6.2);
   // 8 初雪：月の下で冬支度。
-  tl.to(".bw-snow", { opacity: 1, duration: 0.5 }, 7).to(".bw-camera", { scale: 1.12, x: -30, y: -111, duration: 1, ease: "none" }, 7);
+  tl.to(".bw-snow", { opacity: 1, duration: 0.5 }, 7).to(".bw-camera", { scale: 1.12, x: -30, y: -31, duration: 1, ease: "none" }, 7);
   // 9 一枚の絵へ：世界が引いて収まる。
-  tl.to(".bw-camera", { scale: 0.96, x: 0, y: -70, duration: 1, ease: "none" }, 8).to(".bw-fog", { opacity: 0.5, duration: 0.5 }, 8);
+  tl.to(".bw-camera", { scale: 0.96, x: 0, y: 10, duration: 1, ease: "none" }, 8).to(".bw-fog", { opacity: 0.5, duration: 0.5 }, 8);
 }

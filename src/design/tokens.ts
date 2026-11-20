@@ -608,7 +608,9 @@ const font = {
     'ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Hiragino Sans", sans-serif',
   mono: 'ui-monospace, "SF Mono", Menlo, monospace', // codes and clock times to read out character by character
   // 満月の物語の絵本の文（明朝。2026-11-20 渡辺さん「物語の魅せ方にこだわって」）。物語のページ（.ms-*）だけで使う。
-  story: '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif',
+  story: '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", "Noto Serif CJK JP", serif',
+  // 満月の物語の表紙の英語の名前（細い欧文の斜体。16:23 渡辺さん「カタカナがドンと見えるのがダサい」）。.ms-* だけで使う。
+  latin: 'Baskerville, "Hoefler Text", "Libre Baskerville", Georgia, "Times New Roman", serif',
 } as const;
 
 /**

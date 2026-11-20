@@ -1,44 +1,55 @@
-// 満月の物語（2026-11-20 渡辺さん「GSAP + ScrollTrigger Apple風の複雑なスクロール演出」、全画面のページ）：
-// 一つの満月を、スクロールで章ごとに見せる。流れは渡辺さんの資料「満月の物語」の考え（情景 → 自然の営み →
-// 名前の由来 → 月に込められた意味）に沿い、知識はそのあとに正確に添える。
-//   1. 幕開け：四角い絵が小さく現れ、スクロールで画面いっぱいに広がり、その上に名前が浮かぶ（画面に留めたまま）。
-//   2. 季節の物語：ひと言（例：冬が来る前に、小さな枝を一本ずつ）と、物語の一段落ずつが、スクロールで明るくなる。
-//   3. 瞬間：満月になる時刻と秒読み。
-//   4. この年だけのこと：月食・ブルームーン・いちばん近い／遠い・見かけの大きさ（計算から、shared/moon.ts）。
-//   5. 知識：名前の由来・自然との関係（段落が浮かび上がる。背景の絵はゆっくり動く）。
-//   6. その夜の月：通り道（EventPath）と天気。最後に、次の満月の物語へ（一年を巡る13の物語）と、この年の一覧へ。
-// 文は毎年使える部分だけ（shared/fullMoonNames.ts）、その年だけのことは計算から（11/20 渡辺さんの決まり）。
-// 絵と動きは文化的なイメージで、実際の月の色や見え方とは別（ページの終わりに断る）。
-// GSAP と ScrollTrigger は、このページを開いたときだけ読み込む（動的 import）。動きを減らす設定では動かさず、
-// 全部を最初から見せる。テーマによらず夜の色（映画のような全画面）。
+// 満月の物語（2026-11-20 渡辺さん「GSAP + ScrollTrigger Apple風の複雑なスクロール演出」、全画面のページ）。
+// 11/20 渡辺さん「一コマ一コマ、一つ一つのパーツ、背景、描画を通じた一体感で物語の世界観を表現し、満月の魅力を体験させる」
+// 「テーマカラー関係なく共通で一本で」：一冊の絵本として見せる。
+//   1. 本：紺の革の表紙が開き（見開きが画面に収まる）、紙のページにひと言。そのページの中へ入っていく。
+//   2. 絵本の場面：一枚の続いた世界を、物語の一文ごとに一コマずつ（src/design/story）。文は空に一字ずつ浮かぶ。
+//      場面の無い満月は、ひと言と物語の一段落ずつ。
+//   3. 今夜の情報（11/20 渡辺さん「物語の最後には情報も」）：瞬間のカードと、その夜の空のカード（イベントの説明と同じ
+//      部品、EventInfo）、その年だけのこと。
+//   4. 知識：名前の由来・自然との関係（紙のページ）。次の満月の物語へ（一年を巡る13の物語）と、この年の一覧へ。
+// 文は毎年使える部分だけ（shared/fullMoonNames.ts）、その年だけのことは計算から。絵と動きは文化的なイメージで、実際の
+// 月の色や見え方とは別（ページの終わりに断る）。GSAP と ScrollTrigger は、このページを開いたときだけ読み込む。
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { addDays } from "../../shared/dates";
-import { clockOf } from "../../shared/dayParts";
 import { BLUE_MOON, fullMoonInfo, type FullMoonNameInfo } from "../../shared/fullMoonNames";
-import { dms, fullMoonName, fullMoonsOfYear, MOON_MEAN_DIAMETER } from "../../shared/moon";
-import { skyEventOn, SKY_EVENT_NAME, type SkyEvent } from "../../shared/skyEvents";
+import { fullMoonName, fullMoonsOfYear } from "../../shared/moon";
+import { skyEventOn, type SkyEvent } from "../../shared/skyEvents";
 import { DEFAULT_LAT_LON } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
-import { Priority } from "../data/plan";
 import { eventArt, eventIcon } from "../design/eventAssets";
 import { eventStage } from "../design/eventLogo";
 import { bookVars, Flourish, GoldFrame, Medallion } from "../design/story/Book";
 import { STORY_SCENES } from "../design/story/scenes";
 import { onSkyVars } from "../design/tokens";
-import { EventPath, pathDays } from "./EventPath";
-import { countdown, STARS } from "./eventBits";
+import { EventMomentCard, EventNightCard } from "./EventInfo";
+import { STARS } from "./eventBits";
+import { factTags } from "./FullMoonSheet";
 import { CloseIcon } from "./icons";
 import { Button, Glyph, IconButton } from "./kit";
 
 const WHERE = "高知";
-const STATION = "47893";
+/** 開いた本（見開き）を画面に収める縮め方（表紙は画面の幅の 84% まで大きく、見開きはその 2 倍の幅）。 */
+const SPREAD = 0.56;
 const HOUR_MS = 3_600_000;
-/** 秒読みを描き直す間。 */
-const TICK_MS = 1000;
 const jst = (ms: number) => {
   const d = new Date(ms + 9 * HOUR_MS);
-  return { date: d.toISOString().slice(0, 10), min: d.getUTCHours() * 60 + d.getUTCMinutes(), m: d.getUTCMonth() + 1, d: d.getUTCDate(), wd: "日月火水木金土"[d.getUTCDay()] };
+  return { date: d.toISOString().slice(0, 10), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
 };
+
+/** 一字ずつ浮かぶ文（読み上げは文のまま、字の箱は読み上げない）。 */
+function Letters({ text }: { text: string }) {
+  return (
+    <>
+      <span className="ms-sr">{text}</span>
+      <span aria-hidden>
+        {[...text].map((c, i) => (
+          <span key={i} className="ms-ch">
+            {c}
+          </span>
+        ))}
+      </span>
+    </>
+  );
+}
 
 export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; store?: WeatherStore | null; onClose: () => void; onList?: () => void; onNext?: (at: number) => void }) {
   const { lat, lon } = DEFAULT_LAT_LON;
@@ -55,6 +66,7 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
   const story = event.blue ? { ...BLUE_MOON, short: BLUE_MOON.short } : info;
   const title = event.blue ? "ブルームーン" : (event.name ?? "満月");
   const facts = useMemo(() => fullMoonsOfYear(Number(j.date.slice(0, 4)), lat, lon).find((f) => Math.abs(f.at - at) < 2 * 86_400_000) ?? null, [j.date, lat, lon, at]);
+  const tags = facts ? factTags(facts, WHERE) : [];
   const stage = eventStage(event.kind, event.blue, "navy");
   const pic = eventIcon(event) ?? eventArt(event, "navy")?.src ?? null;
   const wide = !eventIcon(event);
@@ -67,23 +79,6 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
     const y = Number(j.date.slice(0, 4));
     return [...fullMoonsOfYear(y, lat, lon), ...fullMoonsOfYear(y + 1, lat, lon)].find((f) => f.at > at + 86_400_000) ?? null;
   }, [j.date, lat, lon, at]);
-
-  // 秒読み。
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const id = window.setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => window.clearInterval(id);
-  }, []);
-
-  // その夜の天気（通り道の描き分け）：その晩と翌日。
-  const nightDate = jst(at - 12 * HOUR_MS).date;
-  useEffect(() => {
-    if (!store) return;
-    store.wantHours(STATION, pathDays(nightDate), Priority.Visible, "moon-story");
-    return () => store.wantHours(STATION, [], Priority.Visible, "moon-story");
-  }, [store, nightDate]);
-  const rows = store?.getHours(STATION, nightDate).rows ?? [];
-  const nextRows = store?.getHours(STATION, addDays(nightDate, 1)).rows ?? [];
 
   // 閉じる：Esc と、開いている間は後ろをスクロールさせない。
   useEffect(() => {
@@ -102,6 +97,27 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
   // の決まりに合わせる：動きを減らす設定は gsap.matchMedia で分け（設定が変わっても直る）、ScrollTrigger はページの上から
   // 順に作り、タイムラインの上にだけ付け、くり返す動きは見えない間は止め、字が読み込まれたら位置を測り直す。
   const [ready, setReady] = useState(false);
+  // 物語をとばす（今夜の情報へ）：情報が見えたら消す。場面を押すと次の場面へ（スクロールで進むのと同じ）。
+  const infoRef = useRef<HTMLElement>(null);
+  const [skip, setSkip] = useState(true);
+  useEffect(() => {
+    const el = root.current;
+    const info = infoRef.current;
+    if (!el || !info) return;
+    const watch = () => setSkip(info.getBoundingClientRect().top > el.clientHeight * 0.6);
+    el.addEventListener("scroll", watch, { passive: true });
+    return () => el.removeEventListener("scroll", watch);
+  }, []);
+  const skipStory = () => infoRef.current?.scrollIntoView({ behavior: "smooth" });
+  const nextBeat = () => {
+    const el = root.current;
+    const w = el?.querySelector<HTMLElement>(".ms-world");
+    if (!el || !w || !scene) return;
+    const per = (w.offsetHeight - el.clientHeight) / scene.beats;
+    const now = (el.scrollTop - w.offsetTop) / per;
+    const to = Math.min(scene.beats, Math.floor(now + 0.5) + 1);
+    el.scrollTo({ top: w.offsetTop + (to >= scene.beats ? w.offsetHeight - el.clientHeight + 1 : (to + 0.5) * per), behavior: "smooth" });
+  };
   useEffect(() => {
     const el = root.current;
     if (!el) return;
@@ -117,29 +133,49 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
       media.add("(prefers-reduced-motion: reduce)", () => {
         if (!scene) return;
         const tl = gsap.timeline({ paused: true });
-        scene.build(gsap as never, el, tl as never, () => ".ms-none", false);
+        scene.build(gsap as never, el, tl as never, false);
         tl.progress((scene.beats - 1.5) / scene.beats);
       });
       media.add("(prefers-reduced-motion: no-preference)", () => {
         const scroller = el;
         const scrub = (trigger: string) => ({ trigger: el.querySelector(trigger), scroller, start: "top top", end: "bottom bottom", scrub: 0.6 });
-        // 1. 本：表紙が開き、紙のページ（ひと言）が見え、そのページの中へ入っていく（紙の色で次の場面へつなぐ）。
-        const book = gsap.timeline({ scrollTrigger: scrub(".ms-book") });
+        // 1. 本：表紙が左へ開いて見開きになる（本は右へ寄りながら小さくなり、見開きが画面に収まる）。表紙は開くほど
+        //    暗く、ページには表紙の影が落ちて消える。続いて文が消え、ページの中へ寄っていき、紙の色で次の場面へつなぐ。
+        // 本は、次の場面が下から重なり始める前（本の終わりの一画面手前）に紙の色まで終える。場面は紙の色のまま重なるので、
+        // 境目は見えない。
+        const book = gsap.timeline({ scrollTrigger: { ...scrub(".ms-book"), end: "bottom 200%" } });
         book
           .to(".ms-book-hint", { opacity: 0, duration: 0.1 }, 0)
-          .fromTo(".bk-cover", { rotateY: 0 }, { rotateY: -168, ease: "power1.inOut", duration: 1 }, 0.05)
-          .fromTo(".bk", { xPercent: 0, rotateX: 8 }, { xPercent: 14, rotateX: 0, ease: "power1.inOut", duration: 1 }, 0.05)
-          .fromTo(".bk-page-text > *", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.25, stagger: 0.08 }, 0.7)
-          .to(".bk", { scale: 7, xPercent: 0, yPercent: 6, ease: "power2.in", duration: 0.9 }, 1.35)
-          .to(".ms-book-dive", { opacity: 1, duration: 0.35 }, 1.85);
+          // 縮めたあとに背（左の端）が画面の真ん中に来るよう、ずらす量は 50% × 縮める割合。
+          .fromTo(".bk", { xPercent: 0, scale: 1 }, { xPercent: 50 * SPREAD, scale: SPREAD, ease: "power2.inOut", duration: 1 }, 0.05)
+          // 表紙は背（左の端）を軸に、前半で起き上がり（幅が縮み、手前に来るので少し大きく、影が濃く）、後半で表紙の裏が
+          // 左へ倒れて見開きになる（幅が広がり、影が抜ける）。背でつながったまま、二つのページは同じ大きさ（11/20 16:23
+          // 渡辺さん「ページが離れていく動きが不自然」）。
+          .fromTo(".bk-cover", { scaleX: 1, scaleY: 1 }, { scaleX: 0, scaleY: 1.05, ease: "power2.in", duration: 0.5 }, 0.05)
+          .fromTo(".bk-cover-shade", { opacity: 0 }, { opacity: 0.6, ease: "power1.in", duration: 0.5 }, 0.05)
+          .fromTo(".bk-back", { scaleX: 0, scaleY: 1.05 }, { scaleX: 1, scaleY: 1, ease: "power2.out", duration: 0.5 }, 0.55)
+          .fromTo(".bk-back-shade", { opacity: 0.6 }, { opacity: 0, ease: "power1.out", duration: 0.5 }, 0.55)
+          .fromTo(".bk-page-shadow", { opacity: 1 }, { opacity: 0, ease: "power1.out", duration: 0.9 }, 0.15)
+          .to(".bk-page-text", { opacity: 0, y: -10, duration: 0.25 }, 1.45)
+          .to(".bk", { xPercent: 0, scale: 4.2, ease: "power2.inOut", duration: 0.9 }, 1.6)
+          .to(".bk-inner", { opacity: 0, duration: 0.3 }, 1.6)
+          .to(".ms-book-dive", { opacity: 1, duration: 0.3 }, 2.2);
         // 表紙のメダルの光が脈打つ（本が画面にある間だけ）。
         const glow = gsap.to(".bk-medal-glow", { opacity: 0.85, duration: 2.6, yoyo: true, repeat: -1, ease: "sine.inOut", paused: true });
         ScrollTrigger.create({ trigger: el.querySelector(".ms-book"), scroller, start: "top bottom", end: "bottom top", onToggle: (t) => (t.isActive ? glow.play() : glow.pause()) });
-        // 2. 絵本の場面：一文ごとに一コマ（世界の絵が動き、文が浮かぶ）。最初は紙の色から絵が現れる。
+        // 2. 絵本の場面：一文ごとに一コマ。紙が中心から溶けて絵が現れ、文は空に一字ずつ浮かぶ。
         if (scene) {
           const world = gsap.timeline({ scrollTrigger: scrub(".ms-world") });
-          world.to(".ms-world-paper", { opacity: 0, duration: 0.35 }, 0);
-          const loop = scene.build(gsap as never, el, world as never, (i) => `.ms-cap[data-i="${i}"]`);
+          world.fromTo(".ms-world-paper", { "--reveal": "0%" }, { "--reveal": "165%", ease: "power1.in", duration: 0.5 }, 0);
+          const loop = scene.build(gsap as never, el, world as never);
+          lines.forEach((_, i) => {
+            const cap = `.ms-cap[data-i="${i}"]`;
+            world
+              .set(cap, { opacity: 1 }, i + 0.06)
+              .fromTo(`${cap} .ms-ch`, { opacity: 0, y: 10, filter: "blur(3px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.12, ease: "power1.out", stagger: { amount: 0.42 } }, i + 0.06)
+              .to(cap, { opacity: 0, y: -12, filter: "blur(2px)", duration: 0.16, ease: "power1.in" }, i + 0.84)
+              .set(cap, { y: 0, filter: "blur(0px)" }, i + 1);
+          });
           world.fromTo(".ms-world-frame", { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.5 }, scene.beats - 0.7);
           // 下の点：いまどのコマか。
           world.fromTo(".ms-beat", { opacity: 0.3, scale: 1 }, { opacity: 1, scale: 1.4, duration: 0.15, stagger: { each: 1, yoyo: true, repeat: 1, repeatDelay: 0.65 } }, 0.05);
@@ -165,18 +201,23 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
     };
   }, [scene]);
 
-  const pct = facts ? Math.round((facts.diameter / MOON_MEAN_DIAMETER - 1) * 1000) / 10 : null;
+
   const style = { ...(onSkyVars() as CSSProperties), ...bookVars(), ["--beats" as string]: scene?.beats ?? 0, ["--ev-glow" as string]: stage.glow, ["--ev-line" as string]: stage.line, ["--ev-star" as string]: stage.star } as CSSProperties;
 
   return (
     <div className={ready ? "moon-story ready" : "moon-story"} ref={root} role="dialog" aria-modal="true" aria-label={`${title}の物語`} tabIndex={-1} style={style}>
+      <div className={skip ? "ms-skip" : "ms-skip gone"}>
+        <Button size="sm" kind="quiet" onClick={skipStory}>
+          物語をとばす
+        </Button>
+      </div>
       <div className="ms-close">
         <IconButton label="閉じる" onClick={onClose}>
           <CloseIcon />
         </IconButton>
       </div>
 
-      {/* 1. 本：紺の革の表紙（金の枠・満月のメダル・名前）が開き、紙のページにひと言。そのページの中へ入っていく。 */}
+      {/* 1. 本：紺の革の表紙（金の枠・満月のメダル・英語の名前を主に、日本語は小さく）が開き、紙のページにひと言。 */}
       <section className={scene ? "ms-book into-paper" : "ms-book"}>
         <div className="ms-sticky ms-book-stage">
           <span className="event-stars" aria-hidden>
@@ -187,31 +228,38 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
           </span>
           <div className="bk">
             <div className="bk-page">
-              <GoldFrame />
-              <div className="bk-page-text">
-                <small>{j.m}月の満月の物語</small>
-                <h3>{story?.tale?.tagline ?? story?.gloss ?? title}</h3>
-                <Flourish />
-                <span>{title}</span>
+              <div className="bk-inner">
+                <GoldFrame />
+                <div className="bk-page-text">
+                  <small>{j.m}月の満月の物語</small>
+                  <h3>{story?.tale?.tagline ?? story?.gloss ?? title}</h3>
+                  <Flourish />
+                  <span>{title}</span>
+                </div>
               </div>
+              <span className="bk-page-shadow" aria-hidden />
             </div>
             <div className="bk-cover">
               <div className="bk-front">
                 <GoldFrame />
-                <small>満月の物語</small>
+                <small className="bk-series">Tales of the Full Moon</small>
                 <div className="bk-medal">
                   <span className="bk-medal-glow" aria-hidden />
                   {pic && <img src={pic} alt="" className={wide ? "wide" : undefined} />}
                   <Medallion />
                 </div>
-                <h2>{title}</h2>
-                {story && <span className="bk-en">{story.en}</span>}
+                <h2>{story?.en ?? title}</h2>
                 <Flourish />
-                {story && <p>{story.gloss}</p>}
+                <span className="bk-ja">{title}</span>
+                <small className="bk-sub">{j.m}月の満月の物語</small>
+                <span className="bk-cover-shade" aria-hidden />
               </div>
-              <div className="bk-back" aria-hidden />
             </div>
-            <span className="bk-ribbon" aria-hidden />
+            {/* 表紙の裏（開くと左のページになる）。 */}
+            <div className="bk-back" aria-hidden>
+              {pic && <img src={pic} alt="" className={wide ? "wide" : undefined} />}
+              <span className="bk-back-shade" />
+            </div>
           </div>
           <span className="ms-book-dive" aria-hidden />
           <span className="ms-book-hint ms-hero-hint" aria-hidden>
@@ -221,19 +269,20 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
         </div>
       </section>
 
-      {/* 2. 絵本の場面：一つの続いた世界を、物語の一文ごとに一コマずつ（情景 → 自然の営み → 名前の由来 → 意味）。 */}
+      {/* 2. 絵本の場面：一つの続いた世界を、物語の一文ごとに一コマずつ。文は空に一字ずつ。 */}
       {scene && World && (
         <section className="ms-world" aria-label={`${title}の物語`}>
-          <div className="ms-sticky ms-world-stage">
+          <div className="ms-sticky ms-world-stage" role="presentation" onClick={nextBeat}>
             <World />
             <span className="ms-world-frame" aria-hidden>
               <GoldFrame w={400} h={860} inset={10} />
             </span>
+            <span className="ms-caps-veil" aria-hidden />
             <span className="ms-world-paper" aria-hidden />
             <div className="ms-caps">
               {lines.map((t, i) => (
                 <p key={i} className="ms-cap" data-i={i}>
-                  {t}
+                  <Letters text={t} />
                 </p>
               ))}
             </div>
@@ -243,6 +292,23 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
               ))}
             </div>
           </div>
+        </section>
+      )}
+
+      {/* 締めくくり（16:27 のレビュー「最後の余韻」）：ひと言をもう一度。ここから今夜の情報へつなぐ。 */}
+      {scene && story?.tale && (
+        <section className="ms-chapter ms-epilogue">
+          <Flourish />
+          <p className="ms-rise">
+            {story.tale.tagline.split("、").map((t, i, all) => (
+              <span key={i}>
+                {t}
+                {i < all.length - 1 ? "、" : "。"}
+                {i < all.length - 1 && <br />}
+              </span>
+            ))}
+          </p>
+          <small className="ms-rise">{title}</small>
         </section>
       )}
 
@@ -259,65 +325,24 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
         </section>
       )}
 
-      {/* 3. 瞬間 */}
-      <section className="ms-chapter ms-moment">
-        <small className="ms-rise">満月になる時刻（日本時間）</small>
-        <p className="ms-big ms-rise">
-          {j.m}
-          <i>月</i>
-          {j.d}
-          <i>日</i>
-          <br />
-          {clockOf(j.min)}
-        </p>
-        <span className="event-count ms-rise" role="timer">
-          {countdown(at, now)}
-        </span>
-        {story && <p className="ms-lead ms-rise">{story.short}</p>}
+      {/* 3. 今夜の情報（11/20 渡辺さん「物語の最後には情報も」）：イベントの説明と同じカード。 */}
+      <section className="ms-chapter ms-info" ref={infoRef}>
+        <small className="ms-rise">{j.m}月{j.d}日</small>
+        <h3 className="ms-rise">今夜の{title}</h3>
+        <div className="ms-rise ms-card">
+          <EventMomentCard event={event} stage={stage} />
+        </div>
+        <div className="ms-rise ms-card">
+          <EventNightCard event={event} stage={stage} store={store} tag="moon-story" />
+        </div>
+        {tags.length > 0 && (
+          <p className="fm-tags ms-rise">
+            {tags.map((t) => (
+              <em key={t}>{t}</em>
+            ))}
+          </p>
+        )}
       </section>
-
-      {/* 4. この年だけのこと（計算から） */}
-      {facts && (
-        <section className="ms-chapter ms-facts">
-          <h3 className="ms-rise">{j.date.slice(0, 4)}年のこの満月</h3>
-          <div className="ms-fact-grid">
-            <div className="ms-fact">
-              <small>見かけの大きさ</small>
-              <b>{dms(facts.diameter)}</b>
-              <span>平均より {pct != null && pct >= 0 ? `+${pct}` : pct}%</span>
-            </div>
-            {facts.eclipse && (
-              <div className="ms-fact hot">
-                <small>{facts.eclipse.kind}</small>
-                <b>{clockOf(jst(facts.eclipse.peak).min)}</b>
-                <span>{facts.eclipse.visible ? `${WHERE}から見える` : `${WHERE}からは見えない`}</span>
-              </div>
-            )}
-            {facts.blue && (
-              <div className="ms-fact">
-                <small>ブルームーン</small>
-                <b>2回目</b>
-                <span>同じ月の2回目の満月</span>
-              </div>
-            )}
-            {facts.nearest && (
-              <div className="ms-fact">
-                <small>この年いちばん</small>
-                <b>近い</b>
-                <span>地球にいちばん近い満月</span>
-              </div>
-            )}
-            {facts.farthest && (
-              <div className="ms-fact">
-                <small>この年いちばん</small>
-                <b>遠い</b>
-                <span>地球からいちばん遠い満月</span>
-              </div>
-            )}
-          </div>
-          {event.kind !== "full" && <p className="ms-lead ms-rise">この夜は{SKY_EVENT_NAME[event.kind]}。{WHERE}から見られます（天気しだい）。</p>}
-        </section>
-      )}
 
       {/* 5. 知識：名前の由来 */}
       {story && (
@@ -350,14 +375,8 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
         </section>
       )}
 
-      {/* 6. その夜の月と、次の満月 */}
+      {/* 5. 次の満月と、終わり */}
       <section className="ms-chapter ms-tonight">
-        <h3 className="ms-rise">
-          {Number(nightDate.slice(5, 7))}/{Number(nightDate.slice(8))} の夜の月（{WHERE}）
-        </h3>
-        <div className="ms-rise ms-path">
-          <EventPath event={event} date={nightDate} lat={lat} lon={lon} weather={{ rows: { [nightDate]: rows, [addDays(nightDate, 1)]: nextRows }, station: STATION }} ends={{ from: null, to: null }} />
-        </div>
         {next && onNext && (
           <button type="button" className="ms-next ms-rise" onClick={() => onNext(next.at)}>
             <small>次の満月の物語</small>
