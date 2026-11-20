@@ -1,8 +1,9 @@
 // ビーバームーンの絵本の世界（2026-11-20 渡辺さん「一コマ一コマ、一つ一つのパーツ、背景、描画を通じた一体感で
-// 物語の世界観を表現し、満月の魅力を体験させる」）。一枚の続いた世界を、物語の一文ごとに場面（コマ）として動かす。
-//   1 秋の森から葉が落ちる夕暮れ → 2 川をビーバーが泳いで来る → 3 枝を運び、住みかを組み、枝を水に蓄える →
-//   4 日が落ち、星が一つずつ → 5 住みかが仕上がる → 6 丘の向こうから満月が昇る（ビーバームーン）→
-//   7 川に月の道、霧 → 8 初雪、月の下で冬支度を続ける → 9 世界が一枚の絵に収まる。
+// 物語の世界観を表現し、満月の魅力を体験させる」）。一枚の続いた世界を、絵本の1ページごとに場面（コマ）として動かす。
+// 11/21 絵本の本文（Project「ビーバームーン_絵コンテと本文」v0.3）に合わせて付け直した：
+//   1 秋の森、葉がはらり、はらり → 2 ちゃぷん、枝をくわえたビーバーが顔を出す → 3 一本、また一本（住みかへ枝を運ぶ）→
+//   4 枝を重ね、泥をぬる → 5 夕暮れ、一番星、あと一本だけ（振り返る）→ 6 丘の向こうが明るみ、満月が昇る →
+//   7 月明かりの中を泳いで最後の一本 → 8 雪がひとひら、潜って住みかへ → 9 しんとした冬の森が一枚の絵に。
 // 色はここ（デザインの層）にだけ書く。動きは buildBeaverScene（GSAP、スクロールに合わせる）。
 // 絵は文化的なイメージで、実際の月の色や見え方とは別（物語のページで断る）。
 import type { ReactElement } from "react";
@@ -24,9 +25,9 @@ import {
 export const BEAVER_BEATS = 9;
 /**
  * 行を出しはじめる所（11/21 絵コンテ v0.3）：6ページ（コマ 5）は、丘の向こうが明るんでから1行目「ふわりと、森の向こうが
- * 明るくなって。」、月の縁が丘の上に出てから2行目「大きな、まんまるのお月さま。」（月は 5〜5.72 で昇る）。
+ * 明るくなって。」、月の縁が丘の上に出てから2行目「大きな、まんまるのお月さま。」（明るみは 5〜5.25、月は 5.22〜5.72 で昇る）。
  */
-export const BEAVER_LINE_AT: Record<number, number[]> = { 5: [0.06, 0.3] };
+export const BEAVER_LINE_AT: Record<number, number[]> = { 5: [0.12, 0.34] };
 
 /** 渡辺さんの素材（src/design/story/storyAssets.ts の beaver）。 */
 const A = (name: string) => storyAsset("beaver", name);
@@ -37,44 +38,9 @@ const SKY = {
   night: ["#060d26", "#0c1a42", "#16295a", "#223a6e"],
 };
 const GOLD = "#f1d38a";
-const FUR = ["#5a3d27", "#3b281a"];
 const WATER = ["#2b4a7d", "#16294f", "#0b1838"];
 const LEAF = ["#e8a63d", "#d9772f", "#f2c35a", "#c85a2a"];
 
-/** 泳ぐビーバー（頭と背中だけ水の上、枝をくわえる）。原点は水面の頭の下。 */
-function BeaverSwimming() {
-  return (
-    <g>
-      <path
-        d="M-44 2 C -36 -8 -14 -12 0 -10 C 8 -16 18 -20 26 -16 C 32 -12 34 -6 30 -2 Z"
-        fill={FUR[0]}
-      />
-      <path
-        d="M-30 -6 C -18 -11 -6 -12 2 -11"
-        stroke={GOLD}
-        strokeWidth={1.2}
-        fill="none"
-        opacity={0.5}
-      />
-      <circle cx={20} cy={-13} r={1.4} fill={GOLD} />
-      <circle cx={8} cy={-17} r={2.6} fill={FUR[1]} />
-      <path
-        d="M14 -6 L 66 -16"
-        stroke="#7a5532"
-        strokeWidth={3}
-        strokeLinecap="round"
-      />
-      <ellipse
-        cx={64}
-        cy={-22}
-        rx={4}
-        ry={2.2}
-        fill={LEAF[1]}
-        transform="rotate(-20 64 -22)"
-      />
-    </g>
-  );
-}
 
 /** 住みか（枝を組んだ丸屋根）。枝は一本ずつ描かれる（.bw-stick）。 */
 function Lodge() {
@@ -109,6 +75,13 @@ function Lodge() {
         fill="#2e2117"
       />
       {sticks}
+      {/* 塗った泥（4ページ「泥をぬって。」）：下から広がる。 */}
+      <path
+        className="bw-mud-coat"
+        d="M-62 0 C -56 -26 -30 -40 0 -41 C 30 -40 56 -26 62 0 Z"
+        fill="#3a2a1c"
+        opacity={0}
+      />
     </g>
   );
 }
@@ -637,6 +610,11 @@ export function BeaverWorld(): ReactElement {
           opacity={0}
         />
         <g className="bw-stars">{stars}</g>
+        {/* 一番星（5ページ）：星空より先に、一つだけ。 */}
+        <g className="bw-star1" opacity={0}>
+          <circle cx={318} cy={452} r={5} fill={MOON.glow} opacity={0.35} />
+          <circle cx={318} cy={452} r={1.9} fill="#fff8dc" />
+        </g>
         {/* 満月（丘の向こうから昇る） */}
         {/* 昇る前は見せない（11/20 23:51 渡辺さん「ここもか」：丘と川の間の隙間から、昇る前の月が金の帯のように見えていた）。
             出し入れは外の組（.bw-moon-show）で：月の組の不透明度は、今夜の情報の月へ移る動きが使う。 */}
@@ -731,16 +709,46 @@ export function BeaverWorld(): ReactElement {
           <g className="bw-lodge">
             <Lodge />
           </g>
+          {/* 雪をかぶった住みか（8〜9ページ、素材 A-03）。 */}
+          <image className="bw-lodge-snow" href={A("nest-snow")} x={-76} y={-50} width={152} height={52} opacity={0} />
         </g>
         {/* ビーバー：泳ぐ姿と、住みかの上の姿 */}
-        <g className="bw-swim" transform="translate(-80 662)">
-          <BeaverSwimming />
-          <path
-            d="M-44 2 L -90 12 M-44 2 L -86 -6"
-            stroke="#bcd0f2"
-            strokeWidth={1}
-            opacity={0.6}
-          />
+        {/* ちゃぷん（2ページ）：顔を出す所の水の輪。 */}
+        <g className="bw-splash" transform="translate(118 664)" fill="none" stroke="#cfe0ff" opacity={0}>
+          <ellipse rx={14} ry={3.2} strokeWidth={1.2} />
+          <ellipse rx={26} ry={5.4} strokeWidth={0.8} opacity={0.6} />
+        </g>
+        {/* 泳ぐビーバー（11/21 渡辺さんの素材 A-08：細い枝をくわえて泳ぐ姿）。月明かりの夜は色を沈める（.bw-swim-img）。
+            位置は GSAP の x・y（世界の座標そのもの。transform の translate を置き換える）。 */}
+        <g className="bw-swim" transform="translate(-80 662)" opacity={0}>
+          <g>
+            <image className="bw-swim-img" href={A("beaver-swim-branch-blue")} x={-62} y={-30} width={112} height={40} />
+          </g>
+        </g>
+        {/* 尾を上げて潜る姿（8ページ「住みかへ帰ります」、素材 A-04）。 */}
+        <g className="bw-dive" opacity={0}>
+          <image href={A("beaver-dive")} x={196} y={628} width={56} height={32} />
+        </g>
+        {/* 住みかへ運ぶ細い枝（3・7ページ、素材 A-02）：一本ずつ、住みかの上に置く。 */}
+        <g className="bw-twigs">
+          {[
+            [262, 618, -18],
+            [300, 612, 12],
+            [278, 606, -6],
+            [318, 622, 24],
+          ].map(([x, y, a], i) => (
+            <image
+              key={i}
+              className="bw-twig"
+              href={A("twig")}
+              x={x - 19}
+              y={y - 8}
+              width={38}
+              height={16}
+              opacity={0}
+              transform={`rotate(${a} ${x} ${y})`}
+            />
+          ))}
         </g>
         {/* 月を見上げるビーバー（素材）：月が昇るコマで、枝を持つ姿から替わる。 */}
         <g className="bw-look" opacity={0}>
@@ -805,6 +813,11 @@ export function BeaverWorld(): ReactElement {
       </g>
       {/* 落ち葉と雪（場面に合わせて見せる） */}
       <g className="bw-leaves">{leaves}</g>
+      {/* はらり、はらり（1ページ）：言葉に合わせて落ちる大きな葉が二枚。 */}
+      <image className="bw-bigleaf" href={A("leaf-large")} x={-17} y={-17} width={34} height={34} transform="translate(120 -40)" />
+      <image className="bw-bigleaf" href={A("leaf-large")} x={-15} y={-15} width={30} height={30} transform="translate(250 -40)" />
+      {/* 雪がひとひら（8ページ）：雪の降りはじめの一片。 */}
+      <circle className="bw-flake1" cx={210} cy={-20} r={4.2} fill="#ffffff" opacity={0} />
       <g className="bw-snow" opacity={0}>
         {flakes}
       </g>
@@ -907,126 +920,155 @@ function startLoops(gsap: Gsap, root: Element): Loop {
 }
 
 // 各コマの動きは、そのコマの頭から 0.75 までに終える（ページ送りは 0.78 で止まる。11/20 22:06 渡辺さん「止まる所が描画と
-// リンクしていない」）。夕暮れから夜の空・水面・紅葉だけは、二つのコマ（3〜4）にまたがって、止まる所では途中の色で落ち着く。
+// リンクしていない」）。言葉と合わせる動き（はらり・ちゃぷん・一本ずつ・泥・一番星・月・あと一本・ひとひら）は、その言葉が
+// 出る所（コマの中の 0〜1。読む速さは MoonStory の revealTimes）に置く（11/21 絵コンテ v0.3）。
 function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
-  // 1 秋の森：森に寄ったカメラ、葉が落ちる。
+  const leaves = q(".bw-bigleaf");
+  const twigs = q(".bw-twig");
+  // 1 秋の森：森に寄ったカメラ、葉が落ちる。「はらり、はらり。」で大きな葉が二枚、間をおいて。
   tl.fromTo(
     ".bw-camera",
     { scale: 1.45, x: -60, y: -93, transformOrigin: "50% 50%" },
     { scale: 1.2, x: -10, y: -46, duration: 0.75, ease: "power2.inOut" },
     0,
   );
-  // 2 川へ：カメラが川へ降り、ビーバーが泳いで来る。
+  [0.27, 0.36].forEach((at, i) =>
+    tl.fromTo(
+      leaves[i],
+      { y: 0, x: 0, rotation: 0, opacity: 1 },
+      { y: 760, x: i ? -60 : 50, rotation: i ? -320 : 280, duration: 0.42, ease: "sine.in" },
+      at,
+    ),
+  );
+  // 2 ちゃぷん：カメラが川へ降り、水の輪が広がって、枝をくわえたビーバーが顔を出す。少し泳いで住みかの方へ。
   tl.to(
     ".bw-camera",
     { scale: 1.3, x: 20, y: -64, duration: 0.75, ease: "power2.inOut" },
     1,
-  ).fromTo(
-    ".bw-swim",
-    { x: -80 },
-    { x: 196, duration: 0.75, ease: "power1.out" },
-    1,
-  );
-  // 3 住みかを組む：泥の土台、枝が一本ずつ、水に蓄える枝。泳ぐ姿から住みかの上へ。
-  tl.fromTo(".bw-mud", { opacity: 0 }, { opacity: 1, duration: 0.3 }, 2)
+  )
     .fromTo(
-      q(".bw-stick"),
-      { strokeDasharray: 1, strokeDashoffset: 1 },
-      { strokeDashoffset: 0, duration: 0.05, stagger: 0.013 },
-      2.05,
+      ".bw-splash",
+      { opacity: 0.9, scale: 0.3, svgOrigin: "118 664" },
+      { opacity: 0, scale: 1.4, duration: 0.2, ease: "power1.out" },
+      1.06,
     )
-    .to(".bw-swim", { opacity: 0, duration: 0.2 }, 2.15)
-    .to(".bw-sit", { opacity: 1, duration: 0.25 }, 2.2)
+    .fromTo(
+      ".bw-swim",
+      { x: 118, y: 674, opacity: 0 },
+      { y: 662, opacity: 1, duration: 0.14, ease: "power2.out" },
+      1.08,
+    )
+    .to(".bw-swim", { x: 160, duration: 0.45, ease: "power1.inOut" }, 1.3);
+  // 3 一本、また一本：住みかへ泳いで枝を置く。言葉の拍で一本ずつ、そのあと枝が組み上がる。泳ぐ姿から住みかの上の姿へ。
+  tl.to(".bw-swim", { x: 222, duration: 0.18, ease: "power1.inOut" }, 2)
+    .to(".bw-swim", { opacity: 0, duration: 0.08 }, 2.2)
+    .to(".bw-sit", { opacity: 1, duration: 0.12 }, 2.22);
+  [2.07, 2.13, 2.32].forEach((at, i) =>
+    tl.fromTo(
+      twigs[i],
+      { opacity: 0, y: -18 },
+      { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" },
+      at,
+    ),
+  );
+  tl.fromTo(
+    q(".bw-stick"),
+    { strokeDasharray: 1, strokeDashoffset: 1 },
+    { strokeDashoffset: 0, duration: 0.05, stagger: 0.012 },
+    2.12,
+  )
     .to(".bw-stash", { opacity: 1, duration: 0.3 }, 2.4)
-    // 枝を住みかに置く（16:45 のレビュー「ビーバーの存在感」）：前足と枝が下りて、また上がる。
+    // 枝を住みかに置く（前足と枝が下りて、また上がる）。
     .fromTo(
       ".bw-branch",
       { rotation: -5, svgOrigin: "262 632" },
-      {
-        rotation: 4,
-        duration: 0.18,
-        ease: "power1.inOut",
-        yoyo: true,
-        repeat: 1,
-      },
-      2.35,
+      { rotation: 4, duration: 0.12, ease: "power1.inOut", yoyo: true, repeat: 1 },
+      2.4,
     )
     .to(
       ".bw-camera",
       { scale: 1.5, x: -150, y: -102, duration: 0.75, ease: "power2.inOut" },
       2,
     );
-  // 4〜5 日が落ちる（16:27 のレビュー「昼から夜への移り変わりが急」）：空・水面・紅葉・星を時間差で、二つの文にまたがって。
-  tl.to(".bw-sky-twi", { opacity: 1, duration: 0.75, ease: "sine.inOut" }, 3)
-    .to(".bw-sky-night", { opacity: 1, duration: 1.2, ease: "sine.inOut" }, 3.5)
-    .to(
-      ".bw-water-night",
-      { opacity: 1, duration: 1.1, ease: "sine.inOut" },
-      3.6,
-    )
-    .fromTo(
-      q(".bw-star"),
-      { opacity: 0 },
-      { opacity: 0.9, duration: 0.1, stagger: { amount: 1.2, from: "random" } },
-      3.4,
-    )
-    .to(".bw-autumn", { opacity: 0.55, duration: 1.3 }, 3.4)
-    .to(".bw-leaves", { opacity: 0.3, duration: 1.1 }, 3.6)
-    .to(
-      ".bw-camera",
-      { scale: 1.15, x: 0, y: -36, duration: 0.75, ease: "power2.inOut" },
-      3,
-    )
-    // 月が昇る前に、丘の向こうが明るくなる。
-    .to(".bw-moonrise", { opacity: 1, duration: 0.45, ease: "sine.in" }, 4.25);
-  // 5 仕上がる：住みかに寄る（枝の影が深く）。
+  // 4 枝を重ねて、泥をぬって：住みかに寄り、「泥をぬって。」で泥の色が下から広がる。「もう少し。あと少し。」で影が深くなる。
   tl.to(
     ".bw-camera",
     { scale: 1.7, x: -75, y: -131, duration: 0.75, ease: "power2.inOut" },
-    4,
-  );
-  // 6 満月が昇る：カメラが引き、丘の向こうから大きな月。
-  tl.to(".bw-moon-show", { opacity: 1, duration: 0.05 }, 5);
-  tl.to(
-    ".bw-camera",
-    { scale: 1, x: 0, y: -8, duration: 0.75, ease: "power2.inOut" },
-    5,
+    3,
   )
-    .to(
-      ".bw-moon",
-      {
-        attr: { transform: "translate(150 380)" },
-        duration: 0.72,
-        ease: "power1.out",
-      },
-      5,
+    .fromTo(".bw-mud", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 3.06)
+    .fromTo(
+      ".bw-mud-coat",
+      { opacity: 0, scaleY: 0, svgOrigin: "0 0" },
+      { opacity: 0.6, scaleY: 1, duration: 0.3, ease: "power1.out" },
+      3.12,
     )
-    .to(".bw-leaves", { opacity: 0, duration: 0.4 }, 5)
-    // ビーバーが月を見上げる（枝を持つ姿から、素材の見上げる姿へ）。
-    .to(".bw-sit", { opacity: 0, duration: 0.25 }, 5.4)
-    .to(".bw-look", { opacity: 1, duration: 0.25 }, 5.4)
-    // 月が昇るにつれ、まわりは少し沈み（星と紅葉）、月の道が水面に伸びる（16:45 のレビュー「月光と水面の反射を連動」）。
-    .to(".bw-stars", { opacity: 0.5, duration: 0.55 }, 5.15)
-    .to(".bw-autumn", { opacity: 0.4, duration: 0.55 }, 5.15)
+    .fromTo(
+      ".bw-branch",
+      { rotation: -3, svgOrigin: "262 632" },
+      { rotation: 3, duration: 0.07, ease: "sine.inOut", yoyo: true, repeat: 3 },
+      3.14,
+    )
+    .to(".bw-mud-coat", { opacity: 0.85, duration: 0.2 }, 3.5);
+  // 5 夕暮れ、一番星、あと一本だけ：空と水面が夕暮れから宵へ。星は一つだけ先に灯る。最後の行でビーバーが川を振り返る。
+  tl.to(".bw-camera", { scale: 1.15, x: 0, y: -36, duration: 0.75, ease: "power2.inOut" }, 4)
+    .to(".bw-sky-twi", { opacity: 1, duration: 0.5, ease: "sine.inOut" }, 4)
+    .to(".bw-water-night", { opacity: 0.55, duration: 0.6, ease: "sine.inOut" }, 4.1)
+    .to(".bw-autumn", { opacity: 0.6, duration: 0.6 }, 4.1)
+    .to(".bw-leaves", { opacity: 0.3, duration: 0.5 }, 4.1)
+    .fromTo(".bw-star1", { opacity: 0 }, { opacity: 1, duration: 0.12, ease: "sine.in" }, 4.24)
+    .to(".bw-sit", { scaleX: -1, svgOrigin: "271 587", duration: 0.1, ease: "power1.inOut" }, 4.42);
+  // 6 ふわりと明るくなって、まんまるのお月さま：丘の向こうが明るみ、夜になり、月が昇る。カメラが引く。ビーバーは向き直って見上げる。
+  tl.to(".bw-sit", { scaleX: 1, svgOrigin: "271 587", duration: 0.08 }, 5)
+    .to(".bw-moonrise", { opacity: 1, duration: 0.25, ease: "sine.in" }, 5)
+    .to(".bw-sky-night", { opacity: 1, duration: 0.5, ease: "sine.inOut" }, 5)
+    .to(".bw-water-night", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 5.05)
+    .fromTo(
+      q(".bw-star"),
+      { opacity: 0 },
+      { opacity: 0.9, duration: 0.06, stagger: { amount: 0.4, from: "random" } },
+      5.05,
+    )
+    .to(".bw-moon-show", { opacity: 1, duration: 0.03 }, 5.2)
+    .to(".bw-camera", { scale: 1, x: 0, y: -8, duration: 0.75, ease: "power2.inOut" }, 5)
+    .to(".bw-moon", { attr: { transform: "translate(150 380)" }, duration: 0.5, ease: "power1.out" }, 5.22)
+    .to(".bw-leaves", { opacity: 0, duration: 0.3 }, 5.05)
+    .to(".bw-sit", { opacity: 0, duration: 0.12 }, 5.45)
+    .to(".bw-look", { opacity: 1, duration: 0.12 }, 5.45)
+    .to(".bw-stars", { opacity: 0.5, duration: 0.3 }, 5.45)
+    .to(".bw-autumn", { opacity: 0.4, duration: 0.3 }, 5.45)
     .fromTo(
       ".bw-road",
       { opacity: 0, scaleY: 0.2, svgOrigin: "150 622" },
-      { opacity: 1, scaleY: 1, duration: 0.42, ease: "power1.out" },
-      5.3,
+      { opacity: 1, scaleY: 1, duration: 0.25, ease: "power1.out" },
+      5.5,
     )
-    .to(".bw-ripples", { opacity: 0.9, duration: 0.25 }, 5.5);
-  // 7 月の道と霧。
-  tl.to(".bw-fog", { opacity: 1, duration: 0.55 }, 6.15);
-  // 8 初雪：月の下で冬支度。
-  tl.to(".bw-snow", { opacity: 1, duration: 0.5 }, 7).to(
-    ".bw-camera",
-    { scale: 1.12, x: -30, y: -31, duration: 0.75, ease: "power2.inOut" },
-    7,
+    .to(".bw-ripples", { opacity: 0.9, duration: 0.2 }, 5.55);
+  // 7 月明かりの中を泳ぐ、あと一本：見上げる姿から、月の道を横切って泳ぐ姿へ（色は月明かりに沈める）。「あと一本。」で
+  // 最後の枝を一本だけ置き、住みかの上で月を見上げる姿に戻る。
+  tl.to(".bw-look", { opacity: 0, duration: 0.08 }, 6.02)
+    .set(".bw-swim", { x: 40, y: 662 }, 6.02)
+    .set(".bw-swim-img", { filter: "brightness(0.62) saturate(0.75)" }, 6.02)
+    .to(".bw-swim", { opacity: 1, duration: 0.08 }, 6.04)
+    .to(".bw-swim", { x: 222, duration: 0.34, ease: "power1.inOut" }, 6.06)
+    .fromTo(twigs[3], { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, 6.42)
+    .to(".bw-swim", { opacity: 0, duration: 0.08 }, 6.44)
+    .to(".bw-look", { opacity: 1, duration: 0.1 }, 6.5)
+    .to(".bw-fog", { opacity: 1, duration: 0.4 }, 6.2);
+  // 8 雪がひとひら、静かな住みかへ：一片の雪のあとに雪が降りはじめ、ビーバーは尾を上げて潜り、住みかに雪が積もる。
+  tl.fromTo(".bw-flake1", { opacity: 0, y: 0 }, { opacity: 0.95, y: 560, duration: 0.36, ease: "none" }, 7.02)
+    .to(".bw-flake1", { opacity: 0, duration: 0.05 }, 7.38)
+    .to(".bw-snow", { opacity: 1, duration: 0.3 }, 7.3)
+    .to(".bw-look", { opacity: 0, duration: 0.08 }, 7.36)
+    .fromTo(".bw-dive", { opacity: 0, y: -4 }, { opacity: 1, y: 0, duration: 0.06 }, 7.38)
+    .to(".bw-dive", { opacity: 0, y: 12, duration: 0.14, ease: "power1.in" }, 7.5)
+    .to(q(".bw-twig"), { opacity: 0, duration: 0.2 }, 7.45)
+    .to(".bw-lodge-snow", { opacity: 1, duration: 0.25, ease: "sine.inOut" }, 7.45)
+    .to(".bw-camera", { scale: 1.12, x: -30, y: -31, duration: 0.75, ease: "power2.inOut" }, 7);
+  // 9 しんと静まった冬の森：世界が引いて一枚の絵に収まる。
+  tl.to(".bw-camera", { scale: 0.96, x: 0, y: 10, duration: 0.75, ease: "power2.inOut" }, 8).to(
+    ".bw-fog",
+    { opacity: 0.5, duration: 0.5 },
+    8.1,
   );
-  // 9 一枚の絵へ：世界が引いて収まる。
-  tl.to(
-    ".bw-camera",
-    { scale: 0.96, x: 0, y: 10, duration: 0.75, ease: "power2.inOut" },
-    8,
-  ).to(".bw-fog", { opacity: 0.5, duration: 0.5 }, 8.1);
 }
