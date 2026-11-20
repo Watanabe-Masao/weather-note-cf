@@ -102,33 +102,70 @@ const GLINTS: [number, number, number, number][] = [
 ];
 
 /**
+ * コマの長さ（11/20 22:43 渡辺さん「一コマの長さを固定せず、文字の数に合わせて。10文字と20文字では倍の時間、一文字一文字の
+ * 現れるタイミングを合わせる」）：コマの長さ（スクロールの量・運ぶ時間）を、その文の字の数に比例させる。
+ * CH_PER_BEAT 字で 1（スクロール 110svh）。短すぎる文も絵の動きが見えるよう MIN_CH 字ぶんは取る。
+ */
+const CH_PER_BEAT = 16;
+const MIN_CH = 14;
+/** 一コマ（1）を運ぶ秒数（文が出そろうのは、その 0.6 ほど）。 */
+const SEC_PER_BEAT = 1.6;
+export function beatWeights(lines: string[]): number[] {
+  return lines.map((t) => Math.max(MIN_CH, [...t].length) / CH_PER_BEAT);
+}
+/** 場面の時間（コマの番号 i ＋ コマの中の 0〜1）を、スクロールの割合（0〜1）に。 */
+export function beatToProgress(w: number[], time: number): number {
+  const total = w.reduce((a, b) => a + b, 0) || 1;
+  const i = Math.max(0, Math.min(w.length - 1, Math.floor(time)));
+  const before = w.slice(0, i).reduce((a, b) => a + b, 0);
+  return Math.min(1, (before + (time - i) * (w[i] ?? 0)) / total);
+}
+/** スクロールの割合（0〜1）を、場面の時間に（beatToProgress の逆）。 */
+export function progressToBeat(w: number[], p: number): number {
+  const total = w.reduce((a, b) => a + b, 0) || 1;
+  let x = Math.max(0, Math.min(1, p)) * total;
+  for (let i = 0; i < w.length; i++) {
+    if (x <= w[i] || i === w.length - 1) return i + Math.min(1, x / (w[i] || 1));
+    x -= w[i];
+  }
+  return w.length;
+}
+
+/**
  * 物語の区切り（スクロールの px、小さい順）：表紙・見開き・場面の一コマずつ（文が読める所）・場面の終わり（一枚の絵）・
  * 締めくくり・今夜の情報の頭。下のドットは場面のコマ（firstBeat から一つずつ）。
  */
 function storyStops(
   el: HTMLElement,
   scene: { beats: number } | null | undefined,
-): { px: number[]; firstBeat: number } {
+  weights: number[],
+): { px: number[]; firstBeat: number; secs: (number | undefined)[] } {
   const vh = el.clientHeight;
   const b = el.querySelector<HTMLElement>(".ms-book");
   const w = el.querySelector<HTMLElement>(".ms-world");
   const ep = el.querySelector<HTMLElement>(".ms-epilogue");
   const end = el.querySelector<HTMLElement>(".ms-info")?.offsetTop ?? 0;
   const px: number[] = [0];
+  /** その区切りへ一つ前から運ぶ秒数（コマは字の数に比例。ほかは距離から）。 */
+  const secs: (number | undefined)[] = [];
   let firstBeat = -1;
   if (b) px.push(((b.offsetHeight - vh) * 1.35) / 2.8);
   if (w && scene) {
     const r = w.offsetHeight - vh;
     firstBeat = px.length;
-    for (let i = 0; i < scene.beats; i++)
-      px.push(w.offsetTop + ((i + BEAT_REST) / scene.beats) * r);
-    px.push(w.offsetTop + r);
+    for (let i = 0; i < scene.beats; i++) {
+      px.push(w.offsetTop + beatToProgress(weights, i + BEAT_REST) * r);
+      secs[px.length - 1] = SEC_PER_BEAT * (weights[i] ?? 1);
+    }
+    // 場面の終わり（一枚の絵）：月が今夜の情報へ移りはじめる位置のわずか手前（丸めで移りはじめないように）。
+    px.push(w.offsetTop + r - 2);
   } else if (b) px.push(b.offsetHeight - vh);
   if (ep) px.push(ep.offsetTop + ep.offsetHeight / 2 - vh / 2);
   px.push(end);
   return {
     px: px.map((p) => Math.round(Math.min(end, Math.max(0, p)))),
     firstBeat,
+    secs,
   };
 }
 const jst = (ms: number) => {
@@ -207,6 +244,9 @@ export function MoonStory({
   const wide = !eventIcon(event);
   // 絵本の場面（一文が一コマ）。場面の無い満月は、本の表紙と文だけ。
   const lines = story?.tale?.lines ?? [];
+  const linesKey = lines.join("\n");
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 文の中身が同じなら同じ重み（配列は毎回作られる）
+  const weights = useMemo(() => beatWeights(lines), [linesKey]);
   // 場面は呼び名で引く（ブルームーンは「ブルームーン」で）。
   const sceneKey = event.blue ? "ブルームーン" : event.name;
   const scene =
@@ -497,7 +537,8 @@ export function MoonStory({
         });
         // 2. 絵本の場面：一文ごとに一コマ。紙が中心から溶けて絵が現れ、文は空に一字ずつ浮かぶ。
         if (scene) {
-          const world = gsap.timeline({ scrollTrigger: scrub(".ms-world") });
+          // 場面のタイムラインはコマの番号（0〜コマ数）で組み、スクロールとは字の数で重みを付けた割合でつなぐ。
+          const world = gsap.timeline({ paused: true });
           // 窓の絵（場面の最初の空）から、本当の場面へ溶ける。
           // 本の終わりに画面を覆った空の色（.ms-book-dive は画面に固定）は、場面が止まってから溶ける。場面が下から
           // 上がってくる間は覆ったままなので、境目は見えない。
@@ -551,6 +592,16 @@ export function MoonStory({
           );
 
           world.set({}, {}, scene.beats);
+          gsap.fromTo(
+            world,
+            { time: 0 },
+            {
+              time: scene.beats,
+              duration: 1,
+              ease: (p: number) => progressToBeat(weights, p) / scene.beats,
+              scrollTrigger: scrub(".ms-world"),
+            },
+          );
           // 場面から締めくくりへ移るとき、外の金の枠は背景の色へ溶けて消える（11/20 22:11 渡辺さん）。枠の出入りは場面の
           // タイムラインが枠（.ms-world-frame）の不透明度で持つので、ここは中の絵（svg）の不透明度で（同じ値を二つで動かさない）。
           const ep = el.querySelector(".ms-epilogue");
@@ -610,8 +661,10 @@ export function MoonStory({
             trigger: el.querySelector(".ms-world"),
             scroller,
             start: "bottom bottom",
-            endTrigger: el.querySelector(".ms-info .event-moment-card"),
-            end: "center 55%",
+            // 終わりは今夜の情報の区切り（情報の頭が画面の上）ちょうど（11/20 22:44 渡辺さん「レイヤーの確認」：
+            // カードの真ん中で測っていたため、区切りで止まると移る途中のまま、カードの月が隠れていた）。
+            endTrigger: el.querySelector(".ms-info"),
+            end: "top top",
             onUpdate: (t) => place(t.progress),
             onLeave: () => place(1),
             onLeaveBack: () => place(0),
@@ -717,16 +770,19 @@ export function MoonStory({
       // ページ送り（11/20 20:17 渡辺さん「慣性スクロール・スナップ改善」、src/ui/storyPager.ts）：物語の部分は、指の
       // 動きから行き先の区切りを決めて、指を離した速さのまま滑らかに運ぶ。区切りは ScrollTrigger が測り直すたびに取り直す。
       let firstBeat = -1;
+      let secs: (number | undefined)[] = [];
       const dots = [...el.querySelectorAll<HTMLElement>(".ms-beat")];
       const pg = storyPager(el, {
         measure: () => {
-          const m = storyStops(el, scene);
+          const m = storyStops(el, scene, weights);
           firstBeat = m.firstBeat;
           beatAt.current = firstBeat;
+          secs = m.secs;
           return m.px;
         },
         reduced: () =>
           window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        seconds: (i) => secs[i],
         onIndex: (i) =>
           dots.forEach((d, k) =>
             d.classList.toggle("on", firstBeat >= 0 && k === i - firstBeat),
@@ -746,12 +802,13 @@ export function MoonStory({
       mm?.revert();
       unPager();
     };
-  }, [scene]);
+  }, [scene, weights]);
 
   const style = {
     ...(onSkyVars() as CSSProperties),
     ...bookVars(),
-    ["--beats" as string]: scene?.beats ?? 0,
+    // 場面の長さ（スクロール）は、コマの数ではなく字の数で重みを付けた長さ（110svh × 重みの合計）。
+    ["--beats" as string]: scene ? weights.reduce((a, b) => a + b, 0) : 0,
     ["--ms-scene-sky" as string]: scene?.sky ?? "none",
     ["--ev-glow" as string]: stage.glow,
     ["--ev-line" as string]: stage.line,
