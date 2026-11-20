@@ -501,11 +501,16 @@ img.event-pic { object-fit: contain; }
 .bk-page-text span { font-size: var(--size-xs); letter-spacing: 0.4em; color: var(--bk-gold-1); }
 .bk-page-shadow { position: absolute; inset: 0; background: linear-gradient(90deg, var(--bk-night-1), transparent 75%); opacity: 0; pointer-events: none; }
 .bk-cover { position: absolute; inset: 0; transform-origin: left center; will-change: transform; }
-.bk-front { display: grid; justify-items: center; align-content: center; gap: var(--space-3); padding: var(--space-7) var(--space-6); text-align: center; color: var(--bk-gold-0); background: radial-gradient(circle at 40% 30%, var(--bk-cover-0), var(--bk-cover-1) 75%); box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1), inset var(--space-2) 0 var(--space-3) var(--bk-night-1); }
-.bk-series { font-family: var(--font-latin); font-style: italic; font-size: var(--size-xs); letter-spacing: 0.12em; color: var(--bk-gold-1); }
-.ms-book .bk-front h2 { margin: 0; font-family: var(--font-latin); font-style: italic; font-size: var(--size-title); font-weight: var(--weight-regular); letter-spacing: 0.02em; line-height: 1.1; }
-.bk-ja { font-family: var(--font-story); font-size: var(--size-sm); letter-spacing: 0.5em; margin-right: -0.5em; }
-.bk-sub { font-family: var(--font-story); font-size: var(--size-xs); letter-spacing: 0.2em; color: var(--bk-paper-1); opacity: 0.7; }
+/* 表紙（11/20 18:19 渡辺さんの見本）：紺の革のしぼ（--bk-leather を重ねる）、金の枠、Weather Note の印、明朝の金の名前、
+   型押しの満月（絵を革に押したように：輝度だけを重ね、内側に影）、ひと言。光のにじみは使わない。 */
+.bk-front { display: grid; justify-items: center; align-content: center; gap: var(--space-2); padding: var(--space-7) var(--space-6); text-align: center; color: var(--bk-gold-0); background: var(--bk-leather), radial-gradient(circle at 40% 28%, var(--bk-cover-0), var(--bk-cover-1) 78%); background-size: 180px 180px, auto; background-blend-mode: multiply, normal; box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1), inset var(--space-2) 0 var(--space-3) var(--bk-night-1), inset 0 0 var(--space-6) var(--bk-night-1); --bk-seed: var(--bk-cover-1); }
+.bk-mark { display: grid; justify-items: center; gap: 0; }
+.bk-cloud { width: 2.2em; height: auto; color: var(--bk-gold-0); }
+.bk-mark small { font-family: var(--font-latin); font-size: var(--size-xs); letter-spacing: 0.14em; color: var(--bk-gold-0); }
+.ms-book .bk-front h2 { margin: var(--space-1) 0 0; font-family: var(--font-story); font-size: var(--size-title); font-weight: var(--weight-medium); letter-spacing: 0.06em; line-height: 1.2; color: var(--bk-gold-0); text-shadow: 0 1px 0 var(--bk-night-1); }
+.bk-en { font-family: var(--font-latin); font-size: var(--size-sm); letter-spacing: 0.08em; color: var(--bk-gold-0); }
+.bk-tag { margin: 0; font-family: var(--font-story); font-size: var(--size-xs); letter-spacing: 0.08em; color: var(--bk-gold-0); text-wrap: balance; }
+.bk-sub { font-family: var(--font-latin); font-style: italic; font-size: var(--size-xs); letter-spacing: 0.04em; color: var(--bk-gold-1); }
 .bk-cover-shade { position: absolute; inset: 0; background: var(--bk-night-1); opacity: 0; pointer-events: none; }
 .bk-back { left: auto; right: 100%; width: 100%; transform-origin: right center; transform: scaleX(0); will-change: transform; border-radius: var(--radius-lg) var(--radius-sm) var(--radius-sm) var(--radius-lg); display: grid; place-items: center; background: radial-gradient(circle at 60% 40%, var(--bk-cover-0), var(--bk-cover-1) 80%); box-shadow: inset calc(var(--space-3) * -1) 0 var(--space-4) var(--bk-night-1); }
 .bk-back img { width: 58%; aspect-ratio: 1; border-radius: 50%; object-fit: cover; opacity: 0.85; box-shadow: 0 0 0 var(--stroke-hair) var(--bk-gold-0), 0 0 0 var(--space-2) var(--bk-cover-1), 0 0 0 calc(var(--space-2) + var(--stroke-hair)) var(--bk-gold-1); }
@@ -513,11 +518,11 @@ img.event-pic { object-fit: contain; }
 .bk-back-shade { position: absolute; inset: 0; background: var(--bk-night-1); opacity: 0; pointer-events: none; }
 .bk-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .bk-flourish { width: 7em; height: auto; }
-.bk-medal { position: relative; width: 56%; aspect-ratio: 1; display: grid; place-items: center; margin: var(--space-2) 0; }
-.bk-medal img { width: 76%; height: 76%; border-radius: 50%; object-fit: cover; }
+.bk-medal { position: relative; width: 66%; aspect-ratio: 1; display: grid; place-items: center; margin: var(--space-2) 0; border-radius: 50%; background: var(--bk-cover-1); box-shadow: inset 0 var(--space-1) var(--space-3) var(--bk-night-1), inset 0 calc(var(--space-1) * -1) var(--space-2) var(--bk-cover-0), 0 0 0 var(--stroke-hair) var(--bk-gold-1); overflow: hidden; }
+.bk-medal img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; mix-blend-mode: luminosity; opacity: 0.5; filter: grayscale(1) contrast(1.2); }
 .bk-medal img.wide { object-position: 12% center; }
-.bk-medal-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
-.bk-medal-glow { position: absolute; inset: -18%; border-radius: 50%; background: radial-gradient(circle, var(--bk-gold-0) 0, transparent 62%); opacity: 0.35; }
+.bk-medal-emblem { position: absolute; right: 8%; bottom: 8%; width: 22%; height: auto; color: var(--bk-gold-0); filter: drop-shadow(0 1px 0 var(--bk-night-1)); }
+.bk-medal-glow { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 38% 32%, var(--bk-emboss-0), transparent 60%); mix-blend-mode: soft-light; opacity: 0.35; }
 .ms-dive-wrap { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
 .ms-book-dive { position: absolute; inset: 0; background: var(--bk-night-0); opacity: 0; pointer-events: none; }
 .ms-book-dive.scene { background: var(--ms-scene-sky); }
@@ -584,26 +589,37 @@ img.event-pic { object-fit: contain; }
 .ms-tale { padding-top: 22svh; padding-bottom: 22svh; gap: var(--space-7); }
 .ms-tale h3 { font-size: var(--size-title); line-height: 1.5; text-shadow: 0 0 var(--space-6) var(--ev-glow); }
 .ms-tale-line { width: 100%; margin: 0; font-size: var(--size-xl); font-weight: var(--weight-bold); line-height: 1.9; text-align: left; }
-/* 本棚（11/20 18:01 渡辺さん）：満月の物語の背が二段に並ぶ。押すと棚から持ち上がり、表紙を向けて真ん中へ。 */
+/* 本棚（11/20 18:19 渡辺さんの見本）：木目の棚と、上の飾り板（Weather Note・満月の物語の本棚・The Full Moon Stories・小枝）。
+   背は革のしぼ・丸みの陰・金の帯・型押しの月・紋・名前・日付・山並み。次の満月の本には、しおりのリボン。
+   押すと棚から持ち上がり、表紙を向けて真ん中へ出る（MoonStory の pull）。 */
 .ms-tonight { padding-top: 8svh; }
-.ms-tonight h3 { font-family: var(--font-story); font-weight: var(--weight-regular); letter-spacing: 0.12em; }
-.ms-shelf { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); row-gap: var(--space-5); width: 100%; padding: var(--space-5) var(--space-3) 0; border-radius: var(--radius-md); background: linear-gradient(var(--bk-night-1), var(--bk-night-0)); box-shadow: 0 0 0 var(--space-2) var(--bk-wood-1) inset, 0 var(--space-4) var(--space-6) var(--bk-night-1); }
-.ms-slot { display: flex; align-items: flex-end; justify-content: center; padding: 0 1px var(--space-3); background: linear-gradient(transparent calc(100% - var(--space-3)), var(--bk-wood-0) calc(100% - var(--space-3)), var(--bk-wood-1)); }
-.ms-spine { position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; min-width: var(--tap-min); height: 9.5em; padding: var(--space-3) 0 var(--space-2); border: 0; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: linear-gradient(90deg, var(--bk-night-1), transparent 22%, transparent 78%, var(--bk-night-1)), var(--spine); color: var(--bk-gold-0); box-shadow: 0 var(--space-2) 0 calc(var(--space-1) * -1) var(--bk-gold-1) inset, 0 calc(var(--space-2) * -1) 0 calc(var(--space-1) * -1) var(--bk-gold-1) inset; cursor: pointer; transition: transform var(--motion-quick) var(--ease-standard); font-family: var(--font-story); }
-.ms-slot:nth-child(3n) .ms-spine { height: 8.8em; }
-.ms-slot:nth-child(4n + 1) .ms-spine { height: 10.2em; }
-.ms-spine b { writing-mode: vertical-rl; font-size: var(--size-xs); font-weight: var(--weight-regular); letter-spacing: 0.02em; line-height: 1.15; flex: 1; min-height: 0; }
-.ms-spine small { font-family: var(--font-family); font-size: var(--size-xs); color: var(--bk-paper-1); font-variant-numeric: tabular-nums; }
-.ms-spine i { position: absolute; top: calc(var(--space-5) * -1); font-style: normal; font-size: var(--size-xs); color: var(--bk-gold-0); }
-.ms-spine.next { transform: translateY(calc(var(--space-2) * -1)); box-shadow: 0 0 var(--space-4) var(--bk-gold-1); }
+.ms-case { width: 100%; padding: 0 var(--space-2) var(--space-3); border-radius: var(--radius-lg) var(--radius-lg) var(--radius-sm) var(--radius-sm); background: var(--bk-woodgrain), linear-gradient(var(--bk-wood-0), var(--bk-wood-1)); background-size: 600px 160px, auto; background-blend-mode: multiply, normal; box-shadow: inset 0 0 0 var(--stroke-hair) var(--bk-gold-1), 0 var(--space-5) var(--space-7) var(--bk-night-1); }
+.ms-crest { display: grid; justify-items: center; gap: 0; margin: 0 var(--space-4); padding: var(--space-5) var(--space-3) var(--space-4); border-radius: var(--radius-lg) var(--radius-lg) 0 0; background: var(--bk-woodgrain), linear-gradient(var(--bk-wood-1), var(--bk-wood-0)); background-size: 600px 160px, auto; background-blend-mode: soft-light, normal; color: var(--bk-gold-0); box-shadow: inset 0 var(--space-1) var(--space-3) var(--bk-night-1); }
+.ms-crest-cloud { width: 2em; height: auto; }
+.ms-crest small { font-family: var(--font-latin); font-size: var(--size-xs); letter-spacing: 0.14em; }
+.ms-chapter .ms-crest h3 { margin: var(--space-1) 0; font-family: var(--font-story); font-size: var(--size-xl); font-weight: var(--weight-medium); letter-spacing: 0.16em; color: var(--bk-gold-0); text-shadow: 0 1px 0 var(--bk-night-1); }
+.ms-crest-sub { display: inline-flex; align-items: center; gap: var(--space-2); font-family: var(--font-latin); font-size: var(--size-xs); letter-spacing: 0.06em; }
+.ms-sprig { width: 2.2em; height: auto; color: var(--bk-gold-1); }
+.ms-shelf { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); width: 100%; padding: var(--space-3) var(--space-2) 0; border-radius: var(--radius-sm); background: linear-gradient(var(--bk-night-1), var(--bk-night-0)); box-shadow: inset 0 var(--space-2) var(--space-4) var(--bk-night-1); }
+.ms-slot { display: flex; align-items: flex-end; justify-content: center; padding: var(--space-3) 1px var(--space-3); background: var(--bk-woodgrain) 0 100% / 600px var(--space-3) no-repeat, linear-gradient(transparent calc(100% - var(--space-3)), var(--bk-wood-0) calc(100% - var(--space-3)), var(--bk-wood-1)); background-blend-mode: multiply, normal; }
+.ms-spine { --bk-seed: var(--spine); position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-2); width: 100%; min-width: var(--tap-min); height: 18.5em; padding: var(--space-2) 0; border: 0; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: linear-gradient(90deg, var(--bk-night-1), transparent 20%, transparent 64%, var(--bk-night-1)), var(--bk-leather), var(--spine); background-size: auto, 180px 180px, auto; background-blend-mode: normal, multiply, normal; color: var(--bk-gold-0); box-shadow: 0 var(--space-1) var(--space-2) var(--bk-night-1), inset 0 0 0 var(--stroke-hair) var(--bk-night-1); cursor: pointer; transition: transform var(--motion-quick) var(--ease-standard); font-family: var(--font-story); }
+.sp-band { display: block; width: 100%; height: var(--space-2); border-block: var(--stroke-hair) solid var(--bk-gold-0); opacity: 0.85; }
+.sp-moon { display: block; width: 50%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 36% 32%, var(--bk-emboss-0), var(--bk-emboss-1) 72%); box-shadow: inset calc(var(--space-1) * -1) calc(var(--space-1) * -1) var(--space-2) var(--bk-night-1), 0 0 0 var(--stroke-hair) var(--bk-gold-1); opacity: 0.9; }
+.sp-emblem { width: 58%; height: auto; filter: drop-shadow(0 1px 0 var(--bk-night-1)); }
+.ms-spine b { writing-mode: vertical-rl; font-size: var(--size-xs); font-weight: var(--weight-medium); letter-spacing: 0.04em; line-height: 1.15; flex: 1; min-height: 0; text-shadow: 0 1px 0 var(--bk-night-1); }
+.ms-spine small { font-family: var(--font-latin); font-size: var(--size-xs); color: var(--bk-gold-0); font-variant-numeric: tabular-nums; }
+.sp-hills { width: 86%; height: var(--space-4); opacity: 0.7; }
+.sp-ribbon { position: absolute; top: calc(var(--space-5) * -1); right: 16%; width: var(--space-2); height: var(--space-6); background: var(--bk-ribbon); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); box-shadow: 0 1px 0 var(--bk-night-1); pointer-events: none; }
+.ms-spine.next { transform: translateY(calc(var(--space-2) * -1)); box-shadow: 0 0 var(--space-4) var(--bk-gold-1), inset 0 0 0 var(--stroke-hair) var(--bk-night-1); }
 .ms-spine:hover:not(:disabled) { transform: translateY(calc(var(--space-2) * -1)); }
 .ms-spine:focus-visible { outline: var(--stroke-focus) solid var(--bk-gold-0); outline-offset: var(--stroke-focus); }
 .ms-spine:disabled { opacity: 0.4; cursor: default; }
-.ms-spine-gap { display: block; width: 100%; min-width: var(--tap-min); height: 9.5em; border-radius: var(--radius-sm) var(--radius-sm) 0 0; box-shadow: 0 0 0 var(--stroke-hair) var(--bk-gold-1) inset; opacity: 0.5; }
+.ms-spine-gap { display: block; width: 100%; min-width: var(--tap-min); height: 18.5em; border-radius: var(--radius-sm) var(--radius-sm) 0 0; box-shadow: inset 0 0 0 var(--stroke-hair) var(--bk-gold-1); opacity: 0.4; }
 .ms-shelf-hint { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
-.ms-flybook { position: fixed; left: 0; top: 0; z-index: 3; display: grid; place-content: center; justify-items: center; gap: var(--space-3); transform-origin: 0 0; border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-sm); background: radial-gradient(circle at 40% 30%, var(--spine), var(--bk-cover-1) 80%); color: var(--bk-gold-0); box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1); pointer-events: none; will-change: transform; }
-.ms-flybook b { font-family: var(--font-latin); font-style: italic; font-size: var(--size-title); font-weight: var(--weight-regular); }
-.ms-flybook span { font-family: var(--font-story); font-size: var(--size-sm); letter-spacing: 0.5em; }
+.ms-flybook { position: fixed; left: 0; top: 0; z-index: 3; display: grid; place-content: center; justify-items: center; gap: var(--space-3); transform-origin: 0 0; border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-sm); background: var(--bk-leather), radial-gradient(circle at 40% 30%, var(--spine), var(--bk-cover-1) 85%); background-size: 180px 180px, auto; background-blend-mode: multiply, normal; color: var(--bk-gold-0); box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1); pointer-events: none; will-change: transform; }
+.ms-flybook b { font-family: var(--font-story); font-size: var(--size-title); font-weight: var(--weight-medium); letter-spacing: 0.06em; }
+.ms-flybook[hidden] { display: none; }
+.ms-flybook span { font-family: var(--font-latin); font-size: var(--size-sm); letter-spacing: 0.08em; }
 /* 次の満月の物語へ（一年を巡る13の物語）。 */
 .ms-next { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: var(--space-1) var(--space-4); width: 100%; min-height: var(--tap-min); padding: var(--space-5); border: 0; border-radius: var(--radius-lg); background: var(--surface-inset); box-shadow: 0 0 0 var(--stroke-hair) var(--ev-glow) inset; color: var(--ink-primary); text-align: left; cursor: pointer; }
 .ms-next small { grid-column: 1; font-size: var(--size-xs); letter-spacing: 0.12em; color: var(--ink-tertiary); }

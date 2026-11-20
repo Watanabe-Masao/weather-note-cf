@@ -17,7 +17,8 @@ import { DEFAULT_LAT_LON } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
 import { eventArt, eventIcon } from "../design/eventAssets";
 import { eventStage } from "../design/eventLogo";
-import { bookVars, Flourish, GoldFrame, Medallion, spineVar } from "../design/story/Book";
+import { bookVars, Flourish, GoldFrame, spineVar } from "../design/story/Book";
+import { CloudMark, MoonEmblem, SpineHills, Sprig } from "../design/story/emblems";
 import { STORY_SCENES } from "../design/story/scenes";
 import { onSkyVars } from "../design/tokens";
 import { EventMomentCard, EventNightCard } from "./EventInfo";
@@ -109,8 +110,8 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
     const vh = window.innerHeight;
     const w = Math.min(vw * 0.84, 340);
     const h = (w * 7) / 5;
-    fly.querySelector("b")!.textContent = book.en;
-    fly.querySelector("span")!.textContent = book.name;
+    fly.querySelector("b")!.textContent = book.name;
+    fly.querySelector(":scope > span")!.textContent = book.en;
     fly.style.cssText = `${spine.getAttribute("style") ?? ""}`;
     fly.hidden = false;
     spine.animate([{ transform: "translateY(0)" }, { transform: "translateY(-38%)" }], { duration: 220, easing: "cubic-bezier(.3,.7,.4,1)", fill: "forwards" });
@@ -340,6 +341,7 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
       {/* 本棚から取り出す本（押したときだけ見える）。 */}
       <span className="ms-flybook" aria-hidden hidden>
         <GoldFrame />
+        <CloudMark className="bk-cloud" />
         <b />
         <span />
       </span>
@@ -385,19 +387,25 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
               <span className="bk-page-shadow" aria-hidden />
             </div>
             <div className="bk-cover">
+              {/* 表紙（11/20 18:19 渡辺さんの見本）：革のしぼ、金の二重の枠と四隅の唐草、Weather Note の印、名前は明朝の金、
+                  型押しの満月（絵を革に押したように）、ひと言、The Story of the Full Moon。 */}
               <div className="bk-front">
                 <GoldFrame />
-                <small className="bk-series">Tales of the Full Moon</small>
+                <span className="bk-mark">
+                  <CloudMark className="bk-cloud" />
+                  <small>Weather Note</small>
+                </span>
+                <Flourish />
+                <h2>{title}</h2>
+                {story && <span className="bk-en">{story.en}</span>}
                 <div className="bk-medal">
                   <span className="bk-medal-glow" aria-hidden />
                   {pic && <img src={pic} alt="" className={wide ? "wide" : undefined} />}
-                  <Medallion />
+                  <MoonEmblem name={sceneKey ?? ""} className="bk-medal-emblem" />
                 </div>
-                <h2>{story?.en ?? title}</h2>
-                <Flourish />
-                <span className="bk-ja">{title}</span>
+                {story?.tale && <p className="bk-tag">{story.tale.tagline}。</p>}
                 <small className="bk-sub">
-                  {j.m}月の満月の物語{!event.blue && fullMoonAlias(event.name, at) ? `・別名 ${fullMoonAlias(event.name, at)}` : ""}
+                  The Story of the Full Moon{!event.blue && fullMoonAlias(event.name, at) ? `・別名 ${fullMoonAlias(event.name, at)}` : ""}
                 </small>
                 <span className="bk-cover-shade" aria-hidden />
               </div>
@@ -522,21 +530,38 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
 
       {/* 5. 本棚（一年を巡る満月の物語）と、終わり */}
       <section className="ms-chapter ms-tonight">
-        <h3 className="ms-rise">満月の物語の本棚</h3>
-        <div className="ms-shelf ms-rise" role="list" aria-label="満月の物語の本棚">
-          {shelf.books.map((bk, i) => (
-            <div key={bk.name} role="listitem" className={bk.reading ? "ms-slot reading" : "ms-slot"}>
-              {bk.reading ? (
-                <span className="ms-spine-gap" aria-label={`${bk.name}（いま読んでいる本）`} />
-              ) : (
-                <button type="button" className={bk.next ? "ms-spine next" : "ms-spine"} style={spineVar(i)} disabled={!bk.at || !onNext} onClick={(e) => pull(e, bk)} aria-label={bk.at ? `${bk.name}の物語を開く（${jst(bk.at).m}/${jst(bk.at).d}）` : `${bk.name}（5年以内に無し）`}>
-                  {bk.next && <i>次</i>}
-                  <b>{bk.name}</b>
-                  {bk.at && <small>{jst(bk.at).m}/{jst(bk.at).d}</small>}
-                </button>
-              )}
-            </div>
-          ))}
+        {/* 本棚（11/20 18:19 渡辺さんの見本）：木目の棚、上に飾り板。革の背に、型押しの月・紋・名前・日付・山並み・金の帯。 */}
+        <div className="ms-case ms-rise">
+          <div className="ms-crest">
+            <CloudMark className="ms-crest-cloud" />
+            <small>Weather Note</small>
+            <h3>満月の物語の本棚</h3>
+            <span className="ms-crest-sub">
+              <Sprig className="ms-sprig" />
+              The Full Moon Stories
+              <Sprig className="ms-sprig" flip />
+            </span>
+          </div>
+          <div className="ms-shelf" role="list" aria-label="満月の物語の本棚">
+            {shelf.books.map((bk, i) => (
+              <div key={bk.name} role="listitem" className={bk.reading ? "ms-slot reading" : "ms-slot"}>
+                {bk.reading ? (
+                  <span className="ms-spine-gap" aria-label={`${bk.name}（いま読んでいる本）`} />
+                ) : (
+                  <button type="button" className={bk.next ? "ms-spine next" : "ms-spine"} style={spineVar(i)} disabled={!bk.at || !onNext} onClick={(e) => pull(e, bk)} aria-label={bk.at ? `${bk.name}の物語を開く（${jst(bk.at).m}/${jst(bk.at).d}）${bk.next ? "、次の満月" : ""}` : `${bk.name}（5年以内に無し）`}>
+                    <span className="sp-band" aria-hidden />
+                    <span className="sp-moon" aria-hidden />
+                    <MoonEmblem name={bk.name} className="sp-emblem" />
+                    <b>{bk.name}</b>
+                    {bk.at && <small>{jst(bk.at).m}/{jst(bk.at).d}</small>}
+                    <SpineHills className="sp-hills" />
+                    <span className="sp-band" aria-hidden />
+                    {bk.next && <span className="sp-ribbon" aria-hidden />}
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
         {next && <p className="ms-shelf-hint ms-rise">次の満月は {jst(next.at).m}/{jst(next.at).d}。背を押すと、その本を取り出して開きます。</p>}
         <div className="ms-end ms-rise">
