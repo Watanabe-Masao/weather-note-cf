@@ -65,7 +65,9 @@ for (let d = 1; d <= 30; d++) for (const hh of [20, 26]) {
   const q = parallactic(t, lat, lon, m.ra, m.dec);
   const a = norm(c - q);
   maxDiff = Math.max(maxDiff, Math.abs(signed(a - b.angle)));
-  rows.push(`| 11/${d} ${hh % 24}時 | ${b.moon.altitude.toFixed(1)}° | ${b.moon.azimuth.toFixed(1)}° | ${c.toFixed(1)}° | ${q.toFixed(1)}° | ${a.toFixed(1)}° | ${b.angle.toFixed(1)}° | ${(A.Illumination(A.Body.Moon, t).phase_fraction * 100).toFixed(0)}% |`);
+  // 見出しは JST の日付と時刻（hh = 26 は翌日の 2時。11/20 メインの確かめで、翌日の日付に直した）。
+  const lt = new Date(Date.UTC(2026, 10, d, hh));
+  rows.push(`| ${lt.getUTCMonth() + 1}/${lt.getUTCDate()} ${lt.getUTCHours()}時 | ${b.moon.altitude.toFixed(1)}° | ${b.moon.azimuth.toFixed(1)}° | ${c.toFixed(1)}° | ${q.toFixed(1)}° | ${a.toFixed(1)}° | ${b.angle.toFixed(1)}° | ${(A.Illumination(A.Body.Moon, t).phase_fraction * 100).toFixed(0)}% |`);
 }
 console.log("\n| 日時（JST） | 月の高さ | 方位 | χ（地心） | q | A：χ−q | B：地平の座標で直接 | 輝面比 |\n|---|---|---|---|---|---|---|---|");
 for (const r of rows.filter((_, i) => i % 4 === 0)) console.log(r);
