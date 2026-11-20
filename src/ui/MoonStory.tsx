@@ -72,7 +72,9 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
   const wide = !eventIcon(event);
   // 絵本の場面（一文が一コマ）。場面の無い満月は、本の表紙と文だけ。
   const lines = story?.tale?.lines ?? [];
-  const scene = !event.blue && event.name && lines.length ? (STORY_SCENES[event.name] ?? null) : null;
+  // 場面は呼び名で引く（ブルームーンは「ブルームーン」で）。
+  const sceneKey = event.blue ? "ブルームーン" : event.name;
+  const scene = sceneKey && lines.length ? (STORY_SCENES[sceneKey] ?? null) : null;
   const World = scene?.World;
   const Win = scene?.Window;
   // 次の満月（一年を巡る物語）。
@@ -197,8 +199,9 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
           // 物語の月 → 今夜の情報の月：場面が画面から出始めてから、瞬間のカードの月が所定の位置に来るまで、浮かぶ月が
           // 二つの月の間を（どちらも今の位置から測って）移る。途中は元の二つの月を隠す。
           const fly = el.querySelector<HTMLElement>(".ms-flymoon");
-          const from = el.querySelector<SVGGElement>(".bw-moon");
-          const disc = el.querySelector<SVGElement>(".bw-moon > circle:nth-of-type(2)");
+          // 場面の月の目印は、どの場面でも StoryMoon（src/design/story/parts.tsx）が付ける。
+          const from = el.querySelector<SVGGElement>("[data-story-moon]");
+          const disc = el.querySelector<SVGElement>("[data-story-disc]");
           const to = () => el.querySelector<HTMLElement>(".ms-info .emc-sky > canvas");
           const ease = gsap.parseEase("power2.inOut");
           const place = (p: number) => {
