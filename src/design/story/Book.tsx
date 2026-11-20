@@ -2,7 +2,7 @@
 // 表紙を開くと紙のページ、そのページの絵の中へ入っていく（動きは src/ui/MoonStory.tsx）。色はここと palette.ts だけ。
 import type { CSSProperties, ReactElement } from "react";
 import { BOOK } from "./palette";
-import { LEATHER, WOOD } from "./textures";
+import { LEATHER, PAPER, WOOD } from "./textures";
 import { SHELF_SLICE, storyAsset } from "./storyAssets";
 
 /** 物語のページの CSS の変数（テーマによらず一つ）。 */
@@ -21,6 +21,12 @@ export function bookVars(): CSSProperties {
     ["--bk-gold-shine" as string]: BOOK.goldShine,
     ["--bk-gold-deep" as string]: BOOK.goldDeep,
     ["--bk-engrave" as string]: BOOK.engrave,
+    ["--bk-paper-tex" as string]: PAPER,
+    ["--bk-stain" as string]: BOOK.stain,
+    ["--bk-edge" as string]: BOOK.edge,
+    ["--bk-ink-bleed" as string]: BOOK.inkBleed,
+    ["--bk-seal" as string]: BOOK.seal,
+    ["--bk-tag" as string]: BOOK.tag,
     ["--bk-engrave-soft" as string]: BOOK.engraveSoft,
     ["--bk-shine-faint" as string]: BOOK.shineFaint,
     ["--bk-shine-soft" as string]: BOOK.shineSoft,

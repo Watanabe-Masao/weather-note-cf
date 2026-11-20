@@ -482,9 +482,9 @@ img.event-pic { object-fit: contain; }
 .ms-topband { position: fixed; inset: 0 0 auto; z-index: 2; height: calc(env(safe-area-inset-top, 0px) + var(--space-4) * 2 + var(--tap-min) + var(--space-4)); background: linear-gradient(var(--bk-night-1), transparent); opacity: 0.85; pointer-events: none; }
 /* 満月の物語の書体（11/20 19:52 渡辺さん「システムフォントは雰囲気台無し」）：しっぽり明朝と Cormorant Garamond（どちらも OFL）。
    物語で使う字だけに絞った woff2（scripts/story-fonts.py）。物語を開いたときだけ読む（/event/ の下、版つき）。 */
-@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-500.woff2?v=2") format("woff2"); font-weight: 400 500; font-display: block; }
-@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-600.woff2?v=2") format("woff2"); font-weight: 600 700; font-display: block; }
-@font-face { font-family: "Story Engrave"; src: url("/event/story/fonts/zen-old-mincho-700.woff2?v=1") format("woff2"); font-weight: 400 900; font-display: block; }
+@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-500.woff2?v=3") format("woff2"); font-weight: 400 500; font-display: block; }
+@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-600.woff2?v=3") format("woff2"); font-weight: 600 700; font-display: block; }
+@font-face { font-family: "Story Engrave"; src: url("/event/story/fonts/zen-old-mincho-700.woff2?v=2") format("woff2"); font-weight: 400 900; font-display: block; }
 @font-face { font-family: "Story Garamond"; src: url("/event/story/fonts/cormorant-garamond.woff2?v=1") format("woff2"); font-weight: 300 700; font-style: normal; font-display: block; }
 @font-face { font-family: "Story Garamond"; src: url("/event/story/fonts/cormorant-garamond-italic.woff2?v=1") format("woff2"); font-weight: 300 700; font-style: italic; font-display: block; }
 /* 本（11/20 渡辺さんの見本：紺の革の表紙・金の飾り・生成りの紙）。テーマによらず一つ（色は src/design/story）。
@@ -568,6 +568,29 @@ img.event-pic { object-fit: contain; }
 .ms-epilogue { padding-top: 26svh; padding-bottom: 10svh; gap: var(--space-5); }
 .ms-epilogue p { margin: 0; font-family: var(--font-story); font-size: var(--size-xl); line-height: 2; letter-spacing: 0.12em; color: var(--bk-paper-0); text-wrap: balance; }
 .ms-epilogue small { font-family: var(--font-story); font-size: var(--size-sm); letter-spacing: 0.5em; color: var(--bk-gold-0); }
+/* 物語から今夜の情報へ移る間の一言（11/20 20:45）：金の箔の明朝。動きを減らす設定では、そのまま見せる。 */
+.ms-herald { display: grid; place-items: center; min-height: 34svh; padding: 0 var(--space-6); }
+.ms-herald-text { margin: 0; font-family: var(--font-engrave); font-size: var(--size-lg); font-weight: var(--weight-bold); letter-spacing: 0.32em; text-indent: 0.32em; filter: drop-shadow(0 0 var(--space-4) var(--bk-gold-1)); will-change: opacity, transform; }
+.ms-hl { display: inline-block; background: linear-gradient(180deg, var(--bk-gold-shine), var(--bk-gold-0) 45%, var(--bk-gold-1)); -webkit-background-clip: text; background-clip: text; color: transparent; will-change: opacity, filter, transform; }
+/* きらめき（11/20 20:42 渡辺さん）：締めくくりの文のまわりと飾りの菱形、今夜の情報のカードの月のそば。小さく、間をおいて。 */
+.ms-glints { position: absolute; inset: 0; pointer-events: none; }
+.ms-glint { position: absolute; left: var(--x); top: var(--y); width: calc(var(--space-6) * var(--s, 1)); height: auto; color: var(--bk-gold-shine); opacity: 0; filter: drop-shadow(0 0 var(--space-2) var(--bk-gold-0)); }
+.ms-flourish-glint { position: relative; display: grid; place-items: center; }
+.ms-glint.lead { left: 50%; top: 50%; width: var(--space-7); margin: calc(var(--space-7) / -2) 0 0 calc(var(--space-7) / -2); }
+/* 今夜の情報のカード：光の帯がときどき表を渡り、月のそばで星が瞬く（物語のページの中だけ）。 */
+.ms-info .event-moment-card::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius-lg); pointer-events: none; background: linear-gradient(105deg, transparent 38%, var(--bk-shine-faint) 47%, var(--bk-shine-soft) 50%, var(--bk-shine-faint) 53%, transparent 62%) no-repeat; background-size: 300% 100%; background-position: 100% 0; mix-blend-mode: screen; }
+.ms-info .emc-sky::before, .ms-info .emc-sky::after { content: ""; position: absolute; width: var(--space-5); aspect-ratio: 1; background: var(--bk-gold-shine); clip-path: polygon(50% 0, 56% 44%, 100% 50%, 56% 56%, 50% 100%, 44% 56%, 0 50%, 44% 44%); opacity: 0; pointer-events: none; }
+.ms-info .emc-sky::before { left: 6%; top: 8%; }
+.ms-info .emc-sky::after { right: 2%; top: 58%; width: var(--space-4); }
+@media (prefers-reduced-motion: no-preference) {
+  .ms-glint { animation: ms-glint 4.8s var(--ease-standard) var(--d, 0s) infinite; }
+  .ms-glint.lead { animation-delay: 0.8s; }
+  .ms-info .event-moment-card::after { animation: ms-sheen 7s var(--ease-standard) 1.8s infinite; }
+  .ms-info .emc-sky::before { animation: ms-glint 4.8s var(--ease-standard) 2.4s infinite; }
+  .ms-info .emc-sky::after { animation: ms-glint 4.8s var(--ease-standard) 4.2s infinite; }
+}
+@keyframes ms-glint { 0%, 100% { opacity: 0; transform: scale(0.2) rotate(0deg); } 12% { opacity: 1; transform: scale(1) rotate(45deg); } 26% { opacity: 0; transform: scale(0.3) rotate(90deg); } }
+@keyframes ms-sheen { 0% { background-position: 100% 0; } 22%, 100% { background-position: 0 0; } }
 .ms-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* 下のドット（場面のコマ。11/20 20:17 渡辺さん「ドットと区切りを 1:1、押しても同じ動き」）：列が一つのボタン（高さ 44px）。
    いまのコマが灯る（ページ送りの区切りが変わったとき）。 */
@@ -584,12 +607,45 @@ img.event-pic { object-fit: contain; }
 .ms-card .emc-clouds path { fill: var(--ink-tertiary); opacity: 0.35; }
 .ms-card .event-count { box-shadow: 0 0 0 var(--stroke-select) var(--ev-glow) inset; }
 .ms-card .event-night { margin: 0; }
-/* 知識の章：生成りの紙に金の二重線（本のページ）。 */
-.ms-paper { position: relative; display: grid; gap: var(--space-4); justify-items: center; width: 100%; padding: var(--space-7) var(--space-6); border-radius: var(--radius-lg); background: radial-gradient(circle at 50% 30%, var(--bk-paper-0) 60%, var(--bk-paper-1)); color: var(--bk-ink); font-family: var(--font-story); box-shadow: 0 0 0 var(--stroke-hair) var(--bk-gold-1) inset, 0 0 0 var(--space-2) var(--bk-paper-0) inset, 0 0 0 calc(var(--space-2) + var(--stroke-hair)) var(--bk-gold-1) inset, 0 var(--space-5) var(--space-7) var(--bk-night-1); }
-.ms-paper h3 { color: var(--bk-ink); font-weight: var(--weight-regular); letter-spacing: 0.1em; }
-.ms-text .ms-paper p { margin: 0; font-size: var(--size-md); line-height: 2; color: var(--bk-ink); text-align: left; }
-.ms-paper .ms-symbols em { color: var(--bk-ink); }
-.ms-paper .ms-symbols em + em::before { color: var(--bk-gold-1); }
+/* 知識の章（11/20 20:43「古文書をイメージした紙質と文字」、20:56 の見本）：古い紙（繊維とむら、淡いしみ、縁の焼け）、
+   角を内に丸く切った形（--notch）に金の二重の枠。字はにじませずに澄んだ墨色、最初の字だけ大きく金茶。象徴の言葉は小さな絵と
+   並べた札、間に細い線。ページの下に淡いセピアの絵（場面ごと、PaperArt）。 */
+.ms-text { filter: drop-shadow(0 var(--space-5) var(--space-6) var(--bk-night-1)); }
+.ms-paper { --notch: var(--space-8); position: relative; display: grid; gap: var(--space-4); justify-items: center; width: 100%; padding: var(--space-9) var(--space-8) var(--space-8); color: var(--bk-ink); font-family: var(--font-story); background: radial-gradient(ellipse 34% 20% at 12% 20%, var(--bk-stain), transparent 70%), radial-gradient(ellipse 26% 16% at 88% 62%, var(--bk-stain), transparent 72%), var(--bk-paper-tex), radial-gradient(ellipse at 50% 38%, var(--bk-paper-0) 55%, var(--bk-paper-1) 120%); background-size: auto, auto, 320px 320px, auto; background-blend-mode: normal, normal, multiply, normal; box-shadow: inset 0 0 var(--space-8) var(--bk-stain); -webkit-mask: radial-gradient(circle at 0 0, transparent var(--notch), var(--bk-ink) calc(var(--notch) + 0.5px)) top left / 51% 51% no-repeat, radial-gradient(circle at 100% 0, transparent var(--notch), var(--bk-ink) calc(var(--notch) + 0.5px)) top right / 51% 51% no-repeat, radial-gradient(circle at 0 100%, transparent var(--notch), var(--bk-ink) calc(var(--notch) + 0.5px)) bottom left / 51% 51% no-repeat, radial-gradient(circle at 100% 100%, transparent var(--notch), var(--bk-ink) calc(var(--notch) + 0.5px)) bottom right / 51% 51% no-repeat; mask: radial-gradient(circle at 0 0, transparent var(--notch), var(--bk-ink) calc(var(--notch) + 0.5px)) top left / 51% 51% no-repeat, radial-gradient(circle at 100% 0, transparent var(--notch), var(--bk-ink) calc(var(--notch) + 0.5px)) top right / 51% 51% no-repeat, radial-gradient(circle at 0 100%, transparent var(--notch), var(--bk-ink) calc(var(--notch) + 0.5px)) bottom left / 51% 51% no-repeat, radial-gradient(circle at 100% 100%, transparent var(--notch), var(--bk-ink) calc(var(--notch) + 0.5px)) bottom right / 51% 51% no-repeat; }
+/* 金の二重の枠：外は太く、内は細く。角は紙の角を中心にした円弧（紙の切り欠きと平行に、枠の線をつなぐ）。 */
+.ms-paper::before, .ms-paper::after { --at: var(--space-3); --bw: var(--stroke-select); --R: calc(var(--notch) + var(--at)); content: ""; position: absolute; inset: var(--at); pointer-events: none; border: var(--bw) solid var(--bk-gold-1); -webkit-mask: radial-gradient(circle at calc(var(--at) * -1) calc(var(--at) * -1), transparent var(--R), var(--bk-ink) calc(var(--R) + 0.5px)) top left / 51% 51% no-repeat, radial-gradient(circle at calc(100% + var(--at)) calc(var(--at) * -1), transparent var(--R), var(--bk-ink) calc(var(--R) + 0.5px)) top right / 51% 51% no-repeat, radial-gradient(circle at calc(var(--at) * -1) calc(100% + var(--at)), transparent var(--R), var(--bk-ink) calc(var(--R) + 0.5px)) bottom left / 51% 51% no-repeat, radial-gradient(circle at calc(100% + var(--at)) calc(100% + var(--at)), transparent var(--R), var(--bk-ink) calc(var(--R) + 0.5px)) bottom right / 51% 51% no-repeat; mask: radial-gradient(circle at calc(var(--at) * -1) calc(var(--at) * -1), transparent var(--R), var(--bk-ink) calc(var(--R) + 0.5px)) top left / 51% 51% no-repeat, radial-gradient(circle at calc(100% + var(--at)) calc(var(--at) * -1), transparent var(--R), var(--bk-ink) calc(var(--R) + 0.5px)) top right / 51% 51% no-repeat, radial-gradient(circle at calc(var(--at) * -1) calc(100% + var(--at)), transparent var(--R), var(--bk-ink) calc(var(--R) + 0.5px)) bottom left / 51% 51% no-repeat, radial-gradient(circle at calc(100% + var(--at)) calc(100% + var(--at)), transparent var(--R), var(--bk-ink) calc(var(--R) + 0.5px)) bottom right / 51% 51% no-repeat; background: radial-gradient(circle at calc(var(--at) * -1) calc(var(--at) * -1), transparent var(--R), var(--bk-gold-1) var(--R), var(--bk-gold-1) calc(var(--R) + var(--bw)), transparent calc(var(--R) + var(--bw) + 0.5px)) top left / 51% 51% no-repeat, radial-gradient(circle at calc(100% + var(--at)) calc(var(--at) * -1), transparent var(--R), var(--bk-gold-1) var(--R), var(--bk-gold-1) calc(var(--R) + var(--bw)), transparent calc(var(--R) + var(--bw) + 0.5px)) top right / 51% 51% no-repeat, radial-gradient(circle at calc(var(--at) * -1) calc(100% + var(--at)), transparent var(--R), var(--bk-gold-1) var(--R), var(--bk-gold-1) calc(var(--R) + var(--bw)), transparent calc(var(--R) + var(--bw) + 0.5px)) bottom left / 51% 51% no-repeat, radial-gradient(circle at calc(100% + var(--at)) calc(100% + var(--at)), transparent var(--R), var(--bk-gold-1) var(--R), var(--bk-gold-1) calc(var(--R) + var(--bw)), transparent calc(var(--R) + var(--bw) + 0.5px)) bottom right / 51% 51% no-repeat; background-origin: border-box; background-clip: border-box; }
+.ms-paper::after { --at: var(--space-5); --bw: var(--stroke-hair); opacity: 0.75; }
+.ms-paper h3 { margin: 0; font-family: var(--font-engrave); font-weight: var(--weight-bold); color: var(--bk-ink); letter-spacing: 0.12em; text-indent: 0.12em; text-shadow: 0 var(--stroke-hair) 0 var(--bk-shine-soft); }
+.ms-leafrule { width: 62%; height: auto; margin-top: calc(var(--space-2) * -1); color: var(--bk-gold-1); }
+.ms-text .ms-paper p { position: relative; margin: 0; font-size: var(--size-md); font-weight: var(--weight-medium); line-height: 1.95; letter-spacing: 0.04em; color: var(--bk-ink); text-align: left; text-indent: 1em; }
+/* 最初の字を大きく（見本の「ビ」）。 */
+.ms-text .ms-paper p.lead { text-indent: 0; }
+.ms-text .ms-paper p.lead::first-letter { margin-right: var(--space-1); font-family: var(--font-engrave); font-size: var(--size-display); font-weight: var(--weight-bold); line-height: 1; color: var(--bk-gold-deep); text-shadow: 0 var(--stroke-hair) 0 var(--bk-shine-soft); }
+.ms-text .ms-paper p.ms-symbols { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: var(--space-3); margin-top: var(--space-3); text-indent: 0; }
+.ms-paper .ms-symbols em { display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-6) var(--space-2) var(--space-5); font-style: normal; font-size: var(--size-sm); letter-spacing: 0.12em; color: var(--bk-ink); background: var(--bk-tag); border: var(--stroke-hair) solid var(--bk-gold-1); border-radius: var(--radius-pill); box-shadow: inset 0 var(--stroke-hair) 0 var(--bk-shine-soft); }
+.ms-paper .ms-symbols em + em::before { content: none; }
+.ms-paper .ms-symbols em + em { position: relative; margin-left: var(--space-3); }
+.ms-paper .ms-symbols em + em::after { content: ""; position: absolute; left: calc(var(--space-4) * -1); top: 15%; bottom: 15%; width: var(--stroke-hair); background: var(--bk-gold-1); opacity: 0.6; }
+.ms-symbol-icon { width: 1.3em; height: 1.3em; color: var(--bk-gold-deep); }
+/* 紙のページの枠（21:04 の見本、21:14 で二枚ともこの形に）：角は丸く（切り欠かない）、金の二重の枠も丸く、四隅に唐草、上に月の満ち欠け。 */
+.ms-paper.origin { border-radius: var(--radius-lg); -webkit-mask: none; mask: none; padding-top: var(--space-8); }
+.ms-paper.origin.nature { padding-top: var(--space-9); }
+.ms-paper.origin::before, .ms-paper.origin::after { -webkit-mask: none; mask: none; background: none; border-radius: var(--radius-md); }
+.ms-paper.origin::after { border-radius: var(--radius-sm); }
+.ms-paper-corner { position: absolute; width: var(--space-9); height: auto; color: var(--bk-gold-1); pointer-events: none; }
+.ms-paper-corner.tl { left: var(--space-4); top: var(--space-4); }
+.ms-paper-corner.tr { right: var(--space-4); top: var(--space-4); transform: scaleX(-1); }
+.ms-paper-corner.bl { left: var(--space-4); bottom: var(--space-4); transform: scaleY(-1); }
+.ms-paper-corner.br { right: var(--space-4); bottom: var(--space-4); transform: scale(-1); }
+.ms-phases { width: 46%; height: auto; color: var(--bk-gold-1); }
+.ms-paper .bk-flourish { width: 62%; color: var(--bk-gold-1); margin-top: calc(var(--space-2) * -1); }
+/* 締めくくりの小さな金の枯れ枝。 */
+.ms-twig { width: 6.5em; height: auto; color: var(--bk-gold-0); }
+/* ページの下の淡い絵（場面ごと）：紙に刷ったセピア。枠の内側いっぱいに、上は紙へ溶かす。 */
+.ms-paper.with-art { padding-bottom: 0; }
+.ms-paper-art { display: block; width: calc(100% + var(--space-8) * 2); margin: calc(var(--space-7) * -1) calc(var(--space-8) * -1) 0; aspect-ratio: 400 / 150; mix-blend-mode: multiply; }
+.ms-paper-art > svg { display: block; width: 100%; height: 100%; }
+.bpa-ink { filter: sepia(1) saturate(0.5) brightness(0.9); }
 .ms-tale, .ms-tale-line { font-family: var(--font-story); }
 .ms-hero-hint { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-5)); display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--size-xs); letter-spacing: 0.2em; color: var(--ink-tertiary); }
 .ms-chapter { position: relative; overflow: hidden; display: grid; justify-items: center; gap: var(--space-5); padding: 18svh var(--space-6); text-align: center; }

@@ -41,10 +41,16 @@ import {
 } from "../design/story/Book";
 import {
   CloudMark,
+  Glint,
+  LeafRule,
+  PaperCorner,
+  PhaseRow,
   MoonEmblem,
   SpineHills,
   SpineLatin,
   Sprig,
+  SymbolIcon,
+  Twig,
 } from "../design/story/emblems";
 import { STORY_SCENES } from "../design/story/scenes";
 import { storyAsset } from "../design/story/storyAssets";
@@ -60,6 +66,16 @@ const WHERE = "高知";
 /** 開いた本（見開き）を画面に収める縮め方（表紙は画面の幅の 84% まで大きく、見開きはその 2 倍の幅）。 */
 const SPREAD = 0.56;
 const HOUR_MS = 3_600_000;
+/** 締めくくりのきらめき：[横 %, 縦 %, 大きさ（倍）, 遅れ（秒）]。文のまわりに散らし、同時には一つ二つだけ光る。 */
+const GLINTS: [number, number, number, number][] = [
+  [18, 30, 0.9, 0.4],
+  [82, 34, 0.7, 1.6],
+  [12, 52, 0.6, 2.7],
+  [88, 50, 1, 3.5],
+  [26, 66, 0.55, 1.1],
+  [74, 70, 0.75, 2.2],
+  [50, 22, 0.5, 4.2],
+];
 
 /**
  * 物語の区切り（スクロールの px、小さい順）：表紙・見開き・場面の一コマずつ（文が読める所）・場面の終わり（一枚の絵）・
@@ -619,6 +635,38 @@ export function MoonStory({
                 },
               );
           });
+        // 物語から今夜の情報へ移る間の一言：画面の下から入ると現れ、真ん中を過ぎると消える（ずれは少し、文字は動かしすぎない）。
+        // 物語から今夜の情報へ移る間の一言（11/20 21:16 渡辺さん「すっと現れて、滲みながら消える」）：くっきり現れ、
+        // 消えるときは一字ずつ滲んで溶ける（端の字から少し先に、字間がわずかに開く）。滲みは控えめ（iPhone で重くしない）。
+        const herald = el.querySelector(".ms-herald-text");
+        const hl = gsap.utils.toArray<HTMLElement>(".ms-herald-text .ms-hl");
+        if (herald && hl.length) {
+          const mid = (hl.length - 1) / 2;
+          gsap
+            .timeline({
+              scrollTrigger: {
+                trigger: herald,
+                scroller,
+                start: "top 88%",
+                end: "bottom 18%",
+                scrub: 0.4,
+              },
+            })
+            .fromTo(
+              herald,
+              { opacity: 0, y: 12 },
+              { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" },
+            )
+            .to(herald, { opacity: 1, duration: 0.25 })
+            .to(hl, {
+              opacity: 0,
+              filter: "blur(5px)",
+              x: (i: number) => (i - mid) * 1.6,
+              duration: 0.32,
+              ease: "power1.in",
+              stagger: { each: 0.016, from: "edges" },
+            });
+        }
         // 区切りのドットは、場面の動きではなく、ページ送りの「いまの区切り」で灯す（storyPager の onIndex）。
       });
       // 明朝の字が読み込まれると高さが変わるので、測り直す。
@@ -862,7 +910,28 @@ export function MoonStory({
       {/* 締めくくり（16:27 のレビュー「最後の余韻」）：ひと言をもう一度。ここから今夜の情報へつなぐ。 */}
       {scene && story?.tale && (
         <section className="ms-chapter ms-epilogue">
-          <Flourish />
+          {/* きらめき（11/20 20:42 渡辺さん「ここにもちょっとキラッとしたエフェクトを」）：飾りの線の真ん中の菱形と、
+              文のまわりに小さな星が、間をおいて一つずつ瞬く。動きを減らす設定では出さない。 */}
+          <span className="ms-glints" aria-hidden>
+            {GLINTS.map(([x, y, s, d], i) => (
+              <Glint
+                key={i}
+                className="ms-glint"
+                style={
+                  {
+                    ["--x" as string]: `${x}%`,
+                    ["--y" as string]: `${y}%`,
+                    ["--s" as string]: s,
+                    ["--d" as string]: `${d}s`,
+                  } as CSSProperties
+                }
+              />
+            ))}
+          </span>
+          <span className="ms-flourish-glint">
+            <Flourish />
+            <Glint className="ms-glint lead" />
+          </span>
           <p className="ms-rise">
             {story.tale.tagline.split("、").map((t, i, all) => (
               <span key={i}>
@@ -873,6 +942,21 @@ export function MoonStory({
             ))}
           </p>
           <small className="ms-rise">{title}</small>
+          {/* 小さな金の枯れ枝（11/20 21:05 渡辺さん）：名前の下にそっと。 */}
+          <Twig className="ms-twig ms-rise" />
+        </section>
+      )}
+
+      {/* 物語から今夜の情報へ移る間の一言（11/20 20:45 渡辺さん）：スクロールに合わせて、すっと現れ、すっと消える。 */}
+      {scene && story?.tale?.herald && (
+        <section className="ms-herald" aria-label={story.tale.herald}>
+          <p className="ms-herald-text">
+            {[...story.tale.herald].map((c, i) => (
+              <span key={i} className="ms-hl">
+                {c}
+              </span>
+            ))}
+          </p>
         </section>
       )}
 
@@ -915,36 +999,63 @@ export function MoonStory({
         )}
       </section>
 
-      {/* 5. 知識：名前の由来 */}
-      {story && (
-        <section className="ms-chapter ms-text">
-          <div className="ms-paper ms-rise">
-            <h3>名前の由来</h3>
-            <Flourish />
-            {story.origin.map((t, i) => (
-              <p key={i}>{t}</p>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 5. 知識：自然との関係 */}
-      {story && (
-        <section className="ms-chapter ms-text">
-          <div className="ms-paper ms-rise">
-            <h3>自然との関係</h3>
-            <Flourish />
-            {story.nature.map((t, i) => (
-              <p key={i}>{t}</p>
-            ))}
-            <p className="ms-symbols">
-              {story.symbols.map((s) => (
-                <em key={s}>{s}</em>
+      {/* 5. 知識：名前の由来・自然との関係（11/20 20:56 渡辺さんの見本）：古い紙のページ、角を内に丸く切った金の二重の枠、
+          見出しの下に小枝の線、最初の字を大きく、象徴の言葉は小さな絵と並べ、ページの下に淡いセピアの絵（場面ごと）。 */}
+      {story &&
+        (
+          [
+            ["名前の由来", story.origin, false],
+            ["自然との関係", story.nature, true],
+          ] as const
+        ).map(([head, paras, last]) => (
+          <section key={head} className="ms-chapter ms-text">
+            {/* 紙のページ（11/20 21:14 渡辺さん：四隅は角の丸い枠と唐草にそろえる）。見出しまわりはページごと：
+                名前の由来は上に月の満ち欠けと菱形の飾り、自然との関係は小枝の線と象徴の言葉の札。 */}
+            <div
+              className={[
+                "ms-paper",
+                "origin",
+                last ? "nature" : "",
+                scene?.PaperArt ? "with-art" : "",
+                "ms-rise",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {["tl", "tr", "bl", "br"].map((c) => (
+                <PaperCorner key={c} className={`ms-paper-corner ${c}`} />
               ))}
-            </p>
-          </div>
-        </section>
-      )}
+              {!last && (
+                <PhaseRow
+                  moon={storyAsset("common", "emboss")}
+                  className="ms-phases"
+                />
+              )}
+              <h3>{head}</h3>
+              {last ? <LeafRule className="ms-leafrule" /> : <Flourish />}
+              {paras.map((t, i) => (
+                <p key={i} className={i === 0 ? "lead" : undefined}>
+                  {t}
+                </p>
+              ))}
+              {last && (
+                <p className="ms-symbols">
+                  {story.symbols.map((w) => (
+                    <em key={w}>
+                      <SymbolIcon word={w} className="ms-symbol-icon" />
+                      {w}
+                    </em>
+                  ))}
+                </p>
+              )}
+              {scene?.PaperArt && (
+                <span className="ms-paper-art">
+                  <scene.PaperArt kind={last ? "nature" : "origin"} />
+                </span>
+              )}
+            </div>
+          </section>
+        ))}
 
       {/* 5. 本棚（一年を巡る満月の物語）と、終わり */}
       <section className="ms-chapter ms-tonight">

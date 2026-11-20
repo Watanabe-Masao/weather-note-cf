@@ -257,6 +257,222 @@ export function BeaverCoverArt(): ReactElement {
   );
 }
 
+/**
+ * 紙のページの下の淡い絵（11/20 20:56 渡辺さんの見本）：湖のほとり、倒木の上のビーバー、手前の草、右の針葉樹の森。
+ * 色はセピアの一色の濃淡（紙に刷ったように）。上は紙へ溶かす。並べ方の大きさは 400×150。
+ */
+function LakeArt(): ReactElement {
+  const r = rand(23);
+  const ink = "#6b4a2a";
+  const warm = "#c8944a";
+  const far = Array.from({ length: 18 }, (_, i) =>
+    pine(200 + i * 11 + r() * 5, 104 + r() * 2, 12 + r() * 10, ink, `fa${i}`),
+  );
+  const near = Array.from({ length: 6 }, (_, i) =>
+    pine(304 + i * 17 + r() * 6, 110, 40 + r() * 34, ink, `ne${i}`),
+  );
+  return (
+    <svg
+      className="bpa"
+      viewBox="0 0 400 160"
+      preserveAspectRatio="xMidYMax slice"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="bpa-fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#000000" />
+          <stop offset="0.4" stopColor="#ffffff" />
+        </linearGradient>
+        <mask id="bpa-mask">
+          <rect width={400} height={160} fill="url(#bpa-fade)" />
+        </mask>
+        <radialGradient id="bpa-glow" cx="0.55" cy="0.68" r="0.5">
+          <stop offset="0" stopColor={warm} stopOpacity={0.35} />
+          <stop offset="1" stopColor={warm} stopOpacity={0} />
+        </radialGradient>
+      </defs>
+      <g mask="url(#bpa-mask)">
+        <rect width={400} height={160} fill="url(#bpa-glow)" />
+        {/* 遠い丘 */}
+        <path
+          d="M120 108 C 170 86 220 80 270 90 C 300 96 320 100 360 104 L 360 112 L 120 112 Z"
+          fill={ink}
+          opacity={0.14}
+        />
+        <g opacity={0.2}>{far}</g>
+        <g opacity={0.36}>{near}</g>
+        {/* 湖：水平線と、映り込みの線と光 */}
+        <path d="M0 110 H400" stroke={ink} strokeWidth={0.8} opacity={0.3} />
+        <path
+          d="M180 116 H250 M200 122 H236 M150 128 H220 M240 134 H320 M110 142 H190 M210 150 H300"
+          stroke={warm}
+          strokeWidth={0.9}
+          opacity={0.45}
+        />
+        {/* 倒木とビーバー */}
+        <path
+          d="M26 130 C 60 120 118 118 172 124 L 178 134 C 130 130 74 132 30 140 Z"
+          fill={ink}
+          opacity={0.5}
+        />
+        <path
+          d="M60 126 L 52 116 M138 122 L 146 112"
+          stroke={ink}
+          strokeWidth={1.6}
+          opacity={0.45}
+        />
+        <image
+          href={A("beaver")}
+          x={62}
+          y={74}
+          width={64}
+          height={64}
+          className="bpa-ink"
+          opacity={0.7}
+        />
+        <image
+          href={A("reed")}
+          x={-18}
+          y={70}
+          width={116}
+          height={90}
+          className="bpa-ink"
+          opacity={0.6}
+        />
+        <image
+          href={A("reed")}
+          x={326}
+          y={92}
+          width={86}
+          height={68}
+          className="bpa-ink"
+          opacity={0.5}
+        />
+      </g>
+    </svg>
+  );
+}
+
+/** 水辺のダムと巣（自然との関係のページ）：枝を組んだダムで水がせき止められ、奥に巣、枝をくわえて泳ぐビーバー。 */
+function DamArt(): ReactElement {
+  const r = rand(31);
+  const ink = "#6b4a2a";
+  const warm = "#c8944a";
+  const far = Array.from({ length: 22 }, (_, i) =>
+    pine(i * 19 + r() * 6, 96 + r() * 3, 12 + r() * 12, ink, `df${i}`),
+  );
+  const sticks = Array.from({ length: 34 }, (_, i) => {
+    const x = 20 + (i / 34) * 200 + r() * 6;
+    const y = 118 + r() * 10;
+    const a = (r() - 0.5) * 0.9;
+    const l = 10 + r() * 14;
+    return (
+      <path
+        key={i}
+        d={`M${(x - Math.cos(a) * l).toFixed(1)} ${(y - Math.sin(a) * l).toFixed(1)} L${(x + Math.cos(a) * l).toFixed(1)} ${(y + Math.sin(a) * l).toFixed(1)}`}
+      />
+    );
+  });
+  return (
+    <svg
+      className="bpa"
+      viewBox="0 0 400 160"
+      preserveAspectRatio="xMidYMax slice"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="bda-fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#000000" />
+          <stop offset="0.4" stopColor="#ffffff" />
+        </linearGradient>
+        <mask id="bda-mask">
+          <rect width={400} height={160} fill="url(#bda-fade)" />
+        </mask>
+        <radialGradient id="bda-glow" cx="0.6" cy="0.7" r="0.5">
+          <stop offset="0" stopColor={warm} stopOpacity={0.32} />
+          <stop offset="1" stopColor={warm} stopOpacity={0} />
+        </radialGradient>
+      </defs>
+      <g mask="url(#bda-mask)">
+        <rect width={400} height={160} fill="url(#bda-glow)" />
+        <g opacity={0.18}>{far}</g>
+        {/* せき止められた池（奥）と、ダムの下の流れ（手前） */}
+        <path d="M0 104 H400" stroke={ink} strokeWidth={0.8} opacity={0.3} />
+        <path
+          d="M240 112 H330 M270 118 H360 M250 106 H300"
+          stroke={warm}
+          strokeWidth={0.9}
+          opacity={0.45}
+        />
+        <path
+          d="M30 140 C 60 136 90 146 120 142 M60 150 C 90 146 130 154 170 150"
+          stroke={ink}
+          strokeWidth={0.8}
+          opacity={0.28}
+          fill="none"
+        />
+        {/* ダム：枝と泥を積んだ低い堤 */}
+        <path
+          d="M10 130 C 60 118 160 116 232 124 L 232 134 C 160 128 70 132 10 140 Z"
+          fill={ink}
+          opacity={0.32}
+        />
+        <g stroke={ink} strokeWidth={1.6} strokeLinecap="round" opacity={0.5}>
+          {sticks}
+        </g>
+        {/* 奥の巣と、枝をくわえたビーバー */}
+        <image
+          href={A("nest")}
+          x={262}
+          y={70}
+          width={92}
+          height={60}
+          className="bpa-ink"
+          opacity={0.62}
+        />
+        <image
+          href={A("beaver-branch")}
+          x={150}
+          y={74}
+          width={64}
+          height={64}
+          className="bpa-ink"
+          opacity={0.68}
+        />
+        <image
+          href={A("reed")}
+          x={-20}
+          y={78}
+          width={96}
+          height={80}
+          className="bpa-ink"
+          opacity={0.5}
+        />
+        <image
+          href={A("reed")}
+          x={340}
+          y={96}
+          width={74}
+          height={62}
+          className="bpa-ink"
+          opacity={0.45}
+        />
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * 紙のページの下の淡い絵（11/20 21:17 渡辺さん「ページごとに変える」）：名前の由来は湖のほとり、自然との関係は水辺のダムと巣。
+ */
+export function BeaverPaperArt({
+  kind,
+}: {
+  kind: "origin" | "nature";
+}): ReactElement {
+  return kind === "nature" ? <DamArt /> : <LakeArt />;
+}
+
 /** 本のページの窓の絵（場面の最初のコマの小さな絵：夕暮れの空、丘、針葉樹、川）。窓の中へ寄ると、場面へつながる。 */
 export function BeaverWindow(): ReactElement {
   const r = rand(7);

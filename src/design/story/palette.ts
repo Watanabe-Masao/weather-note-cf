@@ -15,6 +15,13 @@ export const BOOK = {
   shineSoft: "#fff3cf59",
   /** 紙（明るい・縁）。 */
   paper: ["#f6ecd6", "#e2cfa6"] as [string, string],
+  /** 古い紙（11/20 20:43「古文書」）：しみ・焼けた縁・墨のにじみ・朱の印。 */
+  stain: "#a8763a38",
+  edge: "#7a4a1e",
+  inkBleed: "#3a2c1c55",
+  seal: "#a3362b",
+  /** 紙のページの象徴の言葉の札の地。 */
+  tag: "#e6d2a866",
   /** 紙の上の文字。 */
   ink: "#3a2c1c",
   /** 夜の地（物語のページの背景）。 */
