@@ -92,7 +92,7 @@ with sync_playwright() as p:
             pg.locator(".event-sheet .fm-book-btn").click(); pg.wait_for_timeout(1500)
             st = pg.evaluate("""() => { const s = document.querySelector('.moon-story'); if (!s) return null;
               return { h2: (s.querySelector('.bk-front h2') || {}).textContent, info: s.querySelectorAll('.ms-info .event-moment-card, .ms-info .event-night').length, chapters: s.querySelectorAll('.ms-chapter').length, caps: s.querySelectorAll('.ms-world .ms-cap').length, svg: s.querySelectorAll('.ms-world svg.bw .bw-stick').length,
-                       text: s.textContent.includes('冬が来る前に、小さな枝を一本ずつ') && s.textContent.includes('名前の由来') && s.textContent.includes('自然との関係') && s.textContent.includes('満月の物語の本棚') && s.querySelectorAll('.ms-shelf .ms-spine').length === 13 && s.querySelectorAll('.ms-shelf .ms-spine-gap').length === 1,
+                       text: s.textContent.includes('冬が来る前に、小さな枝を一本ずつ') && s.textContent.includes('ビーバームーンの名前のひみつ') && s.textContent.includes('自然と科学') && s.textContent.includes('はらり、はらり。') && !s.querySelector('.ms-epilogue') && s.textContent.includes('満月の物語の本棚') && s.querySelectorAll('.ms-shelf .ms-spine').length === 13 && s.querySelectorAll('.ms-shelf .ms-spine-gap').length === 1,
                        scroll: s.scrollHeight - s.clientHeight, gsap: !!document.querySelector('.moon-story.ready') } }""")
             pg.evaluate("document.querySelector('.moon-story').scrollTo(0, 1e6)"); pg.wait_for_timeout(600)
             end = pg.locator(".moon-story .ms-end .btn", has_text="閉じる").count()
