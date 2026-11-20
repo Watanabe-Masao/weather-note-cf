@@ -11,13 +11,21 @@ export const DRUM_BUFFER = 4;
 const LONG_PRESS = 280;
 
 /** The days the drum draws around `target` (offsets from it), the visible seven in the middle. */
-export const drumOffsets = Array.from({ length: 7 + 2 * DRUM_BUFFER }, (_, i) => i - 3 - DRUM_BUFFER);
+export const drumOffsets = Array.from(
+  { length: 7 + 2 * DRUM_BUFFER },
+  (_, i) => i - 3 - DRUM_BUFFER,
+);
 
 /**
  * `left`: where the plot starts inside the element; `step`: one day's width. `scrub` is the read day
  * as an index into the drawn days (null when not reading).
  */
-export function useDayDrum(ref: RefObject<HTMLElement | null>, step: number, left: number, onShift?: (days: number) => void) {
+export function useDayDrum(
+  ref: RefObject<HTMLElement | null>,
+  step: number,
+  left: number,
+  onShift?: (days: number) => void,
+) {
   const [scrub, setScrub] = useState<number | null>(null);
   const scrubbing = useRef(false);
   const scrubbedAt = useRef(0);
@@ -30,7 +38,9 @@ export function useDayDrum(ref: RefObject<HTMLElement | null>, step: number, lef
     if (!el) return;
     const dayAt = (clientX: number) => {
       const r = el.getBoundingClientRect();
-      const i = Math.floor((clientX - r.left - geo.current.left) / geo.current.step) + DRUM_BUFFER;
+      const i =
+        Math.floor((clientX - r.left - geo.current.left) / geo.current.step) +
+        DRUM_BUFFER;
       return Math.max(DRUM_BUFFER, Math.min(DRUM_BUFFER + 6, i));
     };
     let timer = 0;
@@ -60,12 +70,16 @@ export function useDayDrum(ref: RefObject<HTMLElement | null>, step: number, lef
       if (scrubbing.current) {
         e.preventDefault();
         setScrub(dayAt(t.clientX));
-      } else if (start && Math.hypot(t.clientX - start.x, t.clientY - start.y) > 8) {
+      } else if (
+        start &&
+        Math.hypot(t.clientX - start.x, t.clientY - start.y) > 8
+      ) {
         window.clearTimeout(timer);
         start = null;
       }
     };
-    const pm = (e: PointerEvent) => e.pointerType === "mouse" && !e.buttons && setScrub(dayAt(e.clientX));
+    const pm = (e: PointerEvent) =>
+      e.pointerType === "mouse" && !e.buttons && setScrub(dayAt(e.clientX));
     const pl = (e: PointerEvent) => e.pointerType === "mouse" && setScrub(null);
     el.addEventListener("touchstart", ts, { passive: true });
     el.addEventListener("touchmove", tm, { passive: false });
@@ -85,6 +99,7 @@ export function useDayDrum(ref: RefObject<HTMLElement | null>, step: number, lef
   }, [ref]);
 
   /** A tap that should pick a day: not right after a drag or a long-press read. */
-  const tapOk = () => !pan.justDragged() && performance.now() - scrubbedAt.current > 350;
+  const tapOk = () =>
+    !pan.justDragged() && performance.now() - scrubbedAt.current > 350;
   return { scrub, pan, tapOk };
 }

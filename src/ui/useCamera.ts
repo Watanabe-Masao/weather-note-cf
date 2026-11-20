@@ -18,15 +18,27 @@ export function useCamera() {
   }, []);
 
   const start = useCallback(async () => {
-    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) return setState("unsupported");
+    if (
+      typeof navigator === "undefined" ||
+      !navigator.mediaDevices?.getUserMedia
+    )
+      return setState("unsupported");
     setState("starting");
     try {
-      const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      const s = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
       live.current = s;
       setStream(s);
       setState("on");
     } catch (e) {
-      setState(e instanceof DOMException && (e.name === "NotAllowedError" || e.name === "SecurityError") ? "denied" : "unsupported");
+      setState(
+        e instanceof DOMException &&
+          (e.name === "NotAllowedError" || e.name === "SecurityError")
+          ? "denied"
+          : "unsupported",
+      );
     }
   }, []);
 

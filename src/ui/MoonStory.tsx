@@ -66,6 +66,30 @@ const WHERE = "高知";
 /** 開いた本（見開き）を画面に収める縮め方（表紙は画面の幅の 84% まで大きく、見開きはその 2 倍の幅）。 */
 const SPREAD = 0.56;
 const HOUR_MS = 3_600_000;
+/**
+ * 縦書きの文の数字を漢数字に（11/20 22:12 渡辺さん「11月が横向き。十一月に」）。文そのもの（shared/fullMoonNames.ts）は
+ * 横書きの画面でも使うので、縦に組むときだけ変える。0〜99 の整数（月・日・個数）を想定。
+ */
+const KAN = ["〇", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
+export function tateNum(t: string): string {
+  return t
+    .replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .replace(/\d+/g, (d) => {
+      const n = Number(d);
+      if (n >= 100) return [...d].map((c) => KAN[Number(c)]).join("");
+      const ten = Math.floor(n / 10);
+      const one = n % 10;
+      return (
+        (ten ? (ten > 1 ? KAN[ten] : "") + "十" : "") +
+        (one || !ten ? KAN[one] : "")
+      );
+    });
+}
+/**
+ * 各コマで止まる所（コマの頭から 0〜1）。文が出そろい（〜0.6）、絵の動きが落ち着いた（場面の動きは 0.75 までに終える、
+ * docs/moon-story.md 5章）あと、文が消えはじめる（0.84）前（11/20 22:06 渡辺さん「止まる所が描画とリンクしていない」）。
+ */
+const BEAT_REST = 0.78;
 /** 締めくくりのきらめき：[横 %, 縦 %, 大きさ（倍）, 遅れ（秒）]。文のまわりに散らし、同時には一つ二つだけ光る。 */
 const GLINTS: [number, number, number, number][] = [
   [18, 30, 0.9, 0.4],
@@ -97,7 +121,7 @@ function storyStops(
     const r = w.offsetHeight - vh;
     firstBeat = px.length;
     for (let i = 0; i < scene.beats; i++)
-      px.push(w.offsetTop + ((i + 0.55) / scene.beats) * r);
+      px.push(w.offsetTop + ((i + BEAT_REST) / scene.beats) * r);
     px.push(w.offsetTop + r);
   } else if (b) px.push(b.offsetHeight - vh);
   if (ep) px.push(ep.offsetTop + ep.offsetHeight / 2 - vh / 2);
@@ -523,10 +547,29 @@ export function MoonStory({
             ".ms-world-frame",
             { opacity: 0, scale: 1.06 },
             { opacity: 1, scale: 1, duration: 0.5 },
-            scene.beats - 0.7,
+            scene.beats - 0.75,
           );
 
           world.set({}, {}, scene.beats);
+          // 場面から締めくくりへ移るとき、外の金の枠は背景の色へ溶けて消える（11/20 22:11 渡辺さん）。枠の出入りは場面の
+          // タイムラインが枠（.ms-world-frame）の不透明度で持つので、ここは中の絵（svg）の不透明度で（同じ値を二つで動かさない）。
+          const ep = el.querySelector(".ms-epilogue");
+          if (ep)
+            gsap.fromTo(
+              ".ms-world-frame > svg",
+              { opacity: 1 },
+              {
+                opacity: 0,
+                ease: "power1.in",
+                scrollTrigger: {
+                  trigger: ep,
+                  scroller,
+                  start: "top bottom",
+                  end: "top 60%",
+                  scrub: 0.4,
+                },
+              },
+            );
           // 物語の月 → 今夜の情報の月：場面が画面から出始めてから、瞬間のカードの月が所定の位置に来るまで、浮かぶ月が
           // 二つの月の間を（どちらも今の位置から測って）移る。途中は元の二つの月を隠す。
           const fly = el.querySelector<HTMLElement>(".ms-flymoon");
@@ -889,7 +932,7 @@ export function MoonStory({
             <div className="ms-caps">
               {lines.map((t, i) => (
                 <p key={i} className="ms-cap" data-i={i}>
-                  <Letters text={t} />
+                  <Letters text={tateNum(t)} />
                 </p>
               ))}
             </div>

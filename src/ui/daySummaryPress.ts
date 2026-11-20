@@ -11,11 +11,15 @@ export interface DaySummaryAsk {
   other: string | null;
 }
 
-export const DaySummaryContext = createContext<((ask: DaySummaryAsk) => void) | null>(null);
+export const DaySummaryContext = createContext<
+  ((ask: DaySummaryAsk) => void) | null
+>(null);
 
 /** The attribute that marks a picture as opening its day's summary. */
-export const summaryAttr = (date: string | null | undefined, other: string | null | undefined) =>
-  date ? { "data-summary": `${date}|${other ?? ""}` } : {};
+export const summaryAttr = (
+  date: string | null | undefined,
+  other: string | null | undefined,
+) => (date ? { "data-summary": `${date}|${other ?? ""}` } : {});
 
 /** Long-press handlers for a picture or a container of pictures marked with `summaryAttr`. */
 export function useDaySummaryPress() {

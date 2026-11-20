@@ -15,9 +15,10 @@ export function countdown(at: number, now: number): string {
     return `あと ${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
   }
   if (a < NOW_SPAN_MS) return "いま、この夜";
-  return a >= 24 * HOUR_MS ? `${Math.floor(a / (24 * HOUR_MS))}日前` : `${Math.floor(a / HOUR_MS)}時間前`;
+  return a >= 24 * HOUR_MS
+    ? `${Math.floor(a / (24 * HOUR_MS))}日前`
+    : `${Math.floor(a / HOUR_MS)}時間前`;
 }
-
 
 /** 舞台の星（x%・y%・大きさ px・瞬きの遅れ 秒）。並びは固定（開くたびに替わらない）。 */
 export const STARS: [number, number, number, number][] = [
@@ -35,4 +36,3 @@ export const STARS: [number, number, number, number][] = [
   [92, 56, 1.5, 2.6],
   [96, 8, 2, 1.4],
 ];
-

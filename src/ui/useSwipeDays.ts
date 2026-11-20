@@ -55,11 +55,19 @@ export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
     const end = () => {
       if (taking && step.current) {
         const v = tracker.velocity();
-        const dir = last < -DISTANCE || v < -FLICK ? 1 : last > DISTANCE || v > FLICK ? -1 : 0;
+        const dir =
+          last < -DISTANCE || v < -FLICK
+            ? 1
+            : last > DISTANCE || v > FLICK
+              ? -1
+              : 0;
         if (dir) {
           step.current(dir);
           setEntering(dir as 1 | -1);
-          window.setTimeout(() => setEntering(0), prefersReducedMotion() ? 0 : 20);
+          window.setTimeout(
+            () => setEntering(0),
+            prefersReducedMotion() ? 0 : 20,
+          );
         }
       }
       start = null;
@@ -67,10 +75,19 @@ export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
       setDx(0);
       setPull(0);
     };
-    const ts = (e: TouchEvent) => e.touches.length === 1 && begin(e.touches[0].clientX, e.touches[0].clientY);
-    const tm = (e: TouchEvent) => move(e.touches[0].clientX, e.touches[0].clientY, () => e.preventDefault());
-    const pd = (e: PointerEvent) => e.pointerType === "mouse" && begin(e.clientX, e.clientY);
-    const pm = (e: PointerEvent) => e.pointerType === "mouse" && start && move(e.clientX, e.clientY, () => e.preventDefault());
+    const ts = (e: TouchEvent) =>
+      e.touches.length === 1 &&
+      begin(e.touches[0].clientX, e.touches[0].clientY);
+    const tm = (e: TouchEvent) =>
+      move(e.touches[0].clientX, e.touches[0].clientY, () =>
+        e.preventDefault(),
+      );
+    const pd = (e: PointerEvent) =>
+      e.pointerType === "mouse" && begin(e.clientX, e.clientY);
+    const pm = (e: PointerEvent) =>
+      e.pointerType === "mouse" &&
+      start &&
+      move(e.clientX, e.clientY, () => e.preventDefault());
     const pu = (e: PointerEvent) => e.pointerType === "mouse" && end();
     el.addEventListener("touchstart", ts, { passive: true });
     el.addEventListener("touchmove", tm, { passive: false });
@@ -92,9 +109,21 @@ export function useSwipeDays(onStep: ((days: number) => void) | undefined) {
 
   // Following: no transition. Released: spring back. A new day: starts offset on the side it came from, then glides in.
   const style: CSSProperties = entering
-    ? { transform: `translateX(${entering * 36}px)`, opacity: 0.4, transition: "none" }
+    ? {
+        transform: `translateX(${entering * 36}px)`,
+        opacity: 0.4,
+        transition: "none",
+      }
     : dx
-      ? { transform: `translateX(${dx}px)`, opacity: 1 - Math.min(0.5, Math.abs(dx) / 400), transition: "none" }
-      : { transform: "translateX(0)", opacity: 1, transition: `transform ${MOTION.exit}ms ${MOTION.ease.sheet}, opacity 200ms ease-out` };
+      ? {
+          transform: `translateX(${dx}px)`,
+          opacity: 1 - Math.min(0.5, Math.abs(dx) / 400),
+          transition: "none",
+        }
+      : {
+          transform: "translateX(0)",
+          opacity: 1,
+          transition: `transform ${MOTION.exit}ms ${MOTION.ease.sheet}, opacity 200ms ease-out`,
+        };
   return { ref, style, pull };
 }
