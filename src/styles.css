@@ -570,7 +570,8 @@ img.event-pic { object-fit: contain; }
 .ms-epilogue small { font-family: var(--font-story); font-size: var(--size-sm); letter-spacing: 0.5em; color: var(--bk-gold-0); }
 /* 物語から今夜の情報へ移る間の一言（11/20 20:45）：金の箔の明朝。動きを減らす設定では、そのまま見せる。 */
 .ms-herald { display: grid; place-items: center; min-height: 34svh; padding: 0 var(--space-6); }
-.ms-herald-text { margin: 0; font-family: var(--font-engrave); font-size: var(--size-lg); font-weight: var(--weight-bold); letter-spacing: 0.32em; text-indent: 0.32em; background: linear-gradient(180deg, var(--bk-gold-shine), var(--bk-gold-0) 45%, var(--bk-gold-1)); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 var(--space-4) var(--bk-gold-1)); will-change: opacity, transform; }
+.ms-herald-text { margin: 0; font-family: var(--font-engrave); font-size: var(--size-lg); font-weight: var(--weight-bold); letter-spacing: 0.32em; text-indent: 0.32em; filter: drop-shadow(0 0 var(--space-4) var(--bk-gold-1)); will-change: opacity, transform; }
+.ms-hl { display: inline-block; background: linear-gradient(180deg, var(--bk-gold-shine), var(--bk-gold-0) 45%, var(--bk-gold-1)); -webkit-background-clip: text; background-clip: text; color: transparent; will-change: opacity, filter, transform; }
 /* きらめき（11/20 20:42 渡辺さん）：締めくくりの文のまわりと飾りの菱形、今夜の情報のカードの月のそば。小さく、間をおいて。 */
 .ms-glints { position: absolute; inset: 0; pointer-events: none; }
 .ms-glint { position: absolute; left: var(--x); top: var(--y); width: calc(var(--space-6) * var(--s, 1)); height: auto; color: var(--bk-gold-shine); opacity: 0; filter: drop-shadow(0 0 var(--space-2) var(--bk-gold-0)); }

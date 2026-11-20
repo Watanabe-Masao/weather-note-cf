@@ -25,8 +25,8 @@ export type StoryScene = {
   CoverArt?: () => ReactElement;
   /** 本棚の背の、型押しの月と紋の絵（素材）。 */
   spineArt?: { moon: string; emblem: string };
-  /** 知識の紙のページの下の淡い絵（セピア）。 */
-  PaperArt?: () => ReactElement;
+  /** 知識の紙のページの下の淡い絵（セピア）。名前の由来と自然との関係で別の絵。 */
+  PaperArt?: (p: { kind: "origin" | "nature" }) => ReactElement;
   /** 表紙の上の二隅に置く飾りの枝（素材。左は返して使う）。 */
   coverCorner?: string;
   build: typeof buildBeaverScene;

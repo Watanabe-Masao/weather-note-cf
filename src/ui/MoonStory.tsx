@@ -636,30 +636,37 @@ export function MoonStory({
               );
           });
         // 物語から今夜の情報へ移る間の一言：画面の下から入ると現れ、真ん中を過ぎると消える（ずれは少し、文字は動かしすぎない）。
+        // 物語から今夜の情報へ移る間の一言（11/20 21:16 渡辺さん「すっと現れて、滲みながら消える」）：くっきり現れ、
+        // 消えるときは一字ずつ滲んで溶ける（端の字から少し先に、字間がわずかに開く）。滲みは控えめ（iPhone で重くしない）。
         const herald = el.querySelector(".ms-herald-text");
-        if (herald)
+        const hl = gsap.utils.toArray<HTMLElement>(".ms-herald-text .ms-hl");
+        if (herald && hl.length) {
+          const mid = (hl.length - 1) / 2;
           gsap
             .timeline({
               scrollTrigger: {
                 trigger: herald,
                 scroller,
                 start: "top 88%",
-                end: "bottom 22%",
+                end: "bottom 18%",
                 scrub: 0.4,
               },
             })
             .fromTo(
               herald,
-              { opacity: 0, y: 18, scale: 0.98 },
-              { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "power2.out" },
+              { opacity: 0, y: 12 },
+              { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" },
             )
-            .to(herald, { opacity: 1, duration: 0.2 })
-            .to(herald, {
+            .to(herald, { opacity: 1, duration: 0.25 })
+            .to(hl, {
               opacity: 0,
-              y: -14,
-              duration: 0.4,
-              ease: "power2.in",
+              filter: "blur(5px)",
+              x: (i: number) => (i - mid) * 1.6,
+              duration: 0.32,
+              ease: "power1.in",
+              stagger: { each: 0.016, from: "edges" },
             });
+        }
         // 区切りのドットは、場面の動きではなく、ページ送りの「いまの区切り」で灯す（storyPager の onIndex）。
       });
       // 明朝の字が読み込まれると高さが変わるので、測り直す。
@@ -943,7 +950,13 @@ export function MoonStory({
       {/* 物語から今夜の情報へ移る間の一言（11/20 20:45 渡辺さん）：スクロールに合わせて、すっと現れ、すっと消える。 */}
       {scene && story?.tale?.herald && (
         <section className="ms-herald" aria-label={story.tale.herald}>
-          <p className="ms-herald-text">{story.tale.herald}</p>
+          <p className="ms-herald-text">
+            {[...story.tale.herald].map((c, i) => (
+              <span key={i} className="ms-hl">
+                {c}
+              </span>
+            ))}
+          </p>
         </section>
       )}
 
@@ -1037,7 +1050,7 @@ export function MoonStory({
               )}
               {scene?.PaperArt && (
                 <span className="ms-paper-art">
-                  <scene.PaperArt />
+                  <scene.PaperArt kind={last ? "nature" : "origin"} />
                 </span>
               )}
             </div>
