@@ -107,7 +107,7 @@ const GLINTS: [number, number, number, number][] = [
  * コマの長さ（運ぶ秒数・スクロールの量）は、その文を読む時間から決める（読む時間が倍なら倍）。
  *   - 一字 READ_CHAR 秒、読点・中黒などに +PAUSE_COMMA、句点・！？に +PAUSE_STOP。
  *   - 文はコマの 0.06〜REVEAL_END で出そろう（その間を読む時間に合わせる）。そのあと止まる所（0.78）まで、文を読み終える間。
- *   - スクロールの量は SEC_PER_BEAT 秒で 1（110svh）。
+ *   - スクロールの量は beatWeights（秒数の平方根で縮める）。運ぶ時間は秒数そのまま。
  */
 const READ_CHAR = 0.18;
 const PAUSE_COMMA = 0.35;
@@ -131,8 +131,13 @@ export function beatSeconds(lines: string[]): number[] {
   return lines.map((t) => Math.max(MIN_BEAT_SEC, readingTimes(tateNum(t)).total / (REVEAL_END - REVEAL_START)));
 }
 /** コマごとのスクロールの重み（秒数に比例）。 */
+/**
+ * コマごとのスクロールの重み（11/20 23:59 渡辺さん「スクロールの距離が今度は長く感じる」）：運ぶ時間は朗読の秒数のまま、
+ * スクロールの量は秒数の平方根で縮める（長い文でも 1.6 まで、短い文は 0.9 から）。指でなぞったときに長すぎないように。
+ * 自動で運ぶときは時間で進むので、字は朗読の速さどおりに出る（スクロールの量には左右されない）。
+ */
 export function beatWeights(lines: string[]): number[] {
-  return beatSeconds(lines).map((s) => s / SEC_PER_BEAT);
+  return beatSeconds(lines).map((s) => Math.min(1.6, Math.max(0.9, Math.sqrt(s / SEC_PER_BEAT))));
 }
 /** 場面の時間（コマの番号 i ＋ コマの中の 0〜1）を、スクロールの割合（0〜1）に。 */
 export function beatToProgress(w: number[], time: number): number {
@@ -160,6 +165,7 @@ function storyStops(
   el: HTMLElement,
   scene: { beats: number } | null | undefined,
   weights: number[],
+  seconds: number[],
 ): { px: number[]; firstBeat: number; secs: (number | undefined)[] } {
   const vh = el.clientHeight;
   const b = el.querySelector<HTMLElement>(".ms-book");
@@ -176,7 +182,7 @@ function storyStops(
     firstBeat = px.length;
     for (let i = 0; i < scene.beats; i++) {
       px.push(w.offsetTop + beatToProgress(weights, i + BEAT_REST) * r);
-      secs[px.length - 1] = SEC_PER_BEAT * (weights[i] ?? 1); // ＝ そのコマの朗読の秒数
+      secs[px.length - 1] = seconds[i] ?? SEC_PER_BEAT; // そのコマの朗読の秒数
     }
     // 場面の終わり（一枚の絵）：月が今夜の情報へ移りはじめる位置のわずか手前（丸めで移りはじめないように）。
     px.push(w.offsetTop + r - 2);
@@ -268,6 +274,8 @@ export function MoonStory({
   const linesKey = lines.join("\n");
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 文の中身が同じなら同じ重み（配列は毎回作られる）
   const weights = useMemo(() => beatWeights(lines), [linesKey]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 同上
+  const beatSecs = useMemo(() => beatSeconds(lines), [linesKey]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 同上
   const readings = useMemo(() => lines.map((t) => readingTimes(tateNum(t))), [linesKey]);
   // 場面は呼び名で引く（ブルームーンは「ブルームーン」で）。
@@ -828,7 +836,7 @@ export function MoonStory({
       const dots = [...el.querySelectorAll<HTMLElement>(".ms-beat")];
       const pg = storyPager(el, {
         measure: () => {
-          const m = storyStops(el, scene, weights);
+          const m = storyStops(el, scene, weights, beatSecs);
           firstBeat = m.firstBeat;
           beatAt.current = firstBeat;
           secs = m.secs;
@@ -859,12 +867,12 @@ export function MoonStory({
       mm?.revert();
       unPager();
     };
-  }, [scene, weights, readings]);
+  }, [scene, weights, readings, beatSecs]);
 
   const style = {
     ...(onSkyVars() as CSSProperties),
     ...bookVars(),
-    // 場面の長さ（スクロール）は、コマの数ではなく字の数で重みを付けた長さ（110svh × 重みの合計）。
+    // 場面の長さ（スクロール）は、コマごとの重み（朗読の秒数の平方根）の合計 × 110svh。
     ["--beats" as string]: scene ? weights.reduce((a, b) => a + b, 0) : 0,
     ["--ms-scene-sky" as string]: scene?.sky ?? "none",
     ["--ev-glow" as string]: stage.glow,
