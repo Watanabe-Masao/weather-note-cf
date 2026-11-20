@@ -85,12 +85,13 @@ function body(kind: SkyEventKind, id: string, blue: boolean, cx: number, cy: num
       return `${glow("#fff1b8", 0.35)}${disc("#f3ead0", "#cdbf98")}${craters}<clipPath id="${id}-cl"><circle cx="${cx}" cy="${cy}" r="${r}"/></clipPath><circle cx="${cx + r * 0.7}" cy="${cy - r * 0.2}" r="${r * 1.05}" fill="#4a2a24" opacity=".8" clip-path="url(#${id}-cl)"/>`;
     case "lunar-penumbral":
       return `${glow("#fff1b8", 0.3)}${disc("#f1ead6", "#bfb497")}${craters}<radialGradient id="${id}-p" cx="1" cy=".5" r="1"><stop offset="0" stop-color="#1a1f33" stop-opacity=".55"/><stop offset="1" stop-color="#1a1f33" stop-opacity="0"/></radialGradient><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${id}-p)"/>`;
+    // 日食の月は黒く塗らない（11/20 渡辺さん「背景色に若干溶け込むように」）：月の所は帯の空（地の色）のまま、皆既だけ少し暗く。
     case "solar-annular":
-      return `${glow("#ffb347", 0.6)}<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#ffd27a" stroke-width="${r * 0.16}"/><circle cx="${cx}" cy="${cy}" r="${r * 0.9}" fill="#0a1430"/>`;
+      return `<mask id="${id}-mk"><rect width="448" height="100" fill="#fff"/><circle cx="${cx}" cy="${cy}" r="${r * 0.86}" fill="#000"/></mask><g mask="url(#${id}-mk)">${glow("#ffb347", 0.6)}<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffcf5a"/></g>`;
     case "solar-total":
-      return `${glow("#e8f2ff", 0.75)}<circle cx="${cx}" cy="${cy}" r="${r * 1.08}" fill="none" stroke="#ffffff" stroke-opacity=".7" stroke-width="${r * 0.12}"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="#0a1430"/>`;
+      return `${glow("#e8f2ff", 0.75)}<circle cx="${cx}" cy="${cy}" r="${r * 1.06}" fill="#ffffff" opacity=".85"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${id}-bg)"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="#000" opacity=".2"/>`;
     case "solar-partial":
-      return `${glow("#ffd27a", 0.5)}<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffcf4d"/><circle cx="${cx + r * 0.55}" cy="${cy - r * 0.15}" r="${r * 0.95}" fill="#0a1430"/>`;
+      return `<mask id="${id}-mk"><rect width="448" height="100" fill="#fff"/><circle cx="${cx + r * 0.55}" cy="${cy - r * 0.15}" r="${r * 0.95}" fill="#000"/></mask><g mask="url(#${id}-mk)">${glow("#ffd27a", 0.5)}<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffcf4d"/></g>`;
   }
 }
 

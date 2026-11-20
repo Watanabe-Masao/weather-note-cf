@@ -38,13 +38,15 @@ describe("event art", () => {
       }
   });
 
-  it("イベントから絵：満月は呼び名、ブルームーンは blue、食は食の種類。版つきの URL。絵の無い種類は null（手描きの帯）", () => {
+  it("イベントから絵：満月は呼び名、ブルームーンは blue、食は食の種類。版つきの URL。呼び名の分からない満月は null（手描きの帯）", () => {
     const beaver = { kind: "full" as const, name: "ビーバームーン", blue: false };
     expect(eventArtKey(beaver)).toBe("beaver");
     expect(eventArt(beaver, "navy")).toEqual({ src: `/event/beaver-navy.webp?v=${EVENT_ART.beaver!.rev}`, text: "baked" });
     expect(eventArtKey({ kind: "full", name: "ブルー", blue: true })).toBe("blue");
     expect(eventArtKey({ kind: "lunar-total", name: "ワームムーン", blue: false })).toBe("lunar-total");
-    expect(eventArt({ kind: "full", name: "コーンムーン", blue: false }, "mist")).toBeNull(); // まだ無い
+    // コーンムーンと食はコードで描いた文字なしの絵（アプリが文字を重ねる）。
+    expect(eventArt({ kind: "full", name: "コーンムーン", blue: false }, "mist")?.text).toBe("overlay");
+    expect(eventArt({ kind: "solar-partial", name: null, blue: false }, "warm")?.text).toBe("overlay");
     expect(eventArt({ kind: "full", name: null, blue: false }, "mist")).toBeNull();
   });
 });

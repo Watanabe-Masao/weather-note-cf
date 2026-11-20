@@ -28,7 +28,7 @@ export interface EventArt {
   rev: number;
   /**
    * 文字の入れ方。baked：絵に「Weather Note」が描いてある（11/20 の見本から切り抜いた仮の絵）。overlay：文字の無い絵に、
-   * アプリの文字を重ねる（決まった形、docs/event-banner.md 3章）。
+   * アプリの文字を右に重ねる（決まった形、docs/event-banner.md 3章）。
    */
   text: "baked" | "overlay";
   /** まちがいなどで止める（E-02）。止めると手描きの帯。 */
@@ -52,7 +52,10 @@ export const FULL_MOON_ART: Record<string, EventArtKey> = {
   コールドムーン: "cold",
 };
 
-/** 台帳。null は絵がまだ無い（手描きの帯で出る）。 */
+/**
+ * 台帳。null は絵がまだ無い（手描きの帯で出る）。11/20：満月13種類は渡辺さんの見本から切り抜いた文字入りの仮の絵（baked）、
+ * コーンムーンと日食・月食はコードで描いた文字なしの絵（scripts/event-art-drawn.ts、overlay）。渡辺さんの絵が届いたら差し替える。
+ */
 export const EVENT_ART: Record<EventArtKey, EventArt | null> = {
   wolf: { rev: 1, text: "baked" },
   snow: { rev: 1, text: "baked" },
@@ -62,18 +65,18 @@ export const EVENT_ART: Record<EventArtKey, EventArt | null> = {
   strawberry: { rev: 1, text: "baked" },
   buck: { rev: 1, text: "baked" },
   sturgeon: { rev: 1, text: "baked" },
-  corn: null,
+  corn: { rev: 1, text: "overlay" },
   harvest: { rev: 1, text: "baked" },
   hunter: { rev: 1, text: "baked" },
   beaver: { rev: 1, text: "baked" },
   cold: { rev: 1, text: "baked" },
   blue: { rev: 1, text: "baked" },
-  "lunar-total": null,
-  "lunar-partial": null,
-  "lunar-penumbral": null,
-  "solar-total": null,
-  "solar-annular": null,
-  "solar-partial": null,
+  "lunar-total": { rev: 1, text: "overlay" },
+  "lunar-partial": { rev: 1, text: "overlay" },
+  "lunar-penumbral": { rev: 1, text: "overlay" },
+  "solar-total": { rev: 1, text: "overlay" },
+  "solar-annular": { rev: 1, text: "overlay" },
+  "solar-partial": { rev: 1, text: "overlay" },
 };
 
 /** 絵の形（横：縦）と、配る大きさ（画面の2倍）。 */

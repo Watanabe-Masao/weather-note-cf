@@ -92,10 +92,10 @@ with sync_playwright() as p:
     pg.locator("button[aria-label='設定']").click(); pg.wait_for_timeout(700)
     pg.locator(".msheet.settings .btn", has_text="帯の一覧と、この日として表示").click(); pg.wait_for_timeout(700)
     pg.wait_for_function("document.querySelectorAll('.ev-year li').length > 0", timeout=10000)
-    kinds = pg.locator(".ev-kinds li").count(); arts = pg.locator(".ev-kinds .brand-art").count(); hands = pg.locator(".ev-kinds .brand-event").count()
+    kinds = pg.locator(".ev-kinds li").count(); arts = pg.locator(".ev-kinds .brand-art").count(); hands = pg.locator(".ev-kinds .brand-event").count(); words = pg.locator(".ev-kinds .brand-art-word").count()
     year = pg.locator(".ev-year").inner_text(); meta = pg.locator(".ev-kinds").inner_text()
     if SHOTS: pg.locator(".ev-kinds").screenshot(path=f"{SHOTS}-preview-{W}.png")
-    check("確認ページ：20種類（絵の帯13・手描き7：コーンムーンと食6種類）、これからの1年に 11/24 ビーバームーン、次の日付つき", kinds == 20 and arts == 13 and hands == 7 and "2026/11/24" in year and "ビーバームーン" in year and "次は 2027/7/19" in meta, (kinds, arts, hands, year[:80]))
+    check("確認ページ：20種類すべて絵の帯（コーンムーンと食6種類は文字なしの絵にアプリの文字を重ねる）、これからの1年に 11/24 ビーバームーン、次の日付つき", kinds == 20 and arts == 20 and hands == 0 and words == 7 and "2026/11/24" in year and "ビーバームーン" in year and "次は 2027/7/19" in meta, (kinds, arts, hands, words, year[:80]))
     pg.locator(".ev-kinds li", has_text="ウルフムーン").locator(".brand-art").click(); pg.wait_for_timeout(700)
     t = pg.locator(".event-sheet").inner_text() if pg.locator(".event-sheet").count() else ""
     pg.locator(".event-sheet .icon-btn.close").click(); pg.wait_for_timeout(600)
