@@ -46,6 +46,19 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
       file: "design-src/story/beaver/pack/hero-move-branch.png",
       width: 480,
     },
+    // 11/21 02:22 渡辺さんの追加素材（絵コンテ v0.3「追加で欲しい素材」A-02〜A-08）。白・市松の地は透かし、光のにじみは
+    // 落として design-src/story/beaver/pack2/ に置いた。どの場面で使うかは場面の PR（PR-4b・4c）で決める。
+    twig: { file: "design-src/story/beaver/pack2/a02-twig.png", width: 240 },
+    "nest-snow": { file: "design-src/story/beaver/pack2/a03-snow-lodge.png", width: 480 },
+    "beaver-dive": { file: "design-src/story/beaver/pack2/a04-dive.png", width: 360 },
+    "beaver-mud": { file: "design-src/story/beaver/pack2/a05-mud-lodge.png", width: 520 },
+    "beaver-mud-pile": { file: "design-src/story/beaver/pack2/a05-mud-pile.png", width: 520 },
+    "beaver-pat": { file: "design-src/story/beaver/pack2/a05-pat-sticks.png", width: 520 },
+    "beaver-mudball": { file: "design-src/story/beaver/pack2/a05-mudball.png", width: 520 },
+    "pile-small": { file: "design-src/story/beaver/pack2/a06-pile-small.png", width: 480 },
+    "pile-mid": { file: "design-src/story/beaver/pack2/a06-pile-mid.png", width: 480 },
+    "pile-large": { file: "design-src/story/beaver/pack2/a06-pile-large.png", width: 480 },
+    "beaver-swim-branch-blue": { file: "design-src/story/beaver/pack2/a08-swim-branch-blue.png", width: 480 },
     "beaver-nest": {
       file: "design-src/story/beaver/pack/prop.png",
       width: 480,
