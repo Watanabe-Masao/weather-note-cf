@@ -2,7 +2,7 @@
 // この専用モーダルに」）。11/20 渡辺さん「全然特別感が伝わってきません」：文字だけの説明をやめ、その日の帯の絵を大きく
 // 見せる → 瞬間の時刻とあと何時間 → 今夜（その日）の見え方（月の出・いちばん高い・月の入り、または食の始め・最大・終わり）
 // と高知の天気 → 呼び名の話と、その年だけのこと → 呼び名のページ、の順にする。観測地は高知（天気も高知の観測所）。
-import { useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { addDays } from "../../shared/dates";
 import { clockOf } from "../../shared/dayParts";
@@ -14,8 +14,9 @@ import { DEFAULT_LAT_LON, solarAltitude } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
 import { eventArt, EVENT_ART_SIZE, eventIcon, EVENT_ICON_SIZE } from "../design/eventAssets";
-import { eventBannerSvg } from "../design/eventLogo";
-import { currentTheme } from "../design/tokens";
+import { eventBannerSvg, eventGlow } from "../design/eventLogo";
+import { BRAND } from "../design/brand";
+import { currentTheme, onSkyVars } from "../design/tokens";
 import { dirName } from "./moonParts";
 import { factTags, FullMoonSheet } from "./FullMoonSheet";
 import { ModalSheet } from "./ModalSheet";
@@ -24,22 +25,48 @@ import { Button, Glyph } from "./kit";
 const WHERE = "高知";
 /** 天気は高知の観測所（時刻と見え方を計算する地点と同じ所）。 */
 const STATION = "47893";
-/** 「あと何時間」を描き直す間（分の表示なので1分）。 */
-const TICK_MS = 60_000;
 const HOUR_MS = 3_600_000;
+/** 秒読みを描き直す間（24時間を切ったら秒まで出すので1秒）。 */
+const TICK_MS = 1000;
+/** 瞬間のあと、「いま、この夜」と出す長さ。 */
+const NOW_SPAN_MS = 3 * HOUR_MS;
 
 const jst = (ms: number) => {
   const d = new Date(ms + 9 * HOUR_MS);
   return { date: d.toISOString().slice(0, 10), min: d.getUTCHours() * 60 + d.getUTCMinutes(), md: `${d.getUTCMonth() + 1}/${d.getUTCDate()}`, wd: "日月火水木金土"[d.getUTCDay()] };
 };
 
-/** 「あと 10時間54分」「あと 3日」「2時間前」。 */
+/** 「あと 3日」「あと 11:54:12」（24時間を切ったら秒まで）「いま、この夜」（瞬間から NOW_SPAN_MS まで）「5時間前」。 */
 function countdown(at: number, now: number): string {
   const d = at - now;
   const a = Math.abs(d);
-  const text = a >= 2 * 24 * HOUR_MS ? `${Math.floor(a / (24 * HOUR_MS))}日` : a >= HOUR_MS ? `${Math.floor(a / HOUR_MS)}時間${Math.floor((a % HOUR_MS) / 60_000)}分` : `${Math.max(1, Math.floor(a / 60_000))}分`;
-  return d >= 0 ? `あと ${text}` : `${text}前`;
+  if (d >= 0) {
+    if (a >= 24 * HOUR_MS) return `あと ${Math.floor(a / (24 * HOUR_MS))}日`;
+    const h = Math.floor(a / HOUR_MS);
+    const m = Math.floor((a % HOUR_MS) / 60_000);
+    const sec = Math.floor((a % 60_000) / 1000);
+    return `あと ${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  }
+  if (a < NOW_SPAN_MS) return "いま、この夜";
+  return a >= 24 * HOUR_MS ? `${Math.floor(a / (24 * HOUR_MS))}日前` : `${Math.floor(a / HOUR_MS)}時間前`;
 }
+
+/** 舞台の星（x%・y%・大きさ px・瞬きの遅れ 秒）。並びは固定（開くたびに替わらない）。 */
+const STARS: [number, number, number, number][] = [
+  [6, 14, 2, 0],
+  [14, 62, 1.5, 1.2],
+  [22, 30, 2.5, 2.1],
+  [31, 8, 1.5, 0.6],
+  [38, 70, 2, 2.8],
+  [47, 18, 1.5, 1.6],
+  [56, 52, 2, 0.3],
+  [63, 10, 2.5, 2.4],
+  [71, 38, 1.5, 1],
+  [78, 72, 2, 1.9],
+  [85, 22, 2, 0.8],
+  [92, 56, 1.5, 2.6],
+  [96, 8, 2, 1.4],
+];
 
 /** day：確認ページの一覧から開くときの日付（見出しを「11/24 はビーバームーン」に）。ふだんは「今日は」。 */
 export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; onClose: () => void; day?: string; store?: WeatherStore | null }) {
@@ -56,8 +83,9 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
   // 見出しは日付だけ（名前は下の主役で大きく）。
   const title = day ? `${Number(day.slice(5, 7))}/${Number(day.slice(8))} の空` : "今日の空";
   const kicker = full ? `${Number(date.slice(5, 7))}月の満月${event.blue ? "（ひと月に2回目）" : ""}` : solar ? "日食" : "月食";
-  // あと何時間（1分ごと）。
+  // 秒読み（1秒ごと）。瞬間の前後は札を光らせる。
   const [now, setNow] = useState(() => Date.now());
+  const near = Math.abs(event.at - now) < NOW_SPAN_MS;
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), TICK_MS);
     return () => window.clearInterval(id);
@@ -115,25 +143,34 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
 
   return (
     <ModalSheet title={title} onClose={onClose} className="event-sheet" size="fit">
-      {/* 主役（11/20 渡辺さん「ロゴ入りをそのまま使うのは下品」）：文字の無い四角い絵と、名前を大きく。 */}
-      <div className="event-hero">
-        <EventPicture event={event} />
-        <div className="event-hero-text">
+      {/* 舞台（11/20 渡辺さん「もっともっと演出を特別感を」）：テーマによらず夜空の舞台。瞬く星と、ときどき流れ星。
+          文字の無い四角い絵がせり上がり、月の光がゆっくり脈打つ。名前はあとから浮かび上がる。瞬間までの秒読み（24時間を
+          切ったら秒まで）。動きを減らす設定では動かさない。 */}
+      <div className="event-stage" style={{ ...(onSkyVars() as CSSProperties), background: `linear-gradient(${BRAND.navy.bg[0]}, ${BRAND.navy.bg[1]})`, ["--ev-glow" as string]: eventGlow(event.kind, event.blue) }}>
+        <span className="event-stars" aria-hidden>
+          {STARS.map(([x, y, r, d], i) => (
+            <i key={i} style={{ left: `${x}%`, top: `${y}%`, width: r, height: r, animationDelay: `${d}s` }} />
+          ))}
+          <b className="event-shoot" />
+        </span>
+        <div className="event-stage-pic">
+          <EventPicture event={event} />
+          <span className="event-glow" aria-hidden />
+        </div>
+        <div className="event-stage-text">
           <small>{kicker}</small>
           <b>{what}</b>
           {full && (info?.en ?? (event.blue ? BLUE_MOON.en : null)) && <span>{info?.en ?? BLUE_MOON.en}</span>}
         </div>
-      </div>
-
-      {/* 瞬間の時刻と、あと何時間。 */}
-      <div className="event-moment">
-        <div>
+        <div className="event-stage-time">
           <small>{full ? "満月の瞬間" : "食がいちばん深くなる時刻"}</small>
           <b>
             {jst(event.at).md}（{jst(event.at).wd}）{clockOf(jst(event.at).min)}
           </b>
+          <span className={near ? "event-count now" : "event-count"} role="timer">
+            {countdown(event.at, now)}
+          </span>
         </div>
-        <span className="event-count">{countdown(event.at, now)}</span>
       </div>
 
       {/* 物語（呼び名の短い紹介、または食の説明）。 */}

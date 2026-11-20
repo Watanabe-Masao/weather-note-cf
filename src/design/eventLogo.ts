@@ -122,3 +122,10 @@ ${motif}
 function cloud(): string {
   return `<path d="M16 96 C 14 86 24 80 32 84 C 36 74 52 74 56 84 C 66 82 72 90 68 96 Z" fill="#ffffff" opacity=".55"/><path d="M90 96 C 90 90 98 86 104 90 C 108 84 118 86 118 94 Z" fill="#ffffff" opacity=".4"/>`;
 }
+
+/** 説明の舞台の光の色（11/20「演出・特別感」）：月・食の色に合わせる（上の body() と同じ色）。 */
+export function eventGlow(kind: SkyEventKind, blue: boolean): string {
+  if (kind === "lunar-total") return "#e0764f";
+  if (kind.startsWith("solar")) return "#ffd27a";
+  return blue ? "#cfe3ff" : "#fff1b8";
+}

@@ -80,7 +80,7 @@ with sync_playwright() as p:
         pic = pg.evaluate("(() => { const i = document.querySelector('.event-sheet img.event-pic'); return i ? { src: i.getAttribute('src'), w: i.naturalWidth } : null })()")
         # 説明の主役は文字の無い四角い絵（11/20 渡辺さん「ロゴ入りをそのまま使うのは下品」）と、名前を大きく。
         check(f"[{theme}] 説明：主役は文字の無い四角い絵と名前（ロゴ入りの帯は出さない）、満月の時刻とあと何時間、月の出入り",
-              pic and "/event/beaver-icon.webp" in pic["src"] and pic["w"] > 0 and pg.locator(".event-sheet .event-hero-text b", has_text="ビーバームーン").count() == 1
+              pic and "/event/beaver-icon.webp" in pic["src"] and pic["w"] > 0 and pg.locator(".event-sheet .event-stage-text b", has_text="ビーバームーン").count() == 1
               and pg.locator(".event-sheet img[src*='-navy.webp'], .event-sheet img[src*='-warm.webp'], .event-sheet img[src*='-mist.webp']").count() == 0
               and "23:54" in sheet and "あと" in sheet and "月の出" in sheet, (pic, sheet[:60]))
         pg.locator(".event-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
