@@ -657,7 +657,8 @@ img.event-pic { object-fit: contain; }
 }
 @keyframes ms-nudge { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(calc(var(--space-2) * -1)); } }
 .ms-hero-hint { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-5)); display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--size-xs); letter-spacing: 0.2em; color: var(--ink-tertiary); }
-.ms-chapter { position: relative; overflow: hidden; display: grid; justify-items: center; gap: var(--space-5); padding: 18svh var(--space-6); text-align: center; }
+/* カードとカードの間（11/21 0:36 渡辺さん「半分ぐらいに」）：上下 18svh → 9svh。 */
+.ms-chapter { position: relative; overflow: hidden; display: grid; justify-items: center; gap: var(--space-5); padding: 9svh var(--space-6); text-align: center; }
 .ms-chapter > * { position: relative; max-width: 30em; }
 .ms-chapter h3 { margin: 0; font-size: var(--size-title); font-weight: var(--weight-bold); letter-spacing: 0.04em; }
 .ms-chapter > small { font-size: var(--size-sm); letter-spacing: 0.16em; color: var(--ink-secondary); }

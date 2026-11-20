@@ -116,6 +116,11 @@ const REVEAL_START = 0.06;
 const REVEAL_END = 0.66;
 const MIN_BEAT_SEC = 3.2;
 const SEC_PER_BEAT = 3.2;
+/**
+ * 物語のあとの区切りへ運ぶ秒数（11/21 0:36 渡辺さん「物語が終わってからの移動が急に速くなりすぎる」）：場面のコマと同じ
+ * ゆっくりさで。一枚の絵（枠が入る）、締めくくり（ひと言を読む）、今夜の情報（間の一言が現れて滲んで消え、月がカードへ移る）。
+ */
+const AFTER_SEC = { frame: 3.6, epilogue: 5.5, info: 6 } as const;
 /** 一字ずつの、読みはじめからの時刻（秒）と、読み終わり（秒）。 */
 export function readingTimes(text: string): { at: number[]; total: number } {
   const at: number[] = [];
@@ -186,9 +191,14 @@ function storyStops(
     }
     // 場面の終わり（一枚の絵）：月が今夜の情報へ移りはじめる位置のわずか手前（丸めで移りはじめないように）。
     px.push(w.offsetTop + r - 2);
+    secs[px.length - 1] = AFTER_SEC.frame;
   } else if (b) px.push(b.offsetHeight - vh);
-  if (ep) px.push(ep.offsetTop + ep.offsetHeight / 2 - vh / 2);
+  if (ep) {
+    px.push(ep.offsetTop + ep.offsetHeight / 2 - vh / 2);
+    secs[px.length - 1] = AFTER_SEC.epilogue;
+  }
   px.push(end);
+  secs[px.length - 1] = AFTER_SEC.info;
   return {
     px: px.map((p) => Math.round(Math.min(end, Math.max(0, p)))),
     firstBeat,
