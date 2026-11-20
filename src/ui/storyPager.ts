@@ -17,6 +17,8 @@ type Opts = {
   onIndex?: (i: number, settled: boolean) => void;
   /** 区切り i へ一つ前の区切りから運ぶ秒数（無ければ距離から）。場面のコマは字の数に比例（11/20 22:43）。 */
   seconds?: (i: number) => number | undefined;
+  /** この位置（px）より上は区切りへ運ばない（物語の本編の前）。 */
+  freeBefore?: () => number;
   /** 動きを減らす設定（速く、短く運ぶ）。 */
   reduced?: () => boolean;
 };
@@ -69,13 +71,12 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     target = null;
   };
 
-  // 減速しながら止まる（11/20 22:06 渡辺さん「もっとゆっくり流れて、減速しながら止まって」）。時間 T は先に決め（場面の
-  // コマは字の数に比例、ほかは距離から）、動きは「減速の曲線」＋「指の速さとのつなぎ」の和：
-  //   x(t) = x0 + D·(1 − (1 − k)^P) + (v − c0)·t·(1 − k)²、k = t/T、c0 = P·D/T（曲線の始めの速さ）
-  //   - 第1項：始めがいちばん速く、あとは減速だけで T でぴたりと止まる。
-  //   - 第2項：t = 0 で速さを指の速さ v にそろえ（離した瞬間の速さが途切れない）、T で 0（位置も速さも曲線に戻る）。
-  //   - v は行き先の向きの成分だけ、c0 の 2.5 倍まで（それより速いと途中で戻る動きになるため。強く払えば先の区切りへ）。
-  //   11/20 レビュー「指の速さを完全には引き継いでいない」への対応（前は P を速さで変えて近づけていた）。
+  // 朗読するように運ぶ（11/20 23:14 渡辺さん「朗読するように再生」、22:06「ゆっくり、減速しながら止まる」）。
+  // 時間 T は先に決め（場面のコマはその文を読む秒数、ほかは距離から）、速さは「台形」：
+  //   1. はじめ a 秒で、指を離した速さ v0 から一定の速さ vc へ（離した瞬間の速さが途切れない）。
+  //   2. 一定の速さ vc で進む（文の字は朗読の時刻に合わせて現れるので、一定の速さだと読む速さどおりに出る）。
+  //   3. おわり b 秒で、なめらかに減速して止まる（速さ vc·(1 − u/b)²、止まる直前ほどゆっくり）。行き過ぎない。
+  //   v0 は行き先の向きの成分だけ、平均の速さの 2 倍まで（それより速いと vc が小さくなりすぎるため）。
   const glide = (to: number, v0 = 0) => {
     stop();
     const x0 = el.scrollTop;
@@ -86,10 +87,19 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
       return;
     }
     const T = o.reduced?.() ? 0.45 : travelSeconds(x0, to);
-    const P = 2.2;
-    const c0 = (P * D) / T;
+    const a = Math.min(0.5, T * 0.2);
+    const b = Math.min(1.1, T * 0.35);
     const toward = Math.sign(v0) === Math.sign(D);
-    const v = toward ? Math.sign(D) * Math.min(Math.abs(v0), 2.5 * Math.abs(c0)) : 0;
+    const vs = toward ? Math.sign(D) * Math.min(Math.abs(v0), (2 * Math.abs(D)) / T) : 0;
+    const vc = (D - (vs * a) / 2) / (T - a / 2 - (2 * b) / 3);
+    const xa = x0 + ((vs + vc) * a) / 2;
+    const xb = xa + vc * (T - a - b);
+    const pos = (t: number) => {
+      if (t < a) return x0 + vs * t + ((vc - vs) * t * t) / (2 * a);
+      if (t < T - b) return xa + vc * (t - a);
+      const u = Math.min(b, t - (T - b));
+      return xb + ((vc * b) / 3) * (1 - Math.pow(1 - u / b, 3));
+    };
     // 最初のコマから進める（rAF の時刻はコマの始まりなので、始めの時刻を半コマ前に取る）。
     let t0 = -1;
     target = to;
@@ -103,8 +113,7 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
         report(to, true);
         return;
       }
-      const t = k * T;
-      const y = x0 + D * (1 - Math.pow(1 - k, P)) + (v - c0) * t * (1 - k) * (1 - k);
+      const y = pos(k * T);
       el.scrollTop = y;
       report(y, false);
       raf = requestAnimationFrame(tick);
@@ -150,7 +159,7 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
       if (hi <= lo || b <= a) continue;
       t += ((o.seconds(k) ?? byDistance(b - a)) * (hi - lo)) / (b - a);
     }
-    return Math.min(7, Math.max(0.8, t));
+    return Math.min(40, Math.max(0.8, t)); // 長い文は朗読の時間どおり（数十秒になることもある）
   };
 
   /** 今いる所（またはいま向かっている区切り）から、向きへ n 個先の区切り。 */
@@ -222,7 +231,11 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     if (top > last() + 1 && v >= 0) return; // 今夜の情報へ入った：そのまま
     // 短く払った（11/20 22:09 渡辺さん「短いストロークのときだけ節目で止める。ゆっくりスクロールしているときは発動しない」）：
     // 触れていた時間が短く、動かした距離も短く、離すときに勢いがある。それ以外は、指の動きのまま（節目へ運ばない）。
+    // 物語の本編（場面）より前（本の表紙・見開き・場面へ入る空）は区切りへ運ばない（11/20 23:13 渡辺さん「本編が始まる
+    // 前までは スナップしない」）。指のまま、離したら少しの惰性だけ。
+    const free = o.freeBefore ? Math.max(startTop, top) < o.freeBefore() : false;
     const flick =
+      !free &&
       e.timeStamp - startT < FLICK_MS &&
       Math.abs(moved) < FLICK_PX &&
       Math.abs(v) > FLICK_V;
