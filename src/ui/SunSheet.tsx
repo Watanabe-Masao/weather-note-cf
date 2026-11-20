@@ -547,7 +547,8 @@ export function SunSheet({
 function SkyView({ look, stream, tap, zoom, onZoom, panView, onPan, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky }: { look?: { azimuth: number; altitude: number } | null; stream?: MediaStream | null; tap?: SkyTap; zoom: number; onZoom: (z: number) => void; panView: { azimuth: number; altitude: number } | null; onPan: (v: { azimuth: number; altitude: number }) => void; at: number; sunAlt: number; sunAz: number; moon: SkyMoon; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour }) {
   // 窓の大きさ（11/19 渡辺さん「画面をもっと大きく使いたい」）：340×230 から縦に伸ばして 340×300。
   const VW = 340;
-  const VH = 300;
+  // 窓を少し大きく（11/20 渡辺さん「画面が小さいので指が外れる」）：縦を 300 → 340（正方形）。
+  const VH = 340;
   if (look) return <SkyWindow look={look} tap={tap} zoom={zoom} onZoom={onZoom} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} stream={stream} />;
   return <SkyPan zoom={zoom} onZoom={onZoom} view={panView} onView={onPan} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} />;
 }
@@ -630,17 +631,42 @@ function useNoPageZoom(ref: { current: HTMLElement | null }) {
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
+    // 指が空の窓の中で触れはじめたら、その指が全部離れるまで、画面のどこで動いても iPhone の拡大・パンを止める
+    // （11/20 渡辺さん「指が窓の外に外れると iPhone 本体のパン・ピンチが発火する」）。窓の外で始めた操作はふだんどおり。
     const stop = (e: Event) => e.preventDefault();
     const two = (e: TouchEvent) => {
       if (e.touches.length > 1) e.preventDefault();
     };
+    let on = false;
+    const end = (e: TouchEvent) => {
+      if (e.touches.length > 0 || !on) return;
+      on = false;
+      document.removeEventListener("gesturestart", stop);
+      document.removeEventListener("gesturechange", stop);
+      document.removeEventListener("touchmove", two);
+      document.removeEventListener("touchend", end);
+      document.removeEventListener("touchcancel", end);
+    };
+    const start = () => {
+      if (on) return;
+      on = true;
+      document.addEventListener("gesturestart", stop, { passive: false });
+      document.addEventListener("gesturechange", stop, { passive: false });
+      document.addEventListener("touchmove", two, { passive: false });
+      document.addEventListener("touchend", end);
+      document.addEventListener("touchcancel", end);
+    };
+    el.addEventListener("touchstart", start, { passive: true });
     el.addEventListener("gesturestart", stop);
     el.addEventListener("gesturechange", stop);
     el.addEventListener("touchmove", two, { passive: false });
     return () => {
+      el.removeEventListener("touchstart", start);
       el.removeEventListener("gesturestart", stop);
       el.removeEventListener("gesturechange", stop);
       el.removeEventListener("touchmove", two);
+      on = true;
+      end({ touches: [] as unknown as TouchList } as TouchEvent);
     };
   }, [ref]);
 }
