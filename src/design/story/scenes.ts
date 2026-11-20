@@ -2,7 +2,15 @@
 // tale.lines）の数と同じ（一文が一コマ）。まだ場面の無い満月は、本の表紙と文だけで見せる。
 // 2026-11-20：まずビーバームーン（見本）。渡辺さんの OK のあと、ほかの 12 の満月とブルームーンを足す。
 import type { ReactElement } from "react";
-import { BEAVER_BEATS, BEAVER_SKY, BeaverWindow, BeaverWorld, buildBeaverScene } from "./BeaverWorld";
+import { storyAsset } from "./storyAssets";
+import {
+  BEAVER_BEATS,
+  BEAVER_SKY,
+  BeaverCoverArt,
+  BeaverWindow,
+  BeaverWorld,
+  buildBeaverScene,
+} from "./BeaverWorld";
 
 export type StoryScene = {
   /** 場面（コマ）の数。 */
@@ -12,9 +20,27 @@ export type StoryScene = {
   Window: () => ReactElement;
   /** 場面の最初の空の色（窓から場面へつなぐ CSS の背景）。 */
   sky: string;
+  /** 表紙の真ん中の絵（渡辺さんの素材を重ねた小さな場面。文字は画面の側で、絵に入れない）。 */
+  CoverArt?: () => ReactElement;
+  /** 本棚の背の、型押しの月と紋の絵（素材）。 */
+  spineArt?: { moon: string; emblem: string };
+  /** 表紙の上の二隅に置く飾りの枝（素材。左は返して使う）。 */
+  coverCorner?: string;
   build: typeof buildBeaverScene;
 };
 
 export const STORY_SCENES: Record<string, StoryScene> = {
-  ビーバームーン: { beats: BEAVER_BEATS, World: BeaverWorld, Window: BeaverWindow, sky: BEAVER_SKY, build: buildBeaverScene },
+  ビーバームーン: {
+    beats: BEAVER_BEATS,
+    World: BeaverWorld,
+    Window: BeaverWindow,
+    sky: BEAVER_SKY,
+    CoverArt: BeaverCoverArt,
+    spineArt: {
+      moon: storyAsset("beaver", "emboss"),
+      emblem: storyAsset("beaver", "beaver"),
+    },
+    coverCorner: storyAsset("beaver", "branch"),
+    build: buildBeaverScene,
+  },
 };
