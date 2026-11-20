@@ -18,7 +18,7 @@ export type StoryAsset = {
   quality?: number;
 };
 
-export const STORY_ASSET_VERSION = 1;
+export const STORY_ASSET_VERSION = 2;
 
 export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
   // どの満月にも使う物。本棚（11/20 18:50 渡辺さんの絵、1199×1312、外は透けている）。
@@ -26,21 +26,24 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
     shelf: { file: "design-src/story/shelf.png", width: 720, quality: 0.8 },
   },
   beaver: {
-    moon: { rect: [678, 108, 128, 128], key: true },
-    emboss: { rect: [522, 112, 126, 126], key: true },
-    // ビーバー：枝を持つ（巣の上）・巣の上・月を見上げる。
-    "beaver-branch": { rect: [512, 448, 128, 94], key: true },
-    "beaver-nest": { rect: [654, 446, 144, 96], key: true },
-    beaver: { rect: [820, 450, 82, 92], key: true },
-    "leaf-large": { rect: [758, 614, 58, 56], key: true },
-    "leaf-small": { rect: [828, 622, 46, 44], key: true },
-    "leaf-tiny": { rect: [892, 630, 30, 30], key: true },
+    // 11/20 19:41 渡辺さんの素材（weather_note_beaver_assets_cleaned：透けている一枚ずつの PNG、要求書の名前）。
+    moon: { file: "design-src/story/common/moon.png", width: 512 },
+    emboss: { file: "design-src/story/common/emboss.png", width: 160 },
+    "beaver-branch": { file: "design-src/story/beaver/pack/hero-act.png", width: 480 },
+    beaver: { file: "design-src/story/beaver/pack/hero-look.png", width: 480 },
+    "beaver-swim": { file: "design-src/story/beaver/pack/hero-move.png", width: 400 },
+    "beaver-nest": { file: "design-src/story/beaver/pack/prop.png", width: 480 },
+    nest: { file: "design-src/story/beaver/pack/prop.png", width: 480 },
+    "leaf-large": { file: "design-src/story/beaver/pack/float-1.png", width: 96 },
+    "leaf-small": { file: "design-src/story/beaver/pack/float-2.png", width: 96 },
+    "leaf-tiny": { file: "design-src/story/beaver/pack/float-3.png", width: 96 },
+    tree: { file: "design-src/story/beaver/pack/tree-secondary.png", width: 360 },
+    "tree-big": { file: "design-src/story/beaver/pack/tree.png", width: 400 },
+    branch: { file: "design-src/story/beaver/pack/branch.png", width: 480 },
+    reflection: { file: "design-src/story/beaver/pack/reflection.png", width: 400 },
+    reed: { file: "design-src/story/beaver/pack/grass.png", width: 300 },
+    foreground: { file: "design-src/story/beaver/pack/foreground.png", width: 600 },
     pines: { rect: [1424, 732, 84, 64], key: true },
-    nest: { rect: [918, 472, 146, 68], key: true },
-    tree: { rect: [1096, 452, 122, 90], key: true },
-    branch: { rect: [516, 608, 110, 68], key: true },
-    reflection: { rect: [1270, 320, 98, 70], key: true },
-    reed: { rect: [1434, 452, 76, 90], key: true },
   },
 };
 

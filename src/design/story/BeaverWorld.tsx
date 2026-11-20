@@ -177,9 +177,9 @@ export function BeaverWorld(): ReactElement {
         <g>{farPines}</g>
         <g className="bw-autumn">
           {/* 紅葉の木（渡辺さんの素材 11/20 18:42） */}
-          <image href={A("tree")} x={-40} y={512} width={136} height={100} />
-          <image href={A("tree")} x={288} y={496} width={150} height={110} />
-          <image href={A("tree")} x={178} y={540} width={82} height={60} opacity={0.85} />
+          <image href={A("tree")} x={-34} y={462} width={104} height={154} />
+          <image href={A("tree-big")} x={290} y={474} width={140} height={131} />
+          <image href={A("tree")} x={196} y={548} width={40} height={59} opacity={0.85} />
         </g>
         <g>{midPines}</g>
         {/* 川 */}
@@ -187,7 +187,7 @@ export function BeaverWorld(): ReactElement {
         <path className="bw-water-night" d="M-40 618 C 60 610 140 626 220 620 C 300 614 360 622 440 616 L 440 740 L -40 740 Z" fill="#081230" opacity={0} />
         <g className="bw-road" opacity={0}>
           {/* 月の道（素材の水面の映り込み） */}
-          <image href={A("reflection")} x={104} y={618} width={92} height={118} preserveAspectRatio="none" />
+          <image href={A("reflection")} x={60} y={624} width={180} height={63} />
         </g>
         <g className="bw-ripples" stroke="#9fb7e6" strokeWidth={1} opacity={0.5} fill="none">
           <path d="M20 650 q 20 -4 40 0 M110 690 q 26 -5 52 0 M250 700 q 22 -4 44 0 M320 660 q 18 -3 36 0" />
@@ -210,7 +210,7 @@ export function BeaverWorld(): ReactElement {
         </g>
         {/* 月を見上げるビーバー（素材）：月が昇るコマで、枝を持つ姿から替わる。 */}
         <g className="bw-look" opacity={0}>
-          <image href={A("beaver")} x={214} y={520} width={88} height={99} />
+          <image href={A("beaver")} x={212} y={524} width={98} height={94} />
         </g>
         <g className="bw-sit" opacity={0}>
           {/* 枝を持つビーバー（素材）。枝を置く動きは、この絵を少し傾けて（.bw-branch）。 */}
@@ -227,8 +227,8 @@ export function BeaverWorld(): ReactElement {
         </g>
         {/* 上の枝（見本の金の葉の枝） */}
         <g className="bw-bough">
-          <image href={A("reed")} x={-14} y={652} width={92} height={109} opacity={0.9} />
-        <image href={A("reed")} x={322} y={664} width={84} height={100} opacity={0.85} />
+          <image href={A("reed")} x={-20} y={690} width={150} height={72} opacity={0.9} />
+        <image href={A("reed")} x={290} y={694} width={140} height={67} opacity={0.85} />
         {/* 上の紅葉の枝（素材） */}
           <image href={A("branch")} x={-40} y={40} width={240} height={148} transform="rotate(18 80 114)" />
         </g>
