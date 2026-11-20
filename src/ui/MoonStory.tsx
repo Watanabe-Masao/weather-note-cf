@@ -183,7 +183,8 @@ function storyStops(
   const b = el.querySelector<HTMLElement>(".ms-book");
   const w = el.querySelector<HTMLElement>(".ms-world");
   const ep = el.querySelector<HTMLElement>(".ms-epilogue");
-  const end = el.querySelector<HTMLElement>(".ms-info")?.offsetTop ?? 0;
+  // 物語の終わり（data-story-end：ふだんは今夜の情報、絵本の形の満月はあとがき）。
+  const end = el.querySelector<HTMLElement>("[data-story-end]")?.offsetTop ?? 0;
   const px: number[] = [0];
   /** その区切りへ一つ前から運ぶ秒数（コマは字の数に比例。ほかは距離から）。 */
   const secs: (number | undefined)[] = [];
@@ -434,11 +435,10 @@ export function MoonStory({
   // 順に作り、タイムラインの上にだけ付け、くり返す動きは見えない間は止め、字が読み込まれたら位置を測り直す。
   const [ready, setReady] = useState(false);
   // 物語をとばす（今夜の情報へ）：情報が見えたら消す。場面を押すと次の場面へ（スクロールで進むのと同じ）。
-  const infoRef = useRef<HTMLElement>(null);
   const [skip, setSkip] = useState(true);
   useEffect(() => {
     const el = root.current;
-    const info = infoRef.current;
+    const info = el?.querySelector<HTMLElement>("[data-story-end]");
     if (!el || !info) return;
     const watch = () =>
       setSkip(info.getBoundingClientRect().top > el.clientHeight * 0.6);
@@ -453,7 +453,7 @@ export function MoonStory({
     const IDLE_MS = 3500;
     let timer = 0;
     const show = () => {
-      const info = el.querySelector<HTMLElement>(".ms-info");
+      const info = el.querySelector<HTMLElement>("[data-story-end]");
       if (info && el.scrollTop >= info.offsetTop - 4) return;
       // 表紙（いちばん上）には「スクロールでページをひらく」があるので出さない。
       if (el.scrollTop < 8) return;
@@ -474,7 +474,7 @@ export function MoonStory({
   }, []);
   const skipStory = () => {
     const el = root.current;
-    const info = infoRef.current;
+    const info = el?.querySelector<HTMLElement>("[data-story-end]");
     if (el && info && pager.current) pager.current.glide(info.offsetTop);
     else info?.scrollIntoView({ behavior: "smooth" });
   };
@@ -712,7 +712,7 @@ export function MoonStory({
           );
           // 場面から締めくくりへ移るとき、外の金の枠は背景の色へ溶けて消える（11/20 22:11 渡辺さん）。枠の出入りは場面の
           // タイムラインが枠（.ms-world-frame）の不透明度で持つので、ここは中の絵（svg）の不透明度で（同じ値を二つで動かさない）。
-          const ep = el.querySelector(".ms-epilogue") ?? el.querySelector(".ms-info");
+          const ep = el.querySelector(".ms-epilogue") ?? el.querySelector("[data-story-end]");
           if (ep)
             gsap.fromTo(
               ".ms-world-frame > svg",
@@ -895,12 +895,12 @@ export function MoonStory({
             defaults: { ease: "power2.out" },
           });
           tl.fromTo(
-            q(".ms-phases, h3, .ms-leafrule, .bk-flourish"),
+            q(".ms-phases, .ms-paper-kicker, h3, .ms-leafrule, .bk-flourish"),
             { opacity: 0, filter: "blur(6px)" },
             { opacity: 1, filter: "blur(0px)", duration: 1.1, stagger: 0.25 },
           )
             .fromTo(
-              q(":scope > p:not(.ms-symbols)"),
+              q(":scope > p:not(.ms-symbols), :scope > h4"),
               { opacity: 0, filter: "blur(4px)", y: 6 },
               {
                 opacity: 1,
@@ -939,7 +939,7 @@ export function MoonStory({
         });
         // 空の色が進む（11/21 渡辺さん「アイデアも採用」）：表紙のあたりは夕方の色、場面を読み進めるうちに夜へ、締めくくり
         // から先は深夜へ。地の色（.moon-story の --sky-0 / --sky-1）だけを、スクロールに合わせて変える。
-        const after = el.querySelector(".ms-epilogue") ?? el.querySelector(".ms-info");
+        const after = el.querySelector(".ms-epilogue") ?? el.querySelector("[data-story-end]");
         gsap.fromTo(
           el,
           { "--sky-0": BOOK.dusk[0], "--sky-1": BOOK.dusk[1] },
@@ -1051,6 +1051,49 @@ export function MoonStory({
     ["--ev-star" as string]: stage.star,
   } as CSSProperties;
 
+  // 今夜の情報（今夜の月）。物語の終わり（ページ送りの最後の区切り）は data-story-end の章：ふだんは今夜の情報、
+  // 絵本の形（book）を持つ満月は、あとがきの章（今夜の情報は自然と科学のあとへ下がる）。
+  // 3. 今夜の情報（11/20 渡辺さん「物語の最後には情報も」）：イベントの説明と同じカード。
+  const infoBlock = (
+  <section className="ms-chapter ms-info" data-story-end={story?.book ? undefined : ""}>
+    <small className="ms-rise">
+      {j.m}月{j.d}日
+    </small>
+    <h3 className="ms-rise">{when}{title}</h3>
+    {/* 紙を重ねる見せ方（11/21 渡辺さん「おすすめで」）：外の .ms-sheet が奥へ沈み、内の .ms-sheet-in が傾いて滑り込む。 */}
+    <div className="ms-sheet">
+      <div className="ms-sheet-in ms-card">
+        <EventMomentCard event={event} stage={stage} />
+      </div>
+    </div>
+    <div className="ms-sheet">
+      <div className="ms-sheet-in ms-card">
+        <EventNightCard
+          event={event}
+          stage={stage}
+          store={store}
+          tag="moon-story"
+        />
+      </div>
+    </div>
+    {/* 窓の外の月の一言：締めくくりを出さない満月（book）は、今夜の情報の中で。 */}
+    {story?.book && windowLine && <p className="ms-window ms-rise">{windowLine}</p>}
+    {/* 今夜の情報から空へ（11/21 渡辺さん「アイデアも採用」）：月のこよみのその夜（見え方・空の明るさ）を開く。 */}
+    {onSky && (
+      <Button size="sm" className="ms-sky-btn ms-rise" onClick={onSky}>
+        {when}月を見る
+        <Glyph name="next" />
+      </Button>
+    )}
+    {tags.length > 0 && (
+      <p className="fm-tags ms-rise">
+        {tags.map((t) => (
+          <em key={t}>{t}</em>
+        ))}
+      </p>
+    )}
+  </section>
+  );
   return (
     <div
       className={ready ? "moon-story ready" : "moon-story"}
@@ -1082,7 +1125,8 @@ export function MoonStory({
         </Button>
       </div>
       {/* 物語の月を、今夜の情報の月へ引き継ぐ（16:45 のレビュー「同じ月が形を変えて次の画面へ」）。 */}
-      {scene && <span className="ms-flymoon" aria-hidden />}
+      {/* 絵本の形（book）の満月は移さない：物語の月は9ページの絵の中に残る（11/21 承認：物語の月は表現、今夜の月は計算）。 */}
+      {scene && !story?.book && <span className="ms-flymoon" aria-hidden />}
       {/* 本の終わりに画面を覆う空の色（画面に固定。場面の上に重ねるので、本の舞台の外に置く）。 */}
       {/* 覆うのは本が（中の色）、溶かすのは場面が（外の枠）。同じ値を二つのタイムラインで動かさない。 */}
       <span className="ms-dive-wrap" aria-hidden>
@@ -1304,45 +1348,7 @@ export function MoonStory({
         </section>
       )}
 
-      {/* 3. 今夜の情報（11/20 渡辺さん「物語の最後には情報も」）：イベントの説明と同じカード。 */}
-      <section className="ms-chapter ms-info" ref={infoRef}>
-        <small className="ms-rise">
-          {j.m}月{j.d}日
-        </small>
-        <h3 className="ms-rise">{when}{title}</h3>
-        {/* 紙を重ねる見せ方（11/21 渡辺さん「おすすめで」）：外の .ms-sheet が奥へ沈み、内の .ms-sheet-in が傾いて滑り込む。 */}
-        <div className="ms-sheet">
-          <div className="ms-sheet-in ms-card">
-            <EventMomentCard event={event} stage={stage} />
-          </div>
-        </div>
-        <div className="ms-sheet">
-          <div className="ms-sheet-in ms-card">
-            <EventNightCard
-              event={event}
-              stage={stage}
-              store={store}
-              tag="moon-story"
-            />
-          </div>
-        </div>
-        {/* 窓の外の月の一言：締めくくりを出さない満月（book）は、今夜の情報の中で。 */}
-        {story?.book && windowLine && <p className="ms-window ms-rise">{windowLine}</p>}
-        {/* 今夜の情報から空へ（11/21 渡辺さん「アイデアも採用」）：月のこよみのその夜（見え方・空の明るさ）を開く。 */}
-        {onSky && (
-          <Button size="sm" className="ms-sky-btn ms-rise" onClick={onSky}>
-            {when}月を見る
-            <Glyph name="next" />
-          </Button>
-        )}
-        {tags.length > 0 && (
-          <p className="fm-tags ms-rise">
-            {tags.map((t) => (
-              <em key={t}>{t}</em>
-            ))}
-          </p>
-        )}
-      </section>
+      {!story?.book && infoBlock}
 
       {/* 5. 知識：名前の由来・自然との関係（11/20 20:56 渡辺さんの見本）：古い紙のページ、角を内に丸く切った金の二重の枠、
           見出しの下に小枝の線、最初の字を大きく、象徴の言葉は小さな絵と並べ、ページの下に淡いセピアの絵（場面ごと）。 */}
@@ -1365,7 +1371,7 @@ export function MoonStory({
             ],
           ] as const
         ).map(([head, paras, last, kicker]) => (
-          <section key={head} className="ms-chapter ms-text">
+          <section key={head} className="ms-chapter ms-text" data-story-end={story.book && !last ? "" : undefined}>
             {/* 紙のページ（11/20 21:14 渡辺さん：四隅は角の丸い枠と唐草にそろえる）。見出しまわりはページごと：
                 名前の由来は上に月の満ち欠けと菱形の飾り、自然との関係は小枝の線と象徴の言葉の札。 */}
             <div className="ms-sheet">
@@ -1417,6 +1423,9 @@ export function MoonStory({
             </div>
           </section>
         ))}
+
+      {/* 絵本の形（book）を持つ満月は、あとがき → 自然と科学 → 今夜の月（11/21 承認：絵本 → あとがき → 自然と科学 → 今夜の月）。 */}
+      {story?.book && infoBlock}
 
       {/* 5. 本棚（一年を巡る満月の物語）と、終わり */}
       <section className="ms-chapter ms-tonight">
