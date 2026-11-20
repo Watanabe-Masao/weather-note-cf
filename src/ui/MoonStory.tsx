@@ -74,6 +74,7 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
   const lines = story?.tale?.lines ?? [];
   const scene = !event.blue && event.name && lines.length ? (STORY_SCENES[event.name] ?? null) : null;
   const World = scene?.World;
+  const Win = scene?.Window;
   // 次の満月（一年を巡る物語）。
   const next = useMemo(() => {
     const y = Number(j.date.slice(0, 4));
@@ -143,30 +144,43 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
         //    暗く、ページには表紙の影が落ちて消える。続いて文が消え、ページの中へ寄っていき、紙の色で次の場面へつなぐ。
         // 本は、次の場面が下から重なり始める前（本の終わりの一画面手前）に紙の色まで終える。場面は紙の色のまま重なるので、
         // 境目は見えない。
-        const book = gsap.timeline({ scrollTrigger: { ...scrub(".ms-book"), end: "bottom 200%" } });
+        const book = gsap.timeline({ scrollTrigger: { ...scrub(".ms-book"), end: "bottom 200%", invalidateOnRefresh: true } });
+        // 窓が画面を覆う大きさと、窓の真ん中を画面の真ん中へ動かす量（本の真ん中を軸に大きくする）。
+        const dive = () => {
+          const b = el.querySelector<HTMLElement>(".bk");
+          const w = el.querySelector<HTMLElement>(".bk-window");
+          if (!b || !w) return { s: 4, x: 0, y: 0 };
+          const s = Math.max(el.clientWidth / w.offsetWidth, el.clientHeight / w.offsetHeight) * 1.04;
+          const dx = w.offsetLeft + w.offsetWidth / 2 - b.offsetWidth / 2;
+          const dy = w.offsetTop + w.offsetHeight / 2 - b.offsetHeight / 2;
+          return { s, x: -s * dx, y: -s * dy };
+        };
         book
           .to(".ms-book-hint", { opacity: 0, duration: 0.1 }, 0)
           // 縮めたあとに背（左の端）が画面の真ん中に来るよう、ずらす量は 50% × 縮める割合。
-          .fromTo(".bk", { xPercent: 0, scale: 1 }, { xPercent: 50 * SPREAD, scale: SPREAD, ease: "power2.inOut", duration: 1 }, 0.05)
+          .fromTo(".bk", { xPercent: 0, scale: 1 }, { xPercent: 50 * SPREAD, scale: SPREAD, ease: "power2.inOut", duration: 1 }, 0.3)
           // 表紙は背（左の端）を軸に、前半で起き上がり（幅が縮み、手前に来るので少し大きく、影が濃く）、後半で表紙の裏が
           // 左へ倒れて見開きになる（幅が広がり、影が抜ける）。背でつながったまま、二つのページは同じ大きさ（11/20 16:23
           // 渡辺さん「ページが離れていく動きが不自然」）。
-          .fromTo(".bk-cover", { scaleX: 1, scaleY: 1 }, { scaleX: 0, scaleY: 1.05, ease: "power2.in", duration: 0.5 }, 0.05)
-          .fromTo(".bk-cover-shade", { opacity: 0 }, { opacity: 0.6, ease: "power1.in", duration: 0.5 }, 0.05)
-          .fromTo(".bk-back", { scaleX: 0, scaleY: 1.05 }, { scaleX: 1, scaleY: 1, ease: "power2.out", duration: 0.5 }, 0.55)
-          .fromTo(".bk-back-shade", { opacity: 0.6 }, { opacity: 0, ease: "power1.out", duration: 0.5 }, 0.55)
-          .fromTo(".bk-page-shadow", { opacity: 1 }, { opacity: 0, ease: "power1.out", duration: 0.9 }, 0.15)
-          .to(".bk-page-text", { opacity: 0, y: -10, duration: 0.25 }, 1.45)
-          .to(".bk", { xPercent: 0, scale: 4.2, ease: "power2.inOut", duration: 0.9 }, 1.6)
-          .to(".bk-inner", { opacity: 0, duration: 0.3 }, 1.6)
-          .to(".ms-book-dive", { opacity: 1, duration: 0.3 }, 2.2);
+          .fromTo(".bk-cover", { scaleX: 1, scaleY: 1 }, { scaleX: 0, scaleY: 1.05, ease: "power2.in", duration: 0.5 }, 0.3)
+          .fromTo(".bk-cover-shade", { opacity: 0 }, { opacity: 0.6, ease: "power1.in", duration: 0.5 }, 0.3)
+          .fromTo(".bk-back", { scaleX: 0, scaleY: 1.05 }, { scaleX: 1, scaleY: 1, ease: "power2.out", duration: 0.5 }, 0.8)
+          .fromTo(".bk-back-shade", { opacity: 0.6 }, { opacity: 0, ease: "power1.out", duration: 0.5 }, 0.8)
+          .fromTo(".bk-page-shadow", { opacity: 1 }, { opacity: 0, ease: "power1.out", duration: 0.9 }, 0.4)
+          // 窓の中へ寄る：窓が画面いっぱいになるまで本を大きくし、窓の真ん中を画面の真ん中へ。文と枠は先に消える。
+          .to([".bk-page-text > small", ".bk-page-text > h3", ".bk-page .bk-frame"], { opacity: 0, duration: 0.25 }, 1.65)
+          .to(".bk", { xPercent: 0, scale: () => dive().s, x: () => dive().x, y: () => dive().y, ease: "power2.inOut", duration: 1 }, 1.75)
+          .to(".ms-book-dive", { opacity: 1, duration: 0.25 }, 2.55);
         // 表紙のメダルの光が脈打つ（本が画面にある間だけ）。
         const glow = gsap.to(".bk-medal-glow", { opacity: 0.85, duration: 2.6, yoyo: true, repeat: -1, ease: "sine.inOut", paused: true });
         ScrollTrigger.create({ trigger: el.querySelector(".ms-book"), scroller, start: "top bottom", end: "bottom top", onToggle: (t) => (t.isActive ? glow.play() : glow.pause()) });
         // 2. 絵本の場面：一文ごとに一コマ。紙が中心から溶けて絵が現れ、文は空に一字ずつ浮かぶ。
         if (scene) {
           const world = gsap.timeline({ scrollTrigger: scrub(".ms-world") });
-          world.fromTo(".ms-world-paper", { "--reveal": "0%" }, { "--reveal": "165%", ease: "power1.in", duration: 0.5 }, 0);
+          // 窓の絵（場面の最初の空）から、本当の場面へ溶ける。
+          // 本の終わりに画面を覆った空の色（.ms-book-dive は画面に固定）は、場面が止まってから溶ける。場面が下から
+          // 上がってくる間は覆ったままなので、境目は見えない。
+          world.fromTo(".ms-book-dive", { opacity: 1 }, { opacity: 0, ease: "power1.in", duration: 0.45, immediateRender: false }, 0);
           const loop = scene.build(gsap as never, el, world as never);
           lines.forEach((_, i) => {
             const cap = `.ms-cap[data-i="${i}"]`;
@@ -180,6 +194,39 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
           // 下の点：いまどのコマか。
           world.fromTo(".ms-beat", { opacity: 0.3, scale: 1 }, { opacity: 1, scale: 1.4, duration: 0.15, stagger: { each: 1, yoyo: true, repeat: 1, repeatDelay: 0.65 } }, 0.05);
           world.set({}, {}, scene.beats);
+          // 物語の月 → 今夜の情報の月：場面が画面から出始めてから、瞬間のカードの月が所定の位置に来るまで、浮かぶ月が
+          // 二つの月の間を（どちらも今の位置から測って）移る。途中は元の二つの月を隠す。
+          const fly = el.querySelector<HTMLElement>(".ms-flymoon");
+          const from = el.querySelector<SVGGElement>(".bw-moon");
+          const disc = el.querySelector<SVGElement>(".bw-moon > circle:nth-of-type(2)");
+          const to = () => el.querySelector<HTMLElement>(".ms-info .emc-sky > canvas");
+          const ease = gsap.parseEase("power2.inOut");
+          const place = (p: number) => {
+            const target = to();
+            if (!fly || !from || !disc || !target) return;
+            const moving = p > 0 && p < 1;
+            fly.style.opacity = moving ? "1" : "0";
+            from.style.opacity = p > 0 ? "0" : "";
+            target.style.opacity = p < 1 ? "0" : "";
+            if (!moving) return;
+            const a = disc.getBoundingClientRect();
+            const b = target.getBoundingClientRect();
+            const k = ease(p);
+            const size = a.width + (b.width - a.width) * k;
+            const cx = a.left + a.width / 2 + (b.left + b.width / 2 - a.left - a.width / 2) * k;
+            const cy = a.top + a.height / 2 + (b.top + b.height / 2 - a.top - a.height / 2) * k;
+            gsap.set(fly, { width: size, height: size, x: cx - size / 2, y: cy - size / 2 });
+          };
+          ScrollTrigger.create({
+            trigger: el.querySelector(".ms-world"),
+            scroller,
+            start: "bottom bottom",
+            endTrigger: el.querySelector(".ms-info .event-moment-card"),
+            end: "center 55%",
+            onUpdate: (t) => place(t.progress),
+            onLeave: () => place(1),
+            onLeaveBack: () => place(0),
+          });
           // 落ち葉や雪は、場面が画面にある間だけ動かす。
           if (loop) ScrollTrigger.create({ trigger: el.querySelector(".ms-world"), scroller, start: "top bottom", end: "bottom top", onToggle: (t) => (t.isActive ? loop.play() : loop.pause()) });
         }
@@ -202,7 +249,7 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
   }, [scene]);
 
 
-  const style = { ...(onSkyVars() as CSSProperties), ...bookVars(), ["--beats" as string]: scene?.beats ?? 0, ["--ev-glow" as string]: stage.glow, ["--ev-line" as string]: stage.line, ["--ev-star" as string]: stage.star } as CSSProperties;
+  const style = { ...(onSkyVars() as CSSProperties), ...bookVars(), ["--beats" as string]: scene?.beats ?? 0, ["--ms-scene-sky" as string]: scene?.sky ?? "none", ["--ev-glow" as string]: stage.glow, ["--ev-line" as string]: stage.line, ["--ev-star" as string]: stage.star } as CSSProperties;
 
   return (
     <div className={ready ? "moon-story ready" : "moon-story"} ref={root} role="dialog" aria-modal="true" aria-label={`${title}の物語`} tabIndex={-1} style={style}>
@@ -211,6 +258,10 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
           物語をとばす
         </Button>
       </div>
+      {/* 物語の月を、今夜の情報の月へ引き継ぐ（16:45 のレビュー「同じ月が形を変えて次の画面へ」）。 */}
+      {scene && <span className="ms-flymoon" aria-hidden />}
+      {/* 本の終わりに画面を覆う空の色（画面に固定。場面の上に重ねるので、本の舞台の外に置く）。 */}
+      <span className={scene ? "ms-book-dive scene" : "ms-book-dive"} aria-hidden />
       <div className="ms-close">
         <IconButton label="閉じる" onClick={onClose}>
           <CloseIcon />
@@ -218,7 +269,7 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
       </div>
 
       {/* 1. 本：紺の革の表紙（金の枠・満月のメダル・英語の名前を主に、日本語は小さく）が開き、紙のページにひと言。 */}
-      <section className={scene ? "ms-book into-paper" : "ms-book"}>
+      <section className="ms-book">
         <div className="ms-sticky ms-book-stage">
           <span className="event-stars" aria-hidden>
             {STARS.map(([x, y, r, d], i) => (
@@ -232,9 +283,10 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
                 <GoldFrame />
                 <div className="bk-page-text">
                   <small>{j.m}月の満月の物語</small>
+                  {/* ページの窓：場面の最初のコマの小さな絵。この中へ寄って場面に入る（16:45 のレビュー「ページの中に風景が
+                      広がる連続的な転換」）。場面の無い満月は、その満月の絵。 */}
+                  <div className="bk-window">{Win ? <Win /> : pic && <img src={pic} alt="" className={wide ? "wide" : undefined} />}</div>
                   <h3>{story?.tale?.tagline ?? story?.gloss ?? title}</h3>
-                  <Flourish />
-                  <span>{title}</span>
                 </div>
               </div>
               <span className="bk-page-shadow" aria-hidden />
@@ -261,7 +313,6 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
               <span className="bk-back-shade" />
             </div>
           </div>
-          <span className="ms-book-dive" aria-hidden />
           <span className="ms-book-hint ms-hero-hint" aria-hidden>
             スクロールでページをひらく
             <Glyph name="down" />
@@ -278,7 +329,6 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
               <GoldFrame w={400} h={860} inset={10} />
             </span>
             <span className="ms-caps-veil" aria-hidden />
-            <span className="ms-world-paper" aria-hidden />
             <div className="ms-caps">
               {lines.map((t, i) => (
                 <p key={i} className="ms-cap" data-i={i}>

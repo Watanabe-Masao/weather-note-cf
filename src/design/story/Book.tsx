@@ -16,6 +16,9 @@ export function bookVars(): CSSProperties {
     ["--bk-night-0" as string]: BOOK.night[0],
     ["--bk-night-1" as string]: BOOK.night[1],
     ["--bk-ribbon" as string]: BOOK.ribbon,
+    ["--bk-moon-0" as string]: BOOK.moon[0],
+    ["--bk-moon-1" as string]: BOOK.moon[1],
+    ["--bk-moon-2" as string]: BOOK.moon[2],
   } as CSSProperties;
 }
 

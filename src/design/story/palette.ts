@@ -11,6 +11,8 @@ export const BOOK = {
   ink: "#3a2c1c",
   /** 夜の地（物語のページの背景）。 */
   night: ["#0a1430", "#050b1c"] as [string, string],
+  /** 浮かぶ月（物語の月から今夜の情報の月へ移る）：明るい・中・縁。 */
+  moon: ["#fff6d8", "#f6dc98", "#d9b062"] as [string, string, string],
   /** しおりのリボン。 */
   ribbon: "#8c2f3a",
 } as const;

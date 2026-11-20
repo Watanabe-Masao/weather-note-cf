@@ -92,11 +92,13 @@ function BeaverSitting() {
       <circle cx={34} cy={-64} r={1.6} fill={GOLD} />
       <ellipse cx={44} cy={-58} rx={3} ry={2.4} fill={FUR[1]} />
       <rect x={36} y={-50} width={4} height={5} rx={1} fill="#efe2c4" />
-      {/* 前足と枝 */}
-      <path d="M14 -34 C 24 -32 32 -36 38 -42" stroke={FUR[1]} strokeWidth={5} fill="none" strokeLinecap="round" />
-      <path d="M-8 -40 L 62 -54" stroke="#7a5532" strokeWidth={3.4} strokeLinecap="round" />
-      <path d="M50 -52 l10 -10 M56 -53 l12 -2" stroke="#7a5532" strokeWidth={1.8} strokeLinecap="round" />
-      <ellipse cx={62} cy={-63} rx={4} ry={2.4} fill={LEAF[0]} transform="rotate(-30 62 -63)" />
+      {/* 前足と枝（枝を置く動きで回る：.bw-branch） */}
+      <g className="bw-branch">
+        <path d="M14 -34 C 24 -32 32 -36 38 -42" stroke={FUR[1]} strokeWidth={5} fill="none" strokeLinecap="round" />
+        <path d="M-8 -40 L 62 -54" stroke="#7a5532" strokeWidth={3.4} strokeLinecap="round" />
+        <path d="M50 -52 l10 -10 M56 -53 l12 -2" stroke="#7a5532" strokeWidth={1.8} strokeLinecap="round" />
+        <ellipse cx={62} cy={-63} rx={4} ry={2.4} fill={LEAF[0]} transform="rotate(-30 62 -63)" />
+      </g>
     </g>
   );
 }
@@ -150,6 +152,29 @@ function Stash() {
         return <path key={i} d={`M${x - 14 * Math.cos(a)} ${y - 14 * Math.sin(a)} L${x + 14 * Math.cos(a)} ${y + 14 * Math.sin(a)}`} stroke="#9a7a52" strokeWidth={2.2} strokeLinecap="round" opacity={0.55} />;
       })}
     </g>
+  );
+}
+
+/** 場面の最初の空（本のページの窓から場面へつなぐ色。CSS の背景）。 */
+export const BEAVER_SKY = `linear-gradient(${SKY.dusk[0]}, ${SKY.dusk[1]} 45%, ${SKY.dusk[2]} 70%, ${SKY.dusk[3]})`;
+
+/** 本のページの窓の絵（場面の最初のコマの小さな絵：夕暮れの空、丘、針葉樹、川）。窓の中へ寄ると、場面へつながる。 */
+export function BeaverWindow(): ReactElement {
+  const r = rand(7);
+  return (
+    <svg className="bk-window-art" viewBox="0 0 200 240" preserveAspectRatio="xMidYMid slice" aria-hidden>
+      <defs>
+        <Sky id="bkw-sky" c={SKY.dusk} />
+      </defs>
+      <rect width={200} height={240} fill="url(#bkw-sky)" />
+      <path d="M-10 170 L 30 130 L 60 150 L 100 110 L 140 145 L 175 120 L 210 150 L 210 200 L -10 200 Z" fill="#2a3a6e" />
+      {Array.from({ length: 14 }, (_, i) => pine(i * 15 + r() * 6 - 4, 192 + r() * 4, 22 + r() * 16, "#141d3c", `w${i}`))}
+      <rect x={-10} y={196} width={220} height={50} fill={WATER[1]} />
+      <path d="M10 210 q 14 -3 28 0 M120 222 q 18 -3 36 0" stroke="#9fb7e6" strokeWidth={0.8} opacity={0.5} fill="none" />
+      {Array.from({ length: 9 }, (_, i) => (
+        <ellipse key={i} cx={20 + r() * 160} cy={40 + r() * 120} rx={2.4} ry={1.5} fill={LEAF[i % LEAF.length]} transform={`rotate(${(r() * 180).toFixed(0)})`} style={{ transformBox: "fill-box", transformOrigin: "center" }} />
+      ))}
+    </svg>
   );
 }
 
@@ -267,7 +292,7 @@ export function BeaverWorld(): ReactElement {
           <BeaverSwimming />
           <path d="M-44 2 L -90 12 M-44 2 L -86 -6" stroke="#bcd0f2" strokeWidth={1} opacity={0.6} />
         </g>
-        <g className="bw-sit" transform="translate(262 612)" opacity={0}>
+        <g className="bw-sit" transform="translate(262 614) scale(1.25)" opacity={0}>
           <BeaverSitting />
         </g>
         {/* 手前の岸と葦 */}
@@ -347,6 +372,8 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .to(".bw-swim", { opacity: 0, duration: 0.2 }, 2.4)
     .to(".bw-sit", { opacity: 1, duration: 0.25 }, 2.5)
     .to(".bw-stash", { opacity: 1, duration: 0.4 }, 2.6)
+    // 枝を住みかに置く（16:45 のレビュー「ビーバーの存在感」）：前足と枝が下りて、また上がる。
+    .fromTo(".bw-branch", { rotation: -16, svgOrigin: "14 -34" }, { rotation: 8, duration: 0.18, ease: "power1.inOut", yoyo: true, repeat: 3 }, 2.55)
     .to(".bw-camera", { scale: 1.5, x: -150, y: -102, duration: 1, ease: "none" }, 2);
   // 4〜5 日が落ちる（16:27 のレビュー「昼から夜への移り変わりが急」）：空・水面・紅葉・星を時間差で、二つの文にまたがって。
   tl.to(".bw-sky-twi", { opacity: 1, duration: 0.9, ease: "sine.inOut" }, 2.9)
@@ -359,13 +386,18 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     // 月が昇る前に、丘の向こうが明るくなる。
     .to(".bw-moonrise", { opacity: 1, duration: 0.8, ease: "sine.in" }, 4.3);
   // 5 仕上がる：住みかに寄る（枝の影が深く）。
-  tl.to(".bw-camera", { scale: 1.35, x: -90, y: -74, duration: 1, ease: "none" }, 4);
+  tl.to(".bw-camera", { scale: 1.7, x: -75, y: -131, duration: 1, ease: "none" }, 4);
   // 6 満月が昇る：カメラが引き、丘の向こうから大きな月。
   tl.to(".bw-camera", { scale: 1, x: 0, y: -8, duration: 1, ease: "none" }, 5)
     .to(".bw-moon", { attr: { transform: "translate(150 380)" }, duration: 1.1, ease: "power1.out" }, 5)
-    .to(".bw-leaves", { opacity: 0, duration: 0.4 }, 5);
+    .to(".bw-leaves", { opacity: 0, duration: 0.4 }, 5)
+    // 月が昇るにつれ、まわりは少し沈み（星と紅葉）、月の道が水面に伸びる（16:45 のレビュー「月光と水面の反射を連動」）。
+    .to(".bw-stars", { opacity: 0.5, duration: 1 }, 5.2)
+    .to(".bw-autumn", { opacity: 0.4, duration: 1 }, 5.2)
+    .fromTo(".bw-road", { opacity: 0, scaleY: 0.2, svgOrigin: "150 622" }, { opacity: 1, scaleY: 1, duration: 1.1, ease: "power1.out" }, 5.35)
+    .to(".bw-ripples", { opacity: 0.9, duration: 1 }, 5.5);
   // 7 月の道と霧。
-  tl.to(".bw-road", { opacity: 1, duration: 0.5 }, 6).to(".bw-fog", { opacity: 1, duration: 0.6 }, 6.2);
+  tl.to(".bw-fog", { opacity: 1, duration: 0.6 }, 6.2);
   // 8 初雪：月の下で冬支度。
   tl.to(".bw-snow", { opacity: 1, duration: 0.5 }, 7).to(".bw-camera", { scale: 1.12, x: -30, y: -31, duration: 1, ease: "none" }, 7);
   // 9 一枚の絵へ：世界が引いて収まる。

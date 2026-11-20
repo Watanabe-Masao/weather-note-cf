@@ -489,8 +489,11 @@ img.event-pic { object-fit: contain; }
 .bk-page, .bk-front, .bk-back { position: absolute; inset: 0; border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-sm); overflow: hidden; }
 .bk-page { background: radial-gradient(circle at 50% 40%, var(--bk-paper-0) 55%, var(--bk-paper-1)); color: var(--bk-ink); box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1), inset var(--space-3) 0 var(--space-4) calc(var(--space-3) * -1) var(--bk-paper-1); }
 .bk-inner { position: absolute; inset: 0; display: grid; place-items: center; }
-.bk-page-text { display: grid; justify-items: center; gap: var(--space-4); padding: var(--space-7); text-align: center; font-family: var(--font-story); }
+.bk-page-text { display: grid; justify-items: center; gap: var(--space-4); padding: var(--space-6); text-align: center; font-family: var(--font-story); }
 .bk-page-text small { font-size: var(--size-xs); letter-spacing: 0.3em; color: var(--bk-gold-1); }
+.bk-window { width: 78%; aspect-ratio: 5 / 6; overflow: hidden; border-radius: 50% 50% var(--radius-sm) var(--radius-sm); box-shadow: 0 0 0 var(--stroke-hair) var(--bk-gold-1), 0 0 0 var(--space-1) var(--bk-paper-0), 0 0 0 calc(var(--space-1) + var(--stroke-hair)) var(--bk-gold-1); }
+.bk-window > svg, .bk-window > img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.bk-window > img.wide { object-position: 12% center; }
 .bk-page-text h3 { margin: 0; font-size: var(--size-lg); font-weight: var(--weight-regular); line-height: 2; letter-spacing: 0.08em; text-wrap: balance; }
 .bk-page-text span { font-size: var(--size-xs); letter-spacing: 0.4em; color: var(--bk-gold-1); }
 .bk-page-shadow { position: absolute; inset: 0; background: linear-gradient(90deg, var(--bk-night-1), transparent 75%); opacity: 0; pointer-events: none; }
@@ -512,14 +515,13 @@ img.event-pic { object-fit: contain; }
 .bk-medal img.wide { object-position: 12% center; }
 .bk-medal-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
 .bk-medal-glow { position: absolute; inset: -18%; border-radius: 50%; background: radial-gradient(circle, var(--bk-gold-0) 0, transparent 62%); opacity: 0.35; }
-.ms-book-dive { position: absolute; inset: 0; background: var(--bk-night-0); opacity: 0; pointer-events: none; }
-.ms-book.into-paper .ms-book-dive { background: var(--bk-paper-0); }
+.ms-book-dive { position: fixed; inset: 0; z-index: 1; background: var(--bk-night-0); opacity: 0; pointer-events: none; }
+.ms-book-dive.scene { background: var(--ms-scene-sky); }
 /* 絵本の場面：一文ごとに一コマ。前の本の終わり（紙の色）に重ねて始め、紙が真ん中から溶けて絵が現れる。
    文（16:23「物語部分のフォントやエフェクトの見直し」）：明朝の縦書きで空に置き、一字ずつにじみから浮かぶ。 */
 .ms-world { position: relative; height: calc(var(--beats) * 110svh + 100svh); margin-top: -100svh; }
 .ms-world-stage { background: var(--bk-night-1); }
 .ms-world-stage .bw { position: absolute; inset: 0; width: 100%; height: 100%; }
-.ms-world-paper { --reveal: 0%; position: absolute; inset: 0; background: var(--bk-paper-0); -webkit-mask-image: radial-gradient(circle at 50% 55%, transparent calc(var(--reveal) - 25%), black var(--reveal)); mask-image: radial-gradient(circle at 50% 55%, transparent calc(var(--reveal) - 25%), black var(--reveal)); pointer-events: none; }
 .ms-world-frame { position: absolute; inset: var(--space-3); opacity: 0; pointer-events: none; }
 .ms-caps { position: absolute; top: calc(env(safe-area-inset-top, 0px) + var(--space-8) + var(--space-6)); right: var(--space-6); height: 44svh; width: 60%; pointer-events: none; }
 .ms-cap { position: absolute; top: 0; right: 0; height: 100%; margin: 0; opacity: 0; writing-mode: vertical-rl; font-family: var(--font-story); font-size: var(--size-lg); font-weight: var(--weight-regular); line-height: 2.1; letter-spacing: 0.14em; color: var(--bk-paper-0); text-shadow: 0 0 var(--space-3) var(--bk-night-1), 0 0 var(--space-1) var(--bk-night-1); }
@@ -527,6 +529,7 @@ img.event-pic { object-fit: contain; }
 /* 文の後ろの薄い夜（16:27 のレビュー「文章が背景に埋もれている」）：空が明るい夕暮れでも読める。 */
 .ms-caps-veil { position: absolute; top: 0; right: 0; width: 80%; height: 64svh; background: radial-gradient(ellipse at 78% 34%, var(--bk-night-1), transparent 68%); opacity: 0.6; pointer-events: none; }
 /* 物語をとばす（今夜の情報へ）。 */
+.ms-flymoon { position: fixed; left: 0; top: 0; z-index: 1; width: 0; height: 0; border-radius: 50%; opacity: 0; pointer-events: none; background: radial-gradient(circle at 40% 36%, var(--bk-moon-0), var(--bk-moon-1) 70%, var(--bk-moon-2)); box-shadow: 0 0 var(--space-7) var(--bk-moon-1); will-change: transform; }
 .ms-skip { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); left: var(--space-4); z-index: 2; transition: opacity var(--motion-quick) var(--ease-standard); }
 .ms-skip.gone { opacity: 0; pointer-events: none; }
 /* 締めくくり：ひと言をもう一度（明朝、余白を大きく）。 */
@@ -585,7 +588,7 @@ img.event-pic { object-fit: contain; }
 @media (prefers-reduced-motion: reduce) {
   .ms-book { height: auto; }
   .ms-book .ms-sticky { position: relative; height: auto; padding: 16svh var(--space-5) var(--space-7); }
-  .bk-page, .ms-hero-hint, .ms-book-dive, .ms-world-paper, .ms-beats, .ms-caps-veil { display: none; }
+  .bk-page, .ms-hero-hint, .ms-book-dive, .ms-beats, .ms-caps-veil, .ms-flymoon { display: none; }
   .bk-cover { position: relative; aspect-ratio: 5 / 7; }
   .ms-world { height: auto; margin-top: 0; }
   .ms-world-stage { position: relative; height: auto; display: block; }
