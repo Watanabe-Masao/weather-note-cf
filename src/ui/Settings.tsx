@@ -4,6 +4,7 @@
 
 import { type ThemeChoice, useThemeChoice } from "../design/theme";
 import { ModalSheet, useSheetClose } from "./ModalSheet";
+import { EventPreviewSheet } from "./EventPreviewSheet";
 import { SunTestBoard } from "./SunTestBoard";
 import { HistoryCompareBoard } from "./HistoryCompareBoard";
 import { ShortHistoryBoard } from "./ShortHistoryBoard";
@@ -223,6 +224,23 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
   );
 }
 
+/** イベントの見出しの確かめ（docs/event-banner.md 5章）：管理者だけ。見出しの帯の一覧と、この日として見出しを表示。 */
+function EventPreviewSection() {
+  const { me } = useAccount();
+  const [open, setOpen] = useState(false);
+  if (me?.role !== "admin") return null;
+  return (
+    <section className="set-group" aria-labelledby="set-event">
+      <h3 id="set-event">イベントの見出し（確認用）</h3>
+      <Help lead text="満月・日食・月食の日の見出しの帯を、その日を待たずに確かめます。管理者にだけ表示されます。" />
+      <Button size="sm" className="start" onClick={() => setOpen(true)}>
+        帯の一覧と、この日として表示
+      </Button>
+      {open && <EventPreviewSheet onClose={() => setOpen(false)} />}
+    </section>
+  );
+}
+
 /**
  * 研究用（テスト）: the boards for looking into the models (#189, #207) — for the administrator only.
  * They change nothing in the app; other people's settings do not show them.
@@ -348,6 +366,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
       <AccountSection station={station} />
 
       <ResearchSection store={store} station={station} />
+      <EventPreviewSection />
 
       {beta.enabled && (
       <section className="set-group" aria-labelledby="set-beta">

@@ -2,7 +2,7 @@
 # 時計を満月の日（2026-11-24 ビーバームーン）に合わせ、3テーマで：絵の帯がアイコンと文字の場所に1枚、見出しの高さは
 # ふだんの日と同じ、「比較｜1日」と重ならない、押すと説明が開き閉じると消える。絵が読めないと手描きの帯（アイコンつき）。
 # ふだんの日は絵を読まず、前日は翌日の絵を読んでおく。
-import functools, http.server, threading, os, sys
+import functools, http.server, json, threading, os, sys
 from playwright.sync_api import sync_playwright
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -10,10 +10,14 @@ DIST = os.environ.get("WN_DIST") or os.path.join(HERE, "..", "dist", "client")
 PORT = int(os.environ.get("WN_PORT", "8812"))
 SHOTS = os.environ.get("WN_SHOTS")
 W = int(sys.argv[1]) if len(sys.argv) > 1 else 390
+ADMIN = {"on": False}  # 確認ページの段だけ、/api/auth/me が管理者を返す
 
 class H(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
     def do_GET(self):
+        if self.path.startswith("/api/auth/me") and ADMIN["on"]:
+            body = json.dumps({"user": {"id": "u1", "loginId": "masao", "name": "渡辺", "role": "admin", "research": {"granted": False, "version": None, "at": None}, "consentVersion": 1}, "setup": False}).encode()
+            self.send_response(200); self.send_header("Content-Type", "application/json"); self.end_headers(); self.wfile.write(body); return
         if self.path.startswith("/api/"):
             self.send_response(503); self.end_headers(); return
         if not os.path.exists(os.path.join(DIST, self.path.split("?")[0].lstrip("/"))):
@@ -81,6 +85,33 @@ with sync_playwright() as p:
         fb = pg.evaluate(HEAD)
         check(f"[{theme}] 絵が読めないと手描きの帯（アイコンつき）、見出しの高さは同じ", fb["art"] is None and fb["hand"] == 1 and fb["icon"] == 1 and fb["head"] == base["head"], fb)
         ctx.close()
+    # 確認ページ（管理者だけ、docs/event-banner.md 5章）：全部の種類の帯（見出しと同じ物）と台帳の状態、これからの1年。
+    # 「この日として見出しを表示」で、ふだんの日（11/10）の見出しが 2026/11/24 のビーバームーンの帯になり、元に戻すと戻る。
+    ADMIN["on"] = True
+    ctx, pg, asked = page(b, "2026-11-10T03:00:00Z", "navy")
+    pg.locator("button[aria-label='設定']").click(); pg.wait_for_timeout(700)
+    pg.locator(".msheet.settings .btn", has_text="帯の一覧と、この日として表示").click(); pg.wait_for_timeout(700)
+    pg.wait_for_function("document.querySelectorAll('.ev-year li').length > 0", timeout=10000)
+    kinds = pg.locator(".ev-kinds li").count(); arts = pg.locator(".ev-kinds .brand-art").count(); hands = pg.locator(".ev-kinds .brand-event").count()
+    year = pg.locator(".ev-year").inner_text(); meta = pg.locator(".ev-kinds").inner_text()
+    if SHOTS: pg.locator(".ev-kinds").screenshot(path=f"{SHOTS}-preview-{W}.png")
+    check("確認ページ：20種類（絵の帯13・手描き7：コーンムーンと食6種類）、これからの1年に 11/24 ビーバームーン、次の日付つき", kinds == 20 and arts == 13 and hands == 7 and "2026/11/24" in year and "ビーバームーン" in year and "次は 2027/7/19" in meta, (kinds, arts, hands, year[:80]))
+    pg.locator(".ev-kinds li", has_text="ウルフムーン").locator(".brand-art").click(); pg.wait_for_timeout(700)
+    t = pg.locator(".event-sheet").inner_text() if pg.locator(".event-sheet").count() else ""
+    pg.locator(".event-sheet .icon-btn.close").click(); pg.wait_for_timeout(600)
+    check("確認ページ：帯を押すと、その日（次の日付）の説明", "1/22 はウルフムーン" in t, t[:40])
+    pg.locator(".ev-year .btn", has_text="2026/11/24").click(); pg.wait_for_timeout(500)
+    pg.locator(".ev-preview .icon-btn.close").click(); pg.wait_for_timeout(600)
+    pg.locator(".msheet.settings .icon-btn.close").click(); pg.wait_for_timeout(700)
+    on = pg.evaluate(HEAD)
+    pg.locator("button[aria-label='設定']").click(); pg.wait_for_timeout(700)
+    pg.locator(".msheet.settings .btn", has_text="帯の一覧と、この日として表示").click(); pg.wait_for_timeout(700)
+    pg.locator(".ev-day .btn", has_text="元に戻す").click(); pg.wait_for_timeout(300)
+    pg.locator(".ev-preview .icon-btn.close").click(); pg.wait_for_timeout(600)
+    pg.locator(".msheet.settings .icon-btn.close").click(); pg.wait_for_timeout(700)
+    off = pg.evaluate(HEAD)
+    check("この日として見出しを表示：11/10 の見出しが 11/24 の帯になり、元に戻すとアイコンと文字", on["art"] is not None and on["icon"] == 0 and off["art"] is None and off["icon"] == 1 and off["hand"] == 0, (on, off))
+    ctx.close()
     b.close()
 srv.shutdown()
 print("ALL OK" if ok else "SOME NG")

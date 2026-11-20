@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { skyEventOn } from "../../shared/skyEvents";
+import { skyEventOn, type SkyEvent } from "../../shared/skyEvents";
 
 const KOCHI = { lat: 33.567, lon: 133.548 };
 const on = (d: string) => skyEventOn(d, KOCHI.lat, KOCHI.lon);
@@ -35,4 +35,24 @@ describe("空のイベントの帯（11/20）", () => {
       }
     }
   });
+});
+
+describe("skyEventsBetween（確認ページの一覧）", () => {
+  it("1年の毎日で skyEventOn と同じ。15年の食の日も同じ", async () => {
+    const { skyEventOn, skyEventsBetween } = await import("../../shared/skyEvents");
+    const { lat, lon } = { lat: 33.567, lon: 133.548 };
+    const year = skyEventsBetween("2026-11-20", "2027-11-19", lat, lon);
+    const byDay = new Map(year.map((x) => [x.date, x.event]));
+    // 探し始めが違うと時刻が数ミリ秒ずれる：1秒以内なら同じ。
+    const norm = (e: SkyEvent | null | undefined) => (e ? { ...e, at: Math.round(e.at / 1000), span: null, obscuration: e.obscuration == null ? null : Math.round(e.obscuration * 1e6) } : null);
+    const same = (a: SkyEvent | null | undefined, b: SkyEvent | null, d: string) => {
+      expect(norm(a), d).toEqual(norm(b));
+      if (a?.span && b?.span) expect(Math.abs(a.span.from - b.span.from) + Math.abs(a.span.to - b.span.to), d).toBeLessThan(2000);
+    };
+    for (let t = Date.parse("2026-11-20T00:00:00Z"); t <= Date.parse("2027-11-19T00:00:00Z"); t += 86_400_000) {
+      const d = new Date(t).toISOString().slice(0, 10);
+      same(byDay.get(d), skyEventOn(d, lat, lon), d);
+    }
+    for (const { date, event } of skyEventsBetween("2026-11-20", "2041-11-19", lat, lon).filter((x) => x.event.kind !== "full")) same(event, skyEventOn(date, lat, lon), date);
+  }, 60_000);
 });
