@@ -11,7 +11,7 @@
 // 月の色や見え方とは別（ページの終わりに断る）。GSAP と ScrollTrigger は、このページを開いたときだけ読み込む。
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { BLUE_MOON, fullMoonInfo, type FullMoonNameInfo } from "../../shared/fullMoonNames";
-import { fullMoonName, fullMoonsOfYear } from "../../shared/moon";
+import { fullMoonAlias, fullMoonName, fullMoonsOfYear } from "../../shared/moon";
 import { skyEventOn, type SkyEvent } from "../../shared/skyEvents";
 import { DEFAULT_LAT_LON } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
@@ -303,7 +303,9 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
                 <h2>{story?.en ?? title}</h2>
                 <Flourish />
                 <span className="bk-ja">{title}</span>
-                <small className="bk-sub">{j.m}月の満月の物語</small>
+                <small className="bk-sub">
+                  {j.m}月の満月の物語{!event.blue && fullMoonAlias(event.name, at) ? `・別名 ${fullMoonAlias(event.name, at)}` : ""}
+                </small>
                 <span className="bk-cover-shade" aria-hidden />
               </div>
             </div>

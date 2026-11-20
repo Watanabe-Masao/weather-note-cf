@@ -128,6 +128,14 @@ export function fullMoonName(at: number): { name: string; blue: boolean } {
   return { name: m === 9 && at < h ? MONTH_FULL[8] : MONTH_FULL[m], blue };
 }
 
+/**
+ * 呼び名の別名（2026-11-20 渡辺さん）：9月の満月がハーベストムーンになる年は、コーンムーンがその別名。
+ * それ以外の年の9月の満月は、コーンムーンが呼び名そのもの（fullMoonName）。
+ */
+export function fullMoonAlias(name: string | null | undefined, at: number): string | null {
+  return name === "ハーベストムーン" && jstMonth(at) === 8 ? "コーンムーン" : null; // jstMonth は 0 始まり（8＝9月）
+}
+
 /** 8つの形のひとこと（月のこよみの説明）。 */
 export const SHAPE_NOTE: Record<string, string> = {
   新月: "月が太陽と同じ方向にあり、照らされた面が地球から見えません。夜空に月は無く、星が見やすい時期です。",
