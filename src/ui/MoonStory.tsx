@@ -214,6 +214,8 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
           .to(".bk", { xPercent: 0, scale: () => dive().s, x: () => dive().x, y: () => dive().y, ease: "power2.inOut", duration: 1 }, 1.75)
           .to(".ms-book-dive", { opacity: 1, duration: 0.25 }, 2.55)
           .set(".ms-book > .ms-sticky", { autoAlpha: 0 }, 2.8);
+        // 場面の無い満月：覆った夜の色は本の終わりに自分で溶かす（場面が溶かす役をしないので）。
+        if (!scene) book.to(".ms-dive-wrap", { opacity: 0, duration: 0.3 }, 2.8);
         // 表紙のメダルの光が脈打つ（本が画面にある間だけ）。
         const glow = gsap.to(".bk-medal-glow", { opacity: 0.85, duration: 2.6, yoyo: true, repeat: -1, ease: "sine.inOut", paused: true });
         ScrollTrigger.create({ trigger: el.querySelector(".ms-book"), scroller, start: "top bottom", end: "bottom top", onToggle: (t) => (t.isActive ? glow.play() : glow.pause()) });
@@ -398,11 +400,18 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
                 <Flourish />
                 <h2>{title}</h2>
                 {story && <span className="bk-en">{story.en}</span>}
-                <div className="bk-medal">
-                  <span className="bk-medal-glow" aria-hidden />
-                  {pic && <img src={pic} alt="" className={wide ? "wide" : undefined} />}
-                  <MoonEmblem name={sceneKey ?? ""} className="bk-medal-emblem" />
-                </div>
+                {scene?.CoverArt ? (
+                  // 素材を重ねた表紙の絵（11/20 18:42 渡辺さんの素材）。
+                  <div className="bk-medal art">
+                    <scene.CoverArt />
+                  </div>
+                ) : (
+                  <div className="bk-medal">
+                    <span className="bk-medal-glow" aria-hidden />
+                    {pic && <img src={pic} alt="" className={wide ? "wide" : undefined} />}
+                    <MoonEmblem name={sceneKey ?? ""} className="bk-medal-emblem" />
+                  </div>
+                )}
                 {story?.tale && <p className="bk-tag">{story.tale.tagline}。</p>}
                 <small className="bk-sub">
                   The Story of the Full Moon{!event.blue && fullMoonAlias(event.name, at) ? `・別名 ${fullMoonAlias(event.name, at)}` : ""}
@@ -550,9 +559,30 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
                 ) : (
                   <button type="button" className={bk.next ? "ms-spine next" : "ms-spine"} style={spineVar(i)} disabled={!bk.at || !onNext} onClick={(e) => pull(e, bk)} aria-label={bk.at ? `${bk.name}の物語を開く（${jst(bk.at).m}/${jst(bk.at).d}）${bk.next ? "、次の満月" : ""}` : `${bk.name}（5年以内に無し）`}>
                     <span className="sp-band" aria-hidden />
-                    <span className="sp-moon" aria-hidden />
-                    <MoonEmblem name={bk.name} className="sp-emblem" />
-                    <b>{bk.name}</b>
+                    {STORY_SCENES[bk.name]?.spineArt ? (
+                      // 素材の型押しの月と、紋の代わりの絵（11/20 18:42 渡辺さんの素材）。
+                      <>
+                        <img className="sp-moon art" src={STORY_SCENES[bk.name]!.spineArt!.moon} alt="" />
+                        <img className="sp-emblem art" src={STORY_SCENES[bk.name]!.spineArt!.emblem} alt="" />
+                      </>
+                    ) : (
+                      <>
+                        <span className="sp-moon" aria-hidden />
+                        <MoonEmblem name={bk.name} className="sp-emblem" />
+                      </>
+                    )}
+                    {/* 「〇〇／ムーン」の二列（見本の背と同じ）。 */}
+                    <b>
+                      {bk.name.endsWith("ムーン") ? (
+                        <>
+                          {bk.name.slice(0, -3)}
+                          <br />
+                          ムーン
+                        </>
+                      ) : (
+                        bk.name
+                      )}
+                    </b>
                     {bk.at && <small>{jst(bk.at).m}/{jst(bk.at).d}</small>}
                     <SpineHills className="sp-hills" />
                     <span className="sp-band" aria-hidden />

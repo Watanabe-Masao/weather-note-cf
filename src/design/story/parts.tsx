@@ -71,8 +71,20 @@ export function MoonDefs({ p }: { p: string }): ReactElement {
  * 満月（光・円・海の模様）。at は最初の位置（transform）。動きは場面の側で、`.${p}-moon` を動かす。
  * data-story-moon / data-story-disc は、物語の月を今夜の情報の月へ引き継ぐ目印（一つの場面に一つ）。
  */
-export function StoryMoon({ p, at, r = 62 }: { p: string; at: string; r?: number }): ReactElement {
+export function StoryMoon({ p, at, r = 62, img }: { p: string; at: string; r?: number; img?: string }): ReactElement {
   const k = r / 62;
+  // 渡辺さんの素材の月の絵があれば、それを円に切って使う（11/20 18:42）。無ければ描いた月。
+  if (img)
+    return (
+      <g className={`${p}-moon`} transform={at} data-story-moon="">
+        <circle r={190 * k} fill={`url(#${p}-moon-glow)`} className={`${p}-moon-glow`} />
+        <clipPath id={`${p}-moon-clip`}>
+          <circle r={r} />
+        </clipPath>
+        <image href={img} x={-r * 1.06} y={-r * 1.06} width={r * 2.12} height={r * 2.12} clipPath={`url(#${p}-moon-clip)`} preserveAspectRatio="xMidYMid slice" />
+        <circle r={r} fill="none" data-story-disc="" />
+      </g>
+    );
   return (
     <g className={`${p}-moon`} transform={at} data-story-moon="">
       <circle r={190 * k} fill={`url(#${p}-moon-glow)`} className={`${p}-moon-glow`} />

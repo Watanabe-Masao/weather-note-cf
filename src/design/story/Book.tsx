@@ -3,6 +3,7 @@
 import type { CSSProperties, ReactElement } from "react";
 import { BOOK } from "./palette";
 import { LEATHER, WOOD } from "./textures";
+import { SHELF_SLICE, storyAsset } from "./storyAssets";
 
 /** 物語のページの CSS の変数（テーマによらず一つ）。 */
 export function bookVars(): CSSProperties {
@@ -18,6 +19,9 @@ export function bookVars(): CSSProperties {
     ["--bk-night-1" as string]: BOOK.night[1],
     ["--bk-ribbon" as string]: BOOK.ribbon,
     ["--bk-leather" as string]: LEATHER,
+    // 本棚の絵（11/20 18:50 渡辺さん）を枠として伸ばす（border-image）。
+    ["--ms-shelf-img" as string]: `url("${storyAsset("common", "shelf")}")`,
+    ["--ms-shelf-slice" as string]: `${SHELF_SLICE.join(" ")} fill`,
     ["--bk-woodgrain" as string]: WOOD,
     ["--bk-emboss-0" as string]: BOOK.emboss[0],
     ["--bk-emboss-1" as string]: BOOK.emboss[1],

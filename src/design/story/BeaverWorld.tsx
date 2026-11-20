@@ -6,10 +6,14 @@
 // 色はここ（デザインの層）にだけ書く。動きは buildBeaverScene（GSAP、スクロールに合わせる）。
 // 絵は文化的なイメージで、実際の月の色や見え方とは別（物語のページで断る）。
 import type { ReactElement } from "react";
+import { storyAsset } from "./storyAssets";
 import { cssSky, MoonDefs, pine, rand, SkyGradient as Sky, STORY_H as H, STORY_MOON as MOON, STORY_W as W, StoryMoon, stars as starField } from "./parts";
 
 /** 物語の一文の数（場面の数）。 */
 export const BEAVER_BEATS = 9;
+
+/** 渡辺さんの素材（src/design/story/storyAssets.ts の beaver）。 */
+const A = (name: string) => storyAsset("beaver", name);
 
 const SKY = {
   dusk: ["#3a3f7e", "#b2617a", "#f0a565", "#f7cf8a"],
@@ -17,56 +21,9 @@ const SKY = {
   night: ["#060d26", "#0c1a42", "#16295a", "#223a6e"],
 };
 const GOLD = "#f1d38a";
-const BARK = "#2a1d14";
 const FUR = ["#5a3d27", "#3b281a"];
 const WATER = ["#2b4a7d", "#16294f", "#0b1838"];
 const LEAF = ["#e8a63d", "#d9772f", "#f2c35a", "#c85a2a"];
-
-/** 葉の落ちかけた広葉樹（幹と、金の葉の塊）。 */
-function oak(x: number, y: number, h: number, key: string, leafy: number) {
-  const r = rand(x * 7 + y);
-  const leaves = Array.from({ length: Math.round(18 * leafy) }, (_, i) => {
-    const a = r() * Math.PI * 2;
-    const rr = r() * h * 0.32;
-    return <ellipse key={i} cx={x + Math.cos(a) * rr * 1.3} cy={y - h * 0.72 + Math.sin(a) * rr * 0.8} rx={h * 0.07} ry={h * 0.05} fill={LEAF[i % LEAF.length]} opacity={0.85} />;
-  });
-  return (
-    <g key={key}>
-      <path d={`M${x - 3} ${y} C ${x - 4} ${y - h * 0.4} ${x - 2} ${y - h * 0.5} ${x} ${y - h * 0.62} M${x} ${y - h * 0.55} C ${x + h * 0.12} ${y - h * 0.65} ${x + h * 0.2} ${y - h * 0.8} ${x + h * 0.26} ${y - h * 0.86} M${x} ${y - h * 0.6} C ${x - h * 0.14} ${y - h * 0.72} ${x - h * 0.2} ${y - h * 0.85} ${x - h * 0.28} ${y - h * 0.9}`} stroke={BARK} strokeWidth={3} fill="none" strokeLinecap="round" />
-      {leaves}
-    </g>
-  );
-}
-
-/** ビーバー（座って枝を持つ）。原点は足もと。 */
-function BeaverSitting() {
-  return (
-    <g>
-      {/* 尾（平たいうろこ模様） */}
-      <ellipse cx={-34} cy={-6} rx={26} ry={9} transform="rotate(-12 -34 -6)" fill={FUR[1]} />
-      <g stroke={FUR[0]} strokeWidth={0.8} opacity={0.6}>
-        <path d="M-52 -10 l34 8 M-50 -4 l32 -6 M-44 -14 l10 14 M-34 -16 l8 16 M-24 -14 l6 12" />
-      </g>
-      {/* 体 */}
-      <path d="M-22 0 C -30 -20 -24 -46 -2 -54 C 14 -60 26 -50 28 -36 C 30 -22 26 -6 18 0 Z" fill={FUR[0]} />
-      {/* 月明かりの縁どり */}
-      <path d="M-20 -24 C -18 -40 -8 -52 6 -56" stroke={GOLD} strokeWidth={1.6} fill="none" opacity={0.55} strokeLinecap="round" />
-      {/* 頭 */}
-      <path d="M8 -52 C 6 -66 18 -76 30 -74 C 40 -72 46 -64 44 -56 C 42 -50 34 -46 26 -46 C 18 -46 10 -46 8 -52 Z" fill={FUR[0]} />
-      <circle cx={16} cy={-71} r={4} fill={FUR[1]} />
-      <circle cx={34} cy={-64} r={1.6} fill={GOLD} />
-      <ellipse cx={44} cy={-58} rx={3} ry={2.4} fill={FUR[1]} />
-      <rect x={36} y={-50} width={4} height={5} rx={1} fill="#efe2c4" />
-      {/* 前足と枝（枝を置く動きで回る：.bw-branch） */}
-      <g className="bw-branch">
-        <path d="M14 -34 C 24 -32 32 -36 38 -42" stroke={FUR[1]} strokeWidth={5} fill="none" strokeLinecap="round" />
-        <path d="M-8 -40 L 62 -54" stroke="#7a5532" strokeWidth={3.4} strokeLinecap="round" />
-        <path d="M50 -52 l10 -10 M56 -53 l12 -2" stroke="#7a5532" strokeWidth={1.8} strokeLinecap="round" />
-        <ellipse cx={62} cy={-63} rx={4} ry={2.4} fill={LEAF[0]} transform="rotate(-30 62 -63)" />
-      </g>
-    </g>
-  );
-}
 
 /** 泳ぐビーバー（頭と背中だけ水の上、枝をくわえる）。原点は水面の頭の下。 */
 function BeaverSwimming() {
@@ -123,6 +80,23 @@ function Stash() {
 /** 場面の最初の空（本のページの窓から場面へつなぐ色。CSS の背景）。 */
 export const BEAVER_SKY = cssSky(SKY.dusk);
 
+/**
+ * 表紙の真ん中の絵（11/20 18:42 渡辺さんの素材の表紙を、素材を重ねて組み直したもの）：満月、紅葉の木、水面の月の道、
+ * 巣の上のビーバー。文字は表紙の側（HTML）で重ねる（素材の README「絵の中の文字は作り直す」）。並べ方は CSS（.bca-*）。
+ */
+export function BeaverCoverArt(): ReactElement {
+  return (
+    <span className="bca" aria-hidden>
+      <img className="bca-moon" src={A("moon")} alt="" />
+      <img className="bca-ref" src={A("reflection")} alt="" />
+      <img className="bca-tree l" src={A("tree")} alt="" />
+      <img className="bca-tree r" src={A("tree")} alt="" />
+      <img className="bca-beaver" src={A("beaver-nest")} alt="" />
+      <img className="bca-reed" src={A("reed")} alt="" />
+    </span>
+  );
+}
+
 /** 本のページの窓の絵（場面の最初のコマの小さな絵：夕暮れの空、丘、針葉樹、川）。窓の中へ寄ると、場面へつながる。 */
 export function BeaverWindow(): ReactElement {
   const r = rand(7);
@@ -147,9 +121,11 @@ export function BeaverWindow(): ReactElement {
 export function BeaverWorld(): ReactElement {
   const r = rand(42);
   const stars = starField("bw", 80, 42);
-  const leaves = Array.from({ length: 16 }, (_, i) => (
-    <path key={i} className="bw-leaf" d="M0 -5 C 4 -4 6 0 0 6 C -6 0 -4 -4 0 -5 Z" fill={LEAF[i % LEAF.length]} transform={`translate(${(r() * W).toFixed(0)} -20)`} />
-  ));
+  const LEAVES = ["leaf-large", "leaf-small", "leaf-tiny"];
+  const leaves = Array.from({ length: 16 }, (_, i) => {
+    const sz = [22, 16, 11][i % 3];
+    return <image key={i} className="bw-leaf" href={A(LEAVES[i % 3])} x={-sz / 2} y={-sz / 2} width={sz} height={sz} transform={`translate(${(r() * W).toFixed(0)} -20)`} />;
+  });
   const flakes = Array.from({ length: 70 }, (_, i) => <circle key={i} className="bw-flake" r={1.6 + r() * 2.2} cx={(r() * W).toFixed(0)} cy={-10} fill="#ffffff" opacity={0.9} />);
   const farPines = Array.from({ length: 24 }, (_, i) => pine(i * 18 + r() * 8 - 6, 552 + r() * 8, 28 + r() * 18, "#1c2a52", `fp${i}`));
   const midPines = Array.from({ length: 11 }, (_, i) => pine(i * 40 + r() * 16, 604 + r() * 8, 54 + r() * 30, "#141d3c", `mp${i}`));
@@ -192,7 +168,7 @@ export function BeaverWorld(): ReactElement {
         <rect className="bw-sky-night" x={-300} y={-400} width={W + 600} height={H + 800} fill="url(#bw-sky-night)" opacity={0} />
         <g className="bw-stars">{stars}</g>
         {/* 満月（丘の向こうから昇る） */}
-        <StoryMoon p="bw" at="translate(150 640)" />
+        <StoryMoon p="bw" at="translate(150 640)" img={A("moon")} />
         {/* 月の出の前の明るみ（丘の向こう） */}
         <ellipse className="bw-moonrise" cx={150} cy={540} rx={170} ry={90} fill="url(#bw-moon-glow)" opacity={0} />
         {/* 遠い山 */}
@@ -200,19 +176,18 @@ export function BeaverWorld(): ReactElement {
         <path d="M-40 575 C 40 545 120 560 200 548 C 280 536 360 552 440 545 L 440 610 L -40 610 Z" fill="#22305e" />
         <g>{farPines}</g>
         <g className="bw-autumn">
-          {oak(30, 612, 96, "o1", 1)}
-          {oak(355, 606, 110, "o2", 0.9)}
-          {oak(210, 600, 70, "o3", 0.7)}
+          {/* 紅葉の木（渡辺さんの素材 11/20 18:42） */}
+          <image href={A("tree")} x={-40} y={512} width={136} height={100} />
+          <image href={A("tree")} x={288} y={496} width={150} height={110} />
+          <image href={A("tree")} x={178} y={540} width={82} height={60} opacity={0.85} />
         </g>
         <g>{midPines}</g>
         {/* 川 */}
         <path d="M-40 618 C 60 610 140 626 220 620 C 300 614 360 622 440 616 L 440 740 L -40 740 Z" fill="url(#bw-water)" />
         <path className="bw-water-night" d="M-40 618 C 60 610 140 626 220 620 C 300 614 360 622 440 616 L 440 740 L -40 740 Z" fill="#081230" opacity={0} />
-        <g className="bw-road" opacity={0} filter="url(#bw-soft)">
-          <rect x={132} y={622} width={36} height={112} fill="url(#bw-road)" />
-          {Array.from({ length: 9 }, (_, i) => (
-            <ellipse key={i} cx={150 + (i % 2 ? 4 : -4)} cy={628 + i * 12} rx={26 - i * 2} ry={1.4} fill={MOON.light} opacity={0.7 - i * 0.06} />
-          ))}
+        <g className="bw-road" opacity={0}>
+          {/* 月の道（素材の水面の映り込み） */}
+          <image href={A("reflection")} x={104} y={618} width={92} height={118} preserveAspectRatio="none" />
         </g>
         <g className="bw-ripples" stroke="#9fb7e6" strokeWidth={1} opacity={0.5} fill="none">
           <path d="M20 650 q 20 -4 40 0 M110 690 q 26 -5 52 0 M250 700 q 22 -4 44 0 M320 660 q 18 -3 36 0" />
@@ -233,8 +208,13 @@ export function BeaverWorld(): ReactElement {
           <BeaverSwimming />
           <path d="M-44 2 L -90 12 M-44 2 L -86 -6" stroke="#bcd0f2" strokeWidth={1} opacity={0.6} />
         </g>
-        <g className="bw-sit" transform="translate(262 614) scale(1.25)" opacity={0}>
-          <BeaverSitting />
+        {/* 月を見上げるビーバー（素材）：月が昇るコマで、枝を持つ姿から替わる。 */}
+        <g className="bw-look" opacity={0}>
+          <image href={A("beaver")} x={214} y={520} width={88} height={99} />
+        </g>
+        <g className="bw-sit" opacity={0}>
+          {/* 枝を持つビーバー（素材）。枝を置く動きは、この絵を少し傾けて（.bw-branch）。 */}
+          <image className="bw-branch" href={A("beaver-branch")} x={206} y={540} width={130} height={95} />
         </g>
         {/* 手前の岸と葦 */}
         <path d="M-300 740 C 60 726 160 736 230 732 C 300 728 360 736 700 728 L 700 1300 L -300 1300 Z" fill="#0b1328" />
@@ -247,13 +227,10 @@ export function BeaverWorld(): ReactElement {
         </g>
         {/* 上の枝（見本の金の葉の枝） */}
         <g className="bw-bough">
-          <path d="M-20 70 C 40 80 80 110 120 150 C 140 170 150 190 156 210 M60 98 C 70 70 92 60 110 58 M98 132 C 120 118 140 116 160 122" stroke={BARK} strokeWidth={5} fill="none" strokeLinecap="round" />
-          {Array.from({ length: 22 }, (_, i) => {
-            const t = r();
-            const x = 10 + t * 150 + (r() - 0.5) * 30;
-            const y = 70 + t * 130 + (r() - 0.5) * 40;
-            return <ellipse key={i} cx={x} cy={y} rx={7} ry={4} transform={`rotate(${(r() * 180).toFixed(0)} ${x.toFixed(0)} ${y.toFixed(0)})`} fill={LEAF[i % LEAF.length]} />;
-          })}
+          <image href={A("reed")} x={-14} y={652} width={92} height={109} opacity={0.9} />
+        <image href={A("reed")} x={322} y={664} width={84} height={100} opacity={0.85} />
+        {/* 上の紅葉の枝（素材） */}
+          <image href={A("branch")} x={-40} y={40} width={240} height={148} transform="rotate(18 80 114)" />
         </g>
       </g>
       {/* 落ち葉と雪（場面に合わせて見せる） */}
@@ -314,7 +291,7 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .to(".bw-sit", { opacity: 1, duration: 0.25 }, 2.5)
     .to(".bw-stash", { opacity: 1, duration: 0.4 }, 2.6)
     // 枝を住みかに置く（16:45 のレビュー「ビーバーの存在感」）：前足と枝が下りて、また上がる。
-    .fromTo(".bw-branch", { rotation: -16, svgOrigin: "14 -34" }, { rotation: 8, duration: 0.18, ease: "power1.inOut", yoyo: true, repeat: 3 }, 2.55)
+    .fromTo(".bw-branch", { rotation: -5, svgOrigin: "262 632" }, { rotation: 4, duration: 0.18, ease: "power1.inOut", yoyo: true, repeat: 3 }, 2.55)
     .to(".bw-camera", { scale: 1.5, x: -150, y: -102, duration: 1, ease: "none" }, 2);
   // 4〜5 日が落ちる（16:27 のレビュー「昼から夜への移り変わりが急」）：空・水面・紅葉・星を時間差で、二つの文にまたがって。
   tl.to(".bw-sky-twi", { opacity: 1, duration: 0.9, ease: "sine.inOut" }, 2.9)
@@ -332,6 +309,9 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
   tl.to(".bw-camera", { scale: 1, x: 0, y: -8, duration: 1, ease: "none" }, 5)
     .to(".bw-moon", { attr: { transform: "translate(150 380)" }, duration: 1.1, ease: "power1.out" }, 5)
     .to(".bw-leaves", { opacity: 0, duration: 0.4 }, 5)
+    // ビーバーが月を見上げる（枝を持つ姿から、素材の見上げる姿へ）。
+    .to(".bw-sit", { opacity: 0, duration: 0.3 }, 5.45)
+    .to(".bw-look", { opacity: 1, duration: 0.3 }, 5.45)
     // 月が昇るにつれ、まわりは少し沈み（星と紅葉）、月の道が水面に伸びる（16:45 のレビュー「月光と水面の反射を連動」）。
     .to(".bw-stars", { opacity: 0.5, duration: 1 }, 5.2)
     .to(".bw-autumn", { opacity: 0.4, duration: 1 }, 5.2)
