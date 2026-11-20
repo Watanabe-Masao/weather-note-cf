@@ -290,7 +290,8 @@ export function MoonStory({
   const pic = eventIcon(event) ?? eventArt(event, "navy")?.src ?? null;
   const wide = !eventIcon(event);
   // 絵本の場面（一文が一コマ）。場面の無い満月は、本の表紙と文だけ。
-  const lines = story?.tale?.lines ?? [];
+  // 絵本の形（book）を持つ満月は、そのページから（1ページ＝1コマ。行はいまは一つの字幕にまとめる）。
+  const lines = story?.book ? story.book.pages.map((p) => p.lines.join("")) : (story?.tale?.lines ?? []);
   const linesKey = lines.join("\n");
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 文の中身が同じなら同じ重み（配列は毎回作られる）
   const weights = useMemo(() => beatWeights(lines), [linesKey]);
@@ -1383,8 +1384,9 @@ export function MoonStory({
       {story &&
         (
           [
-            ["名前の由来", story.origin, false],
-            ["自然との関係", story.nature, true],
+            // 絵本の形を持つ満月は、あとがき・自然と科学を book から（無ければ、名前の由来・自然との関係）。
+            [story.book?.afterword.title ?? "名前の由来", story.book?.afterword.paragraphs ?? story.origin, false],
+            [story.book?.science.title ?? "自然との関係", story.book?.science.sections.map((x) => x.text) ?? story.nature, true],
           ] as const
         ).map(([head, paras, last]) => (
           <section key={head} className="ms-chapter ms-text">
