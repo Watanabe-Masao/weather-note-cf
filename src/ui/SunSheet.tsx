@@ -10,7 +10,8 @@ import { skyAt, type SkyColour } from "../../shared/sky";
 import { ModalSheet } from "./ModalSheet";
 import { Button, Fold, IconButton, InfoNote, Segmented } from "./kit";
 import { TimeBar } from "./TimeBar";
-import { moonLimb, moonNorth, moonPhase, moonPosition, moonTimes, moonTint, moonTopo } from "../../shared/moon";
+import { moonLimb, moonNorth, moonPhase, moonPosition, moonTimes, moonTopo } from "../../shared/moon";
+import { moonSeen } from "../../shared/moonLook";
 import { DEFAULT_LAT_LON, solarAltitude, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
 import { jstToday } from "../../shared/dates";
 import { azDiff, magneticDeclination, project, tapCorrection } from "../../shared/skyLook";
@@ -219,7 +220,9 @@ export function SunSheet({
   const msAt = sky3.day0 + at * 60_000;
   const topoAt = moonTopo(msAt, ll.lat, ll.lon);
   // 空を見上げるの月：見かけの大きさ・光っている側・模様の向き・高さの色も（11/19 レビュー）。
-  const moonAt = { altitude: topoAt.altitude, azimuth: topoAt.azimuth, diameter: topoAt.diameter, limb: moonLimb(msAt, ll.lat, ll.lon), north: moonNorth(msAt, ll.lat, ll.lon), tint: moonTint(topoAt.altitude) };
+  // 色と濃さは見え方（11/20 調査 MA-02）：その時刻の空の明るさに対して。
+  const seenAt = moonSeen(msAt, date, at, ll.lat, ll.lon);
+  const moonAt = { altitude: topoAt.altitude, azimuth: topoAt.azimuth, diameter: topoAt.diameter, limb: moonLimb(msAt, ll.lat, ll.lon), north: moonNorth(msAt, ll.lat, ll.lon), tint: seenAt.tint, strength: seenAt.strength };
   const sunAzAt = solarAzimuth(date, at, ll.lat, ll.lon);
   const phaseAt = moonPhase(sky3.day0 + at * 60_000);
   // 月の線（地平線より上だけ）を x・y の関数でつなぐ：下に入るとそこで切る。方位の線では 360°→0° をまたぐ所でも切る。
@@ -706,7 +709,7 @@ function usePinch(zoom: number, onZoom: (z: number) => void) {
  */
 const FOV = 60;
 /** 空を見上げるの月：位置と、見かけの大きさ（直径°）・光っている側・模様の向き（どちらも天頂から反時計回り）・高さの色。 */
-type SkyMoon = { altitude: number; azimuth: number; diameter?: number; limb?: number; north?: number; tint?: string };
+type SkyMoon = { altitude: number; azimuth: number; diameter?: number; limb?: number; north?: number; tint?: string; strength?: number };
 /** 太陽の見かけの大きさ（直径°、年の平均）。 */
 const SUN_DIAMETER = 0.533;
 /** 背面カメラ（1倍）の長い辺の画角（°）：iPhone の広角（26mm 相当、4:3）でおよそ 67°。映像を窓に「覆う」で合わせる。 */
@@ -906,7 +909,8 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
         {moon.altitude >= 0 && mo.inside && (
           <g className="sky-body">
             {/* 傾き：光っている側と模様の向きは天頂から測った角なので、画面の上と天頂の向きの差（ロール）を足す。 */}
-            <g transform={`translate(${(mo.x - moonR).toFixed(1)} ${(mo.y - moonR).toFixed(1)})`}>
+            {/* 濃さは見え方（MA-02）：昼の空では淡く。輪と名前は見つけられるようにそのまま。 */}
+            <g transform={`translate(${(mo.x - moonR).toFixed(1)} ${(mo.y - moonR).toFixed(1)})`} opacity={moon.strength ?? 1}>
               <MoonGlyph phase={phase} size={moonR * 2} limb={moon.limb != null ? moon.limb + upAt : undefined} north={moon.north != null ? moon.north + upAt : undefined} tint={moon.tint} seen />
             </g>
             <circle cx={mo.x} cy={mo.y} r={moonR + 7 * big} className="sky-body-ring" />
