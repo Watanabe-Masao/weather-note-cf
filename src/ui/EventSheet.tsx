@@ -5,7 +5,7 @@
 import { useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { BLUE_MOON, fullMoonInfo } from "../../shared/fullMoonNames";
-import { fullMoonsOfYear, moonTopo } from "../../shared/moon";
+import { fullMoonAlias, fullMoonsOfYear, moonTopo } from "../../shared/moon";
 import { SKY_EVENT_NAME, type SkyEvent } from "../../shared/skyEvents";
 import { DEFAULT_LAT_LON, solarAltitude } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
@@ -70,6 +70,7 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
           <small>{kicker}</small>
           <b>{what}</b>
           {full && (info?.en ?? (event.blue ? BLUE_MOON.en : null)) && <span>{info?.en ?? BLUE_MOON.en}</span>}
+          {full && !event.blue && fullMoonAlias(event.name, event.at) && <span>別名 {fullMoonAlias(event.name, event.at)}</span>}
         </div>
         <EventMomentCard event={event} stage={stage} />
       </div>

@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { clockOf } from "../../shared/dayParts";
 import { BLUE_MOON, FULL_MOON_NOTE, fullMoonInfo, type FullMoonNameInfo } from "../../shared/fullMoonNames";
-import { fullMoonsOfYear, type FullMoonFacts } from "../../shared/moon";
+import { fullMoonAlias, fullMoonsOfYear, type FullMoonFacts } from "../../shared/moon";
 import { ModalSheet } from "./ModalSheet";
 import { Glyph, IconButton, InfoNote } from "./kit";
 import { PhaseIcon } from "./moonParts";
@@ -84,7 +84,7 @@ export function FullMoonSheet({ at, lat, lon, where, onClose }: { at: number; la
                 </span>
                 <span className="fm-name">
                   <b>{f.blue ? "ブルームーン" : f.name}</b>
-                  <small>{f.blue ? `${f.name}の月の2回目` : info?.short}</small>
+                  <small>{f.blue ? `${f.name}の月の2回目` : `${fullMoonAlias(f.name, f.at) ? `別名 ${fullMoonAlias(f.name, f.at)}。` : ""}${info?.short ?? ""}`}</small>
                   {tags.length > 0 && (
                     <span className="fm-tags">
                       {tags.map((t) => (
