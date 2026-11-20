@@ -16,11 +16,16 @@ export function bookVars(): CSSProperties {
     ["--bk-night-0" as string]: BOOK.night[0],
     ["--bk-night-1" as string]: BOOK.night[1],
     ["--bk-ribbon" as string]: BOOK.ribbon,
+    ["--bk-wood-0" as string]: BOOK.wood[0],
+    ["--bk-wood-1" as string]: BOOK.wood[1],
     ["--bk-moon-0" as string]: BOOK.moon[0],
     ["--bk-moon-1" as string]: BOOK.moon[1],
     ["--bk-moon-2" as string]: BOOK.moon[2],
   } as CSSProperties;
 }
+
+/** 本棚の i 冊目の背の色。 */
+export const spineVar = (i: number): CSSProperties => ({ ["--spine" as string]: BOOK.spines[i % BOOK.spines.length] }) as CSSProperties;
 
 /** 四隅の唐草（左上の形。ほかの隅は回して使う）。 */
 function Corner({ t }: { t: string }) {
