@@ -604,6 +604,9 @@ img.event-pic { object-fit: contain; }
 .ms-info { gap: var(--space-4); }
 .ms-info h3 { font-family: var(--font-story); font-weight: var(--weight-regular); letter-spacing: 0.1em; }
 .ms-card { width: 100%; text-align: left; }
+/* 紙を重ねる（11/21）：外が沈み、内が滑り込む。後の紙ほど上に重なる（文書の順に描く）。 */
+.ms-sheet { position: relative; width: 100%; will-change: transform; }
+.ms-sheet-in { will-change: transform; }
 .ms-card .event-moment-card { margin-top: 0; }
 .ms-card .emc-time { text-shadow: 0 0 var(--space-5) var(--ev-glow); }
 .ms-card .emc-clouds path { fill: var(--ink-tertiary); opacity: 0.35; }
@@ -657,7 +660,8 @@ img.event-pic { object-fit: contain; }
 }
 @keyframes ms-nudge { 0%, 100% { transform: translateY(0); } 40% { transform: translateY(calc(var(--space-2) * -1)); } }
 .ms-hero-hint { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-5)); display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--size-xs); letter-spacing: 0.2em; color: var(--ink-tertiary); }
-.ms-chapter { position: relative; overflow: hidden; display: grid; justify-items: center; gap: var(--space-5); padding: 18svh var(--space-6); text-align: center; }
+/* カードとカードの間（11/21 0:36 渡辺さん「半分ぐらいに」）：上下 18svh → 9svh。 */
+.ms-chapter { position: relative; overflow: hidden; display: grid; justify-items: center; gap: var(--space-5); padding: 9svh var(--space-6); text-align: center; }
 .ms-chapter > * { position: relative; max-width: 30em; }
 .ms-chapter h3 { margin: 0; font-size: var(--size-title); font-weight: var(--weight-bold); letter-spacing: 0.04em; }
 .ms-chapter > small { font-size: var(--size-sm); letter-spacing: 0.16em; color: var(--ink-secondary); }
