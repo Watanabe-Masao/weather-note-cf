@@ -803,6 +803,104 @@ export function MoonStory({
                 },
               );
           });
+        // 紙を重ねる（11/21 渡辺さん「カードとカードは下から上に来るだけ。もうちょい表現を」→ おすすめの「紙を重ねる＋インクが浮かぶ」）：
+        // 次の紙は少し傾いて下から滑り込み、まっすぐ落ち着く。前の紙は少し遅れて奥へ沈み、暗くなる（次の紙がその上に重なる）。
+        // 沈むのは外の .ms-sheet、滑り込むのは内の .ms-sheet-in（同じ要素の同じ値を二つの動きで取り合わない）。
+        const sheets = gsap.utils.toArray<HTMLElement>(".ms-sheet", el);
+        sheets.forEach((sh, i) => {
+          const inner = sh.querySelector<HTMLElement>(".ms-sheet-in");
+          if (inner)
+            gsap.fromTo(
+              inner,
+              { opacity: 0, y: 96, rotate: i % 2 ? 1.6 : -1.6 },
+              {
+                opacity: 1,
+                y: 0,
+                rotate: 0,
+                ease: "power2.out",
+                scrollTrigger: {
+                  trigger: sh,
+                  scroller,
+                  start: "clamp(top 100%)",
+                  end: "clamp(top 58%)",
+                  scrub: 0.6,
+                },
+              },
+            );
+          // 沈むのは、次の紙が別の章のときだけ（今夜の情報の二枚は並べて読むので、上の一枚を隠さない）。
+          const next = sheets[i + 1];
+          if (next && next.closest("section") !== sh.closest("section"))
+            gsap.fromTo(
+              sh,
+              { y: 0, scale: 1, opacity: 1 },
+              {
+                y: 72,
+                scale: 0.94,
+                opacity: 0.5,
+                ease: "none",
+                immediateRender: false,
+                scrollTrigger: {
+                  trigger: next,
+                  scroller,
+                  start: "top 92%",
+                  end: "top 30%",
+                  scrub: 0.6,
+                },
+              },
+            );
+        });
+        // インクが浮かぶ：紙が落ち着いてから、見出しと本文は滲みからくっきりへ、象徴の言葉の札ははんこを押すように、
+        // 下のセピアの絵は下から筆で塗るように。読む速さに合わせてゆっくり（戻ると消え、もう一度来ると浮かぶ）。
+        gsap.utils.toArray<HTMLElement>(".ms-paper", el).forEach((pp) => {
+          const q = (sel: string) =>
+            gsap.utils.toArray<HTMLElement>(sel, pp);
+          const tl = gsap.timeline({
+            paused: true,
+            defaults: { ease: "power2.out" },
+          });
+          tl.fromTo(
+            q(".ms-phases, h3, .ms-leafrule, .bk-flourish"),
+            { opacity: 0, filter: "blur(6px)" },
+            { opacity: 1, filter: "blur(0px)", duration: 1.1, stagger: 0.25 },
+          )
+            .fromTo(
+              q(":scope > p:not(.ms-symbols)"),
+              { opacity: 0, filter: "blur(4px)", y: 6 },
+              {
+                opacity: 1,
+                filter: "blur(0px)",
+                y: 0,
+                duration: 1.4,
+                stagger: 0.7,
+              },
+              "-=0.5",
+            )
+            .fromTo(
+              q(".ms-symbols em"),
+              { opacity: 0, scale: 1.5 },
+              {
+                opacity: 1,
+                scale: 1,
+                duration: 0.3,
+                ease: "power4.in",
+                stagger: 0.32,
+              },
+              "-=0.3",
+            )
+            .fromTo(
+              q(".ms-paper-art"),
+              { clipPath: "inset(100% 0% 0% 0%)" },
+              { clipPath: "inset(0% 0% 0% 0%)", duration: 1.8, ease: "power1.inOut" },
+              "-=0.6",
+            );
+          ScrollTrigger.create({
+            trigger: pp,
+            scroller,
+            start: "top 62%",
+            onEnter: () => tl.play(),
+            onLeaveBack: () => tl.reverse(),
+          });
+        });
         // 物語から今夜の情報へ移る間の一言：画面の下から入ると現れ、真ん中を過ぎると消える（ずれは少し、文字は動かしすぎない）。
         // 物語から今夜の情報へ移る間の一言（11/20 21:16 渡辺さん「すっと現れて、滲みながら消える」）：くっきり現れ、
         // 消えるときは一字ずつ滲んで溶ける（端の字から少し先に、字間がわずかに開く）。滲みは控えめ（iPhone で重くしない）。
@@ -1159,16 +1257,21 @@ export function MoonStory({
           {j.m}月{j.d}日
         </small>
         <h3 className="ms-rise">今夜の{title}</h3>
-        <div className="ms-rise ms-card">
-          <EventMomentCard event={event} stage={stage} />
+        {/* 紙を重ねる見せ方（11/21 渡辺さん「おすすめで」）：外の .ms-sheet が奥へ沈み、内の .ms-sheet-in が傾いて滑り込む。 */}
+        <div className="ms-sheet">
+          <div className="ms-sheet-in ms-card">
+            <EventMomentCard event={event} stage={stage} />
+          </div>
         </div>
-        <div className="ms-rise ms-card">
-          <EventNightCard
-            event={event}
-            stage={stage}
-            store={store}
-            tag="moon-story"
-          />
+        <div className="ms-sheet">
+          <div className="ms-sheet-in ms-card">
+            <EventNightCard
+              event={event}
+              stage={stage}
+              store={store}
+              tag="moon-story"
+            />
+          </div>
         </div>
         {tags.length > 0 && (
           <p className="fm-tags ms-rise">
@@ -1191,13 +1294,14 @@ export function MoonStory({
           <section key={head} className="ms-chapter ms-text">
             {/* 紙のページ（11/20 21:14 渡辺さん：四隅は角の丸い枠と唐草にそろえる）。見出しまわりはページごと：
                 名前の由来は上に月の満ち欠けと菱形の飾り、自然との関係は小枝の線と象徴の言葉の札。 */}
+            <div className="ms-sheet">
             <div
               className={[
                 "ms-paper",
                 "origin",
                 last ? "nature" : "",
                 scene?.PaperArt ? "with-art" : "",
-                "ms-rise",
+                "ms-sheet-in",
               ]
                 .filter(Boolean)
                 .join(" ")}
@@ -1233,6 +1337,7 @@ export function MoonStory({
                   <scene.PaperArt kind={last ? "nature" : "origin"} />
                 </span>
               )}
+            </div>
             </div>
           </section>
         ))}

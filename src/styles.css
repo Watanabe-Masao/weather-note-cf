@@ -604,6 +604,9 @@ img.event-pic { object-fit: contain; }
 .ms-info { gap: var(--space-4); }
 .ms-info h3 { font-family: var(--font-story); font-weight: var(--weight-regular); letter-spacing: 0.1em; }
 .ms-card { width: 100%; text-align: left; }
+/* 紙を重ねる（11/21）：外が沈み、内が滑り込む。後の紙ほど上に重なる（文書の順に描く）。 */
+.ms-sheet { position: relative; width: 100%; will-change: transform; }
+.ms-sheet-in { will-change: transform; }
 .ms-card .event-moment-card { margin-top: 0; }
 .ms-card .emc-time { text-shadow: 0 0 var(--space-5) var(--ev-glow); }
 .ms-card .emc-clouds path { fill: var(--ink-tertiary); opacity: 0.35; }
