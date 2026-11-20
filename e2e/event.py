@@ -83,18 +83,18 @@ with sync_playwright() as p:
               pic and "/event/beaver-icon.webp" in pic["src"] and pic["w"] > 0 and pg.locator(".event-sheet .event-stage-text b", has_text="ビーバームーン").count() == 1
               and pg.locator(".event-sheet img[src*='-navy.webp'], .event-sheet img[src*='-warm.webp'], .event-sheet img[src*='-mist.webp']").count() == 0
               and "23:54" in sheet and "あと" in sheet and "月の出" in sheet and pg.locator(".event-sheet svg.event-path .event-path-line").count() >= 1 and pg.locator(".event-sheet .event-path-peak").count() == 1, (pic, sheet[:60]))
-        # 満月の物語（11/20、全画面のスクロール、GSAP）：説明のボタンで開き、章が並ぶ。最後までスクロールでき、閉じると説明に戻る。
+        # 満月の物語（11/20、全画面のスクロール、GSAP）：説明のボタンで開き、本の表紙 → 絵本の場面（一文が一コマ）→ 章が並ぶ。最後までスクロールでき、閉じると説明に戻る。
         if theme == "navy":
             pg.locator(".event-sheet .fm-open-btn").click(); pg.wait_for_timeout(1500)
             st = pg.evaluate("""() => { const s = document.querySelector('.moon-story'); if (!s) return null;
-              return { h2: (s.querySelector('.ms-hero-title h2') || {}).textContent, chapters: s.querySelectorAll('.ms-chapter').length,
+              return { h2: (s.querySelector('.bk-front h2') || {}).textContent, chapters: s.querySelectorAll('.ms-chapter').length, caps: s.querySelectorAll('.ms-world .ms-cap').length, svg: s.querySelectorAll('.ms-world svg.bw .bw-stick').length,
                        text: s.textContent.includes('冬が来る前に、小さな枝を一本ずつ') && s.textContent.includes('名前の由来') && s.textContent.includes('自然との関係') && s.textContent.includes('次の満月の物語'),
                        scroll: s.scrollHeight - s.clientHeight, gsap: !!document.querySelector('.moon-story.ready') } }""")
             pg.evaluate("document.querySelector('.moon-story').scrollTo(0, 1e6)"); pg.wait_for_timeout(600)
             end = pg.locator(".moon-story .ms-end .btn", has_text="閉じる").count()
             pg.locator(".moon-story .ms-close .icon-btn").click(); pg.wait_for_timeout(500)
-            check("満月の物語：名前・章（季節の物語・瞬間・この年・由来・自然・その夜・次の満月）・最後まで動く、閉じると説明に戻る",
-                  st and st["h2"] == "ビーバームーン" and st["chapters"] >= 6 and st["text"] and st["scroll"] > 2000 and st["gsap"] and end == 1 and pg.locator(".moon-story").count() == 0 and pg.locator(".event-sheet").count() == 1, st)
+            check("満月の物語：本の表紙の名前・絵本の場面（9コマ・住みかの枝）・章（瞬間・この年・由来・自然・その夜・次の満月）・最後まで動く、閉じると説明に戻る",
+                  st and st["h2"] == "ビーバームーン" and st["caps"] == 9 and st["svg"] > 20 and st["chapters"] >= 5 and st["text"] and st["scroll"] > 2000 and st["gsap"] and end == 1 and pg.locator(".moon-story").count() == 0 and pg.locator(".event-sheet").count() == 1, st)
         pg.locator(".event-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
         check(f"[{theme}] 押すと説明（ビーバームーン）、閉じると消える", "ビーバームーン" in sheet and pg.locator(".event-sheet").count() == 0, sheet[:40])
         ctx.close()

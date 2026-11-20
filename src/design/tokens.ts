@@ -607,6 +607,8 @@ const font = {
   numeric:
     'ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Hiragino Sans", sans-serif',
   mono: 'ui-monospace, "SF Mono", Menlo, monospace', // codes and clock times to read out character by character
+  // 満月の物語の絵本の文（明朝。2026-11-20 渡辺さん「物語の魅せ方にこだわって」）。物語のページ（.ms-*）だけで使う。
+  story: '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", serif',
 } as const;
 
 /**
