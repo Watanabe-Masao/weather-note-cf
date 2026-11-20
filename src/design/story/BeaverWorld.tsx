@@ -633,7 +633,11 @@ export function BeaverWorld(): ReactElement {
         />
         <g className="bw-stars">{stars}</g>
         {/* 満月（丘の向こうから昇る） */}
-        <StoryMoon p="bw" at="translate(150 640)" img={A("moon")} />
+        {/* 昇る前は見せない（11/20 23:51 渡辺さん「ここもか」：丘と川の間の隙間から、昇る前の月が金の帯のように見えていた）。
+            出し入れは外の組（.bw-moon-show）で：月の組の不透明度は、今夜の情報の月へ移る動きが使う。 */}
+        <g className="bw-moon-show" opacity={0}>
+          <StoryMoon p="bw" at="translate(150 640)" img={A("moon")} />
+        </g>
         {/* 月の出の前の明るみ（丘の向こう） */}
         <ellipse
           className="bw-moonrise"
@@ -977,6 +981,7 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     4,
   );
   // 6 満月が昇る：カメラが引き、丘の向こうから大きな月。
+  tl.to(".bw-moon-show", { opacity: 1, duration: 0.05 }, 5);
   tl.to(
     ".bw-camera",
     { scale: 1, x: 0, y: -8, duration: 0.75, ease: "power2.inOut" },

@@ -391,6 +391,33 @@ export function MoonStory({
     el.addEventListener("scroll", watch, { passive: true });
     return () => el.removeEventListener("scroll", watch);
   }, []);
+  // 止まって数秒（IDLE_MS）さわらないと、下に「上にスワイプ」をそっと出す。さわる・動くと消える。今夜の情報から下は出さない。
+  useEffect(() => {
+    const el = root.current;
+    const hint = el?.querySelector<HTMLElement>(".ms-swipe-hint");
+    if (!el || !hint) return;
+    const IDLE_MS = 3500;
+    let timer = 0;
+    const show = () => {
+      const info = el.querySelector<HTMLElement>(".ms-info");
+      if (info && el.scrollTop >= info.offsetTop - 4) return;
+      // 表紙（いちばん上）には「スクロールでページをひらく」があるので出さない。
+      if (el.scrollTop < 8) return;
+      hint.classList.add("on");
+    };
+    const poke = () => {
+      hint.classList.remove("on");
+      window.clearTimeout(timer);
+      timer = window.setTimeout(show, IDLE_MS);
+    };
+    const evs = ["scroll", "touchstart", "wheel", "keydown", "pointerdown"] as const;
+    evs.forEach((ev) => el.addEventListener(ev, poke, { passive: true }));
+    poke();
+    return () => {
+      window.clearTimeout(timer);
+      evs.forEach((ev) => el.removeEventListener(ev, poke));
+    };
+  }, []);
   const skipStory = () => {
     const el = root.current;
     const info = infoRef.current;
@@ -858,6 +885,11 @@ export function MoonStory({
       {/* 上の帯：閉じる・とばすの下を夜の色で薄く覆い、文と重ならないように（11/20 17:58 渡辺さん「✖️ボタンとの文字被り」）。 */}
       <GoldDefs />
       <span className="ms-topband" aria-hidden />
+      {/* 止まって数秒さわらないと「上にスワイプ」（11/20 23:45 渡辺さん）。物語の部分（今夜の情報より上）だけ。 */}
+      <span className="ms-swipe-hint" aria-hidden>
+        <Glyph name="up" />
+        上にスワイプ
+      </span>
       {/* 本棚から取り出す本（押したときだけ見える）。 */}
       <span className="ms-flybook" aria-hidden hidden>
         <GoldFrame />
