@@ -336,7 +336,7 @@ export function App(_: { theme?: string } = {}) {
     >
       {!full && (
         <header className="app-head">
-          <Brand />
+          <Brand store={store} />
           <div className="app-head-actions">
             {/* 比較｜1日 (#247): whether the comparison day is shown; the rest of the screen stays. */}
             <Segmented

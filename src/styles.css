@@ -430,6 +430,28 @@ select.chip {
 .ev-brand { flex: none; }
 .ev-meta { display: grid; min-width: 0; font-size: var(--size-sm); }
 .ev-meta small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+/* イベントの説明（11/20 渡辺さん「特別感」）：帯の絵を大きく → 瞬間とあと何時間 → 物語 → その日の見え方と天気 → 札。 */
+.event-hero { display: flex; align-items: center; gap: var(--space-5); margin: 0 0 var(--space-4); }
+.event-pic { flex: none; display: block; width: 112px; height: 112px; }
+img.event-pic { object-fit: contain; filter: drop-shadow(0 var(--space-1) var(--space-3) var(--line-soft)); }
+/* 四角い絵が無い種類：帯の絵の左（天体と主役）を四角く切り出す。文字は見せない。 */
+.event-pic.crop { overflow: hidden; border-radius: var(--radius-lg); box-shadow: var(--shadow-card); }
+.event-pic.crop img, .event-pic.crop svg { display: block; height: 100%; width: auto; max-width: none; margin-left: -15%; }
+.event-hero-text { display: grid; gap: var(--space-1); min-width: 0; }
+.event-hero-text small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.event-hero-text b { font-size: var(--size-xl); font-weight: var(--weight-bold); line-height: 1.2; color: var(--ink-primary); text-wrap: balance; }
+.event-hero-text span { font-size: var(--size-sm); letter-spacing: 0.04em; color: var(--ink-secondary); }
+.event-moment { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.event-moment > div { display: grid; min-width: 0; }
+.event-moment small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.event-moment b { font-size: var(--size-xl); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; color: var(--ink-primary); }
+.event-count { flex: none; padding: var(--space-1) var(--space-4); border-radius: var(--radius-pill); background: var(--surface-raised); box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; font-size: var(--size-sm); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; color: var(--ink-primary); }
+.event-symbols { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.event-symbols em { font-style: normal; padding: 0 var(--space-3); border-radius: var(--radius-pill); background: var(--surface-inset); color: var(--ink-secondary); }
+.event-h { margin: var(--space-5) 0 0; font-size: var(--size-sm); color: var(--ink-secondary); }
+.event-sheet .event-keys { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: var(--space-2); }
+.event-sky { margin: var(--space-2) 0 0; font-size: var(--size-sm); line-height: 1.6; color: var(--ink-secondary); }
+.event-sky b { color: var(--ink-primary); }
 .event-when { margin: 0; font-size: var(--size-base); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; }
 .event-lead, .event-gloss { margin: var(--space-2) 0 0; font-size: var(--size-sm); line-height: 1.6; color: var(--ink-secondary); }
 .event-warn { margin: var(--space-2) 0 0; font-size: var(--size-sm); line-height: 1.6; color: var(--status-warning); }

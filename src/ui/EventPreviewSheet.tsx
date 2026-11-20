@@ -11,6 +11,7 @@ import { DEFAULT_LAT_LON } from "../../shared/sunTimes";
 import { EVENT_ART, eventArt, eventArtKey, FULL_MOON_ART, type EventArtKey } from "../design/eventAssets";
 import { currentTheme } from "../design/tokens";
 import { BrandMark } from "./Brand";
+import type { WeatherStore } from "../data/store";
 import { EventSheet } from "./EventSheet";
 import { setPreviewDate, usePreviewDate } from "./eventPreview";
 import { Button, InfoNote } from "./kit";
@@ -36,7 +37,7 @@ function sampleEvent(key: EventArtKey): SkyEvent {
 const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8))}`;
 const ymd = (d: string) => `${d.slice(0, 4)}/${md(d)}`;
 
-export function EventPreviewSheet({ onClose }: { onClose: () => void }) {
+export function EventPreviewSheet({ onClose, store }: { onClose: () => void; store?: WeatherStore | null }) {
   const theme = currentTheme();
   const today = jstToday();
   const preview = usePreviewDate();
@@ -115,7 +116,7 @@ export function EventPreviewSheet({ onClose }: { onClose: () => void }) {
           );
         })}
       </ul>
-      {open && createPortal(<EventSheet event={open.event} day={open.day} onClose={() => setOpen(null)} />, document.body)}
+      {open && createPortal(<EventSheet event={open.event} day={open.day} store={store} onClose={() => setOpen(null)} />, document.body)}
     </ModalSheet>
   );
 }

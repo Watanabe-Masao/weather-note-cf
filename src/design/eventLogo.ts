@@ -91,7 +91,7 @@ function body(kind: SkyEventKind, id: string, blue: boolean, cx: number, cy: num
     case "solar-total":
       return `${glow("#e8f2ff", 0.75)}<circle cx="${cx}" cy="${cy}" r="${r * 1.06}" fill="#ffffff" opacity=".85"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="url(#${id}-bg)"/><circle cx="${cx}" cy="${cy}" r="${r}" fill="#000" opacity=".2"/>`;
     case "solar-partial":
-      return `<mask id="${id}-mk"><rect width="448" height="100" fill="#fff"/><circle cx="${cx + r * 0.55}" cy="${cy - r * 0.15}" r="${r * 0.95}" fill="#000"/></mask><g mask="url(#${id}-mk)">${glow("#ffd27a", 0.5)}<circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffcf4d"/></g>`;
+      return `${glow("#ffd27a", 0.5)}<mask id="${id}-mk"><rect width="448" height="100" fill="#fff"/><circle cx="${cx + r * 0.55}" cy="${cy - r * 0.15}" r="${r * 0.95}" fill="#000"/></mask><g mask="url(#${id}-mk)"><circle cx="${cx}" cy="${cy}" r="${r}" fill="#ffcf4d"/></g>`;
   }
 }
 

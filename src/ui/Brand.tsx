@@ -13,10 +13,11 @@ import { currentTheme } from "../design/tokens";
 import { addDays, jstToday } from "../../shared/dates";
 import { skyEventOn, SKY_EVENT_NAME, type SkyEvent } from "../../shared/skyEvents";
 import { DEFAULT_LAT_LON } from "../../shared/sunTimes";
+import type { WeatherStore } from "../data/store";
 import { EventSheet } from "./EventSheet";
 import { usePreviewDate } from "./eventPreview";
 
-export function Brand() {
+export function Brand({ store }: { store?: WeatherStore | null }) {
   const today = jstToday();
   // 「この日として見出しを表示」（確認用、src/ui/eventPreview.ts）：見出しだけその日に。
   const preview = usePreviewDate();
@@ -38,7 +39,7 @@ export function Brand() {
   return (
     <h1 className="brand" aria-label="Weather Note">
       <BrandMark event={event} theme={theme} id="wn-head" onOpen={() => setOpen(true)} />
-      {open && event && createPortal(<EventSheet event={event} onClose={() => setOpen(false)} />, document.body)}
+      {open && event && createPortal(<EventSheet event={event} store={store} onClose={() => setOpen(false)} />, document.body)}
     </h1>
   );
 }

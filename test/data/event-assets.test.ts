@@ -2,7 +2,7 @@
 // テーマごとに揃っていて、形（640×160）と重さ（40KB まで）が決まりどおり。元の画像もある。
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { EVENT_ART, EVENT_ART_MAX_BYTES, EVENT_ART_SIZE, EVENT_ART_THEMES, eventArt, eventArtKey, FULL_MOON_ART, type EventArtKey } from "../../src/design/eventAssets";
+import { EVENT_ART, EVENT_ART_MAX_BYTES, EVENT_ART_SIZE, EVENT_ART_THEMES, eventArt, eventArtKey, eventIcon, EVENT_ICON_MAX_BYTES, EVENT_ICON_SIZE, FULL_MOON_ART, type EventArtKey } from "../../src/design/eventAssets";
 import { FULL_MOON_NAMES } from "../../shared/fullMoonNames";
 
 /** webp の幅と高さ（VP8・VP8L・VP8X の頭から）。 */
@@ -36,6 +36,21 @@ describe("event art", () => {
         expect(webpSize(readFileSync(file)), file).toEqual(EVENT_ART_SIZE);
         expect(existsSync(`design-src/event/${key}-${theme}.png`), key).toBe(true);
       }
+  });
+
+  it("説明の上の四角い絵（台帳の icon）は 256×256・40KB まで、元の画像もある。無い種類は null（帯の絵の左を切り出す）", () => {
+    const withIcon = (Object.keys(EVENT_ART) as EventArtKey[]).filter((k) => EVENT_ART[k]?.icon);
+    expect(withIcon.length).toBe(13); // 満月12種類とブルームーン（11/20 渡辺さんの絵）
+    for (const key of withIcon) {
+      const file = `public/event/${key}-icon.webp`;
+      expect(existsSync(file), file).toBe(true);
+      expect(statSync(file).size, file).toBeLessThanOrEqual(EVENT_ICON_MAX_BYTES);
+      expect(webpSize(readFileSync(file)), file).toEqual({ width: EVENT_ICON_SIZE, height: EVENT_ICON_SIZE });
+      expect(existsSync(`design-src/event/${key}-icon.png`), key).toBe(true);
+    }
+    expect(eventIcon({ kind: "full", name: "ビーバームーン", blue: false })).toBe(`/event/beaver-icon.webp?v=${EVENT_ART.beaver!.icon}`);
+    expect(eventIcon({ kind: "full", name: null, blue: true })).toMatch(/^\/event\/blue-icon\.webp/);
+    expect(eventIcon({ kind: "lunar-total", name: "ウルフムーン", blue: false })).toBeNull();
   });
 
   it("イベントから絵：満月は呼び名、ブルームーンは blue、食は食の種類。版つきの URL。呼び名の分からない満月は null（手描きの帯）", () => {

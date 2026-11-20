@@ -225,7 +225,7 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
 }
 
 /** イベントの見出しの確かめ（docs/event-banner.md 5章）：管理者だけ。見出しの帯の一覧と、この日として見出しを表示。 */
-function EventPreviewSection() {
+function EventPreviewSection({ store }: { store: WeatherStore | null }) {
   const { me } = useAccount();
   const [open, setOpen] = useState(false);
   if (me?.role !== "admin") return null;
@@ -236,7 +236,7 @@ function EventPreviewSection() {
       <Button size="sm" className="start" onClick={() => setOpen(true)}>
         帯の一覧と、この日として表示
       </Button>
-      {open && <EventPreviewSheet onClose={() => setOpen(false)} />}
+      {open && <EventPreviewSheet store={store} onClose={() => setOpen(false)} />}
     </section>
   );
 }
@@ -366,7 +366,7 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
       <AccountSection station={station} />
 
       <ResearchSection store={store} station={station} />
-      <EventPreviewSection />
+      <EventPreviewSection store={store} />
 
       {beta.enabled && (
       <section className="set-group" aria-labelledby="set-beta">
