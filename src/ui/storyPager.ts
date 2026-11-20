@@ -15,6 +15,8 @@ type Opts = {
   measure: () => number[];
   /** いまの区切り（いちばん近いもの）が変わったとき。止まりきったときは settled = true。 */
   onIndex?: (i: number, settled: boolean) => void;
+  /** 区切り i へ一つ前の区切りから運ぶ秒数（無ければ距離から）。場面のコマは字の数に比例（11/20 22:43）。 */
+  seconds?: (i: number) => number | undefined;
   /** 動きを減らす設定（速く、短く運ぶ）。 */
   reduced?: () => boolean;
 };
@@ -67,10 +69,13 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     target = null;
   };
 
-  // 減速しながら止まる（11/20 22:06 渡辺さん「もっとゆっくり流れて、減速しながら止まって」）：
-  // x(t) = x0 + D·(1 − (1 − t/T)^p)。始めがいちばん速く、あとは減速だけで、T でぴたりと止まる（行き過ぎない）。
-  //   - T（かかる時間）：距離に応じて 1.1〜1.8 秒（動きを減らす設定は 0.45 秒）。場面の絵がゆっくり進むように。
-  //   - p（始めの速さ ＝ p·D/T）：指を離した速さに合わせる（1.8〜4）。軽く払えばやわらかく、強く払えば勢いを引き継ぐ。
+  // 減速しながら止まる（11/20 22:06 渡辺さん「もっとゆっくり流れて、減速しながら止まって」）。時間 T は先に決め（場面の
+  // コマは字の数に比例、ほかは距離から）、動きは「減速の曲線」＋「指の速さとのつなぎ」の和：
+  //   x(t) = x0 + D·(1 − (1 − k)^P) + (v − c0)·t·(1 − k)²、k = t/T、c0 = P·D/T（曲線の始めの速さ）
+  //   - 第1項：始めがいちばん速く、あとは減速だけで T でぴたりと止まる。
+  //   - 第2項：t = 0 で速さを指の速さ v にそろえ（離した瞬間の速さが途切れない）、T で 0（位置も速さも曲線に戻る）。
+  //   - v は行き先の向きの成分だけ、c0 の 2.5 倍まで（それより速いと途中で戻る動きになるため。強く払えば先の区切りへ）。
+  //   11/20 レビュー「指の速さを完全には引き継いでいない」への対応（前は P を速さで変えて近づけていた）。
   const glide = (to: number, v0 = 0) => {
     stop();
     const x0 = el.scrollTop;
@@ -80,14 +85,11 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
       report(to, true);
       return;
     }
-    const T = o.reduced?.()
-      ? 0.45
-      : Math.min(1.8, Math.max(1.1, 0.9 + Math.abs(D) / 2500));
+    const T = o.reduced?.() ? 0.45 : travelSeconds(x0, to);
+    const P = 2.2;
+    const c0 = (P * D) / T;
     const toward = Math.sign(v0) === Math.sign(D);
-    const p = Math.min(
-      4,
-      Math.max(1.8, toward ? (Math.abs(v0) * T) / Math.abs(D) : 0),
-    );
+    const v = toward ? Math.sign(D) * Math.min(Math.abs(v0), 2.5 * Math.abs(c0)) : 0;
     // 最初のコマから進める（rAF の時刻はコマの始まりなので、始めの時刻を半コマ前に取る）。
     let t0 = -1;
     target = to;
@@ -101,7 +103,8 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
         report(to, true);
         return;
       }
-      const y = x0 + D * (1 - Math.pow(1 - k, p));
+      const t = k * T;
+      const y = x0 + D * (1 - Math.pow(1 - k, P)) + (v - c0) * t * (1 - k) * (1 - k);
       el.scrollTop = y;
       report(y, false);
       raf = requestAnimationFrame(tick);
@@ -131,6 +134,23 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
+  };
+
+  /** x0 から区切り to まで運ぶ秒数：通る区切りの間ごとの秒数（seconds）の和。途中から始めるときは残りの割合で。 */
+  const byDistance = (d: number) =>
+    Math.min(1.8, Math.max(1.1, 0.9 + Math.abs(d) / 2500));
+  const travelSeconds = (x0: number, to: number) => {
+    if (stops.indexOf(to) < 0 || !o.seconds) return byDistance(to - x0);
+    let t = 0;
+    for (let k = 1; k < stops.length; k++) {
+      const a = stops[k - 1];
+      const b = stops[k];
+      const lo = Math.max(a, Math.min(x0, to));
+      const hi = Math.min(b, Math.max(x0, to));
+      if (hi <= lo || b <= a) continue;
+      t += ((o.seconds(k) ?? byDistance(b - a)) * (hi - lo)) / (b - a);
+    }
+    return Math.min(7, Math.max(0.8, t));
   };
 
   /** 今いる所（またはいま向かっている区切り）から、向きへ n 個先の区切り。 */
