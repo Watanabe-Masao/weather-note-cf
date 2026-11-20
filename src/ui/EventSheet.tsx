@@ -19,6 +19,8 @@ import { currentTheme, onSkyVars } from "../design/tokens";
 import { dirName, MoonSphere, PhaseIcon } from "./moonParts";
 import { EventPath, pathDays } from "./EventPath";
 import { factTags, FullMoonSheet } from "./FullMoonSheet";
+import { MoonStory } from "./MoonStory";
+import { countdown, NOW_SPAN_MS, STARS } from "./eventBits";
 import { ModalSheet } from "./ModalSheet";
 import { Button, Glyph } from "./kit";
 
@@ -28,28 +30,11 @@ const STATION = "47893";
 const HOUR_MS = 3_600_000;
 /** 秒読みを描き直す間（24時間を切ったら秒まで出すので1秒）。 */
 const TICK_MS = 1000;
-/** 瞬間のあと、「いま、この夜」と出す長さ。 */
-const NOW_SPAN_MS = 3 * HOUR_MS;
 
 const jst = (ms: number) => {
   const d = new Date(ms + 9 * HOUR_MS);
   return { date: d.toISOString().slice(0, 10), min: d.getUTCHours() * 60 + d.getUTCMinutes(), md: `${d.getUTCMonth() + 1}/${d.getUTCDate()}`, wd: "日月火水木金土"[d.getUTCDay()] };
 };
-
-/** 「あと 3日」「あと 11:54:12」（24時間を切ったら秒まで）「いま、この夜」（瞬間から NOW_SPAN_MS まで）「5時間前」。 */
-function countdown(at: number, now: number): string {
-  const d = at - now;
-  const a = Math.abs(d);
-  if (d >= 0) {
-    if (a >= 24 * HOUR_MS) return `あと ${Math.floor(a / (24 * HOUR_MS))}日`;
-    const h = Math.floor(a / HOUR_MS);
-    const m = Math.floor((a % HOUR_MS) / 60_000);
-    const sec = Math.floor((a % 60_000) / 1000);
-    return `あと ${h}:${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
-  }
-  if (a < NOW_SPAN_MS) return "いま、この夜";
-  return a >= 24 * HOUR_MS ? `${Math.floor(a / (24 * HOUR_MS))}日前` : `${Math.floor(a / HOUR_MS)}時間前`;
-}
 
 /** 舞台とその夜の空の地と色（紺は空の上の色 onSkyVars で、白と緑はテーマの色のまま）。flip：下のカードは上下を返す。 */
 function stageStyle(st: ReturnType<typeof eventStage>, flip: boolean): CSSProperties {
@@ -63,27 +48,13 @@ function stageStyle(st: ReturnType<typeof eventStage>, flip: boolean): CSSProper
   };
 }
 
-/** 舞台の星（x%・y%・大きさ px・瞬きの遅れ 秒）。並びは固定（開くたびに替わらない）。 */
-const STARS: [number, number, number, number][] = [
-  [6, 14, 2, 0],
-  [14, 62, 1.5, 1.2],
-  [22, 30, 2.5, 2.1],
-  [31, 8, 1.5, 0.6],
-  [38, 70, 2, 2.8],
-  [47, 18, 1.5, 1.6],
-  [56, 52, 2, 0.3],
-  [63, 10, 2.5, 2.4],
-  [71, 38, 1.5, 1],
-  [78, 72, 2, 1.9],
-  [85, 22, 2, 0.8],
-  [92, 56, 1.5, 2.6],
-  [96, 8, 2, 1.4],
-];
 
 /** day：確認ページの一覧から開くときの日付（見出しを「11/24 はビーバームーン」に）。ふだんは「今日は」。 */
 export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; onClose: () => void; day?: string; store?: WeatherStore | null }) {
   const { lat, lon } = DEFAULT_LAT_LON;
   const [names, setNames] = useState(false);
+  // 満月の物語（全画面のスクロール、11/20）。
+  const [story, setStory] = useState<number | null>(null);
   const solar = event.kind.startsWith("solar");
   const full = event.kind === "full";
   const date = jst(event.at).date;
@@ -316,12 +287,13 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
         </p>
       )}
       {!solar && (
-        <Button size="sm" className="fm-open-btn" onClick={() => setNames(true)}>
-          {event.name ? `${event.name}の由来と、この年の満月` : "満月の呼び名"}
+        <Button size="sm" className="fm-open-btn" onClick={() => setStory(event.at)}>
+          {event.blue ? "ブルームーンの物語" : event.name ? `${event.name}の物語` : "満月の物語"}
           <Glyph name="next" />
         </Button>
       )}
       <small className="set-help">時刻と見え方は{WHERE}で計算しています。天気は{WHERE}の観測所の記録・予報です。</small>
+      {story != null && createPortal(<MoonStory key={story} at={story} store={store} onClose={() => setStory(null)} onNext={setStory} onList={() => { setStory(null); setNames(true); }} />, document.body)}
       {names && createPortal(<FullMoonSheet at={event.at} lat={lat} lon={lon} where={WHERE} onClose={() => setNames(false)} />, document.body)}
     </ModalSheet>
   );

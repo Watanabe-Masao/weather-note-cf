@@ -47,8 +47,14 @@ describe("type scale", () => {
 
   it("every font-size is a step of the scale (or inherits, or a step under its parent floored at xs)", () => {
     const sizes = [...css.matchAll(/font-size:\s*([^;}]+)/g)].map((m) => m[1].replace(/\s*!important/, "").trim());
-    const ok = (v: string) => /^var\(--size-(xs|sm|base|md|lg|xl|input)\)$/.test(v) || v === "inherit" || /^max\(var\(--size-xs\), [0-9.]+em\)$/.test(v);
+    const ok = (v: string) => /^var\(--size-(xs|sm|base|md|lg|xl|input|title|display)\)$/.test(v) || v === "inherit" || /^max\(var\(--size-xs\), [0-9.]+em\)$/.test(v);
     expect(sizes.filter((v) => !ok(v))).toEqual([]);
+  });
+
+  it("the title and display sizes are used only in the full-screen story (満月の物語, .ms-*), 2026-11-20", () => {
+    const rules = [...css.matchAll(/([^{}]+)\{[^}]*font-size:\s*var\(--size-(?:title|display)\)/g)].map((m) => m[1].trim());
+    expect(rules.length).toBeGreaterThan(0);
+    expect(rules.filter((r) => !/\.ms-/.test(r))).toEqual([]);
   });
 
   it("weights and families come from the tokens, and the font shorthand is not used (it would hide a size)", () => {

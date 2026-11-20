@@ -618,6 +618,7 @@ const font = {
  * - lg   見出し・強調する値
  * - xl   いちばん大きい値
  * - input 入力欄（16 未満だと iPhone が拡大するため）
+ * - title / display  全画面の物語（満月の物語）の章の見出しと、いちばん大きな名前・時刻だけ（2026-11-20）。
  */
 // The steps are iOS's text styles at the standard setting (#151): xs = Caption 2 (11, the smallest
 // iOS uses), sm = Caption 1, base = Footnote, md = Subheadline, lg = Headline/Body, xl = Title 3.
@@ -629,6 +630,9 @@ const size = {
   lg: 17,
   xl: 20,
   input: 16,
+  // iOS Title 1 と Large Title。全画面の物語だけで使う（ふだんの画面の文字は xl まで）。
+  title: 28,
+  display: 34,
 } as const;
 /** The type scale for text drawn in SVG, where a CSS size would be read in the drawing's own units. */
 export const TYPE_SIZE = size;
@@ -708,6 +712,7 @@ export const LAYER = {
   sheet: 10, // the bottom sheet
   overlayBackdrop: 30, // dimming behind an overlay sheet
   overlay: 31, // overlay sheets (feel map, similar days, calendar, settings)
+  story: 35, // full-screen scroll stories (満月の物語), above the sheets that open them
   popover: 40, // week badge, tooltips
 } as const;
 
