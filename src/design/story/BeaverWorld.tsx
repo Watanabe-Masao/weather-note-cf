@@ -6,56 +6,21 @@
 // 色はここ（デザインの層）にだけ書く。動きは buildBeaverScene（GSAP、スクロールに合わせる）。
 // 絵は文化的なイメージで、実際の月の色や見え方とは別（物語のページで断る）。
 import type { ReactElement } from "react";
+import { cssSky, MoonDefs, pine, rand, SkyGradient as Sky, STORY_H as H, STORY_MOON as MOON, STORY_W as W, StoryMoon, stars as starField } from "./parts";
 
-const W = 400;
-const H = 860;
 /** 物語の一文の数（場面の数）。 */
 export const BEAVER_BEATS = 9;
-
-/** 決まった並びの乱数（開くたびに変わらない）。 */
-function rand(seed: number) {
-  let s = seed;
-  return () => ((s = (s * 9301 + 49297) % 233280) / 233280);
-}
 
 const SKY = {
   dusk: ["#3a3f7e", "#b2617a", "#f0a565", "#f7cf8a"],
   twilight: ["#1d2a5e", "#4e3f78", "#a26a7c", "#d69a7a"],
   night: ["#060d26", "#0c1a42", "#16295a", "#223a6e"],
 };
-const MOON = { light: "#fff6d8", mid: "#f6dc98", edge: "#d9b062", glow: "#ffe9a8" };
 const GOLD = "#f1d38a";
 const BARK = "#2a1d14";
 const FUR = ["#5a3d27", "#3b281a"];
 const WATER = ["#2b4a7d", "#16294f", "#0b1838"];
 const LEAF = ["#e8a63d", "#d9772f", "#f2c35a", "#c85a2a"];
-
-function Sky({ id, c }: { id: string; c: string[] }) {
-  return (
-    <>
-      <linearGradient id={id} x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor={c[0]} />
-        <stop offset="0.45" stopColor={c[1]} />
-        <stop offset="0.7" stopColor={c[2]} />
-        <stop offset="1" stopColor={c[3]} />
-      </linearGradient>
-    </>
-  );
-}
-
-/** 針葉樹（x, 地面 y, 高さ）。 */
-function pine(x: number, y: number, h: number, fill: string, key: string) {
-  const w = h * 0.42;
-  const tiers = 4;
-  let d = "";
-  for (let i = 0; i < tiers; i++) {
-    const top = y - h + (i * h) / (tiers + 0.6);
-    const bot = top + h / 2.4;
-    const ww = (w * (i + 1.4)) / (tiers + 0.4);
-    d += `M${x} ${top} L${x + ww} ${bot} L${x - ww} ${bot} Z `;
-  }
-  return <path key={key} d={`${d}M${x - 2} ${y - h * 0.18} h4 v${h * 0.18} h-4 Z`} fill={fill} />;
-}
 
 /** 葉の落ちかけた広葉樹（幹と、金の葉の塊）。 */
 function oak(x: number, y: number, h: number, key: string, leafy: number) {
@@ -156,7 +121,7 @@ function Stash() {
 }
 
 /** 場面の最初の空（本のページの窓から場面へつなぐ色。CSS の背景）。 */
-export const BEAVER_SKY = `linear-gradient(${SKY.dusk[0]}, ${SKY.dusk[1]} 45%, ${SKY.dusk[2]} 70%, ${SKY.dusk[3]})`;
+export const BEAVER_SKY = cssSky(SKY.dusk);
 
 /** 本のページの窓の絵（場面の最初のコマの小さな絵：夕暮れの空、丘、針葉樹、川）。窓の中へ寄ると、場面へつながる。 */
 export function BeaverWindow(): ReactElement {
@@ -181,12 +146,7 @@ export function BeaverWindow(): ReactElement {
 /** 絵本の世界の SVG（スクロールの場面は buildBeaverScene が動かす）。 */
 export function BeaverWorld(): ReactElement {
   const r = rand(42);
-  const stars = Array.from({ length: 80 }, (_, i) => {
-    const x = r() * W;
-    const y = r() * 470;
-    const s = 0.5 + r() * 1.6;
-    return <circle key={i} className="bw-star" cx={x} cy={y} r={s} fill="#ffffff" opacity={0} />;
-  });
+  const stars = starField("bw", 80, 42);
   const leaves = Array.from({ length: 16 }, (_, i) => (
     <path key={i} className="bw-leaf" d="M0 -5 C 4 -4 6 0 0 6 C -6 0 -4 -4 0 -5 Z" fill={LEAF[i % LEAF.length]} transform={`translate(${(r() * W).toFixed(0)} -20)`} />
   ));
@@ -199,16 +159,7 @@ export function BeaverWorld(): ReactElement {
         <Sky id="bw-sky-dusk" c={SKY.dusk} />
         <Sky id="bw-sky-twi" c={SKY.twilight} />
         <Sky id="bw-sky-night" c={SKY.night} />
-        <radialGradient id="bw-moon-glow">
-          <stop offset="0" stopColor={MOON.glow} stopOpacity={0.75} />
-          <stop offset="0.35" stopColor={MOON.glow} stopOpacity={0.22} />
-          <stop offset="1" stopColor={MOON.glow} stopOpacity={0} />
-        </radialGradient>
-        <radialGradient id="bw-moon-disc" cx="0.4" cy="0.36" r="0.75">
-          <stop offset="0" stopColor={MOON.light} />
-          <stop offset="0.7" stopColor={MOON.mid} />
-          <stop offset="1" stopColor={MOON.edge} />
-        </radialGradient>
+        <MoonDefs p="bw" />
         <linearGradient id="bw-water" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={WATER[0]} />
           <stop offset="0.5" stopColor={WATER[1]} />
@@ -241,17 +192,7 @@ export function BeaverWorld(): ReactElement {
         <rect className="bw-sky-night" x={-300} y={-400} width={W + 600} height={H + 800} fill="url(#bw-sky-night)" opacity={0} />
         <g className="bw-stars">{stars}</g>
         {/* 満月（丘の向こうから昇る） */}
-        <g className="bw-moon" transform="translate(150 640)">
-          <circle r={190} fill="url(#bw-moon-glow)" className="bw-moon-glow" />
-          <circle r={62} fill="url(#bw-moon-disc)" />
-          <g fill={MOON.edge} opacity={0.22}>
-            <path d="M-22 -18 c 10 -10 26 -6 28 4 c 2 10 -10 16 -20 12 c -9 -3 -12 -10 -8 -16 z" />
-            <path d="M8 10 c 10 -5 20 0 20 8 c 0 8 -10 12 -18 9 c -6 -3 -7 -12 -2 -17 z" />
-            <circle cx={24} cy={-24} r={6} />
-            <circle cx={-14} cy={26} r={4} />
-            <circle cx={-34} cy={6} r={3} />
-          </g>
-        </g>
+        <StoryMoon p="bw" at="translate(150 640)" />
         {/* 月の出の前の明るみ（丘の向こう） */}
         <ellipse className="bw-moonrise" cx={150} cy={540} rx={170} ry={90} fill="url(#bw-moon-glow)" opacity={0} />
         {/* 遠い山 */}
