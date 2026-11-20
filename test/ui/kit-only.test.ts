@@ -39,6 +39,8 @@ const ALLOWED: Record<string, number> = {
   "ui/Brand.tsx": 2,
   // 満月の物語：本棚の本の背（背そのものを押して取り出す）と、場面の下のドットの列（押した所に近いコマへ。11/20 20:17）。
   "ui/MoonStory.tsx": 2,
+  // 空のイベントの説明：物語の入口の小さな本（本そのものを押して開く、本棚の背と同じ。11/21）。
+  "ui/EventSheet.tsx": 1,
   "ui/DaySummaryCard.tsx": 1,
   "ui/CompareSummary.tsx": 3,
   "ui/StatusBar.tsx": 1,

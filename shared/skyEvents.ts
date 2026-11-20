@@ -81,6 +81,38 @@ export function skyEventOn(date: string, lat: number, lon: number): SkyEvent | n
 }
 
 /**
+ * そのイベントの夜（見ごろの晩、日本時間の日付）。日食はその日。満月・月食は、瞬間の12時間前の日付：瞬間が昼より後なら
+ * その日の晩、昼より前（明け方の満月など）なら前の晩（その晩のうちに見える）。EventNightCard の「◯/◯ の夜の月」と同じ。
+ */
+export function eventNight(e: SkyEvent): string {
+  return jstDate(e.kind.startsWith("solar") ? e.at : e.at - DAY_MS / 2);
+}
+
+/** 見出しに出す段階：前日（明日の夜／明日）と当日（今夜／今日）。 */
+export type SkyEventPhase = "eve" | "tonight";
+
+/** 夜明け前（日本時間の5時まで）は、前の晩の続き。 */
+const DAWN_MIN = 5 * 60;
+
+/**
+ * 見出しに出すイベント（11/21 渡辺さん「前日＋当日」）：イベントの夜（eventNight）の前日と当日に出し、その夜が明けたら
+ * （翌朝5時）しまう。明け方の満月は前の晩が当日。当日のイベントを前日の予告より先に。無ければ null。
+ */
+export function skyEventShown(now: number, lat: number, lon: number): { event: SkyEvent; phase: SkyEventPhase } | null {
+  const t = new Date(now + 9 * 3_600_000);
+  const min = t.getUTCHours() * 60 + t.getUTCMinutes();
+  const today = jstDate(min < DAWN_MIN ? now - DAY_MS : now);
+  const add = (d: string, n: number) => jstDate(Date.parse(`${d}T12:00:00+09:00`) + n * DAY_MS);
+  const tomorrow = add(today, 1);
+  // 瞬間の日付は、夜の日付か、その翌日。今夜・明日の夜のイベントは、今日〜明後日の瞬間。
+  const found = [0, 1, 2].map((n) => skyEventOn(add(today, n), lat, lon)).filter((e): e is SkyEvent => !!e);
+  const tonight = found.find((e) => eventNight(e) === today);
+  if (tonight) return { event: tonight, phase: "tonight" };
+  const eve = found.find((e) => eventNight(e) === tomorrow);
+  return eve ? { event: eve, phase: "eve" } : null;
+}
+
+/**
  * from〜to（日本時間の日付、両端を含む）の空のイベントを日付の順に（イベントの見出しの確認用、docs/event-banner.md 5章）。
  * skyEventOn と同じ決まり（観測地から見える食だけ、1日に1つ、日食 → 月食 → 満月）。日ごとに探さず、満月・月食・日食を
  * それぞれ順にたどる（15年で 0.1秒ほど）。

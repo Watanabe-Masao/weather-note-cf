@@ -65,9 +65,13 @@ with sync_playwright() as p:
         base = pg.evaluate(HEAD); pg.wait_for_timeout(3600)
         check(f"[{theme}] ふだんの日：アイコンと文字、絵は読まない", base["icon"] == 1 and base["art"] is None and base["hand"] == 0 and not asked, (base, asked))
         ctx.close()
-        ctx, pg, asked = page(b, "2026-11-23T03:00:00Z", theme)
+        # 出す期間は「イベントの夜」の前日と当日（11/21 渡辺さん）。その前の日に、翌日から出す絵を読んでおく。
+        ctx, pg, asked = page(b, "2026-11-22T03:00:00Z", theme)
         pg.wait_for_timeout(3600)
-        check(f"[{theme}] 前日：翌日の絵を読んでおく", any(f"/event/beaver-{theme}.webp?v=" in u for u in asked), asked)
+        check(f"[{theme}] 出す前の日：翌日から出す絵を読んでおく", any(f"/event/beaver-{theme}.webp?v=" in u for u in asked), asked)
+        ctx.close()
+        ctx, pg, asked = page(b, "2026-11-23T03:00:00Z", theme)
+        check(f"[{theme}] 前日：予告として絵の帯を出す", pg.locator(".brand-art").count() == 1, None)
         ctx.close()
         ctx, pg, asked = page(b, "2026-11-24T03:00:00Z", theme)
         pg.wait_for_function("(document.querySelector('.brand-art img') || {}).naturalWidth > 0", timeout=5000)
@@ -75,7 +79,7 @@ with sync_playwright() as p:
         if SHOTS: pg.locator(".app-head").screenshot(path=f"{SHOTS}-event-{theme}-{W}.png")
         check(f"[{theme}] 満月の日：絵の帯が1枚（アイコンなし）、横4：縦1、見出しの高さはふだんと同じ、右の操作と重ならない",
               ev["img"] > 0 and ev["icon"] == 0 and ev["hand"] == 0 and abs(ev["art"]["w"] / ev["art"]["h"] - 4) < 0.15 and ev["head"] == base["head"] and (ev["left"] is None or ev["art"]["right"] <= ev["left"]), (ev, base["head"]))
-        pg.locator(".brand-art").click(); pg.wait_for_timeout(700)
+        pg.locator(".brand-tap").click(); pg.wait_for_timeout(700)
         sheet = pg.locator(".event-sheet").inner_text() if pg.locator(".event-sheet").count() else ""
         pic = pg.evaluate("(() => { const i = document.querySelector('.event-sheet img.event-pic'); return i ? { src: i.getAttribute('src'), w: i.naturalWidth } : null })()")
         # 説明の主役は文字の無い四角い絵（11/20 渡辺さん「ロゴ入りをそのまま使うのは下品」）と、名前を大きく。
@@ -85,7 +89,7 @@ with sync_playwright() as p:
               and "23:54" in sheet and "あと" in sheet and "月の出" in sheet and pg.locator(".event-sheet svg.event-path .event-path-line").count() >= 1 and pg.locator(".event-sheet .event-path-peak").count() == 1, (pic, sheet[:60]))
         # 満月の物語（11/20、全画面のスクロール、GSAP）：説明のボタンで開き、本の表紙 → 絵本の場面（一文が一コマ）→ 章が並ぶ。最後までスクロールでき、閉じると説明に戻る。
         if theme == "navy":
-            pg.locator(".event-sheet .fm-open-btn").click(); pg.wait_for_timeout(1500)
+            pg.locator(".event-sheet .fm-book-btn").click(); pg.wait_for_timeout(1500)
             st = pg.evaluate("""() => { const s = document.querySelector('.moon-story'); if (!s) return null;
               return { h2: (s.querySelector('.bk-front h2') || {}).textContent, info: s.querySelectorAll('.ms-info .event-moment-card, .ms-info .event-night').length, chapters: s.querySelectorAll('.ms-chapter').length, caps: s.querySelectorAll('.ms-world .ms-cap').length, svg: s.querySelectorAll('.ms-world svg.bw .bw-stick').length,
                        text: s.textContent.includes('冬が来る前に、小さな枝を一本ずつ') && s.textContent.includes('名前の由来') && s.textContent.includes('自然との関係') && s.textContent.includes('満月の物語の本棚') && s.querySelectorAll('.ms-shelf .ms-spine').length === 13 && s.querySelectorAll('.ms-shelf .ms-spine-gap').length === 1,

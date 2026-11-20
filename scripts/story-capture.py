@@ -36,8 +36,8 @@ with sync_playwright() as p:
     ctx.add_init_script(CLOCK)
     pg = ctx.new_page()
     pg.goto(f"http://127.0.0.1:{PORT}/"); pg.wait_for_timeout(1500)
-    pg.locator(".brand-art").click(); pg.wait_for_timeout(700)
-    pg.locator(".event-sheet .fm-open-btn").click(); pg.wait_for_timeout(2000)
+    pg.locator(".brand-tap").click(); pg.wait_for_timeout(700)
+    pg.locator(".event-sheet .fm-book-btn").click(); pg.wait_for_timeout(2000)
     end = pg.evaluate("(() => { const i = document.querySelector('.ms-info'); return i.offsetTop + i.offsetHeight - innerHeight })()")
     for i in range(N + 1):
         pg.evaluate(f"document.querySelector('.moon-story').scrollTo(0, {end * i / N})"); pg.wait_for_timeout(400)
