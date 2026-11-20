@@ -8,6 +8,7 @@
 //   writes the full list into ASSETS, so every file — also the ones loaded later, such as the β
 //   fitting worker — is cached at install, and the app works offline in full.
 // - Icons and the manifest: the cached copy at once, refreshed in the background.
+// - イベントの日の見出しの絵（/event/*）：入れたときには保存せず、読んだ1枚だけを取っておく（版つきの URL）。
 // - The API (/api/*) is never touched here: the app keeps its own weather data (IndexedDB) and its
 //   own rules for what is fresh (正本管理). A cached API answer would bypass them.
 //
@@ -87,7 +88,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/assets/")) {
+  // イベントの日の見出しの絵（docs/event-banner.md）：入れたときには保存しない（全員に全部を配らない）。読んだ1枚を
+  // 取っておき、次からはそれを使う（前日に読んだ絵が、当日に電波が無くても出る）。URL に版が付くので古い絵は残らない。
+  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/event/")) {
     event.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => save(req, res))));
     return;
   }

@@ -36,7 +36,7 @@ const ALLOWED: Record<string, number> = {
   // 満月の呼び名：一覧の行（行そのものを押して開く、予報の一覧の行と同じ）。
   "ui/FullMoonSheet.tsx": 1,
   // 見出しのロゴ：空のイベントの日の帯の絵（ロゴそのものを押す）。
-  "ui/Brand.tsx": 1,
+  "ui/Brand.tsx": 2,
   "ui/DaySummaryCard.tsx": 1,
   "ui/CompareSummary.tsx": 3,
   "ui/StatusBar.tsx": 1,

@@ -6,6 +6,9 @@
   Cache-Control: no-cache
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+# イベントの日の見出しの絵（docs/event-banner.md）：URL に版（?v=）が付き、差し替えは版を上げるので、変わらない物として。
+/event/*
+  Cache-Control: public, max-age=31536000, immutable
 # The service worker and the manifest are checked on every open, so updates reach installed apps.
 /sw.js
   Cache-Control: no-cache
