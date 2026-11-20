@@ -569,8 +569,12 @@ img.event-pic { object-fit: contain; }
 .ms-epilogue p { margin: 0; font-family: var(--font-story); font-size: var(--size-xl); line-height: 2; letter-spacing: 0.12em; color: var(--bk-paper-0); text-wrap: balance; }
 .ms-epilogue small { font-family: var(--font-story); font-size: var(--size-sm); letter-spacing: 0.5em; color: var(--bk-gold-0); }
 .ms-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.ms-beats { position: absolute; left: 0; right: 0; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-5)); display: flex; justify-content: center; gap: var(--space-3); }
-.ms-beat { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--bk-gold-0); opacity: 0.3; }
+/* 下のドット（場面のコマ。11/20 20:17 渡辺さん「ドットと区切りを 1:1、押しても同じ動き」）：列が一つのボタン（高さ 44px）。
+   いまのコマが灯る（ページ送りの区切りが変わったとき）。 */
+.ms-beats { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-2)); transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: var(--space-4); min-height: var(--tap-min); padding: 0 var(--space-6); border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ms-beats:focus-visible { outline: var(--stroke-focus) solid var(--bk-gold-0); border-radius: var(--radius-pill); }
+.ms-beat { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--bk-gold-0); opacity: 0.3; transition: opacity var(--motion-quick) var(--ease-standard), transform var(--motion-quick) var(--ease-standard); }
+.ms-beat.on { opacity: 1; transform: scale(1.5); }
 /* 今夜の情報（16:23「物語の最後には情報も」）：イベントの説明と同じカードを、物語の夜の上に。 */
 .ms-info { gap: var(--space-4); }
 .ms-info h3 { font-family: var(--font-story); font-weight: var(--weight-regular); letter-spacing: 0.1em; }
@@ -624,7 +628,7 @@ img.event-pic { object-fit: contain; }
 .ms-crest-sub { display: inline-flex; align-items: center; gap: var(--space-2); font-family: var(--font-latin); font-size: var(--size-xs); letter-spacing: 0.06em; }
 .ms-sprig { width: 2.2em; height: auto; color: var(--bk-gold-1); }
 /* 本棚の絵を枠として伸ばす：上の飾り・左右の柱・下の台はそのまま、中の二段の棚は伸びる。柱の太さは、背が 44px 以上になるよう狭い画面で細く。中の棚板は中の高さの 45〜52%。 */
-.ms-shelf { --bw: clamp(20px, calc((100vw - 308px) * 0.51), 35px); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 45.3fr) minmax(0, 7fr) minmax(0, 47.7fr); height: calc(440px + var(--bw) * 3.94); padding: 0 1px; border-style: solid; border-width: calc(var(--bw) * 2.17) calc(var(--bw) * 0.94) calc(var(--bw) * 1.77) var(--bw); border-image-source: var(--ms-shelf-img); border-image-slice: var(--ms-shelf-slice); border-image-repeat: stretch; }
+.ms-shelf { --bw: clamp(20px, calc((100vw - 308px) * 0.51), 35px); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 45.3fr) minmax(0, 7fr) minmax(0, 47.7fr); height: calc(476px + var(--bw) * 3.94); padding: 0 1px; border-style: solid; border-width: calc(var(--bw) * 2.17) calc(var(--bw) * 0.94) calc(var(--bw) * 1.77) var(--bw); border-image-source: var(--ms-shelf-img); border-image-slice: var(--ms-shelf-slice); border-image-repeat: stretch; }
 .ms-slot:nth-child(-n + 7) { grid-row: 1; }
 .ms-slot:nth-child(n + 8) { grid-row: 3; }
 .ms-slot { display: flex; align-items: flex-end; justify-content: center; min-width: 0; padding: 0 1px; }
@@ -634,7 +638,9 @@ img.event-pic { object-fit: contain; }
 .sp-moon { display: block; flex: none; width: 40%; aspect-ratio: 1; margin-top: var(--space-1); border-radius: 50%; filter: drop-shadow(0 var(--stroke-hair) var(--stroke-hair) var(--bk-engrave)); }
 .sp-emblem { flex: none; width: 38%; height: auto; }
 /* 日本語の呼び名：縦一列（7字まで）か、「〇〇／ムーン」の二列。列の間をあけ、語の途中で折らない。 */
-.ms-spine b { display: flex; flex-direction: row-reverse; justify-content: center; align-items: flex-start; gap: var(--space-1); flex: 1; min-height: 0; font-family: var(--font-engrave); font-size: var(--size-xs); font-weight: var(--weight-bold); }
+/* 背の並び（11/20 20:26 渡辺さん「横は中央揃え、縦は上詰め、装飾と日付は下に固定」）：月・英語・線・日本語の頭は全冊同じ高さ、
+   日本語は線から一定の余白で上詰め（字の数で上下にずらさない）。紋・日付・山並みは下に固定（日本語の長さに左右されない）。 */
+.ms-spine b { display: flex; flex-direction: row-reverse; justify-content: center; align-items: flex-start; gap: var(--space-2); flex: 1; min-height: 0; padding-top: var(--space-3); font-family: var(--font-engrave); font-size: var(--size-xs); font-weight: var(--weight-bold); }
 .ms-spine b span { writing-mode: vertical-rl; white-space: nowrap; letter-spacing: 0; line-height: 1; }
 .ms-spine small { font-family: var(--font-latin); font-size: var(--size-xs); font-weight: var(--weight-bold); font-variant-numeric: lining-nums tabular-nums; letter-spacing: 0.02em; line-height: 1; }
 .sp-hills { flex: none; width: 86%; height: var(--space-3); }
@@ -642,7 +648,7 @@ img.event-pic { object-fit: contain; }
 .sp-latin { display: block; width: 90%; height: auto; flex: none; margin-top: var(--space-1); font-family: var(--font-latin); font-weight: var(--weight-bold); letter-spacing: 0.02em; font-variant-numeric: lining-nums; overflow: visible; }
 .sp-rule { display: block; flex: none; width: 46%; height: var(--stroke-hair); background: var(--bk-gold-0); box-shadow: 0 var(--stroke-hair) 0 var(--bk-engrave); }
 .sp-ribbon { position: absolute; top: calc(var(--space-5) * -1); right: 16%; width: var(--space-2); height: var(--space-6); background: var(--bk-ribbon); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); box-shadow: 0 1px 0 var(--bk-night-1); pointer-events: none; }
-.ms-spine.next { transform: translateY(calc(var(--space-2) * -1)); box-shadow: 0 0 var(--space-4) var(--bk-gold-1), inset 0 0 0 var(--stroke-hair) var(--bk-night-1); }
+.ms-spine.next { box-shadow: 0 0 var(--space-4) var(--bk-gold-1), inset 0 0 0 var(--stroke-hair) var(--bk-night-1); }
 .ms-spine:hover:not(:disabled) { transform: translateY(calc(var(--space-2) * -1)); }
 .ms-spine:focus-visible { outline: var(--stroke-focus) solid var(--bk-gold-0); outline-offset: var(--stroke-focus); }
 .ms-spine:disabled { opacity: 0.4; cursor: default; }

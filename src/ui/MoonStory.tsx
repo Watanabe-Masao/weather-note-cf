@@ -52,6 +52,7 @@ import { onSkyVars } from "../design/tokens";
 import { EventMomentCard, EventNightCard } from "./EventInfo";
 import { STARS } from "./eventBits";
 import { factTags } from "./FullMoonSheet";
+import { type Pager, storyPager } from "./storyPager";
 import { CloseIcon } from "./icons";
 import { Button, Glyph, IconButton } from "./kit";
 
@@ -59,6 +60,37 @@ const WHERE = "高知";
 /** 開いた本（見開き）を画面に収める縮め方（表紙は画面の幅の 84% まで大きく、見開きはその 2 倍の幅）。 */
 const SPREAD = 0.56;
 const HOUR_MS = 3_600_000;
+
+/**
+ * 物語の区切り（スクロールの px、小さい順）：表紙・見開き・場面の一コマずつ（文が読める所）・場面の終わり（一枚の絵）・
+ * 締めくくり・今夜の情報の頭。下のドットは場面のコマ（firstBeat から一つずつ）。
+ */
+function storyStops(
+  el: HTMLElement,
+  scene: { beats: number } | null | undefined,
+): { px: number[]; firstBeat: number } {
+  const vh = el.clientHeight;
+  const b = el.querySelector<HTMLElement>(".ms-book");
+  const w = el.querySelector<HTMLElement>(".ms-world");
+  const ep = el.querySelector<HTMLElement>(".ms-epilogue");
+  const end = el.querySelector<HTMLElement>(".ms-info")?.offsetTop ?? 0;
+  const px: number[] = [0];
+  let firstBeat = -1;
+  if (b) px.push(((b.offsetHeight - vh) * 1.35) / 2.8);
+  if (w && scene) {
+    const r = w.offsetHeight - vh;
+    firstBeat = px.length;
+    for (let i = 0; i < scene.beats; i++)
+      px.push(w.offsetTop + ((i + 0.55) / scene.beats) * r);
+    px.push(w.offsetTop + r);
+  } else if (b) px.push(b.offsetHeight - vh);
+  if (ep) px.push(ep.offsetTop + ep.offsetHeight / 2 - vh / 2);
+  px.push(end);
+  return {
+    px: px.map((p) => Math.round(Math.min(end, Math.max(0, p)))),
+    firstBeat,
+  };
+}
 const jst = (ms: number) => {
   const d = new Date(ms + 9 * HOUR_MS);
   return {
@@ -99,6 +131,9 @@ export function MoonStory({
 }) {
   const { lat, lon } = DEFAULT_LAT_LON;
   const root = useRef<HTMLDivElement>(null);
+  const pager = useRef<Pager | null>(null);
+  /** 場面の最初のコマの区切りの番号（ドットの 0 番）。場面が無ければ -1。 */
+  const beatAt = useRef(-1);
   const j = jst(at);
   // その満月のイベント（食の日は食、ふだんは満月）と呼び名・説明。
   const event: SkyEvent = useMemo(() => {
@@ -253,28 +288,36 @@ export function MoonStory({
     el.addEventListener("scroll", watch, { passive: true });
     return () => el.removeEventListener("scroll", watch);
   }, []);
-  const skipStory = () =>
-    infoRef.current?.scrollIntoView({ behavior: "smooth" });
-  const nextBeat = () => {
+  const skipStory = () => {
     const el = root.current;
-    const w = el?.querySelector<HTMLElement>(".ms-world");
-    if (!el || !w || !scene) return;
-    const per = (w.offsetHeight - el.clientHeight) / scene.beats;
-    const now = (el.scrollTop - w.offsetTop) / per;
-    const to = Math.min(scene.beats, Math.floor(now + 0.5) + 1);
-    el.scrollTo({
-      top:
-        w.offsetTop +
-        (to >= scene.beats
-          ? w.offsetHeight - el.clientHeight + 1
-          : (to + 0.5) * per),
-      behavior: "smooth",
+    const info = infoRef.current;
+    if (el && info && pager.current) pager.current.glide(info.offsetTop);
+    else info?.scrollIntoView({ behavior: "smooth" });
+  };
+  // 場面を押すと次のコマへ（ページ送りと同じ動き）。
+  const nextBeat = () => pager.current?.step(1);
+  // 下のドットを押すと、そのコマへ（同じ動き）。ドットの列が一つのボタン（高さ 44px）で、押した所に近いドットへ。
+  const toDot = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.stopPropagation();
+    const dots = [...e.currentTarget.querySelectorAll<HTMLElement>(".ms-beat")];
+    if (!dots.length || beatAt.current < 0) return;
+    let k = 0;
+    dots.forEach((d, i) => {
+      const r = d.getBoundingClientRect();
+      const r0 = dots[k].getBoundingClientRect();
+      if (
+        Math.abs(r.left + r.width / 2 - e.clientX) <
+        Math.abs(r0.left + r0.width / 2 - e.clientX)
+      )
+        k = i;
     });
+    pager.current?.goTo(beatAt.current + k);
   };
   useEffect(() => {
     const el = root.current;
     if (!el) return;
     let mm: { revert: () => void } | null = null;
+    let unPager = () => {};
     let live = true;
     void (async () => {
       const [{ gsap }, { ScrollTrigger }] = await Promise.all([
@@ -466,18 +509,7 @@ export function MoonStory({
             { opacity: 1, scale: 1, duration: 0.5 },
             scene.beats - 0.7,
           );
-          // 下の点：いまどのコマか。
-          world.fromTo(
-            ".ms-beat",
-            { opacity: 0.3, scale: 1 },
-            {
-              opacity: 1,
-              scale: 1.4,
-              duration: 0.15,
-              stagger: { each: 1, yoyo: true, repeat: 1, repeatDelay: 0.65 },
-            },
-            0.05,
-          );
+
           world.set({}, {}, scene.beats);
           // 物語の月 → 今夜の情報の月：場面が画面から出始めてから、瞬間のカードの月が所定の位置に来るまで、浮かぶ月が
           // 二つの月の間を（どちらも今の位置から測って）移る。途中は元の二つの月を隠す。
@@ -587,57 +619,41 @@ export function MoonStory({
                 },
               );
           });
-        // 区切りまで進む（11/20 17:58 渡辺さん「軽めのスワイプで途中で止まらず、切れ目まですっと」）：物語の部分（本の
-        // 表紙 → 見開き → 場面の一コマずつ → 締めくくり → 今夜の情報）だけ、スクロールが止まったら進んだ向きの次の
-        // 区切りへ滑らかに運ぶ。今夜の情報から下（読む所）は止めない。
-        const info = el.querySelector<HTMLElement>(".ms-info");
-        const stops = () => {
-          const vh = el.clientHeight;
-          const b = el.querySelector<HTMLElement>(".ms-book");
-          const w = el.querySelector<HTMLElement>(".ms-world");
-          const ep = el.querySelector<HTMLElement>(".ms-epilogue");
-          const end = info?.offsetTop ?? 1;
-          const px: number[] = [0];
-          if (b) px.push(((b.offsetHeight - vh) * 1.35) / 2.8);
-          if (w && scene) {
-            const r = w.offsetHeight - vh;
-            for (let i = 0; i < scene.beats; i++)
-              px.push(w.offsetTop + ((i + 0.55) / scene.beats) * r);
-            px.push(w.offsetTop + r);
-          } else if (b) px.push(b.offsetHeight - vh);
-          if (ep) px.push(ep.offsetTop + ep.offsetHeight / 2 - vh / 2);
-          px.push(end);
-          return px
-            .map((p) => Math.min(1, Math.max(0, p / end)))
-            .sort((x, y) => x - y);
-        };
-        ScrollTrigger.create({
-          trigger: el,
-          scroller,
-          start: 0,
-          end: () => info?.offsetTop ?? 1,
-          snap: {
-            snapTo: (v: number, self?: { direction: number }) => {
-              const p = stops();
-              const eps = 0.0015;
-              return (self?.direction ?? 1) > 0
-                ? (p.find((x) => x >= v - eps) ?? 1)
-                : ([...p].reverse().find((x) => x <= v + eps) ?? 0);
-            },
-            duration: { min: 0.35, max: 1.1 },
-            delay: 0.06,
-            ease: "power2.inOut",
-            inertia: false,
-          },
-        });
+        // 区切りのドットは、場面の動きではなく、ページ送りの「いまの区切り」で灯す（storyPager の onIndex）。
       });
       // 明朝の字が読み込まれると高さが変わるので、測り直す。
       void document.fonts?.ready.then(() => live && ScrollTrigger.refresh());
+      // ページ送り（11/20 20:17 渡辺さん「慣性スクロール・スナップ改善」、src/ui/storyPager.ts）：物語の部分は、指の
+      // 動きから行き先の区切りを決めて、指を離した速さのまま滑らかに運ぶ。区切りは ScrollTrigger が測り直すたびに取り直す。
+      let firstBeat = -1;
+      const dots = [...el.querySelectorAll<HTMLElement>(".ms-beat")];
+      const pg = storyPager(el, {
+        measure: () => {
+          const m = storyStops(el, scene);
+          firstBeat = m.firstBeat;
+          beatAt.current = firstBeat;
+          return m.px;
+        },
+        reduced: () =>
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+        onIndex: (i) =>
+          dots.forEach((d, k) =>
+            d.classList.toggle("on", firstBeat >= 0 && k === i - firstBeat),
+          ),
+      });
+      pager.current = pg;
+      ScrollTrigger.addEventListener("refresh", pg.refresh);
+      unPager = () => {
+        ScrollTrigger.removeEventListener("refresh", pg.refresh);
+        pg.destroy();
+        pager.current = null;
+      };
       setReady(true);
     })();
     return () => {
       live = false;
       mm?.revert();
+      unPager();
     };
   }, [scene]);
 
@@ -829,11 +845,16 @@ export function MoonStory({
                 </p>
               ))}
             </div>
-            <div className="ms-beats" aria-hidden>
+            <button
+              type="button"
+              className="ms-beats"
+              aria-label="コマを選ぶ"
+              onClick={toDot}
+            >
               {lines.map((_, i) => (
                 <i key={i} className="ms-beat" />
               ))}
-            </div>
+            </button>
           </div>
         </section>
       )}
