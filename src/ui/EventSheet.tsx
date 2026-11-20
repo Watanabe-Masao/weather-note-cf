@@ -6,7 +6,9 @@ import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import { BLUE_MOON, fullMoonInfo } from "../../shared/fullMoonNames";
 import { fullMoonAlias, fullMoonsOfYear, moonTopo } from "../../shared/moon";
-import { SKY_EVENT_NAME, type SkyEvent, type SkyEventPhase } from "../../shared/skyEvents";
+import { eventNight, SKY_EVENT_NAME, type SkyEvent, type SkyEventPhase } from "../../shared/skyEvents";
+import { Priority } from "../data/plan";
+import { MoonSheet } from "./MoonSheet";
 import { DEFAULT_LAT_LON, solarAltitude } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
 import { eventArt, EVENT_ART_SIZE, eventIcon, EVENT_ICON_SIZE } from "../design/eventAssets";
@@ -29,10 +31,23 @@ const jst = (ms: number) => {
 
 
 
+/** 月のこよみを開くときの観測所（高知、今夜の情報のカードと同じ）。 */
+const SKY_STATION = "47893";
+
 /** day：確認ページの一覧から開くときの日付（見出しを「11/24 はビーバームーン」に）。ふだんは「今日は」。 */
 export function EventSheet({ event, onClose, day, store, phase = "tonight" }: { event: SkyEvent; onClose: () => void; day?: string; store?: WeatherStore | null; phase?: SkyEventPhase }) {
   const { lat, lon } = DEFAULT_LAT_LON;
   const [names, setNames] = useState(false);
+  // 今夜の月を見る（物語の今夜の情報から、11/21）：月のこよみのその夜を、高知の観測所の天気つきで。
+  const [sky, setSky] = useState(false);
+  const moonWeather = {
+    of: (d: string) => {
+      const h = store?.getHours(SKY_STATION, d);
+      const state = h?.state === "empty" && !store?.hoursComing(SKY_STATION, d) ? "none" : (h?.state ?? "outside");
+      return { rows: h?.rows ?? [], state };
+    },
+    want: (d: string | null) => store?.wantHours(SKY_STATION, d ? [d] : [], Priority.Visible, "event-moon-sheet"),
+  };
   // 満月の物語（全画面のスクロール、11/20）。
   const [story, setStory] = useState<number | null>(null);
   const solar = event.kind.startsWith("solar");
@@ -119,7 +134,8 @@ export function EventSheet({ event, onClose, day, store, phase = "tonight" }: { 
         <StoryBookButton event={event} stage={stage} onOpen={() => setStory(event.at)} />
       )}
       <small className="set-help">時刻と見え方は{WHERE}で計算しています。天気は{WHERE}の観測所の記録・予報です。</small>
-      {story != null && createPortal(<MoonStory key={story} at={story} store={store} onClose={() => setStory(null)} onNext={setStory} onList={() => { setStory(null); setNames(true); }} />, document.body)}
+      {story != null && createPortal(<MoonStory key={story} at={story} store={store} onClose={() => setStory(null)} onNext={setStory} onList={() => { setStory(null); setNames(true); }} onSky={() => { setStory(null); setSky(true); }} />, document.body)}
+      {sky && createPortal(<MoonSheet date={eventNight(event)} station={SKY_STATION} onClose={() => setSky(false)} weather={moonWeather} />, document.body)}
       {names && createPortal(<FullMoonSheet at={event.at} lat={lat} lon={lon} where={WHERE} onClose={() => setNames(false)} />, document.body)}
     </ModalSheet>
   );

@@ -8,7 +8,7 @@
 #   - 和文：Shippori Mincho（しっぽり明朝）Medium・SemiBold  ofl/shipporimincho/ShipporiMincho-{Medium,SemiBold}.ttf
 #   - 和文の見出し：Zen Old Mincho Bold（表紙の名前・本の背の名前。11/20 20:09 渡辺さん「重厚感」）ofl/zenoldmincho/ZenOldMincho-Bold.ttf
 #   - 欧文：Cormorant Garamond（可変、斜体も）           ofl/cormorantgaramond/CormorantGaramond[wght].ttf ほか
-# 和文は物語の文・呼び名・説明・画面の文言に出てくる字（shared/fullMoonNames.ts と src/ui/MoonStory.tsx・
+# 和文は物語の文・呼び名・説明・画面の文言に出てくる字（shared/fullMoonNames.ts・shared/windowMoon.ts と src/ui/MoonStory.tsx・
 # src/design/story/ の文字）と、かな・数字・記号だけに絞る。文を足したら走らせ直す（字が無いと別の書体で出る）。
 import pathlib, re, sys
 from fontTools import subset
@@ -18,7 +18,7 @@ OUT = pathlib.Path("public/event/story/fonts")
 OUT.mkdir(parents=True, exist_ok=True)
 
 texts = []
-for p in ["shared/fullMoonNames.ts", "src/ui/MoonStory.tsx", *map(str, pathlib.Path("src/design/story").glob("*.ts*"))]:
+for p in ["shared/fullMoonNames.ts", "shared/windowMoon.ts", "src/ui/MoonStory.tsx", *map(str, pathlib.Path("src/design/story").glob("*.ts*"))]:
     texts.append(pathlib.Path(p).read_text(encoding="utf-8"))
 used = set("".join(texts))
 kana = {chr(c) for c in range(0x3040, 0x30FF + 1)}
