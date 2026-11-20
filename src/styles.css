@@ -435,8 +435,8 @@ select.chip {
    脈打つ月の光・あとから浮かぶ名前・秒読み。色は空の上の色（onSkyVars）。動きを減らす設定では止める。 */
 .event-stage { position: relative; overflow: hidden; display: grid; justify-items: center; gap: var(--space-2); margin: 0 0 var(--space-4); padding: var(--space-7) var(--space-4) var(--space-6); border-radius: var(--radius-lg); text-align: center; color: var(--ink-primary); box-shadow: var(--shadow-card); }
 .event-stars { position: absolute; inset: 0; pointer-events: none; }
-.event-stars i { position: absolute; border-radius: 50%; background: var(--ink-primary); opacity: 0.25; animation: ev-twinkle 3.2s ease-in-out infinite; }
-.event-shoot { position: absolute; top: 10%; left: -30%; width: 30%; height: 1.5px; background: linear-gradient(90deg, transparent, var(--ink-primary)); opacity: 0; transform: rotate(16deg); transform-origin: right center; animation: ev-shoot 8s ease-in 2s infinite; }
+.event-stars i { position: absolute; border-radius: 50%; background: var(--ev-star); opacity: 0.25; animation: ev-twinkle 3.2s ease-in-out infinite; }
+.event-shoot { position: absolute; top: 10%; left: -30%; width: 30%; height: 1.5px; background: linear-gradient(90deg, transparent, var(--ev-star)); opacity: 0; transform: rotate(16deg); transform-origin: right center; animation: ev-shoot 8s ease-in 2s infinite; }
 .event-stage-pic { position: relative; width: 148px; height: 148px; animation: ev-rise 900ms var(--ease-standard) both; }
 .event-pic { display: block; width: 100%; height: 100%; }
 img.event-pic { object-fit: contain; }
@@ -448,11 +448,33 @@ img.event-pic { object-fit: contain; }
 .event-stage-text small { font-size: var(--size-xs); letter-spacing: 0.12em; color: var(--ink-secondary); }
 .event-stage-text b { font-size: var(--size-xl); font-weight: var(--weight-bold); line-height: 1.15; letter-spacing: 0.04em; text-shadow: 0 0 var(--space-6) var(--ev-glow); text-wrap: balance; }
 .event-stage-text span { font-size: var(--size-sm); letter-spacing: 0.18em; color: var(--ink-secondary); }
-.event-stage-time { display: grid; justify-items: center; gap: var(--space-1); margin-top: var(--space-3); animation: ev-fade 900ms var(--ease-standard) 600ms both; }
-.event-stage-time small { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.event-stage-time b { font-size: var(--size-lg); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; }
 .event-count { margin-top: var(--space-1); padding: var(--space-1) var(--space-5); border-radius: var(--radius-pill); box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; font-size: var(--size-md); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; letter-spacing: 0.04em; color: var(--ink-primary); }
 .event-count.now { box-shadow: 0 0 0 var(--stroke-hair) var(--ev-glow) inset, 0 0 var(--space-5) var(--ev-glow); animation: ev-halo 2.7s ease-in-out infinite; }
+/* 白と緑のテーマ：夜空にせず、テーマの地に。名前のにじみは控えめに、光る札は線の色で縁取る。 */
+.event-stage.light .event-stage-text b { text-shadow: none; }
+.event-stage.light .event-count.now, .event-night.light .event-verdict.good { box-shadow: 0 0 0 var(--stroke-focus) var(--ev-line) inset; animation: none; }
+.event-stage.light .event-glow { mix-blend-mode: normal; }
+/* 瞬間のカード（14:28「ここにちょっとアクセント」、14:35 渡辺さんの見本）：舞台の中の一枚。左に見出しと時刻（光の色で
+   大きく、月・日は小さく）と秒読み、右にその瞬間の月（日食は太陽）と雲。アプリのアクセント色ではなく、その日の光の色。 */
+.event-moment-card { position: relative; display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); width: 100%; margin-top: var(--space-4); padding: var(--space-4) var(--space-5); border-radius: var(--radius-lg); background: var(--surface-inset); box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; text-align: left; animation: ev-fade 900ms var(--ease-standard) 600ms both; }
+.emc-text { display: grid; justify-items: start; gap: var(--space-1); min-width: 0; }
+.emc-text small { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--size-xs); color: var(--ink-secondary); }
+.emc-dot { width: var(--space-3); height: var(--space-3); border-radius: 50%; background: var(--ev-line); }
+.emc-time { font-size: var(--size-xl); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; line-height: 1.15; color: var(--ev-line); white-space: nowrap; }
+.emc-time i { font-style: normal; font-size: var(--size-base); margin: 0 var(--space-1) 0 0; }
+.event-stage:not(.light) .emc-time { text-shadow: 0 0 var(--space-5) var(--ev-glow); }
+.emc-sky { position: relative; flex: none; display: grid; place-items: center; width: 88px; height: 72px; }
+.emc-sky > canvas, .emc-sun { filter: drop-shadow(0 0 var(--space-4) var(--ev-glow)); }
+.emc-sun { width: 64px; height: 64px; }
+.emc-sun-disc { fill: var(--ev-glow); }
+.emc-corona { fill: none; stroke: var(--ev-glow); stroke-width: var(--stroke-focus); opacity: 0.6; }
+.emc-clouds { position: absolute; left: -10%; right: -10%; bottom: -4%; width: 120%; height: auto; }
+.emc-clouds path { fill: var(--surface-base); opacity: 0.85; }
+.event-stage:not(.light) .emc-clouds path { fill: var(--ink-tertiary); opacity: 0.35; }
+.event-moment-card .event-count { margin-top: var(--space-2); }
+.event-stage.light .event-count { background: var(--ev-line); color: var(--surface-base); box-shadow: none; }
+.event-stage.light .event-count.now { box-shadow: 0 0 0 var(--stroke-focus) var(--surface-base) inset; }
+.event-stage:not(.light) .event-count { box-shadow: 0 0 0 var(--stroke-select) var(--ev-glow) inset; }
 @keyframes ev-twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.95; } }
 @keyframes ev-shoot { 0% { opacity: 0; transform: translateX(0) rotate(16deg); } 2% { opacity: 1; } 9% { opacity: 0; transform: translateX(260%) rotate(16deg); } 100% { opacity: 0; transform: translateX(260%) rotate(16deg); } }
 @keyframes ev-rise { from { opacity: 0; transform: translateY(var(--space-6)) scale(0.92); } to { opacity: 1; transform: none; } }
@@ -460,7 +482,7 @@ img.event-pic { object-fit: contain; }
 @keyframes ev-pulse { 0%, 100% { opacity: 0.25; } 50% { opacity: 0.6; } }
 @keyframes ev-halo { 0%, 100% { box-shadow: 0 0 0 var(--stroke-hair) var(--ev-glow) inset, 0 0 var(--space-2) var(--ev-glow); } 50% { box-shadow: 0 0 0 var(--stroke-hair) var(--ev-glow) inset, 0 0 var(--space-6) var(--ev-glow); } }
 @media (prefers-reduced-motion: reduce) {
-  .event-stars i, .event-shoot, .event-stage-pic, .event-glow, .event-stage-text, .event-stage-time, .event-count.now, .event-path-peak .halo { animation: none; }
+  .event-stars i, .event-shoot, .event-stage-pic, .event-glow, .event-stage-text, .event-moment-card, .event-count.now, .event-path-peak .halo { animation: none; }
   .event-shoot { display: none; }
 }
 /* 物語（11/20「ここの工夫」）：引用のように。左に細い線、象徴の札を添える。 */
@@ -484,14 +506,14 @@ img.event-pic { object-fit: contain; }
 .event-path-label { fill: var(--ink-tertiary); }
 .event-path-label.strong { fill: var(--ink-primary); font-weight: var(--weight-bold); }
 .event-path-line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
-.event-path-line.clear { stroke: var(--ev-glow); stroke-width: var(--stroke-focus); filter: drop-shadow(0 0 var(--space-2) var(--ev-glow)); }
+.event-path-line.clear { stroke: var(--ev-line); stroke-width: var(--stroke-focus); filter: drop-shadow(0 0 var(--space-2) var(--ev-glow)); }
 .event-path-line.cloud { stroke: var(--ink-tertiary); stroke-width: var(--stroke-select); stroke-dasharray: 2 5; }
 .event-path-line.unknown { stroke: var(--ink-secondary); stroke-width: var(--stroke-select); opacity: 0.6; }
 .event-path-line.span { stroke-width: calc(var(--stroke-focus) * 2); }
-.event-path-peak .dot { fill: var(--ev-glow); }
+.event-path-peak .dot { fill: var(--ev-line); }
 .event-path-peak .halo { fill: var(--ev-glow); opacity: 0.35; animation: ev-pulse 2.7s ease-in-out infinite; }
 .event-night-legend { display: flex; flex-wrap: wrap; gap: var(--space-4); margin: var(--space-1) 0 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
-.event-night-legend span::before { content: ""; display: inline-block; width: var(--space-6); height: 0; margin-right: var(--space-2); vertical-align: middle; border-top: var(--stroke-focus) solid var(--ev-glow); }
+.event-night-legend span::before { content: ""; display: inline-block; width: var(--space-6); height: 0; margin-right: var(--space-2); vertical-align: middle; border-top: var(--stroke-focus) solid var(--ev-line); }
 .event-night-legend .cloud::before { border-top: var(--stroke-select) dotted var(--ink-tertiary); }
 .event-night-legend .unknown::before { border-top: var(--stroke-select) solid var(--ink-secondary); opacity: 0.6; }
 .event-sheet .event-keys { grid-template-columns: repeat(3, minmax(0, 1fr)); }

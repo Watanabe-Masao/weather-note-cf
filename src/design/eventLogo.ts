@@ -123,9 +123,16 @@ function cloud(): string {
   return `<path d="M16 96 C 14 86 24 80 32 84 C 36 74 52 74 56 84 C 66 82 72 90 68 96 Z" fill="#ffffff" opacity=".55"/><path d="M90 96 C 90 90 98 86 104 90 C 108 84 118 86 118 94 Z" fill="#ffffff" opacity=".4"/>`;
 }
 
-/** 説明の舞台の光の色（11/20「演出・特別感」）：月・食の色に合わせる（上の body() と同じ色）。 */
-export function eventGlow(kind: SkyEventKind, blue: boolean): string {
-  if (kind === "lunar-total") return "#e0764f";
-  if (kind.startsWith("solar")) return "#ffd27a";
-  return blue ? "#cfe3ff" : "#fff1b8";
+/**
+ * 説明の舞台の色（11/20「演出・特別感」、14:24 渡辺さん「ダークにはいいですが、こっちには向きませんね」）：
+ * 紺のテーマは夜空の舞台。白と緑のテーマは、そのテーマの地（ロゴの空と同じ組）に、光と線をテーマに合う濃さで。
+ * glow：光のにじみ（月・食の色）。line：晴れ間の通り道と瞬間の点（明るい地では濃くして読めるように）。star：星。
+ */
+export function eventStage(kind: SkyEventKind, blue: boolean, theme: BrandTheme): { dark: boolean; bg: [string, string]; glow: string; line: string; star: string } {
+  const glow = kind === "lunar-total" ? "#e0764f" : kind.startsWith("solar") ? "#ffd27a" : blue ? "#cfe3ff" : "#fff1b8";
+  if (theme === "navy") return { dark: true, bg: BRAND.navy.bg, glow, line: glow, star: "#ffffff" };
+  // 緑の地は白より暗いので、線と時刻の色をもう一段濃く（読めるように）。
+  const deep = theme === "mist";
+  const line = kind === "lunar-total" ? (deep ? "#963820" : "#b0482c") : kind.startsWith("solar") ? (deep ? "#8f6210" : "#b9801a") : blue ? (deep ? "#2f5ea8" : "#3f74c4") : deep ? "#8a6416" : "#b8892a";
+  return { dark: false, bg: BRAND[theme].bg, glow, line, star: BRAND[theme].dot };
 }

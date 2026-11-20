@@ -8,16 +8,15 @@ import { addDays } from "../../shared/dates";
 import { clockOf } from "../../shared/dayParts";
 import { skyHidden } from "../../shared/dayWeather";
 import { BLUE_MOON, fullMoonInfo } from "../../shared/fullMoonNames";
-import { fullMoonsOfYear, moonTimes, moonTopo } from "../../shared/moon";
+import { fullMoonsOfYear, moonLimb, moonNorth, moonPhase, moonTimes, moonTopo } from "../../shared/moon";
 import { SKY_EVENT_NAME, type SkyEvent } from "../../shared/skyEvents";
 import { DEFAULT_LAT_LON, solarAltitude } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
 import { Priority } from "../data/plan";
 import { eventArt, EVENT_ART_SIZE, eventIcon, EVENT_ICON_SIZE } from "../design/eventAssets";
-import { eventBannerSvg, eventGlow } from "../design/eventLogo";
-import { BRAND } from "../design/brand";
+import { eventBannerSvg, eventStage } from "../design/eventLogo";
 import { currentTheme, onSkyVars } from "../design/tokens";
-import { dirName } from "./moonParts";
+import { dirName, MoonSphere, PhaseIcon } from "./moonParts";
 import { EventPath, pathDays } from "./EventPath";
 import { factTags, FullMoonSheet } from "./FullMoonSheet";
 import { ModalSheet } from "./ModalSheet";
@@ -50,6 +49,18 @@ function countdown(at: number, now: number): string {
   }
   if (a < NOW_SPAN_MS) return "いま、この夜";
   return a >= 24 * HOUR_MS ? `${Math.floor(a / (24 * HOUR_MS))}日前` : `${Math.floor(a / HOUR_MS)}時間前`;
+}
+
+/** 舞台とその夜の空の地と色（紺は空の上の色 onSkyVars で、白と緑はテーマの色のまま）。flip：下のカードは上下を返す。 */
+function stageStyle(st: ReturnType<typeof eventStage>, flip: boolean): CSSProperties {
+  const [a, b] = flip ? [st.bg[1], st.bg[0]] : st.bg;
+  return {
+    ...(st.dark ? (onSkyVars() as CSSProperties) : {}),
+    background: `linear-gradient(${a}, ${b})`,
+    ["--ev-glow" as string]: st.glow,
+    ["--ev-line" as string]: st.line,
+    ["--ev-star" as string]: st.star,
+  };
 }
 
 /** 舞台の星（x%・y%・大きさ px・瞬きの遅れ 秒）。並びは固定（開くたびに替わらない）。 */
@@ -92,55 +103,65 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
     return () => window.clearInterval(id);
   }, []);
 
-  // 今夜の月（満月・月食）：その日の月の出から、いちばん高い・月の入り（日をまたげば翌日）。
+  // その夜の日付（満月・月食）：瞬間が夜中を過ぎていれば前の晩（例：1/1 1:51 の月食は 12/31 の夜）。日食はその日。
+  const nightDate = solar ? date : jst(event.at - 12 * HOUR_MS).date;
+  // その夜の月：その晩の月の出から、いちばん高い・月の入り（日をまたげば翌日）。
   const night = useMemo(() => {
     if (solar) return null;
-    const t0 = moonTimes(date, lat, lon);
-    const t1 = moonTimes(addDays(date, 1), lat, lon);
+    const t0 = moonTimes(nightDate, lat, lon);
+    const t1 = moonTimes(addDays(nightDate, 1), lat, lon);
     const rise = t0.rise ? { at: t0.rise.at, azimuth: t0.rise.azimuth, next: false } : null;
     const after = (m: number | undefined) => (rise ? (m ?? -1) > rise.at : true);
     const high = t0.transit && after(t0.transit.at) ? { ...t0.transit, next: false } : t1.transit ? { ...t1.transit, next: true } : null;
     const set = t0.set && after(t0.set.at) ? { ...t0.set, next: false } : t1.set ? { ...t1.set, next: true } : null;
     return { rise, high, set };
-  }, [solar, date, lat, lon]);
+  }, [solar, nightDate, lat, lon]);
 
-  // 見え方の天気（高知の観測所の記録・予報）：満月なら月が出ている夜の時間、食なら食の間。
+  // 見え方の天気（高知の観測所の記録・予報）：その晩と翌日の分。満月は月が出ている 18時〜翌6時、食はその間（日食は昼）。
   useEffect(() => {
     if (!store) return;
-    store.wantHours(STATION, pathDays(date), Priority.Visible, "event-sheet");
+    store.wantHours(STATION, pathDays(nightDate), Priority.Visible, "event-sheet");
     return () => store.wantHours(STATION, [], Priority.Visible, "event-sheet");
-  }, [store, date]);
-  const rows = store?.getHours(STATION, date).rows ?? [];
-  const nextRows = store?.getHours(STATION, addDays(date, 1)).rows ?? [];
+  }, [store, nightDate]);
+  const rows = store?.getHours(STATION, nightDate).rows ?? [];
+  const nextRows = store?.getHours(STATION, addDays(nightDate, 1)).rows ?? [];
   const sky = useMemo(() => {
-    if (!rows.length) return null;
-    // 見る時間（その日の JMA の時間 n）：満月は月が地平線の上にある 17〜24時、食はその間。
-    const hours: number[] = [];
+    const byDate: Record<string, typeof rows> = { [nightDate]: rows, [addDays(nightDate, 1)]: nextRows };
+    // 見る時刻（1時間ごと）：食はその間、満月は月が地平線の上にある 18時〜翌6時。
+    const times: number[] = [];
     if (event.span) {
-      for (let t = event.span.from; t <= event.span.to; t += HOUR_MS) if (jst(t).date === date) hours.push(Math.floor(jst(t).min / 60) + 1);
-      if (jst(event.at).date === date) hours.push(Math.floor(jst(event.at).min / 60) + 1);
+      for (let t = event.span.from; t <= event.span.to; t += HOUR_MS) times.push(t);
+      times.push(event.at);
     } else {
-      for (let n = 18; n <= 24; n++) {
-        const ms = Date.parse(`${date}T00:00:00+09:00`) + (n - 0.5) * HOUR_MS;
-        if (moonTopo(ms, lat, lon).altitude > 0) hours.push(n);
-      }
+      const start = Date.parse(`${nightDate}T18:30:00+09:00`);
+      for (let k = 0; k < 12; k++) if (moonTopo(start + k * HOUR_MS, lat, lon).altitude > 0) times.push(start + k * HOUR_MS);
     }
-    const seen = [...new Set(hours)].map((n) => skyHidden(rows, n, STATION)).filter((x): x is NonNullable<typeof x> => !!x);
+    const seen = [...new Map(times.map((t) => [Math.floor(t / HOUR_MS), t])).values()]
+      .sort((a, b) => a - b)
+      .map((t) => {
+        const j = jst(t);
+        const s = byDate[j.date]?.length ? skyHidden(byDate[j.date], Math.floor(j.min / 60) + 1, STATION) : null;
+        return s ? { ...s, at: Math.floor(t / HOUR_MS) * HOUR_MS } : null;
+      })
+      .filter((x): x is NonNullable<typeof x> => !!x);
     if (!seen.length) return null;
     const hidden = seen.filter((x) => x.hidden).length;
     const verdict = hidden === 0 ? "よく見えそう" : hidden === seen.length ? "雲で見えにくいかも" : "雲の切れ間から見えそう";
-    const forecast = rows.some((r) => r.type === "forecast");
-    // 同じ天気の続く時間をまとめる：「17〜21時台 晴れ・22〜23時台 くもり」。
+    const forecast = [...rows, ...nextRows].some((r) => r.type === "forecast");
+    // 同じ天気の続く時間をまとめる：「17〜20時台 晴れ・21〜23時台 くもり」（日をまたいでも時刻だけ）。
     const runs: { from: number; to: number; text: string }[] = [];
-    for (const x of [...new Map(seen.map((x) => [x.hour, x])).values()].sort((a, b) => a.hour - b.hour)) {
+    for (const x of seen) {
       const last = runs.at(-1);
-      if (last && last.text === x.text && x.hour === last.to + 1) last.to = x.hour;
-      else runs.push({ from: x.hour, to: x.hour, text: x.text });
+      if (last && last.text === x.text && x.at === last.to + HOUR_MS) last.to = x.at;
+      else runs.push({ from: x.at, to: x.at, text: x.text });
     }
-    const text = runs.map((r) => `${r.from - 1}${r.to > r.from ? `〜${r.to - 1}` : ""}時台 ${r.text}`).join("・");
+    const hour = (t: number) => Math.floor(jst(t).min / 60);
+    const text = runs.map((r) => `${hour(r.from)}${r.to > r.from ? `〜${hour(r.to)}` : ""}時台 ${r.text}`).join("・");
     return { verdict, text, forecast, good: hidden === 0 };
-  }, [rows, event.span, event.at, date, lat, lon]);
+  }, [rows, nextRows, event.span, event.at, nightDate, lat, lon]);
 
+  // 舞台の色：紺は夜空、白と緑はそのテーマの地（14:24 渡辺さん「ダークにはいいですが、こっちには向きませんね」）。
+  const stage = eventStage(event.kind, event.blue, currentTheme());
   const peakAlt = solar ? solarAltitude(date, jst(event.at).min, lat, lon) : moonTopo(event.at, lat, lon).altitude;
 
   return (
@@ -148,7 +169,7 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
       {/* 舞台（11/20 渡辺さん「もっともっと演出を特別感を」）：テーマによらず夜空の舞台。瞬く星と、ときどき流れ星。
           文字の無い四角い絵がせり上がり、月の光がゆっくり脈打つ。名前はあとから浮かび上がる。瞬間までの秒読み（24時間を
           切ったら秒まで）。動きを減らす設定では動かさない。 */}
-      <div className="event-stage" style={{ ...(onSkyVars() as CSSProperties), background: `linear-gradient(${BRAND.navy.bg[0]}, ${BRAND.navy.bg[1]})`, ["--ev-glow" as string]: eventGlow(event.kind, event.blue) }}>
+      <div className={stage.dark ? "event-stage" : "event-stage light"} style={stageStyle(stage, false)}>
         <span className="event-stars" aria-hidden>
           {STARS.map(([x, y, r, d], i) => (
             <i key={i} style={{ left: `${x}%`, top: `${y}%`, width: r, height: r, animationDelay: `${d}s` }} />
@@ -164,14 +185,35 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
           <b>{what}</b>
           {full && (info?.en ?? (event.blue ? BLUE_MOON.en : null)) && <span>{info?.en ?? BLUE_MOON.en}</span>}
         </div>
-        <div className="event-stage-time">
-          <small>{full ? "満月の瞬間" : "食がいちばん深くなる時刻"}</small>
-          <b>
-            {jst(event.at).md}（{jst(event.at).wd}）{clockOf(jst(event.at).min)}
-          </b>
-          <span className={near ? "event-count now" : "event-count"} role="timer">
-            {countdown(event.at, now)}
-          </span>
+        {/* 瞬間のカード（14:35 渡辺さんの見本）：左に「満月になる時刻（日本時間）」と時刻を光の色で大きく、秒読み。
+            右にその瞬間の月（日食は太陽）と雲。 */}
+        <div className="event-moment-card">
+          <div className="emc-text">
+            <small>
+              {solar ? <span className="emc-dot" aria-hidden /> : <PhaseIcon kind={2} size={14} />}
+              {full ? "満月になる時刻（日本時間）" : "食がいちばん深くなる時刻（日本時間）"}
+            </small>
+            <b className="emc-time">
+              {Number(jst(event.at).date.slice(5, 7))}
+              <i>月</i>
+              {Number(jst(event.at).date.slice(8))}
+              <i>日</i> {clockOf(jst(event.at).min)}
+            </b>
+            <span className={near ? "event-count now" : "event-count"} role="timer">
+              {countdown(event.at, now)}
+            </span>
+          </div>
+          <div className="emc-sky" aria-hidden>
+            {solar ? (
+              <SunMark kind={event.kind} />
+            ) : (
+              <MoonSphere phase={moonPhase(event.at)} size={64} limb={moonLimb(event.at, lat, lon)} north={moonNorth(event.at, lat, lon)} tint={stage.glow} dark={false} />
+            )}
+            <svg className="emc-clouds" viewBox="0 0 120 40">
+              <path d="M8 34 C 6 26 16 22 22 26 C 26 18 40 18 44 26 C 52 24 58 30 54 34 Z" />
+              <path d="M64 36 C 64 30 72 27 77 30 C 81 24 93 25 95 31 C 102 30 106 35 102 38 Z" />
+            </svg>
+          </div>
         </div>
       </div>
 
@@ -205,14 +247,14 @@ export function EventSheet({ event, onClose, day, store }: { event: SkyEvent; on
 
       {/* その夜の空（11/20 渡辺さん「ここの工夫」）：舞台と同じ夜空に、月（日食は太陽）の通り道を天気で描き分け、
           見込みを札で。下に出・いちばん高い・入り（食は始め・いちばん深い・終わり）。 */}
-      <div className="event-night" style={{ ...(onSkyVars() as CSSProperties), background: `linear-gradient(${BRAND.navy.bg[1]}, ${BRAND.navy.bg[0]})`, ["--ev-glow" as string]: eventGlow(event.kind, event.blue) }}>
+      <div className={stage.dark ? "event-night" : "event-night light"} style={stageStyle(stage, true)}>
         <div className="event-night-head">
-          <h4>{solar ? `${jst(event.at).md} の太陽（${WHERE}）` : `${jst(event.at).md} の夜の月（${WHERE}）`}</h4>
+          <h4>{solar ? `${jst(event.at).md} の太陽（${WHERE}）` : `${Number(nightDate.slice(5, 7))}/${Number(nightDate.slice(8))} の夜の月（${WHERE}）`}</h4>
           <span className={sky ? (sky.good ? "event-verdict good" : "event-verdict") : "event-verdict unknown"} role="status">
             {sky ? sky.verdict : "天気は予報待ち"}
           </span>
         </div>
-        <EventPath event={event} date={date} lat={lat} lon={lon} weather={{ rows: { [date]: rows, [addDays(date, 1)]: nextRows }, station: STATION }}
+        <EventPath event={event} date={nightDate} lat={lat} lon={lon} weather={{ rows: { [nightDate]: rows, [addDays(nightDate, 1)]: nextRows }, station: STATION }}
           ends={{ from: night?.rise ? `${clockOf(Math.round(night.rise.at))} 出` : null, to: night?.set ? `${night.set.next ? "翌" : ""}${clockOf(Math.round(night.set.at))} 入` : null }}
         />
         <p className="event-night-legend" aria-hidden>
@@ -302,4 +344,22 @@ function EventPicture({ event }: { event: SkyEvent }) {
       </span>
     );
   return <span className="event-pic crop hand" aria-hidden dangerouslySetInnerHTML={{ __html: eventBannerSvg(theme, event.kind, event.name, event.blue, "ev-pic") }} />;
+}
+
+/** 瞬間のカードの太陽（日食）：欠けた所は空の地のまま（月は描かない）。金環は光の輪、皆既はコロナ。色は舞台の光の色。 */
+function SunMark({ kind }: { kind: SkyEvent["kind"] }) {
+  return (
+    <svg className="emc-sun" viewBox="0 0 64 64">
+      <defs>
+        <mask id="emc-bite">
+          <rect width="64" height="64" fill="white" />
+          {kind === "solar-partial" && <circle cx="44" cy="26" r="21" fill="black" />}
+          {kind === "solar-annular" && <circle cx="32" cy="32" r="19" fill="black" />}
+          {kind === "solar-total" && <circle cx="32" cy="32" r="21.5" fill="black" />}
+        </mask>
+      </defs>
+      {kind === "solar-total" && <circle cx="32" cy="32" r="29" className="emc-corona" />}
+      <circle cx="32" cy="32" r="22" className="emc-sun-disc" mask="url(#emc-bite)" />
+    </svg>
+  );
 }
