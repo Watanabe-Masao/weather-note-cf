@@ -626,8 +626,9 @@ img.event-pic { object-fit: contain; }
 .ms-paper .ms-symbols em + em { position: relative; margin-left: var(--space-3); }
 .ms-paper .ms-symbols em + em::after { content: ""; position: absolute; left: calc(var(--space-4) * -1); top: 15%; bottom: 15%; width: var(--stroke-hair); background: var(--bk-gold-1); opacity: 0.6; }
 .ms-symbol-icon { width: 1.3em; height: 1.3em; color: var(--bk-gold-deep); }
-/* 名前の由来（21:04 の見本）：角は丸く（切り欠かない）、金の二重の枠も丸く、四隅に唐草、上に月の満ち欠け。 */
+/* 紙のページの枠（21:04 の見本、21:14 で二枚ともこの形に）：角は丸く（切り欠かない）、金の二重の枠も丸く、四隅に唐草、上に月の満ち欠け。 */
 .ms-paper.origin { border-radius: var(--radius-lg); -webkit-mask: none; mask: none; padding-top: var(--space-8); }
+.ms-paper.origin.nature { padding-top: var(--space-9); }
 .ms-paper.origin::before, .ms-paper.origin::after { -webkit-mask: none; mask: none; background: none; border-radius: var(--radius-md); }
 .ms-paper.origin::after { border-radius: var(--radius-sm); }
 .ms-paper-corner { position: absolute; width: var(--space-9); height: auto; color: var(--bk-gold-1); pointer-events: none; }

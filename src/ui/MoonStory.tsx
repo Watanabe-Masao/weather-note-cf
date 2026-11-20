@@ -996,28 +996,27 @@ export function MoonStory({
           ] as const
         ).map(([head, paras, last]) => (
           <section key={head} className="ms-chapter ms-text">
-            {/* 名前の由来（21:04 の見本）：角の丸い枠と四隅の唐草、上に月の満ち欠け、見出しの下に菱形の飾り。
-                自然との関係（20:56 の見本）：角を内に丸く切った枠、見出しの下に小枝の線、象徴の言葉の札。 */}
+            {/* 紙のページ（11/20 21:14 渡辺さん：四隅は角の丸い枠と唐草にそろえる）。見出しまわりはページごと：
+                名前の由来は上に月の満ち欠けと菱形の飾り、自然との関係は小枝の線と象徴の言葉の札。 */}
             <div
               className={[
                 "ms-paper",
-                last ? "nature" : "origin",
+                "origin",
+                last ? "nature" : "",
                 scene?.PaperArt ? "with-art" : "",
                 "ms-rise",
               ]
                 .filter(Boolean)
                 .join(" ")}
             >
+              {["tl", "tr", "bl", "br"].map((c) => (
+                <PaperCorner key={c} className={`ms-paper-corner ${c}`} />
+              ))}
               {!last && (
-                <>
-                  {["tl", "tr", "bl", "br"].map((c) => (
-                    <PaperCorner key={c} className={`ms-paper-corner ${c}`} />
-                  ))}
-                  <PhaseRow
-                    moon={storyAsset("common", "emboss")}
-                    className="ms-phases"
-                  />
-                </>
+                <PhaseRow
+                  moon={storyAsset("common", "emboss")}
+                  className="ms-phases"
+                />
               )}
               <h3>{head}</h3>
               {last ? <LeafRule className="ms-leafrule" /> : <Flourish />}
