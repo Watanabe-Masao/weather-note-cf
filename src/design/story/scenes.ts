@@ -5,6 +5,7 @@ import type { ReactElement } from "react";
 import { storyAsset } from "./storyAssets";
 import {
   BEAVER_BEATS,
+  BEAVER_LINE_AT,
   BEAVER_SKY,
   BeaverCoverArt,
   BeaverPaperArt,
@@ -30,6 +31,11 @@ export type StoryScene = {
   /** 表紙の上の二隅に置く飾りの枝（素材。左は返して使う）。 */
   coverCorner?: string;
   build: typeof buildBeaverScene;
+  /**
+   * 行を出しはじめる所（コマの中の 0〜1、行ごと）。絵の動きに合わせて行を出すページだけ（11/21 絵コンテ v0.3：6ページは
+   * 丘が明るむと1行目、月の縁が出ると2行目）。無いページは、行を続けて朗読の速さで出す。
+   */
+  lineAt?: Record<number, number[]>;
 };
 
 export const STORY_SCENES: Record<string, StoryScene> = {
@@ -46,5 +52,6 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     coverCorner: storyAsset("beaver", "branch"),
     PaperArt: BeaverPaperArt,
     build: buildBeaverScene,
+    lineAt: BEAVER_LINE_AT,
   },
 };
