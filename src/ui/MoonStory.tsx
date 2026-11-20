@@ -41,6 +41,7 @@ import {
 } from "../design/story/Book";
 import {
   CloudMark,
+  Glint,
   MoonEmblem,
   SpineHills,
   SpineLatin,
@@ -60,6 +61,16 @@ const WHERE = "高知";
 /** 開いた本（見開き）を画面に収める縮め方（表紙は画面の幅の 84% まで大きく、見開きはその 2 倍の幅）。 */
 const SPREAD = 0.56;
 const HOUR_MS = 3_600_000;
+/** 締めくくりのきらめき：[横 %, 縦 %, 大きさ（倍）, 遅れ（秒）]。文のまわりに散らし、同時には一つ二つだけ光る。 */
+const GLINTS: [number, number, number, number][] = [
+  [18, 30, 0.9, 0.4],
+  [82, 34, 0.7, 1.6],
+  [12, 52, 0.6, 2.7],
+  [88, 50, 1, 3.5],
+  [26, 66, 0.55, 1.1],
+  [74, 70, 0.75, 2.2],
+  [50, 22, 0.5, 4.2],
+];
 
 /**
  * 物語の区切り（スクロールの px、小さい順）：表紙・見開き・場面の一コマずつ（文が読める所）・場面の終わり（一枚の絵）・
@@ -619,6 +630,31 @@ export function MoonStory({
                 },
               );
           });
+        // 物語から今夜の情報へ移る間の一言：画面の下から入ると現れ、真ん中を過ぎると消える（ずれは少し、文字は動かしすぎない）。
+        const herald = el.querySelector(".ms-herald-text");
+        if (herald)
+          gsap
+            .timeline({
+              scrollTrigger: {
+                trigger: herald,
+                scroller,
+                start: "top 88%",
+                end: "bottom 22%",
+                scrub: 0.4,
+              },
+            })
+            .fromTo(
+              herald,
+              { opacity: 0, y: 18, scale: 0.98 },
+              { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "power2.out" },
+            )
+            .to(herald, { opacity: 1, duration: 0.2 })
+            .to(herald, {
+              opacity: 0,
+              y: -14,
+              duration: 0.4,
+              ease: "power2.in",
+            });
         // 区切りのドットは、場面の動きではなく、ページ送りの「いまの区切り」で灯す（storyPager の onIndex）。
       });
       // 明朝の字が読み込まれると高さが変わるので、測り直す。
@@ -862,7 +898,28 @@ export function MoonStory({
       {/* 締めくくり（16:27 のレビュー「最後の余韻」）：ひと言をもう一度。ここから今夜の情報へつなぐ。 */}
       {scene && story?.tale && (
         <section className="ms-chapter ms-epilogue">
-          <Flourish />
+          {/* きらめき（11/20 20:42 渡辺さん「ここにもちょっとキラッとしたエフェクトを」）：飾りの線の真ん中の菱形と、
+              文のまわりに小さな星が、間をおいて一つずつ瞬く。動きを減らす設定では出さない。 */}
+          <span className="ms-glints" aria-hidden>
+            {GLINTS.map(([x, y, s, d], i) => (
+              <Glint
+                key={i}
+                className="ms-glint"
+                style={
+                  {
+                    ["--x" as string]: `${x}%`,
+                    ["--y" as string]: `${y}%`,
+                    ["--s" as string]: s,
+                    ["--d" as string]: `${d}s`,
+                  } as CSSProperties
+                }
+              />
+            ))}
+          </span>
+          <span className="ms-flourish-glint">
+            <Flourish />
+            <Glint className="ms-glint lead" />
+          </span>
           <p className="ms-rise">
             {story.tale.tagline.split("、").map((t, i, all) => (
               <span key={i}>
@@ -873,6 +930,13 @@ export function MoonStory({
             ))}
           </p>
           <small className="ms-rise">{title}</small>
+        </section>
+      )}
+
+      {/* 物語から今夜の情報へ移る間の一言（11/20 20:45 渡辺さん）：スクロールに合わせて、すっと現れ、すっと消える。 */}
+      {scene && story?.tale?.herald && (
+        <section className="ms-herald" aria-label={story.tale.herald}>
+          <p className="ms-herald-text">{story.tale.herald}</p>
         </section>
       )}
 

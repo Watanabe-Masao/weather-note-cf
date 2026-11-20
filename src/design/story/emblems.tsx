@@ -1,7 +1,7 @@
 // 満月の物語の本の背と表紙の紋（11/20 18:19 渡辺さんの見本：オオカミ・雪の結晶・芽・花・イチゴ・シカ・チョウザメ・
 // トウモロコシ・麦・ビーバー・針葉樹）。金の箔押しのような一色の形（currentColor）。名前の由来の主役を表す。
 // ハンターズムーンは狩りを直接描かず、冬への備え（どんぐりと葉）で。ブルームーンはひと月に二つの満月。
-import type { ReactElement } from "react";
+import type { CSSProperties, ReactElement } from "react";
 import { BEVEL } from "./Book";
 
 const F = { fill: "currentColor" } as const;
@@ -358,6 +358,24 @@ export function SpineLatin({
           </text>
         ))}
       </g>
+    </svg>
+  );
+}
+
+/** きらめき（四つの光の筋の星。金の飾りや月のそばで小さく瞬かせる。11/20 20:42 渡辺さん「キラッとしたエフェクト」）。 */
+export function Glint({
+  className,
+  style,
+}: {
+  className?: string;
+  style?: CSSProperties;
+}): ReactElement {
+  return (
+    <svg className={className} style={style} viewBox="0 0 24 24" aria-hidden>
+      <path
+        fill="currentColor"
+        d="M12 0 C 12.8 8.6 15.4 11.2 24 12 C 15.4 12.8 12.8 15.4 12 24 C 11.2 15.4 8.6 12.8 0 12 C 8.6 11.2 11.2 8.6 12 0 Z"
+      />
     </svg>
   );
 }
