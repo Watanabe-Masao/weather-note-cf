@@ -37,6 +37,7 @@ const ALLOWED: Record<string, number> = {
   "ui/FullMoonSheet.tsx": 1,
   // 見出しのロゴ：空のイベントの日の帯の絵（ロゴそのものを押す）。
   "ui/Brand.tsx": 2,
+  "ui/MoonStory.tsx": 1,
   "ui/DaySummaryCard.tsx": 1,
   "ui/CompareSummary.tsx": 3,
   "ui/StatusBar.tsx": 1,

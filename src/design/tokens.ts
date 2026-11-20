@@ -607,6 +607,10 @@ const font = {
   numeric:
     'ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Hiragino Sans", sans-serif',
   mono: 'ui-monospace, "SF Mono", Menlo, monospace', // codes and clock times to read out character by character
+  // 満月の物語の絵本の文（明朝。2026-11-20 渡辺さん「物語の魅せ方にこだわって」）。物語のページ（.ms-*）だけで使う。
+  story: '"Hiragino Mincho ProN", "Yu Mincho", "YuMincho", "Noto Serif JP", "Noto Serif CJK JP", serif',
+  // 満月の物語の表紙の英語の名前（細い欧文の斜体。16:23 渡辺さん「カタカナがドンと見えるのがダサい」）。.ms-* だけで使う。
+  latin: 'Baskerville, "Hoefler Text", "Libre Baskerville", Georgia, "Times New Roman", serif',
 } as const;
 
 /**
@@ -618,6 +622,7 @@ const font = {
  * - lg   見出し・強調する値
  * - xl   いちばん大きい値
  * - input 入力欄（16 未満だと iPhone が拡大するため）
+ * - title / display  全画面の物語（満月の物語）の章の見出しと、いちばん大きな名前・時刻だけ（2026-11-20）。
  */
 // The steps are iOS's text styles at the standard setting (#151): xs = Caption 2 (11, the smallest
 // iOS uses), sm = Caption 1, base = Footnote, md = Subheadline, lg = Headline/Body, xl = Title 3.
@@ -629,6 +634,9 @@ const size = {
   lg: 17,
   xl: 20,
   input: 16,
+  // iOS Title 1 と Large Title。全画面の物語だけで使う（ふだんの画面の文字は xl まで）。
+  title: 28,
+  display: 34,
 } as const;
 /** The type scale for text drawn in SVG, where a CSS size would be read in the drawing's own units. */
 export const TYPE_SIZE = size;
@@ -708,6 +716,7 @@ export const LAYER = {
   sheet: 10, // the bottom sheet
   overlayBackdrop: 30, // dimming behind an overlay sheet
   overlay: 31, // overlay sheets (feel map, similar days, calendar, settings)
+  story: 35, // full-screen scroll stories (満月の物語), above the sheets that open them
   popover: 40, // week badge, tooltips
 } as const;
 
