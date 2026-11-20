@@ -3,7 +3,14 @@
 // 2026-11-20：まずビーバームーン（見本）。渡辺さんの OK のあと、ほかの 12 の満月とブルームーンを足す。
 import type { ReactElement } from "react";
 import { storyAsset } from "./storyAssets";
-import { BEAVER_BEATS, BEAVER_SKY, BeaverCoverArt, BeaverWindow, BeaverWorld, buildBeaverScene } from "./BeaverWorld";
+import {
+  BEAVER_BEATS,
+  BEAVER_SKY,
+  BeaverCoverArt,
+  BeaverWindow,
+  BeaverWorld,
+  buildBeaverScene,
+} from "./BeaverWorld";
 
 export type StoryScene = {
   /** 場面（コマ）の数。 */
@@ -23,5 +30,17 @@ export type StoryScene = {
 };
 
 export const STORY_SCENES: Record<string, StoryScene> = {
-  ビーバームーン: { beats: BEAVER_BEATS, World: BeaverWorld, Window: BeaverWindow, sky: BEAVER_SKY, CoverArt: BeaverCoverArt, spineArt: { moon: storyAsset("beaver", "emboss"), emblem: storyAsset("beaver", "beaver") }, coverCorner: storyAsset("beaver", "branch"), build: buildBeaverScene },
+  ビーバームーン: {
+    beats: BEAVER_BEATS,
+    World: BeaverWorld,
+    Window: BeaverWindow,
+    sky: BEAVER_SKY,
+    CoverArt: BeaverCoverArt,
+    spineArt: {
+      moon: storyAsset("beaver", "emboss"),
+      emblem: storyAsset("beaver", "beaver"),
+    },
+    coverCorner: storyAsset("beaver", "branch"),
+    build: buildBeaverScene,
+  },
 };

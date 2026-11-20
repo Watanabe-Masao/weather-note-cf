@@ -31,20 +31,47 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
     // 11/20 19:41 渡辺さんの素材（weather_note_beaver_assets_cleaned：透けている一枚ずつの PNG、要求書の名前）。
     moon: { file: "design-src/story/common/moon.png", width: 512 },
     emboss: { file: "design-src/story/common/emboss.png", width: 160 },
-    "beaver-branch": { file: "design-src/story/beaver/pack/hero-act.png", width: 480 },
+    "beaver-branch": {
+      file: "design-src/story/beaver/pack/hero-act.png",
+      width: 480,
+    },
     beaver: { file: "design-src/story/beaver/pack/hero-look.png", width: 480 },
-    "beaver-swim": { file: "design-src/story/beaver/pack/hero-move.png", width: 400 },
-    "beaver-nest": { file: "design-src/story/beaver/pack/prop.png", width: 480 },
+    "beaver-swim": {
+      file: "design-src/story/beaver/pack/hero-move.png",
+      width: 400,
+    },
+    "beaver-nest": {
+      file: "design-src/story/beaver/pack/prop.png",
+      width: 480,
+    },
     nest: { file: "design-src/story/beaver/pack/prop.png", width: 480 },
-    "leaf-large": { file: "design-src/story/beaver/pack/float-1.png", width: 96 },
-    "leaf-small": { file: "design-src/story/beaver/pack/float-2.png", width: 96 },
-    "leaf-tiny": { file: "design-src/story/beaver/pack/float-3.png", width: 96 },
-    tree: { file: "design-src/story/beaver/pack/tree-secondary.png", width: 360 },
+    "leaf-large": {
+      file: "design-src/story/beaver/pack/float-1.png",
+      width: 96,
+    },
+    "leaf-small": {
+      file: "design-src/story/beaver/pack/float-2.png",
+      width: 96,
+    },
+    "leaf-tiny": {
+      file: "design-src/story/beaver/pack/float-3.png",
+      width: 96,
+    },
+    tree: {
+      file: "design-src/story/beaver/pack/tree-secondary.png",
+      width: 360,
+    },
     "tree-big": { file: "design-src/story/beaver/pack/tree.png", width: 400 },
     branch: { file: "design-src/story/beaver/pack/branch.png", width: 480 },
-    reflection: { file: "design-src/story/beaver/pack/reflection.png", width: 400 },
+    reflection: {
+      file: "design-src/story/beaver/pack/reflection.png",
+      width: 400,
+    },
     reed: { file: "design-src/story/beaver/pack/grass.png", width: 300 },
-    foreground: { file: "design-src/story/beaver/pack/foreground.png", width: 600 },
+    foreground: {
+      file: "design-src/story/beaver/pack/foreground.png",
+      width: 600,
+    },
     pines: { rect: [1424, 732, 84, 64], key: true },
   },
 };
@@ -56,4 +83,5 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
 export const SHELF_SLICE = [180, 79, 147, 84] as const;
 
 /** 素材の URL（版つき）。 */
-export const storyAsset = (moon: string, name: string) => `/event/story/${moon}/${name}.webp?v=${STORY_ASSET_VERSION}`;
+export const storyAsset = (moon: string, name: string) =>
+  `/event/story/${moon}/${name}.webp?v=${STORY_ASSET_VERSION}`;

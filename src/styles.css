@@ -482,8 +482,9 @@ img.event-pic { object-fit: contain; }
 .ms-topband { position: fixed; inset: 0 0 auto; z-index: 2; height: calc(env(safe-area-inset-top, 0px) + var(--space-4) * 2 + var(--tap-min) + var(--space-4)); background: linear-gradient(var(--bk-night-1), transparent); opacity: 0.85; pointer-events: none; }
 /* 満月の物語の書体（11/20 19:52 渡辺さん「システムフォントは雰囲気台無し」）：しっぽり明朝と Cormorant Garamond（どちらも OFL）。
    物語で使う字だけに絞った woff2（scripts/story-fonts.py）。物語を開いたときだけ読む（/event/ の下、版つき）。 */
-@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-500.woff2?v=1") format("woff2"); font-weight: 400 500; font-display: block; }
-@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-600.woff2?v=1") format("woff2"); font-weight: 600 700; font-display: block; }
+@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-500.woff2?v=2") format("woff2"); font-weight: 400 500; font-display: block; }
+@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-600.woff2?v=2") format("woff2"); font-weight: 600 700; font-display: block; }
+@font-face { font-family: "Story Engrave"; src: url("/event/story/fonts/zen-old-mincho-700.woff2?v=1") format("woff2"); font-weight: 400 900; font-display: block; }
 @font-face { font-family: "Story Garamond"; src: url("/event/story/fonts/cormorant-garamond.woff2?v=1") format("woff2"); font-weight: 300 700; font-style: normal; font-display: block; }
 @font-face { font-family: "Story Garamond"; src: url("/event/story/fonts/cormorant-garamond-italic.woff2?v=1") format("woff2"); font-weight: 300 700; font-style: italic; font-display: block; }
 /* 本（11/20 渡辺さんの見本：紺の革の表紙・金の飾り・生成りの紙）。テーマによらず一つ（色は src/design/story）。
@@ -509,21 +510,26 @@ img.event-pic { object-fit: contain; }
 .bk-cover { position: absolute; inset: 0; transform-origin: left center; will-change: transform; }
 /* 表紙（11/20 18:19 渡辺さんの見本）：紺の革のしぼ（--bk-leather を重ねる）、金の枠、Weather Note の印、明朝の金の名前、
    型押しの満月（絵を革に押したように：輝度だけを重ね、内側に影）、ひと言。光のにじみは使わない。 */
-.bk-front { display: grid; justify-items: center; align-content: center; gap: var(--space-2); padding: var(--space-7) var(--space-6); text-align: center; color: var(--bk-gold-0); background: var(--bk-leather), radial-gradient(circle at 40% 28%, var(--bk-cover-0), var(--bk-cover-1) 78%); background-size: 180px 180px, auto; background-blend-mode: multiply, normal; box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1), inset var(--space-2) 0 var(--space-3) var(--bk-night-1), inset 0 0 var(--space-6) var(--bk-night-1); --bk-seed: var(--bk-cover-1); }
+.bk-front { display: grid; justify-items: center; align-content: center; gap: var(--space-2); padding: var(--space-7) var(--space-6) var(--space-8); text-align: center; color: var(--bk-gold-0); background: linear-gradient(90deg, transparent 4.5%, var(--bk-engrave-soft) 5.5%, var(--bk-shine-faint) 6.5%, transparent 8%), radial-gradient(ellipse at 50% 42%, transparent 55%, var(--bk-engrave-soft)), var(--bk-leather), radial-gradient(circle at 40% 28%, var(--bk-cover-0), var(--bk-cover-1) 78%); background-size: auto, auto, 180px 180px, auto; background-blend-mode: normal, normal, multiply, normal; box-shadow: var(--stroke-hair) var(--stroke-hair) 0 var(--bk-paper-1), var(--space-1) var(--space-1) 0 var(--bk-paper-0), calc(var(--space-1) + var(--stroke-hair)) calc(var(--space-1) + var(--stroke-hair)) 0 var(--bk-cover-1), 0 var(--space-6) var(--space-8) var(--bk-engrave), inset var(--space-2) 0 var(--space-3) var(--bk-night-1), inset 0 0 var(--space-7) var(--bk-engrave); --bk-seed: var(--bk-cover-1); }
+/* 金の箔押しの字（11/20 20:09 渡辺さん「フォントや金の縁など立体感」）：上から光る金のグラデーションを字の形に切り、下に押した溝の影、
+   上の縁に光。 */
+.bk-front h2, .bk-en, .ms-spine b span, .ms-spine small, .ms-flybook b { background: linear-gradient(180deg, var(--bk-gold-shine) 0%, var(--bk-gold-0) 36%, var(--bk-gold-1) 60%, var(--bk-gold-0) 80%, var(--bk-gold-deep) 100%); -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 var(--stroke-hair) 0 var(--bk-engrave)) drop-shadow(0 calc(var(--stroke-hair) * -1) 0 var(--bk-shine-soft)); }
+.ms-spine b span { background-image: linear-gradient(90deg, var(--bk-gold-1) 0%, var(--bk-gold-shine) 40%, var(--bk-gold-0) 60%, var(--bk-gold-deep) 100%); }
 .bk-mark { display: grid; justify-items: center; gap: 0; }
-.bk-cloud { width: 2.2em; height: auto; color: var(--bk-gold-0); }
-.bk-mark small { font-family: var(--font-latin); font-size: var(--size-xs); letter-spacing: 0.14em; color: var(--bk-gold-0); }
-.ms-book .bk-front h2 { margin: var(--space-1) 0 0; font-family: var(--font-story); font-size: var(--size-title); font-weight: var(--weight-medium); letter-spacing: 0.06em; line-height: 1.2; color: var(--bk-gold-0); text-shadow: 0 1px 0 var(--bk-night-1); }
-.bk-en { display: flex; align-items: center; gap: var(--space-2); font-family: var(--font-latin); font-size: var(--size-md); letter-spacing: 0.08em; color: var(--bk-gold-0); }
-.bk-en::before, .bk-en::after { content: ""; width: var(--space-6); height: var(--stroke-hair); background: currentColor; opacity: 0.7; }
-.bk-tag { margin: 0; font-family: var(--font-story); font-size: var(--size-xs); letter-spacing: 0.08em; color: var(--bk-gold-0); text-wrap: balance; }
-.bk-sub { font-family: var(--font-latin); font-style: italic; font-size: var(--size-xs); letter-spacing: 0.04em; color: var(--bk-gold-1); }
+.bk-cloud { width: 2.4em; height: auto; color: var(--bk-gold-0); }
+.bk-mark small { font-family: var(--font-latin); font-size: var(--size-sm); font-weight: var(--weight-bold); letter-spacing: 0.16em; color: var(--bk-gold-0); filter: drop-shadow(0 var(--stroke-hair) 0 var(--bk-engrave)); }
+.ms-book .bk-front h2 { margin: var(--space-1) 0 0; font-family: var(--font-engrave); font-size: var(--size-title); font-weight: var(--weight-bold); letter-spacing: 0.04em; line-height: 1.25; }
+.bk-en { display: flex; align-items: center; gap: var(--space-3); margin-top: calc(var(--space-1) * -1); font-family: var(--font-latin); font-size: var(--size-lg); font-weight: var(--weight-bold); letter-spacing: 0.06em; line-height: 1.2; font-variant-numeric: lining-nums; }
+.bk-en::before, .bk-en::after { content: ""; width: var(--space-6); height: var(--stroke-hair); background: var(--bk-gold-0); }
+.bk-tag { margin: var(--space-1) 0 0; font-family: var(--font-story); font-size: var(--size-sm); font-weight: var(--weight-bold); letter-spacing: 0.1em; line-height: 1.6; color: var(--bk-gold-0); text-wrap: balance; filter: drop-shadow(0 var(--stroke-hair) 0 var(--bk-engrave)); }
+.bk-sub { font-family: var(--font-latin); font-style: italic; font-size: var(--size-sm); font-weight: var(--weight-medium); letter-spacing: 0.04em; color: var(--bk-gold-0); filter: drop-shadow(0 var(--stroke-hair) 0 var(--bk-engrave)); }
 .bk-cover-shade { position: absolute; inset: 0; background: var(--bk-night-1); opacity: 0; pointer-events: none; }
 .bk-back { left: auto; right: 100%; width: 100%; transform-origin: right center; transform: scaleX(0); will-change: transform; border-radius: var(--radius-lg) var(--radius-sm) var(--radius-sm) var(--radius-lg); display: grid; place-items: center; background: radial-gradient(circle at 60% 40%, var(--bk-cover-0), var(--bk-cover-1) 80%); box-shadow: inset calc(var(--space-3) * -1) 0 var(--space-4) var(--bk-night-1); }
 .bk-back img { width: 58%; aspect-ratio: 1; border-radius: 50%; object-fit: cover; opacity: 0.85; box-shadow: 0 0 0 var(--stroke-hair) var(--bk-gold-0), 0 0 0 var(--space-2) var(--bk-cover-1), 0 0 0 calc(var(--space-2) + var(--stroke-hair)) var(--bk-gold-1); }
 .bk-back img.wide { object-position: 12% center; }
 .bk-back-shade { position: absolute; inset: 0; background: var(--bk-night-1); opacity: 0; pointer-events: none; }
 .bk-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.bk-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
 .bk-flourish { width: 7em; height: auto; }
 .bk-medal { position: relative; width: 66%; aspect-ratio: 1; display: grid; place-items: center; margin: var(--space-2) 0; border-radius: 50%; background: var(--bk-cover-1); box-shadow: inset 0 var(--space-1) var(--space-3) var(--bk-night-1), inset 0 calc(var(--space-1) * -1) var(--space-2) var(--bk-cover-0), 0 0 0 var(--stroke-hair) var(--bk-gold-1); overflow: hidden; }
 .bk-medal > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; mix-blend-mode: luminosity; opacity: 0.5; filter: grayscale(1) contrast(1.2); }
@@ -532,7 +538,7 @@ img.event-pic { object-fit: contain; }
 .bk-medal-glow { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 38% 32%, var(--bk-emboss-0), transparent 60%); mix-blend-mode: soft-light; opacity: 0.35; }
 /* 素材を重ねた表紙の絵（BeaverCoverArt）：夜の地に、上に満月、下に水面の月の道、左右に紅葉、真ん中に巣の上のビーバー。 */
 /* 表紙の絵（11/20 19:52 渡辺さんの見本の book_cover）：枠を持たず、四方を革へ溶かした横長の場面。 */
-.bk-medal.art { width: 100%; aspect-ratio: 300 / 260; margin: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
+.bk-medal.art { width: 100%; aspect-ratio: 300 / 240; margin: 0; border-radius: 0; background: none; box-shadow: none; overflow: visible; }
 .bca { position: absolute; inset: 0; width: 100%; height: 100%; }
 /* 四隅の紅葉の枝（素材）。 */
 .bk-corner { position: absolute; top: var(--space-5); width: 24%; height: auto; pointer-events: none; filter: drop-shadow(0 1px var(--space-1) var(--bk-night-1)); }
@@ -618,21 +624,23 @@ img.event-pic { object-fit: contain; }
 .ms-crest-sub { display: inline-flex; align-items: center; gap: var(--space-2); font-family: var(--font-latin); font-size: var(--size-xs); letter-spacing: 0.06em; }
 .ms-sprig { width: 2.2em; height: auto; color: var(--bk-gold-1); }
 /* 本棚の絵を枠として伸ばす：上の飾り・左右の柱・下の台はそのまま、中の二段の棚は伸びる。柱の太さは、背が 44px 以上になるよう狭い画面で細く。中の棚板は中の高さの 45〜52%。 */
-.ms-shelf { --bw: clamp(20px, calc((100vw - 308px) * 0.51), 35px); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: 45.3fr 7fr 47.7fr; height: calc(440px + var(--bw) * 3.94); padding: 0 1px; border-style: solid; border-width: calc(var(--bw) * 2.17) calc(var(--bw) * 0.94) calc(var(--bw) * 1.77) var(--bw); border-image-source: var(--ms-shelf-img); border-image-slice: var(--ms-shelf-slice); border-image-repeat: stretch; }
+.ms-shelf { --bw: clamp(20px, calc((100vw - 308px) * 0.51), 35px); display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); grid-template-rows: minmax(0, 45.3fr) minmax(0, 7fr) minmax(0, 47.7fr); height: calc(440px + var(--bw) * 3.94); padding: 0 1px; border-style: solid; border-width: calc(var(--bw) * 2.17) calc(var(--bw) * 0.94) calc(var(--bw) * 1.77) var(--bw); border-image-source: var(--ms-shelf-img); border-image-slice: var(--ms-shelf-slice); border-image-repeat: stretch; }
 .ms-slot:nth-child(-n + 7) { grid-row: 1; }
 .ms-slot:nth-child(n + 8) { grid-row: 3; }
 .ms-slot { display: flex; align-items: flex-end; justify-content: center; min-width: 0; padding: 0 1px; }
-.ms-spine { --bk-seed: var(--spine); position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; min-width: var(--tap-min); height: 94%; padding: var(--space-1) 0; border: 0; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: linear-gradient(90deg, var(--bk-night-1), transparent 20%, transparent 64%, var(--bk-night-1)), var(--bk-leather), var(--spine); background-size: auto, 180px 180px, auto; background-blend-mode: normal, multiply, normal; color: var(--bk-gold-0); box-shadow: 0 var(--space-1) var(--space-2) var(--bk-night-1), inset 0 0 0 var(--stroke-hair) var(--bk-night-1); cursor: pointer; transition: transform var(--motion-quick) var(--ease-standard); font-family: var(--font-story); }
-.sp-band { display: block; width: 100%; height: var(--space-2); border-block: var(--stroke-hair) solid var(--bk-gold-0); opacity: 0.85; }
-.sp-moon { display: block; width: 50%; aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 36% 32%, var(--bk-emboss-0), var(--bk-emboss-1) 72%); box-shadow: inset calc(var(--space-1) * -1) calc(var(--space-1) * -1) var(--space-2) var(--bk-night-1), 0 0 0 var(--stroke-hair) var(--bk-gold-1); opacity: 0.9; }
-.sp-emblem { width: 58%; height: auto; filter: drop-shadow(0 1px 0 var(--bk-night-1)); }
-.ms-spine b { writing-mode: vertical-rl; font-size: var(--size-xs); font-weight: var(--weight-medium); letter-spacing: 0.04em; line-height: 1.15; flex: 1; min-height: 0; text-shadow: 0 1px 0 var(--bk-night-1); }
-.ms-spine small { font-family: var(--font-latin); font-size: var(--size-xs); color: var(--bk-gold-0); font-variant-numeric: tabular-nums; }
-.sp-hills { width: 86%; height: var(--space-4); opacity: 0.7; }
+.ms-spine { --bk-seed: var(--spine); position: relative; display: flex; flex-direction: column; align-items: center; gap: var(--space-1); width: 100%; min-width: var(--tap-min); height: 94%; padding: var(--space-4) 0 var(--space-1); border: 0; border-radius: var(--radius-sm) var(--radius-sm) 0 0; background: linear-gradient(90deg, var(--bk-engrave), transparent 18%, var(--bk-shine-faint) 38%, transparent 62%, var(--bk-engrave)), var(--bk-leather), var(--spine); background-size: auto, 180px 180px, auto; background-blend-mode: normal, multiply, normal; color: var(--bk-gold-0); box-shadow: 0 var(--space-1) var(--space-2) var(--bk-engrave), inset 0 0 0 var(--stroke-hair) var(--bk-engrave), inset 0 var(--stroke-hair) 0 var(--bk-shine-faint); cursor: pointer; transition: transform var(--motion-quick) var(--ease-standard); font-family: var(--font-story); }
+/* 背の上下の金の帯（背の丸い角より内側から。11/20 20:10 渡辺さん「細部」）：二本の金の線に、押した溝の影と光。 */
+.sp-band { display: block; flex: none; width: 100%; height: var(--space-2); border-block: var(--stroke-hair) solid var(--bk-gold-0); background: linear-gradient(var(--bk-engrave-soft), transparent); box-shadow: 0 var(--stroke-hair) 0 var(--bk-engrave), 0 calc(var(--stroke-hair) * -1) 0 var(--bk-shine-soft); }
+.sp-moon { display: block; flex: none; width: 40%; aspect-ratio: 1; margin-top: var(--space-1); border-radius: 50%; filter: drop-shadow(0 var(--stroke-hair) var(--stroke-hair) var(--bk-engrave)); }
+.sp-emblem { flex: none; width: 38%; height: auto; }
+/* 日本語の呼び名：縦一列（7字まで）か、「〇〇／ムーン」の二列。列の間をあけ、語の途中で折らない。 */
+.ms-spine b { display: flex; flex-direction: row-reverse; justify-content: center; align-items: flex-start; gap: var(--space-1); flex: 1; min-height: 0; font-family: var(--font-engrave); font-size: var(--size-xs); font-weight: var(--weight-bold); }
+.ms-spine b span { writing-mode: vertical-rl; white-space: nowrap; letter-spacing: 0; line-height: 1; }
+.ms-spine small { font-family: var(--font-latin); font-size: var(--size-xs); font-weight: var(--weight-bold); font-variant-numeric: lining-nums tabular-nums; letter-spacing: 0.02em; line-height: 1; }
+.sp-hills { flex: none; width: 86%; height: var(--space-3); }
 /* 背の欧文（英語の呼び名・月の略）と細い金の線（11/20 19:52 見本の背）。 */
-.sp-latin { display: block; width: 92%; height: auto; flex: none; font-family: var(--font-latin); font-weight: var(--weight-medium); letter-spacing: 0.02em; overflow: visible; }
-.sp-month { width: 62%; margin-top: calc(var(--space-2) * -1); }
-.sp-rule { display: block; flex: none; width: 46%; height: var(--stroke-hair); background: currentColor; opacity: 0.6; }
+.sp-latin { display: block; width: 90%; height: auto; flex: none; margin-top: var(--space-1); font-family: var(--font-latin); font-weight: var(--weight-bold); letter-spacing: 0.02em; font-variant-numeric: lining-nums; overflow: visible; }
+.sp-rule { display: block; flex: none; width: 46%; height: var(--stroke-hair); background: var(--bk-gold-0); box-shadow: 0 var(--stroke-hair) 0 var(--bk-engrave); }
 .sp-ribbon { position: absolute; top: calc(var(--space-5) * -1); right: 16%; width: var(--space-2); height: var(--space-6); background: var(--bk-ribbon); clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%); box-shadow: 0 1px 0 var(--bk-night-1); pointer-events: none; }
 .ms-spine.next { transform: translateY(calc(var(--space-2) * -1)); box-shadow: 0 0 var(--space-4) var(--bk-gold-1), inset 0 0 0 var(--stroke-hair) var(--bk-night-1); }
 .ms-spine:hover:not(:disabled) { transform: translateY(calc(var(--space-2) * -1)); }
@@ -641,7 +649,7 @@ img.event-pic { object-fit: contain; }
 .ms-spine-gap { display: block; width: 100%; min-width: var(--tap-min); height: 94%; border-radius: var(--radius-sm) var(--radius-sm) 0 0; box-shadow: inset 0 0 0 var(--stroke-hair) var(--bk-gold-1); opacity: 0.4; }
 .ms-shelf-hint { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
 .ms-flybook { position: fixed; left: 0; top: 0; z-index: 3; display: grid; place-content: center; justify-items: center; gap: var(--space-3); transform-origin: 0 0; border-radius: var(--radius-sm) var(--radius-lg) var(--radius-lg) var(--radius-sm); background: var(--bk-leather), radial-gradient(circle at 40% 30%, var(--spine), var(--bk-cover-1) 85%); background-size: 180px 180px, auto; background-blend-mode: multiply, normal; color: var(--bk-gold-0); box-shadow: 0 var(--space-5) var(--space-8) var(--bk-night-1); pointer-events: none; will-change: transform; }
-.ms-flybook b { font-family: var(--font-story); font-size: var(--size-title); font-weight: var(--weight-medium); letter-spacing: 0.06em; }
+.ms-flybook b { font-family: var(--font-engrave); font-size: var(--size-title); font-weight: var(--weight-bold); letter-spacing: 0.06em; }
 .ms-flybook[hidden] { display: none; }
 .ms-flybook span { font-family: var(--font-latin); font-size: var(--size-sm); letter-spacing: 0.08em; }
 /* 次の満月の物語へ（一年を巡る13の物語）。 */

@@ -9,16 +9,43 @@
 //   4. 知識：名前の由来・自然との関係（紙のページ）。次の満月の物語へ（一年を巡る13の物語）と、この年の一覧へ。
 // 文は毎年使える部分だけ（shared/fullMoonNames.ts）、その年だけのことは計算から。絵と動きは文化的なイメージで、実際の
 // 月の色や見え方とは別（ページの終わりに断る）。GSAP と ScrollTrigger は、このページを開いたときだけ読み込む。
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
-import { BLUE_MOON, FULL_MOON_NAMES, fullMoonInfo, type FullMoonNameInfo } from "../../shared/fullMoonNames";
-import { fullMoonAlias, fullMoonName, fullMoonsOfYear } from "../../shared/moon";
+import {
+  type CSSProperties,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  BLUE_MOON,
+  FULL_MOON_NAMES,
+  fullMoonInfo,
+  type FullMoonNameInfo,
+} from "../../shared/fullMoonNames";
+import {
+  fullMoonAlias,
+  fullMoonName,
+  fullMoonsOfYear,
+} from "../../shared/moon";
 import { skyEventOn, type SkyEvent } from "../../shared/skyEvents";
 import { DEFAULT_LAT_LON } from "../../shared/sunTimes";
 import type { WeatherStore } from "../data/store";
 import { eventArt, eventIcon } from "../design/eventAssets";
 import { eventStage } from "../design/eventLogo";
-import { bookVars, Flourish, GoldFrame, spineVar } from "../design/story/Book";
-import { CloudMark, MoonEmblem, SpineHills, SpineLatin, Sprig } from "../design/story/emblems";
+import {
+  bookVars,
+  Flourish,
+  GoldDefs,
+  GoldFrame,
+  spineVar,
+} from "../design/story/Book";
+import {
+  CloudMark,
+  MoonEmblem,
+  SpineHills,
+  SpineLatin,
+  Sprig,
+} from "../design/story/emblems";
 import { STORY_SCENES } from "../design/story/scenes";
 import { storyAsset } from "../design/story/storyAssets";
 import { onSkyVars } from "../design/tokens";
@@ -31,11 +58,14 @@ import { Button, Glyph, IconButton } from "./kit";
 const WHERE = "高知";
 /** 開いた本（見開き）を画面に収める縮め方（表紙は画面の幅の 84% まで大きく、見開きはその 2 倍の幅）。 */
 const SPREAD = 0.56;
-const MONTH_EN = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const HOUR_MS = 3_600_000;
 const jst = (ms: number) => {
   const d = new Date(ms + 9 * HOUR_MS);
-  return { date: d.toISOString().slice(0, 10), m: d.getUTCMonth() + 1, d: d.getUTCDate() };
+  return {
+    date: d.toISOString().slice(0, 10),
+    m: d.getUTCMonth() + 1,
+    d: d.getUTCDate(),
+  };
 };
 
 /** 一字ずつ浮かぶ文（読み上げは文のまま、字の箱は読み上げない）。 */
@@ -54,7 +84,19 @@ function Letters({ text }: { text: string }) {
   );
 }
 
-export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; store?: WeatherStore | null; onClose: () => void; onList?: () => void; onNext?: (at: number) => void }) {
+export function MoonStory({
+  at,
+  store,
+  onClose,
+  onList,
+  onNext,
+}: {
+  at: number;
+  store?: WeatherStore | null;
+  onClose: () => void;
+  onList?: () => void;
+  onNext?: (at: number) => void;
+}) {
   const { lat, lon } = DEFAULT_LAT_LON;
   const root = useRef<HTMLDivElement>(null);
   const j = jst(at);
@@ -63,12 +105,27 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
     const e = skyEventOn(j.date, lat, lon);
     if (e && Math.abs(e.at - at) < 2 * 86_400_000) return e;
     const n = fullMoonName(at);
-    return { kind: "full", at, name: n.name, blue: n.blue, span: null, obscuration: null };
+    return {
+      kind: "full",
+      at,
+      name: n.name,
+      blue: n.blue,
+      span: null,
+      obscuration: null,
+    };
   }, [at, j.date, lat, lon]);
-  const info: FullMoonNameInfo | null = event.name ? fullMoonInfo(event.name) : null;
+  const info: FullMoonNameInfo | null = event.name
+    ? fullMoonInfo(event.name)
+    : null;
   const story = event.blue ? { ...BLUE_MOON, short: BLUE_MOON.short } : info;
   const title = event.blue ? "ブルームーン" : (event.name ?? "満月");
-  const facts = useMemo(() => fullMoonsOfYear(Number(j.date.slice(0, 4)), lat, lon).find((f) => Math.abs(f.at - at) < 2 * 86_400_000) ?? null, [j.date, lat, lon, at]);
+  const facts = useMemo(
+    () =>
+      fullMoonsOfYear(Number(j.date.slice(0, 4)), lat, lon).find(
+        (f) => Math.abs(f.at - at) < 2 * 86_400_000,
+      ) ?? null,
+    [j.date, lat, lon, at],
+  );
   const tags = facts ? factTags(facts, WHERE) : [];
   const stage = eventStage(event.kind, event.blue, "navy");
   const pic = eventIcon(event) ?? eventArt(event, "navy")?.src ?? null;
@@ -77,7 +134,8 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
   const lines = story?.tale?.lines ?? [];
   // 場面は呼び名で引く（ブルームーンは「ブルームーン」で）。
   const sceneKey = event.blue ? "ブルームーン" : event.name;
-  const scene = sceneKey && lines.length ? (STORY_SCENES[sceneKey] ?? null) : null;
+  const scene =
+    sceneKey && lines.length ? (STORY_SCENES[sceneKey] ?? null) : null;
   const World = scene?.World;
   const Win = scene?.Window;
   // 次の満月（一年を巡る物語）。
@@ -86,27 +144,53 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
   // 満月（今から5年先まで）を開く。読んでいる本は棚から抜けている。次に来る満月の本には「次」の印。
   const shelf = useMemo(() => {
     const y = Number(j.date.slice(0, 4));
-    const all = [y, y + 1, y + 2, y + 3, y + 4].flatMap((yy) => fullMoonsOfYear(yy, lat, lon));
+    const all = [y, y + 1, y + 2, y + 3, y + 4].flatMap((yy) =>
+      fullMoonsOfYear(yy, lat, lon),
+    );
     const from = Math.min(at, Date.now()) - 12 * HOUR_MS;
-    const later = all.filter((f) => f.at > from && Math.abs(f.at - at) > 2 * 86_400_000);
+    const later = all.filter(
+      (f) => f.at > from && Math.abs(f.at - at) > 2 * 86_400_000,
+    );
     const soon = all.find((f) => f.at > at + 86_400_000) ?? null;
-    const books = [...FULL_MOON_NAMES.map((n) => n.name), "ブルームーン"].map((name) => {
-      const hit = later.find((f) => (name === "ブルームーン" ? f.blue : !f.blue && f.name === name)) ?? null;
-      const reading = name === (event.blue ? "ブルームーン" : event.name);
-      const en = name === "ブルームーン" ? BLUE_MOON.en : (fullMoonInfo(name)?.en ?? "");
-      return { name, en, at: hit?.at ?? null, reading, next: !!hit && !!soon && hit.at === soon.at };
-    });
+    const books = [...FULL_MOON_NAMES.map((n) => n.name), "ブルームーン"].map(
+      (name) => {
+        const hit =
+          later.find((f) =>
+            name === "ブルームーン" ? f.blue : !f.blue && f.name === name,
+          ) ?? null;
+        const reading = name === (event.blue ? "ブルームーン" : event.name);
+        const en =
+          name === "ブルームーン"
+            ? BLUE_MOON.en
+            : (fullMoonInfo(name)?.en ?? "");
+        return {
+          name,
+          en,
+          at: hit?.at ?? null,
+          reading,
+          next: !!hit && !!soon && hit.at === soon.at,
+        };
+      },
+    );
     return { books, soon };
   }, [j.date, lat, lon, at, event.blue, event.name]);
   const next = shelf.soon;
   // 本を取り出す：背が棚から持ち上がり、表紙をこちらへ向けながら画面の真ん中へ（次の物語の表紙と同じ位置・大きさ）。
   // そこで次の物語に切り替わる（次の物語は表紙から始まる）。動きを減らす設定では、すぐ切り替える。
-  const pull = (e: React.MouseEvent<HTMLButtonElement>, book: { at: number | null; en: string; name: string }) => {
+  const pull = (
+    e: React.MouseEvent<HTMLButtonElement>,
+    book: { at: number | null; en: string; name: string },
+  ) => {
     if (!book.at || !onNext) return;
     const target = book.at;
     const spine = e.currentTarget;
     const fly = root.current?.querySelector<HTMLElement>(".ms-flybook");
-    if (!fly || window.matchMedia("(prefers-reduced-motion: reduce)").matches || !spine.animate) return onNext(target);
+    if (
+      !fly ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+      !spine.animate
+    )
+      return onNext(target);
     const r = spine.getBoundingClientRect();
     const vw = window.innerWidth;
     const vh = window.innerHeight;
@@ -116,12 +200,27 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
     fly.querySelector(":scope > span")!.textContent = book.en;
     fly.style.cssText = `${spine.getAttribute("style") ?? ""}`;
     fly.hidden = false;
-    spine.animate([{ transform: "translateY(0)" }, { transform: "translateY(-38%)" }], { duration: 220, easing: "cubic-bezier(.3,.7,.4,1)", fill: "forwards" });
+    spine.animate(
+      [{ transform: "translateY(0)" }, { transform: "translateY(-38%)" }],
+      { duration: 220, easing: "cubic-bezier(.3,.7,.4,1)", fill: "forwards" },
+    );
     const from = `perspective(1200px) translate(${r.left}px, ${r.top - r.height * 0.38}px) scale(${r.width / w}, ${r.height / h}) rotateY(78deg)`;
     const to = `perspective(1200px) translate(${(vw - w) / 2}px, ${(vh - h) / 2}px) scale(1, 1) rotateY(0deg)`;
     fly.style.width = `${w}px`;
     fly.style.height = `${h}px`;
-    const a = fly.animate([{ transform: from, opacity: 0 }, { transform: from, opacity: 1, offset: 0.15 }, { transform: to, opacity: 1 }], { duration: 720, delay: 160, easing: "cubic-bezier(.45,.05,.25,1)", fill: "forwards" });
+    const a = fly.animate(
+      [
+        { transform: from, opacity: 0 },
+        { transform: from, opacity: 1, offset: 0.15 },
+        { transform: to, opacity: 1 },
+      ],
+      {
+        duration: 720,
+        delay: 160,
+        easing: "cubic-bezier(.45,.05,.25,1)",
+        fill: "forwards",
+      },
+    );
     a.onfinish = () => onNext(target);
   };
 
@@ -149,11 +248,13 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
     const el = root.current;
     const info = infoRef.current;
     if (!el || !info) return;
-    const watch = () => setSkip(info.getBoundingClientRect().top > el.clientHeight * 0.6);
+    const watch = () =>
+      setSkip(info.getBoundingClientRect().top > el.clientHeight * 0.6);
     el.addEventListener("scroll", watch, { passive: true });
     return () => el.removeEventListener("scroll", watch);
   }, []);
-  const skipStory = () => infoRef.current?.scrollIntoView({ behavior: "smooth" });
+  const skipStory = () =>
+    infoRef.current?.scrollIntoView({ behavior: "smooth" });
   const nextBeat = () => {
     const el = root.current;
     const w = el?.querySelector<HTMLElement>(".ms-world");
@@ -161,7 +262,14 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
     const per = (w.offsetHeight - el.clientHeight) / scene.beats;
     const now = (el.scrollTop - w.offsetTop) / per;
     const to = Math.min(scene.beats, Math.floor(now + 0.5) + 1);
-    el.scrollTo({ top: w.offsetTop + (to >= scene.beats ? w.offsetHeight - el.clientHeight + 1 : (to + 0.5) * per), behavior: "smooth" });
+    el.scrollTo({
+      top:
+        w.offsetTop +
+        (to >= scene.beats
+          ? w.offsetHeight - el.clientHeight + 1
+          : (to + 0.5) * per),
+      behavior: "smooth",
+    });
   };
   useEffect(() => {
     const el = root.current;
@@ -169,7 +277,10 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
     let mm: { revert: () => void } | null = null;
     let live = true;
     void (async () => {
-      const [{ gsap }, { ScrollTrigger }] = await Promise.all([import("gsap"), import("gsap/ScrollTrigger")]);
+      const [{ gsap }, { ScrollTrigger }] = await Promise.all([
+        import("gsap"),
+        import("gsap/ScrollTrigger"),
+      ]);
       if (!live) return;
       gsap.registerPlugin(ScrollTrigger);
       const media = gsap.matchMedia(el);
@@ -183,18 +294,30 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
       });
       media.add("(prefers-reduced-motion: no-preference)", () => {
         const scroller = el;
-        const scrub = (trigger: string) => ({ trigger: el.querySelector(trigger), scroller, start: "top top", end: "bottom bottom", scrub: 0.6 });
+        const scrub = (trigger: string) => ({
+          trigger: el.querySelector(trigger),
+          scroller,
+          start: "top top",
+          end: "bottom bottom",
+          scrub: 0.6,
+        });
         // 1. 本：表紙が左へ開いて見開きになる（本は右へ寄りながら小さくなり、見開きが画面に収まる）。表紙は開くほど
         //    暗く、ページには表紙の影が落ちて消える。続いて文が消え、ページの中へ寄っていき、紙の色で次の場面へつなぐ。
         // 本は場面が止まる位置まで留まり（場面はその下に重なって上がってくる）、最後に窓の空の色で覆って、本の舞台を消す。
         // 場面は止まるとすぐにその色から溶けて現れるので、何も無い時間をはさまない（11/20 17:58 渡辺さん「夕焼けが長すぎる」）。
-        const book = gsap.timeline({ scrollTrigger: { ...scrub(".ms-book"), invalidateOnRefresh: true } });
+        const book = gsap.timeline({
+          scrollTrigger: { ...scrub(".ms-book"), invalidateOnRefresh: true },
+        });
         // 窓が画面を覆う大きさと、窓の真ん中を画面の真ん中へ動かす量（本の真ん中を軸に大きくする）。
         const dive = () => {
           const b = el.querySelector<HTMLElement>(".bk");
           const w = el.querySelector<HTMLElement>(".bk-window");
           if (!b || !w) return { s: 4, x: 0, y: 0 };
-          const s = Math.max(el.clientWidth / w.offsetWidth, el.clientHeight / w.offsetHeight) * 1.04;
+          const s =
+            Math.max(
+              el.clientWidth / w.offsetWidth,
+              el.clientHeight / w.offsetHeight,
+            ) * 1.04;
           const dx = w.offsetLeft + w.offsetWidth / 2 - b.offsetWidth / 2;
           const dy = w.offsetTop + w.offsetHeight / 2 - b.offsetHeight / 2;
           return { s, x: -s * dx, y: -s * dy };
@@ -202,44 +325,159 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
         book
           .to(".ms-book-hint", { opacity: 0, duration: 0.1 }, 0)
           // 縮めたあとに背（左の端）が画面の真ん中に来るよう、ずらす量は 50% × 縮める割合。
-          .fromTo(".bk", { xPercent: 0, scale: 1 }, { xPercent: 50 * SPREAD, scale: SPREAD, ease: "power2.inOut", duration: 1 }, 0.3)
+          .fromTo(
+            ".bk",
+            { xPercent: 0, scale: 1 },
+            {
+              xPercent: 50 * SPREAD,
+              scale: SPREAD,
+              ease: "power2.inOut",
+              duration: 1,
+            },
+            0.3,
+          )
           // 表紙は背（左の端）を軸に、前半で起き上がり（幅が縮み、手前に来るので少し大きく、影が濃く）、後半で表紙の裏が
           // 左へ倒れて見開きになる（幅が広がり、影が抜ける）。背でつながったまま、二つのページは同じ大きさ（11/20 16:23
           // 渡辺さん「ページが離れていく動きが不自然」）。
-          .fromTo(".bk-cover", { scaleX: 1, scaleY: 1 }, { scaleX: 0, scaleY: 1.05, ease: "power2.in", duration: 0.5 }, 0.3)
-          .fromTo(".bk-cover-shade", { opacity: 0 }, { opacity: 0.6, ease: "power1.in", duration: 0.5 }, 0.3)
-          .fromTo(".bk-back", { scaleX: 0, scaleY: 1.05 }, { scaleX: 1, scaleY: 1, ease: "power2.out", duration: 0.5 }, 0.8)
-          .fromTo(".bk-back-shade", { opacity: 0.6 }, { opacity: 0, ease: "power1.out", duration: 0.5 }, 0.8)
-          .fromTo(".bk-page-shadow", { opacity: 1 }, { opacity: 0, ease: "power1.out", duration: 0.9 }, 0.4)
+          .fromTo(
+            ".bk-cover",
+            { scaleX: 1, scaleY: 1 },
+            { scaleX: 0, scaleY: 1.05, ease: "power2.in", duration: 0.5 },
+            0.3,
+          )
+          .fromTo(
+            ".bk-cover-shade",
+            { opacity: 0 },
+            { opacity: 0.6, ease: "power1.in", duration: 0.5 },
+            0.3,
+          )
+          .fromTo(
+            ".bk-back",
+            { scaleX: 0, scaleY: 1.05 },
+            { scaleX: 1, scaleY: 1, ease: "power2.out", duration: 0.5 },
+            0.8,
+          )
+          .fromTo(
+            ".bk-back-shade",
+            { opacity: 0.6 },
+            { opacity: 0, ease: "power1.out", duration: 0.5 },
+            0.8,
+          )
+          .fromTo(
+            ".bk-page-shadow",
+            { opacity: 1 },
+            { opacity: 0, ease: "power1.out", duration: 0.9 },
+            0.4,
+          )
           // 窓の中へ寄る：窓が画面いっぱいになるまで本を大きくし、窓の真ん中を画面の真ん中へ。文と枠は先に消える。
-          .to([".bk-page-text > small", ".bk-page-text > h3", ".bk-page .bk-frame"], { opacity: 0, duration: 0.25 }, 1.65)
-          .to(".bk", { xPercent: 0, scale: () => dive().s, x: () => dive().x, y: () => dive().y, ease: "power2.inOut", duration: 1 }, 1.75)
+          .to(
+            [
+              ".bk-page-text > small",
+              ".bk-page-text > h3",
+              ".bk-page .bk-frame",
+            ],
+            { opacity: 0, duration: 0.25 },
+            1.65,
+          )
+          .to(
+            ".bk",
+            {
+              xPercent: 0,
+              scale: () => dive().s,
+              x: () => dive().x,
+              y: () => dive().y,
+              ease: "power2.inOut",
+              duration: 1,
+            },
+            1.75,
+          )
           .to(".ms-book-dive", { opacity: 1, duration: 0.25 }, 2.55)
           .set(".ms-book > .ms-sticky", { autoAlpha: 0 }, 2.8);
         // 場面の無い満月：覆った夜の色は本の終わりに自分で溶かす（場面が溶かす役をしないので）。
-        if (!scene) book.to(".ms-dive-wrap", { opacity: 0, duration: 0.3 }, 2.8);
+        if (!scene)
+          book.to(".ms-dive-wrap", { opacity: 0, duration: 0.3 }, 2.8);
         // 表紙のメダルの光が脈打つ（本が画面にある間だけ）。
-        const glow = gsap.to(".bk-medal-glow", { opacity: 0.85, duration: 2.6, yoyo: true, repeat: -1, ease: "sine.inOut", paused: true });
-        ScrollTrigger.create({ trigger: el.querySelector(".ms-book"), scroller, start: "top bottom", end: "bottom top", onToggle: (t) => (t.isActive ? glow.play() : glow.pause()) });
+        const glow = gsap.to(".bk-medal-glow", {
+          opacity: 0.85,
+          duration: 2.6,
+          yoyo: true,
+          repeat: -1,
+          ease: "sine.inOut",
+          paused: true,
+        });
+        ScrollTrigger.create({
+          trigger: el.querySelector(".ms-book"),
+          scroller,
+          start: "top bottom",
+          end: "bottom top",
+          onToggle: (t) => (t.isActive ? glow.play() : glow.pause()),
+        });
         // 2. 絵本の場面：一文ごとに一コマ。紙が中心から溶けて絵が現れ、文は空に一字ずつ浮かぶ。
         if (scene) {
           const world = gsap.timeline({ scrollTrigger: scrub(".ms-world") });
           // 窓の絵（場面の最初の空）から、本当の場面へ溶ける。
           // 本の終わりに画面を覆った空の色（.ms-book-dive は画面に固定）は、場面が止まってから溶ける。場面が下から
           // 上がってくる間は覆ったままなので、境目は見えない。
-          world.fromTo(".ms-dive-wrap", { opacity: 1 }, { opacity: 0, ease: "power1.in", duration: 0.3, immediateRender: false }, 0);
+          world.fromTo(
+            ".ms-dive-wrap",
+            { opacity: 1 },
+            {
+              opacity: 0,
+              ease: "power1.in",
+              duration: 0.3,
+              immediateRender: false,
+            },
+            0,
+          );
           const loop = scene.build(gsap as never, el, world as never);
           lines.forEach((_, i) => {
             const cap = `.ms-cap[data-i="${i}"]`;
             world
               .set(cap, { opacity: 1 }, i + 0.06)
-              .fromTo(`${cap} .ms-ch`, { opacity: 0, y: 10, filter: "blur(3px)" }, { opacity: 1, y: 0, filter: "blur(0px)", duration: 0.12, ease: "power1.out", stagger: { amount: 0.42 } }, i + 0.06)
-              .to(cap, { opacity: 0, y: -12, filter: "blur(2px)", duration: 0.16, ease: "power1.in" }, i + 0.84)
+              .fromTo(
+                `${cap} .ms-ch`,
+                { opacity: 0, y: 10, filter: "blur(3px)" },
+                {
+                  opacity: 1,
+                  y: 0,
+                  filter: "blur(0px)",
+                  duration: 0.12,
+                  ease: "power1.out",
+                  stagger: { amount: 0.42 },
+                },
+                i + 0.06,
+              )
+              .to(
+                cap,
+                {
+                  opacity: 0,
+                  y: -12,
+                  filter: "blur(2px)",
+                  duration: 0.16,
+                  ease: "power1.in",
+                },
+                i + 0.84,
+              )
               .set(cap, { y: 0, filter: "blur(0px)" }, i + 1);
           });
-          world.fromTo(".ms-world-frame", { opacity: 0, scale: 1.06 }, { opacity: 1, scale: 1, duration: 0.5 }, scene.beats - 0.7);
+          world.fromTo(
+            ".ms-world-frame",
+            { opacity: 0, scale: 1.06 },
+            { opacity: 1, scale: 1, duration: 0.5 },
+            scene.beats - 0.7,
+          );
           // 下の点：いまどのコマか。
-          world.fromTo(".ms-beat", { opacity: 0.3, scale: 1 }, { opacity: 1, scale: 1.4, duration: 0.15, stagger: { each: 1, yoyo: true, repeat: 1, repeatDelay: 0.65 } }, 0.05);
+          world.fromTo(
+            ".ms-beat",
+            { opacity: 0.3, scale: 1 },
+            {
+              opacity: 1,
+              scale: 1.4,
+              duration: 0.15,
+              stagger: { each: 1, yoyo: true, repeat: 1, repeatDelay: 0.65 },
+            },
+            0.05,
+          );
           world.set({}, {}, scene.beats);
           // 物語の月 → 今夜の情報の月：場面が画面から出始めてから、瞬間のカードの月が所定の位置に来るまで、浮かぶ月が
           // 二つの月の間を（どちらも今の位置から測って）移る。途中は元の二つの月を隠す。
@@ -247,7 +485,8 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
           // 場面の月の目印は、どの場面でも StoryMoon（src/design/story/parts.tsx）が付ける。
           const from = el.querySelector<SVGGElement>("[data-story-moon]");
           const disc = el.querySelector<SVGElement>("[data-story-disc]");
-          const to = () => el.querySelector<HTMLElement>(".ms-info .emc-sky > canvas");
+          const to = () =>
+            el.querySelector<HTMLElement>(".ms-info .emc-sky > canvas");
           const ease = gsap.parseEase("power2.inOut");
           const place = (p: number) => {
             const target = to();
@@ -261,9 +500,20 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
             const b = target.getBoundingClientRect();
             const k = ease(p);
             const size = a.width + (b.width - a.width) * k;
-            const cx = a.left + a.width / 2 + (b.left + b.width / 2 - a.left - a.width / 2) * k;
-            const cy = a.top + a.height / 2 + (b.top + b.height / 2 - a.top - a.height / 2) * k;
-            gsap.set(fly, { width: size, height: size, x: cx - size / 2, y: cy - size / 2 });
+            const cx =
+              a.left +
+              a.width / 2 +
+              (b.left + b.width / 2 - a.left - a.width / 2) * k;
+            const cy =
+              a.top +
+              a.height / 2 +
+              (b.top + b.height / 2 - a.top - a.height / 2) * k;
+            gsap.set(fly, {
+              width: size,
+              height: size,
+              x: cx - size / 2,
+              y: cy - size / 2,
+            });
           };
           ScrollTrigger.create({
             trigger: el.querySelector(".ms-world"),
@@ -276,16 +526,67 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
             onLeaveBack: () => place(0),
           });
           // 落ち葉や雪は、場面が画面にある間だけ動かす。
-          if (loop) ScrollTrigger.create({ trigger: el.querySelector(".ms-world"), scroller, start: "top bottom", end: "bottom top", onToggle: (t) => (t.isActive ? loop.play() : loop.pause()) });
+          if (loop)
+            ScrollTrigger.create({
+              trigger: el.querySelector(".ms-world"),
+              scroller,
+              start: "top bottom",
+              end: "bottom top",
+              onToggle: (t) => (t.isActive ? loop.play() : loop.pause()),
+            });
         }
         // 3〜6. 文・札・段落が、ページの上から順に浮かび上がる。
-        gsap.utils.toArray<HTMLElement>(".ms-rise, .ms-fact, .ms-tale-line", el).forEach((t) => {
-          const at = { trigger: t, scroller, scrub: 0.5 };
-          // clamp：ページの終わり近くの段も、いちばん下までスクロールすれば浮かび終わる（途中で止まって重ならない）。
-          if (t.classList.contains("ms-fact")) gsap.fromTo(t, { opacity: 0, scale: 0.86 }, { opacity: 1, scale: 1, ease: "back.out(1.6)", scrollTrigger: { ...at, start: "clamp(top 90%)", end: "clamp(top 65%)" } });
-          else if (t.classList.contains("ms-tale-line")) gsap.fromTo(t, { opacity: 0.14, y: 16 }, { opacity: 1, y: 0, ease: "none", scrollTrigger: { ...at, start: "clamp(top 80%)", end: "clamp(top 48%)" } });
-          else gsap.fromTo(t, { opacity: 0, y: 48 }, { opacity: 1, y: 0, ease: "none", scrollTrigger: { ...at, start: "clamp(top 92%)", end: "clamp(top 62%)" } });
-        });
+        gsap.utils
+          .toArray<HTMLElement>(".ms-rise, .ms-fact, .ms-tale-line", el)
+          .forEach((t) => {
+            const at = { trigger: t, scroller, scrub: 0.5 };
+            // clamp：ページの終わり近くの段も、いちばん下までスクロールすれば浮かび終わる（途中で止まって重ならない）。
+            if (t.classList.contains("ms-fact"))
+              gsap.fromTo(
+                t,
+                { opacity: 0, scale: 0.86 },
+                {
+                  opacity: 1,
+                  scale: 1,
+                  ease: "back.out(1.6)",
+                  scrollTrigger: {
+                    ...at,
+                    start: "clamp(top 90%)",
+                    end: "clamp(top 65%)",
+                  },
+                },
+              );
+            else if (t.classList.contains("ms-tale-line"))
+              gsap.fromTo(
+                t,
+                { opacity: 0.14, y: 16 },
+                {
+                  opacity: 1,
+                  y: 0,
+                  ease: "none",
+                  scrollTrigger: {
+                    ...at,
+                    start: "clamp(top 80%)",
+                    end: "clamp(top 48%)",
+                  },
+                },
+              );
+            else
+              gsap.fromTo(
+                t,
+                { opacity: 0, y: 48 },
+                {
+                  opacity: 1,
+                  y: 0,
+                  ease: "none",
+                  scrollTrigger: {
+                    ...at,
+                    start: "clamp(top 92%)",
+                    end: "clamp(top 62%)",
+                  },
+                },
+              );
+          });
         // 区切りまで進む（11/20 17:58 渡辺さん「軽めのスワイプで途中で止まらず、切れ目まですっと」）：物語の部分（本の
         // 表紙 → 見開き → 場面の一コマずつ → 締めくくり → 今夜の情報）だけ、スクロールが止まったら進んだ向きの次の
         // 区切りへ滑らかに運ぶ。今夜の情報から下（読む所）は止めない。
@@ -300,12 +601,15 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
           if (b) px.push(((b.offsetHeight - vh) * 1.35) / 2.8);
           if (w && scene) {
             const r = w.offsetHeight - vh;
-            for (let i = 0; i < scene.beats; i++) px.push(w.offsetTop + ((i + 0.55) / scene.beats) * r);
+            for (let i = 0; i < scene.beats; i++)
+              px.push(w.offsetTop + ((i + 0.55) / scene.beats) * r);
             px.push(w.offsetTop + r);
           } else if (b) px.push(b.offsetHeight - vh);
           if (ep) px.push(ep.offsetTop + ep.offsetHeight / 2 - vh / 2);
           px.push(end);
-          return px.map((p) => Math.min(1, Math.max(0, p / end))).sort((x, y) => x - y);
+          return px
+            .map((p) => Math.min(1, Math.max(0, p / end)))
+            .sort((x, y) => x - y);
         };
         ScrollTrigger.create({
           trigger: el,
@@ -316,7 +620,9 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
             snapTo: (v: number, self?: { direction: number }) => {
               const p = stops();
               const eps = 0.0015;
-              return (self?.direction ?? 1) > 0 ? (p.find((x) => x >= v - eps) ?? 1) : ([...p].reverse().find((x) => x <= v + eps) ?? 0);
+              return (self?.direction ?? 1) > 0
+                ? (p.find((x) => x >= v - eps) ?? 1)
+                : ([...p].reverse().find((x) => x <= v + eps) ?? 0);
             },
             duration: { min: 0.35, max: 1.1 },
             delay: 0.06,
@@ -335,12 +641,28 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
     };
   }, [scene]);
 
-
-  const style = { ...(onSkyVars() as CSSProperties), ...bookVars(), ["--beats" as string]: scene?.beats ?? 0, ["--ms-scene-sky" as string]: scene?.sky ?? "none", ["--ev-glow" as string]: stage.glow, ["--ev-line" as string]: stage.line, ["--ev-star" as string]: stage.star } as CSSProperties;
+  const style = {
+    ...(onSkyVars() as CSSProperties),
+    ...bookVars(),
+    ["--beats" as string]: scene?.beats ?? 0,
+    ["--ms-scene-sky" as string]: scene?.sky ?? "none",
+    ["--ev-glow" as string]: stage.glow,
+    ["--ev-line" as string]: stage.line,
+    ["--ev-star" as string]: stage.star,
+  } as CSSProperties;
 
   return (
-    <div className={ready ? "moon-story ready" : "moon-story"} ref={root} role="dialog" aria-modal="true" aria-label={`${title}の物語`} tabIndex={-1} style={style}>
+    <div
+      className={ready ? "moon-story ready" : "moon-story"}
+      ref={root}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${title}の物語`}
+      tabIndex={-1}
+      style={style}
+    >
       {/* 上の帯：閉じる・とばすの下を夜の色で薄く覆い、文と重ならないように（11/20 17:58 渡辺さん「✖️ボタンとの文字被り」）。 */}
+      <GoldDefs />
       <span className="ms-topband" aria-hidden />
       {/* 本棚から取り出す本（押したときだけ見える）。 */}
       <span className="ms-flybook" aria-hidden hidden>
@@ -372,7 +694,16 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
         <div className="ms-sticky ms-book-stage">
           <span className="event-stars" aria-hidden>
             {STARS.map(([x, y, r, d], i) => (
-              <i key={i} style={{ left: `${x}%`, top: `${y}%`, width: r, height: r, animationDelay: `${d}s` }} />
+              <i
+                key={i}
+                style={{
+                  left: `${x}%`,
+                  top: `${y}%`,
+                  width: r,
+                  height: r,
+                  animationDelay: `${d}s`,
+                }}
+              />
             ))}
             <b className="event-shoot" />
           </span>
@@ -384,7 +715,19 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
                   <small>{j.m}月の満月の物語</small>
                   {/* ページの窓：場面の最初のコマの小さな絵。この中へ寄って場面に入る（16:45 のレビュー「ページの中に風景が
                       広がる連続的な転換」）。場面の無い満月は、その満月の絵。 */}
-                  <div className="bk-window">{Win ? <Win /> : pic && <img src={pic} alt="" className={wide ? "wide" : undefined} />}</div>
+                  <div className="bk-window">
+                    {Win ? (
+                      <Win />
+                    ) : (
+                      pic && (
+                        <img
+                          src={pic}
+                          alt=""
+                          className={wide ? "wide" : undefined}
+                        />
+                      )
+                    )}
+                  </div>
                   <h3>{story?.tale?.tagline ?? story?.gloss ?? title}</h3>
                 </div>
               </div>
@@ -397,8 +740,18 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
                 <GoldFrame />
                 {scene?.coverCorner && (
                   <>
-                    <img className="bk-corner l" src={scene.coverCorner} alt="" aria-hidden />
-                    <img className="bk-corner r" src={scene.coverCorner} alt="" aria-hidden />
+                    <img
+                      className="bk-corner l"
+                      src={scene.coverCorner}
+                      alt=""
+                      aria-hidden
+                    />
+                    <img
+                      className="bk-corner r"
+                      src={scene.coverCorner}
+                      alt=""
+                      aria-hidden
+                    />
                   </>
                 )}
                 <span className="bk-mark">
@@ -416,20 +769,36 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
                 ) : (
                   <div className="bk-medal">
                     <span className="bk-medal-glow" aria-hidden />
-                    {pic && <img src={pic} alt="" className={wide ? "wide" : undefined} />}
-                    <MoonEmblem name={sceneKey ?? ""} className="bk-medal-emblem" />
+                    {pic && (
+                      <img
+                        src={pic}
+                        alt=""
+                        className={wide ? "wide" : undefined}
+                      />
+                    )}
+                    <MoonEmblem
+                      name={sceneKey ?? ""}
+                      className="bk-medal-emblem"
+                    />
                   </div>
                 )}
-                {story?.tale && <p className="bk-tag">{story.tale.tagline}。</p>}
+                {story?.tale && (
+                  <p className="bk-tag">{story.tale.tagline}。</p>
+                )}
                 <small className="bk-sub">
-                  The Story of the Full Moon{!event.blue && fullMoonAlias(event.name, at) ? `・別名 ${fullMoonAlias(event.name, at)}` : ""}
+                  The Story of the Full Moon
+                  {!event.blue && fullMoonAlias(event.name, at)
+                    ? `・別名 ${fullMoonAlias(event.name, at)}`
+                    : ""}
                 </small>
                 <span className="bk-cover-shade" aria-hidden />
               </div>
             </div>
             {/* 表紙の裏（開くと左のページになる）。 */}
             <div className="bk-back" aria-hidden>
-              {pic && <img src={pic} alt="" className={wide ? "wide" : undefined} />}
+              {pic && (
+                <img src={pic} alt="" className={wide ? "wide" : undefined} />
+              )}
               <span className="bk-back-shade" />
             </div>
           </div>
@@ -443,10 +812,14 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
       {/* 2. 絵本の場面：一つの続いた世界を、物語の一文ごとに一コマずつ。文は空に一字ずつ。 */}
       {scene && World && (
         <section className="ms-world" aria-label={`${title}の物語`}>
-          <div className="ms-sticky ms-world-stage" role="presentation" onClick={nextBeat}>
+          <div
+            className="ms-sticky ms-world-stage"
+            role="presentation"
+            onClick={nextBeat}
+          >
             <World />
             <span className="ms-world-frame" aria-hidden>
-              <GoldFrame w={400} h={860} inset={10} />
+              <GoldFrame w={400} h={860} inset={10} bevel={false} />
             </span>
             <span className="ms-caps-veil" aria-hidden />
             <div className="ms-caps">
@@ -497,13 +870,20 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
 
       {/* 3. 今夜の情報（11/20 渡辺さん「物語の最後には情報も」）：イベントの説明と同じカード。 */}
       <section className="ms-chapter ms-info" ref={infoRef}>
-        <small className="ms-rise">{j.m}月{j.d}日</small>
+        <small className="ms-rise">
+          {j.m}月{j.d}日
+        </small>
         <h3 className="ms-rise">今夜の{title}</h3>
         <div className="ms-rise ms-card">
           <EventMomentCard event={event} stage={stage} />
         </div>
         <div className="ms-rise ms-card">
-          <EventNightCard event={event} stage={stage} store={store} tag="moon-story" />
+          <EventNightCard
+            event={event}
+            stage={stage}
+            store={store}
+            tag="moon-story"
+          />
         </div>
         {tags.length > 0 && (
           <p className="fm-tags ms-rise">
@@ -561,31 +941,67 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
           </div>
           <div className="ms-shelf" role="list" aria-label="満月の物語の本棚">
             {shelf.books.map((bk, i) => (
-              <div key={bk.name} role="listitem" className={bk.reading ? "ms-slot reading" : "ms-slot"}>
+              <div
+                key={bk.name}
+                role="listitem"
+                className={bk.reading ? "ms-slot reading" : "ms-slot"}
+              >
                 {bk.reading ? (
-                  <span className="ms-spine-gap" aria-label={`${bk.name}（いま読んでいる本）`} />
+                  <span
+                    className="ms-spine-gap"
+                    aria-label={`${bk.name}（いま読んでいる本）`}
+                  />
                 ) : (
-                  <button type="button" className={bk.next ? "ms-spine next" : "ms-spine"} style={spineVar(i)} disabled={!bk.at || !onNext} onClick={(e) => pull(e, bk)} aria-label={bk.at ? `${bk.name}の物語を開く（${jst(bk.at).m}/${jst(bk.at).d}）${bk.next ? "、次の満月" : ""}` : `${bk.name}（5年以内に無し）`}>
+                  <button
+                    type="button"
+                    className={bk.next ? "ms-spine next" : "ms-spine"}
+                    style={spineVar(i)}
+                    disabled={!bk.at || !onNext}
+                    onClick={(e) => pull(e, bk)}
+                    aria-label={
+                      bk.at
+                        ? `${bk.name}の物語を開く（${jst(bk.at).m}/${jst(bk.at).d}）${bk.next ? "、次の満月" : ""}`
+                        : `${bk.name}（5年以内に無し）`
+                    }
+                  >
                     <span className="sp-band" aria-hidden />
                     {/* 背（11/20 19:52 渡辺さんの見本の背）：型押しの月、英語の呼び名、日本語の呼び名、紋、日付、山並み。 */}
-                    <img className="sp-moon art" src={STORY_SCENES[bk.name]?.spineArt?.moon ?? storyAsset("common", "emboss")} alt="" />
+                    <img
+                      className="sp-moon art"
+                      src={
+                        STORY_SCENES[bk.name]?.spineArt?.moon ??
+                        storyAsset("common", "emboss")
+                      }
+                      alt=""
+                    />
                     <SpineLatin className="sp-latin" lines={bk.en.split(" ")} />
                     <span className="sp-rule" aria-hidden />
-                    {/* 「〇〇／ムーン」の二列（見本の背と同じ）。 */}
-                    <b>
-                      {bk.name.endsWith("ムーン") ? (
+                    {/* 日本語の呼び名（11/20 20:09 渡辺さん「ストロベリ／ーと分かれる。コーンムーンなど短いものは一行に」）：
+                        7字までは一列。長いものは「〇〇／ムーン」の二列で、語の途中では折らない。 */}
+                    <b className={bk.name.length > 7 ? "two" : undefined}>
+                      {bk.name.length > 7 && bk.name.endsWith("ムーン") ? (
                         <>
-                          {bk.name.slice(0, -3)}
-                          <br />
-                          ムーン
+                          <span>{bk.name.slice(0, -3)}</span>
+                          <span>ムーン</span>
                         </>
                       ) : (
-                        bk.name
+                        <span>{bk.name}</span>
                       )}
                     </b>
-                    {STORY_SCENES[bk.name]?.spineArt ? <img className="sp-emblem art" src={STORY_SCENES[bk.name]!.spineArt!.emblem} alt="" /> : <MoonEmblem name={bk.name} className="sp-emblem" />}
-                    {bk.at && <small>{jst(bk.at).m}/{jst(bk.at).d}</small>}
-                    {bk.at && <SpineLatin className="sp-latin sp-month" lines={[MONTH_EN[jst(bk.at).m - 1]]} />}
+                    {STORY_SCENES[bk.name]?.spineArt ? (
+                      <img
+                        className="sp-emblem art"
+                        src={STORY_SCENES[bk.name]!.spineArt!.emblem}
+                        alt=""
+                      />
+                    ) : (
+                      <MoonEmblem name={bk.name} className="sp-emblem" />
+                    )}
+                    {bk.at && (
+                      <small>
+                        {jst(bk.at).m}/{jst(bk.at).d}
+                      </small>
+                    )}
                     <SpineHills className="sp-hills" />
                     <span className="sp-band" aria-hidden />
                     {bk.next && <span className="sp-ribbon" aria-hidden />}
@@ -595,7 +1011,12 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
             ))}
           </div>
         </div>
-        {next && <p className="ms-shelf-hint ms-rise">次の満月は {jst(next.at).m}/{jst(next.at).d}。背を押すと、その本を取り出して開きます。</p>}
+        {next && (
+          <p className="ms-shelf-hint ms-rise">
+            次の満月は {jst(next.at).m}/{jst(next.at).d}
+            。背を押すと、その本を取り出して開きます。
+          </p>
+        )}
         <div className="ms-end ms-rise">
           {onList && (
             <Button size="sm" onClick={onList}>
@@ -607,7 +1028,10 @@ export function MoonStory({ at, store, onClose, onList, onNext }: { at: number; 
             閉じる
           </Button>
         </div>
-        <small className="ms-note">名前は主に北米の季節に基づく文化的な呼び名で、日本の季節とは必ずしも一致しません。絵や動きは文化的なイメージで、実際の月の色や明るさ・見え方とは別です。時刻と見え方は{WHERE}で計算しています。</small>
+        <small className="ms-note">
+          名前は主に北米の季節に基づく文化的な呼び名で、日本の季節とは必ずしも一致しません。絵や動きは文化的なイメージで、実際の月の色や明るさ・見え方とは別です。時刻と見え方は
+          {WHERE}で計算しています。
+        </small>
       </section>
     </div>
   );
