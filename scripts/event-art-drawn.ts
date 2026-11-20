@@ -105,8 +105,8 @@ function body(kind: string, id: string, t: T): string {
       // 月の所は空のまま（光の輪だけが残る）。ごく薄くかげらせる。
       return `<mask id="${id}-mk"><rect width="${W}" height="${H}" fill="#fff"/><circle cx="${CX + 1.5}" cy="${CY + 1}" r="${R * 0.86}" fill="#000"/></mask><g mask="url(#${id}-mk)">${glow(id, "#ffb347", 0.75, 2.4)}<circle cx="${CX}" cy="${CY}" r="${R}" fill="#ffcf5a"/><circle cx="${CX}" cy="${CY}" r="${R}" fill="none" stroke="#ff9a2e" stroke-width="2"/></g><circle cx="${CX + 1.5}" cy="${CY + 1}" r="${R * 0.86}" fill="#000" opacity="${t === "navy" ? 0.18 : 0.06}"/>`;
     case "solar-partial":
-      // 欠けた所は空の色（月は見えない）：太陽から月の円を抜く。
-      return `<radialGradient id="${id}-sn" cx=".45" cy=".4" r=".7"><stop offset="0" stop-color="#fff3b8"/><stop offset="1" stop-color="#ffc44a"/></radialGradient><mask id="${id}-mk"><rect width="${W}" height="${H}" fill="#fff"/><circle cx="${CX + R * 0.6}" cy="${CY - R * 0.22}" r="${R * 0.98}" fill="#000"/></mask><g mask="url(#${id}-mk)">${glow(id, "#ffd27a", 0.6, 2.3)}<circle cx="${CX}" cy="${CY}" r="${R}" fill="url(#${id}-sn)"/></g>`;
+      // 欠けた所は空の色（月は見えない）：太陽から月の円を抜く。光のにじみは抜かない（月の縁が浮かないように）。
+      return `${glow(id, "#ffd27a", 0.6, 2.3)}<radialGradient id="${id}-sn" cx=".45" cy=".4" r=".7"><stop offset="0" stop-color="#fff3b8"/><stop offset="1" stop-color="#ffc44a"/></radialGradient><mask id="${id}-mk"><rect width="${W}" height="${H}" fill="#fff"/><circle cx="${CX + R * 0.6}" cy="${CY - R * 0.22}" r="${R * 0.98}" fill="#000"/></mask><g mask="url(#${id}-mk)"><circle cx="${CX}" cy="${CY}" r="${R}" fill="url(#${id}-sn)"/></g>`;
   }
   return "";
 }

@@ -33,6 +33,11 @@ export interface EventArt {
   text: "baked" | "overlay";
   /** まちがいなどで止める（E-02）。止めると手描きの帯。 */
   off?: boolean;
+  /**
+   * 説明（EventSheet）の上に出す、文字の無い四角い絵の版（11/20 渡辺さん「ロゴ入りをそのまま使うのは下品」、
+   * public/event/<種類>-icon.webp、テーマによらず1枚）。無ければ帯の絵の左（天体と主役）を四角く切り出して使う。
+   */
+  icon?: number;
 }
 
 /** 満月の呼び名 → 絵の種類（shared/fullMoonNames.ts の呼び名と一対一、test/data/event-assets.test.ts）。 */
@@ -57,20 +62,20 @@ export const FULL_MOON_ART: Record<string, EventArtKey> = {
  * コーンムーンと日食・月食はコードで描いた文字なしの絵（scripts/event-art-drawn.ts、overlay）。渡辺さんの絵が届いたら差し替える。
  */
 export const EVENT_ART: Record<EventArtKey, EventArt | null> = {
-  wolf: { rev: 1, text: "baked" },
-  snow: { rev: 1, text: "baked" },
-  worm: { rev: 1, text: "baked" },
-  pink: { rev: 1, text: "baked" },
-  flower: { rev: 1, text: "baked" },
-  strawberry: { rev: 1, text: "baked" },
-  buck: { rev: 1, text: "baked" },
-  sturgeon: { rev: 1, text: "baked" },
+  wolf: { rev: 1, text: "baked", icon: 1 },
+  snow: { rev: 1, text: "baked", icon: 1 },
+  worm: { rev: 1, text: "baked", icon: 1 },
+  pink: { rev: 1, text: "baked", icon: 1 },
+  flower: { rev: 1, text: "baked", icon: 1 },
+  strawberry: { rev: 1, text: "baked", icon: 1 },
+  buck: { rev: 1, text: "baked", icon: 1 },
+  sturgeon: { rev: 1, text: "baked", icon: 1 },
   corn: { rev: 1, text: "overlay" },
-  harvest: { rev: 1, text: "baked" },
-  hunter: { rev: 1, text: "baked" },
-  beaver: { rev: 1, text: "baked" },
-  cold: { rev: 1, text: "baked" },
-  blue: { rev: 1, text: "baked" },
+  harvest: { rev: 1, text: "baked", icon: 1 },
+  hunter: { rev: 1, text: "baked", icon: 1 },
+  beaver: { rev: 1, text: "baked", icon: 1 },
+  cold: { rev: 1, text: "baked", icon: 1 },
+  blue: { rev: 1, text: "baked", icon: 1 },
   "lunar-total": { rev: 1, text: "overlay" },
   "lunar-partial": { rev: 1, text: "overlay" },
   "lunar-penumbral": { rev: 1, text: "overlay" },
@@ -78,6 +83,18 @@ export const EVENT_ART: Record<EventArtKey, EventArt | null> = {
   "solar-annular": { rev: 1, text: "overlay" },
   "solar-partial": { rev: 1, text: "overlay" },
 };
+
+/** 説明の上の四角い絵の大きさ（画面の2倍より少し大きく）と重さの上限。 */
+export const EVENT_ICON_SIZE = 256;
+export const EVENT_ICON_MAX_BYTES = 40_000;
+
+/** 説明の上の四角い絵の URL。無ければ null（帯の絵の左を切り出す）。 */
+export function eventIcon(event: Pick<SkyEvent, "kind" | "name" | "blue">): string | null {
+  const key = eventArtKey(event);
+  const art = key ? EVENT_ART[key] : null;
+  if (!key || !art || art.off || !art.icon) return null;
+  return `/event/${key}-icon.webp?v=${art.icon}`;
+}
 
 /** 絵の形（横：縦）と、配る大きさ（画面の2倍）。 */
 export const EVENT_ART_SIZE = { width: 640, height: 160 } as const;

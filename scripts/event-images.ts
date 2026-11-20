@@ -10,7 +10,7 @@
 
 import { createRequire } from "node:module";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { EVENT_ART, EVENT_ART_MAX_BYTES, EVENT_ART_SIZE, EVENT_ART_THEMES, type EventArtKey } from "../src/design/eventAssets.ts";
+import { EVENT_ART, EVENT_ART_MAX_BYTES, EVENT_ART_SIZE, EVENT_ART_THEMES, EVENT_ICON_MAX_BYTES, EVENT_ICON_SIZE, type EventArtKey } from "../src/design/eventAssets.ts";
 
 const only = process.argv[2];
 const keys = (Object.keys(EVENT_ART) as EventArtKey[]).filter((k) => EVENT_ART[k] && (!only || k === only));
@@ -54,6 +54,38 @@ for (const key of keys) {
     wrote++;
     console.log(`${key}-${theme}.webp ${Math.round(bytes.length / 100) / 10}KB`);
   }
+}
+// 説明の上の四角い絵（台帳の icon、テーマによらず1枚）：design-src/event/<種類>-icon.png → 256×256（角の透明はそのまま）。
+for (const key of keys) {
+  if (!EVENT_ART[key]?.icon) continue;
+  const src = `design-src/event/${key}-icon.png`;
+  if (!existsSync(src)) throw new Error(`${src} がありません`);
+  const png = readFileSync(src).toString("base64");
+  let bytes: Buffer | null = null;
+  for (const q of [0.86, 0.8, 0.72]) {
+    const url: string = await page.evaluate(
+      async ({ png, S, q }: { png: string; S: number; q: number }) => {
+        const img = new Image();
+        img.src = `data:image/png;base64,${png}`;
+        await img.decode();
+        const c = document.createElement("canvas");
+        c.width = S;
+        c.height = S;
+        const g = c.getContext("2d")!;
+        g.imageSmoothingQuality = "high";
+        const k = Math.min(S / img.naturalWidth, S / img.naturalHeight);
+        g.drawImage(img, (S - img.naturalWidth * k) / 2, (S - img.naturalHeight * k) / 2, img.naturalWidth * k, img.naturalHeight * k);
+        return c.toDataURL("image/webp", q);
+      },
+      { png, S: EVENT_ICON_SIZE, q },
+    );
+    bytes = Buffer.from(url.slice(url.indexOf(",") + 1), "base64");
+    if (bytes.length <= EVENT_ICON_MAX_BYTES) break;
+  }
+  if (!bytes || bytes.length > EVENT_ICON_MAX_BYTES) throw new Error(`${key}-icon が ${EVENT_ICON_MAX_BYTES} バイトに収まりません`);
+  writeFileSync(`public/event/${key}-icon.webp`, bytes);
+  wrote++;
+  console.log(`${key}-icon.webp ${Math.round(bytes.length / 100) / 10}KB`);
 }
 await browser.close();
 console.log(`public/event に ${wrote} 枚を書いた`);
