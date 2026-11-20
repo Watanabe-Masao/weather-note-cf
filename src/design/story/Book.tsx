@@ -26,6 +26,7 @@ export function bookVars(): CSSProperties {
     ["--bk-edge" as string]: BOOK.edge,
     ["--bk-ink-bleed" as string]: BOOK.inkBleed,
     ["--bk-seal" as string]: BOOK.seal,
+    ["--bk-tag" as string]: BOOK.tag,
     ["--bk-engrave-soft" as string]: BOOK.engraveSoft,
     ["--bk-shine-faint" as string]: BOOK.shineFaint,
     ["--bk-shine-soft" as string]: BOOK.shineSoft,

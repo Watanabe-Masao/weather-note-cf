@@ -20,6 +20,8 @@ export const BOOK = {
   edge: "#7a4a1e",
   inkBleed: "#3a2c1c55",
   seal: "#a3362b",
+  /** 紙のページの象徴の言葉の札の地。 */
+  tag: "#e6d2a866",
   /** 紙の上の文字。 */
   ink: "#3a2c1c",
   /** 夜の地（物語のページの背景）。 */

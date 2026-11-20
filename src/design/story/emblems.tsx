@@ -379,3 +379,178 @@ export function Glint({
     </svg>
   );
 }
+
+/**
+ * 象徴の言葉の小さな絵（11/20 20:56 渡辺さんの見本：芽・薪・雪の結晶）。言葉ごとに足す（無い言葉は絵なし）。
+ * 一色（currentColor）。
+ */
+const SYMBOL_ICONS: Record<string, ReactElement> = {
+  巣作り: (
+    <g {...S} strokeWidth={1.7}>
+      <path d="M16 28 V16" />
+      <path
+        d="M16 18 C 10 18 6 14 6 8 C 12 8 16 12 16 18 Z M16 15 C 17 9 21 6 26 6 C 26 12 22 15 16 15 Z"
+        fill="currentColor"
+        stroke="none"
+      />
+    </g>
+  ),
+  貯蔵: (
+    <g {...S} strokeWidth={1.5}>
+      {[
+        [10, 21],
+        [21, 21],
+        [15.5, 12.5],
+      ].map(([x, y]) => (
+        <g key={`${x}${y}`}>
+          <path
+            d={`M${x - 7} ${y - 4} H${x + 4} M${x - 7} ${y + 4} H${x + 4}`}
+          />
+          <ellipse cx={x + 4} cy={y} rx={2.4} ry={4} />
+          <ellipse
+            cx={x + 4}
+            cy={y}
+            rx={0.8}
+            ry={1.4}
+            fill="currentColor"
+            stroke="none"
+          />
+        </g>
+      ))}
+    </g>
+  ),
+  冬支度: (
+    <g {...S} strokeWidth={1.6}>
+      <path d="M16 4 V28 M5.6 10 L26.4 22 M5.6 22 L26.4 10" />
+      <path d="M13 6.5 L16 9.5 L19 6.5 M13 25.5 L16 22.5 L19 25.5 M6.5 14.4 L10.6 13.4 L9.4 9.4 M25.5 17.6 L21.4 18.6 L22.6 22.6 M6.5 17.6 L10.6 18.6 L9.4 22.6 M25.5 14.4 L21.4 13.4 L22.6 9.4" />
+    </g>
+  ),
+};
+
+/** 象徴の言葉の絵（無い言葉は null）。 */
+export function SymbolIcon({
+  word,
+  className,
+}: {
+  word: string;
+  className?: string;
+}): ReactElement | null {
+  const g = SYMBOL_ICONS[word];
+  return g ? (
+    <svg className={className} viewBox="0 0 32 32" aria-hidden>
+      {g}
+    </svg>
+  ) : null;
+}
+
+/** 紙のページの見出しの下の飾り：細い線と、真ん中に小枝（11/20 20:56 見本）。 */
+export function LeafRule({ className }: { className?: string }): ReactElement {
+  return (
+    <svg className={className} viewBox="0 0 200 20" aria-hidden>
+      <path {...S} strokeWidth={0.9} d="M6 10 H84 M116 10 H194" />
+      <path {...S} strokeWidth={1.2} d="M86 14 C 94 13 104 9 112 4" />
+      <path
+        fill="currentColor"
+        d="M95 12 C 92 6 95 3 99 3 C 100 7 99 10 95 12 Z M103 9 C 104 3 108 1 112 2 C 111 6 108 9 103 9 Z M99 11.5 C 104 15 108 15 111 12 C 107 9 103 9.5 99 11.5 Z"
+      />
+    </svg>
+  );
+}
+
+/** 紙のページの四隅の唐草（11/20 21:04 渡辺さんの見本「名前の由来」）。左上の形で、ほかの隅は CSS で返す。 */
+export function PaperCorner({
+  className,
+}: {
+  className?: string;
+}): ReactElement {
+  return (
+    <svg className={className} viewBox="0 0 48 48" aria-hidden>
+      <g {...S} strokeWidth={1.1} filter={BEVEL}>
+        <path d="M4 30 C 4 14 14 4 30 4" />
+        <path d="M30 4 C 38 4 42 9 39 13 C 36 16 31 14 33 10" />
+        <path d="M4 30 C 4 38 9 42 13 39 C 16 36 14 31 10 33" />
+        <path
+          d="M11 22 C 13 15 16 12 22 11 M17 8 C 20 5 24 6 24 9 M8 17 C 5 20 6 24 9 24"
+          strokeWidth={0.8}
+        />
+        <circle cx={14} cy={14} r={1.6} fill="currentColor" stroke="none" />
+      </g>
+    </svg>
+  );
+}
+
+/** 月の満ち欠けの列（細い月から満月、また細い月へ。真ん中の満月は型押しの月の絵）。 */
+export function PhaseRow({
+  moon,
+  className,
+}: {
+  moon: string;
+  className?: string;
+}): ReactElement {
+  // 欠けた月：外の円と、ずらした円の差（右が光る → 満月 → 左が光る）。
+  const phase = (x: number, r: number, k: number, key: string) => {
+    const d = k * r * 1.9;
+    return (
+      <g key={key}>
+        <mask id={`ph-${key}`}>
+          <circle cx={x} cy={12} r={r} fill="#ffffff" />
+          <circle cx={x + d} cy={12} r={r} fill="#000000" />
+        </mask>
+        <circle
+          cx={x}
+          cy={12}
+          r={r}
+          fill="currentColor"
+          mask={`url(#ph-${key})`}
+        />
+      </g>
+    );
+  };
+  return (
+    <svg className={className} viewBox="0 0 160 24" aria-hidden>
+      <g filter={BEVEL}>
+        {phase(14, 4, -0.82, "a")}
+        {phase(34, 5, -0.6, "b")}
+        {phase(56, 6, -0.32, "c")}
+        {phase(104, 6, 0.32, "d")}
+        {phase(126, 5, 0.6, "e")}
+        {phase(146, 4, 0.82, "f")}
+      </g>
+      <image
+        href={moon}
+        x={69}
+        y={-1}
+        width={22}
+        height={26}
+        preserveAspectRatio="xMidYMid meet"
+      />
+    </svg>
+  );
+}
+
+/** 小さな枯れ枝（金、11/20 21:05 渡辺さん「ゴールドで小さな枯れ枝のモチーフ」）。 */
+export function Twig({ className }: { className?: string }): ReactElement {
+  return (
+    <svg className={className} viewBox="0 0 120 28" aria-hidden>
+      <g {...S} filter={BEVEL}>
+        <path
+          strokeWidth={1.8}
+          d="M6 20 C 30 16 58 15 84 11 C 96 9 106 8 114 6"
+        />
+        <path
+          strokeWidth={1.2}
+          d="M34 16.5 C 38 11 42 8 48 6 M58 14.5 C 62 18 66 21 72 22 M80 11.6 C 84 7 88 4 92 3 M96 9 C 99 11 102 13 106 13"
+        />
+        <path
+          strokeWidth={0.9}
+          d="M44 7.5 L 46 3 M68 21 L 70 25 M88 4.4 L 87 1"
+        />
+      </g>
+      <g fill="currentColor" filter={BEVEL}>
+        <ellipse cx={48.5} cy={5.6} rx={1.6} ry={1.1} />
+        <ellipse cx={92.4} cy={2.8} rx={1.5} ry={1} />
+        <ellipse cx={114.5} cy={5.8} rx={1.6} ry={1.1} />
+      </g>
+    </svg>
+  );
+}

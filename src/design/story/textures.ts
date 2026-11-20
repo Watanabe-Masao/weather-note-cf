@@ -23,7 +23,7 @@ export const WOOD = svg(
  * 紙の色の上に multiply で重ねる。
  */
 export const PAPER = svg(
-  `<filter id='p' x='0' y='0'><feTurbulence type='fractalNoise' baseFrequency='0.85 0.55' numOctaves='3' seed='3' stitchTiles='stitch' result='f'/><feTurbulence type='fractalNoise' baseFrequency='0.014' numOctaves='3' seed='9' stitchTiles='stitch' result='m'/><feComposite in='f' in2='m' operator='arithmetic' k2='0.45' k3='0.55'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='0.7' intercept='0.55'/><feFuncG type='linear' slope='0.7' intercept='0.55'/><feFuncB type='linear' slope='0.7' intercept='0.55'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(#p)'/>`,
+  `<filter id='p' x='0' y='0' width='100%' height='100%'><feTurbulence type='fractalNoise' baseFrequency='0.85 0.55' numOctaves='3' seed='3' stitchTiles='stitch' result='f'/><feTurbulence type='fractalNoise' baseFrequency='0.0125' numOctaves='3' seed='9' stitchTiles='stitch' result='m'/><feComposite in='f' in2='m' operator='arithmetic' k2='0.45' k3='0.55'/><feColorMatrix type='saturate' values='0'/><feComponentTransfer><feFuncR type='linear' slope='0.7' intercept='0.55'/><feFuncG type='linear' slope='0.7' intercept='0.55'/><feFuncB type='linear' slope='0.7' intercept='0.55'/><feFuncA type='linear' slope='0' intercept='1'/></feComponentTransfer></filter><rect width='100%' height='100%' filter='url(#p)'/>`,
   320,
   320,
 );

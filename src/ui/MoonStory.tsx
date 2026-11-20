@@ -42,10 +42,15 @@ import {
 import {
   CloudMark,
   Glint,
+  LeafRule,
+  PaperCorner,
+  PhaseRow,
   MoonEmblem,
   SpineHills,
   SpineLatin,
   Sprig,
+  SymbolIcon,
+  Twig,
 } from "../design/story/emblems";
 import { STORY_SCENES } from "../design/story/scenes";
 import { storyAsset } from "../design/story/storyAssets";
@@ -930,6 +935,8 @@ export function MoonStory({
             ))}
           </p>
           <small className="ms-rise">{title}</small>
+          {/* 小さな金の枯れ枝（11/20 21:05 渡辺さん）：名前の下にそっと。 */}
+          <Twig className="ms-twig ms-rise" />
         </section>
       )}
 
@@ -979,36 +986,64 @@ export function MoonStory({
         )}
       </section>
 
-      {/* 5. 知識：名前の由来 */}
-      {story && (
-        <section className="ms-chapter ms-text">
-          <div className="ms-paper ms-rise">
-            <h3>名前の由来</h3>
-            <Flourish />
-            {story.origin.map((t, i) => (
-              <p key={i}>{t}</p>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* 5. 知識：自然との関係 */}
-      {story && (
-        <section className="ms-chapter ms-text">
-          <div className="ms-paper ms-rise">
-            <h3>自然との関係</h3>
-            <Flourish />
-            {story.nature.map((t, i) => (
-              <p key={i}>{t}</p>
-            ))}
-            <p className="ms-symbols">
-              {story.symbols.map((s) => (
-                <em key={s}>{s}</em>
+      {/* 5. 知識：名前の由来・自然との関係（11/20 20:56 渡辺さんの見本）：古い紙のページ、角を内に丸く切った金の二重の枠、
+          見出しの下に小枝の線、最初の字を大きく、象徴の言葉は小さな絵と並べ、ページの下に淡いセピアの絵（場面ごと）。 */}
+      {story &&
+        (
+          [
+            ["名前の由来", story.origin, false],
+            ["自然との関係", story.nature, true],
+          ] as const
+        ).map(([head, paras, last]) => (
+          <section key={head} className="ms-chapter ms-text">
+            {/* 名前の由来（21:04 の見本）：角の丸い枠と四隅の唐草、上に月の満ち欠け、見出しの下に菱形の飾り。
+                自然との関係（20:56 の見本）：角を内に丸く切った枠、見出しの下に小枝の線、象徴の言葉の札。 */}
+            <div
+              className={[
+                "ms-paper",
+                last ? "nature" : "origin",
+                scene?.PaperArt ? "with-art" : "",
+                "ms-rise",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              {!last && (
+                <>
+                  {["tl", "tr", "bl", "br"].map((c) => (
+                    <PaperCorner key={c} className={`ms-paper-corner ${c}`} />
+                  ))}
+                  <PhaseRow
+                    moon={storyAsset("common", "emboss")}
+                    className="ms-phases"
+                  />
+                </>
+              )}
+              <h3>{head}</h3>
+              {last ? <LeafRule className="ms-leafrule" /> : <Flourish />}
+              {paras.map((t, i) => (
+                <p key={i} className={i === 0 ? "lead" : undefined}>
+                  {t}
+                </p>
               ))}
-            </p>
-          </div>
-        </section>
-      )}
+              {last && (
+                <p className="ms-symbols">
+                  {story.symbols.map((w) => (
+                    <em key={w}>
+                      <SymbolIcon word={w} className="ms-symbol-icon" />
+                      {w}
+                    </em>
+                  ))}
+                </p>
+              )}
+              {scene?.PaperArt && (
+                <span className="ms-paper-art">
+                  <scene.PaperArt />
+                </span>
+              )}
+            </div>
+          </section>
+        ))}
 
       {/* 5. 本棚（一年を巡る満月の物語）と、終わり */}
       <section className="ms-chapter ms-tonight">

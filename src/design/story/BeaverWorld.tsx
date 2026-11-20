@@ -257,6 +257,102 @@ export function BeaverCoverArt(): ReactElement {
   );
 }
 
+/**
+ * 紙のページの下の淡い絵（11/20 20:56 渡辺さんの見本）：湖のほとり、倒木の上のビーバー、手前の草、右の針葉樹の森。
+ * 色はセピアの一色の濃淡（紙に刷ったように）。上は紙へ溶かす。並べ方の大きさは 400×150。
+ */
+export function BeaverPaperArt(): ReactElement {
+  const r = rand(23);
+  const ink = "#6b4a2a";
+  const warm = "#c8944a";
+  const far = Array.from({ length: 18 }, (_, i) =>
+    pine(200 + i * 11 + r() * 5, 104 + r() * 2, 12 + r() * 10, ink, `fa${i}`),
+  );
+  const near = Array.from({ length: 6 }, (_, i) =>
+    pine(304 + i * 17 + r() * 6, 110, 40 + r() * 34, ink, `ne${i}`),
+  );
+  return (
+    <svg
+      className="bpa"
+      viewBox="0 0 400 160"
+      preserveAspectRatio="xMidYMax slice"
+      aria-hidden
+    >
+      <defs>
+        <linearGradient id="bpa-fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#000000" />
+          <stop offset="0.4" stopColor="#ffffff" />
+        </linearGradient>
+        <mask id="bpa-mask">
+          <rect width={400} height={160} fill="url(#bpa-fade)" />
+        </mask>
+        <radialGradient id="bpa-glow" cx="0.55" cy="0.68" r="0.5">
+          <stop offset="0" stopColor={warm} stopOpacity={0.35} />
+          <stop offset="1" stopColor={warm} stopOpacity={0} />
+        </radialGradient>
+      </defs>
+      <g mask="url(#bpa-mask)">
+        <rect width={400} height={160} fill="url(#bpa-glow)" />
+        {/* 遠い丘 */}
+        <path
+          d="M120 108 C 170 86 220 80 270 90 C 300 96 320 100 360 104 L 360 112 L 120 112 Z"
+          fill={ink}
+          opacity={0.14}
+        />
+        <g opacity={0.2}>{far}</g>
+        <g opacity={0.36}>{near}</g>
+        {/* 湖：水平線と、映り込みの線と光 */}
+        <path d="M0 110 H400" stroke={ink} strokeWidth={0.8} opacity={0.3} />
+        <path
+          d="M180 116 H250 M200 122 H236 M150 128 H220 M240 134 H320 M110 142 H190 M210 150 H300"
+          stroke={warm}
+          strokeWidth={0.9}
+          opacity={0.45}
+        />
+        {/* 倒木とビーバー */}
+        <path
+          d="M26 130 C 60 120 118 118 172 124 L 178 134 C 130 130 74 132 30 140 Z"
+          fill={ink}
+          opacity={0.5}
+        />
+        <path
+          d="M60 126 L 52 116 M138 122 L 146 112"
+          stroke={ink}
+          strokeWidth={1.6}
+          opacity={0.45}
+        />
+        <image
+          href={A("beaver")}
+          x={62}
+          y={74}
+          width={64}
+          height={64}
+          className="bpa-ink"
+          opacity={0.7}
+        />
+        <image
+          href={A("reed")}
+          x={-18}
+          y={70}
+          width={116}
+          height={90}
+          className="bpa-ink"
+          opacity={0.6}
+        />
+        <image
+          href={A("reed")}
+          x={326}
+          y={92}
+          width={86}
+          height={68}
+          className="bpa-ink"
+          opacity={0.5}
+        />
+      </g>
+    </svg>
+  );
+}
+
 /** 本のページの窓の絵（場面の最初のコマの小さな絵：夕暮れの空、丘、針葉樹、川）。窓の中へ寄ると、場面へつながる。 */
 export function BeaverWindow(): ReactElement {
   const r = rand(7);
