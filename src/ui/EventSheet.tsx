@@ -18,7 +18,8 @@ const clock = (ms: number) => {
   return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${clockOf(d.getUTCHours() * 60 + d.getUTCMinutes())}`;
 };
 
-export function EventSheet({ event, onClose }: { event: SkyEvent; onClose: () => void }) {
+/** day：確認ページの一覧から開くときの日付（見出しを「11/24 はビーバームーン」に）。ふだんは「今日は」。 */
+export function EventSheet({ event, onClose, day }: { event: SkyEvent; onClose: () => void; day?: string }) {
   const { lat, lon } = DEFAULT_LAT_LON;
   const [names, setNames] = useState(false);
   const solar = event.kind.startsWith("solar");
@@ -26,7 +27,8 @@ export function EventSheet({ event, onClose }: { event: SkyEvent; onClose: () =>
   // その年だけのこと（その満月の札）：月食・ブルームーン・いちばん近い／遠い（計算から）。
   const facts = useMemo(() => (solar ? null : (fullMoonsOfYear(year, lat, lon).find((f) => Math.abs(f.at - event.at) < 2 * 86_400_000) ?? null)), [solar, year, lat, lon, event.at]);
   const info = event.name ? fullMoonInfo(event.name) : null;
-  const title = event.kind === "full" ? (event.blue ? "今日はブルームーン" : `今日は${event.name}`) : `今日は${SKY_EVENT_NAME[event.kind]}`;
+  const what = event.kind === "full" ? (event.blue ? "ブルームーン" : event.name) : SKY_EVENT_NAME[event.kind];
+  const title = day ? `${Number(day.slice(5, 7))}/${Number(day.slice(8))} は${what}` : `今日は${what}`;
   return (
     <ModalSheet title={title} onClose={onClose} className="event-sheet" size="fit">
       {event.kind === "full" ? (
