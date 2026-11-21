@@ -22,6 +22,11 @@ type Opts = {
   freeBefore?: () => number;
   /** 動きを減らす設定（速く、短く運ぶ）。 */
   reduced?: () => boolean;
+  /**
+   * 通り道の節目（px）。前へ運ぶとき、この手前は距離から決めた短い時間で通り、節目から先を朗読の速さで運ぶ
+   * （11/21 レビュー：見開きから1ページ目へ、本の中を朗読の速さで運んでいたので、文が出るまで約10秒かかっていた）。
+   */
+  waypoint?: () => number | undefined;
 };
 
 const MAX_STEP = 3;
@@ -86,6 +91,45 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
   const glide = (to: number, v0 = 0) => {
     stop();
     const x0 = el.scrollTop;
+    // 節目をまたいで前へ一つ進むとき：節目までは短く、節目から先は朗読の速さ（節目で速さが途切れないよう、節目での
+    // 速さを後半の一定の速さに合わせ、後半はその速さを引き継ぐ）。
+    const w = o.waypoint?.();
+    if (!o.reduced?.() && w !== undefined && x0 < w - 4 && to > w + 4 && o.seconds) {
+      const T2 = travelSeconds(w, to);
+      const D2 = to - w;
+      const vc2 = D2 / Math.max(0.5, T2 - 0.5 - (2 * Math.min(1.1, T2 * 0.35)) / 3);
+      const D1 = w - x0;
+      const T1 = byDistance(D1);
+      const s0 = Math.max(0, v0) * T1;
+      const s1 = vc2 * T1;
+      // エルミートの曲線（始めの速さ v0、終わりの速さ vc2）。
+      const pos1 = (k: number) => {
+        const k2 = k * k;
+        const k3 = k2 * k;
+        return x0 + (k3 - 2 * k2 + k) * s0 + (-2 * k3 + 3 * k2) * D1 + (k3 - k2) * s1;
+      };
+      let t0 = -1;
+      target = to;
+      const tick = (now: number) => {
+        if (t0 < 0) t0 = now - 8;
+        const k = (now - t0) / 1000 / T1;
+        if (k >= 1) {
+          el.scrollTop = w;
+          raf = 0;
+          glideFrom(w, to, vc2);
+          return;
+        }
+        const y = pos1(k);
+        el.scrollTop = y;
+        report(y, false);
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      return;
+    }
+    glideFrom(x0, to, v0);
+  };
+  const glideFrom = (x0: number, to: number, v0: number) => {
     const D = to - x0;
     if (Math.abs(D) < 0.5) {
       el.scrollTop = to;

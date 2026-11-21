@@ -154,6 +154,13 @@ export function beatSeconds(lines: string[], rests: number[] = [], holdLast = fa
 /** 最後のページで、読み終えてから文が消えはじめるまでの秒。 */
 export const LAST_TAIL = 1.6;
 /**
+ * 文の出入り（コマの中の位置、11/21 レビュー）：止まる所（BEAT_REST）を過ぎて送りはじめたら、すぐ消しはじめて短く消す。
+ * 次のページの文は、そのコマの頭より CAP_LEAD 前から出しはじめる（消えてから出るまで、運ぶ速さでおよそ2秒）。
+ */
+export const CAP_OUT = 0.8;
+export const CAP_OUT_DUR = 0.05;
+export const CAP_LEAD = 0.1;
+/**
  * 一字ずつ出る時刻（コマの中の 0〜1）。朗読の速さのまま（コマの秒数で割る）。lineAt があれば、行ごとにその所から
  * 出しはじめる（前の行が出そろう前には始めない）。行の切れ目は改行（\n）。
  */
@@ -744,9 +751,12 @@ export function MoonStory({
             const times = story?.book ? revealTimes(tateNum(text), secs, scene.lineAt?.[i]) : null;
             // 最後のページ（9）は、文だけが先に消え、止まる所では絵だけが rest の秒残る（絵コンテ「文が消えて絵が残る」）。
             const lastBook = !!story?.book && i === lines.length - 1;
-            const fadeAt = lastBook ? REVEAL_START + ((readings[i]?.total ?? 0) + LAST_TAIL) / secs : 0.84;
+            const fadeAt = lastBook ? REVEAL_START + ((readings[i]?.total ?? 0) + LAST_TAIL) / secs : CAP_OUT;
+            // 次のページの文は、前のページの文が消えたらすぐ（コマの頭より少し前から）出しはじめる（11/21 レビュー：送って
+            // から次の文が出るまで約5秒、何も無い時間があった）。
+            const at = i + REVEAL_START - (i === 0 ? 0.04 : CAP_LEAD);
             world
-              .set(cap, { opacity: 1 }, i + REVEAL_START)
+              .set(cap, { opacity: 1 }, at)
               .fromTo(
                 `${cap} .ms-ch`,
                 // 字は inline（11/21 レビュー：一字ずつ inline-block にしていたので、行頭の句点を避ける決まりが効かず、
@@ -764,7 +774,7 @@ export function MoonStory({
                     return r && r.total > 0 ? ((r.at[k] ?? r.total) / r.total) * (REVEAL_END - REVEAL_START - 0.12) : 0;
                   },
                 },
-                i + REVEAL_START,
+                at,
               )
               .to(
                 cap,
@@ -772,7 +782,7 @@ export function MoonStory({
                   opacity: 0,
                   y: lastBook ? 0 : -12,
                   filter: "blur(2px)",
-                  duration: lastBook ? 0.06 : 0.16,
+                  duration: lastBook ? 0.06 : CAP_OUT_DUR,
                   ease: "power1.in",
                 },
                 i + fadeAt,
@@ -1106,6 +1116,11 @@ export function MoonStory({
         // 本編（場面）の頭より前は区切りへ運ばない。場面の無い満月は、本の後ろ（文の章）から。
         freeBefore: () =>
           (el.querySelector<HTMLElement>(".ms-world")?.offsetTop ?? 0) - 1,
+        // 見開きから1ページ目へ：場面の頭までは短く、そこから朗読の速さで（11/21 レビュー：文が出るまで約10秒）。
+        waypoint: () => {
+          const w = el.querySelector<HTMLElement>(".ms-world");
+          return w && scene ? w.offsetTop : undefined;
+        },
         onIndex: (i) =>
           dots.forEach((d, k) =>
             d.classList.toggle("on", firstBeat >= 0 && k === i - firstBeat),
