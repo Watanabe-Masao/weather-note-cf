@@ -365,7 +365,7 @@ export const FULL_MOON_NAMES: FullMoonNameInfo[] = [
   },
   {
     tale: {
-      tagline: "冬が来る前に、小さな枝を一本ずつ",
+      tagline: "一本、また一本",
       lines: [
         "秋の森から、葉が落ち始めるころ。",
         "北米の川辺では、ビーバーたちが冬に向けた準備を進めています。",
