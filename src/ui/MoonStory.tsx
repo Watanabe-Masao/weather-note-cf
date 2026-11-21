@@ -1210,7 +1210,9 @@ export function MoonStory({
   const infoBlock = (
   <section className="ms-chapter ms-info" data-story-end={story?.book ? undefined : ""}>
     <small className="ms-rise">
-      {j.m}月{j.d}日
+      {/* 満月の夜の日付（11/21：コールドムーンは瞬間が 12/24 の朝なので、見る夜は 12/23。瞬間の日付を出すと「12月24日・今夜の」と
+          食い違っていた）。瞬間の日時は下のカードに。 */}
+      {Number(eventNight(event).slice(5, 7))}月{Number(eventNight(event).slice(8))}日の夜
     </small>
     <h3 className="ms-rise">{when}{title}</h3>
     {/* 紙を重ねる見せ方（11/21 渡辺さん「おすすめで」）：外の .ms-sheet が奥へ沈み、内の .ms-sheet-in が傾いて滑り込む。 */}
@@ -1518,11 +1520,24 @@ export function MoonStory({
         <section className="ms-chapter ms-tale">
           <small className="ms-rise">{j.m}月の満月の物語</small>
           <h3 className="ms-rise">{story.tale?.tagline ?? story.gloss}</h3>
-          {(story.tale?.lines ?? [story.meaning]).map((t, i) => (
-            <p key={i} className="ms-tale-line">
-              {t}
-            </p>
-          ))}
+          {/* 絵本の形（book）があれば、そのページを一段ずつ（場面の素材が届く前の形。11/21 コールドムーンの実装計画 PR-1）。
+              tale.lines は物語の外のための古い文なので、book があるときは出さない。 */}
+          {story.book
+            ? story.book.pages.map((pg, i) => (
+                <p key={i} className="ms-tale-line">
+                  {pg.lines.map((l, k) => (
+                    <span key={k}>
+                      {k > 0 && <br />}
+                      {l}
+                    </span>
+                  ))}
+                </p>
+              ))
+            : (story.tale?.lines ?? [story.meaning]).map((t, i) => (
+                <p key={i} className="ms-tale-line">
+                  {t}
+                </p>
+              ))}
         </section>
       )}
 
