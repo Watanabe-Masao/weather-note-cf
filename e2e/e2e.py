@@ -343,6 +343,23 @@ with sync_playwright() as p:
         t = pg.evaluate(f"__calm({int(max_ms)})")
         if os.environ.get("WN_CALM"): print("CALM", t, sys._getframe(1).f_lineno)
         return t
+    # 最大のシートは画面いっぱい（項目の帯の上から画面の上まで、2026-11-22）。人は引き下げてから下の物を押す。
+    # ここでも同じに：押す物がシートに隠れているときは、シートを中の高さに下げて押し、また最大に戻す。
+    from playwright.sync_api import Locator as _Loc
+    _orig_click = _Loc.click
+    COVERED = """el => { const s = document.querySelector('.sheet[data-detent="max"]');
+      return !!s && !s.contains(el) && !el.closest('.metrics, .msheet, .msheet-backdrop'); }"""
+    def _click(self, *a, **k):
+        try: covered = self.first.evaluate(COVERED, timeout=3000) if not k.get("force") else False
+        except Exception: covered = False
+        if covered:
+            pg.evaluate("__flick('.sheet-handle',600,120)"); calm()
+        try: return _orig_click(self, *a, **k)
+        finally:
+            if covered and pg.locator(".sheet-handle").count() and not pg.locator('.sheet[data-detent="max"]').count():
+                calm(); pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
+    _Loc.click = _click
+    pg.click = lambda sel, **k: pg.locator(sel).first.click(**k)
     txt = lambda sel: pg.locator(sel).first.inner_text()
     title = lambda: txt(".sheet-head-title")
     no_overflow = lambda: pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
@@ -491,9 +508,11 @@ with sync_playwright() as p:
         pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
         h1 = sheet_h()
         top = pg.evaluate("document.querySelector('.sheet').getBoundingClientRect().top")
-        chips = pg.evaluate("document.querySelector('.metrics').getBoundingClientRect().bottom")
+        bar = pg.evaluate("(() => { const r = document.querySelector('.metrics').getBoundingClientRect(); return [r.top, r.bottom]; })()")
+        sb = pg.evaluate("document.querySelector('.sheet').getBoundingClientRect().bottom")
         check("C1 上へ弾くと高くなる", h1 > h0 + 50, f"{h0:.0f}→{h1:.0f}")
-        check("C2 最大はチップの下で止まる", top >= chips - 1, f"top {top:.0f} chips {chips:.0f}")
+        # 項目の帯は画面の下に固定、シートはその上に乗って画面の上近くまで上がる（2026-11-22）
+        check("C2 最大は画面の上近くまで・帯の上に乗る", top <= 16 and abs(sb - bar[0]) <= 1 and bar[1] >= 843, f"top {top:.0f} sheet bottom {sb:.0f} bar {bar}")
         layout_ok("C2b", "シート最大")
         pg.evaluate("__flick('.sheet-handle',600,120)"); calm()
         h2 = sheet_h()
