@@ -27,9 +27,26 @@ export function daysBefore(day: string, count: number, today: string, first = "1
  * (and at least 2) have a value there, so a few days do not stand for the whole span.
  */
 export function meanByHour(days: HourPoint[][], expected: number): HourPoint[] {
+  return byHour(days, expected, (vs) => vs.reduce((a, b) => a + b, 0) / vs.length);
+}
+
+/**
+ * The hour-by-hour median, for 視程 (2026-11-22 渡辺さん承認): its values stop at 20 km and a few hazy
+ * days pull a mean down. Missing values are left out, as for the mean, and each hour keeps how many
+ * days it was made from (`n`). A median of 20 still means "20 km or more" (the cap is not undone).
+ */
+export function medianByHour(days: HourPoint[][], expected: number): HourPoint[] {
+  return byHour(days, expected, (vs) => {
+    const s = [...vs].sort((a, b) => a - b);
+    const m = s.length / 2;
+    return s.length % 2 ? s[Math.floor(m)] : (s[m - 1] + s[m]) / 2;
+  });
+}
+
+function byHour(days: HourPoint[][], expected: number, of: (vs: number[]) => number): HourPoint[] {
   const need = Math.max(2, Math.ceil(expected / 2));
   return Array.from({ length: 24 }, (_, i) => {
     const vs = days.map((d) => d[i]?.v).filter((v): v is number => v != null && Number.isFinite(v));
-    return { hour: i + 1, v: vs.length >= need ? vs.reduce((a, b) => a + b, 0) / vs.length : null, forecast: false };
+    return { hour: i + 1, v: vs.length >= need ? of(vs) : null, forecast: false, n: vs.length };
   });
 }

@@ -36,9 +36,11 @@ import {
   hourSeries,
   initialHour,
   signedDiff,
+  VISIBILITY_TOP,
+  visibilityDiff,
 } from "../dayDetail";
 import { barLook, barPath, type DataColor, DATA, LIGHT_LEVELS, LINE, type LineLook, lineLook, onSkyVars } from "../design/tokens";
-import { type AverageWindow, AVERAGE_WINDOWS, daysBefore, meanByHour, nextWindow, WINDOW_LABEL } from "../hourAverage";
+import { type AverageWindow, AVERAGE_WINDOWS, daysBefore, meanByHour, medianByHour, nextWindow, WINDOW_LABEL } from "../hourAverage";
 import { Priority } from "../data/plan";
 import { axisWidth, dateLabel, niceTicks, shortDay, tickLabel } from "../design/format";
 import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
@@ -139,10 +141,14 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const averageOf = (series: (HourPoint[] | null)[], days: string[], anchor: string, w: number) => {
     const span = days.filter((d) => d >= addDays(anchor, -w)); // a prefix: nearest first
     if (!span.length) return null;
-    const m = meanByHour(series.slice(0, span.length).filter((x): x is HourPoint[] => !!x), span.length);
+    // 視程は中央値（上限 20 で止まり、霞んだ日に引っぱられるため。2026-11-22 渡辺さん承認）、ほかは平均。
+    const m = (metricId === "visibility" ? medianByHour : meanByHour)(series.slice(0, span.length).filter((x): x is HourPoint[] => !!x), span.length);
     return m.some((p) => p.v != null) ? m : null;
   };
   const avgMain = averageOf(daySeriesMain, avgDaysMain, date, avgWindow);
+  const avgWord = metricId === "visibility" ? "中央値" : "平均";
+  // 視程の差は、20（「20 km 以上」）がからむと「…以下・…以上」か、分からない（visibilityDiff）。
+  const diffOf = (x: number | null, y: number | null) => (metricId === "visibility" ? visibilityDiff(x, y) : signedDiff(x, y, metric.unit));
   const avgOther = other ? averageOf(daySeriesOther, avgDaysOther, other, avgWindow) : null;
   // The axis: the days' own values and every span's averages, whichever span is shown.
   const axisExtra = AVERAGE_WINDOWS.flatMap((w) => [averageOf(daySeriesMain, avgDaysMain, date, w), other ? averageOf(daySeriesOther, avgDaysOther, other, w) : null])
@@ -213,6 +219,13 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const skyStep = (list: (SkyColour[] | null)[] | null) => list?.[shownHour - 1]?.[step ?? 3] ?? null;
 
   const at = (points: HourPoint[]) => points[shownHour - 1]?.v ?? null;
+  // 中央値は、その時刻に値のあった日の数が期間より少ないときだけ「（5日）」と添える（記録は HourPoint の n）。
+  const daysNote = (() => {
+    if (metricId !== "visibility") return "";
+    const ns = [avgMain, avgOther].map((s) => s?.[shownHour - 1]?.n).filter((n): n is number => n != null);
+    const few = ns.filter((n) => n < avgWindow);
+    return few.length ? `（${Math.min(...few)}日）` : "";
+  })();
   // Same month and day a year apart would read "11/10" twice: the comparison day keeps its year.
   const mainLabel = dateLabel(date, { weekday: false });
   // Another year as 'YY (as in the summary line), so the title fits beside the column heads.
@@ -236,26 +249,31 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             color,
             a: formatDetail(at(main), metric),
             b: other ? formatDetail(at(second), metric) : "—",
-            diff: other && metric.unit !== "h" ? signedDiff(at(main), at(second), metric.unit) : "",
+            diff: other && metric.unit !== "h" ? diffOf(at(main), at(second)) : "",
           },
           // The same hour over each day's own weeks before it, and how far the day is from that.
           ...(avgMain || avgOther
             ? [
                 {
                   key: "avg",
-                  label: other ? `手前${WINDOW_LABEL[avgWindow]}の平均` : `${WINDOW_LABEL[avgWindow]}平均`,
+                  // 中央値のときは、その時刻の値があった日の数も（そろっていないときだけ、例「5日」）。
+                  label: `${other ? `手前${WINDOW_LABEL[avgWindow]}の` : WINDOW_LABEL[avgWindow]}${avgWord}${daysNote}`,
                   // Read as numbers: in the secondary ink (the reference line's own colour is drawn faint, #241).
                   color: "var(--ink-secondary)",
                   a: avgMain ? formatDetail(at(avgMain), metric) : "—",
                   b: avgOther ? formatDetail(at(avgOther), metric) : "—",
-                  diff: avgMain && avgOther ? signedDiff(at(avgMain), at(avgOther), metric.unit) : "",
+                  diff: avgMain && avgOther ? diffOf(at(avgMain), at(avgOther)) : "",
                 },
                 {
                   key: "dev",
-                  label: other ? `手前${WINDOW_LABEL[avgWindow]}との差` : `${WINDOW_LABEL[avgWindow]}平均との差`,
-                  a: (avgMain && signedDiff(at(main), at(avgMain), metric.unit)) || "—",
-                  b: (avgOther && signedDiff(at(second), at(avgOther), metric.unit)) || "—",
-                  diff: avgMain && avgOther ? signedDiff(devOf(at(main), at(avgMain)), devOf(at(second), at(avgOther)), metric.unit) : "",
+                  label: other ? `手前${WINDOW_LABEL[avgWindow]}との差` : `${WINDOW_LABEL[avgWindow]}${avgWord}との差`,
+                  a: (avgMain && diffOf(at(main), at(avgMain))) || "—",
+                  b: (avgOther && diffOf(at(second), at(avgOther))) || "—",
+                  // 視程で 20（以上）がからむと、ずれの差は分からない。
+                  diff:
+                    avgMain && avgOther && !(metricId === "visibility" && [at(main), at(avgMain), at(second), at(avgOther)].some((v) => v != null && v >= VISIBILITY_TOP))
+                      ? signedDiff(devOf(at(main), at(avgMain)), devOf(at(second), at(avgOther)), metric.unit)
+                      : "",
                 },
               ]
             : []),
@@ -395,8 +413,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           <i className="ls-forecast" />
           予報
         </span>
-        <button className="avg-window" onClick={stepWindow} aria-label={`平均の期間（今は手前${WINDOW_LABEL[avgWindow]}）。押すと切り替え`}>
-          平均 <b>{WINDOW_LABEL[avgWindow]}</b>
+        <button className="avg-window" onClick={stepWindow} aria-label={`${avgWord}の期間（今は手前${WINDOW_LABEL[avgWindow]}）。押すと切り替え`}>
+          {avgWord} <b>{WINDOW_LABEL[avgWindow]}</b>
           <span className="steps" aria-hidden>
             {AVERAGE_WINDOWS.map((w) => (
               <i key={w} className={w === avgWindow ? "on" : undefined} />
