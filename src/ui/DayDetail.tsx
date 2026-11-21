@@ -10,6 +10,7 @@
 // Nothing here is computed anew: the values, hours, parts and words are the ones the comparison
 // screens already use (chartMetrics, dayDetail, dayParts, dayComment).
 
+import { SECTORS, windSummary } from "../../shared/windDirection";
 import { useContext, useMemo, useState } from "react";
 import { clockOf, dayEdges, dayParts, hoursIn } from "../../shared/dayParts";
 import { hoursWeather } from "../../shared/dayWeather";
@@ -73,16 +74,21 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   // グラフの項目を選ぶ（値つき）：24時間のグラフのすぐ上に小さく並べる（2026-11-18 渡辺さん「連動しているのに離れていて長い」）。
   // 押した項目の残りの値（平均・寒暖差など）は、並びの下の1行に。
   const picked = METRICS.find((m) => m.id === metric) ?? null;
+  // 風速の札に、その日の主な風向（16方位の最頻値。2026-11-22 渡辺さん）。決まらない日は出さない。
+  const wind = rows?.length ? windSummary(rows) : null;
+  const windWord = wind?.mode != null ? SECTORS[wind.mode] : "";
   const pickedRest = (() => {
     if (!picked || !row) return "";
     const series = tableSeries(picked, row.type !== "forecast");
     const h = picked.needsHours ? rows : null;
     const shown = series.map((s) => ({ s, text: formatValue(s.value(row, h, feel, station), s.unit ?? picked.unit) }));
     const main = shown.filter((x) => !x.s.minor).slice(0, 2);
-    return shown
+    const rest = shown
       .filter((x) => !main.includes(x) && x.text && x.text !== "—")
-      .map((x) => `${x.s.tableLabel ?? x.s.label} ${x.text}${x.s.unit && x.s.unit !== picked.unit ? x.s.unit : ""}`)
-      .join("・");
+      .map((x) => `${x.s.tableLabel ?? x.s.label} ${x.text}${x.s.unit && x.s.unit !== picked.unit ? x.s.unit : ""}`);
+    if (picked.id === "wind" && wind && (wind.n || wind.calm))
+      rest.push(`主な風向 ${windWord || "定まらない"}`, ...(wind.r != null ? [`まとまり ${wind.r.toFixed(2)}`] : []), ...(wind.calm ? [`静穏 ${wind.calm}時間`] : []));
+    return rest.join("・");
   })();
   const pick = (
     <div className="dd-pick-wrap">
@@ -100,7 +106,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
               className={m.id === metric ? "dd-value on" : "dd-value"}
               onClick={() => onMetric(m.id)}
               aria-pressed={m.id === metric}
-              aria-label={`${m.label}（${main.map((x) => `${x.s.label} ${x.text || "—"}`).join("、")}${m.unit}）`}
+              aria-label={`${m.label}（${main.map((x) => `${x.s.label} ${x.text || "—"}`).join("、")}${m.unit}${m.id === "wind" && windWord ? `、主な風向 ${windWord}` : ""}）`}
             >
               <span className="dd-value-name">
                 {m.label}
@@ -113,6 +119,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
                     <span className={`tone-${x.s.tone}`}>{x.text || "—"}</span>
                   </span>
                 ))}
+                {m.id === "wind" && windWord && <small className="dd-dir">{windWord}</small>}
               </span>
             </button>
           );

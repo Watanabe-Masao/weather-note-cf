@@ -26,6 +26,7 @@ const readBands = (): Bands => {
 };
 import { StormMark, WeatherIcon } from "./WeatherIcon";
 import { stormLevel, type StormLevel } from "../../shared/storm";
+import { windOf } from "../../shared/windDirection";
 import { isNightAt, shownSunHours } from "../data/sun";
 import {
   axisRange,
@@ -190,6 +191,15 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       other: other ? WX_TICKS.map((h) => tick(otherHours?.rows ?? [], h)) : null,
     };
   }, [hours, otherHours, other]);
+  // 風速のときだけ、1時間ごとの風向（2026-11-22 渡辺さん）：天気の行の下に、風の吹いていく向きの矢印。静穏は丸。
+  const windDirs = useMemo(() => {
+    if (metricId !== "wind") return null;
+    const of = (rows: WeatherRow[] | undefined) => Array.from({ length: 24 }, (_, i) => {
+      const r = rows?.find((x) => x.n === i + 1);
+      return r ? windOf(r) : null;
+    });
+    return { main: of(hours?.rows), other: other ? of(otherHours?.rows) : null };
+  }, [metricId, hours, otherHours, other]);
   // β (#118): the person's own levels for the day, beside everyone's.
   const comfort = useDayComfortState(store, station, metricId === "feel" ? date : null, hours?.rows, "hour-bands");
   const [bandsPick, setBandsPick] = useState<Bands>(readBands);
@@ -329,6 +339,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         height={height}
         color={color}
         bandWx={bandWx}
+        windDirs={windDirs}
         sky={skyStrip}
         otherSun={sunOther}
         onPlotLeft={setPlotLeft}
@@ -779,6 +790,7 @@ function HourChart({
   height,
   color,
   bandWx,
+  windDirs,
   guides,
   onSun,
   sky,
@@ -797,6 +809,8 @@ function HourChart({
   /** The sky's colour every 10 minutes (shared/sky.ts), the strip's ground: night, twilight, day. */
   sky?: (SkyColour[] | null)[];
   bandWx?: { main: BandWx[]; other: BandWx[] | null };
+  /** 風向の行（風速のときだけ）：時間 1〜24 の向き（°、北 0、吹いてくる向き）・静穏・分からない。 */
+  windDirs?: { main: (number | "calm" | null)[]; other: (number | "calm" | null)[] | null } | null;
   /** Other boundaries drawn as dashed lines over the feel ranges (everyone's, when the ranges are the person's). */
   guides?: readonly number[];
   metricId: DetailMetricId;
@@ -1160,6 +1174,28 @@ function HourChart({
               />
             </span>
           ))}
+        </div>
+      )}
+      {windDirs && (
+        <div className={windDirs.other ? "band-wind two" : "band-wind"} role="img" aria-label="1時間ごとの風向（矢印は風の吹いていく向き、丸は静穏。上が対象日、下が比較日）">
+          <span className="band-wx-name main" style={{ width: left - 13 }}>風向</span>
+          {(windDirs.other ? [windDirs.main, windDirs.other] : [windDirs.main]).map((dirs, row) =>
+            dirs.map((d, i) =>
+              d == null ? null : (
+                <span key={`${row}-${i}`} className={row ? "band-wind-cell other" : "band-wind-cell"} style={{ left: xOf(i + 1) }}>
+                  {d === "calm" ? (
+                    <svg viewBox="-5 -5 10 10" aria-hidden>
+                      <circle r={2.5} />
+                    </svg>
+                  ) : (
+                    <svg viewBox="-5 -5 10 10" aria-hidden style={{ transform: `rotate(${d + 180}deg)` }}>
+                      <path d="M0 4 L0 -3.2 M-2.4 -0.8 L0 -3.6 L2.4 -0.8" />
+                    </svg>
+                  )}
+                </span>
+              ),
+            ),
+          )}
         </div>
       )}
     </div>
