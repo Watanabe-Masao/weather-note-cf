@@ -241,8 +241,12 @@ export const CHART_METRICS: ChartMetric[] = [
     zero: true,
     max: 20,
     needsHours: true,
+    // 最大と平均は、はじめは消しておく（気温の平均と同じ。最大は「幅」で棒の上の端になる。どちらも線の切り替えで出せる）。
+    hiddenByDefault: ["visibilityMax", "visibilityMean"],
     series: [
       { key: "visibilityMin", label: "最小", tone: "visibility", value: (_r, h) => hourlyExtreme(h, "visibility", "min"), valueLabel: "below" },
+      // 最大は「幅」の棒の上の端（ほとんどの日は上限の 20）。線では出さない（ほぼ20の平らな線になる）。
+      { key: "visibilityMax", label: "最大", tone: "visibility", value: (_r, h) => hourlyExtreme(h, "visibility", "max"), graphOnly: true },
       { key: "visibilityMean", label: "平均", tone: "mean", value: (_r, h) => hourlyMean(h, "visibility"), thin: true, minor: true },
     ],
   },

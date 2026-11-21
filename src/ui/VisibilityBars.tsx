@@ -7,6 +7,16 @@ import { hourlyExtreme, hourlyMean } from "../chartMetrics";
 import { shortDate } from "./HourCompare";
 
 const TOP = 20;
+/**
+ * 見え方の目安（2026-11-22 渡辺さん「良好とかよく見えるとか」）。区切りは気象庁の予報用語：霧は視程 1 km 未満、
+ * もや・煙霧は 10 km 未満。20 km は視程計の上限（それ以上はまとめて 20）。
+ */
+export const VIS_GUIDE = [
+  { from: 0, to: 1, name: "霧" },
+  { from: 1, to: 10, name: "かすむ" },
+  { from: 10, to: 20, name: "よく見える" },
+] as const;
+export const visGuideOf = (v: number | null) => (v == null ? null : v >= TOP ? "良好" : (VIS_GUIDE.find((g) => v < g.to)?.name ?? "良好"));
 const pct = (v: number) => `${(Math.min(TOP, Math.max(0, v)) / TOP) * 100}%`;
 const km = (v: number | null) => (v == null ? "—" : `${v.toFixed(1)}${v >= TOP ? "+" : ""}`);
 
@@ -27,14 +37,27 @@ export function VisibilityBars({ store, station, date, other }: { store: Weather
         <div className={`vb-row vb-${r.side}`} key={r.side} aria-label={`${shortDate(r.d)} 最小 ${km(r.min)}、最大 ${km(r.max)}、平均 ${km(r.mean)}`}>
           <span className="vb-label">{shortDate(r.d)}</span>
           <span className="vb-track">
+            {/* 目安の区切り（1 km・10 km）の細い線 */}
+            <span className="vb-tick" style={{ left: pct(1) }} />
+            <span className="vb-tick" style={{ left: pct(10) }} />
             {r.min != null && r.max != null && <span className="vb-fill" style={{ left: pct(r.min), right: `calc(100% - ${pct(r.max)})` }} />}
             {r.mean != null && <span className="vb-mean" style={{ left: pct(r.mean) }} />}
           </span>
           <span className="vb-num">
             {km(r.min)}〜{km(r.max)}
+            <small className="vb-word">{visGuideOf(r.min) && visGuideOf(r.min) !== visGuideOf(r.max) ? `${visGuideOf(r.min)}〜${visGuideOf(r.max)}` : (visGuideOf(r.max) ?? "")}</small>
           </span>
         </div>
       ))}
+      <p className="vb-guide" aria-hidden>
+        {/* 霧（1 km 未満）は物差しの 5% と狭いので、帯の名前は出さない（右の言葉と区切りの線で分かる） */}
+        {VIS_GUIDE.filter((g) => g.to - g.from >= 5).map((g) => (
+          <span key={g.name} style={{ left: pct(g.from), width: `calc(${pct(g.to)} - ${pct(g.from)})` }}>
+            {g.name}
+          </span>
+        ))}
+        <span className="vb-guide-top">良好</span>
+      </p>
       <p className="vb-axis" aria-hidden>
         <span>0</span>
         <span>5</span>
