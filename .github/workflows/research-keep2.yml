@@ -1,0 +1,14 @@
+name: research-keep2
+# KC-04（一回だけ）：このブランチへの push でだけ動く。定期実行なし。済んだら消す。
+on:
+  push:
+    branches: [research/keep-candidates-2]
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: node research/keep-candidates/kc04f.mjs
