@@ -1080,10 +1080,10 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     // 振り返り、できかけの住みかを見る。一拍おいて前を向き直し、そこで「でも、あと一本だけ。」（BEAVER_LINE_AT の 4）。
     .to(".bw-mud2", { opacity: 0, duration: 0.05 }, 4.02)
     .to(".bw-ahead", { opacity: 1, duration: 0.06 }, 4.07)
-    .to(".bw-ahead", { opacity: 0, duration: 0.02 }, 4.46)
-    .to(".bw-turn", { opacity: 1, duration: 0.02 }, 4.48)
-    .to(".bw-turn", { opacity: 0, duration: 0.02 }, 4.545)
-    .to(".bw-ahead", { opacity: 1, duration: 0.02 }, 4.565);
+    .to(".bw-ahead", { opacity: 0, duration: 0.02 }, 4.47)
+    .to(".bw-turn", { opacity: 1, duration: 0.02 }, 4.49)
+    .to(".bw-turn", { opacity: 0, duration: 0.02 }, 4.55)
+    .to(".bw-ahead", { opacity: 1, duration: 0.02 }, 4.57);
   // 6 ふわりと明るくなって、まんまるのお月さま：丘の向こうが明るみ、夜になり、月が昇る。カメラが引く。ビーバーは向き直って見上げる。
   tl.to(".bw-moonrise", { opacity: 1, duration: 0.25, ease: "sine.in" }, 5)
     .to(".bw-sky-night", { opacity: 1, duration: 0.5, ease: "sine.inOut" }, 5)
