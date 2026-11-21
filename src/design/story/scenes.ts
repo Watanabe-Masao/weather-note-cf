@@ -30,6 +30,8 @@ export type StoryScene = {
   PaperArt?: (p: { kind: "origin" | "nature" }) => ReactElement;
   /** 表紙の上の二隅に置く飾りの枝（素材。左は返して使う）。 */
   coverCorner?: string;
+  /** 閉じた本の表の真ん中の型押しの絵（素材）。無ければ、表紙の裏の絵を光の効果で型押しにして見せる。 */
+  closedArt?: string;
   build: typeof buildBeaverScene;
   /**
    * 行を出しはじめる所（コマの中の 0〜1、行ごと）。絵の動きに合わせて行を出すページだけ（11/21 絵コンテ v0.3：6ページは
@@ -50,6 +52,7 @@ export const STORY_SCENES: Record<string, StoryScene> = {
       emblem: storyAsset("beaver", "beaver"),
     },
     coverCorner: storyAsset("beaver", "branch"),
+    closedArt: storyAsset("beaver", "emboss-medal"),
     PaperArt: BeaverPaperArt,
     build: buildBeaverScene,
     lineAt: BEAVER_LINE_AT,

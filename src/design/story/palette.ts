@@ -9,6 +9,8 @@ export const BOOK = {
   goldShine: "#fff3cf",
   goldDeep: "#7a5422",
   engrave: "#140c04",
+  /** 型押しの光（閉じた本の表のメダル：絵の明るさを高さにして、左上から照らす）。 */
+  embossLight: "#ffffff",
   /** 押した溝の薄い影・箔の淡い光・箔の光（重ねる用の透け色）。 */
   engraveSoft: "#140c048c",
   shineFaint: "#fff3cf1f",
