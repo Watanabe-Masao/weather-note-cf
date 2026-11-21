@@ -214,6 +214,7 @@ function storyStops(
   scene: { beats: number } | null | undefined,
   weights: number[],
   seconds: number[],
+  book = false,
 ): { px: number[]; firstBeat: number; secs: (number | undefined)[] } {
   const vh = el.clientHeight;
   const b = el.querySelector<HTMLElement>(".ms-book");
@@ -234,8 +235,11 @@ function storyStops(
       secs[px.length - 1] = seconds[i] ?? SEC_PER_BEAT; // そのコマの朗読の秒数
     }
     // 場面の終わり（一枚の絵）：月が今夜の情報へ移りはじめる位置のわずか手前（丸めで移りはじめないように）。
-    px.push(w.offsetTop + r - 2);
-    secs[px.length - 1] = AFTER_SEC.frame;
+    // 絵本の形の満月は、9ページが最後の一枚なので区切りを置かない（11/21 レビュー：ほぼ同じ絵へ一回むだに送っていた）。
+    if (!book) {
+      px.push(w.offsetTop + r - 2);
+      secs[px.length - 1] = AFTER_SEC.frame;
+    }
   } else if (b) px.push(b.offsetHeight - vh);
   if (ep) {
     px.push(ep.offsetTop + ep.offsetHeight / 2 - vh / 2);
@@ -495,6 +499,10 @@ export function MoonStory({
       if (info && el.scrollTop >= info.offsetTop - 4) return;
       // 表紙（いちばん上）には「スクロールでページをひらく」があるので出さない。
       if (el.scrollTop < 8) return;
+      // 場面の中では、押しても次へ進むので「タップかスワイプで次へ」（11/21 渡辺さん「スワイプ以外にも」→ 押して進むことを伝える）。
+      const w = el.querySelector<HTMLElement>(".ms-world");
+      const inWorld = !!w && el.scrollTop >= w.offsetTop - 4 && el.scrollTop < w.offsetTop + w.offsetHeight - el.clientHeight;
+      hint.classList.toggle("tap", inWorld);
       hint.classList.add("on");
     };
     const poke = () => {
@@ -1053,7 +1061,7 @@ export function MoonStory({
       const dots = [...el.querySelectorAll<HTMLElement>(".ms-beat")];
       const pg = storyPager(el, {
         measure: () => {
-          const m = storyStops(el, scene, weights, beatSecs);
+          const m = storyStops(el, scene, weights, beatSecs, !!story?.book);
           firstBeat = m.firstBeat;
           beatAt.current = firstBeat;
           secs = m.secs;
@@ -1156,7 +1164,8 @@ export function MoonStory({
       {/* 止まって数秒さわらないと「上にスワイプ」（11/20 23:45 渡辺さん）。物語の部分（今夜の情報より上）だけ。 */}
       <span className="ms-swipe-hint" aria-hidden>
         <Glyph name="up" />
-        上にスワイプ
+        <span className="ms-hint-swipe">上にスワイプ</span>
+        <span className="ms-hint-tap">タップかスワイプで次へ</span>
       </span>
       {/* 本棚から取り出す本（押したときだけ見える）。 */}
       <span className="ms-flybook" aria-hidden hidden>
