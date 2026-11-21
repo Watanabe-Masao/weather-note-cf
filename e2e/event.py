@@ -108,6 +108,16 @@ with sync_playwright() as p:
             pg.keyboard.press("ArrowUp"); pg.wait_for_timeout(9000)
             top1 = pg.evaluate("document.querySelector('.moon-story').scrollTop")
             check("満月の物語（絵本の形）：「物語をとばす」であとがきの頭へ、↑で絵本の最後のページへ戻る", top1 < top0 - 100, (top0, top1))
+            # 横に払う（11/21 渡辺さん）：縦書きの本と同じく、右から左で前、左から右で次。画面の端から始めた払いは受けない。
+            swipe = """([x0, x1]) => new Promise((res) => { const el = document.querySelector('.moon-story'); const mk = (x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 500 });
+              const fire = (t, x) => el.dispatchEvent(new TouchEvent(t, { touches: t === 'touchend' ? [] : [mk(x)], changedTouches: [mk(x)], cancelable: true, bubbles: true }));
+              fire('touchstart', x0); let i = 1; const tick = () => { fire('touchmove', x0 + (x1 - x0) * i / 8); if (++i <= 8) setTimeout(tick, 16); else { fire('touchend', x1); res(); } }; setTimeout(tick, 16); })"""
+            settle = "new Promise((res) => { const s = document.querySelector('.moon-story'); let p = -1; const t = () => { const c = s.scrollTop; if (Math.abs(c - p) < 0.5) res(c); else { p = c; setTimeout(t, 400); } }; setTimeout(t, 400); })"
+            pg.evaluate(swipe, [W - 80, 80]); back = pg.evaluate(settle)
+            pg.evaluate(swipe, [8, W - 80]); edge = pg.evaluate(settle)
+            pg.evaluate(swipe, [80, W - 80]); fwd = pg.evaluate(settle)
+            check("満月の物語（絵本の形）：横に払っても一つ戻る・進む（右から左で前、左から右で次、端から始めた払いは受けない）",
+                  back < top1 - 100 and abs(edge - back) < 3 and abs(fwd - top1) < 4, (top1, back, edge, fwd))
             pg.evaluate("document.querySelector('.moon-story').scrollTo(0, 1e6)"); pg.wait_for_timeout(600)
             end = pg.locator(".moon-story .ms-end .btn", has_text="閉じる").count()
             pg.locator(".moon-story .ms-close .icon-btn").click(); pg.wait_for_timeout(500)
