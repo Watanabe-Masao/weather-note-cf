@@ -3,6 +3,7 @@
 // outlined) and lighter. Forecast days are a hatched background with 予報 at the top.
 // Missing values break the line (never interpolated).
 
+import type { DataColor } from "../design/tokens";
 import { usualLightOf } from "../light";
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { addDays } from "../../shared/dates";
@@ -87,6 +88,15 @@ function useHidden(metric: ChartMetric) {
  * convenience only, like the lines turned off).
  */
 type Look = "line" | "range";
+
+/**
+ * Items that can be drawn as each day's range (幅): which series are its top, bottom and mean, and the
+ * colours from top to bottom. 気温 (最高〜最低) and 視程 (最大〜最小, 2026-11-22 渡辺さん「UIはできるだけ揃えたい」).
+ */
+const RANGE: Partial<Record<ChartMetric["id"], { top: string; bottom: string; mean: string; meanName: string; from: DataColor; to: DataColor; what: string; name: string }>> = {
+  temp: { top: "max", bottom: "min", mean: "temp", meanName: "平均", from: "hot", to: "cold", what: "最高（上）から最低（下）", name: "気温" },
+  visibility: { top: "visibilityMax", bottom: "visibilityMin", mean: "visibilityMedian", meanName: "中央値", from: "visibility", to: "visibility", what: "最大（上）から最小（下）", name: "視程" },
+};
 function useLook(): [Look, (l: Look) => void] {
   const [look, setLook] = useState<Look>(() => {
     try {
@@ -120,11 +130,12 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
   const beta = useContext(BetaContext);
   const { shown, toggle, reset } = useHidden(metric);
   const [look, setLook] = useLook();
-  // 幅: temperature only (its 最高・最低 are one day's range; other pairs are not drawn this way).
-  const range = metric.id === "temp" && look === "range";
+  // 幅: the items whose two series are one day's range (RANGE); other pairs are not drawn this way.
+  const rk = RANGE[metric.id] ?? null;
+  const range = !!rk && look === "range";
   const spreadOn = !!metric.spread && shown("spread");
   // In 幅 the bar is the 最高〜最低 itself: those two are drawn by it, whatever their chips said.
-  const ranged = (key: string) => range && (key === "max" || key === "min");
+  const ranged = (key: string) => range && (key === rk!.top || key === rk!.bottom);
   const ref = useRef<HTMLDivElement>(null);
   const [w, setW] = useState(320);
   // The graph fills what the sheet has left, so the whole face fits without scrolling: the sheet's
@@ -353,10 +364,10 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           })}
         footer={<PartsWeather store={store} station={station} date={shownDay} partner={shownPartner} />}
       />
-      {metric.id === "temp" && (
+      {rk && (
         <div className="chart-look">
           <Segmented
-            label="気温の見せ方"
+            label={`${rk.name}の見せ方`}
             value={look}
             options={[
               { id: "line", label: "線" },
@@ -366,7 +377,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           />
         </div>
       )}
-      <svg width={w} height={H} role="img" aria-label={`${metric.title ?? metric.label}の日別グラフ${range ? "（最高〜最低の幅）" : ""}`}>
+      <svg width={w} height={H} role="img" aria-label={`${metric.title ?? metric.label}の日別グラフ${range ? `（${rk!.what}の幅）` : ""}`}>
         {/* centre day */}
         <defs>
           <ForecastHatch id={`fc-${metric.id}`} />
@@ -409,8 +420,10 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
           <RangeBars
             step={step}
             yOf={yOf}
-            target={{ max: pick("max", false).points, min: pick("min", false).points, mean: shown("temp") ? pick("temp", false).points : null }}
-            compare={{ max: pick("max", true).points, min: pick("min", true).points }}
+            id={metric.id}
+            colors={[COLORS[rk!.from], COLORS[rk!.to]]}
+            target={{ max: pick(rk!.top, false).points, min: pick(rk!.bottom, false).points, mean: shown(rk!.mean) ? pick(rk!.mean, false).points : null }}
+            compare={{ max: pick(rk!.top, true).points, min: pick(rk!.bottom, true).points }}
           />
         )}
 
@@ -477,7 +490,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
                 // In 幅 the labels stand over the target's bar (left of the day's centre), and the 最低
                 // label sits under the bar's round foot (a bar is never shorter than it is wide).
                 ...(ranged(s.key) ? { dx: -rangeWidth(step) * SHAPE.range.offset } : {}),
-                ...(ranged(s.key) && s.key === "min" ? { floor: pick("max", false).points.map((p) => (p.v == null ? null : yOf(p.v) + rangeWidth(step))) } : {}),
+                ...(ranged(s.key) && s.key === rk!.bottom ? { floor: pick(rk!.top, false).points.map((p) => (p.v == null ? null : yOf(p.v) + rangeWidth(step))) } : {}),
               }))}
           />
         )}
@@ -565,7 +578,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       </svg>
       {/* Legend in the graph's own marks, on one line: which day (lines, fills or round bars), 予報.
           Everything that explains rather than names (信頼度, what a bar or a number is) is behind ⓘ. */}
-      <InfoNote className="chart-key" more={<ChartNotes metric={metric} range={range} spread={spreadOn} feel={shown("feel") && lines.some((s) => s.key === "feel")} mean={shown("temp")} />}>
+      <InfoNote className="chart-key" more={<ChartNotes metric={metric} range={range ? rk!.what : null} meanName={rk?.meanName ?? "平均"} spread={spreadOn} feel={shown("feel") && lines.some((s) => s.key === "feel")} mean={!!rk && shown(rk.mean)} />}>
         <span className="line-legend">
           <span>
             {metric.chart === "bar" ? <BarSample day="target" /> : range ? <RangeSample day="target" /> : <LineSample day="target" />}
@@ -618,9 +631,9 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
 }
 
 /** What the graph's marks mean, behind the legend's ⓘ: 信頼度 and the item's own notes. */
-function ChartNotes({ metric, range, spread, feel, mean }: { metric: ChartMetric; range: boolean; spread: boolean; feel: boolean; mean: boolean }) {
+function ChartNotes({ metric, range, meanName, spread, feel, mean }: { metric: ChartMetric; range: string | null; meanName: string; spread: boolean; feel: boolean; mean: boolean }) {
   const notes = [
-    range && `棒は最高（上）から最低（下）まで${mean ? "、白い印は平均" : ""}。`,
+    range && `棒は${range}まで${mean ? `、白い印は${meanName}` : ""}。`,
     spread && "寒暖差は最高−最低。",
     feel && "肌感は日中・昼・夕方の平均。",
     metric.under?.some((r) => r.key === "probability") && "降水確率は予報の日だけ、雪は降った日だけ。",
@@ -733,11 +746,16 @@ function ValueLabels({
  * Which day by fill / outline, what by colour (tokens.ts); the round ends lie inside the bar.
  */
 function RangeBars({
+  id,
+  colors,
   step,
   yOf,
   target,
   compare,
 }: {
+  id: string;
+  /** Top and bottom colours (気温: 最高の色から最低の色へ; 視程: one colour). */
+  colors: [string, string];
   step: number;
   yOf: (v: number) => number;
   target: { max: Point[]; min: Point[]; mean: Point[] | null };
@@ -753,9 +771,9 @@ function RangeBars({
   return (
     <g className="range-bars">
       <defs>
-        <linearGradient id="range-target" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={COLORS.hot} />
-          <stop offset="1" stopColor={COLORS.cold} />
+        <linearGradient id={`range-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor={colors[0]} />
+          <stop offset="1" stopColor={colors[1]} />
         </linearGradient>
       </defs>
       {target.max.map((p, i) => {
@@ -767,11 +785,11 @@ function RangeBars({
         const xT = p.x - bw * SHAPE.range.offset;
         const xC = p.x + bw * SHAPE.range.offset;
         const mean = target.mean?.[i].v ?? null;
-        const c = barLook("compare", COLORS.hot);
+        const c = barLook("compare", colors[0]);
         return (
           <g key={i}>
-            {cMax != null && cMin != null && <rect {...capsule(xC, cMax, cMin)} fill="none" stroke="url(#range-target)" strokeWidth={R.compareStroke} opacity={c.opacity} />}
-            {tMax != null && tMin != null && <rect {...capsule(xT, tMax, tMin)} fill="url(#range-target)" />}
+            {cMax != null && cMin != null && <rect {...capsule(xC, cMax, cMin)} fill="none" stroke={`url(#range-${id})`} strokeWidth={R.compareStroke} opacity={c.opacity} />}
+            {tMax != null && tMin != null && <rect {...capsule(xT, tMax, tMin)} fill={`url(#range-${id})`} />}
             {mean != null && tMax != null && tMin != null && (
               <line
                 x1={xT - bw / 2 - R.meanOverhang}

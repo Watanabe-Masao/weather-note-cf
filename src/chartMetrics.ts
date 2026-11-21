@@ -12,6 +12,7 @@ export type ChartMetricId =
   | "radiation"
   | "light"
   | "humidity"
+  | "visibility"
   | "wind"
   | "pressure";
 
@@ -109,6 +110,19 @@ export function hourlyExtreme(hours: WeatherRow[] | null, key: string, pick: "ma
   const values = (hours ?? []).map((h) => num(h[key])).filter((v): v is number => v != null);
   if (values.length < EXTREME_MIN_HOURS) return null;
   return Math.round((pick === "max" ? Math.max(...values) : Math.min(...values)) * 10) / 10;
+}
+
+/**
+ * The day's median of an hourly value (needs EXTREME_MIN_HOURS hours, like the extremes). For 視程 the
+ * median, not the mean (2026-11-22 渡辺さん「平均はあまり意味がない、中央値では」): the values stop at
+ * 20 km and a few hazy hours pull a mean down, while the median is the day's usual view.
+ */
+export function hourlyMedian(hours: WeatherRow[] | null, key: string): number | null {
+  const values = (hours ?? []).map((h) => num(h[key])).filter((v): v is number => v != null).sort((a, b) => a - b);
+  if (values.length < EXTREME_MIN_HOURS) return null;
+  const m = values.length / 2;
+  const v = values.length % 2 ? values[Math.floor(m)] : (values[m - 1] + values[m]) / 2;
+  return Math.round(v * 10) / 10;
 }
 
 /** Daily 全天日射量 (MJ/㎡): the forecast row has it; for observations, the 24 hours added up. */
@@ -221,6 +235,26 @@ export const CHART_METRICS: ChartMetric[] = [
     series: [
       { key: "humidity", label: "平均", tone: "humidity", value: field("humidity"), valueLabel: "above" },
       { key: "humidityMin", label: "最小", tone: "humidityLow", value: field("humidityMin"), valueLabel: "below" },
+    ],
+  },
+  {
+    // 視程（見通しの距離、km）：気象台の視程計（高知など）と予報。日の値は1時間ごとから（最も見通しの悪い時間と中央値）。
+    // 上限 20 km（それより遠くは 20）。視程計の無い地点は値なし。代表の値は平均ではなく中央値（上限で止まり、
+    // 霞んだ数時間に引っぱられるため）。
+    id: "visibility",
+    label: "視程",
+    unit: "km",
+    chart: "line",
+    zero: true,
+    max: 20,
+    needsHours: true,
+    // 最大と中央値は、はじめは消しておく（気温の平均と同じ。最大は「幅」で棒の上の端、中央値は棒の印になる）。
+    hiddenByDefault: ["visibilityMax", "visibilityMedian"],
+    series: [
+      { key: "visibilityMin", label: "最小", tone: "visibility", value: (_r, h) => hourlyExtreme(h, "visibility", "min"), valueLabel: "below" },
+      // 最大は「幅」の棒の上の端（ほとんどの日は上限の 20）。線では出さない（ほぼ20の平らな線になる）。
+      { key: "visibilityMax", label: "最大", tone: "visibility", value: (_r, h) => hourlyExtreme(h, "visibility", "max"), graphOnly: true },
+      { key: "visibilityMedian", label: "中央値", tone: "mean", value: (_r, h) => hourlyMedian(h, "visibility"), thin: true, minor: true },
     ],
   },
   {

@@ -474,7 +474,7 @@ with sync_playwright() as p:
 
     # B. every item chip
     def bb():
-        for i, label in enumerate(["気温", "降水", "日差し", "日照", "湿度", "風速", "気圧"]):
+        for i, label in enumerate(["気温", "降水", "日差し", "日照", "湿度", "視程", "風速", "気圧"]):
             pg.click(f".metrics .chip:nth-child({i+1})"); calm()
             check(f"B{i+1} {label}: チップがオン", "on" in pg.locator(f".metrics .chip:nth-child({i+1})").get_attribute("class"))
             check(f"B{i+1} {label}: シート見出し", title().startswith(label), title())
@@ -527,7 +527,7 @@ with sync_playwright() as p:
         pg.locator(".chart-hit").nth(7).click(force=True); calm()
         check("D1 日をタップで時間帯", title().endswith("の時間帯"), title())
         check("D2 戻るボタン", pg.locator(".back-btn").count() == 1)
-        for i, label in enumerate(["気温", "降水", "日差し", "日照と明るさ", "湿度", "風速", "気圧"]):
+        for i, label in enumerate(["気温", "降水", "日差し", "日照と明るさ", "湿度", "視程", "風速", "気圧"]):
             pg.click(f".metrics .chip:nth-child({i+1})"); calm()
             check(f"D3 時間帯 {label}", title() == f"{label}の時間帯" and pg.locator(".day-chart > svg").count() == 1, title())
         pg.click(".metrics .chip:nth-child(1)"); wait(300)
@@ -1152,7 +1152,7 @@ with sync_playwright() as p:
         pg.locator(".dd-part").nth(2).click(); calm()
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
         # 項目の選び（値つき）は 24時間の見出しのすぐ下（2026-11-18）。肌感は見出しの下の1行で、押すと肌感マップ。
-        check("SD4 グラフの項目：7つが24時間のグラフのすぐ上、肌感は上の1行", pg.locator(".hour-face .dd-pick .dd-value").count() == 7 and pg.locator(".dd-feel-line").count() == 1, pg.locator(".dd-value").count())
+        check("SD4 グラフの項目：8つが24時間のグラフのすぐ上、肌感は上の1行", pg.locator(".hour-face .dd-pick .dd-value").count() == 8 and pg.locator(".dd-feel-line").count() == 1, pg.locator(".dd-value").count())
         if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day.png"); pg.locator(".day-detail .dd-sec").last.screenshot(path=f"{shots}-basis.png")
         lr = pg.locator(".day-detail .legend-row")
         if lr.count():

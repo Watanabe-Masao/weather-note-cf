@@ -10,7 +10,7 @@ import type { MetricId } from "./metrics";
 import { formatValue, sunshineMinutes } from "./design/format";
 
 export type DetailView = "measured" | "feel";
-export type DetailMetricId = "temp" | "rain" | "snow" | "probability" | "humidity" | "wind" | "radiation" | "sun" | "pressure" | "feel";
+export type DetailMetricId = "temp" | "rain" | "snow" | "probability" | "humidity" | "visibility" | "wind" | "radiation" | "sun" | "pressure" | "feel";
 
 export interface DetailMetric {
   id: DetailMetricId;
@@ -29,6 +29,8 @@ export const MEASURED: DetailMetric[] = [
   { id: "snow", label: "降雪", unit: "cm", chart: "bar", floor: 0 },
   { id: "probability", label: "降水確率", unit: "%", chart: "bar", floor: 0, ceiling: 100 },
   { id: "humidity", label: "湿度", unit: "%", chart: "line" },
+  // 視程（見通しの距離）：気象台の視程計（高知など）と予報（モデル）。どちらも 20 km で止まる（それより遠くは 20）。
+  { id: "visibility", label: "視程", unit: "km", chart: "line", floor: 0, ceiling: 20 },
   { id: "wind", label: "風速", unit: "m/s", chart: "line", floor: 0 },
   // 全天日射量: the sun's warming power (direct plus scattered light); what 肌感（日なた） uses.
   { id: "radiation", label: "日差し", unit: "MJ/㎡", chart: "bar", floor: 0 },
@@ -49,6 +51,7 @@ export function initialDetailMetric(metric: MetricId): DetailMetricId {
     case "rain":
     case "radiation":
     case "humidity":
+    case "visibility":
     case "wind":
     case "pressure":
       return metric;
