@@ -611,7 +611,7 @@ img.event-pic { object-fit: contain; }
 .ms-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 /* 下のドット（場面のコマ。11/20 20:17 渡辺さん「ドットと区切りを 1:1、押しても同じ動き」）：列が一つのボタン（高さ 44px）。
    いまのコマが灯る（ページ送りの区切りが変わったとき）。 */
-.ms-beats { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-2)); transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: var(--space-4); min-height: var(--tap-min); padding: 0 var(--space-6); border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.ms-beats { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--space-2)); transform: translateX(-50%); display: flex; align-items: center; justify-content: center; gap: calc(var(--tap-min) / 2); min-height: var(--tap-min); padding: 0 var(--space-6); border: 0; background: none; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .ms-beats:focus-visible { outline: var(--stroke-focus) solid var(--bk-gold-0); border-radius: var(--radius-pill); }
 .ms-beat { width: var(--space-2); height: var(--space-2); border-radius: 50%; background: var(--bk-gold-0); opacity: 0.3; transition: opacity var(--motion-quick) var(--ease-standard), transform var(--motion-quick) var(--ease-standard); }
 .ms-beat.on { opacity: 1; transform: scale(1.5); }
@@ -675,6 +675,8 @@ img.event-pic { object-fit: contain; }
 /* 止まって数秒さわらないときの「上にスワイプ」：下のドットの上に、ふわりと出て上へ小さく誘う。 */
 .ms-swipe-hint { position: fixed; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + var(--tap-min) + var(--space-6)); z-index: 3; display: inline-flex; flex-direction: column; align-items: center; gap: var(--space-1); transform: translateX(-50%); padding: var(--space-2) var(--space-5); border-radius: var(--radius-pill); background: var(--bk-engrave-soft); font-family: var(--font-story); font-size: var(--size-xs); letter-spacing: 0.2em; color: var(--bk-paper-0); opacity: 0; pointer-events: none; transition: opacity var(--motion-base) var(--ease-standard); }
 .ms-swipe-hint.on { opacity: 1; }
+.ms-swipe-hint .ms-hint-tap, .ms-swipe-hint.tap .ms-hint-swipe { display: none; }
+.ms-swipe-hint.tap .ms-hint-tap { display: inline; }
 @media (prefers-reduced-motion: no-preference) {
   .ms-swipe-hint.on .glyph { animation: ms-nudge 1.6s var(--ease-standard) infinite; }
 }

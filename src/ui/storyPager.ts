@@ -5,7 +5,8 @@
 //     区切り（ただし一度に最大 MAX_STEP 個まで。意図しない飛び越しを防ぐ）。
 //   - 行き先へは、指を離した速さを引き継いで、減速だけでゆっくり止まる（1.1〜1.8 秒、行き過ぎない）。
 //     requestAnimationFrame で動かすので、端末のリフレッシュレート（120Hz の iPhone も）に合わせて描く。
-//   - 動いている間に指が触れたら、その場で止めて指に返す。
+//   - 動いている間に指が触れたら、その場で止めて指に返す（そのタップでは次へ進めない）。
+//   - 朗読の速さで運ぶのは、次の区切りへ一つ進むときだけ。戻る・飛ぶ・とばすは 1.1〜1.8 秒。
 //   - マウスのホイール・トラックパッドは、一つの操作（間が空くまで）で一つ進む。
 // 今夜の情報から下（読む所）は、ブラウザのふつうのスクロールのまま。
 // 区切りの位置は測って取っておき（refresh）、動いている間はレイアウトを読まない。
@@ -31,6 +32,11 @@ const FLICK_V = 120;
 /** 短く払った、とみなす触れていた時間（ms）と、動かした距離（px）。これより長い・遠いのは、ゆっくりのスクロール。 */
 const FLICK_MS = 280;
 const FLICK_PX = 140;
+/**
+ * 強く払った、とみなす速さ（px/秒）。これより速く離したら、触れていた時間・距離が長くても払った扱い（11/21 レビュー：
+ * 約200px すばやく払うと「ゆっくりのスクロール」になり、場面の途中で止まって文が出かけのまま固まっていた）。
+ */
+const FLING_V = 900;
 /** ゆっくりのスクロールで離したあとの惰性（ブラウザのスクロールに近い減速、時定数 秒）。 */
 const COAST_S = 0.33;
 
@@ -148,8 +154,12 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
   /** x0 から区切り to まで運ぶ秒数：通る区切りの間ごとの秒数（seconds）の和。途中から始めるときは残りの割合で。 */
   const byDistance = (d: number) =>
     Math.min(1.8, Math.max(1.1, 0.9 + Math.abs(d) / 2500));
+  // 朗読の速さで運ぶのは「今の区切りから、次の区切りへ一つ進む」ときだけ（11/21 レビュー：とばす・ドットで約40秒、
+  // 1ページ戻るのに約18秒かかっていた）。戻る・二つ以上先へ・とばすは、距離から（1.1〜1.8 秒）。
   const travelSeconds = (x0: number, to: number) => {
     if (stops.indexOf(to) < 0 || !o.seconds) return byDistance(to - x0);
+    const next = stops.find((s) => s > x0 + 2);
+    if (to <= x0 || to !== next) return byDistance(to - x0);
     let t = 0;
     for (let k = 1; k < stops.length; k++) {
       const a = stops[k - 1];
@@ -184,9 +194,21 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
   const inStory = (top: number, dy: number) =>
     top < last() - 1 || (top <= last() + 1 && dy > 0);
 
+  // 動いている途中に触れて止めたとき、続くクリック（場面を押すと次のコマへ）は捨てる（11/21 レビュー：止めたつもりが
+  // また動きだしていた）。
+  const swallowClick = () => {
+    const eat = (ev: Event) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+    };
+    el.addEventListener("click", eat, { capture: true, once: true });
+    window.setTimeout(() => el.removeEventListener("click", eat, { capture: true }), 600);
+  };
+  let stoppedByTouch = false;
   const onStart = (e: TouchEvent) => {
     if (e.touches.length !== 1) return;
     const wasMoving = raf !== 0;
+    stoppedByTouch = wasMoving;
     stop();
     tracking = true;
     decided = false;
@@ -218,8 +240,12 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
   const onEnd = (e: TouchEvent) => {
     if (!tracking) return;
     tracking = false;
-    // 触れただけ（タップ）：動かさない（場面を押したときの「次のコマへ」は、押した側の処理）。
-    if (!decided) return;
+    // 触れただけ（タップ）：動かさない（場面を押したときの「次のコマへ」は、押した側の処理）。動いている途中で触れて
+    // 止めたのなら、そのタップでは進めない。
+    if (!decided) {
+      if (stoppedByTouch) swallowClick();
+      return;
+    }
     // 離す直前 100ms の速さ（スクロールの向き、px/秒）。
     const end = samples[samples.length - 1];
     const first = samples.find((s) => end.t - s.t <= 100) ?? samples[0];
@@ -236,9 +262,8 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     const free = o.freeBefore ? Math.max(startTop, top) < o.freeBefore() : false;
     const flick =
       !free &&
-      e.timeStamp - startT < FLICK_MS &&
-      Math.abs(moved) < FLICK_PX &&
-      Math.abs(v) > FLICK_V;
+      ((e.timeStamp - startT < FLICK_MS && Math.abs(moved) < FLICK_PX && Math.abs(v) > FLICK_V) ||
+        Math.abs(v) > FLING_V);
     if (!flick) {
       coast(v);
       return;
