@@ -24,6 +24,7 @@ const SOURCES = [
   { table: "longrange_fetch_log", name: "長い先の予報の電文", added: "added", unit: "通" },
   { table: "wxchart_fetch_log", name: "天気図", added: "saved", unit: "枚" },
   { table: "radar_fetch_log", name: "雨雲レーダー・解析雨量", added: "saved", unit: "枚" },
+  { table: "amedas_fetch_log", name: "アメダスの観測", added: "saved", unit: "ファイル" },
 ] as const;
 
 export interface DigestLine {

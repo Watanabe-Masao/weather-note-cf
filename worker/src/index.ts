@@ -22,6 +22,7 @@ import { forecastHistory, forecastIssue } from "./forecastHistory";
 import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { saveRadar } from "./radarArchive";
+import { saveAmedas } from "./amedasArchive";
 import { collectLongRange } from "./longRangeArchive";
 import { health, markStart, timed } from "./health";
 import { claimHealthWatch, watchHealth } from "./healthWatch";
@@ -298,6 +299,8 @@ export default {
       ctx.waitUntil(
         stage("radar save", (d) => saveRadar(d, bucket))()
           .then(stage("wxchart save", (d) => saveCharts(d, bucket)))
+          // アメダスの10分ごとの観測の原本（約10日で消える。視程の10分値と天気は過去の表に無い、amedasArchive.ts）。
+          .then(stage("amedas save", (d) => saveAmedas(d, bucket)))
           .then(stage("archive copy", (d) => copyTelegrams(d, bucket)))
           // 長い先の予報（1か月予報・早期天候情報・2週間気温予報）：R2 に gzip で、30分ごと（longRangeArchive.ts）。
           .then(stage("long range", (d) => collectLongRange(d, bucket))),
