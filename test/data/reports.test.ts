@@ -60,6 +60,11 @@ describe("β②: the sky and the days before", () => {
     expect(snapshotOf([hour(12)], 12, DEFAULT_FEEL)).toMatchObject({ forecastSky: null });
   });
 
+  it("keeps the forecast's weather beside an observed weather (気象台 hours, 2026-11-21)", () => {
+    const rows = [hour(12, { weather: "晴れ", forecastWeather: "曇り", weatherCode: 3, origin: { forecastWeather: "forecast", weatherCode: "forecast" } })];
+    expect(snapshotOf(rows, 12, DEFAULT_FEEL)).toMatchObject({ forecastSky: "曇り", forecastSkyCode: 3 });
+  });
+
   it("records a past day with its source", () => {
     const row = { date: "2026-11-10", n: 10, type: "actual" as const, provider: "JMA", raw: {}, quality: {}, temp: 16, humidity: 70, sun: 4.2, rain: 0, dayWeather: "晴" };
     expect(recentDay("2026-11-10", row, "fixed")).toMatchObject({ mean: 16, humidity: 70, sun: 4.2, weather: "晴", from: "jma-fixed" });
