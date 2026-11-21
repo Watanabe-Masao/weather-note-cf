@@ -64,7 +64,7 @@ const HOURLY_FIELDS = {
 const OPTIONAL_HOURLY = {
   snow: "snowfall",
   gust: "wind_gusts_10m",
-  // 視程（m、モデルの値）：km にして、観測（視程計の上限 約20 km）にそろえて 20 で止める（normalizeForecast）。
+  // 視程（m、モデルの値）：km にして、観測（視程計の上限 約20 km）にそろえて 20 で止める。止める前は visibilityFull（normalizeForecast）。
   visibility: "visibility",
 };
 const DAILY_FIELDS = {
@@ -104,7 +104,12 @@ export function normalizeForecast(data: ForecastPayload): { rows: WeatherRow[]; 
     fill(row, HOURLY_FIELDS, hourly, i);
     if (hourly.snowfall || hourly.wind_gusts_10m || hourly.visibility) fill(row, OPTIONAL_HOURLY, hourly, i);
     if (typeof row.visibility === "number") {
-      row.visibility = Math.min(20, Math.round(row.visibility / 100) / 10);
+      // 画面（グラフ・比べ）は観測にそろえて 20 km で止める。止める前の値（km）は判定用に visibilityFull に残す
+      // （澄んだ日どうしの違いは予報にしか無い。2026-11-22 渡辺さん「グラフは20で止めて、内部では判定用に」）。
+      const full = Math.round(row.visibility / 100) / 10;
+      row.visibilityFull = full;
+      row.raw.visibilityFull = String(full);
+      row.visibility = Math.min(20, full);
       row.raw.visibility = String(row.visibility);
     }
     return row;

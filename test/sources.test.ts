@@ -87,6 +87,12 @@ describe("Open-Meteo daily totals from the hourly forecast", () => {
     expect(rows[0].snow).toBe(1.4);
   });
 
+  it("shows the forecast visibility in km stopped at 20, and keeps the whole value for judging", () => {
+    const { hourlyRows } = normalizeForecast({ ...payload, hourly: { ...payload.hourly, visibility: payload.hourly.time.map((_, i) => (i === 1 ? 43_500 : 6_150)) } });
+    expect(hourlyRows[1]).toMatchObject({ visibility: 20, visibilityFull: 43.5 });
+    expect(hourlyRows[2]).toMatchObject({ visibility: 6.2, visibilityFull: 6.2 });
+  });
+
   it("leaves snow empty when the API did not send it", () => {
     const { rows } = normalizeForecast({ ...payload, hourly: { ...payload.hourly, snowfall: undefined } });
     expect(rows[0].snow).toBeNull();
