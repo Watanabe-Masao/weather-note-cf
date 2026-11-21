@@ -59,6 +59,16 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
     "pile-mid": { file: "design-src/story/beaver/pack2/a06-pile-mid.png", width: 480 },
     "pile-large": { file: "design-src/story/beaver/pack2/a06-pile-large.png", width: 480 },
     "beaver-swim-branch-blue": { file: "design-src/story/beaver/pack2/a08-swim-branch-blue.png", width: 480 },
+    // 11/21 17:35・17:45 渡辺さんの追加素材（Project「ビーバームーン_素材の依頼_追加」v0.2 の B-01〜B-07）。いまの姿に
+    // 毛の明るさを合わせて（0.88 倍）、うすいもやを落とし、透けていない所で切り詰めて design-src/story/beaver/pack3/ に置いた。
+    "beaver-turn": { file: "design-src/story/beaver/pack3/b01-turn.png", width: 480 },
+    "beaver-ahead": { file: "design-src/story/beaver/pack3/b02-ahead.png", width: 480 },
+    "beaver-mud2": { file: "design-src/story/beaver/pack3/b06-mud.png", width: 520 },
+    "first-branch": { file: "design-src/story/beaver/pack3/b03a-first-branch.png", width: 360 },
+    "first-branch-snow": { file: "design-src/story/beaver/pack3/b03b-first-branch-snow.png", width: 360 },
+    "beaver-swim-first": { file: "design-src/story/beaver/pack3/b04-swim-first.png", width: 520 },
+    "beaver-down": { file: "design-src/story/beaver/pack3/b05-down.png", width: 480 },
+    "beaver-peek": { file: "design-src/story/beaver/pack3/b07-peek.png", width: 480 },
     "beaver-nest": {
       file: "design-src/story/beaver/pack/prop.png",
       width: 480,

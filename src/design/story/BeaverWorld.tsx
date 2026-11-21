@@ -27,7 +27,8 @@ export const BEAVER_BEATS = 9;
  * 行を出しはじめる所（11/21 絵コンテ v0.3）：6ページ（コマ 5）は、丘の向こうが明るんでから1行目「ふわりと、森の向こうが
  * 明るくなって。」、月の縁が丘の上に出てから2行目「大きな、まんまるのお月さま。」（明るみは 5〜5.25、月は 5.22〜5.72 で昇る）。
  */
-export const BEAVER_LINE_AT: Record<number, number[]> = { 5: [0.12, 0.34] };
+// 5ページ（11/21 承認）：絵が先、文があと。夕暮れの中で止まり、住みかを振り返り、前を向いてから「でも、あと一本だけ。」。
+export const BEAVER_LINE_AT: Record<number, number[]> = { 4: [0, 0, 0.59], 5: [0.12, 0.34] };
 
 /** 渡辺さんの素材（src/design/story/storyAssets.ts の beaver）。 */
 const A = (name: string) => storyAsset("beaver", name);
@@ -715,6 +716,10 @@ export function BeaverWorld(): ReactElement {
         </g>
         {/* ビーバー：泳ぐ姿と、住みかの上の姿 */}
         {/* ちゃぷん（2ページ）：顔を出す所の水の輪。 */}
+        {/* 顔を出したビーバー（2ページ、素材 B-07）：主人公の顔と、口の「最初の一本」を近くで。 */}
+        <g className="bw-peek" opacity={0}>
+          <image href={A("beaver-peek")} x={74} y={615} width={88} height={57} />
+        </g>
         <g className="bw-splash" transform="translate(118 664)" fill="none" stroke="#cfe0ff" opacity={0}>
           <ellipse rx={14} ry={3.2} strokeWidth={1.2} />
           <ellipse rx={26} ry={5.4} strokeWidth={0.8} opacity={0.6} />
@@ -723,7 +728,9 @@ export function BeaverWorld(): ReactElement {
             位置は GSAP の x・y（世界の座標そのもの。transform の translate を置き換える）。 */}
         <g className="bw-swim" transform="translate(-80 662)" opacity={0}>
           <g>
-            <image className="bw-swim-img" href={A("beaver-swim-branch-blue")} x={-62} y={-30} width={112} height={40} />
+            {/* 昼（2・3ページ）は「最初の一本」（赤い葉が2枚の枝、素材 B-04）をくわえた姿、月明かりの7ページは細い普通の枝。 */}
+            <image className="bw-swim-day" href={A("beaver-swim-first")} x={-66} y={-31} width={126} height={41} />
+            <image className="bw-swim-img" href={A("beaver-swim-branch-blue")} x={-62} y={-30} width={112} height={40} opacity={0} />
           </g>
         </g>
         {/* 8ページ「住みかへ帰ります」（11/21 承認：カメラは寄せず、姿と動きで見せる）：住みかの前の水面を進む姿 →
@@ -758,10 +765,46 @@ export function BeaverWorld(): ReactElement {
               transform={`rotate(${a} ${x} ${y})`}
             />
           ))}
+          {/* 最初の一本（素材 B-03、11/21 承認）：2ページでくわえて来た枝を、3ページの「一本、」で住みかに組み込む。
+              8ページで雪が積もると、雪をかぶった同じ枝が住みかの端から少しだけのぞく（2回目に読んだときに見つける程度）。 */}
+          <image
+            className="bw-first"
+            href={A("first-branch")}
+            x={236}
+            y={608}
+            width={52}
+            height={19}
+            opacity={0}
+            transform="rotate(-18 262 618)"
+          />
+          <image
+            className="bw-first-snow"
+            href={A("first-branch-snow")}
+            x={228}
+            y={612}
+            width={46}
+            height={17}
+            opacity={0}
+            transform="rotate(-16 251 620)"
+          />
         </g>
         {/* 月を見上げるビーバー（素材）：月が昇るコマで、枝を持つ姿から替わる。 */}
         <g className="bw-look" opacity={0}>
           <image href={A("beaver")} x={212} y={524} width={98} height={94} />
+        </g>
+        {/* 4ページ：前足で泥をぬる（素材 B-06）。5ページ：前を見る（B-02）→ 振り返って住みかを見る（B-01）→ 前を見る。
+            7ページ：置いたばかりの最後の一本を見下ろす（B-05）。 */}
+        <g className="bw-mud2" opacity={0}>
+          <image href={A("beaver-mud2")} x={205} y={564} width={140} height={94} />
+        </g>
+        <g className="bw-ahead" opacity={0}>
+          <image href={A("beaver-ahead")} x={229} y={528} width={126} height={92} />
+        </g>
+        <g className="bw-turn" opacity={0}>
+          <image href={A("beaver-turn")} x={236} y={528} width={112} height={92} />
+        </g>
+        <g className="bw-down" opacity={0}>
+          <image className="bw-night-img" href={A("beaver-down")} x={220} y={528} width={100} height={92} />
         </g>
         <g className="bw-sit" opacity={0}>
           {/* 枝を持つビーバー（素材）。枝を置く動きは、この絵を少し傾けて（.bw-branch）。 */}
@@ -964,20 +1007,20 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
       { opacity: 0, scale: 1.4, duration: 0.2, ease: "power1.out" },
       1.06,
     )
-    .fromTo(
-      ".bw-swim",
-      { x: 118, y: 674, opacity: 0 },
-      { y: 662, opacity: 1, duration: 0.14, ease: "power2.out" },
-      1.08,
-    )
-    .to(".bw-swim", { x: 160, duration: 0.45, ease: "power1.inOut" }, 1.3);
+    // 顔を出す（素材 B-07）：「顔を出しました」「口には一本の枝」を読むあいだ、顔と最初の一本を見せてから泳ぎだす。
+    .fromTo(".bw-peek", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.12, ease: "power2.out" }, 1.08)
+    .to(".bw-peek", { opacity: 0, duration: 0.05 }, 1.56)
+    .fromTo(".bw-swim", { x: 118, y: 662, opacity: 0 }, { opacity: 1, duration: 0.05 }, 1.6)
+    .to(".bw-swim", { x: 160, duration: 0.15, ease: "power1.inOut" }, 1.6);
   // 3 一本、また一本：住みかへ泳いで枝を置く。言葉の拍で一本ずつ、そのあと枝が組み上がる。泳ぐ姿から住みかの上の姿へ。
   tl.to(".bw-swim", { x: 222, duration: 0.18, ease: "power1.inOut" }, 2)
     .to(".bw-swim", { opacity: 0, duration: 0.08 }, 2.2)
     .to(".bw-sit", { opacity: 1, duration: 0.12 }, 2.22);
-  [2.07, 2.13, 2.32].forEach((at, i) =>
+  // 「一本、」で置くのは最初の一本（2ページでくわえて来た枝）。「また一本。」からは普通の枝。
+  tl.fromTo(".bw-first", { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, 2.07);
+  [2.13, 2.32].forEach((at, i) =>
     tl.fromTo(
-      twigs[i],
+      twigs[i + 1],
       { opacity: 0, y: -18 },
       { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" },
       at,
@@ -1008,6 +1051,9 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     { scale: 1.7, x: -75, y: -131, duration: 0.75, ease: "power2.inOut" },
     3,
   )
+    // 枝を持つ姿から、前足で泥をぬる姿へ（3ページと違う絵で止まる）。消えきってから出す（二つの姿を重ねない）。
+    .to(".bw-sit", { opacity: 0, duration: 0.05 }, 3.02)
+    .to(".bw-mud2", { opacity: 1, duration: 0.06 }, 3.07)
     .fromTo(".bw-mud", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 3.06)
     .fromTo(
       ".bw-mud-coat",
@@ -1016,9 +1062,9 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
       3.12,
     )
     .fromTo(
-      ".bw-branch",
-      { rotation: -3, svgOrigin: "262 632" },
-      { rotation: 3, duration: 0.07, ease: "sine.inOut", yoyo: true, repeat: 3 },
+      ".bw-mud2",
+      { y: 0 },
+      { y: 2.5, duration: 0.07, ease: "sine.inOut", yoyo: true, repeat: 3 },
       3.14,
     )
     .to(".bw-mud-coat", { opacity: 0.85, duration: 0.2 }, 3.5);
@@ -1029,10 +1075,16 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .to(".bw-autumn", { opacity: 0.6, duration: 0.6 }, 4.1)
     .to(".bw-leaves", { opacity: 0.3, duration: 0.5 }, 4.1)
     .fromTo(".bw-star1", { opacity: 0 }, { opacity: 1, duration: 0.12, ease: "sine.in" }, 4.24)
-    .to(".bw-sit", { scaleX: -1, svgOrigin: "271 587", duration: 0.1, ease: "power1.inOut" }, 4.42);
+    // 立ち止まる（11/21 承認）：泥をぬる姿から、住みかの上で前（川の向こう）を見る姿へ。二つ目の行のあと、動きを止めて
+    // 振り返り、できかけの住みかを見る。一拍おいて前を向き直し、そこで「でも、あと一本だけ。」（BEAVER_LINE_AT の 4）。
+    .to(".bw-mud2", { opacity: 0, duration: 0.05 }, 4.02)
+    .to(".bw-ahead", { opacity: 1, duration: 0.06 }, 4.07)
+    .to(".bw-ahead", { opacity: 0, duration: 0.02 }, 4.46)
+    .to(".bw-turn", { opacity: 1, duration: 0.02 }, 4.48)
+    .to(".bw-turn", { opacity: 0, duration: 0.02 }, 4.545)
+    .to(".bw-ahead", { opacity: 1, duration: 0.02 }, 4.565);
   // 6 ふわりと明るくなって、まんまるのお月さま：丘の向こうが明るみ、夜になり、月が昇る。カメラが引く。ビーバーは向き直って見上げる。
-  tl.to(".bw-sit", { scaleX: 1, svgOrigin: "271 587", duration: 0.08 }, 5)
-    .to(".bw-moonrise", { opacity: 1, duration: 0.25, ease: "sine.in" }, 5)
+  tl.to(".bw-moonrise", { opacity: 1, duration: 0.25, ease: "sine.in" }, 5)
     .to(".bw-sky-night", { opacity: 1, duration: 0.5, ease: "sine.inOut" }, 5)
     .to(".bw-water-night", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 5.05)
     .fromTo(
@@ -1045,8 +1097,8 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .to(".bw-camera", { scale: 1, x: 0, y: -8, duration: 0.75, ease: "power2.inOut" }, 5)
     .to(".bw-moon", { attr: { transform: "translate(150 380)" }, duration: 0.5, ease: "power1.out" }, 5.22)
     .to(".bw-leaves", { opacity: 0, duration: 0.3 }, 5.05)
-    .to(".bw-sit", { opacity: 0, duration: 0.12 }, 5.45)
-    .to(".bw-look", { opacity: 1, duration: 0.12 }, 5.45)
+    .to(".bw-ahead", { opacity: 0, duration: 0.06 }, 5.42)
+    .to(".bw-look", { opacity: 1, duration: 0.1 }, 5.49)
     .to(".bw-stars", { opacity: 0.5, duration: 0.3 }, 5.45)
     .to(".bw-autumn", { opacity: 0.4, duration: 0.3 }, 5.45)
     .fromTo(
@@ -1061,12 +1113,17 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
   tl.to(".bw-look", { opacity: 0, duration: 0.08 }, 6.02)
     .set(".bw-swim", { x: 40, y: 662 }, 6.02)
     .set(".bw-swim-img", { filter: "brightness(0.62) saturate(0.75)" }, 6.02)
+    .set(".bw-swim-day", { opacity: 0 }, 6.02)
+    // 月明かりの姿は色を沈める（見下ろす姿・泳ぐ姿・潜る姿。新しい素材だけが明るく浮かないように）。
+    .set(".bw-night-img", { filter: "brightness(0.62) saturate(0.75)" }, 6.02)
+    .set(".bw-swim-img", { opacity: 1 }, 6.02)
     // 見上げる姿が消えきってから泳ぐ姿を出す（11/21 レビュー：二つの姿が半透明で重なる瞬間があった）。
     .to(".bw-swim", { opacity: 1, duration: 0.08 }, 6.1)
     .to(".bw-swim", { x: 222, duration: 0.3, ease: "power1.inOut" }, 6.12)
     .fromTo(twigs[3], { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, 6.42)
     .to(".bw-swim", { opacity: 0, duration: 0.08 }, 6.44)
-    .to(".bw-look", { opacity: 1, duration: 0.1 }, 6.5)
+    // 最後の一本を置いたら、見上げる姿ではなく、その一本を見下ろす姿で止まる（素材 B-05。6ページと違う絵）。
+    .to(".bw-down", { opacity: 1, duration: 0.1 }, 6.5)
     .to(".bw-fog", { opacity: 1, duration: 0.4 }, 6.2)
     // 秋から冬へ（11/21 承認）：7ページは紅葉を残し、読み終えたあとの間から8ページの頭にかけて、上の紅葉の枝と
     // 紅葉の木をゆっくり消す（8・9ページは冬の森。急に消えないように）。
@@ -1078,9 +1135,8 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .to(".bw-snow", { opacity: 1, duration: 0.3 }, 7.3)
     // 住みかへ帰る（11/21 承認）：住みかの上の姿が消え、住みかの前の水面を進み、頭を下げて尾が少し残り、水に消える。
     // 波の輪が姿の消えたあとに残る。8ページの静けさを保つため、大きくは動かさない。
-    .set(".bw-night-img", { filter: "brightness(0.62) saturate(0.75)" }, 7.3)
     // 住みかの上の姿が消えきってから泳ぐ姿を出す（二つの姿が半透明で重ならないように。7ページと同じ）。
-    .to(".bw-look", { opacity: 0, duration: 0.08 }, 7.34)
+    .to(".bw-down", { opacity: 0, duration: 0.08 }, 7.34)
     .fromTo(".bw-home", { opacity: 0, x: 150 }, { opacity: 1, x: 162, duration: 0.06 }, 7.43)
     .to(".bw-home", { x: 214, duration: 0.12, ease: "sine.inOut" }, 7.46)
     .to(".bw-home", { opacity: 0, duration: 0.04 }, 7.58)
@@ -1093,6 +1149,8 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
       7.72,
     )
     .to(q(".bw-twig"), { opacity: 0, duration: 0.2 }, 7.45)
+    .to(".bw-first", { opacity: 0, duration: 0.2 }, 7.45)
+    .to(".bw-first-snow", { opacity: 0.9, duration: 0.25, ease: "sine.inOut" }, 7.5)
     .to(".bw-lodge-snow", { opacity: 1, duration: 0.25, ease: "sine.inOut" }, 7.45)
     .to(".bw-camera", { scale: 1.12, x: -30, y: -31, duration: 0.75, ease: "power2.inOut" }, 7);
   // 9 しんと静まった冬の森：世界が引いて一枚の絵に収まる。
