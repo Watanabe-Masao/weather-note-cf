@@ -12,6 +12,7 @@ export type ChartMetricId =
   | "radiation"
   | "light"
   | "humidity"
+  | "visibility"
   | "wind"
   | "pressure";
 
@@ -109,6 +110,13 @@ export function hourlyExtreme(hours: WeatherRow[] | null, key: string, pick: "ma
   const values = (hours ?? []).map((h) => num(h[key])).filter((v): v is number => v != null);
   if (values.length < EXTREME_MIN_HOURS) return null;
   return Math.round((pick === "max" ? Math.max(...values) : Math.min(...values)) * 10) / 10;
+}
+
+/** The day's mean of an hourly value (needs EXTREME_MIN_HOURS hours, like the extremes). */
+export function hourlyMean(hours: WeatherRow[] | null, key: string): number | null {
+  const values = (hours ?? []).map((h) => num(h[key])).filter((v): v is number => v != null);
+  if (values.length < EXTREME_MIN_HOURS) return null;
+  return Math.round((values.reduce((a, b) => a + b, 0) / values.length) * 10) / 10;
 }
 
 /** Daily 全天日射量 (MJ/㎡): the forecast row has it; for observations, the 24 hours added up. */
@@ -221,6 +229,21 @@ export const CHART_METRICS: ChartMetric[] = [
     series: [
       { key: "humidity", label: "平均", tone: "humidity", value: field("humidity"), valueLabel: "above" },
       { key: "humidityMin", label: "最小", tone: "humidityLow", value: field("humidityMin"), valueLabel: "below" },
+    ],
+  },
+  {
+    // 視程（見通しの距離、km）：気象台の視程計（高知など）と予報。日の値は1時間ごとから（最も見通しの悪い時間と平均）。
+    // 上限 20 km（それより遠くは 20）。視程計の無い地点は値なし。
+    id: "visibility",
+    label: "視程",
+    unit: "km",
+    chart: "line",
+    zero: true,
+    max: 20,
+    needsHours: true,
+    series: [
+      { key: "visibilityMin", label: "最小", tone: "visibility", value: (_r, h) => hourlyExtreme(h, "visibility", "min"), valueLabel: "below" },
+      { key: "visibilityMean", label: "平均", tone: "mean", value: (_r, h) => hourlyMean(h, "visibility"), thin: true, minor: true },
     ],
   },
   {

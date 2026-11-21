@@ -51,6 +51,7 @@ export function initialDetailMetric(metric: MetricId): DetailMetricId {
     case "rain":
     case "radiation":
     case "humidity":
+    case "visibility":
     case "wind":
     case "pressure":
       return metric;
