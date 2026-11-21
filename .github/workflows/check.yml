@@ -20,13 +20,15 @@ jobs:
   # The app in a real browser (e2e/e2e.py): every screen and the main flows, at two phone widths,
   # against the built app with made-up weather. Screenshots are kept when it fails.
   # The two widths run side by side (each ~2.5 min; one after the other the job took ~5.5 min).
+  # 画面全体（e2e.py、約4分）とイベントの日の見出し（event.py、約2分）も別の仕事に分けて並べる（#371：一幅 約6分 → 約4分）。
   e2e-width:
-    name: e2e (${{ matrix.width }})
+    name: e2e (${{ matrix.width }}, ${{ matrix.suite }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         width: [390, 360]
+        suite: [app, event]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -37,22 +39,25 @@ jobs:
         with:
           python-version: "3.12"
       - run: npm ci
-      - run: pip install playwright==1.49.1
+      # 手元（作業環境）と同じ版（#371：11/19 に CI の古い Chromium でだけ落ちた。版をそろえて、手元で再現できるように）。
+      - run: pip install playwright==1.63.0
       - run: python -m playwright install --with-deps chromium
       - run: npx vite build
-      - run: python3 e2e/e2e.py ${{ matrix.width }}
+      - if: matrix.suite == 'app'
+        run: python3 e2e/e2e.py ${{ matrix.width }}
       # イベントの日の見出し（docs/event-banner.md 6章）：時計を満月の日に合わせて、3テーマで。
-      - run: python3 e2e/event.py ${{ matrix.width }}
+      - if: matrix.suite == 'event'
+        run: python3 e2e/event.py ${{ matrix.width }}
       # The service worker's update flow does not depend on the width: once.
-      - if: matrix.width == 390
+      - if: matrix.width == 390 && matrix.suite == 'event'
         run: python3 e2e/swupdate.py
       - if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-shots-${{ matrix.width }}
+          name: e2e-shots-${{ matrix.width }}-${{ matrix.suite }}
           path: e2e/shots
 
-  # The one check named "e2e" (as before the split): passes only when both widths passed.
+  # The one check named "e2e" (as before the split): passes only when every width and suite passed.
   e2e:
     runs-on: ubuntu-latest
     needs: e2e-width
