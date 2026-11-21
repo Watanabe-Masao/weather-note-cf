@@ -127,6 +127,9 @@ export async function saveAirQuality(db: Db, now = Date.now(), get: Fetcher = de
       error = String(e instanceof Error ? e.message : e).slice(0, 300);
     }
   }
+  // 取るものが無かった回（昨日の分まで済んで、古い側も済んだ後）は記録しない（1時間ごとに空の記録が増えるだけ）。
+  // 1日に1回は昨日の分を取るので、うまくいった記録は1日ごとに残る（見張りは2日で注意）。
+  if (range === null && !error) return { saved: 0, ok: true, skipped: true };
   await db.prepare("INSERT OR REPLACE INTO air_quality_fetch_log (at, ok, saved, range, error) VALUES (?, ?, ?, ?, ?)").bind(at, error ? 0 : 1, saved, range, error).run();
   await db.prepare("DELETE FROM air_quality_fetch_log WHERE at < ?").bind(new Date(now - LOG_DAYS * 86_400_000).toISOString()).run();
   return { saved, ok: !error };
