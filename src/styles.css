@@ -5568,16 +5568,17 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .wx-none { margin: 0; color: var(--ink-secondary); font-size: var(--size-sm); }
 .wx-links { margin: 0; display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
 
-/* 視程の比べ（VisibilityBars）：0〜20 km の物差しに横の棒。選んだ日は塗り、比べる日は縁だけ（色を薄めない決まり）。 */
+/* 視程の比べ（VisibilityBars）：0〜20 km の物差しに、日ごとの最小〜最大の横棒と平均の印。選んだ日は塗り、比べる日は
+   縁だけ（色を薄めない決まり）。 */
 .vb { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
 .vb-legend { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); }
-.vb-key::before { content: ""; display: inline-block; width: var(--space-4); height: var(--space-2); margin-right: var(--space-1); border-radius: var(--radius-pill); background: var(--data-visibility); vertical-align: middle; }
-.vb-key.vb-b::before { background: transparent; box-shadow: inset 0 0 0 var(--stroke-select) var(--data-visibility); }
+.vb-mean-key::before { content: ""; display: inline-block; width: var(--stroke-select); height: var(--space-3); margin-right: var(--space-1); background: var(--ink-primary); vertical-align: middle; }
 .vb-scale { margin-left: auto; }
-.vb-row { display: grid; grid-template-columns: 2.5em minmax(0, 1fr); gap: var(--space-2); align-items: center; }
-.vb-label { font-size: var(--size-sm); color: var(--ink-secondary); }
-.vb-bars { display: grid; gap: var(--space-1); }
+.vb-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr) 6.5em; gap: var(--space-2); align-items: center; }
+.vb-label { font-size: var(--size-xs); color: var(--ink-secondary); font-family: var(--font-numeric); }
 .vb-track { position: relative; display: block; height: var(--space-4); border-radius: var(--radius-pill); background: var(--surface-inset); }
-.vb-fill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-pill); background: var(--data-visibility); }
+.vb-fill { position: absolute; top: 0; bottom: 0; border-radius: var(--radius-pill); background: var(--data-visibility); }
 .vb-b .vb-fill { background: transparent; box-shadow: inset 0 0 0 var(--stroke-select) var(--data-visibility); }
-.vb-num { position: absolute; right: var(--space-2); top: 50%; transform: translateY(-50%); font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-primary); }
+.vb-mean { position: absolute; top: calc(var(--space-1) * -1); bottom: calc(var(--space-1) * -1); width: var(--stroke-select); background: var(--ink-primary); }
+.vb-num { font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-primary); text-align: right; }
+.vb-axis { display: flex; justify-content: space-between; margin: 0 6.5em 0 calc(6.5em + var(--space-2)); padding-right: var(--space-2); font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-secondary); }
