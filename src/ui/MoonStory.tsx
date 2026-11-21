@@ -292,6 +292,9 @@ function storyStops(
     secs,
   };
 }
+/** 本棚の日付に添える年：今日から 330 日より先の満月だけ（それより近いものは月日だけで分かる）。 */
+const farYear = (at: number) =>
+  at - Date.now() > 330 * 86_400_000 ? Number(new Date(at + 9 * 3_600_000).toISOString().slice(0, 4)) : null;
 const jst = (ms: number) => {
   const d = new Date(ms + 9 * HOUR_MS);
   return {
@@ -499,8 +502,29 @@ export function MoonStory({
     Math.round((Date.parse(`${jst(ms).date}T00:00:00+09:00`) - Date.parse(`${jst(Date.now()).date}T00:00:00+09:00`)) / 86_400_000);
 
   // 閉じる：Esc と、開いている間は後ろをスクロールさせない。
+  // 開いている間は、Tab のフォーカスを物語の中で回し、閉じたら開いたボタンへ戻す（11/21 レビュー：Tab で後ろのアプリへ
+  // 出ていき、閉じたあとは body に残っていた）。
   useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const opener = document.activeElement as HTMLElement | null;
+    const key = (e: KeyboardEvent) => {
+      if (e.key === "Escape") return onClose();
+      const el = root.current;
+      if (e.key !== "Tab" || !el) return;
+      const f = [...el.querySelectorAll<HTMLElement>("button, a[href], input, [tabindex]:not([tabindex='-1'])")].filter(
+        (x) => !x.hasAttribute("disabled") && x.offsetParent !== null,
+      );
+      if (!f.length) return;
+      const first = f[0];
+      const last = f[f.length - 1];
+      const cur = document.activeElement;
+      if (e.shiftKey && (cur === first || cur === el || !el.contains(cur))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (cur === last || !el.contains(cur))) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", key);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -508,6 +532,7 @@ export function MoonStory({
     return () => {
       window.removeEventListener("keydown", key);
       document.body.style.overflow = prev;
+      if (opener && document.contains(opener)) opener.focus();
     };
   }, [onClose]);
 
@@ -568,6 +593,9 @@ export function MoonStory({
   // 下のドットを押すと、そのコマへ（同じ動き）。ドットの列が一つのボタン（高さ 44px）で、押した所に近いドットへ。
   const toDot = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation();
+    // キーで押したとき（位置が無い）は動かさない。キーでは ←→ で前後のページへ（11/21 レビュー：Enter で必ず
+    // 1ページ目へ戻っていた）。
+    if (e.detail === 0) return;
     const dots = [...e.currentTarget.querySelectorAll<HTMLElement>(".ms-beat")];
     if (!dots.length || beatAt.current < 0) return;
     let k = 0;
@@ -812,7 +840,8 @@ export function MoonStory({
           const ep = el.querySelector(".ms-epilogue") ?? el.querySelector("[data-story-end]");
           if (ep)
             gsap.fromTo(
-              ".ms-world-frame > svg",
+              // 下のドットも一緒に（11/21 レビュー：場面の絵が消えたあと、ドットだけが空に残っていた）。
+              ".ms-world-frame > svg, .ms-beats",
               { opacity: 1 },
               {
                 opacity: 0,
@@ -982,57 +1011,74 @@ export function MoonStory({
               },
             );
         });
-        // インクが浮かぶ：紙が落ち着いてから、見出しと本文は滲みからくっきりへ、象徴の言葉の札ははんこを押すように、
-        // 下のセピアの絵は下から筆で塗るように。読む速さに合わせてゆっくり（戻ると消え、もう一度来ると浮かぶ）。
+        // インクが浮かぶ：紙が落ち着くと、見出しが滲みからくっきりへ。本文は段ごとに（小見出しはその本文と組で）、
+        // スクロールの量に合わせて、読む位置に来た所からくっきりする（11/21 渡辺さん「ブロックに分けてスワイプの距離に
+        // 応じて」：時間で順に出していたので、下の段が滲んだまま待たされていた）。象徴の札ははんこのように、下のセピアの
+        // 絵は下から塗るように、それぞれが画面に入ったとき。戻ると消え、もう一度来ると浮かぶ。
         gsap.utils.toArray<HTMLElement>(".ms-paper", el).forEach((pp) => {
           const q = (sel: string) =>
             gsap.utils.toArray<HTMLElement>(sel, pp);
-          const tl = gsap.timeline({
-            paused: true,
-            defaults: { ease: "power2.out" },
-          });
-          tl.fromTo(
+          const head = gsap.timeline({ paused: true, defaults: { ease: "power2.out" } });
+          head.fromTo(
             q(".ms-phases, .ms-paper-kicker, h3, .ms-leafrule, .bk-flourish"),
             { opacity: 0, filter: "blur(6px)" },
             { opacity: 1, filter: "blur(0px)", duration: 1.1, stagger: 0.25 },
-          )
-            .fromTo(
-              q(":scope > p:not(.ms-symbols), :scope > h4"),
-              { opacity: 0, filter: "blur(4px)", y: 6 },
-              {
-                opacity: 1,
-                filter: "blur(0px)",
-                y: 0,
-                duration: 1.4,
-                stagger: 0.7,
-              },
-              "-=0.5",
-            )
-            .fromTo(
-              q(".ms-symbols em"),
-              { opacity: 0, scale: 1.5 },
-              {
-                opacity: 1,
-                scale: 1,
-                duration: 0.3,
-                ease: "power4.in",
-                stagger: 0.32,
-              },
-              "-=0.3",
-            )
-            .fromTo(
-              q(".ms-paper-art"),
-              { clipPath: "inset(100% 0% 0% 0%)" },
-              { clipPath: "inset(0% 0% 0% 0%)", duration: 1.8, ease: "power1.inOut" },
-              "-=0.6",
-            );
+          );
           ScrollTrigger.create({
             trigger: pp,
             scroller,
             start: "top 62%",
-            onEnter: () => tl.play(),
-            onLeaveBack: () => tl.reverse(),
+            onEnter: () => head.play(),
+            onLeaveBack: () => head.reverse(),
           });
+          q(":scope > p:not(.ms-symbols)").forEach((para) => {
+            const sub = para.previousElementSibling?.tagName === "H4" ? (para.previousElementSibling as HTMLElement) : null;
+            const block = sub ? [sub, para] : [para];
+            gsap.fromTo(
+              block,
+              { opacity: 0, filter: "blur(4px)" },
+              {
+                opacity: 1,
+                filter: "blur(0px)",
+                ease: "none",
+                stagger: 0.15,
+                scrollTrigger: {
+                  trigger: sub ?? para,
+                  scroller,
+                  start: "top 94%",
+                  end: "top 70%",
+                  scrub: 0.3,
+                },
+              },
+            );
+          });
+          const stamps = q(".ms-symbols em");
+          if (stamps.length) {
+            const st = gsap.timeline({ paused: true });
+            st.fromTo(
+              stamps,
+              { opacity: 0, scale: 1.5 },
+              { opacity: 1, scale: 1, duration: 0.3, ease: "power4.in", stagger: 0.32 },
+            );
+            ScrollTrigger.create({
+              trigger: stamps[0],
+              scroller,
+              start: "top 85%",
+              onEnter: () => st.play(),
+              onLeaveBack: () => st.reverse(),
+            });
+          }
+          const art = q(".ms-paper-art");
+          if (art.length)
+            gsap.fromTo(
+              art,
+              { clipPath: "inset(100% 0% 0% 0%)" },
+              {
+                clipPath: "inset(0% 0% 0% 0%)",
+                ease: "none",
+                scrollTrigger: { trigger: art[0], scroller, start: "top 95%", end: "bottom 80%", scrub: 0.3 },
+              },
+            );
         });
         // 空の色が進む（11/21 渡辺さん「アイデアも採用」）：表紙のあたりは夕方の色、場面を読み進めるうちに夜へ、締めくくり
         // から先は深夜へ。地の色（.moon-story の --sky-0 / --sky-1）だけを、スクロールに合わせて変える。
@@ -1121,10 +1167,15 @@ export function MoonStory({
           const w = el.querySelector<HTMLElement>(".ms-world");
           return w && scene ? w.offsetTop : undefined;
         },
-        onIndex: (i) =>
+        onIndex: (i) => {
+          const nb = el.querySelector(".ms-beats");
+          const cur = i - firstBeat;
+          if (nb && cur >= 0 && cur < dots.length)
+            nb.setAttribute("aria-label", `ページを選ぶ（いま ${cur + 1}/${dots.length}、← → で前後のページ）`);
           dots.forEach((d, k) =>
             d.classList.toggle("on", firstBeat >= 0 && k === i - firstBeat),
-          ),
+          );
+        },
       });
       pager.current = pg;
       ScrollTrigger.addEventListener("refresh", pg.refresh);
@@ -1363,7 +1414,7 @@ export function MoonStory({
 
       {/* 2. 絵本の場面：一つの続いた世界を、物語の一文ごとに一コマずつ。文は空に一字ずつ。 */}
       {scene && World && (
-        <section className="ms-world" aria-label={`${title}の物語`}>
+        <section className="ms-world" aria-label="絵本のページ">
           <div
             className="ms-sticky ms-world-stage"
             role="presentation"
@@ -1390,8 +1441,15 @@ export function MoonStory({
             <button
               type="button"
               className="ms-beats"
-              aria-label="コマを選ぶ"
+              aria-label="ページを選ぶ（← → で前後のページ）"
               onClick={toDot}
+              onKeyDown={(e) => {
+                if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  pager.current?.step(e.key === "ArrowRight" ? 1 : -1);
+                }
+              }}
             >
               {lines.map((_, i) => (
                 <i key={i} className="ms-beat" />
@@ -1560,6 +1618,7 @@ export function MoonStory({
                 {bk.reading ? (
                   <span
                     className="ms-spine-gap"
+                    role="img"
                     aria-label={`${bk.name}（いま読んでいる本）`}
                   >
                     {/* 読み終わりのしおり（11/21）：本棚が見えると、抜けた所に金のしおりがすっと下りる。 */}
@@ -1574,7 +1633,7 @@ export function MoonStory({
                     onClick={(e) => pull(e, bk)}
                     aria-label={
                       bk.at
-                        ? `${bk.name}の物語を開く（${jst(bk.at).m}/${jst(bk.at).d}）${bk.next ? "、次の満月" : ""}`
+                        ? `${bk.name}の物語を開く（${farYear(bk.at) ? `${farYear(bk.at)}年` : ""}${jst(bk.at).m}/${jst(bk.at).d}）${bk.next ? "、次の満月" : ""}`
                         : `${bk.name}（5年以内に無し）`
                     }
                   >
@@ -1613,6 +1672,8 @@ export function MoonStory({
                     )}
                     {bk.at && (
                       <small>
+                        {/* 一年より先の満月は年も（11/21 レビュー：2029/1/30 が来年1月に見えた）。 */}
+                        {farYear(bk.at) && <span className="sp-year">{farYear(bk.at)}</span>}
                         {jst(bk.at).m}/{jst(bk.at).d}
                       </small>
                     )}
