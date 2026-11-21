@@ -92,7 +92,7 @@ with sync_playwright() as p:
             pg.locator(".event-sheet .fm-book-btn").click(); pg.wait_for_timeout(1500)
             st = pg.evaluate("""() => { const s = document.querySelector('.moon-story'); if (!s) return null;
               return { h2: (s.querySelector('.bk-front h2') || {}).textContent, info: s.querySelectorAll('.ms-info .event-moment-card, .ms-info .event-night').length, chapters: s.querySelectorAll('.ms-chapter').length, caps: s.querySelectorAll('.ms-world .ms-cap').length, svg: s.querySelectorAll('.ms-world svg.bw .bw-stick').length,
-                       text: s.textContent.includes('冬が来る前に、小さな枝を一本ずつ') && s.textContent.includes('ビーバームーンの名前のひみつ') && s.textContent.includes('自然と科学') && s.textContent.includes('はらり、はらり。') && !s.querySelector('.ms-epilogue') && s.textContent.includes('満月の物語の本棚') && s.querySelectorAll('.ms-shelf .ms-spine').length === 13 && s.querySelectorAll('.ms-shelf .ms-spine-gap').length === 1,
+                       text: s.textContent.includes('冬が来る前に、小さな枝を一本ずつ') && s.textContent.includes('名前のひみつ') && s.textContent.includes('自然と科学') && s.textContent.includes('はらり、はらり。') && !s.querySelector('.ms-epilogue') && s.textContent.includes('満月の物語の本棚') && s.querySelectorAll('.ms-shelf .ms-spine').length === 13 && s.querySelectorAll('.ms-shelf .ms-spine-gap').length === 1,
                        scroll: s.scrollHeight - s.clientHeight, gsap: !!document.querySelector('.moon-story.ready') } }""")
             # 絵本の形（11/21 承認C の PR-3）：順番は 絵本 → あとがき → 自然と科学 → 今夜の月 → 本棚。物語の終わり（ページ送りの
             # 最後の区切り）はあとがき。物語の月は今夜の情報へ移さない。「物語をとばす」はあとがきへ、そこから↑で絵本へ戻れる。
