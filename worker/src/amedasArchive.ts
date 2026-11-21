@@ -99,6 +99,9 @@ export async function saveAmedas(db: Db, bucket: Bucket, now = Date.now(), get: 
     ).results.map((r) => r.key),
   );
   const todo = want.filter((w) => !saved.has(w.key));
+  // 取るものが無い回（3時間のうち大半の5分ごとの回）は、記録も書かない（毎回 1 行ずつ、意味の無い記録が増えていた）。
+  // 新しい3時間は3時間ごとに出るので、うまくいった記録の間は3時間ほど（見張りは半日で注意）。
+  if (!todo.length) return { saved: 0, waiting: 0, ok: true };
   let error: string | null = null;
   let count = 0;
   let waiting = 0;

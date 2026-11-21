@@ -45,6 +45,9 @@ describe("そらまめくん：保存と記録", () => {
     expect(await saveSoramame(db, NOW + 3_600_000, get)).toMatchObject({ skipped: true });
     await saveSoramame(db, NOW + 6 * 3_600_000, get);
     expect(seen[1]).toContain("Start_YM=202608&End_YM=202610");
+    // 次の直近の取り直し（12時間後）：同じ値の時間は書き直さず、直った値だけ書く。
+    const fixed = async () => ok([row("2026/11/21", "01", "14"), row("2026/11/21", "02", "12")]);
+    expect(await saveSoramame(db, NOW + 12 * 3_600_000, fixed)).toEqual({ saved: 1, ok: true });
   });
   it("logs a failure", async () => {
     const db = d1();

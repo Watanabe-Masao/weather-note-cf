@@ -105,16 +105,28 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
       if (!r.ok) throw new Error(`soramame ${range}: HTTP ${r.status}`);
       const rows = JSON.parse(await r.text()) as Record<string, string>[];
       if (!Array.isArray(rows)) throw new Error(`soramame ${range}: not a list`);
+      // いま持っている値と同じ時間は書かない（直近2か月を取り直すたびに、変わっていない約1,400行を書き直していた）。
+      const kept = new Map(
+        (
+          await db
+            .prepare("SELECT date, hour, pm2_5, ox, spm, no2, so2, wd, ws FROM soramame_hourly WHERE station = ? AND date >= ? AND date <= ?")
+            .bind(s.station, `${want.from}-01`, `${want.to}-31`)
+            .all<Record<string, string | number | null>>()
+        ).results.map((k) => [`${k.date} ${k.hour}`, JSON.stringify([k.pm2_5, k.ox, k.spm, k.no2, k.so2, k.wd, k.ws])]),
+      );
       const stmts = [];
       for (const x of rows) {
         if (x.SKT_CD !== s.station || !/^\d{4}\/\d{2}\/\d{2}$/.test(x.SKT_DATE ?? "")) continue;
         const v = Object.fromEntries(Object.entries(ITEMS).map(([k, name]) => [k, num(x[name])]));
         const wd = (x.WD ?? "").trim();
         if (Object.values(v).every((y) => y == null) && !/^[NESW]{1,3}$|^CALM$/i.test(wd)) continue; // まだ出ていない時間
+        const date = x.SKT_DATE.replaceAll("/", "-");
+        const hour = Number(x.SKT_TIME);
+        if (kept.get(`${date} ${hour}`) === JSON.stringify([v.pm2_5, v.ox, v.spm, v.no2, v.so2, wd || null, v.ws])) continue;
         stmts.push(
           db
             .prepare("INSERT OR REPLACE INTO soramame_hourly (station, date, hour, pm2_5, ox, spm, no2, so2, wd, ws, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
-            .bind(s.station, x.SKT_DATE.replaceAll("/", "-"), Number(x.SKT_TIME), v.pm2_5, v.ox, v.spm, v.no2, v.so2, wd || null, v.ws, at),
+            .bind(s.station, date, hour, v.pm2_5, v.ox, v.spm, v.no2, v.so2, wd || null, v.ws, at),
         );
       }
       // まとめて書く（1回で最大 約2,200 行。D1 の1回の batch の重さを抑えて 200 行ずつ）。
