@@ -49,6 +49,7 @@ export interface HealthView {
     longRangeLastOk?: string | null;
     amedasLastOk?: string | null;
     airLastOk?: string | null;
+    soramameLastOk?: string | null;
     warnings?: { lastOk: string | null; fetchFailuresLastDay: number };
     /** 欠けの発見（worker/src/completeness.ts）。pending は新しい順。 */
     completeness?: {
@@ -124,6 +125,11 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
     }
     // 空気質は 2023-01 からいつでも取り直せるので、止まっても注意だけ（2日）。
     if (s.airLastOk !== undefined && ago(s.airLastOk) > 48) note("airStale", `空気質の保存が最後にうまくいったのは ${hours(ago(s.airLastOk))}（後から取り直せる）。`);
+    // 大気汚染の実測は1年さかのぼって取れる：2日で注意、2週間で異常（取り直せる残りが減っていく）。
+    if (s.soramameLastOk !== undefined) {
+      if (ago(s.soramameLastOk) > 14 * 24) problem("soramameStale", `大気汚染の実測（そらまめくん）の保存が最後にうまくいったのは ${hours(ago(s.soramameLastOk))}（1年を過ぎた分は取り直せない）。`);
+      else if (ago(s.soramameLastOk) > 48) note("soramameStale", `大気汚染の実測（そらまめくん）の保存が最後にうまくいったのは ${hours(ago(s.soramameLastOk))}。`);
+    }
     if (s.longRangeLastOk !== undefined && ago(s.longRangeLastOk) > 12) note("longRangeStale", `長い先の予報の電文の保存が最後にうまくいったのは ${hours(ago(s.longRangeLastOk))}。`);
     // 警報・注意報 (2026-11-18 渡辺さん OK)：配信の長い一覧は7日分。7日止まると取り戻せない（一覧から外れた電文は名前が
     // 分からず取りに行けない、#267）。1日で注意、3日で異常（まだ4日分は取り戻せるうちに気づく）。まだ一度も読んで

@@ -250,6 +250,8 @@ const TABLES: [string, string | null][] = [
   ["amedas_fetch_log", "at"],
   ["air_quality_hourly", "fetched_at"],
   ["air_quality_fetch_log", "at"],
+  ["soramame_hourly", "fetched_at"],
+  ["soramame_fetch_log", "at"],
   ["longrange_telegrams", "fetched_at"],
   ["longrange_fetch_log", "at"],
   ["cron_runs", "at"],
@@ -460,6 +462,7 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM longrange_fetch_log"))?.n ? { longRangeLastOk: await lastOk("longrange_fetch_log") } : {}),
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM amedas_fetch_log"))?.n ? { amedasLastOk: await lastOk("amedas_fetch_log") } : {}),
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM air_quality_fetch_log"))?.n ? { airLastOk: await lastOk("air_quality_fetch_log") } : {}),
+      ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM soramame_fetch_log"))?.n ? { soramameLastOk: await lastOk("soramame_fetch_log") } : {}),
       // 欠けの発見（completeness.ts、#299）：定時の発表・30分ごとの時刻が1つずつそろっているか。数と時刻だけ。
       completeness: await readCompleteness(db, now),
       warnings: {

@@ -26,6 +26,7 @@ const SOURCES = [
   { table: "radar_fetch_log", name: "雨雲レーダー・解析雨量", added: "saved", unit: "枚" },
   { table: "amedas_fetch_log", name: "アメダスの観測", added: "saved", unit: "ファイル" },
   { table: "air_quality_fetch_log", name: "空気質（CAMS）", added: "saved", unit: "時間" },
+  { table: "soramame_fetch_log", name: "大気汚染の実測（そらまめくん）", added: "saved", unit: "時間" },
 ] as const;
 
 export interface DigestLine {
