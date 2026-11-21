@@ -246,6 +246,8 @@ const TABLES: [string, string | null][] = [
   ["wxchart_fetch_log", "at"],
   ["radar_saved", "fetched_at"],
   ["radar_fetch_log", "at"],
+  ["amedas_saved", "fetched_at"],
+  ["amedas_fetch_log", "at"],
   ["longrange_telegrams", "fetched_at"],
   ["longrange_fetch_log", "at"],
   ["cron_runs", "at"],
@@ -454,6 +456,7 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       // Not there until the saving has run once (a database without R2, or before the first run): not judged then.
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM radar_fetch_log"))?.n ? { radarLastOk: await lastOk("radar_fetch_log") } : {}),
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM longrange_fetch_log"))?.n ? { longRangeLastOk: await lastOk("longrange_fetch_log") } : {}),
+      ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM amedas_fetch_log"))?.n ? { amedasLastOk: await lastOk("amedas_fetch_log") } : {}),
       // 欠けの発見（completeness.ts、#299）：定時の発表・30分ごとの時刻が1つずつそろっているか。数と時刻だけ。
       completeness: await readCompleteness(db, now),
       warnings: {

@@ -47,6 +47,7 @@ export interface HealthView {
     chartsLastOk?: string | null;
     radarLastOk?: string | null;
     longRangeLastOk?: string | null;
+    amedasLastOk?: string | null;
     warnings?: { lastOk: string | null; fetchFailuresLastDay: number };
     /** 欠けの発見（worker/src/completeness.ts）。pending は新しい順。 */
     completeness?: {
@@ -115,6 +116,11 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
       else if (ago(s.radarLastOk) > 1) note("radarStale", `雨雲レーダーの保存が最後にうまくいったのは ${hours(ago(s.radarLastOk))}。`);
     }
     // 長い先の予報：30分ごとに読む。配信の長い一覧は7日分なので、半日止まっても取り直せる（注意だけ）。
+    if (s.amedasLastOk !== undefined) {
+      // 気象庁は約10日置くので、すぐには失われない。半日で注意、2日で異常（取り直せる残りが減っていく）。
+      if (ago(s.amedasLastOk) > 48) problem("amedasStale", `アメダスの観測の保存が最後にうまくいったのは ${hours(ago(s.amedasLastOk))}（約10日を過ぎた分は取り直せない）。`);
+      else if (ago(s.amedasLastOk) > 12) note("amedasStale", `アメダスの観測の保存が最後にうまくいったのは ${hours(ago(s.amedasLastOk))}。`);
+    }
     if (s.longRangeLastOk !== undefined && ago(s.longRangeLastOk) > 12) note("longRangeStale", `長い先の予報の電文の保存が最後にうまくいったのは ${hours(ago(s.longRangeLastOk))}。`);
     // 警報・注意報 (2026-11-18 渡辺さん OK)：配信の長い一覧は7日分。7日止まると取り戻せない（一覧から外れた電文は名前が
     // 分からず取りに行けない、#267）。1日で注意、3日で異常（まだ4日分は取り戻せるうちに気づく）。まだ一度も読んで

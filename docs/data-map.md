@@ -39,6 +39,7 @@ Weather Note が使うデータを、**外から取りに行くもの**（取り
 | 天気図（実況・予想天気図） | 2026-11-17 | 実況は3時間ごと、予想は発表ごと | R2 `wxchart/quick/`・`wxchart/forecast/`、D1 `wxchart_saved` | PNG のまま | 予想天気図をあとから見る（気象庁は最新しか置かない） | 1時間止まると注意 |
 | 雨雲レーダー（高解像度降水ナウキャストの実況、その瞬間の強さ mm/h） | 2026-11-17（#276） | 30分ごと（毎時0分・30分）、高知のまわり 段階8 の 3×3（四国全体） | R2 `radar/hrpns/`、D1 `radar_saved` | 地図タイルの PNG（気象庁のまま） | 雨雲の動きの記録（画面はこれから） | 1時間止まると注意、2時間で異常（一覧は約3時間で消える） |
 | 解析雨量（1時間雨量 mm、雨量計で直したもの） | #281 のマージから | 30分ごと、同じ範囲、一覧の member（none・immed）ごと | R2 `radar/rasrf/`、D1 `radar_saved` | 地図タイルの PNG（気象庁のまま） | どこでどれだけ降ったかの記録、予報との比べ合わせ（画面はこれから） | 雨雲レーダーと共通（一覧は約12時間で消える） |
+| アメダスの10分ごとの観測（高知 74182、気象庁 bosai の地点の JSON） | #（この PR）のマージから（初回に8日分さかのぼる） | 3時間ごとのファイル（10分ごと18回分）を、その3時間が終わって20分後から | R2 `amedas/point/74182/`（gzip）、D1 `amedas_saved` | 原本のまま（気温・湿度・気圧・雨・風向風速・突風・日照・**視程（10分ごと）・天気（自動観測、1時間ごと）**など28項目） | 視程と天気の記録（過去の気象データの表には、視程の10分値と天気が無い。KC-04）。画面はこれから | 半日止まると注意、2日で異常（気象庁は約10日で消す） |
 | 長い先の予報の電文（四国の地方1か月予報 VPCK50・早期天候情報 VPAW51、全国の2週間気温予報 VPCK70） | #285 のマージから | 発表ごと（1か月予報は週1回、2週間気温予報は毎日、早期天候情報は出たときだけ）。配信の一覧を30分ごとに読む | R2 `telegrams/longrange/`（gzip）、D1 `longrange_telegrams`（原文は持たない） | 原文のまま（高知の値の読み取りはこれから） | 季節の見通しの移り変わり | 12時間止まると注意 |
 | アカウント・感じ方の記録・同意・通知 | アプリの開始から | 利用者の操作ごと | D1 | 本人の記録（研究への協力の同意つき） | β・記録・研究用の分析 | アカウント処理の失敗を `/api/health` に |
 | 処理の記録 | — | 5分ごと・毎時 | D1 `cron_runs`・`*_fetch_log`・`health_checks`・`health_alerts` ほか | 何を取れたか・取れなかったか | 見張り（取れなかったと、もともと無いを分ける） | — |
@@ -136,7 +137,7 @@ D1 は1つ（バインディング `DB`）、原本のファイルは R2（`ARCH
 
 | 分け | 表 | 中身 |
 | --- | --- | --- |
-| 気象 | `forecast_telegrams`・`forecast_issues`・`forecast_entries`・`forecast_fetch_log`・`forecast_imports`・`forecast_alerts`・`typhoon_telegrams`・`typhoon_fetch_log`・`typhoon_json_log`・`typhoon_alerts`・`warning_telegrams`・`warning_fetch_log`・`longrange_telegrams`・`longrange_fetch_log`・`radar_saved`・`radar_fetch_log`・`wxchart_saved`・`wxchart_fetch_log`・`archive_copies`・`source_listed`・`data_gaps`・`data_absent` | 公開の気象情報と、その取得の記録・欠け。人を指す列は持たない |
+| 気象 | `forecast_telegrams`・`forecast_issues`・`forecast_entries`・`forecast_fetch_log`・`forecast_imports`・`forecast_alerts`・`typhoon_telegrams`・`typhoon_fetch_log`・`typhoon_json_log`・`typhoon_alerts`・`warning_telegrams`・`warning_fetch_log`・`longrange_telegrams`・`longrange_fetch_log`・`radar_saved`・`radar_fetch_log`・`amedas_saved`・`amedas_fetch_log`・`wxchart_saved`・`wxchart_fetch_log`・`archive_copies`・`source_listed`・`data_gaps`・`data_absent` | 公開の気象情報と、その取得の記録・欠け。人を指す列は持たない |
 | ユーザー | `users`・`sessions`・`session_reauth`・`schema_version`・`reports`・`consents`・`research_withdrawals`・`push_subscriptions`・`server_keys`・`notify_settings`・`notify_log`・`typhoon_notify_settings`・`typhoon_notify_log`・`export_log`・`export_tokens` | アカウント・肌感の記録・同意・通知。研究に出すときは研究用の番号で（#55） |
 | 運用 | `cron_runs`・`health_checks`・`health_alerts`・`app_errors`・`refetch_log`・`schema_migrations` | 定時処理・見張り・エラー・取り直しの記録。数と時刻が主。エラーの文言と押した管理者は管理者の画面だけに出す |
 
