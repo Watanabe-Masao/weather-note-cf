@@ -571,7 +571,8 @@ img.event-pic { object-fit: contain; }
 .ms-world { position: relative; height: calc(var(--beats) * 110svh + 100svh); margin-top: -100svh; }
 .ms-world-stage { background: var(--bk-night-1); }
 .ms-world-stage .bw { position: absolute; inset: 0; width: 100%; height: 100%; }
-.ms-world-frame { position: absolute; inset: var(--space-3); opacity: 0; pointer-events: none; }
+/* 金の枠は、上の「物語をとばす」・閉じると、下のドットに掛からない所に（11/21 レビュー）。 */
+.ms-world-frame { position: absolute; inset: calc(env(safe-area-inset-top, 0px) + var(--tap-min) + var(--space-4)) var(--space-3) calc(env(safe-area-inset-bottom, 0px) + var(--tap-min) + var(--space-3)); opacity: 0; pointer-events: none; }
 /* 縦書きの文は、最後のコマで入ってくる金の枠（内の線は端から約 18px）の内側に収まる位置を基準に（11/20 22:14 渡辺さん）。 */
 .ms-caps { position: absolute; top: calc(env(safe-area-inset-top, 0px) + var(--space-4) * 2 + var(--tap-min) + var(--space-5)); right: calc(var(--space-9) + var(--space-3)); height: 48svh; width: 60%; pointer-events: none; }
 .ms-cap { position: absolute; top: 0; right: 0; height: 100%; margin: 0; opacity: 0; writing-mode: vertical-rl; font-family: var(--font-story); font-size: var(--size-lg); font-weight: var(--weight-regular); line-height: 2.1; letter-spacing: 0.14em; color: var(--bk-paper-0); text-shadow: 0 0 var(--space-3) var(--bk-night-1), 0 0 var(--space-1) var(--bk-night-1); }
@@ -643,7 +644,7 @@ img.event-pic { object-fit: contain; }
 .ms-paper::after { --at: var(--space-5); --bw: var(--stroke-hair); opacity: 0.75; }
 .ms-paper h3 { margin: 0; font-family: var(--font-engrave); font-weight: var(--weight-bold); color: var(--bk-ink); letter-spacing: 0.12em; text-indent: 0.12em; text-shadow: 0 var(--stroke-hair) 0 var(--bk-shine-soft); }
 /* 絵本の形のページ（11/21）：あとがきの上の小さな「物語のあとがき」、自然と科学の小見出し。 */
-.ms-text .ms-paper h3 { text-wrap: balance; }
+.ms-text .ms-paper h3 { text-wrap: balance; white-space: pre-line; }
 .ms-paper-kicker { margin-bottom: calc(var(--space-2) * -1); font-family: var(--font-story); font-size: var(--size-sm); letter-spacing: 0.24em; text-indent: 0.24em; color: var(--bk-gold-deep); }
 .ms-text .ms-paper h4.ms-paper-sub { justify-self: stretch; margin: var(--space-3) 0 calc(var(--space-2) * -1); font-family: var(--font-engrave); font-size: var(--size-md); font-weight: var(--weight-bold); letter-spacing: 0.1em; color: var(--bk-gold-deep); text-align: left; }
 .ms-leafrule { width: 62%; height: auto; margin-top: calc(var(--space-2) * -1); color: var(--bk-gold-1); }
@@ -739,6 +740,7 @@ img.event-pic { object-fit: contain; }
 .ms-spine b { display: flex; flex-direction: row-reverse; justify-content: center; align-items: flex-start; gap: var(--space-2); flex: 1; min-height: 0; padding-top: var(--space-3); font-family: var(--font-engrave); font-size: var(--size-xs); font-weight: var(--weight-bold); }
 .ms-spine b span { writing-mode: vertical-rl; white-space: nowrap; letter-spacing: 0; line-height: 1; }
 .ms-spine small { font-family: var(--font-latin); font-size: var(--size-xs); font-weight: var(--weight-bold); font-variant-numeric: lining-nums tabular-nums; letter-spacing: 0.02em; line-height: 1; }
+.ms-spine small .sp-year { display: block; margin-bottom: var(--space-1); opacity: 0.8; }
 .sp-hills { flex: none; width: 86%; height: var(--space-3); }
 /* 背の欧文（英語の呼び名・月の略）と細い金の線（11/20 19:52 見本の背）。 */
 .sp-latin { display: block; width: 90%; height: auto; flex: none; margin-top: var(--space-1); font-family: var(--font-latin); font-weight: var(--weight-bold); letter-spacing: 0.02em; font-variant-numeric: lining-nums; overflow: visible; }

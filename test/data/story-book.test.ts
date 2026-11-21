@@ -25,7 +25,7 @@ describe("絵本の形（book）", () => {
   it("物語の文の字は、物語の書体（絞った woff2）にすべて入っている", () => {
     const have = new Set(readFileSync(join(__dirname, "../../public/event/story/fonts/chars.txt"), "utf8"));
     const b = fullMoonInfo("ビーバームーン")!.book!;
-    const all = [...b.pages.flatMap((p) => p.lines), b.afterword.title, ...b.afterword.paragraphs, b.science.title, ...b.science.sections.flatMap((s) => [s.heading ?? "", s.text]), "物語のあとがき"].join("");
+    const all = [...b.pages.flatMap((p) => p.lines), b.afterword.title, ...b.afterword.paragraphs, b.science.title, ...b.science.sections.flatMap((s) => [s.heading ?? "", s.text]), "物語のあとがき"].join("").replace(/\s/g, "");
     expect([...new Set(all)].filter((c) => !have.has(c))).toEqual([]);
   });
   it("ページの数は場面のコマの数と同じ（1ページ＝1コマ）", () => {

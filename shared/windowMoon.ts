@@ -36,7 +36,8 @@ export function windowMoonLine(now: number, event: SkyEvent, lat: number, lon: n
   const rise = today && today.at > j.min ? today : null;
   if (rise && !up) {
     const h = Math.floor(rise.at / 60);
-    return `今夜${h}時ごろ、${dir(rise.azimuth)}の空に${eve ? "満ちかけの月が" : ""}のぼります。`;
+    // 18時より前は「夕方」（11/21 レビュー：「今夜16時ごろ」と出ていた）。
+    return `${h < 18 ? "夕方" : "今夜"}${h}時ごろ、${dir(rise.azimuth)}の空に${eve ? "満ちかけの月が" : ""}のぼります。`;
   }
   if (up && !dark) return eve ? "日が暮れたら、東の空に満ちかけの月が見えてきます。" : "日が暮れたら、東の空に同じ月が見えてきます。";
   // 今日の月の出が過ぎて沈んでいる（明け方など）：次の月の出。

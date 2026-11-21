@@ -566,11 +566,11 @@ export function BeaverWorld(): ReactElement {
           <stop offset="0" stopColor={MOON.glow} stopOpacity={0.85} />
           <stop offset="1" stopColor={MOON.glow} stopOpacity={0} />
         </linearGradient>
-        <linearGradient id="bw-fog" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0" stopColor="#c9d6f2" stopOpacity={0} />
-          <stop offset="0.5" stopColor="#c9d6f2" stopOpacity={0.35} />
+        <radialGradient id="bw-fog" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#c9d6f2" stopOpacity={0.35} />
+          <stop offset="0.6" stopColor="#c9d6f2" stopOpacity={0.18} />
           <stop offset="1" stopColor="#c9d6f2" stopOpacity={0} />
-        </linearGradient>
+        </radialGradient>
         <radialGradient id="bw-vignette" cx="0.5" cy="0.45" r="0.75">
           <stop offset="0.6" stopColor="#000000" stopOpacity={0} />
           <stop offset="1" stopColor="#000000" stopOpacity={0.55} />
@@ -692,12 +692,13 @@ export function BeaverWorld(): ReactElement {
           <path d="M20 650 q 20 -4 40 0 M110 690 q 26 -5 52 0 M250 700 q 22 -4 44 0 M320 660 q 18 -3 36 0" />
         </g>
         {/* 霧（住みかとビーバーの奥） */}
-        <rect
+        {/* 上下の縁がくっきりした帯に見えないよう、縦にも薄れる楕円（11/21 レビュー）。 */}
+        <ellipse
           className="bw-fog"
-          x={-200}
-          y={586}
-          width={800}
-          height={48}
+          cx={200}
+          cy={610}
+          rx={330}
+          ry={26}
           fill="url(#bw-fog)"
           opacity={0}
         />
@@ -802,6 +803,7 @@ export function BeaverWorld(): ReactElement {
           />
           {/* 上の紅葉の枝（素材） */}
           <image
+            className="bw-maple"
             href={A("branch")}
             x={-40}
             y={40}
@@ -940,6 +942,8 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
       at,
     ),
   );
+  // 落ちきった葉は消す（11/21 レビュー：冬のページまで草むらに赤い葉が残っていた）。
+  tl.to(leaves, { opacity: 0, duration: 0.08 }, 0.72);
   // 2 ちゃぷん：カメラが川へ降り、水の輪が広がって、枝をくわえたビーバーが顔を出す。少し泳いで住みかの方へ。
   tl.to(
     ".bw-camera",
@@ -1049,8 +1053,9 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
   tl.to(".bw-look", { opacity: 0, duration: 0.08 }, 6.02)
     .set(".bw-swim", { x: 40, y: 662 }, 6.02)
     .set(".bw-swim-img", { filter: "brightness(0.62) saturate(0.75)" }, 6.02)
-    .to(".bw-swim", { opacity: 1, duration: 0.08 }, 6.04)
-    .to(".bw-swim", { x: 222, duration: 0.34, ease: "power1.inOut" }, 6.06)
+    // 見上げる姿が消えきってから泳ぐ姿を出す（11/21 レビュー：二つの姿が半透明で重なる瞬間があった）。
+    .to(".bw-swim", { opacity: 1, duration: 0.08 }, 6.1)
+    .to(".bw-swim", { x: 222, duration: 0.3, ease: "power1.inOut" }, 6.12)
     .fromTo(twigs[3], { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, 6.42)
     .to(".bw-swim", { opacity: 0, duration: 0.08 }, 6.44)
     .to(".bw-look", { opacity: 1, duration: 0.1 }, 6.5)
@@ -1059,6 +1064,9 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
   tl.fromTo(".bw-flake1", { opacity: 0, y: 0 }, { opacity: 0.95, y: 560, duration: 0.36, ease: "none" }, 7.02)
     .to(".bw-flake1", { opacity: 0, duration: 0.05 }, 7.38)
     .to(".bw-snow", { opacity: 1, duration: 0.3 }, 7.3)
+    // 冬になる：上の紅葉の枝は消え、紅葉の木は雪の夜に沈む（11/21 レビュー：冬のページに紅葉が残っていた）。
+    .to(".bw-maple", { opacity: 0, duration: 0.3 }, 7.3)
+    .to(".bw-autumn", { opacity: 0.12, duration: 0.35 }, 7.3)
     .to(".bw-look", { opacity: 0, duration: 0.08 }, 7.36)
     .fromTo(".bw-dive", { opacity: 0, y: -4 }, { opacity: 1, y: 0, duration: 0.06 }, 7.38)
     .to(".bw-dive", { opacity: 0, y: 12, duration: 0.14, ease: "power1.in" }, 7.5)

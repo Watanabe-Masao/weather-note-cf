@@ -8,7 +8,7 @@ const line = (iso: string, hidden: boolean | null) => windowMoonLine(Date.parse(
 
 describe("窓の外の月（11/21）", () => {
   it("当日の昼はのぼる時刻と方角、夜は窓の外（雲なら雲の向こう）", () => {
-    expect(line("2026-11-24T12:00:00+09:00", null)).toBe("今夜16時ごろ、東北東の空にのぼります。");
+    expect(line("2026-11-24T12:00:00+09:00", null)).toBe("夕方16時ごろ、東北東の空にのぼります。");
     expect(line("2026-11-24T21:00:00+09:00", false)).toBe("いま、窓の外にも同じ月が出ています。");
     expect(line("2026-11-24T21:00:00+09:00", true)).toBe("いま、雲の向こうに同じ月が出ています。");
     expect(line("2026-11-24T21:00:00+09:00", null)).toBe("いま、夜空に同じ月が出ています。");
