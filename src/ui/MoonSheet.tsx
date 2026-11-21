@@ -12,6 +12,7 @@ import { FeelContext } from "./FeelBar";
 import { fullMoonInfo } from "../../shared/fullMoonNames";
 import { dms, fullMoonName, MOON_MEAN_DIAMETER, moonDistance, moonLimb, moonMagnitude, moonNorth, moonPhase, moonQuarters, moonShapeName, moonTimes, moonTint, moonTopo, QUARTER_NAME, SHAPE_NOTE } from "../../shared/moon";
 import { DEFAULT_LAT_LON, stationLatLon } from "../../shared/sunTimes";
+import { moonSeen } from "../../shared/moonLook";
 import { dateLabel } from "../design/format";
 import { Button, Glyph, IconButton, InfoNote, Segmented } from "./kit";
 import { ICON, onSkyVars, SKY_ICON } from "../design/tokens";
@@ -101,7 +102,7 @@ export function MoonSheet({ date, station, here, onHere, onClose, weather }: { d
     const up = pts.filter((q) => q.altitude >= 0);
     const sizes = (up.length ? up : pts).map((q) => q.diameter);
     const marks = [0, 180, 360, 540, 720, 900, 1080, 1260, 1440]
-      .map((m) => ({ min: m, alt: pts[m / 10].altitude, limb: moonLimb(t0 + m * 60_000, ll.lat, ll.lon), p: moonPhase(t0 + m * 60_000) }))
+      .map((m) => ({ min: m, alt: pts[m / 10].altitude, limb: moonLimb(t0 + m * 60_000, ll.lat, ll.lon), p: moonPhase(t0 + m * 60_000), seen: moonSeen(t0 + m * 60_000, sel, Math.min(m, 1439), ll.lat, ll.lon) }))
       .filter((q) => q.alt >= 0);
     return { pts, marks, lo: Math.min(...sizes), hi: Math.max(...sizes), sun: altitudeCurve(sel, ll, 10) };
   }, [sel, station, ll.lat, ll.lon]);
@@ -478,6 +479,7 @@ function MoonObserve({ ms, min, lat, lon, where, sel, rise, here, onHere, sky, c
   const up = topo.altitude >= 0;
   const limb = moonLimb(ms, lat, lon);
   const north = moonNorth(ms, lat, lon);
+  const seen = moonSeen(ms, sel, min, lat, lon);
   const ratio = topo.diameter / MOON_MEAN_DIAMETER;
   const size = Math.round(BASE * (scale === "real" ? ratio : 1 + STRONG * (ratio - 1)));
   const pct = Math.round((ratio - 1) * 1000) / 10;
@@ -496,7 +498,22 @@ function MoonObserve({ ms, min, lat, lon, where, sel, rise, here, onHere, sky, c
           <svg className="moon-obs-ring" width={STAGE} height={STAGE} viewBox={`0 0 ${STAGE} ${STAGE}`} aria-hidden>
             <circle cx={STAGE / 2} cy={STAGE / 2} r={BASE / 2} />
           </svg>
-          {up ? <MoonSphere phase={p} size={size} limb={limb} north={north} tint={moonTint(topo.altitude)} dark={look === "whole"} /> : <span className="moon-obs-none">見えません</span>}
+          {/* 見え方（11/20 調査 MA-02）：その時刻の空の明るさに対して月がどれだけ見えるか（色の濃さ）と、白と高さの色の
+              混ぜ具合（赤み）。昼の低い月は空に溶けて淡く、夕方ははっきり、夜は白く・低いと赤く。「月の全体」は向きを
+              確かめる絵なので、薄めない。 */}
+          {up ? (
+            <span className="moon-obs-moon" style={look === "seen" ? { opacity: seen.strength } : undefined}>
+              <MoonSphere phase={p} size={size} limb={limb} north={north} tint={look === "seen" ? seen.tint : moonTint(topo.altitude)} dark={look === "whole"} />
+            </span>
+          ) : (
+            <span className="moon-obs-none">見えません</span>
+          )}
+          {/* 空が明るすぎて見えない（色の濃さ 0、雲ではない）：月は消さず、輪と札で（11/20 渡辺さんの OK）。 */}
+          {up && !cloud && look === "seen" && seen.strength === 0 && (
+            <span className="moon-obs-cloud" aria-hidden>
+              空が明るく見えにくい
+            </span>
+          )}
           {/* 雲で見えにくい（11/20 渡辺さん）：月が出ていて、その時間の天気が晴れの入らない曇り・雨など。形は描いたまま。 */}
           {up && cloud && (
             <span className="moon-obs-cloud" aria-hidden>
@@ -582,7 +599,7 @@ export const clockDir = (limb: number) => {
  * 地平線の下は点線）を、空の色（太陽の高さから）の上に描く。3時間ごとに、その時刻の傾き・色の小さな月。つまみの時刻に縦線。
  * 押す・なぞると時刻を選ぶ。
  */
-function MoonDay({ day, min, onPick, skyOf }: { day: { pts: { min: number; altitude: number }[]; marks: { min: number; alt: number; limb: number; p: ReturnType<typeof moonPhase> }[]; sun: { min: number; deg: number }[] }; min: number; onPick: (m: number) => void; skyOf: (min: number) => SkyColour }) {
+function MoonDay({ day, min, onPick, skyOf }: { day: { pts: { min: number; altitude: number }[]; marks: { min: number; alt: number; limb: number; p: ReturnType<typeof moonPhase>; seen: { tint: string; strength: number } }[]; sun: { min: number; deg: number }[] }; min: number; onPick: (m: number) => void; skyOf: (min: number) => SkyColour }) {
   const box = useRef<SVGSVGElement>(null);
   const W = useDrawnWidth(box, [], 340) || 340;
   const H = 150;
@@ -661,8 +678,9 @@ function MoonDay({ day, min, onPick, skyOf }: { day: { pts: { min: number; altit
         <line x1={x(min)} x2={x(min)} y1={top} y2={bottom} className="sun-cursor" />
       </g>
       {day.marks.map((q) => (
-        <g key={q.min} transform={`translate(${(x(q.min) - G / 2).toFixed(1)} ${(y(q.alt) - G / 2).toFixed(1)})`}>
-          <MoonGlyph phase={q.p} size={G} limb={q.limb} tint={moonTint(q.alt)} />
+        // グラフの小さな月も見え方の色（目印なので、見えない時間も薄く残す：0.35〜1）。
+        <g key={q.min} transform={`translate(${(x(q.min) - G / 2).toFixed(1)} ${(y(q.alt) - G / 2).toFixed(1)})`} opacity={0.35 + 0.65 * q.seen.strength}>
+          <MoonGlyph phase={q.p} size={G} limb={q.limb} tint={q.seen.tint} />
         </g>
       ))}
     </svg>
