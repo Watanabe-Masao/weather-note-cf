@@ -12,3 +12,5 @@ jobs:
         with:
           node-version: 22
       - run: node research/keep-candidates/kc04.mjs
+        env:
+          PASS2: "1"
