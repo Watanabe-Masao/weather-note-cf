@@ -1016,10 +1016,10 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
   tl.to(".bw-swim", { x: 222, duration: 0.18, ease: "power1.inOut" }, 2)
     .to(".bw-swim", { opacity: 0, duration: 0.08 }, 2.2)
     .to(".bw-sit", { opacity: 1, duration: 0.12 }, 2.22);
-  // 「いっぽん。」で置くのは最初の一本（2ページでくわえて来た枝）。「また一本。」からは普通の枝（#416 で行が
-  // 「いっぽん。また一本。」になり、「また一本。」が少し遅く出るので 2.16）。
+  // 一つ目の「いっぽん。」で置くのは最初の一本（2ページでくわえて来た枝）。二つ目からは普通の枝（#416 で行が
+  // 「いっぽん。また、いっぽん。」になり、二つ目の「いっぽん。」が少し遅く出るので 2.18）。
   tl.fromTo(".bw-first", { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, 2.07);
-  [2.16, 2.32].forEach((at, i) =>
+  [2.18, 2.32].forEach((at, i) =>
     tl.fromTo(
       twigs[i + 1],
       { opacity: 0, y: -18 },
