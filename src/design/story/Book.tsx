@@ -105,6 +105,20 @@ export function GoldDefs(): ReactElement {
             <feMergeNode in="lit" />
           </feMerge>
         </filter>
+        {/* 型押し（11/21 渡辺さん「エンボス加工風」「凹凸感を」）：絵の明るさを高さとみなし、左上からの光で陰影だけにする。
+            明るい所（月）が盛り上がり、暗い所が沈む。革の色の上に重ねる（重ね方は CSS の mix-blend-mode）。 */}
+        <filter id="bk-emboss" x="0" y="0" width="100%" height="100%" colorInterpolationFilters="sRGB">
+          <feColorMatrix
+            in="SourceGraphic"
+            type="matrix"
+            values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0.3 0.59 0.11 0 0"
+            result="height"
+          />
+          <feGaussianBlur in="height" stdDeviation={1.2} result="bump" />
+          <feDiffuseLighting in="bump" surfaceScale={6} diffuseConstant={1} lightingColor={BOOK.embossLight}>
+            <feDistantLight azimuth={225} elevation={38} />
+          </feDiffuseLighting>
+        </filter>
       </defs>
     </svg>
   );

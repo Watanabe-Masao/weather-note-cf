@@ -650,8 +650,8 @@ export function MoonStory({
         });
         // 窓が画面を覆う大きさと、窓の真ん中を画面の真ん中へ動かす量（本の真ん中を軸に大きくする）。
         const dive = () => {
-          const b = el.querySelector<HTMLElement>(".bk");
-          const w = el.querySelector<HTMLElement>(".bk-window");
+          const b = el.querySelector<HTMLElement>(".ms-book .bk");
+          const w = el.querySelector<HTMLElement>(".ms-book .bk-window");
           if (!b || !w) return { s: 4, x: 0, y: 0 };
           const s =
             Math.max(
@@ -666,7 +666,7 @@ export function MoonStory({
           .to(".ms-book-hint", { opacity: 0, duration: 0.1 }, 0)
           // 縮めたあとに背（左の端）が画面の真ん中に来るよう、ずらす量は 50% × 縮める割合。
           .fromTo(
-            ".bk",
+            ".ms-book .bk",
             { xPercent: 0, scale: 1 },
             {
               xPercent: 50 * SPREAD,
@@ -680,31 +680,31 @@ export function MoonStory({
           // 左へ倒れて見開きになる（幅が広がり、影が抜ける）。背でつながったまま、二つのページは同じ大きさ（11/20 16:23
           // 渡辺さん「ページが離れていく動きが不自然」）。
           .fromTo(
-            ".bk-cover",
+            ".ms-book .bk-cover",
             { scaleX: 1, scaleY: 1 },
             { scaleX: 0, scaleY: 1.05, ease: "power2.in", duration: 0.5 },
             0.3,
           )
           .fromTo(
-            ".bk-cover-shade",
+            ".ms-book .bk-cover-shade",
             { opacity: 0 },
             { opacity: 0.6, ease: "power1.in", duration: 0.5 },
             0.3,
           )
           .fromTo(
-            ".bk-back",
+            ".ms-book .bk-back",
             { scaleX: 0, scaleY: 1.05 },
             { scaleX: 1, scaleY: 1, ease: "power2.out", duration: 0.5 },
             0.8,
           )
           .fromTo(
-            ".bk-back-shade",
+            ".ms-book .bk-back-shade",
             { opacity: 0.6 },
             { opacity: 0, ease: "power1.out", duration: 0.5 },
             0.8,
           )
           .fromTo(
-            ".bk-page-shadow",
+            ".ms-book .bk-page-shadow",
             { opacity: 1 },
             { opacity: 0, ease: "power1.out", duration: 0.9 },
             0.4,
@@ -712,15 +712,15 @@ export function MoonStory({
           // 窓の中へ寄る：窓が画面いっぱいになるまで本を大きくし、窓の真ん中を画面の真ん中へ。文と枠は先に消える。
           .to(
             [
-              ".bk-page-text > small",
-              ".bk-page-text > h3",
-              ".bk-page .bk-frame",
+              ".ms-book .bk-page-text > small",
+              ".ms-book .bk-page-text > h3",
+              ".ms-book .bk-page .bk-frame",
             ],
             { opacity: 0, duration: 0.25 },
             1.65,
           )
           .to(
-            ".bk",
+            ".ms-book .bk",
             {
               xPercent: 0,
               scale: () => dive().s,
@@ -752,6 +752,20 @@ export function MoonStory({
           end: "bottom top",
           onToggle: (t) => (t.isActive ? glow.play() : glow.pause()),
         });
+        // 絵本の形の満月の終わり（11/21 渡辺さん「出だしが絵本を開くから始まるなら、最後は閉じるで終わった方が」）：
+        // 自然と科学を読み終えたら、開いたときの見開きから、開くのと逆の順に本を閉じる（表紙の裏が起き上がり、表紙が右の
+        // ページにかぶさる）。閉じた本の表は、深い紺の革に金の枠と副題だけ。そのあと今夜の月（本の外、本物の空）へ。
+        if (el.querySelector(".ms-endbook")) {
+          gsap
+            .timeline({ scrollTrigger: scrub(".ms-endbook") })
+            .fromTo(".ms-endbook .bk", { xPercent: 50 * SPREAD, scale: SPREAD }, { xPercent: 0, scale: 1, ease: "power2.inOut", duration: 1 }, 0.15)
+            .fromTo(".ms-endbook .bk-back", { scaleX: 1, scaleY: 1 }, { scaleX: 0, scaleY: 1.05, ease: "power2.in", duration: 0.5 }, 0.15)
+            .fromTo(".ms-endbook .bk-back-shade", { opacity: 0 }, { opacity: 0.6, ease: "power1.in", duration: 0.5 }, 0.15)
+            .fromTo(".ms-endbook .bk-cover", { scaleX: 0, scaleY: 1.05 }, { scaleX: 1, scaleY: 1, ease: "power2.out", duration: 0.5 }, 0.65)
+            .fromTo(".ms-endbook .bk-cover-shade", { opacity: 0.6 }, { opacity: 0, ease: "power1.out", duration: 0.5 }, 0.65)
+            .fromTo(".ms-endbook .bk-page-shadow", { opacity: 0 }, { opacity: 1, ease: "power1.in", duration: 0.5 }, 0.3)
+            .to({}, { duration: 0.35 }, 1.15);
+        }
         // 2. 絵本の場面：一文ごとに一コマ。紙が中心から溶けて絵が現れ、文は空に一字ずつ浮かぶ。
         if (scene) {
           // 場面のタイムラインはコマの番号（0〜コマ数）で組み、スクロールとは字の数で重みを付けた割合でつなぐ。
@@ -1616,6 +1630,48 @@ export function MoonStory({
             </div>
           </section>
         ))}
+
+      {/* 本を閉じる（絵本の形の満月だけ）：開いたときの見開きから、逆の順に閉じる。右のページに「おしまい」。 */}
+      {story?.book && (
+        <section className="ms-endbook" aria-label="本を閉じる">
+          <div className="ms-sticky ms-endbook-stage">
+            <div className="bk">
+              <div className="bk-page">
+                <div className="bk-inner">
+                  <GoldFrame />
+                  <p className="ms-endbook-fin">おしまい</p>
+                </div>
+                <span className="bk-page-shadow" aria-hidden />
+              </div>
+              <div className="bk-cover">
+                <div className="bk-front ms-endbook-cover">
+                  <GoldFrame />
+                  <span className="bk-mark">
+                    <CloudMark className="bk-cloud" />
+                    <small>Weather Note</small>
+                  </span>
+                  {/* 型押し（11/21 渡辺さん「ここはエンボス加工風がいい」）：表紙のメダルと同じく、絵を革に押したように。 */}
+                  {scene?.closedArt ? (
+                    <img className="ms-endbook-art" src={scene.closedArt} alt="" />
+                  ) : pic && (
+                    <div className="bk-medal ms-endbook-medal">
+                      <span className="ms-endbook-relief">
+                        <img src={pic} alt="" className={wide ? "wide" : undefined} />
+                      </span>
+                    </div>
+                  )}
+                  {story.tale && <p className="bk-tag">{story.tale.tagline}。</p>}
+                  <span className="bk-cover-shade" aria-hidden />
+                </div>
+              </div>
+              <div className="bk-back" aria-hidden>
+                {pic && <img src={pic} alt="" className={wide ? "wide" : undefined} />}
+                <span className="bk-back-shade" />
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       {/* 絵本の形（book）を持つ満月は、あとがき → 自然と科学 → 今夜の月（11/21 承認：絵本 → あとがき → 自然と科学 → 今夜の月）。 */}
       {story?.book && infoBlock}

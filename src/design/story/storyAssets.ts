@@ -69,6 +69,8 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
     "beaver-swim-first": { file: "design-src/story/beaver/pack3/b04-swim-first.png", width: 520 },
     "beaver-down": { file: "design-src/story/beaver/pack3/b05-down.png", width: 480 },
     "beaver-peek": { file: "design-src/story/beaver/pack3/b07-peek.png", width: 480 },
+    // 閉じた本の表の型押し（11/21 渡辺さんの素材：紺の革に金で押した月とビーバー。丸く切り抜き、まわりは透明）。
+    "emboss-medal": { file: "design-src/story/beaver/pack3/b08-emboss-medal.png", width: 520 },
     "beaver-nest": {
       file: "design-src/story/beaver/pack/prop.png",
       width: 480,

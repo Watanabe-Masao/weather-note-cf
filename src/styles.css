@@ -565,6 +565,16 @@ img.event-pic { object-fit: contain; }
 .sp-moon.art { background: none; box-shadow: none; opacity: 1; height: auto; }
 .sp-emblem.art { width: 74%; filter: none; }
 .ms-dive-wrap { position: fixed; inset: 0; z-index: 2; pointer-events: none; }
+.ms-endbook { position: relative; height: 240svh; }
+.ms-endbook > .ms-sticky { background: linear-gradient(var(--sky-0, var(--bk-night-0)), var(--sky-1, var(--bk-night-1))); }
+.ms-endbook-cover { align-content: space-between; padding: var(--space-8) var(--space-6); }
+.ms-endbook-cover .bk-tag { margin: 0 0 var(--space-6); }
+.ms-endbook-medal { width: 46%; }
+.ms-endbook-art { width: 64%; aspect-ratio: 1; }
+.ms-endbook-relief { display: contents; }
+.ms-endbook-relief img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: url(#bk-emboss); mix-blend-mode: overlay; }
+.ms-endbook-relief img.wide { object-position: 12% center; }
+.ms-endbook-fin { margin: 0; font-family: var(--font-story); font-size: var(--size-lg); letter-spacing: 0.3em; color: var(--bk-ink); }
 .ms-book-dive { position: absolute; inset: 0; background: var(--bk-night-0); opacity: 0; pointer-events: none; }
 .ms-book-dive.scene { background: var(--ms-scene-sky); }
 /* 絵本の場面：一文ごとに一コマ。前の本の終わり（紙の色）に重ねて始め、紙が真ん中から溶けて絵が現れる。
@@ -771,6 +781,8 @@ img.event-pic { object-fit: contain; }
 @media (prefers-reduced-motion: reduce) {
   .ms-book { height: auto; }
   .ms-book .ms-sticky { position: relative; height: auto; padding: 16svh var(--space-5) var(--space-7); }
+  .ms-endbook { height: auto; }
+  .ms-endbook .ms-sticky { position: relative; height: auto; padding: 16svh var(--space-5); }
   .bk-page, .ms-hero-hint, .ms-book-dive, .ms-beats, .ms-caps-veil, .ms-flymoon { display: none; }
   .bk-cover { position: relative; aspect-ratio: 5 / 7; }
   .ms-world { height: auto; margin-top: 0; }
