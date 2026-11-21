@@ -23,6 +23,7 @@ import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { saveRadar } from "./radarArchive";
 import { saveAmedas } from "./amedasArchive";
+import { saveAirQuality } from "./airQuality";
 import { collectLongRange } from "./longRangeArchive";
 import { health, markStart, timed } from "./health";
 import { claimHealthWatch, watchHealth } from "./healthWatch";
@@ -292,6 +293,8 @@ export default {
         .then((due) => (due ? stage("health watch", (d) => watchHealth(d, event.scheduledTime, env))() : undefined))
         .catch((e) => console.error("weather-note: health watch", e)),
     );
+    // 空気質（Open-Meteo の CAMS、airQuality.ts）：1時間に1回まで、終わった日の1時間ごとの値を D1 に。
+    ctx.waitUntil(stage("air quality", (d) => saveAirQuality(d))());
     // Files kept in R2 (r2Archive.ts), apart from the rest: the rain radar every 30 minutes first (JMA lists
     // only about 3 hours of it, radarArchive.ts), the day's weather charts, and the telegrams copied as files.
     const bucket = env.ARCHIVE;
