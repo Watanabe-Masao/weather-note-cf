@@ -726,9 +726,17 @@ export function BeaverWorld(): ReactElement {
             <image className="bw-swim-img" href={A("beaver-swim-branch-blue")} x={-62} y={-30} width={112} height={40} />
           </g>
         </g>
-        {/* 尾を上げて潜る姿（8ページ「住みかへ帰ります」、素材 A-04）。 */}
+        {/* 8ページ「住みかへ帰ります」（11/21 承認：カメラは寄せず、姿と動きで見せる）：住みかの前の水面を進む姿 →
+            頭を下げて尾が少し残る姿（素材 A-04）→ 水に消えて、波の輪だけが残る。どれも月明かりの色に沈める。 */}
+        <g className="bw-home" transform="translate(168 662)" opacity={0}>
+          <image className="bw-night-img" href={A("beaver-swim")} x={-60} y={-38} width={120} height={50} />
+        </g>
         <g className="bw-dive" opacity={0}>
-          <image href={A("beaver-dive")} x={196} y={628} width={56} height={32} />
+          <image className="bw-night-img" href={A("beaver-dive")} x={176} y={604} width={110} height={62} />
+        </g>
+        <g className="bw-dive-ring" transform="translate(231 661)" fill="none" stroke="#cfe0ff" opacity={0}>
+          <ellipse rx={16} ry={3.4} strokeWidth={1.1} />
+          <ellipse rx={30} ry={6} strokeWidth={0.8} opacity={0.6} />
         </g>
         {/* 住みかへ運ぶ細い枝（3・7ページ、素材 A-02）：一本ずつ、住みかの上に置く。 */}
         <g className="bw-twigs">
@@ -1059,17 +1067,31 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .fromTo(twigs[3], { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, 6.42)
     .to(".bw-swim", { opacity: 0, duration: 0.08 }, 6.44)
     .to(".bw-look", { opacity: 1, duration: 0.1 }, 6.5)
-    .to(".bw-fog", { opacity: 1, duration: 0.4 }, 6.2);
+    .to(".bw-fog", { opacity: 1, duration: 0.4 }, 6.2)
+    // 秋から冬へ（11/21 承認）：7ページは紅葉を残し、読み終えたあとの間から8ページの頭にかけて、上の紅葉の枝と
+    // 紅葉の木をゆっくり消す（8・9ページは冬の森。急に消えないように）。
+    .to(".bw-maple", { opacity: 0, duration: 0.6, ease: "sine.inOut" }, 6.75)
+    .to(".bw-autumn", { opacity: 0, duration: 0.65, ease: "sine.inOut" }, 6.75);
   // 8 雪がひとひら、静かな住みかへ：一片の雪のあとに雪が降りはじめ、ビーバーは尾を上げて潜り、住みかに雪が積もる。
   tl.fromTo(".bw-flake1", { opacity: 0, y: 0 }, { opacity: 0.95, y: 560, duration: 0.36, ease: "none" }, 7.02)
     .to(".bw-flake1", { opacity: 0, duration: 0.05 }, 7.38)
     .to(".bw-snow", { opacity: 1, duration: 0.3 }, 7.3)
-    // 冬になる：上の紅葉の枝は消え、紅葉の木は雪の夜に沈む（11/21 レビュー：冬のページに紅葉が残っていた）。
-    .to(".bw-maple", { opacity: 0, duration: 0.3 }, 7.3)
-    .to(".bw-autumn", { opacity: 0.12, duration: 0.35 }, 7.3)
-    .to(".bw-look", { opacity: 0, duration: 0.08 }, 7.36)
-    .fromTo(".bw-dive", { opacity: 0, y: -4 }, { opacity: 1, y: 0, duration: 0.06 }, 7.38)
-    .to(".bw-dive", { opacity: 0, y: 12, duration: 0.14, ease: "power1.in" }, 7.5)
+    // 住みかへ帰る（11/21 承認）：住みかの上の姿が消え、住みかの前の水面を進み、頭を下げて尾が少し残り、水に消える。
+    // 波の輪が姿の消えたあとに残る。8ページの静けさを保つため、大きくは動かさない。
+    .set(".bw-night-img", { filter: "brightness(0.62) saturate(0.75)" }, 7.3)
+    // 住みかの上の姿が消えきってから泳ぐ姿を出す（二つの姿が半透明で重ならないように。7ページと同じ）。
+    .to(".bw-look", { opacity: 0, duration: 0.08 }, 7.34)
+    .fromTo(".bw-home", { opacity: 0, x: 150 }, { opacity: 1, x: 162, duration: 0.06 }, 7.43)
+    .to(".bw-home", { x: 214, duration: 0.12, ease: "sine.inOut" }, 7.46)
+    .to(".bw-home", { opacity: 0, duration: 0.04 }, 7.58)
+    .fromTo(".bw-dive", { opacity: 0, y: 0 }, { opacity: 1, duration: 0.04 }, 7.58)
+    .to(".bw-dive", { y: 16, opacity: 0, duration: 0.14, ease: "power1.in" }, 7.68)
+    .fromTo(
+      ".bw-dive-ring",
+      { opacity: 0.85, scale: 0.6, svgOrigin: "231 661" },
+      { opacity: 0, scale: 1.7, duration: 0.26, ease: "sine.out" },
+      7.72,
+    )
     .to(q(".bw-twig"), { opacity: 0, duration: 0.2 }, 7.45)
     .to(".bw-lodge-snow", { opacity: 1, duration: 0.25, ease: "sine.inOut" }, 7.45)
     .to(".bw-camera", { scale: 1.12, x: -30, y: -31, duration: 0.75, ease: "power2.inOut" }, 7);
