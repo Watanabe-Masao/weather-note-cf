@@ -8,6 +8,9 @@
 //   - 動いている間に指が触れたら、その場で止めて指に返す（そのタップでは次へ進めない）。
 //   - 朗読の速さで運ぶのは、次の区切りへ一つ進むときだけ。戻る・飛ぶ・とばすは 1.1〜1.8 秒。
 //   - マウスのホイール・トラックパッドは、一つの操作（間が空くまで）で一つ進む。
+//   - 絵本のページ（場面）の間は、横に払っても一つ進む・戻る（11/21 渡辺さん「横スワイプの方が絵本として自然」）。
+//     向きは縦書きの本と同じ：左から右へ払うと次、右から左へ払うと前。画面の端から始めた払いは受けない（Safari の
+//     「戻る」と取り合わない）。
 // 今夜の情報から下（読む所）は、ブラウザのふつうのスクロールのまま。
 // 区切りの位置は測って取っておき（refresh）、動いている間はレイアウトを読まない。
 
@@ -44,6 +47,9 @@ const FLICK_PX = 140;
 const FLING_V = 900;
 /** ゆっくりのスクロールで離したあとの惰性（ブラウザのスクロールに近い減速、時定数 秒）。 */
 const COAST_S = 0.33;
+/** 横に払った、とみなす距離（px）と、受けない画面の端の幅（px）。 */
+const SIDE_PX = 40;
+const EDGE_PX = 24;
 
 export type Pager = {
   /** 区切りの位置を測り直す（大きさが変わったとき）。 */
@@ -232,6 +238,8 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
   let tracking = false;
   let decided = false;
   let startY = 0;
+  let startX = 0;
+  let side = false; // 横に払っている（絵本のページの間だけ）
   let startTop = 0;
   let startT = 0;
   let samples: { t: number; y: number }[] = [];
@@ -257,6 +265,8 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     tracking = true;
     decided = false;
     startY = e.touches[0].clientY;
+    startX = e.touches[0].clientX;
+    side = false;
     startTop = el.scrollTop;
     startT = e.timeStamp;
     samples = [{ t: e.timeStamp, y: startY }];
@@ -267,8 +277,29 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     if (!tracking) return;
     const y = e.touches[0].clientY;
     const dy = y - startY;
+    const dx = e.touches[0].clientX - startX;
+    if (side) {
+      e.preventDefault();
+      return;
+    }
     if (!decided) {
-      if (Math.abs(dy) < 3) return;
+      if (Math.abs(dy) < 3 && Math.abs(dx) < 3) return;
+      // 横の払い：絵本のページ（物語の本編の頭から、最後の区切りの手前まで）で、画面の端から始めていないときだけ。
+      if (Math.abs(dx) > Math.abs(dy)) {
+        const inBook =
+          (!o.freeBefore || startTop >= o.freeBefore() - 1) &&
+          startTop < last() - 1 + (dx < 0 ? 2 : 0) &&
+          startX > EDGE_PX &&
+          startX < window.innerWidth - EDGE_PX;
+        if (!inBook) {
+          tracking = false;
+          return;
+        }
+        decided = true;
+        side = true;
+        e.preventDefault();
+        return;
+      }
       decided = true;
       if (!inStory(startTop, dy)) {
         tracking = false; // ふつうのスクロールに任せる
@@ -288,6 +319,19 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     // 止めたのなら、そのタップでは進めない。
     if (!decided) {
       if (stoppedByTouch) swallowClick();
+      return;
+    }
+    if (side) {
+      side = false;
+      const t = e.changedTouches[0];
+      const dx = t ? t.clientX - startX : 0;
+      if (Math.abs(dx) < SIDE_PX) return;
+      // 左から右へ（dx > 0）で次、右から左へで前（縦書きの本と同じ）。
+      const dir: 1 | -1 = dx > 0 ? 1 : -1;
+      const top = el.scrollTop;
+      if (!inStory(top, -dir)) return;
+      swallowClick();
+      glide(stepFrom(top, dir));
       return;
     }
     // 離す直前 100ms の速さ（スクロールの向き、px/秒）。
