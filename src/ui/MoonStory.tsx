@@ -209,14 +209,34 @@ export function progressToBeat(w: number[], p: number): number {
  * 物語の区切り（スクロールの px、小さい順）：表紙・見開き・場面の一コマずつ（文が読める所）・場面の終わり（一枚の絵）・
  * 締めくくり・今夜の情報の頭。下のドットは場面のコマ（firstBeat から一つずつ）。
  */
+/**
+ * 縦書きの字幕の字の大きさを、いちばん長い行（data-n 字）が列の高さに収まる段に（11/21 レビュー）。字の送りは
+ * 1字＋字間 0.14em に、句読点の詰めの差を見て少し余裕（1.2）。lg → md → sm の順に試し、収まらなければ sm のまま。
+ */
+export function fitCaps(el: HTMLElement): void {
+  el.querySelectorAll<HTMLElement>(".ms-cap").forEach((c) => {
+    const n = Number(c.dataset.n) || 0;
+    const h = c.clientHeight;
+    if (!n || !h) return;
+    c.classList.remove("fit-md", "fit-sm");
+    for (const k of ["", "fit-md", "fit-sm"]) {
+      if (k) c.classList.add(k);
+      if (n * parseFloat(getComputedStyle(c).fontSize) * 1.2 <= h) return;
+      if (k && k !== "fit-sm") c.classList.remove(k);
+    }
+  });
+}
+
 function storyStops(
   el: HTMLElement,
   scene: { beats: number } | null | undefined,
   weights: number[],
   seconds: number[],
   book = false,
+  reduced = false,
 ): { px: number[]; firstBeat: number; secs: (number | undefined)[] } {
   const vh = el.clientHeight;
+  fitCaps(el); // 大きさが変わると列の高さも変わる（区切りを測り直すときに一緒に）
   const b = el.querySelector<HTMLElement>(".ms-book");
   const w = el.querySelector<HTMLElement>(".ms-world");
   const ep = el.querySelector<HTMLElement>(".ms-epilogue");
@@ -226,6 +246,18 @@ function storyStops(
   /** その区切りへ一つ前から運ぶ秒数（コマは字の数に比例。ほかは距離から）。 */
   const secs: (number | undefined)[] = [];
   let firstBeat = -1;
+  // 動きを減らす設定（11/21 レビュー：区切りが文の並びの途中にあり、文が上のボタンに重なっていた）：場面は一枚の絵、
+  // 文はその下に並ぶので、区切りは各ページの文の頭（上の帯の下）に置く。
+  if (reduced && w && scene) {
+    const band = (el.querySelector<HTMLElement>(".ms-topband")?.offsetHeight ?? 0) + 8;
+    const top = el.getBoundingClientRect().top - el.scrollTop;
+    if (b) px.push(b.offsetTop + b.offsetHeight - vh);
+    px.push(w.offsetTop);
+    firstBeat = px.length;
+    el.querySelectorAll<HTMLElement>(".ms-cap").forEach((c) => px.push(c.getBoundingClientRect().top - top - band));
+    px.push(end);
+    return { px: px.map((p) => Math.round(Math.min(end, Math.max(0, p)))), firstBeat, secs };
+  }
   if (b) px.push(((b.offsetHeight - vh) * 1.35) / 2.8);
   if (w && scene) {
     const r = w.offsetHeight - vh;
@@ -717,10 +749,11 @@ export function MoonStory({
               .set(cap, { opacity: 1 }, i + REVEAL_START)
               .fromTo(
                 `${cap} .ms-ch`,
-                { opacity: 0, y: 10, filter: "blur(3px)" },
+                // 字は inline（11/21 レビュー：一字ずつ inline-block にしていたので、行頭の句点を避ける決まりが効かず、
+                // 「。」だけが次の列の頭に来ていた）。inline には位置の動きが効かないので、滲みと透け具合だけで出す。
+                { opacity: 0, filter: "blur(3px)" },
                 {
                   opacity: 1,
-                  y: 0,
                   filter: "blur(0px)",
                   duration: 0.12,
                   ease: "power1.out",
@@ -1061,7 +1094,7 @@ export function MoonStory({
       const dots = [...el.querySelectorAll<HTMLElement>(".ms-beat")];
       const pg = storyPager(el, {
         measure: () => {
-          const m = storyStops(el, scene, weights, beatSecs, !!story?.book);
+          const m = storyStops(el, scene, weights, beatSecs, !!story?.book, window.matchMedia("(prefers-reduced-motion: reduce)").matches);
           firstBeat = m.firstBeat;
           beatAt.current = firstBeat;
           secs = m.secs;
@@ -1328,7 +1361,13 @@ export function MoonStory({
             <span className="ms-caps-veil" aria-hidden />
             <div className="ms-caps">
               {lines.map((t, i) => (
-                <p key={i} className="ms-cap" data-i={i}>
+                <p
+                  key={i}
+                  className="ms-cap"
+                  data-i={i}
+                  // いちばん長い行の字数（縦書きの列に収まる字の大きさを選ぶ。fitCaps）。
+                  data-n={Math.max(...tateNum(t).split("\n").map((l) => [...l].length))}
+                >
                   <Letters text={tateNum(t)} />
                 </p>
               ))}
