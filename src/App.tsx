@@ -282,12 +282,10 @@ export function App(_: { theme?: string } = {}) {
     const row = metricsRef.current;
     const chip = row?.querySelector<HTMLElement>('[aria-selected="true"]');
     if (!row || !chip) return;
-    const left = chip.offsetLeft - row.offsetLeft;
-    if (
-      left < row.scrollLeft ||
-      left + chip.offsetWidth > row.scrollLeft + row.clientWidth
-    )
-      row.scrollTo({ left: left - 8, behavior: "smooth" });
+    // The chosen chip comes to the middle of the bar (the ones beside it show that the row goes on).
+    const left = row.scrollLeft + chip.getBoundingClientRect().left - row.getBoundingClientRect().left;
+    const to = left - (row.clientWidth - chip.offsetWidth) / 2;
+    if (Math.abs(to - row.scrollLeft) > 4) row.scrollTo({ left: to, behavior: "smooth" });
   }, [view.metric]);
 
   // Measure the space under the comparison table: that is the sheet's middle height.
@@ -306,18 +304,33 @@ export function App(_: { theme?: string } = {}) {
       window.removeEventListener("resize", measure);
     };
   }, [full]);
-  // The sheet's highest position stops just under the item chips, so they stay usable.
-  const [chipsBottom, setChipsBottom] = useState(0);
+  // The item bar is fixed at the bottom; the sheet stands on it and may rise to the top of the screen.
+  const [barH, setBarH] = useState(0);
+  const [safeTop, setSafeTop] = useState(0);
   useLayoutEffect(() => {
     const el = metricsRef.current;
     if (!el) return;
-    const measure = () =>
-      setChipsBottom(el.getBoundingClientRect().bottom + window.scrollY);
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none";
+    document.body.appendChild(probe);
+    const measure = () => {
+      setBarH(Math.round(el.getBoundingClientRect().height));
+      setSafeTop(Math.round(probe.getBoundingClientRect().height));
+    };
     measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [full]);
-  const heights = sheetHeights(spaceBelow, window.innerHeight, chipsBottom);
+    return () => {
+      ro.disconnect();
+      probe.remove();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty("--itembar-h", `${barH}px`);
+  }, [barH]);
+  const heights = sheetHeights(spaceBelow - barH, window.innerHeight - barH, safeTop + 8);
   // Overlay sheets open to the same height as the graph sheet at its highest (rule: 重なり順と高さ).
   useLayoutEffect(() => {
     document.documentElement.style.setProperty(
@@ -332,7 +345,7 @@ export function App(_: { theme?: string } = {}) {
     <TyphoonDaysContext.Provider value={typhoonOn}>
     <div
       className={full ? "app full wide" : "app"}
-      style={{ paddingBottom: view.single ? 24 : heights[sheetDetent] + 12 }}
+      style={{ paddingBottom: (view.single ? 24 : heights[sheetDetent] + 12) + barH }}
     >
       {!full && (
         <header className="app-head">
@@ -377,20 +390,6 @@ export function App(_: { theme?: string } = {}) {
           }}
         />
       )}
-
-      <div className="metrics" role="tablist" ref={metricsRef}>
-        {METRICS.map((m) => (
-          <button
-            key={m.id}
-            role="tab"
-            aria-selected={m.id === view.metric}
-            className={m.id === view.metric ? "chip item on" : "chip item"}
-            onClick={() => set("metric", m.id)}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
 
       <SeasonDays store={store} station={view.station} dates={[view.target, compareDate]} />
       <StatusBar
@@ -482,9 +481,8 @@ export function App(_: { theme?: string } = {}) {
             detent={sheetDetent}
             heights={heights}
             onDetent={setDetent}
-            scrimTop={chipsBottom}
             tabs={
-              // The item chips stay visible above the sheet, so the sheet only says what it shows.
+              // The item bar stays visible under the sheet, so the sheet only says what it shows.
               <div className="sheet-head">
                 {shownFace === "trend" ? (
                   <>
@@ -660,6 +658,21 @@ export function App(_: { theme?: string } = {}) {
           />
         </BetaContext.Provider>
       )}
+
+      {/* 項目の帯：画面の下に固定、1行で横にスワイプ（2026-11-22 渡辺さん。比較・1日とも同じ）。グラフのシートはこの上に乗る。 */}
+      <nav className="metrics item-bar" role="tablist" aria-label="グラフの項目" ref={metricsRef}>
+        {METRICS.map((m) => (
+          <button
+            key={m.id}
+            role="tab"
+            aria-selected={m.id === view.metric}
+            className={m.id === view.metric ? "chip item on" : "chip item"}
+            onClick={() => set("metric", m.id)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </nav>
 
       {/* その日の要約 (#176): over whatever it was opened from (the table, the calendar, the hours). */}
       {typhoonAsked && <TyphoonSheet station={view.station} date={today} number={typhoonAsked} info={typhoons} onClose={() => setTyphoonAsked(null)} />}

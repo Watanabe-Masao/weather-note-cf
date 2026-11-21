@@ -857,23 +857,41 @@ img.event-pic { object-fit: contain; }
 }
 @keyframes fm-book-sheen { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
-/* The items fit the width: equal columns, no hidden one. Eight items (視程, 2026-11-22) in two rows of four,
-   as the 1日モード's item cards. */
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
+/* The item bar (2026-11-22 渡辺さん): fixed to the bottom of the screen in both modes, one row that scrolls
+   sideways. The graph sheet stands on it (bottom: var(--itembar-h)). Each chip is a 44px target. */
+.metrics.item-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  max-width: 600px;
+  margin: 0 auto;
+  z-index: var(--layer-sheet);
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: var(--space-4);
+  scrollbar-width: none;
+  padding: var(--space-2) var(--space-4) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  background: var(--surface-base);
+  border-top: var(--stroke-hair) solid var(--line-soft);
 }
+.metrics.item-bar::-webkit-scrollbar { display: none; }
 
 .metrics .chip {
+  flex: 0 0 auto;
   justify-content: center;
+  scroll-snap-align: center;
   border-radius: var(--radius-md);
-  padding: var(--space-3) 0;
+  padding: 0 var(--space-4);
   font-size: var(--size-base);
   white-space: nowrap;
   letter-spacing: -0.02em;
-  min-height: 34px;
+  /* Four and a half chips show at any width, so the cut one tells that the row goes on. */
+  min-width: calc((min(100vw, 600px) - var(--space-4) - 4 * var(--space-2)) / 4.5);
+  min-height: 44px;
 }
 
 /* ---- tables ----------------------------------------------------------------------------------- */
@@ -1327,7 +1345,6 @@ button.label-feel:active { transform: scale(0.97); }
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
   max-width: 600px;
   margin: 0 auto;
   background:
@@ -1340,7 +1357,7 @@ button.label-feel:active { transform: scale(0.97); }
   flex-direction: column;
   overflow: hidden;
   z-index: var(--layer-sheet);
-  padding-bottom: env(safe-area-inset-bottom);
+  bottom: var(--itembar-h, 0px);
   box-shadow: var(--shadow-sheet);
   will-change: height;
   contain: layout paint;
