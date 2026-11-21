@@ -93,9 +93,9 @@ type Look = "line" | "range";
  * Items that can be drawn as each day's range (幅): which series are its top, bottom and mean, and the
  * colours from top to bottom. 気温 (最高〜最低) and 視程 (最大〜最小, 2026-11-22 渡辺さん「UIはできるだけ揃えたい」).
  */
-const RANGE: Partial<Record<ChartMetric["id"], { top: string; bottom: string; mean: string; from: DataColor; to: DataColor; what: string; name: string }>> = {
-  temp: { top: "max", bottom: "min", mean: "temp", from: "hot", to: "cold", what: "最高（上）から最低（下）", name: "気温" },
-  visibility: { top: "visibilityMax", bottom: "visibilityMin", mean: "visibilityMean", from: "visibility", to: "visibility", what: "最大（上）から最小（下）", name: "視程" },
+const RANGE: Partial<Record<ChartMetric["id"], { top: string; bottom: string; mean: string; meanName: string; from: DataColor; to: DataColor; what: string; name: string }>> = {
+  temp: { top: "max", bottom: "min", mean: "temp", meanName: "平均", from: "hot", to: "cold", what: "最高（上）から最低（下）", name: "気温" },
+  visibility: { top: "visibilityMax", bottom: "visibilityMin", mean: "visibilityMedian", meanName: "中央値", from: "visibility", to: "visibility", what: "最大（上）から最小（下）", name: "視程" },
 };
 function useLook(): [Look, (l: Look) => void] {
   const [look, setLook] = useState<Look>(() => {
@@ -578,7 +578,7 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
       </svg>
       {/* Legend in the graph's own marks, on one line: which day (lines, fills or round bars), 予報.
           Everything that explains rather than names (信頼度, what a bar or a number is) is behind ⓘ. */}
-      <InfoNote className="chart-key" more={<ChartNotes metric={metric} range={range ? rk!.what : null} spread={spreadOn} feel={shown("feel") && lines.some((s) => s.key === "feel")} mean={!!rk && shown(rk.mean)} />}>
+      <InfoNote className="chart-key" more={<ChartNotes metric={metric} range={range ? rk!.what : null} meanName={rk?.meanName ?? "平均"} spread={spreadOn} feel={shown("feel") && lines.some((s) => s.key === "feel")} mean={!!rk && shown(rk.mean)} />}>
         <span className="line-legend">
           <span>
             {metric.chart === "bar" ? <BarSample day="target" /> : range ? <RangeSample day="target" /> : <LineSample day="target" />}
@@ -631,9 +631,9 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
 }
 
 /** What the graph's marks mean, behind the legend's ⓘ: 信頼度 and the item's own notes. */
-function ChartNotes({ metric, range, spread, feel, mean }: { metric: ChartMetric; range: string | null; spread: boolean; feel: boolean; mean: boolean }) {
+function ChartNotes({ metric, range, meanName, spread, feel, mean }: { metric: ChartMetric; range: string | null; meanName: string; spread: boolean; feel: boolean; mean: boolean }) {
   const notes = [
-    range && `棒は${range}まで${mean ? "、白い印は平均" : ""}。`,
+    range && `棒は${range}まで${mean ? `、白い印は${meanName}` : ""}。`,
     spread && "寒暖差は最高−最低。",
     feel && "肌感は日中・昼・夕方の平均。",
     metric.under?.some((r) => r.key === "probability") && "降水確率は予報の日だけ、雪は降った日だけ。",
