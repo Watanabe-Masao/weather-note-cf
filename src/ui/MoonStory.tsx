@@ -155,11 +155,11 @@ export function beatSeconds(lines: string[], rests: number[] = [], holdLast = fa
 export const LAST_TAIL = 1.6;
 /**
  * 文の出入り（コマの中の位置、11/21 レビュー）：止まる所（BEAT_REST）を過ぎて送りはじめたら、すぐ消しはじめて短く消す。
- * 次のページの文は、そのコマの頭より CAP_LEAD 前から出しはじめる（消えてから出るまで、運ぶ速さでおよそ2秒）。
+ * 次のページの文は、そのコマの頭より CAP_LEAD 前から出しはじめる（前の文が消えてから1秒ほどで出はじめる）。
  */
 export const CAP_OUT = 0.8;
 export const CAP_OUT_DUR = 0.05;
-export const CAP_LEAD = 0.1;
+export const CAP_LEAD = 0.16;
 /**
  * 一字ずつ出る時刻（コマの中の 0〜1）。朗読の速さのまま（コマの秒数で割る）。lineAt があれば、行ごとにその所から
  * 出しはじめる（前の行が出そろう前には始めない）。行の切れ目は改行（\n）。
