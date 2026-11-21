@@ -11,4 +11,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: node research/keep-candidates/kc04d.mjs
+      - run: node research/keep-candidates/kc04e.mjs
