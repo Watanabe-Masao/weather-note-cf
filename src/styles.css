@@ -4763,6 +4763,12 @@ select.chip.sm {
 .hour-chart-wrap:has(.band-wx) .state-overlay { bottom: calc(26px + 22px + 34px); }
 .ro-wx { display: inline-flex; align-items: center; gap: var(--space-2); }
 .ro-wx small { font-size: var(--size-sm); color: var(--ink-secondary); }
+/* 風向の行（風速のときだけ）：1時間ごとの矢印（吹いていく向き）と静穏の丸。比べる日は下の段で控えめに。 */
+.band-wind { position: relative; height: var(--space-5); }
+.band-wind.two { height: calc(var(--space-5) * 2); }
+.band-wind-cell { position: absolute; top: 0; width: var(--space-3); height: var(--space-3); transform: translateX(-50%); color: var(--data-wind); }
+.band-wind-cell.other { top: var(--space-5); opacity: var(--effect-quiet); }
+.band-wind-cell svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: var(--stroke-select); stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .band-wx-name { position: absolute; left: 0; text-align: right; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1; }
 .band-wx-name.main { top: var(--space-2); }
 .band-wx-name.other { top: 21px; }
@@ -5588,3 +5594,20 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .vb-guide span { position: absolute; top: 0; overflow: hidden; text-align: center; white-space: nowrap; border-left: var(--stroke-hair) solid var(--line-shade); }
 .vb-guide .vb-guide-top { left: 100%; transform: translateX(-50%); border: 0; color: var(--data-visibility); }
 .vb-axis { display: flex; justify-content: space-between; margin: 0 6.5em 0 calc(6.5em + var(--space-2)); padding-right: var(--space-2); font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-secondary); }
+
+/* 風向の比べ（WindRose）：2日を横に並べた16方位の風配図。選んだ日は塗り、比べる日は縁だけ。最頻の方位は文字の色の縁。 */
+.wr { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.wr-day { display: grid; justify-items: center; gap: var(--space-1); margin: 0; }
+.wr-rose { width: 100%; max-width: 9rem; aspect-ratio: 1; overflow: visible; }
+.wr-ring { fill: none; stroke: var(--line-shade); stroke-width: var(--stroke-hair); vector-effect: non-scaling-stroke; }
+.wr-petal { fill: var(--data-wind); stroke: none; }
+.wr-petal.wr-top { stroke: var(--ink-primary); stroke-width: var(--stroke-select); vector-effect: non-scaling-stroke; }
+.wr-b .wr-petal { fill: none; stroke: var(--data-wind); stroke-width: var(--stroke-hair); vector-effect: non-scaling-stroke; }
+.wr-b .wr-petal.wr-top { stroke: var(--data-wind); stroke-width: var(--stroke-select); }
+.wr-mean { stroke: var(--ink-primary); stroke-width: var(--stroke-hair); vector-effect: non-scaling-stroke; }
+.wr-calm, .wr-n { font-size: var(--size-xs); text-anchor: middle; dominant-baseline: middle; fill: var(--ink-secondary); transform: scale(0.5); transform-box: fill-box; transform-origin: center; }
+.wr-day figcaption { display: grid; justify-items: center; font-size: var(--size-xs); color: var(--ink-secondary); text-align: center; }
+.wr-day figcaption strong { color: var(--ink-primary); }
+
+/* 風速の札の主な風向（16方位の最頻値）。 */
+.dd-dir { margin-left: var(--space-1); font-size: var(--size-xs); color: var(--ink-secondary); }
