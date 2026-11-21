@@ -56,6 +56,7 @@ export const HOUR_TONE: Record<DetailMetricId, DataColor> = {
   snow: "snow",
   probability: "rain",
   humidity: "humidity",
+  visibility: "humidity",
   wind: "wind",
   radiation: "radiation",
   sun: "sun",

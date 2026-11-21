@@ -64,6 +64,8 @@ const HOURLY_FIELDS = {
 const OPTIONAL_HOURLY = {
   snow: "snowfall",
   gust: "wind_gusts_10m",
+  // 視程（m、モデルの値）：km にして、観測（視程計の上限 約20 km）にそろえて 20 で止める（normalizeForecast）。
+  visibility: "visibility",
 };
 const DAILY_FIELDS = {
   temp: "temperature_2m_mean",
@@ -100,7 +102,11 @@ export function normalizeForecast(data: ForecastPayload): { rows: WeatherRow[]; 
       quality: {},
     };
     fill(row, HOURLY_FIELDS, hourly, i);
-    if (hourly.snowfall || hourly.wind_gusts_10m) fill(row, OPTIONAL_HOURLY, hourly, i);
+    if (hourly.snowfall || hourly.wind_gusts_10m || hourly.visibility) fill(row, OPTIONAL_HOURLY, hourly, i);
+    if (typeof row.visibility === "number") {
+      row.visibility = Math.min(20, Math.round(row.visibility / 100) / 10);
+      row.raw.visibility = String(row.visibility);
+    }
     return row;
   });
 
