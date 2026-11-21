@@ -1331,7 +1331,8 @@ export function MoonStory({
                       )
                     )}
                   </div>
-                  <h3>{story?.tale?.tagline ?? story?.gloss ?? title}</h3>
+                  {/* 絵本の形の満月は、副題が本文の一行なので、表紙と同じく句点まで（11/21：「いっぽん。また、いっぽん」で終わって見えた）。 */}
+                  <h3>{story?.tale?.tagline ? `${story.tale.tagline}${story.book ? "。" : ""}` : (story?.gloss ?? title)}</h3>
                 </div>
               </div>
               <span className="bk-page-shadow" aria-hidden />
