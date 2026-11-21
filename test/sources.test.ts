@@ -44,6 +44,15 @@ describe("AMeDAS observations", () => {
     expect(rows.map((r) => r.n)).toEqual([21, 22, 23]);
   });
 
+  it("reads the observed weather on the hour (only the codes checked, KC-05) and the visibility in km", () => {
+    const { rows } = parseLivePoint(evening, "2026-11-08");
+    expect(rows.map((r) => r.weather)).toEqual(["曇", "曇", "曇"]);
+    expect(rows[0].visibility).toBe(20);
+    // 確かめていない番号は文字にしない（予報の天気を借りる）。
+    const odd = { "20261108210000": { ...evening["20261108210000"], weather: [3, 0] } } as PointData;
+    expect(parseLivePoint(odd, "2026-11-08").rows[0].weather).toBeUndefined();
+  });
+
   it("uses the 24:00 closing record for max, min and rain when it is available", () => {
     const { daily, hourly } = aggregateRecentDay({ ...evening, ...midnight }, "2026-11-08");
     expect(hourly.at(-1)).toMatchObject({ n: 24, observedAt: "24:00" });

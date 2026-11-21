@@ -386,12 +386,14 @@ function radDayOf(rows: WeatherRow[], n: number): Pick<Snapshot, "radDay" | "rad
 
 /** The forecast's weather for the hour: its own row, or the weather it lent to the observed row. */
 function forecastSkyOf(rows: WeatherRow[], row: WeatherRow): Pick<Snapshot, "forecastSky" | "forecastSkyCode"> {
-  const lent = (row.origin as Record<string, Origin> | undefined)?.weather === "forecast" || row.type === "forecast";
+  const origin = row.origin as Record<string, Origin> | undefined;
+  const lent = origin?.weather === "forecast" || row.type === "forecast";
   const source = lent ? row : rows.find((r) => r.n === row.n && r.type === "forecast");
-  return {
-    forecastSky: typeof source?.weather === "string" ? source.weather : null,
-    forecastSkyCode: num(source?.weatherCode),
-  };
+  // 天気を観測している時間（アメダスの気象台、2026-11-21）は、予報の天気が forecastWeather に、予報の番号は
+  // weatherCode に（予報から借りたもの）残る。
+  const sky = typeof source?.weather === "string" ? source.weather : typeof row.forecastWeather === "string" ? row.forecastWeather : null;
+  const code = source ? num(source.weatherCode) : origin?.weatherCode === "forecast" ? num(row.weatherCode) : null;
+  return { forecastSky: sky, forecastSkyCode: code };
 }
 
 /** A past day from its daily row and how the store holds it. */

@@ -24,13 +24,14 @@ export const RANK: Record<Origin, number> = { "jma-fixed": 4, jma: 3, amedas: 2,
  * What a forecast may lend to a measured row: only values the measuring source does not have at
  * all (AMeDAS has no solar radiation; 肌感（日なた） needs it). A forecast never stands in for a
  * measured value that is merely missing: that gap stays a gap. The forecast's weather for an
- * observed hour is kept too (AMeDAS reports none), marked as the forecast's, so a report can set
- * what was forecast beside what the person saw.
+ * observed hour is kept too, marked as the forecast's, so a report can set what was forecast beside
+ * what the person saw. AMeDAS reports the weather only where it is observed (気象台, hourly, 2026-11-21):
+ * there the observed weather stays, and the forecast's is kept beside it as `forecastWeather`.
  */
-const FORECAST_LENDS = new Set(["solar", "weather", "weatherCode"]); // AMeDAS has no radiation and no weather text
+const FORECAST_LENDS = new Set(["solar", "weather", "weatherCode"]); // AMeDAS has no radiation; weather only at some points
 
 /** Row keys that describe the row rather than hold a weather value. */
-const META = new Set(["date", "n", "type", "provider", "raw", "quality", "unpublished", "provisional", "origin", "from", "solarSource", "confidence", "spread"]);
+const META = new Set(["date", "n", "type", "provider", "raw", "quality", "unpublished", "provisional", "origin", "from", "solarSource", "confidence", "spread", "forecastWeather"]);
 
 /** Where a day record as a whole came from. */
 export function dayOrigin(r: Pick<DayRecord, "kind" | "source">): Origin {
@@ -88,6 +89,12 @@ export function fillFrom(base: WeatherRow, baseOrigin: Origin, fill: WeatherRow 
     if (fill.raw?.[k] !== undefined) out.raw[k] = fill.raw[k];
     if (fill.quality?.[k]) out.quality[k] = fill.quality[k];
     (out.origin as Record<string, Origin>)[k] = fieldOrigin(fill, k, fillOrigin);
+  }
+  // 観測の天気がある時間にも、予報の天気を「予報の天気」として横に残す（肌感の記録の「予報は何だったか」のため）。
+  if (fillOrigin === "forecast" && measured && typeof fill.weather === "string" && fill.weather && base.weather != null && base.forecastWeather == null) {
+    out ??= { ...base, raw: { ...base.raw }, quality: { ...base.quality }, origin: { ...((base.origin as object) ?? {}) } };
+    out.forecastWeather = fill.weather;
+    (out.origin as Record<string, Origin>).forecastWeather = "forecast";
   }
   void baseOrigin;
   return out ?? base;
