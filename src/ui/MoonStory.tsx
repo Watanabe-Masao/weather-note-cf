@@ -1331,7 +1331,18 @@ export function MoonStory({
                       )
                     )}
                   </div>
-                  <h3>{story?.tale?.tagline ?? story?.gloss ?? title}</h3>
+                  {/* 絵本の形の満月は、副題が本文の一行なので、表紙と同じく句点まで（11/21：「いっぽん。また、いっぽん」で終わって見えた）。 */}
+                  <h3 className={story?.book ? "bk-refrain" : undefined}>
+                    {story?.book && story.tale?.tagline
+                      ? // 本文の一行の副題は、句点の後ろでだけ折り返す（11/21：「いっぽん。ま／た、いっぽん。」と切れていた）。
+                        `${story.tale.tagline}。`.split(/(?<=。)/).map((part, i) => (
+                          <span key={i}>
+                            {i > 0 && <wbr />}
+                            {part}
+                          </span>
+                        ))
+                      : (story?.tale?.tagline ?? story?.gloss ?? title)}
+                  </h3>
                 </div>
               </div>
               <span className="bk-page-shadow" aria-hidden />
