@@ -1584,7 +1584,7 @@ with sync_playwright() as p:
     def mr():
         pg.locator(".side-target .date-button").click(); calm()
         pg.locator(".calendar-head .icon-btn").first.click(); calm()  # the month before: a whole month
-        pg.click(".cal-month-review"); calm()
+        pg.locator(".cal-month-review", has_text="月の概要").click(); calm()
         check("MR1 カレンダーの下の1行で月の概要が開く（カレンダーは閉じる）", pg.locator(".month-review").count() == 1 and pg.locator(".msheet.calendar").count() == 0)
         check("MR2 ページは4つ（まとめ・日ごと・曜日・肌感）", pg.locator(".month-tabs button").count() == 4, txt(".month-tabs"))
         check("MR3b 台風の日：レポートに台風◯号と出典", "台風99号" in txt(".month-report") and "ベストトラック" in txt(".month-report"), txt(".month-report")[-200:])
@@ -1597,6 +1597,7 @@ with sync_playwright() as p:
         check("MR5b カレンダーに台風の印（暴風域は塗り）", pg.locator(".month-cal-ty").count() >= 1 and pg.locator(".month-cal-ty.violent").count() >= 1, str(pg.locator(".month-cal-ty").count()))
         pg.click(".month-fold"); calm()
         check("MR6 つまみでたたむ", pg.locator(".month-filter .month-cal").count() == 0 and pg.locator(".month-filter-days").count() == 1)
+        layout_ok("MR7s", "月の概要 まとめ")
         for i, name in enumerate(["日ごと", "曜日", "肌感"]):
             pg.locator(".month-tabs button").nth(i + 1).click(); calm()
             layout_ok(f"MR7{i}", f"月の概要 {name}")
@@ -1604,6 +1605,26 @@ with sync_playwright() as p:
         pg.click(".month-review .icon-btn.close"); calm()
         check("MR9 閉じると元の画面", pg.locator(".month-review").count() == 0)
     step("MR", mr)
+
+    # YR. 年の概要（2026-11-22）：カレンダーの下の1行から。3つのページ、月を押すとその月の概要。
+    def yr():
+        pg.locator(".side-target .date-button").click(); calm()
+        pg.locator(".cal-month-review", has_text="年の概要").first.click(); calm(6000)
+        check("YR1 カレンダーの下の1行で年の概要が開く（カレンダーは閉じる）", pg.locator(".year-review").count() == 1 and pg.locator(".msheet.calendar").count() == 0)
+        check("YR2 まとめ：3つの数字・年の値・目立った日", pg.locator(".year-review .month-tile").count() == 3 and pg.locator(".year-standouts li").count() >= 3)
+        layout_ok("YR3", "年の概要 まとめ")
+        for i, name in enumerate(["月ごと", "肌感"]):
+            pg.locator(".year-review .month-tabs button").nth(i + 1).click(); calm()
+            layout_ok(f"YR4{i}", f"年の概要 {name}")
+        check("YR5 肌感：月ごとの帯", pg.locator(".year-review .month-feel-row").count() >= 10)
+        pg.locator(".year-review .month-tabs button").nth(1).click(); calm()
+        pg.locator(".year-month").nth(5).click(); calm()
+        check("YR6 月を押すとその月の概要（年の概要の上に）", pg.locator(".month-review:not(.year-review)").count() == 1 and pg.locator(".year-review").count() == 1)
+        pg.locator(".month-review:not(.year-review) .icon-btn.close").click(); calm()
+        st = small_text(); check("YR7 11px より小さい文字がない（年の概要）", not st, str(st))
+        pg.click(".year-review .icon-btn.close"); calm()
+        check("YR8 閉じると元の画面", pg.locator(".year-review").count() == 0)
+    step("YR", yr)
 
     # Q. calendar: presets and custom
     def q():

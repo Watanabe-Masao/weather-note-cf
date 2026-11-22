@@ -13,7 +13,7 @@ import { num, signedDiff } from "../design/format";
 import { DATA, FEEL_SCALE_COLORS, feelFillLook, RADIUS } from "../design/tokens";
 import { feelOn } from "../feelSeason";
 import { bandsFor, FeelContext } from "./FeelBar";
-import { GraphReadout, type ReadoutRow, Segmented } from "./kit";
+import { Chip, GraphReadout, type ReadoutRow, Segmented } from "./kit";
 import { ModalSheet } from "./ModalSheet";
 import { statsOf, Tile, type MonthStats } from "./MonthReview";
 import { useDrawnWidth } from "./useDrawnWidth";
@@ -53,10 +53,10 @@ export function YearReview({ store, station, year, today, onClose, onMonth }: { 
   const rows: ReadoutRow[] = [
     { key: "max", label: "最高の平均", unit: "℃", color: DATA.hot, a: f1(a.max), b: f1(b.max), diff: signedDiff(a.max, b.max, "℃") },
     { key: "min", label: "最低の平均", unit: "℃", color: DATA.cold, a: f1(a.min), b: f1(b.min), diff: signedDiff(a.min, b.min, "℃") },
-    { key: "rainDays", label: "雨の日（1mm以上）", text: true, unit: "", a: cnt(a.rainDays), b: cnt(b.rainDays), diff: dn(a.rainDays, b.rainDays) },
-    { key: "hot25", label: "夏日（25℃以上）", text: true, unit: "", a: cnt(a.hot25), b: cnt(b.hot25), diff: dn(a.hot25, b.hot25) },
-    { key: "hot30", label: "真夏日（30℃以上）", text: true, unit: "", a: cnt(a.hot30), b: cnt(b.hot30), diff: dn(a.hot30, b.hot30) },
-    { key: "frost", label: "冬日（最低0℃未満）", text: true, unit: "", a: cnt(frost(a)), b: cnt(frost(b)), diff: dn(frost(a), frost(b)) },
+    { key: "rainDays", label: "雨の日", text: true, unit: "", a: cnt(a.rainDays), b: cnt(b.rainDays), diff: dn(a.rainDays, b.rainDays) },
+    { key: "hot25", label: "夏日", text: true, unit: "", a: cnt(a.hot25), b: cnt(b.hot25), diff: dn(a.hot25, b.hot25) },
+    { key: "hot30", label: "真夏日", text: true, unit: "", a: cnt(a.hot30), b: cnt(b.hot30), diff: dn(a.hot30, b.hot30) },
+    { key: "frost", label: "冬日", text: true, unit: "", a: cnt(frost(a)), b: cnt(frost(b)), diff: dn(frost(a), frost(b)) },
     { key: "storm", label: "嵐の日", text: true, unit: "", a: cnt(a.storm), b: cnt(b.storm), diff: dn(a.storm, b.storm) },
   ];
   const lean: string[] = [];
@@ -112,7 +112,8 @@ export function YearReview({ store, station, year, today, onClose, onMonth }: { 
       </div>
       {tab === "sum" && (
         <>
-          <GraphReadout title="年の値" unit="" dates={{ a: `${year}年`, b: `${prev}年` }} rows={rows} />
+          <GraphReadout title="年の値" unit="" dates={{ a: `’${year.slice(2)}`, b: `’${prev.slice(2)}` }} rows={rows} />
+          <p className="chart-key-note">雨の日は1mm以上、夏日は最高25℃以上、真夏日は30℃以上、冬日は最低0℃未満の日。</p>
           <ul className="year-standouts">
             {standouts.map((x) =>
               x.p ? (
@@ -167,9 +168,9 @@ function YearMonths({ months, year, prev, onMonth }: { months: { m: string; a: M
     <div className="ds-hours">
       <div className="month-metric chip-row" role="group" aria-label="グラフの項目">
         {METRICS.map((m) => (
-          <button key={m.id} className={metric === m.id ? "chip sm on" : "chip sm"} aria-pressed={metric === m.id} onClick={() => setMetric(m.id)}>
+          <Chip key={m.id} size="sm" on={metric === m.id} onClick={() => setMetric(m.id)}>
             {m.label}
-          </button>
+          </Chip>
         ))}
       </div>
       <div ref={ref}>
