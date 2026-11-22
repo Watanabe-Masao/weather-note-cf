@@ -317,7 +317,7 @@ function Body(p: Props) {
       {p.onMonthReview && month <= monthOf(p.today) && (
         <p className="cal-review-line">
           <button className="cs-date-btn cal-month-review" onClick={() => p.onMonthReview!(month)}>
-            {+month.slice(0, 4)}年{+month.slice(5)}月の振り返り
+            {+month.slice(0, 4)}年{+month.slice(5)}月の概要
           </button>
         </p>
       )}

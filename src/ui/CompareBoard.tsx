@@ -45,6 +45,8 @@ interface Props {
   onOpenFeel: () => void;
   /** Right end of the target header (focus button). */
   targetExtra?: ReactNode;
+  /** 対象日の日付の右に置く物（月の概要）。 */
+  targetLead?: ReactNode;
   /** Right end of the comparison header (linking and the compare rule: how the comparison day is chosen). */
   compareExtra?: ReactNode;
 }
@@ -268,6 +270,7 @@ export function CompareBoard({
   onOpenDay,
   onOpenFeel,
   targetExtra,
+  targetLead,
   compareExtra,
 }: Props) {
   const sync = useMemo(() => (view.linked ? new StripSync() : null), [view.linked]);
@@ -362,6 +365,7 @@ export function CompareBoard({
           todayChip={chip}
           onToday={() => moveTarget(today)}
           extra={targetExtra}
+          lead={targetLead}
         />
         <div className="side-body">
           <Labels metric={metric} sun={view.sun} onToggleSun={onToggleSun} />

@@ -974,6 +974,8 @@ img.event-pic { object-fit: contain; }
   border-bottom: var(--stroke-hair) solid var(--line-soft);
 }
 
+.date-nav-lead { margin-right: auto; padding-left: var(--space-2); white-space: nowrap; }
+.month-sum-btn { font-size: var(--size-sm); color: var(--ink-secondary); }
 .date-nav-extra {
   display: inline-flex;
   align-items: center;
@@ -984,6 +986,8 @@ img.event-pic { object-fit: contain; }
   min-height: 26px;
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
   overflow: hidden;
   padding-right: var(--space-2);
 }

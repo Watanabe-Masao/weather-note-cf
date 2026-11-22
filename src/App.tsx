@@ -411,6 +411,14 @@ export function App(_: { theme?: string } = {}) {
               onToggleSun={() => set("sun", !view.sun)}
               onOpenDay={openDay}
               onOpenFeel={() => setFeelMap(true)}
+              targetLead={
+                // 月の概要（月の振り返り）：対象日の月。まだ来ていない月には出さない（2026-11-22 渡辺さん）。
+                view.target.slice(0, 7) <= today.slice(0, 7) ? (
+                  <button className="cs-date-btn month-sum-btn" onClick={() => setMonthReview(view.target.slice(0, 7))} aria-label={`${+view.target.slice(5, 7)}月の概要（月の振り返り）を開く`}>
+                    月の概要
+                  </button>
+                ) : null
+              }
               targetExtra={
                 <IconButton
                   size="sm"
