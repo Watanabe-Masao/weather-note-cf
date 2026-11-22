@@ -18,8 +18,6 @@ interface Props {
   canForward: boolean;
   onStep: (days: number) => void;
   onOpenCalendar: () => void;
-  /** 日付の右の空き（今日の札の左）に置く物：対象日の月の概要（2026-11-22 渡辺さん）。 */
-  lead?: ReactNode;
   todayChip?: "back" | "forward" | null;
   onToday?: () => void;
   /** Controls at the right end of the header (linking and compare rule, or the focus button). */
@@ -101,7 +99,7 @@ function Arrow({
   );
 }
 
-export function DateNav({ label, date, canBack, canForward, onStep, onOpenCalendar, todayChip, onToday, extra, lead }: Props) {
+export function DateNav({ label, date, canBack, canForward, onStep, onOpenCalendar, todayChip, onToday, extra }: Props) {
   // While an arrow is held, the date itself shows where the jump will land (it sits above the
   // finger, so it stays in sight while sliding down).
   const [preview, setPreview] = useState<{ dir: -1 | 1; weeks: number } | null>(null);
@@ -123,7 +121,6 @@ export function DateNav({ label, date, canBack, canForward, onStep, onOpenCalend
       </button>
       <Arrow dir={1} disabled={!canForward} onStep={onStep} side={side} onPreview={(w) => setPreview(w == null ? null : { dir: 1, weeks: w })} />
       <span className="today-slot">
-        {lead && !preview && <span className="date-nav-lead">{lead}</span>}
         {preview ? (
           <span className="week-badge" role="status" aria-live="assertive">
             {preview.weeks === 0 ? "取り消し" : `${preview.weeks}週${preview.dir < 0 ? "前" : "後"}`}
