@@ -45,6 +45,8 @@ interface Props {
   onClose: () => void;
   /** 月の概要（月の振り返り）を開く（今月までの月：先の月には記録が無い）。 */
   onMonthReview?: (month: string) => void;
+  /** 年の概要を開く（2026-11-22）。 */
+  onYearReview?: (year: string) => void;
 }
 
 const shiftMonth = (month: string, n: number) => {
@@ -316,6 +318,11 @@ function Body(p: Props) {
 
       {p.onMonthReview && month <= monthOf(p.today) && (
         <p className="cal-review-line">
+          {p.onYearReview && (
+            <button className="cs-date-btn cal-month-review" onClick={() => p.onYearReview!(month.slice(0, 4))}>
+              {+month.slice(0, 4)}年の概要
+            </button>
+          )}
           <button className="cs-date-btn cal-month-review" onClick={() => p.onMonthReview!(month)}>
             {+month.slice(0, 4)}年{+month.slice(5)}月の概要
           </button>

@@ -2,6 +2,7 @@
 
 import { Brand } from "./ui/Brand";
 import { ItemBar } from "./ui/ItemBar";
+import { YearReview } from "./ui/YearReview";
 import { AfterAnswer } from "./beta/AfterAnswer";
 import { useSeasonDays } from "./feelSeason";
 import type { WeatherStore } from "./data/store";
@@ -99,6 +100,7 @@ export function App(_: { theme?: string } = {}) {
   const [calendar, setCalendar] = useState<CalendarSide | null>(null);
   // 月の振り返り: opened from the calendar's month name; the calendar closes behind it.
   const [monthReview, setMonthReview] = useState<string | null>(null);
+  const [yearReview, setYearReview] = useState<string | null>(null);
   // その日の要約 (#176): a long press on a day's weather picture.
   const [summary, setSummary] = useState<DaySummaryAsk | null>(null);
   const {
@@ -594,7 +596,17 @@ export function App(_: { theme?: string } = {}) {
             setCalendar(null);
             setMonthReview(m);
           }}
+          onYearReview={(y) => {
+            setCalendar(null);
+            setYearReview(y);
+          }}
         />
+      )}
+
+      {yearReview && (
+        <FeelContext.Provider value={feelSettings}>
+          <YearReview store={store} station={view.station} year={yearReview} today={today} onClose={() => setYearReview(null)} onMonth={setMonthReview} />
+        </FeelContext.Provider>
       )}
 
       {monthReview && (

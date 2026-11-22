@@ -3416,7 +3416,7 @@ svg.scrub {
 /* 月の振り返り：日の並びの下の1行（月の名前は年と同じ選び方になった、2026-11-22）。 */
 .cal-pair.single { grid-template-columns: minmax(0, 1fr); }
 .cal-pair.single .cal-pair-side { justify-self: start; text-align: left; }
-.cal-review-line { margin: var(--space-3) 0 0; text-align: right; font-size: var(--size-sm); }
+.cal-review-line { margin: var(--space-3) 0 0; display: flex; justify-content: flex-end; gap: var(--space-5); font-size: var(--size-sm); }
 .cal-review-line .cal-month-review { color: var(--ink-secondary); }
 
 .icon-btn.flip svg {
@@ -5728,3 +5728,11 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ts-vals b { font-size: var(--size-lg); font-variant-numeric: tabular-nums; }
 .ts-vals small { color: var(--ink-tertiary); font-size: var(--size-xs); white-space: nowrap; }
 .ts-say { margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: var(--stroke-hair) solid var(--line-soft); font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.6; }
+
+/* 年の概要（2026-11-22） */
+.year-standouts { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.year-standouts li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: var(--space-3); font-size: var(--size-sm); }
+.year-standouts small { color: var(--ink-secondary); font-size: var(--size-sm); }
+.year-standouts b { font-variant-numeric: tabular-nums; }
+.year-month { cursor: pointer; }
+.year-bar-prev { stroke-width: var(--stroke-select); }

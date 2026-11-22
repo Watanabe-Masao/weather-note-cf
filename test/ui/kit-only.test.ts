@@ -29,7 +29,8 @@ const ALLOWED: Record<string, number> = {
   "ui/ModalSheet.tsx": 1,
   "ui/Settings.tsx": 9,
   "ui/DateNav.tsx": 3,
-  "ui/CalendarModal.tsx": 4,
+  // カレンダー：…、年の概要・月の概要の1行（文字のリンク、点線の下線。11/22）。
+  "ui/CalendarModal.tsx": 5,
   "ui/DayDetail.tsx": 5,
   // 月のこよみ：カレンダーの日のマス（マスそのものを押す、カレンダーと同じ）。
   "ui/MoonSheet.tsx": 1,
@@ -48,6 +49,8 @@ const ALLOWED: Record<string, number> = {
   "App.tsx": 3,
   // 項目の帯：仲間の名前と項目のタブ（絵の下に名前の縦組み、role="tab"。Chip の横組み・aria-pressed とは別の部品。11/22）。
   "ui/ItemBar.tsx": 2,
+  // 年の概要：目立った日の日付（押すとその月の概要。表の頭の日付と同じ点線のリンク、11/22）。
+  "ui/YearReview.tsx": 1,
   "account/AdminSheet.tsx": 12,
   "account/NotifySection.tsx": 9,
   "account/ResearchSheet.tsx": 2,
