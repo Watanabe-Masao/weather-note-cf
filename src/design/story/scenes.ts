@@ -13,7 +13,8 @@ import {
   BeaverWorld,
   buildBeaverScene,
 } from "./BeaverWorld";
-import { COLD_BEATS, COLD_SKY, ColdCoverArt, ColdPaperArt, ColdWindow, ColdWorld, buildColdScene } from "./ColdWorld";
+import { COLD_BEATS, COLD_LINE_AT, COLD_SKY, ColdCoverArt, ColdPaperArt, ColdWindow, ColdWorld, buildColdScene } from "./ColdWorld";
+import { BOOK } from "./palette";
 
 export type StoryScene = {
   /** 場面（コマ）の数。 */
@@ -44,6 +45,11 @@ export type StoryScene = {
    * コールドムーンは7ページ（高い月と、穴の中のコガラ）で止まった所。
    */
   still?: number;
+  /**
+   * 物語のページの地の空の流れ（.moon-story の --sky-0 / --sky-1、上・下）：表紙のあたり → 場面の終わり → あとがきから先。
+   * 無ければ、夕方 → 夜 → 深夜（palette.ts の BOOK.dusk / night / deep）。コールドムーンは 昼 → 夕 → 夜 → 夜明け（PR-3）。
+   */
+  bookSky?: { start: [string, string]; end: [string, string]; after: [string, string] };
 };
 
 export const STORY_SCENES: Record<string, StoryScene> = {
@@ -63,7 +69,7 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     build: buildBeaverScene,
     lineAt: BEAVER_LINE_AT,
   },
-  // 11/22 PR-2（実装計画 v0.2）：場面の寄り・引きと主役の出入りまで。言葉との同期と夜明けの空は PR-3。
+  // 11/22 PR-2（実装計画 v0.2）：場面の寄り・引きと主役の出入り。11/23 PR-3：言葉との同期（lineAt）と夜明けの空（bookSky）。
   コールドムーン: {
     beats: COLD_BEATS,
     World: ColdWorld,
@@ -78,6 +84,8 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     closedArt: storyAsset("cold", "emboss-medal"),
     PaperArt: ColdPaperArt,
     build: buildColdScene,
+    lineAt: COLD_LINE_AT,
     still: 6.78,
+    bookSky: { start: BOOK.coldStart, end: BOOK.coldDawn, after: BOOK.coldAfter },
   },
 };
