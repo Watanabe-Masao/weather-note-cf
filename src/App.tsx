@@ -1,11 +1,12 @@
 // Weather Note: compare a target day with a comparison day, around a 7-day centre-fixed strip.
 
 import { Brand } from "./ui/Brand";
+import { ItemBar } from "./ui/ItemBar";
 import { AfterAnswer } from "./beta/AfterAnswer";
 import { useSeasonDays } from "./feelSeason";
 import type { WeatherStore } from "./data/store";
 import { CalendarModal, type CalendarSide } from "./ui/CalendarModal";
-import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, FIRST_DAY } from "../shared/dates";
 import {
   COMPARE_MODES,
@@ -14,7 +15,7 @@ import {
   matchDate,
 } from "./compare";
 import { useWeatherStore } from "./data";
-import { METRICS, metricById } from "./metrics";
+import { metricById } from "./metrics";
 import { useFeelSettings } from "./feelSettings";
 import { BetaContext, useBetaSettings } from "./beta/settings";
 import { useAutoSync } from "./beta/useSync";
@@ -93,18 +94,6 @@ function chartHeight(
 }
 
 /** `theme`: only so a change of theme draws everything again (src/main.tsx). */
-/** Each item's own colour in the item bar (the colour of its line in the graphs). */
-const ITEM_TONE: Record<string, string> = {
-  temp: "temp",
-  rain: "rain",
-  radiation: "radiation",
-  light: "sun",
-  humidity: "humidity",
-  visibility: "visibility",
-  wind: "wind",
-  pressure: "pressure",
-};
-
 export function App(_: { theme?: string } = {}) {
   const store = useWeatherStore();
   const [calendar, setCalendar] = useState<CalendarSide | null>(null);
@@ -289,7 +278,7 @@ export function App(_: { theme?: string } = {}) {
   }, [store, face, sheetDetent, view.station, view.target, compareDate, view.single]);
 
   // Keep the chosen item in view in the scrolling chip row (also after a reload).
-  const metricsRef = useRef<HTMLDivElement>(null);
+  const metricsRef = useRef<HTMLElement>(null);
   useEffect(() => {
     const row = metricsRef.current;
     const chip = row?.querySelector<HTMLElement>('[aria-selected="true"]');
@@ -318,6 +307,14 @@ export function App(_: { theme?: string } = {}) {
   }, [full]);
   // The item bar is fixed at the bottom; the sheet stands on it and may rise to the top of the screen.
   const [barH, setBarH] = useState(0);
+  // 見本だけ：<html data-bar> で帯の形を切り替える。
+  const barLayout = (() => {
+    try {
+      return localStorage.getItem("wn-bar-sample") ?? "g1";
+    } catch {
+      return "g1";
+    }
+  })();
   const [safeTop, setSafeTop] = useState(0);
   useLayoutEffect(() => {
     const el = metricsRef.current;
@@ -672,22 +669,7 @@ export function App(_: { theme?: string } = {}) {
         </BetaContext.Provider>
       )}
 
-      {/* 項目の帯：画面の下に固定、1行で横にスワイプ（2026-11-22 渡辺さん。比較・1日とも同じ）。グラフのシートはこの上に乗る。 */}
-      <nav className="metrics item-bar" role="tablist" aria-label="グラフの項目" ref={metricsRef}>
-        {METRICS.map((m) => (
-          <button
-            key={m.id}
-            role="tab"
-            aria-selected={m.id === view.metric}
-            className={m.id === view.metric ? "chip item on" : "chip item"}
-            style={{ "--chip-tone": `var(--data-${ITEM_TONE[m.id] ?? "mean"})` } as CSSProperties}
-            onClick={() => set("metric", m.id)}
-          >
-            <ItemIcon id={m.id} />
-            <span className="item-bar-label">{m.label}</span>
-          </button>
-        ))}
-      </nav>
+      <ItemBar metric={view.metric} onPick={(id) => set("metric", id as typeof view.metric)} barRef={metricsRef} layout={barLayout} />
 
       {/* その日の要約 (#176): over whatever it was opened from (the table, the calendar, the hours). */}
       {typhoonAsked && <TyphoonSheet station={view.station} date={today} number={typhoonAsked} info={typhoons} onClose={() => setTyphoonAsked(null)} />}

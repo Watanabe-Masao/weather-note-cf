@@ -879,115 +879,59 @@ img.event-pic { object-fit: contain; }
 .metrics .chip { flex: 0 0 auto; justify-content: center; scroll-snap-align: center; white-space: nowrap; letter-spacing: -0.02em; }
 .metrics .chip .item-icon { color: inherit; }
 
-/* 案A タブ：すりガラスの帯、絵の下に名前。選んだ項目は色の面と上の光る線。 */
-html:not([data-bar]) .metrics.item-bar,
-html[data-bar="a"] .metrics.item-bar {
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-  background: color-mix(in srgb, var(--surface-base) 78%, transparent);
-  -webkit-backdrop-filter: blur(var(--space-5)) saturate(1.4);
-  backdrop-filter: blur(var(--space-5)) saturate(1.4);
-  border-top: var(--stroke-hair) solid var(--line-soft);
-  box-shadow: 0 calc(-1 * var(--space-3)) var(--space-7) color-mix(in srgb, var(--surface-base) 60%, transparent);
-}
-html:not([data-bar]) .metrics .chip,
-html[data-bar="a"] .metrics .chip {
-  position: relative;
-  flex-direction: column;
-  gap: 3px;
-  min-width: calc((min(100vw, 600px) - var(--space-3) - 4 * var(--space-1)) / 5.5);
-  min-height: 52px;
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--ink-tertiary);
-  font-size: var(--size-xs);
-}
-html:not([data-bar]) .metrics .chip.on,
-html[data-bar="a"] .metrics .chip.on {
-  color: var(--chip-tone);
-  background: color-mix(in srgb, var(--chip-tone) 14%, transparent);
-  box-shadow: none;
-  font-weight: 600;
-}
-html:not([data-bar]) .metrics .chip.on::before,
-html[data-bar="a"] .metrics .chip.on::before {
-  content: "";
-  position: absolute;
-  top: calc(-1 * var(--space-2));
-  left: 28%;
-  right: 28%;
-  height: var(--stroke-focus);
-  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
-  background: var(--chip-tone);
-  box-shadow: 0 0 var(--space-4) var(--chip-tone);
-}
-
-/* 案B 浮かぶカプセル：画面の下に浮かぶ丸い帯。選んだ項目は色で塗る。 */
-html[data-bar="b"] .metrics.item-bar {
+/* 浮かぶ帯：画面の下に浮かぶ、丸い角の帯。選んだ項目はその色で塗る。 */
+.metrics.item-bar {
   left: var(--space-4);
   right: var(--space-4);
   bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
   max-width: 568px;
   gap: var(--space-1);
   padding: var(--space-1);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-xl);
   border: var(--stroke-hair) solid var(--line-soft);
   background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
   -webkit-backdrop-filter: blur(var(--space-5)) saturate(1.4);
   backdrop-filter: blur(var(--space-5)) saturate(1.4);
   box-shadow: var(--shadow-sheet);
-  scroll-padding-inline: var(--space-1);
 }
-html[data-bar="b"] .metrics .chip {
+.metrics .chip {
   min-height: 44px;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3);
   border: 0;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-lg);
   background: transparent;
   color: var(--ink-secondary);
   font-size: var(--size-sm);
 }
-html[data-bar="b"] .metrics .chip.on {
+.metrics .chip.on {
   color: var(--surface-base);
   background: var(--chip-tone);
   box-shadow: 0 var(--space-1) var(--space-4) color-mix(in srgb, var(--chip-tone) 45%, transparent);
   font-weight: 600;
 }
 
-/* 案C シートと一体：シートの足もとに続く帯。選んだ項目の下に色の線。 */
-html[data-bar="c"] .metrics.item-bar {
-  gap: 0;
-  padding: 0 var(--space-2) env(safe-area-inset-bottom, 0px);
-  background: var(--surface-raised);
-  border-top: var(--stroke-hair) solid var(--line-soft);
-  -webkit-mask-image: linear-gradient(90deg, transparent, black var(--space-5), black calc(100% - var(--space-5)), transparent);
-  mask-image: linear-gradient(90deg, transparent, black var(--space-5), black calc(100% - var(--space-5)), transparent);
-}
-html[data-bar="c"] .metrics .chip {
-  position: relative;
-  min-width: calc((min(100vw, 600px) - var(--space-2)) / 4.5);
-  min-height: 50px;
-  gap: var(--space-1);
-  padding: 0 var(--space-3);
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-  color: var(--ink-tertiary);
-  font-size: var(--size-sm);
-}
-html[data-bar="c"] .metrics .chip.on { color: var(--chip-tone); background: transparent; box-shadow: none; font-weight: 600; }
-html[data-bar="c"] .metrics .chip.on::after {
-  content: "";
-  position: absolute;
-  left: var(--space-4);
-  right: var(--space-4);
-  top: 0;
-  height: var(--stroke-focus);
-  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
-  background: var(--chip-tone);
-}
+/* 案1 1行で横に送る、仲間ごとに小さな見出しと区切り */
+.ib-g1 { scroll-padding-inline: var(--space-2); }
+.ib-group { display: flex; flex-direction: column; flex: none; padding: 0 var(--space-1); }
+.ib-group + .ib-group { border-left: var(--stroke-hair) solid var(--line-soft); }
+.ib-cap { padding: 2px var(--space-3) 0; font-size: var(--size-xs); color: var(--ink-tertiary); letter-spacing: 0.08em; }
+.ib-chips { display: flex; gap: var(--space-1); }
+
+/* 案2 2段：上に仲間、下にその仲間の項目 */
+.metrics.item-bar.ib-g2 { flex-direction: column; overflow: visible; gap: var(--space-1); }
+.ib-cats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); padding: 2px; border-radius: var(--radius-lg); background: var(--surface-inset); }
+.ib-cat { min-height: 44px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--ink-tertiary); font: inherit; font-size: var(--size-sm); cursor: pointer; }
+.ib-cat.on { background: var(--surface-raised); color: var(--chip-tone); font-weight: 600; box-shadow: var(--shadow-sheet); }
+.ib-items { display: flex; gap: var(--space-1); }
+.ib-items .chip { flex: 1 1 0; }
+
+/* 案3 ひらく：選んでいる仲間だけ開いて項目が並ぶ（1行、横に送らない） */
+.metrics.item-bar.ib-g3 { overflow: visible; align-items: stretch; }
+.ib-g3 .ib-cat { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; padding: 0; font-size: var(--size-xs); }
+.ib-g3 .ib-cat .item-icon { color: inherit; }
+.ib-open { flex: 0 1 auto; display: flex; gap: 2px; padding: 2px; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--chip-tone, var(--accent-base)) 10%, var(--surface-inset)); }
+.ib-open-cap { display: none; }
+.ib-g3 .chip { flex-direction: column; gap: 2px; min-height: 48px; min-width: 52px; padding: 0 var(--space-2); font-size: var(--size-xs); }
 
 /* ---- tables ----------------------------------------------------------------------------------- */
 
