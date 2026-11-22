@@ -20,7 +20,7 @@
 //
 // Each look is kept in health_checks (counts and times only), and /api/health gives the last one.
 
-import type { DriveEnv } from "./offsite";
+import type { ArchiveEnv } from "./offsite";
 import { checkImport, judgeHealth, type Finding, type ImportReady } from "../../shared/healthJudge";
 import { runbookTag } from "../../shared/runbook";
 import { auditCompleteness } from "./completeness";
@@ -104,7 +104,7 @@ export interface HealthWatchResult {
 export async function watchHealth(
   db: Db,
   now = Date.now(),
-  env: UsageEnv & DriveEnv = {},
+  env: UsageEnv & ArchiveEnv = {},
   deps: { send?: Send; head?: Head; usageFetch?: UsageFetch } = {},
 ): Promise<HealthWatchResult> {
   await ensureHealthWatchSchema(db);

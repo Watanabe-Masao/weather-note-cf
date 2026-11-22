@@ -1153,7 +1153,7 @@ with sync_playwright() as p:
         wk = ms.locator("section[aria-labelledby=mt-weekly]")
         check("J6c 週の点検：最新と履歴を分けて出し、抜けの回数と R2 の実物、今すぐ点検するボタン", "最新：すべて新しい" in wk.inner_text() and "履歴：抜けのある系列 1" in wk.inner_text() and "抜け 2回（1か所）" in wk.inner_text() and "33,576回分" in wk.inner_text() and "20件中 20件そのまま" in wk.inner_text() and wk.locator("button", has_text="今すぐ点検する").count() == 1, wk.inner_text()[:300])
         od = ms.locator("section[aria-labelledby=mt-offsite]")
-        check("J6e ドライブの控え：何日分・大きさ・最後に置いた日・遅れなし", "23日分（23.0MB）・最後に置いた日 2026-11-09・遅れなし" in od.inner_text(), od.inner_text()[:200])
+        check("J6e 原本の控え（GitHub）：何日分・大きさ・最後に置いた日・遅れなし", "23日分（23.0MB）・最後に置いた日 2026-11-09・遅れなし" in od.inner_text(), od.inner_text()[:200])
         wk.locator("button", has_text="抜けた区間").click(); calm()
         check("J6d 週の点検：抜けた区間と、取り直せるかの注意書き", "11/8 6:00 〜 11/8 15:00 の間（2回）" in wk.inner_text() and "約10日" in wk.inner_text(), wk.inner_text()[-300:])
         layout_ok("J6b", "データの保守")

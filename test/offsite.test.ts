@@ -1,10 +1,10 @@
-// 原本の控え（worker/src/offsite.ts、#370）：1日ずつ tar にまとめて Google ドライブに置き、読み戻して確かめる。
+// 原本の控え（worker/src/offsite.ts、#370）：1日ずつ tar にまとめて GitHub の非公開リポジトリ（月ごとのリリース）に置き、読み戻して確かめる。
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { copyOffsite, Drive, filesOfDay, offsiteLine, offsiteSummary, pendingDays, tar } from "../worker/src/offsite";
+import { copyOffsite, GitHubStore, filesOfDay, offsiteLine, offsiteSummary, pendingDays, tar } from "../worker/src/offsite";
 import { ensureAmedasSchema } from "../worker/src/amedasArchive";
 import { ensureRadarSchema } from "../worker/src/radarArchive";
 import { type Bucket, ensureR2Schema } from "../worker/src/r2Archive";
@@ -12,7 +12,7 @@ import { judgeHealth } from "../shared/healthJudge";
 import { d1 } from "./d1";
 
 const H = 3_600_000;
-const KEYS = { GDRIVE_CLIENT_ID: "cid", GDRIVE_CLIENT_SECRET: "csecret-xyz", GDRIVE_REFRESH_TOKEN: "rtoken-xyz" };
+const KEYS = { GITHUB_ARCHIVE_TOKEN: "ghp-secret-xyz", ARCHIVE_REPO: "owner/archive" };
 // 2026-11-20 02:00（日本時間）
 const NOW = Date.parse("2026-11-19T17:00:00Z");
 
@@ -46,7 +46,7 @@ async function seeded() {
   return { db, files, long };
 }
 
-function fakeDrive() {
+function fakeStore() {
   const stored = new Map<string, Uint8Array>();
   const calls: string[] = [];
   let n = 0;
@@ -54,8 +54,8 @@ function fakeDrive() {
     stored,
     calls,
     corrupt: false,
-    async folder() {
-      calls.push("folder");
+    async folder(day: string) {
+      calls.push(`folder ${day.slice(0, 7)}`);
       return "F1";
     },
     async upload(folder: string, name: string, body: Uint8Array) {
@@ -72,10 +72,10 @@ function fakeDrive() {
   };
 }
 
-describe("ドライブの控え", () => {
+describe("原本の控え", () => {
   it("鍵が無ければ何もしない", async () => {
     const { db, files } = await seeded();
-    const d = fakeDrive();
+    const d = fakeStore();
     expect(await copyOffsite(db, bucket(files), {}, NOW, d)).toMatchObject({ configured: false });
     expect(d.calls).toEqual([]);
     expect(offsiteLine(await offsiteSummary(db, NOW, {}))).toContain("まだ設定されていません");
@@ -91,13 +91,13 @@ describe("ドライブの控え", () => {
 
   it("tar にまとめて置き、読み戻して確かめた日だけを済みにする。R2 に無いものは manifest に残す", async () => {
     const { db, files, long } = await seeded();
-    const d = fakeDrive();
+    const d = fakeStore();
     const r1 = await copyOffsite(db, bucket(files), KEYS, NOW, d);
     expect(r1).toMatchObject({ configured: true, day: "2026-11-17", files: 1, missing: 0, pending: 2 });
     const r2 = await copyOffsite(db, bucket(files), KEYS, NOW + 5 * 60_000, d);
     expect(r2).toMatchObject({ day: "2026-11-18", files: 2, missing: 1, pending: 1 });
     expect(await copyOffsite(db, bucket(files), KEYS, NOW + 10 * 60_000, d)).toMatchObject({ day: "2026-11-19", files: 0, pending: 0 });
-    expect(d.calls).toEqual(["folder", "upload F1 2026-11-17.tar", "upload F1 2026-11-18.tar", "upload F1 2026-11-19.tar"]); // フォルダは1回だけ探す
+    expect(d.calls).toEqual(["folder 2026-11", "upload F1 2026-11-17.tar", "upload F1 2026-11-18.tar", "upload F1 2026-11-19.tar"]); // 月のリリースは1回だけ探す
     expect(await copyOffsite(db, bucket(files), KEYS, NOW + 15 * 60_000, d)).toMatchObject({ day: null });
     // 本物の tar として読める（100文字を超える名前も）
     const dir = mkdtempSync(join(tmpdir(), "offsite-"));
@@ -116,7 +116,7 @@ describe("ドライブの控え", () => {
 
   it("ファイルの多い日は分けて置き、全部置き終えた日だけが済み", async () => {
     const { db, files } = await seeded();
-    const d = fakeDrive();
+    const d = fakeStore();
     const day = Date.parse("2026-11-18T18:00:00Z"); // 11/19 3:00（11/18 まで）
     expect(await copyOffsite(db, bucket(files), KEYS, day, d, 1)).toMatchObject({ day: "2026-11-17", pending: 1 });
     expect(await copyOffsite(db, bucket(files), KEYS, day, d, 1)).toMatchObject({ day: "2026-11-18", files: 1, pending: 1 });
@@ -130,7 +130,7 @@ describe("ドライブの控え", () => {
 
   it("読み戻した中身がちがえば済みにせず、失敗を残す（次の回に置き直す）", async () => {
     const { db, files } = await seeded();
-    const d = fakeDrive();
+    const d = fakeStore();
     d.corrupt = true;
     await expect(copyOffsite(db, bucket(files), KEYS, NOW, d)).rejects.toThrow("読み戻した中身がちがう");
     const s = await offsiteSummary(db, NOW, KEYS);
@@ -151,45 +151,57 @@ describe("ドライブの控え", () => {
   });
 });
 
-describe("Google ドライブとのやり取り", () => {
-  function server(opts: { folder?: boolean; tokenStatus?: number } = {}) {
-    const seen: { url: string; method: string; auth: string | null; body?: string }[] = [];
+describe("GitHub とのやり取り", () => {
+  function server(opts: { release?: boolean; status?: number; taken?: boolean } = {}) {
+    const seen: { url: string; method: string; auth: string | null; ua: string | null; body?: string }[] = [];
     const files = new Map<string, Uint8Array>();
     const get = async (url: string, init: RequestInit = {}) => {
       const h = new Headers(init.headers);
-      seen.push({ url, method: init.method ?? "GET", auth: h.get("authorization"), body: typeof init.body === "string" ? init.body : undefined });
+      seen.push({ url, method: init.method ?? "GET", auth: h.get("authorization"), ua: h.get("user-agent"), body: typeof init.body === "string" ? init.body : undefined });
       const json = (o: unknown, status = 200, headers: Record<string, string> = {}) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", ...headers } });
-      if (url.startsWith("https://oauth2.googleapis.com/token")) return opts.tokenStatus ? json({ error: "invalid_grant", error_description: "Token has been expired" }, opts.tokenStatus) : json({ access_token: "AT" });
-      if (url.includes("/drive/v3/files?q=")) return json({ files: opts.folder ? [{ id: "F0" }] : [] });
-      if (url.includes("/drive/v3/files?fields=id")) return json({ id: "F9" });
-      if (url.includes("uploadType=resumable")) return json({}, 200, { location: "https://upload.example/session1" });
-      if (url === "https://upload.example/session1") {
-        files.set("T1", new Uint8Array(init.body as Uint8Array));
-        return json({ id: "T1" });
+      if (opts.status) return json({ message: "Bad credentials", documentation_url: "https://docs.github.com" }, opts.status);
+      if (url.endsWith("/repos/owner/archive/releases/tags/archive-2026-11")) return opts.release ? json({ id: 7 }) : json({ message: "Not Found" }, 404);
+      if (url.endsWith("/repos/owner/archive/releases") && init.method === "POST") return json({ id: 9 }, 201);
+      if (url.startsWith("https://uploads.github.com/repos/owner/archive/releases/9/assets?name=")) {
+        const name = decodeURIComponent(url.split("name=")[1]);
+        if (opts.taken && name === "2026-11-17.tar") return json({ message: "Validation Failed" }, 422);
+        files.set(name, new Uint8Array(init.body as Uint8Array));
+        return json({ id: 55, name }, 201);
       }
-      if (url.includes("/files/T1?alt=media")) return new Response(files.get("T1") as Uint8Array<ArrayBuffer>);
-      return json({}, 404);
+      if (url.endsWith("/releases/assets/55")) return new Response(null, { status: 302, headers: { location: "https://objects.example/asset55?sig=1" } });
+      if (url === "https://objects.example/asset55?sig=1") return new Response([...files.values()][0] as Uint8Array<ArrayBuffer>);
+      return json({ message: "Not Found" }, 404);
     };
-    return { get, seen };
+    return { get, seen, files };
   }
 
-  it("鍵で access token を取り、フォルダを探して（無ければ作り）、resumable で置いて読み戻す", async () => {
+  it("月のリリースを探して（無ければ作り）、ファイルとして置いて読み戻す。案内先は鍵なしで読む", async () => {
     const s = server();
-    const d = new Drive(KEYS, s.get);
-    expect(await d.folder()).toBe("F9");
-    const id = await d.upload("F9", "2026-11-17.tar", new Uint8Array([1, 2, 3]));
-    expect([...(await d.download(id))]).toEqual([1, 2, 3]);
-    expect(s.seen.filter((x) => x.url.includes("oauth2")).length).toBe(1); // token は1回
-    expect(s.seen.find((x) => x.url.includes("uploadType=resumable"))?.body).toContain('"parents":["F9"]');
-    expect(s.seen.filter((x) => x.url.includes("googleapis.com/drive") || x.url.includes("/upload/drive")).every((x) => x.auth === "Bearer AT")).toBe(true);
-    expect(await new Drive(KEYS, server({ folder: true }).get).folder()).toBe("F0");
+    const g = new GitHubStore(KEYS, s.get);
+    expect(await g.folder("2026-11-17")).toBe("9");
+    expect(s.seen.find((x) => x.method === "POST")?.body).toContain('"tag_name":"archive-2026-11"');
+    const id = await g.upload("9", "2026-11-17.tar", new Uint8Array([1, 2, 3]));
+    expect([...(await g.download(id))]).toEqual([1, 2, 3]);
+    expect(s.seen.filter((x) => x.url.includes("github.com")).every((x) => x.auth === "Bearer ghp-secret-xyz" && x.ua)).toBe(true);
+    expect(s.seen.find((x) => x.url.startsWith("https://objects.example"))?.auth).toBeNull();
+    expect(await new GitHubStore(KEYS, server({ release: true }).get).folder("2026-11-30")).toBe("7");
   });
 
-  it("失敗の文言に鍵や応答の中身を入れない", async () => {
-    const d = new Drive(KEYS, server({ tokenStatus: 400 }).get);
-    const e = await d.folder().catch((x: Error) => x.message);
-    expect(e).toBe("ドライブの鍵: HTTP 400 invalid_grant");
-    expect(e).not.toMatch(/xyz|expired/i);
+  it("同じ名前がもうあれば、消さずに別の名前で置く", async () => {
+    const s = server({ taken: true });
+    await new GitHubStore(KEYS, s.get).upload("9", "2026-11-17.tar", new Uint8Array([1]));
+    expect([...s.files.keys()]).toEqual([expect.stringMatching(/^2026-11-17-\d+\.tar$/)]);
+  });
+
+  it("失敗の文言に鍵を入れない", async () => {
+    const e = await new GitHubStore(KEYS, server({ status: 401 }).get).folder("2026-11-17").catch((x: Error) => x.message);
+    expect(e).toBe("控えのリリースを探す: HTTP 401 Bad credentials");
+    expect(e).not.toMatch(/xyz/);
+  });
+
+  it("リポジトリの名前の形がおかしければ、設定されていないとみなす", async () => {
+    const { db, files } = await seeded();
+    expect(await copyOffsite(db, bucket(files), { GITHUB_ARCHIVE_TOKEN: "t", ARCHIVE_REPO: "no-slash" }, NOW, fakeStore())).toMatchObject({ configured: false });
   });
 });
 

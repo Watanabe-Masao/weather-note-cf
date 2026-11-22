@@ -19,7 +19,9 @@
   "r2_buckets": [{ "binding": "ARCHIVE", "bucket_name": "weather-note-archive" }],
   // The account, for reading its month's use (worker/src/usage.ts, with the secret CF_ANALYTICS_TOKEN,
   // a read-only token set in the dashboard). An account id is not a secret.
-  "vars": { "CF_ACCOUNT_ID": "92f4251b54fe77f08c1658592121327e" },
+  // ARCHIVE_REPO: the private repository that keeps the off-system copy of R2's originals (worker/src/offsite.ts, #370),
+  // written with the secret GITHUB_ARCHIVE_TOKEN (that repository only, Contents read and write). A repository name is not a secret.
+  "vars": { "CF_ACCOUNT_ID": "92f4251b54fe77f08c1658592121327e", "ARCHIVE_REPO": "Watanabe-Masao/weather-note-archive" },
   // Needed by `wrangler preview`, which Workers Builds runs for pull requests.
   "previews": {}
 }
