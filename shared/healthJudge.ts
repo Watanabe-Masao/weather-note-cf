@@ -50,6 +50,8 @@ export interface HealthView {
     amedasLastOk?: string | null;
     airLastOk?: string | null;
     soramameLastOk?: string | null;
+    /** 週の点検が最後に終わった時刻（worker/src/weeklyAudit.ts）。表が無いときは無い。 */
+    weeklyAuditAt?: string | null;
     warnings?: { lastOk: string | null; fetchFailuresLastDay: number };
     /** 欠けの発見（worker/src/completeness.ts）。pending は新しい順。 */
     completeness?: {
@@ -130,6 +132,8 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
       if (ago(s.soramameLastOk) > 14 * 24) problem("soramameStale", `大気汚染の実測（そらまめくん）の保存が最後にうまくいったのは ${hours(ago(s.soramameLastOk))}（1年を過ぎた分は取り直せない）。`);
       else if (ago(s.soramameLastOk) > 48) note("soramameStale", `大気汚染の実測（そらまめくん）の保存が最後にうまくいったのは ${hours(ago(s.soramameLastOk))}。`);
     }
+    // 週の点検（#370）：7日ごと。8日を過ぎたら注意（点検が止まっても、データそのものは失われない）。
+    if (s.weeklyAuditAt !== undefined && ago(s.weeklyAuditAt) > 8 * 24) note("weeklyAuditStale", `週の点検が最後に終わったのは ${s.weeklyAuditAt ? `${(ago(s.weeklyAuditAt) / 24).toFixed(1)}日前` : "記録なし"}（7日ごとのはず）。`);
     if (s.longRangeLastOk !== undefined && ago(s.longRangeLastOk) > 12) note("longRangeStale", `長い先の予報の電文の保存が最後にうまくいったのは ${hours(ago(s.longRangeLastOk))}。`);
     // 警報・注意報 (2026-11-18 渡辺さん OK)：配信の長い一覧は7日分。7日止まると取り戻せない（一覧から外れた電文は名前が
     // 分からず取りに行けない、#267）。1日で注意、3日で異常（まだ4日分は取り戻せるうちに気づく）。まだ一度も読んで

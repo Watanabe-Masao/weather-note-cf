@@ -28,6 +28,7 @@ import { saveSoramame } from "./soramame";
 import { collectLongRange } from "./longRangeArchive";
 import { health, markStart, timed } from "./health";
 import { claimHealthWatch, watchHealth } from "./healthWatch";
+import { claimWeeklyAudit, runWeeklyAudit } from "./weeklyAudit";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { forecastCharts } from "../../shared/wxchart";
@@ -293,6 +294,12 @@ export default {
       claimHealthWatch(db, event.scheduledTime)
         .then((due) => (due ? stage("health watch", (d) => watchHealth(d, event.scheduledTime, env))() : undefined))
         .catch((e) => console.error("weather-note: health watch", e)),
+    );
+    // 週の点検（weeklyAudit.ts、#370）：日本時間の3時台に、前から約1週間たっていれば。読むだけ、何も消さない。
+    ctx.waitUntil(
+      claimWeeklyAudit(db, event.scheduledTime)
+        .then((due) => (due ? stage("weekly audit", (d) => runWeeklyAudit(d, env.ARCHIVE, event.scheduledTime))() : undefined))
+        .catch((e) => console.error("weather-note: weekly audit", e)),
     );
     // 空気質（Open-Meteo の CAMS、airQuality.ts）：1時間に1回まで、終わった日の1時間ごとの値を D1 に。
     ctx.waitUntil(stage("air quality", (d) => saveAirQuality(d))().then(stage("soramame", (d) => saveSoramame(d))));

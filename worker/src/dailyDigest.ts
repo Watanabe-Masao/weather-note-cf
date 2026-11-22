@@ -6,6 +6,7 @@
 // 警告にはならない）。7〜10時のうちに見張りが1回も無かった日は送らない（昼に遅れて届かないように）。
 // 中身は記録の回数だけ（成功した回／全部の回、新しく保存した数）。表がまだ無い取得は行を出さない。
 
+import { lastWeeklyAudit, weeklyAuditLines } from "./weeklyAudit";
 import { type Finding, gapText } from "../../shared/healthJudge";
 import { runbookTag } from "../../shared/runbook";
 import type { Db } from "./accounts";
@@ -161,6 +162,12 @@ export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns): Pro
     for (const e of errs) out.push(`・アカウントの処理の失敗 ${e.n}回（${clock(e.first)}〜${clock(e.last)}、${e.places.split(",").slice(0, 3).join("・")}）：${e.m}`);
   } catch (e) {
     if (!/no such table/i.test(String(e))) throw e;
+  }
+  // 週の点検（weeklyAudit.ts、#370）：全期間で見た「最新」と「履歴」、R2 の実物。いちばん新しい結果を毎朝くり返す。
+  try {
+    out.push(...weeklyAuditLines(await lastWeeklyAudit(db)));
+  } catch (e) {
+    console.error("weather-note: digest weekly audit", e);
   }
   return out;
 }
