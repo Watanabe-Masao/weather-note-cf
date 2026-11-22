@@ -881,7 +881,7 @@ export function BeaverWorld(): ReactElement {
       {/* 月明かりのもや（11/23 渡辺さん「雪が降り始めて少したって紅葉が消えた頃に、少しだけ下の方に薄く」）：8ページで
           雪が降りはじめ、紅葉の枝が消えたあとに、水辺と住みかのあたり（画面の下の方）にだけ薄く。コールドムーンの c12b を、
           黒い背景のまま足し算で重ね、上の方は消す。夕暮れのページと 6・7ページには重ねない。 */}
-      <image className="bw-moon-air" href={storyAsset("cold", "moon-air")} x={-110} y={-30} width={620} height={930} preserveAspectRatio="none" transform="matrix(-1 0 0 1 400 0)" opacity={0} mask="url(#bw-low)" style={{ mixBlendMode: "screen" }} />
+      <image className="bw-moon-air" href={storyAsset("cold", "moon-air")} x={-110} y={-30} width={620} height={930} preserveAspectRatio="none" transform="matrix(-1 0 0 1 400 0)" opacity={0} mask="url(#bw-low)" style={{ visibility: "hidden", mixBlendMode: "screen" }} />
       {/* 落ち葉と雪（場面に合わせて見せる） */}
       <g className="bw-leaves">{leaves}</g>
       {/* はらり、はらり（1ページ）：言葉に合わせて落ちる大きな葉が二枚。 */}
@@ -1172,7 +1172,7 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
   tl.fromTo(".bw-flake1", { opacity: 0, y: 0 }, { opacity: 0.95, y: 560, duration: 0.36, ease: "none" }, 7.02)
     .to(".bw-flake1", { opacity: 0, duration: 0.05 }, 7.38)
     .to(".bw-snow", { opacity: 1, duration: 0.3 }, 7.3)
-    .to(".bw-moon-air", { opacity: 0.32, duration: 0.2, ease: "sine.in" }, 7.55)
+    .to(".bw-moon-air", { autoAlpha: 0.32, duration: 0.2, ease: "sine.in" }, 7.55)
     // 住みかへ帰る（11/21 承認）：住みかの上の姿が消え、住みかの前の水面を進み、頭を下げて尾が少し残り、水に消える。
     // 波の輪が姿の消えたあとに残る。8ページの静けさを保つため、大きくは動かさない。
     // 住みかの上の姿が消えきってから泳ぐ姿を出す（二つの姿が半透明で重ならないように。7ページと同じ）。

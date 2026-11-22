@@ -463,7 +463,7 @@ export function ColdWorld(): ReactElement {
         {/* 「フィーチー、フィーチー。」で穴から飛び出し、枝へ（9ページ、c11）。 */}
         <image className="cw-fly" href={A("fly")} x={FLY.x} y={FLY.y} width={FLY.w} height={FLY.h} opacity={0} />
         {/* 地面をはう朝もや（c12c、かけ算）：9ページの雪原の表面を低く流れる薄い層。コガラの足元・樹皮・月にはかけない（11/23 レビュー）。 */}
-        <image className="cw-mist" href={A("mist")} x={-160} y={650} width={720} height={200} preserveAspectRatio="none" opacity={0} style={{ mixBlendMode: "multiply" }} />
+        <image className="cw-mist" href={A("mist")} x={-160} y={650} width={720} height={200} preserveAspectRatio="none" opacity={0} style={{ visibility: "hidden", mixBlendMode: "multiply" }} />
         <SnowField front />
         {/* 地上を沈める色（夕方は青いかげ、夜は紺）。地上の形で切り、空と月にはかからない。 */}
         <g mask="url(#cw-land)">
@@ -477,7 +477,7 @@ export function ColdWorld(): ReactElement {
         </g>
         {/* 8ページ：月の光の帯が穴の縁と木の内側を、ゆっくり移る（鳥の顔＝穴の口は照らさない）。霜が付く。 */}
         <g mask="url(#cw-band-area)">
-          <rect className="cw-band" x={HOLE.x - 60} y={HOLE.y - 50} width={22} height={100} fill="url(#cw-band-g)" opacity={0} style={{ mixBlendMode: "screen" }} />
+          <rect className="cw-band" x={HOLE.x - 60} y={HOLE.y - 50} width={22} height={100} fill="url(#cw-band-g)" opacity={0} style={{ visibility: "hidden", mixBlendMode: "screen" }} />
         </g>
         <g className="cw-frost" opacity={0}>
           {Array.from({ length: 14 }, (_, i) => {
@@ -491,9 +491,9 @@ export function ColdWorld(): ReactElement {
         </g>
       </g>
       {/* 空気感の光（c12。黒い背景のまま足し算で重ねる）：はやい夕暮れと夜明けに、斜めにさす薄い光。 */}
-      <image className="cw-air" href={A("air")} x={-110} y={-30} width={620} height={930} preserveAspectRatio="none" opacity={0} style={{ mixBlendMode: "screen" }} />
+      <image className="cw-air" href={A("air")} x={-110} y={-30} width={620} height={930} preserveAspectRatio="none" opacity={0} style={{ visibility: "hidden", mixBlendMode: "screen" }} />
       {/* 月明かりのもや（c12b、足し算）：6〜8ページ。月のある左上から穴の方へ下りる向きに、左右を反転して置く。 */}
-      <image className="cw-moon-air" href={A("moon-air")} x={-110} y={-30} width={620} height={930} preserveAspectRatio="none" transform="matrix(-1 0 0 1 400 0)" opacity={0} style={{ mixBlendMode: "screen" }} />
+      <image className="cw-moon-air" href={A("moon-air")} x={-110} y={-30} width={620} height={930} preserveAspectRatio="none" transform="matrix(-1 0 0 1 400 0)" opacity={0} style={{ visibility: "hidden", mixBlendMode: "screen" }} />
       <g className="cw-snow">{flakes}</g>
       <rect width={W} height={H} fill="url(#cw-vignette)" pointerEvents="none" />
     </svg>
@@ -587,7 +587,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     .to(".cw-sky-dusk", { opacity: 1, duration: 0.6, ease: "sine.inOut" }, 3.05)
     .to(".cw-shade-dusk", { opacity: 0.5, duration: 0.6, ease: "sine.inOut" }, 3.05)
     .to(".cw-bough", { opacity: 0, duration: 0.4 }, 3.1)
-    .to(".cw-air", { opacity: 0.3, duration: 0.6, ease: "sine.inOut" }, 3.1)
+    .to(".cw-air", { autoAlpha: 0.3, duration: 0.6, ease: "sine.inOut" }, 3.1)
     .to(".cw-sway", { keyframes: { rotate: [0, -3, 1.5, -0.8, 0] }, svgOrigin: `${BIRCH.x - BIRCH.w / 2 + 8} 600`, duration: 0.26, ease: "sine.inOut" }, gust)
     .to(".cw-snow", { keyframes: { x: [0, -26, 0] }, duration: 0.26, ease: "sine.inOut" }, gust);
   // 5 木の穴へ：穴に寄る。穴の中で丸くなり、「ふっくら」で羽をふくらませる。
@@ -602,13 +602,13 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     .to(".cw-sky-night", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 5)
     .to(".cw-shade-night", { opacity: 0.8, duration: 0.4, ease: "sine.inOut" }, 5)
     .to(".cw-shade-dusk", { opacity: 0, duration: 0.4 }, 5.05)
-    .to(".cw-air", { opacity: 0, duration: 0.3 }, 5)
+    .to(".cw-air", { autoAlpha: 0, duration: 0.3 }, 5)
     .to(".cw-stars", { opacity: 1, duration: 0.4 }, 5.1)
     .to(".cw-moonrise", { opacity: 1, duration: 0.14, ease: "sine.in" }, 5.02)
     .to(".cw-moon-show", { opacity: 1, duration: 0.03 }, lit - 0.09)
     .to(".cw-moon", { attr: { transform: "translate(110 420)" }, duration: full - (lit - 0.08), ease: "power1.out" }, lit - 0.08)
     .fromTo(".cw-moonlit", { opacity: 0, scaleY: 0.3, svgOrigin: "130 690" }, { opacity: 0.8, scaleY: 1, duration: 0.3, ease: "sine.out" }, lit)
-    .to(".cw-moon-air", { opacity: 0.45, duration: 0.3, ease: "sine.in" }, lit + 0.12)
+    .to(".cw-moon-air", { autoAlpha: 0.45, duration: 0.3, ease: "sine.in" }, lit + 0.12)
     .to(".cw-fluff-closed", { opacity: 0, duration: 0.05 }, lit - 0.08)
     .to(".cw-fluff-open", { opacity: 1, duration: 0.05 }, lit - 0.06);
   // 7 「どんどん」：見上げる（世界が下へ流れ、月は東から南の高い所へ。真上にはしない）。
@@ -622,7 +622,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   const band = cue(7, 0, 7.42);
   move(7, cam(HOLE.x - 20, HOLE.y + 30, 2.3))
     .to(".cw-moon", { attr: { transform: "translate(-120 300)" }, duration: 0.6 }, 7.05)
-    .fromTo(".cw-band", { x: 100, opacity: 0 }, { x: 0, opacity: 0.55, duration: Math.min(0.3, 7.75 - band), ease: "sine.inOut" }, band)
+    .fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: 0, autoAlpha: 0.55, duration: Math.min(0.3, 7.75 - band), ease: "sine.inOut" }, band)
     .to(".cw-frost", { opacity: 0.9, duration: Math.min(0.3, 7.75 - band) }, band);
   // 9 コールドムーン：朝の光（木が桃色に照らされる）→「フィーチー」でコガラが穴から出て枝へ →「朝の森」は止まった絵で →
   // 西へ向く（カメラが左へ。月が動いたのでなく見る向きが変わった）→ 白い月 →「西の空」→ 余白 → 名前。月は最後まで消さない。
@@ -636,12 +636,12 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     .to(".cw-sky-night", { opacity: 0, duration: 0.25, ease: "sine.inOut" }, 8.02)
     .to(".cw-stars", { opacity: 0, duration: 0.25 }, 8.02)
     .to(".cw-moonlit", { opacity: 0, duration: 0.25 }, 8.02)
-    .to(".cw-band", { opacity: 0, duration: 0.12 }, 8)
+    .to(".cw-band", { autoAlpha: 0, duration: 0.12 }, 8)
     .to(".cw-frost", { opacity: 0.4, duration: 0.25 }, 8.02)
-    .to(".cw-moon-air", { opacity: 0, duration: 0.25 }, 8.02)
+    .to(".cw-moon-air", { autoAlpha: 0, duration: 0.25 }, 8.02)
     .to(".cw-trunk-dawn", { opacity: 1, duration: 0.25, ease: "sine.inOut" }, 8.02)
-    .to(".cw-air", { opacity: 0.5, duration: 0.35, ease: "sine.inOut" }, 8.04)
-    .to(".cw-mist", { opacity: 0.45, duration: 0.4, ease: "sine.inOut" }, 8.08)
+    .to(".cw-air", { autoAlpha: 0.5, duration: 0.35, ease: "sine.inOut" }, 8.04)
+    .to(".cw-mist", { autoAlpha: 0.45, duration: 0.4, ease: "sine.inOut" }, 8.08)
     .to(".cw-shade-night", { opacity: 0.2, duration: 0.3, ease: "sine.inOut" }, 8.02)
     .to(".cw-fluff-closed", { opacity: 0, duration: 0.02 }, fly)
     .to(".cw-fly", { opacity: 1, duration: 0.02 }, fly)
