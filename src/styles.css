@@ -499,9 +499,9 @@ img.event-pic { object-fit: contain; }
 .ms-topband { position: fixed; inset: 0 0 auto; z-index: 2; height: calc(env(safe-area-inset-top, 0px) + var(--space-4) * 2 + var(--tap-min) + var(--space-4)); background: linear-gradient(var(--bk-night-1), transparent); opacity: 0.85; pointer-events: none; }
 /* 満月の物語の書体（11/20 19:52 渡辺さん「システムフォントは雰囲気台無し」）：しっぽり明朝と Cormorant Garamond（どちらも OFL）。
    物語で使う字だけに絞った woff2（scripts/story-fonts.py）。物語を開いたときだけ読む（/event/ の下、版つき）。 */
-@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-500.woff2?v=7") format("woff2"); font-weight: 400 500; font-display: block; }
-@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-600.woff2?v=7") format("woff2"); font-weight: 600 700; font-display: block; }
-@font-face { font-family: "Story Engrave"; src: url("/event/story/fonts/zen-old-mincho-700.woff2?v=6") format("woff2"); font-weight: 400 900; font-display: block; }
+@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-500.woff2?v=8") format("woff2"); font-weight: 400 500; font-display: block; }
+@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-600.woff2?v=8") format("woff2"); font-weight: 600 700; font-display: block; }
+@font-face { font-family: "Story Engrave"; src: url("/event/story/fonts/zen-old-mincho-700.woff2?v=7") format("woff2"); font-weight: 400 900; font-display: block; }
 @font-face { font-family: "Story Garamond"; src: url("/event/story/fonts/cormorant-garamond.woff2?v=1") format("woff2"); font-weight: 300 700; font-style: normal; font-display: block; }
 @font-face { font-family: "Story Garamond"; src: url("/event/story/fonts/cormorant-garamond-italic.woff2?v=1") format("woff2"); font-weight: 300 700; font-style: italic; font-display: block; }
 /* 本（11/20 渡辺さんの見本：紺の革の表紙・金の飾り・生成りの紙）。テーマによらず一つ（色は src/design/story）。
