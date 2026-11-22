@@ -582,7 +582,7 @@ img.event-pic { object-fit: contain; }
    文（16:23「物語部分のフォントやエフェクトの見直し」）：明朝の縦書きで空に置き、一字ずつにじみから浮かぶ。 */
 .ms-world { position: relative; height: calc(var(--beats) * 110svh + 100svh); margin-top: -100svh; }
 .ms-world-stage { background: var(--bk-night-1); }
-.ms-world-stage .bw { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ms-world-stage .bw, .ms-world-stage .cw { position: absolute; inset: 0; width: 100%; height: 100%; }
 /* 金の枠は、上の「物語をとばす」・閉じると、下のドットに掛からない所に（11/21 レビュー）。 */
 .ms-world-frame { position: absolute; inset: calc(env(safe-area-inset-top, 0px) + var(--tap-min) + var(--space-4)) var(--space-3) calc(env(safe-area-inset-bottom, 0px) + var(--tap-min) + var(--space-3)); opacity: 0; pointer-events: none; }
 /* 縦書きの文は、最後のコマで入ってくる金の枠（内の線は端から約 18px）の内側に収まる位置を基準に（11/20 22:14 渡辺さん）。 */
@@ -788,7 +788,7 @@ img.event-pic { object-fit: contain; }
   .bk-cover { position: relative; aspect-ratio: 5 / 7; }
   .ms-world { height: auto; margin-top: 0; }
   .ms-world-stage { position: relative; height: auto; display: block; }
-  .ms-world-stage .bw { position: relative; display: block; height: 100svh; }
+  .ms-world-stage .bw, .ms-world-stage .cw { position: relative; display: block; height: 100svh; }
   .ms-caps { position: relative; top: auto; right: auto; width: auto; height: auto; display: grid; gap: var(--space-5); padding: var(--space-7) var(--space-6); background: var(--bk-night-1); }
   .ms-cap { position: relative; height: auto; opacity: 1; writing-mode: horizontal-tb; font-size: var(--size-lg); }
 }

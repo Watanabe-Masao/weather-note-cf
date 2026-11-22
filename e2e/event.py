@@ -147,6 +147,22 @@ with sync_playwright() as p:
         fb = pg.evaluate(HEAD)
         check(f"[{theme}] 絵が読めないと手描きの帯（アイコンつき）、見出しの高さは同じ", fb["art"] is None and fb["hand"] == 1 and fb["icon"] == 1 and fb["head"] == base["head"], fb)
         ctx.close()
+    # コールドムーンの場面（11/22 PR-2、実装計画 v0.2）：12/23 の夜に物語を開くと、雪の森の場面（9コマ）・穴のある幹・
+    # 表紙の絵・閉じた本の型押し。「物語をとばす」はあとがきへ。ビーバームーンの場面は出ない。
+    ctx, pg, asked = page(b, "2026-12-23T11:00:00Z", "navy")
+    pg.locator(".brand-tap").click(); pg.wait_for_selector(".event-sheet")
+    pg.locator(".event-sheet .fm-book-btn").click(); pg.wait_for_selector(".moon-story.ready", timeout=10000)
+    cw = pg.evaluate("""() => { const s = document.querySelector('.moon-story'); return {
+        h2: s.querySelector('h2')?.textContent, cw: s.querySelectorAll('svg.cw').length, bw: s.querySelectorAll('svg.bw').length,
+        trunk: s.querySelectorAll('svg.cw .cw-trunk').length, caps: s.querySelectorAll('.ms-cap').length, beats: s.querySelectorAll('.ms-beat').length,
+        cover: s.querySelectorAll('.bk-cover svg.bca').length, medal: !!s.querySelector('img.ms-endbook-art[src*="/cold/emboss-medal"]'),
+        moon: s.querySelectorAll('svg.cw [data-story-moon]').length } }""")
+    pg.locator(".moon-story .ms-skip .btn").click()
+    pg.wait_for_function("(() => { const s = document.querySelector('.moon-story'); const e = s.querySelector('[data-story-end]'); return Math.abs(s.scrollTop - e.offsetTop) < 4 })()", timeout=45000)
+    after = pg.evaluate("(() => { const s = document.querySelector('.moon-story'); return (s.querySelector('[data-story-end] .ms-paper-kicker') || {}).textContent })()")
+    check("コールドムーン：雪の森の場面（9コマ・9ページ・穴のある幹・月は一つ）、表紙の絵と閉じた本の型押し、「物語をとばす」はあとがきへ",
+          cw["h2"] == "コールドムーン" and cw["cw"] == 1 and cw["bw"] == 0 and cw["trunk"] == 1 and cw["caps"] == 9 and cw["beats"] == 9 and cw["cover"] == 1 and cw["medal"] and cw["moon"] == 1 and after == "物語のあとがき", (cw, after))
+    ctx.close()
     # 確認ページ（管理者だけ、docs/event-banner.md 5章）：全部の種類の帯（見出しと同じ物）と台帳の状態、これからの1年。
     # 「この日として見出しを表示」で、ふだんの日（11/10）の見出しが 2026/11/24 のビーバームーンの帯になり、元に戻すと戻る。
     ADMIN["on"] = True
