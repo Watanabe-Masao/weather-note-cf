@@ -858,7 +858,8 @@ img.event-pic { object-fit: contain; }
 @keyframes fm-book-sheen { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
 /* The item bar (2026-11-22 渡辺さん): fixed to the bottom of the screen in both modes, one row that scrolls
-   sideways. The graph sheet stands on it (bottom: var(--itembar-h)). Each chip is a 44px target. */
+   sideways. The graph sheet stands on it (bottom: var(--itembar-h)). Each chip is a 44px target, with the
+   item's picture, and lights in the item's own colour (the colour of its line in the graphs). */
 .metrics.item-bar {
   position: fixed;
   left: 0;
@@ -868,30 +869,124 @@ img.event-pic { object-fit: contain; }
   margin: 0 auto;
   z-index: var(--layer-sheet);
   display: flex;
-  gap: var(--space-2);
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-snap-type: x proximity;
   scroll-padding-inline: var(--space-4);
   scrollbar-width: none;
-  padding: var(--space-2) var(--space-4) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
-  background: var(--surface-base);
-  border-top: var(--stroke-hair) solid var(--line-soft);
 }
 .metrics.item-bar::-webkit-scrollbar { display: none; }
+.metrics .chip { flex: 0 0 auto; justify-content: center; scroll-snap-align: center; white-space: nowrap; letter-spacing: -0.02em; }
+.metrics .chip .item-icon { color: inherit; }
 
-.metrics .chip {
-  flex: 0 0 auto;
-  justify-content: center;
-  scroll-snap-align: center;
+/* 案A タブ：すりガラスの帯、絵の下に名前。選んだ項目は色の面と上の光る線。 */
+html:not([data-bar]) .metrics.item-bar,
+html[data-bar="a"] .metrics.item-bar {
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3) calc(var(--space-2) + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, var(--surface-base) 78%, transparent);
+  -webkit-backdrop-filter: blur(var(--space-5)) saturate(1.4);
+  backdrop-filter: blur(var(--space-5)) saturate(1.4);
+  border-top: var(--stroke-hair) solid var(--line-soft);
+  box-shadow: 0 calc(-1 * var(--space-3)) var(--space-7) color-mix(in srgb, var(--surface-base) 60%, transparent);
+}
+html:not([data-bar]) .metrics .chip,
+html[data-bar="a"] .metrics .chip {
+  position: relative;
+  flex-direction: column;
+  gap: 3px;
+  min-width: calc((min(100vw, 600px) - var(--space-3) - 4 * var(--space-1)) / 5.5);
+  min-height: 52px;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
   border-radius: var(--radius-md);
-  padding: 0 var(--space-4);
-  font-size: var(--size-base);
-  white-space: nowrap;
-  letter-spacing: -0.02em;
-  /* Four and a half chips show at any width, so the cut one tells that the row goes on. */
-  min-width: calc((min(100vw, 600px) - var(--space-4) - 4 * var(--space-2)) / 4.5);
+  background: transparent;
+  color: var(--ink-tertiary);
+  font-size: var(--size-xs);
+}
+html:not([data-bar]) .metrics .chip.on,
+html[data-bar="a"] .metrics .chip.on {
+  color: var(--chip-tone);
+  background: color-mix(in srgb, var(--chip-tone) 14%, transparent);
+  box-shadow: none;
+  font-weight: 600;
+}
+html:not([data-bar]) .metrics .chip.on::before,
+html[data-bar="a"] .metrics .chip.on::before {
+  content: "";
+  position: absolute;
+  top: calc(-1 * var(--space-2));
+  left: 28%;
+  right: 28%;
+  height: var(--stroke-focus);
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+  background: var(--chip-tone);
+  box-shadow: 0 0 var(--space-4) var(--chip-tone);
+}
+
+/* 案B 浮かぶカプセル：画面の下に浮かぶ丸い帯。選んだ項目は色で塗る。 */
+html[data-bar="b"] .metrics.item-bar {
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  max-width: 568px;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-pill);
+  border: var(--stroke-hair) solid var(--line-soft);
+  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
+  -webkit-backdrop-filter: blur(var(--space-5)) saturate(1.4);
+  backdrop-filter: blur(var(--space-5)) saturate(1.4);
+  box-shadow: var(--shadow-sheet);
+  scroll-padding-inline: var(--space-1);
+}
+html[data-bar="b"] .metrics .chip {
   min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: var(--size-sm);
+}
+html[data-bar="b"] .metrics .chip.on {
+  color: var(--surface-base);
+  background: var(--chip-tone);
+  box-shadow: 0 var(--space-1) var(--space-4) color-mix(in srgb, var(--chip-tone) 45%, transparent);
+  font-weight: 600;
+}
+
+/* 案C シートと一体：シートの足もとに続く帯。選んだ項目の下に色の線。 */
+html[data-bar="c"] .metrics.item-bar {
+  gap: 0;
+  padding: 0 var(--space-2) env(safe-area-inset-bottom, 0px);
+  background: var(--surface-raised);
+  border-top: var(--stroke-hair) solid var(--line-soft);
+  -webkit-mask-image: linear-gradient(90deg, transparent, black var(--space-5), black calc(100% - var(--space-5)), transparent);
+  mask-image: linear-gradient(90deg, transparent, black var(--space-5), black calc(100% - var(--space-5)), transparent);
+}
+html[data-bar="c"] .metrics .chip {
+  position: relative;
+  min-width: calc((min(100vw, 600px) - var(--space-2)) / 4.5);
+  min-height: 50px;
+  gap: var(--space-1);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--ink-tertiary);
+  font-size: var(--size-sm);
+}
+html[data-bar="c"] .metrics .chip.on { color: var(--chip-tone); background: transparent; box-shadow: none; font-weight: 600; }
+html[data-bar="c"] .metrics .chip.on::after {
+  content: "";
+  position: absolute;
+  left: var(--space-4);
+  right: var(--space-4);
+  top: 0;
+  height: var(--stroke-focus);
+  border-radius: 0 0 var(--radius-xs) var(--radius-xs);
+  background: var(--chip-tone);
 }
 
 /* ---- tables ----------------------------------------------------------------------------------- */

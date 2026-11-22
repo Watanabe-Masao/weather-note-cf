@@ -5,7 +5,7 @@ import { AfterAnswer } from "./beta/AfterAnswer";
 import { useSeasonDays } from "./feelSeason";
 import type { WeatherStore } from "./data/store";
 import { CalendarModal, type CalendarSide } from "./ui/CalendarModal";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { addDays, FIRST_DAY } from "../shared/dates";
 import {
   COMPARE_MODES,
@@ -93,6 +93,18 @@ function chartHeight(
 }
 
 /** `theme`: only so a change of theme draws everything again (src/main.tsx). */
+/** Each item's own colour in the item bar (the colour of its line in the graphs). */
+const ITEM_TONE: Record<string, string> = {
+  temp: "temp",
+  rain: "rain",
+  radiation: "radiation",
+  light: "sun",
+  humidity: "humidity",
+  visibility: "visibility",
+  wind: "wind",
+  pressure: "pressure",
+};
+
 export function App(_: { theme?: string } = {}) {
   const store = useWeatherStore();
   const [calendar, setCalendar] = useState<CalendarSide | null>(null);
@@ -314,7 +326,8 @@ export function App(_: { theme?: string } = {}) {
     probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none";
     document.body.appendChild(probe);
     const measure = () => {
-      setBarH(Math.round(el.getBoundingClientRect().height));
+      // From the bar's top to the bottom of the screen (a floating bar has a gap under it).
+      setBarH(Math.round(window.innerHeight - el.getBoundingClientRect().top));
       setSafeTop(Math.round(probe.getBoundingClientRect().height));
     };
     measure();
@@ -667,9 +680,11 @@ export function App(_: { theme?: string } = {}) {
             role="tab"
             aria-selected={m.id === view.metric}
             className={m.id === view.metric ? "chip item on" : "chip item"}
+            style={{ "--chip-tone": `var(--data-${ITEM_TONE[m.id] ?? "mean"})` } as CSSProperties}
             onClick={() => set("metric", m.id)}
           >
-            {m.label}
+            <ItemIcon id={m.id} />
+            <span className="item-bar-label">{m.label}</span>
           </button>
         ))}
       </nav>
