@@ -423,7 +423,7 @@ export function ColdWorld(): ReactElement {
         {/* 満月（6ページで北東の地平線＝山の向こうから昇る。昇る前は見せない）。 */}
         <ellipse className="cw-moonrise" cx={110} cy={520} rx={170} ry={90} fill="url(#cw-moon-glow)" opacity={0} />
         <g className="cw-moon-show" opacity={0}>
-          <StoryMoon p="cw" at="translate(110 600)" img={storyAsset("cold", "moon")} />
+          <StoryMoon p="cw" at="translate(110 600)" img={storyAsset("cold", "moon")} tint="#eef2fb" />
         </g>
         <Distance />
         <SnowField />
@@ -630,7 +630,8 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   const west = cue(8, 2, 8.74);
   const turn = Math.max(fly + 0.17, west - 0.11);
   move(8, cam(270, 540, 1.3), 0.1)
-    .set(".cw-moon", { attr: { transform: "translate(64 400) scale(0.5)" }, filter: "saturate(0.15) brightness(1.35)" }, 8.02)
+    .set(".cw-moon", { attr: { transform: "translate(64 400) scale(0.5)" } }, 8.02)
+    .set(".cw-moon-tint", { opacity: 0.62 }, 8.02)
     .to(".cw-sky-dawn", { opacity: 1, duration: 0.25, ease: "sine.inOut" }, 8)
     .to(".cw-sky-night", { opacity: 0, duration: 0.25, ease: "sine.inOut" }, 8.02)
     .to(".cw-stars", { opacity: 0, duration: 0.25 }, 8.02)

@@ -857,11 +857,17 @@ export function MoonStory({
               )
               .set(cap, { y: 0, filter: "blur(0px)" }, i + 1);
           });
+          // 一枚の絵の枠：場面が持つときは、最後のページの文が消えてから止まる所まで（文を読む間は出さない）。
+          const lastI = lines.length - 1;
+          const textGone = story?.book
+            ? lastI + REVEAL_START + ((readings[lastI]?.total ?? 0) + pauseSum(scene.linePause?.[lastI]) + LAST_TAIL) / (beatSecs[lastI] ?? SEC_PER_BEAT) + 0.06
+            : scene.beats - 0.75;
+          const frameAt = scene.frameAfterText ? Math.min(scene.beats - 1 + BEAT_REST - 0.04, textGone) : scene.beats - 0.75;
           world.fromTo(
             ".ms-world-frame",
             { opacity: 0, scale: 1.06 },
-            { opacity: 1, scale: 1, duration: 0.5 },
-            scene.beats - 0.75,
+            { opacity: 1, scale: 1, duration: scene.frameAfterText ? Math.max(0.04, scene.beats - 1 + BEAT_REST - frameAt) : 0.5 },
+            frameAt,
           );
 
           world.set({}, {}, scene.beats);

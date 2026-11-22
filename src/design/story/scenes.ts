@@ -49,6 +49,11 @@ export type StoryScene = {
    */
   linePause?: Record<number, number[]>;
   /**
+   * 一枚の絵の金の枠を、最後のページの文が消えてから出す（11/23 渡辺さん「枠が現れるタイミングはこれが適切？」：文を読んで
+   * いる間に枠が出ていた）。無ければ、いままでどおり最後のページの 0.25 から。
+   */
+  frameAfterText?: boolean;
+  /**
    * 行を出しはじめる所（コマの中の 0〜1、行ごと）。絵の動きに合わせて行を出すページだけ（11/21 絵コンテ v0.3：6ページは
    * 丘が明るむと1行目、月の縁が出ると2行目）。無いページは、行を続けて朗読の速さで出す。
    */
@@ -99,6 +104,7 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     build: buildColdScene,
     linePause: COLD_LINE_PAUSE,
     cues: COLD_CUES,
+    frameAfterText: true,
     still: 6.78,
     bookSky: { start: BOOK.coldStart, end: BOOK.coldDawn, after: BOOK.coldAfter },
   },
