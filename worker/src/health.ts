@@ -10,6 +10,7 @@
 //   app_errors — failures of the account requests (the log keeps them only 3–7 days, the count here 30).
 
 import { weeklyAuditLastAt } from "./weeklyAudit";
+import { type DriveEnv, driveConfigured, pendingDays } from "./offsite";
 import { SHIROMATZ_SOURCE } from "../../shared/forecastShiromatz";
 import type { Db, Stmt } from "./accounts";
 import { importPosition } from "./forecastImport";
@@ -264,7 +265,7 @@ const TABLES: [string, string | null][] = [
 
 const pct = (part: number, whole: number) => Math.round((part / whole) * 1000) / 10;
 
-export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usageFetch?: Parameters<typeof monthUsage>[2]) {
+export async function health(db: Db, now = Date.now(), env: UsageEnv & DriveEnv = {}, usageFetch?: Parameters<typeof monthUsage>[2]) {
   await ensureHealthSchema(db);
   const iso = (ms: number) => new Date(ms).toISOString();
   const dayAgo = iso(now - 86_400_000);
@@ -466,6 +467,8 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM soramame_fetch_log"))?.n ? { soramameLastOk: await lastOk("soramame_fetch_log") } : {}),
       // 週の点検（weeklyAudit.ts、#370）：最後に終わった時刻。表がまだ無ければ判断しない。
       ...(await weeklyAt(db)),
+      // 原本の控え（offsite.ts）：鍵が入っているときだけ、まだ置いていない日の数。
+      ...(driveConfigured(env) ? { offsitePending: (await pendingDays(db, now)).length } : {}),
       // 欠けの発見（completeness.ts、#299）：定時の発表・30分ごとの時刻が1つずつそろっているか。数と時刻だけ。
       completeness: await readCompleteness(db, now),
       warnings: {

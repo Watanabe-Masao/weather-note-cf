@@ -52,6 +52,8 @@ export interface HealthView {
     soramameLastOk?: string | null;
     /** 週の点検が最後に終わった時刻（worker/src/weeklyAudit.ts）。表が無いときは無い。 */
     weeklyAuditAt?: string | null;
+    /** Google ドライブにまだ置いていない日の数（worker/src/offsite.ts）。鍵が無いときは無い。 */
+    offsitePending?: number;
     warnings?: { lastOk: string | null; fetchFailuresLastDay: number };
     /** 欠けの発見（worker/src/completeness.ts）。pending は新しい順。 */
     completeness?: {
@@ -134,6 +136,8 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
     }
     // 週の点検（#370）：7日ごと。8日を過ぎたら注意（点検が止まっても、データそのものは失われない）。
     if (s.weeklyAuditAt !== undefined && ago(s.weeklyAuditAt) > 8 * 24) note("weeklyAuditStale", `週の点検が最後に終わったのは ${s.weeklyAuditAt ? `${(ago(s.weeklyAuditAt) / 24).toFixed(1)}日前` : "記録なし"}（7日ごとのはず）。`);
+    // 原本の控え（#370）：5分ごとに1日ずつ置くので、ふだんは0日。3日より多くたまったら注意（原本は R2 に残っている）。
+    if (s.offsitePending !== undefined && s.offsitePending > 3) note("offsiteBehind", `Google ドライブの控えが ${s.offsitePending}日分たまっています（原本は R2 にあり、失われてはいない）。`);
     if (s.longRangeLastOk !== undefined && ago(s.longRangeLastOk) > 12) note("longRangeStale", `長い先の予報の電文の保存が最後にうまくいったのは ${hours(ago(s.longRangeLastOk))}。`);
     // 警報・注意報 (2026-11-18 渡辺さん OK)：配信の長い一覧は7日分。7日止まると取り戻せない（一覧から外れた電文は名前が
     // 分からず取りに行けない、#267）。1日で注意、3日で異常（まだ4日分は取り戻せるうちに気づく）。まだ一度も読んで

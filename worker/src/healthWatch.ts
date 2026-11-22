@@ -20,6 +20,7 @@
 //
 // Each look is kept in health_checks (counts and times only), and /api/health gives the last one.
 
+import type { DriveEnv } from "./offsite";
 import { checkImport, judgeHealth, type Finding, type ImportReady } from "../../shared/healthJudge";
 import { runbookTag } from "../../shared/runbook";
 import { auditCompleteness } from "./completeness";
@@ -103,7 +104,7 @@ export interface HealthWatchResult {
 export async function watchHealth(
   db: Db,
   now = Date.now(),
-  env: UsageEnv = {},
+  env: UsageEnv & DriveEnv = {},
   deps: { send?: Send; head?: Head; usageFetch?: UsageFetch } = {},
 ): Promise<HealthWatchResult> {
   await ensureHealthWatchSchema(db);
@@ -180,7 +181,7 @@ export async function watchHealth(
   let digest: string | null = null;
   const day = await claimDigest(db, now);
   if (day) {
-    const m = digestMessage(await digestLines(db, now), judged.problems, judged.notes, await digestExtra(db, now, h.room.cron.cloudflare));
+    const m = digestMessage(await digestLines(db, now), judged.problems, judged.notes, await digestExtra(db, now, h.room.cron.cloudflare, env));
     const n = await tellAdmins(db, m, now, send);
     sent += n;
     digest = day;
