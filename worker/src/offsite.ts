@@ -1,16 +1,18 @@
-// 原本の別系統への控え（#370 の2つ目、2026-11-22 渡辺さん「Google ドライブで」）。
+// 原本の別系統への控え（#370 の2つ目）。置き場所は GitHub の非公開リポジトリ（2026-11-22 渡辺さん。はじめは Google ドライブに
+// したが、Google の同意画面が本番に出せず、GitHub に変えた）。
 //
 // R2 に置いた原本（電文の写し・長い先の予報・アメダスの10分値・天気図・雨雲と解析雨量）は、気象庁が消すと二度と
-// 取れない。R2 と D1 は同じ Cloudflare の中なので、別の会社（Google ドライブ）にも控えを置く。
+// 取れない。R2 と D1 は同じ Cloudflare の中なので、別の会社（GitHub）にも控えを置く。
 //
-//   1日ずつ（日本時間でその日に R2 に保存したもの）を tar にまとめ（300ファイルを超える日は分けて `<日付>_1of3.tar` など）、`<日付>.tar` としてドライブの
-//   「weather-note-archive」フォルダに置く。中に manifest.json（鍵・表・大きさ・sha256）を入れる。
+//   1日ずつ（日本時間でその日に R2 に保存したもの）を tar にまとめる（300ファイルを超える日は分けて `<日付>_1of3.tar` など）。
+//   それを非公開のリポジトリ（ARCHIVE_REPO）の月ごとのリリース（`archive-YYYY-MM`）に、`<日付>.tar` という名前のファイルとして置く。
+//   中に manifest.json（鍵・表・大きさ・sha256）を入れる。
 //   置いたら読み戻して sha256 が同じかを確かめ、確かめられた日だけを offsite_copies に「済み」として残す。
-//   まだの日は、定時処理（5分ごと）の1回に1つずつ、古い日から（初回は取り始めの日までさかのぼる）。
+//   まだの日は、定時処理（5分ごと）の1回に1つずつ、古い日から置く（初回は取り始めの日までさかのぼる）。
 //
-// 権限は drive.file（このアプリが作ったファイルだけ触れる。ほかのファイルは見えない）。鍵は渡辺さんが Cloudflare の
-// 秘密の値に入れる（GDRIVE_CLIENT_ID・GDRIVE_CLIENT_SECRET・GDRIVE_REFRESH_TOKEN）。無ければ何もしない（未設定）。
-// ドライブのファイルを消したり置き換えたりはしない（同じ日をもう一度置くときは、新しいファイルとして置く）。
+// 鍵は、そのリポジトリだけに書ける GitHub のトークン（Contents の Read and write）。渡辺さんが Cloudflare の秘密の値
+// GITHUB_ARCHIVE_TOKEN に入れる。無ければ何もしない（未設定）。リポジトリの名前は wrangler.jsonc の ARCHIVE_REPO（秘密ではない）。
+// 置いたファイルは消さない・置き換えない（同じ名前がもうあれば、別の名前で置く）。
 // 肌感の記録などのユーザーのデータは入れない（入れるかは別に決める）。
 
 import type { Db } from "./accounts";
@@ -22,19 +24,19 @@ const H = 3_600_000;
 const DAY = 24 * H;
 /** その日が終わってから置くまで（その日の最後の保存が入りきるのを待つ）。 */
 const AFTER_MS = 1 * H;
-const FOLDER = "weather-note-archive";
 /** 1つの tar の上限（Worker のメモリに収まるように）。超えたら置かずに失敗として残す。 */
 const MAX_BYTES = 60 * 1024 * 1024;
 const LOG_DAYS = 400;
 /** 1つの tar に入れるファイルの数（R2 を読む回数が、定時処理の1回の決まりの内に収まるように）。1日が多ければ分ける。 */
 export const PART_FILES = 300;
 
-export interface DriveEnv {
-  GDRIVE_CLIENT_ID?: string;
-  GDRIVE_CLIENT_SECRET?: string;
-  GDRIVE_REFRESH_TOKEN?: string;
+export interface ArchiveEnv {
+  /** 控えのリポジトリだけに書ける GitHub のトークン（秘密の値）。 */
+  GITHUB_ARCHIVE_TOKEN?: string;
+  /** 控えのリポジトリ（owner/name、wrangler.jsonc の vars）。 */
+  ARCHIVE_REPO?: string;
 }
-export const driveConfigured = (e: DriveEnv) => !!(e.GDRIVE_CLIENT_ID && e.GDRIVE_CLIENT_SECRET && e.GDRIVE_REFRESH_TOKEN);
+export const offsiteConfigured = (e: ArchiveEnv) => !!(e.GITHUB_ARCHIVE_TOKEN && e.ARCHIVE_REPO && /^[\w.-]+\/[\w.-]+$/.test(e.ARCHIVE_REPO));
 
 export const OFFSITE_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS offsite_copies (
@@ -214,75 +216,76 @@ export async function bundleDay(db: Db, bucket: Bucket, day: string, now: number
   return { body, files: entries.length, missing, part, parts, name: parts === 1 ? `${day}.tar` : `${day}_${part}of${parts}.tar` };
 }
 
-// ---- Google ドライブ ----
+// ---- GitHub（非公開リポジトリのリリース） ----
 type Get = (url: string, init?: RequestInit) => Promise<Response>;
 
-/** 鍵や応答の中身はエラーの文言に入れない（状態の番号と、Google の error の種類だけ）。 */
+/** 鍵や応答の中身はエラーの文言に入れない（状態の番号と、GitHub の message の頭だけ）。 */
 async function fail(what: string, r: Response): Promise<never> {
   let kind = "";
   try {
-    const j = (await r.json()) as { error?: string | { status?: string } };
-    kind = typeof j.error === "string" ? j.error : (j.error?.status ?? "");
+    kind = String(((await r.json()) as { message?: string }).message ?? "").slice(0, 60);
   } catch {
     /* 中身は読まない */
   }
   throw new Error(`${what}: HTTP ${r.status}${kind ? ` ${kind}` : ""}`);
 }
 
-export class Drive {
-  private token: string | null = null;
+/** 控えの置き場所（テストでは差し替える）。folder はその日の月のリリース、upload は置いたファイルの id を返す。 */
+export interface OffsiteStore {
+  folder(day: string): Promise<string>;
+  upload(folder: string, name: string, body: Uint8Array): Promise<string>;
+  download(id: string): Promise<Uint8Array>;
+}
+
+export class GitHubStore implements OffsiteStore {
   constructor(
-    private env: Required<DriveEnv>,
+    private env: Required<ArchiveEnv>,
     private get: Get = retryingFetch(30_000),
   ) {}
-  private async auth(): Promise<string> {
-    if (this.token) return this.token;
-    const r = await this.get("https://oauth2.googleapis.com/token", {
+  private headers(extra: Record<string, string> = {}) {
+    return { authorization: `Bearer ${this.env.GITHUB_ARCHIVE_TOKEN}`, accept: "application/vnd.github+json", "x-github-api-version": "2022-11-28", "user-agent": "weather-note-cf", ...extra };
+  }
+  private api(path: string) {
+    return `https://api.github.com/repos/${this.env.ARCHIVE_REPO}${path}`;
+  }
+  /** その日の月のリリース（無ければ作る）。 */
+  async folder(day: string): Promise<string> {
+    const tag = `archive-${day.slice(0, 7)}`;
+    const r = await this.get(this.api(`/releases/tags/${tag}`), { headers: this.headers() });
+    if (r.ok) return String(((await r.json()) as { id: number }).id);
+    if (r.status !== 404) await fail("控えのリリースを探す", r);
+    const c = await this.get(this.api("/releases"), {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({ client_id: this.env.GDRIVE_CLIENT_ID, client_secret: this.env.GDRIVE_CLIENT_SECRET, refresh_token: this.env.GDRIVE_REFRESH_TOKEN, grant_type: "refresh_token" }).toString(),
+      headers: this.headers({ "content-type": "application/json" }),
+      body: JSON.stringify({ tag_name: tag, name: `原本の控え ${day.slice(0, 7)}`, body: "Weather Note の R2 の原本の控え（日本時間で1日ずつの tar）。中の manifest.json に鍵・表・sha256。出典：気象庁。", draft: false, prerelease: false }),
     });
-    if (!r.ok) await fail("ドライブの鍵", r);
-    this.token = ((await r.json()) as { access_token: string }).access_token;
-    return this.token;
+    if (!c.ok) await fail("控えのリリースを作る", c);
+    return String(((await c.json()) as { id: number }).id);
   }
-  private async call(url: string, init: RequestInit = {}): Promise<Response> {
-    return this.get(url, { ...init, headers: { ...(init.headers as Record<string, string>), authorization: `Bearer ${await this.auth()}` } });
-  }
-  /** このアプリが作ったフォルダ（無ければ作る）。 */
-  async folder(): Promise<string> {
-    const q = encodeURIComponent(`name = '${FOLDER}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`);
-    const r = await this.call(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)&spaces=drive`);
-    if (!r.ok) await fail("ドライブのフォルダを探す", r);
-    const found = ((await r.json()) as { files: { id: string }[] }).files[0];
-    if (found) return found.id;
-    const c = await this.call("https://www.googleapis.com/drive/v3/files?fields=id", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: FOLDER, mimeType: "application/vnd.google-apps.folder" }),
-    });
-    if (!c.ok) await fail("ドライブのフォルダを作る", c);
-    return ((await c.json()) as { id: string }).id;
-  }
-  /** 置く（resumable：始めて、1回で全部を送る）。ファイルの id を返す。 */
+  /** 置く。同じ名前がもうあれば（前の回が確かめる前に止まった）、別の名前で置く（消さない）。 */
   async upload(folder: string, name: string, body: Uint8Array): Promise<string> {
-    const s = await this.call("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id", {
-      method: "POST",
-      headers: { "content-type": "application/json; charset=UTF-8", "x-upload-content-type": "application/x-tar", "x-upload-content-length": String(body.length) },
-      body: JSON.stringify({ name, parents: [folder], mimeType: "application/x-tar" }),
-    });
-    if (!s.ok) await fail("ドライブに置き始める", s);
-    const at = s.headers.get("location");
-    if (!at) throw new Error("ドライブに置き始める: 置き場所が返ってこない");
-    const p = await this.get(at, { method: "PUT", headers: { "content-type": "application/x-tar" }, body: body as Uint8Array<ArrayBuffer> });
-    if (!p.ok) await fail("ドライブに置く", p);
-    return ((await p.json()) as { id: string }).id;
+    const put = (n: string) =>
+      this.get(`https://uploads.github.com/repos/${this.env.ARCHIVE_REPO}/releases/${encodeURIComponent(folder)}/assets?name=${encodeURIComponent(n)}`, {
+        method: "POST",
+        headers: this.headers({ "content-type": "application/x-tar" }),
+        body: body as Uint8Array<ArrayBuffer>,
+      });
+    let r = await put(name);
+    if (r.status === 422) r = await put(name.replace(/\.tar$/, `-${Date.now()}.tar`));
+    if (!r.ok) await fail("控えを置く", r);
+    return String(((await r.json()) as { id: number }).id);
   }
-  /** 読み戻す。 */
+  /** 読み戻す（GitHub は別の場所へ案内するので、案内先は鍵なしで読む）。 */
   async download(id: string): Promise<Uint8Array> {
-    const r = await this.call(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media`);
-    if (!r.ok) await fail("ドライブから読み戻す", r);
-    return new Uint8Array(await r.arrayBuffer());
+    const r = await this.get(this.api(`/releases/assets/${encodeURIComponent(id)}`), { headers: this.headers({ accept: "application/octet-stream" }), redirect: "manual" });
+    let body = r;
+    if (r.status >= 300 && r.status < 400) {
+      const at = r.headers.get("location");
+      if (!at) throw new Error("控えを読み戻す: 案内先が無い");
+      body = await this.get(at, { headers: { "user-agent": "weather-note-cf" } });
+    }
+    if (!body.ok) await fail("控えを読み戻す", body);
+    return new Uint8Array(await body.arrayBuffer());
   }
 }
 
@@ -296,21 +299,23 @@ export interface OffsiteResult {
 }
 
 /** 定時処理の1回：まだの日を1日だけ置く。鍵が無ければ何もしない。 */
-export async function copyOffsite(db: Db, bucket: Bucket, env: DriveEnv, now: number, drive?: Pick<Drive, "folder" | "upload" | "download">, partFiles = PART_FILES): Promise<OffsiteResult> {
-  if (!driveConfigured(env)) return { configured: false, day: null, files: 0, bytes: 0, missing: 0, pending: 0 };
+export async function copyOffsite(db: Db, bucket: Bucket, env: ArchiveEnv, now: number, store?: OffsiteStore, partFiles = PART_FILES): Promise<OffsiteResult> {
+  if (!offsiteConfigured(env)) return { configured: false, day: null, files: 0, bytes: 0, missing: 0, pending: 0 };
   const days = await pendingDays(db, now);
   const day = days[0];
   if (!day) return { configured: true, day: null, files: 0, bytes: 0, missing: 0, pending: 0 };
   const at = new Date(now).toISOString();
   try {
-    const d = drive ?? new Drive(env as Required<DriveEnv>);
+    const d = store ?? new GitHubStore(env as Required<ArchiveEnv>);
     const done = new Set((await db.prepare("SELECT part FROM offsite_copies WHERE day = ?").bind(day).all<{ part: number }>()).results.map((r) => r.part));
     const b = await bundleDay(db, bucket, day, now, done, partFiles);
     const sha = await sha256(b.body);
-    let folder = (await db.prepare("SELECT value FROM offsite_state WHERE key = 'folder'").first<{ value: string }>())?.value;
+    // 月ごとのリリースの id は offsite_state に覚える（毎回探さない）。
+    const key = `release:${day.slice(0, 7)}`;
+    let folder = (await db.prepare("SELECT value FROM offsite_state WHERE key = ?").bind(key).first<{ value: string }>())?.value;
     if (!folder) {
-      folder = await d.folder();
-      await db.prepare("INSERT OR REPLACE INTO offsite_state (key, value) VALUES ('folder', ?)").bind(folder).run();
+      folder = await d.folder(day);
+      await db.prepare("INSERT OR REPLACE INTO offsite_state (key, value) VALUES (?, ?)").bind(key, folder).run();
     }
     const name = b.name;
     const id = await d.upload(folder, name, b.body);
@@ -325,8 +330,8 @@ export async function copyOffsite(db: Db, bucket: Bucket, env: DriveEnv, now: nu
     return { configured: true, day, files: b.files, bytes: b.body.length, missing: b.missing.length, pending: days.length - (finished ? 1 : 0) };
   } catch (e) {
     const msg = (e instanceof Error ? e.message : String(e)).slice(0, 200);
-    // フォルダが消された・見えなくなったときは、次の回に探し直す。
-    if (/HTTP 404/.test(msg)) await db.prepare("DELETE FROM offsite_state WHERE key = 'folder'").run();
+    // リリースが消された・見えなくなったときは、次の回に探し直す。
+    if (/HTTP 404/.test(msg)) await db.prepare("DELETE FROM offsite_state WHERE key = ?").bind(`release:${day.slice(0, 7)}`).run();
     await db.prepare("INSERT OR REPLACE INTO offsite_log (at, ok, day, error) VALUES (?, 0, ?, ?)").bind(at, day, msg).run();
     throw e;
   }
@@ -344,13 +349,13 @@ export type OffsiteSummary = {
 };
 
 /** 保守の画面・見張り・毎朝の点検に。 */
-export async function offsiteSummary(db: Db, now: number, env: DriveEnv): Promise<OffsiteSummary> {
+export async function offsiteSummary(db: Db, now: number, env: ArchiveEnv): Promise<OffsiteSummary> {
   await ensureOffsiteSchema(db);
   const c = await db.prepare("SELECT MAX(day) AS lastDay, MAX(uploaded_at) AS lastAt, COUNT(DISTINCT day) AS days, COALESCE(SUM(bytes), 0) AS bytes FROM offsite_copies").first<{ lastDay: string | null; lastAt: string | null; days: number; bytes: number }>();
   const pend = await pendingDays(db, now);
   const err = await db.prepare("SELECT at, day, error FROM offsite_log WHERE ok = 0 AND at > COALESCE((SELECT MAX(at) FROM offsite_log WHERE ok = 1), '') ORDER BY at DESC LIMIT 1").first<{ at: string; day: string | null; error: string }>();
   return {
-    configured: driveConfigured(env),
+    configured: offsiteConfigured(env),
     lastDay: c?.lastDay ?? null,
     lastAt: c?.lastAt ?? null,
     days: c?.days ?? 0,
@@ -362,6 +367,6 @@ export async function offsiteSummary(db: Db, now: number, env: DriveEnv): Promis
 }
 
 export function offsiteLine(s: OffsiteSummary): string {
-  if (!s.configured) return "・ドライブの控え：まだ設定されていません（鍵が入ると、保存の始まりの日から1日ずつ置きます）。";
-  return `・ドライブの控え：${s.days}日分（${(s.bytes / 1_048_576).toFixed(1)}MB）、最後に置いた日 ${s.lastDay ?? "—"}${s.pending ? `・まだ ${s.pending}日（${s.oldestPending} から）` : "・遅れなし"}${s.lastError ? `・失敗：${s.lastError.error}` : ""}`;
+  if (!s.configured) return "・GitHub の控え：まだ設定されていません（鍵が入ると、保存の始まりの日から1日ずつ置きます）。";
+  return `・GitHub の控え：${s.days}日分（${(s.bytes / 1_048_576).toFixed(1)}MB）、最後に置いた日 ${s.lastDay ?? "—"}${s.pending ? `・まだ ${s.pending}日（${s.oldestPending} から）` : "・遅れなし"}${s.lastError ? `・失敗：${s.lastError.error}` : ""}`;
 }

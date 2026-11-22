@@ -316,7 +316,7 @@ export default {
           .then(stage("archive copy", (d) => copyTelegrams(d, bucket)))
           // 長い先の予報（1か月予報・早期天候情報・2週間気温予報）：R2 に gzip で、30分ごと（longRangeArchive.ts）。
           .then(stage("long range", (d) => collectLongRange(d, bucket)))
-          // 原本の控え（offsite.ts、#370）：Google ドライブに1日ずつ。鍵が無ければ何もしない。
+          // 原本の控え（offsite.ts、#370）：GitHub の非公開リポジトリに1日ずつ。鍵が無ければ何もしない。
           .then(stage("offsite copy", (d) => copyOffsite(d, bucket, env, event.scheduledTime))),
       );
   },

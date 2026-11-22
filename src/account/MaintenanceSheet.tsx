@@ -286,10 +286,10 @@ function Body() {
         </div>
       </section>
 
-      {/* ③c 原本の控え（Google ドライブ、offsite.ts） */}
+      {/* ③c 原本の控え（GitHub の非公開リポジトリ、offsite.ts） */}
       {s.offsite ? (
         <section className="set-group" aria-labelledby="mt-offsite">
-          <h3 id="mt-offsite">Google ドライブの控え</h3>
+          <h3 id="mt-offsite">原本の控え（GitHub）</h3>
           {s.offsite.configured ? (
             <>
               <p className={s.offsite.pending > 3 || s.offsite.lastError ? "mt-line bad" : "mt-line"}>
@@ -305,7 +305,7 @@ function Body() {
           ) : (
             <p className="mt-line">まだ設定されていません。鍵が入ると、保存の始まりの日から1日ずつ置きます。</p>
           )}
-          <small className="set-help">R2 の原本（電文・長い先の予報・アメダス・天気図・雨雲）を、1日ずつ tar にまとめて（多い日は分けて）ドライブの「weather-note-archive」に置き、読み戻して確かめます。ドライブのファイルは消しません。</small>
+          <small className="set-help">R2 の原本（電文・長い先の予報・アメダス・天気図・雨雲）を、1日ずつ tar にまとめて（多い日は分けて）GitHub の非公開リポジトリに月ごとに置き、読み戻して確かめます。置いたファイルは消しません。</small>
         </section>
       ) : null}
 
