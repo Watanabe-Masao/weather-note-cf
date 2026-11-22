@@ -35,6 +35,7 @@ import { WxChart } from "./WxChart";
 import { RainNowBoard } from "./rainNow/RainNowBoard";
 import { RainNowCard } from "./rainNow/RainNowCard";
 import { ForecastHistoryPanel } from "./forecastHistory/ForecastHistory";
+import { splitToday, TodaySplit } from "./TodaySplit";
 
 interface Props {
   store: WeatherStore | null;
@@ -60,8 +61,10 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   const typhoon = ty === "none" || ty === "unknown" ? null : ty;
   const comment = useMemo(() => dayComment({ row, other: null, otherName: null, hours: rows, typhoon }), [row, rows, typhoon]);
   const conf = confidenceOfRow(row);
-  const max = num(row?.max);
-  const min = num(row?.min);
+  // 今日：過ぎた時間は観測、これからは予報。1日の最高・最低は両方を合わせた見込み（2026-11-22）。
+  const split = date === today ? splitToday(rows) : null;
+  const max = split?.max?.v ?? num(row?.max);
+  const min = split?.min?.v ?? num(row?.min);
   // 暫定の日：いまの値の出どころ・待っているもの・確定の見込み（shared/provisionalNote.ts）
   // ふだんは「暫定 ⓘ」だけ。ⓘ で開く（ほかの説明と同じ InfoNote の形、2026-11-18 渡辺さん）。
   const prov = day?.state === "ready" ? provisionalNote(row, date, today, day.kind === "fixed") : null;
@@ -147,8 +150,8 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
           <small>℃</small>
         </span>
         <span className="dd-kind">
-          {kindLabel(store, station, date)}
-          {conf && <Conf value={conf} />}
+          {split ? "観測＋予報" : kindLabel(store, station, date)}
+          {conf && !split && <Conf value={conf} />}
           {row && (
             <button className="info-btn" onClick={() => setProvOpen(!provOpen)} aria-expanded={provOpen} aria-label={provOpen ? "出どころの説明を閉じる" : "出どころの説明を開く"}>
               ⓘ
@@ -158,6 +161,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
         {/* 肌感は見出しの右に（空いていた所、2026-11-18 渡辺さん）。押すと肌感マップ（グラフの項目ではないので、項目の選びからは外した）。 */}
         <FeelLine rows={rows} station={station} onOpen={onOpenFeel} />
       </div>
+      {date === today && <TodaySplit rows={rows} station={station} />}
       {comment.length > 0 && <p className="dd-say">{comment.join("")}</p>}
       {!prov && provOpen && row && (
         <div className="dd-prov plain">
