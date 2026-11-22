@@ -24,6 +24,7 @@ type Summary = {
   lastDupCheck: { at: string; result: Dup[] } | null;
   lastAudit?: { at: string; result: { tables: { name: string; rows: number }[]; links: { name: string; n: number }[] } } | null;
   weeklyAudit?: { at: string; result: Weekly } | null;
+  offsite?: { configured: boolean; lastDay: string | null; lastAt: string | null; days: number; bytes: number; pending: number; oldestPending: string | null; lastError: { at: string; day: string | null; error: string } | null } | null;
 };
 type Weekly = {
   series: { id: string; name: string; part: string; first: string | null; last: string | null; have: number; missing: number | null; gapCount: number; gaps: { from: string; to: string; n: number | null }[]; ageH: number | null; freshH: number; fresh: boolean; note: string }[];
@@ -284,6 +285,29 @@ function Body() {
           </Button>
         </div>
       </section>
+
+      {/* ③c 原本の控え（Google ドライブ、offsite.ts） */}
+      {s.offsite ? (
+        <section className="set-group" aria-labelledby="mt-offsite">
+          <h3 id="mt-offsite">Google ドライブの控え</h3>
+          {s.offsite.configured ? (
+            <>
+              <p className={s.offsite.pending > 3 || s.offsite.lastError ? "mt-line bad" : "mt-line"}>
+                {s.offsite.days}日分（{mb(s.offsite.bytes)}）・最後に置いた日 {s.offsite.lastDay ?? "—"}
+                {s.offsite.pending ? `・まだ ${s.offsite.pending}日（${s.offsite.oldestPending} から）` : "・遅れなし"}
+              </p>
+              {s.offsite.lastError ? (
+                <small className="set-help warn">
+                  {clock(s.offsite.lastError.at)} の失敗{s.offsite.lastError.day ? `（${s.offsite.lastError.day}）` : ""}：{s.offsite.lastError.error}
+                </small>
+              ) : null}
+            </>
+          ) : (
+            <p className="mt-line">まだ設定されていません。鍵が入ると、保存の始まりの日から1日ずつ置きます。</p>
+          )}
+          <small className="set-help">R2 の原本（電文・長い先の予報・アメダス・天気図・雨雲）を、1日ずつ tar にまとめて（多い日は分けて）ドライブの「weather-note-archive」に置き、読み戻して確かめます。ドライブのファイルは消しません。</small>
+        </section>
+      ) : null}
 
       {/* ④ エラーの記録 */}
       <section className="set-group" aria-labelledby="mt-errors">

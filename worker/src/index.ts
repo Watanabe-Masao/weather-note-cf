@@ -29,6 +29,7 @@ import { collectLongRange } from "./longRangeArchive";
 import { health, markStart, timed } from "./health";
 import { claimHealthWatch, watchHealth } from "./healthWatch";
 import { claimWeeklyAudit, runWeeklyAudit } from "./weeklyAudit";
+import { copyOffsite } from "./offsite";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { forecastCharts } from "../../shared/wxchart";
@@ -314,7 +315,9 @@ export default {
           .then(stage("amedas save", (d) => saveAmedas(d, bucket)))
           .then(stage("archive copy", (d) => copyTelegrams(d, bucket)))
           // 長い先の予報（1か月予報・早期天候情報・2週間気温予報）：R2 に gzip で、30分ごと（longRangeArchive.ts）。
-          .then(stage("long range", (d) => collectLongRange(d, bucket))),
+          .then(stage("long range", (d) => collectLongRange(d, bucket)))
+          // 原本の控え（offsite.ts、#370）：Google ドライブに1日ずつ。鍵が無ければ何もしない。
+          .then(stage("offsite copy", (d) => copyOffsite(d, bucket, env, event.scheduledTime))),
       );
   },
 } satisfies ExportedHandler<AccountsEnv>;
