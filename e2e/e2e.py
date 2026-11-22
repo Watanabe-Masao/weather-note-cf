@@ -327,14 +327,14 @@ with sync_playwright() as p:
     pg.on("console", lambda m: m.type in ("error", "warning") and errors.append(m.text))
     pg.on("pageerror", lambda e: errors.append("PAGEERROR " + str(e)))
     pg.goto(f"http://127.0.0.1:{PORT}/")
-    pg.wait_for_timeout(1500)
+    pg.wait_for_selector(".app-head"); pg.evaluate("__calm(5000)")
     pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
     cdp = ctx.new_cdp_session(pg)
     # WN_SLOW=4 runs the page's CPU 4× slower: a slow CI runner, to find waits that only just suffice.
     if os.environ.get("WN_SLOW"): cdp.send("Emulation.setCPUThrottlingRate", {"rate": float(os.environ["WN_SLOW"])})
     # After a reload the helpers and the wide font go back on the page.
     def reload():
-        pg.reload(); pg.wait_for_timeout(1500)
+        pg.reload(); pg.wait_for_selector(".app-head"); calm(5000)
         pg.add_script_tag(path=os.path.join(HERE, "flick.js")); pg.add_script_tag(path=os.path.join(HERE, "layout.js")); pg.add_style_tag(content=WIDE_FONT)
         calm()
     wait = pg.wait_for_timeout
@@ -468,7 +468,7 @@ with sync_playwright() as p:
     def sheet_h():
         return pg.evaluate("document.querySelector('.sheet').getBoundingClientRect().height")
     def esc():
-        pg.keyboard.press("Escape"); wait(500)
+        pg.keyboard.press("Escape"); calm()
 
     # A. first view
     def a():
@@ -556,7 +556,7 @@ with sync_playwright() as p:
         for i, label in enumerate(["気温", "降水", "日差し", "日照と明るさ", "湿度", "視程", "風速", "気圧"]):
             pick_item(i); calm()
             check(f"D3 時間帯 {label}", title() == f"{label}の時間帯" and pg.locator(".day-chart > svg").count() == 1, title())
-        pick_item(0); wait(300)
+        pick_item(0); calm()
         pg.click(".back-btn"); calm()
         check("D4 ‹日別で戻る", title() == "気温の日別", title())
     step("D", d)
@@ -573,7 +573,7 @@ with sync_playwright() as p:
         lines = pg.evaluate("""[...document.querySelectorAll('.cs-head')].map(h => { const l = h.querySelector('.cs-head-line').getBoundingClientRect(), b = h.querySelector('.cs-head-state').getBoundingClientRect();
           return b.top >= l.bottom - 1; })""")
         check("U2e 見出しはどちらの日も2行（日付の下に実績・予報）", len(lines) == 2 and all(lines), str(lines))
-        pg.locator(".light-strip").scroll_into_view_if_needed(); wait(300)
+        pg.locator(".light-strip").scroll_into_view_if_needed(); calm()
         b = pg.locator(".light-trace.on").bounding_box()
         y = b["y"] + b["height"] / 2
         pg.mouse.move(b["x"] + b["width"] * 0.5, y); pg.mouse.down(); pg.mouse.move(b["x"] + b["width"] * 0.55, y, steps=4)
@@ -582,11 +582,11 @@ with sync_playwright() as p:
         sel = pg.evaluate("String(getSelection())")
         check("U4 テキストが選択されない", sel == "", repr(sel))
         check("U5 帯は選択・長押しメニューなし", pg.evaluate("getComputedStyle(document.querySelector('.light-trace.on')).userSelect") == "none")
-        pg.mouse.up(); wait(300)
+        pg.mouse.up(); calm()
         check("U6 離すとカードは消える", pg.locator(".sky-zoom").count() == 0)
-        pg.mouse.click(b["x"] + b["width"] * 0.3, y); wait(300)
+        pg.mouse.click(b["x"] + b["width"] * 0.3, y); calm()
         check("U7 軽く押すとカードが残り×で閉じる", pg.locator(".sky-zoom-close").count() == 1)
-        pg.click(".sky-zoom-close"); wait(200)
+        pg.click(".sky-zoom-close"); calm()
         check("U8 ×で閉じる", pg.locator(".sky-zoom").count() == 0)
         # 2日の読み取りの枠（2026-11-18）：列の頭は日付だけの1行、畳む物は無い。帯の下の言葉は時刻を替えても高さが同じ。
         pick_item(3); calm()
@@ -607,12 +607,12 @@ with sync_playwright() as p:
         pg.locator(".chart-hit").nth(8).click(force=True); calm()
         check("E1 予報の時間に網かけ", pg.locator(".day-chart .chart-forecast").count() >= 20, str(pg.locator(".day-chart .chart-forecast").count()))
         check("E2 予報の線は実線のまま", pg.evaluate("[...document.querySelectorAll('.day-chart :is(line,path)[stroke-dasharray=\"2 4\"]')].length") == 0)
-        pg.locator(".day-chart > svg").scroll_into_view_if_needed(); wait(300)
+        pg.locator(".day-chart > svg").scroll_into_view_if_needed(); calm()
         b = pg.locator(".day-chart > svg").bounding_box()
         pg.mouse.move(b["x"] + b["width"] * 0.6, b["y"] + 100); pg.mouse.down(); pg.mouse.move(b["x"] + b["width"] * 0.7, b["y"] + 100)
         check("E3 触ると補助線と軸のタグ", pg.locator(".day-chart .guide-tag").count() >= 1)
         check("E4 触っている間カードが光る", pg.locator(".readout-card.live").count() == 1)
-        pg.mouse.up(); wait(200)
+        pg.mouse.up(); calm()
         check("E5 離すとカードは戻る", pg.locator(".readout-card.live").count() == 0)
         pg.click(".back-btn"); calm()
     step("E", e)
@@ -679,7 +679,7 @@ with sync_playwright() as p:
           window.__ghost = 0; const t = document.querySelector('.chart-hit, .date-button');
           t.addEventListener('click', () => window.__ghost++, {once: true});
           t.click(); }""")
-        wait(200)
+        calm()
         check("G2a 下げたタップのクリックは背面に届かない", pg.evaluate("window.__ghost") == 0 and pg.locator(".msheet").count() == n0)
         calm()
         pg.evaluate("""() => { window.__ghost = 0; const t = document.querySelector('.chart-hit, .date-button');
@@ -698,7 +698,7 @@ with sync_playwright() as p:
         FAIL.add("/api/hourly")
         # A week back: the table asks for those days' hours (and their comparison days'), which now fail.
         for _ in range(9):
-            pg.locator(".side .arrow").nth(0).click(); wait(250)
+            pg.locator(".side .arrow").nth(0).click(); calm()
         for _ in range(20):
             if pg.locator(".status-bar.error").count(): break
             calm()
@@ -710,7 +710,7 @@ with sync_playwright() as p:
         st = small_text(); check("FS2b 11px より小さい文字がない（取得できなかったもの）", not st, str(st))
         check("FS2 押すと何が取れなかったかのシート", items >= 1, str(items))
         check("FS3 理由・取り先・使う所・時刻が出る", all(w in body for w in ["テスト用の失敗", "時間別の表", "使う所", "失敗"]), body[:120])
-        pg.locator(".failure-all").scroll_into_view_if_needed(); wait(300)
+        pg.locator(".failure-all").scroll_into_view_if_needed(); calm()
         buttons_ok("FS3b", "取得できなかったもの", 1)
         FAIL.clear()
         pg.locator(".failure-all").click(); calm(9000)
@@ -849,7 +849,7 @@ with sync_playwright() as p:
         # コンパスとの差は立てている間（上下 20° 以内）だけ測るので、立てて 10° ずれたコンパスを読ませてから見上げる。
         look_up = lambda n=200: pg.evaluate("""(n) => { const go = (b) => { for (let i = 0; i < n; i++) { const e = new DeviceOrientationEvent('deviceorientation', { alpha: 0, beta: b, gamma: 0 }); Object.defineProperty(e, 'webkitCompassHeading', { value: 197.6 }); window.dispatchEvent(e); } }; go(100); go(125); }""", n)
         look_up(); pg.wait_for_timeout(300)
-        pg.locator(".sky-sensor .btn", has_text="カメラ").first.click(); pg.wait_for_timeout(800)
+        pg.locator(".sky-sensor .btn", has_text="カメラ").first.click(); calm()
         aim_btn = pg.locator(".sky-sensor .compass-hold").count()
         sun0 = pg.locator(".sky-view.window .sky-sun").first.bounding_box() if pg.locator(".sky-view.window .sky-sun").count() else None
         moved_ok = None
@@ -896,7 +896,7 @@ with sync_playwright() as p:
         pg.mouse.move(hb["x"] + hb["width"] / 2 - 40, hb["y"] + hb["height"] / 2, steps=5)
         if os.environ.get("WN_SUN"): pg.wait_for_timeout(250); pg.locator(".sun-card").screenshot(path=os.environ["WN_SUN"] + "-hold.png")
         pg.mouse.up(); calm()
-        pg.wait_for_timeout(300); pop_closed = pg.locator(".sky-sensor .compass-pop.open").count() == 0
+        calm(); pop_closed = pg.locator(".sky-sensor .compass-pop.open").count() == 0
         relook(); lab1 = hold.inner_text(); d1 = deg()
         hold.focus(); pg.keyboard.press("ArrowLeft"); calm(); lab2 = hold.inner_text()
         pg.locator(".sky-sensor .btn", has_text="0°に").click(); calm(); lab3 = hold.inner_text()
@@ -930,21 +930,21 @@ with sync_playwright() as p:
         # 日を押すと、その日の月のモーダルが開く（11/20）。ここでは選ぶだけなので、開いたら閉じる。
         def pick_day(i):
             pg.locator(".moon-cal-day").nth(i).click(); calm()
-            if pg.locator(".moon-day-sheet").count(): pg.locator(".moon-day-sheet .icon-btn.close").click(); pg.wait_for_timeout(500)
+            if pg.locator(".moon-day-sheet").count(): pg.locator(".moon-day-sheet .icon-btn.close").click(); calm()
         # 月相の印とその日のモーダル（11/20 渡辺さん）：新月・上弦・満月・下弦の日にアイコンと名前。満月の日を押すと、その日の月（呼び名つき）。閉じると元の位置。
         marks_n = pg.locator(".moon-cal-mark").count(); full_d = pg.locator(".moon-cal-day:has(.moon-cal-mark.k2)")
         y_before = pg.evaluate("document.querySelector('.moon-sheet .msheet-body').scrollTop")
         full_d.first.click(); calm()
         day_txt = txt(".moon-day-sheet") if pg.locator(".moon-day-sheet").count() else ""
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-day.png")
-        pg.locator(".moon-day-sheet .icon-btn.close").click(); pg.wait_for_timeout(600)
+        pg.locator(".moon-day-sheet .icon-btn.close").click(); calm()
         y_after = pg.evaluate("document.querySelector('.moon-sheet .msheet-body').scrollTop")
         check("SS3a 月相の印が4つ前後、満月の日を押すとその日の月（満月の時刻・呼び名・出入り）、閉じると元の位置", 3 <= marks_n <= 5 and "満月（" in day_txt and "ムーン" in day_txt and "月の出" in day_txt and pg.locator(".moon-day-sheet").count() == 0 and abs(y_before - y_after) < 2 and pg.locator(".moon-next .phase-icon").count() == 4, (marks_n, day_txt[:60], y_before, y_after))
         # 満月の呼び名のページ（11/20）：その年の満月の一覧、押した満月の由来が開く。その年だけのことは計算から（2026年は3/3 皆既月食・5/31 ブルームーン・12/24 いちばん近い）。
         pg.locator(".moon-sheet .fm-open-row .btn").click(); calm()
         fm_rows = pg.locator(".fm-row").count(); fm_txt = txt(".fm-sheet")
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-fullmoons.png")
-        pg.locator(".fm-sheet .icon-btn.close").click(); pg.wait_for_timeout(600)
+        pg.locator(".fm-sheet .icon-btn.close").click(); calm()
         check("SS3b 満月の呼び名：2026年は13回、開いた満月に由来、皆既月食・ブルームーン・いちばん近い満月を計算から", fm_rows == 13 and "名前の由来" in fm_txt and "ビーバームーン" in fm_txt and "皆既月食（" in fm_txt and "ブルームーン" in fm_txt and "いちばん近い" in fm_txt and pg.locator(".fm-sheet").count() == 0, (fm_rows, fm_txt[:80]))
         cal = pg.locator(".moon-cal-day").count()
         pick_day(23)
@@ -993,9 +993,9 @@ with sync_playwright() as p:
         # 別の日の天気と雲（11/20 渡辺さん）：別の日を選ぶとその日の天気を読み込み、空の色に。予報の先で毎時の天気が無い日（11/17）は
         # 「天気が無い」。10/30 は 21時台に月が出ていて、テストの天気は 20〜21時台が雨：前後の時間の天気から「雲で見えにくい」。
         # 23時台は前後2時間に天気が無いので出さない。
-        pick_day(16); pg.wait_for_timeout(800); calm(); c_none = txt(".moon-sky-note")
+        pick_day(16); calm(); c_none = txt(".moon-sky-note")
         pg.locator(".moon-cal-head .icon-btn[aria-label='前の月']").click(); calm()
-        pick_day(29); setm(1290); pg.wait_for_timeout(800); calm()
+        pick_day(29); setm(1290); calm()
         c_note = txt(".moon-sky-note"); c_n = pg.locator(".moon-obs-cloud").count(); c_lab = pg.locator(".moon-obs-stage").get_attribute("aria-label") or ""
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-moon-cloud.png")
         setm(1430); calm(); c_n2 = pg.locator(".moon-obs-cloud").count()
@@ -1012,7 +1012,7 @@ with sync_playwright() as p:
                 for L in ("見え方", "月の全体"):
                     pg.locator(".moon-obs-side .seg button", has_text=L).click(); calm(); pg.locator(".moon-obs").screenshot(path=os.environ["WN_SUN"] + f"-bc-{day}-{L}.png")
                 pg.locator(".moon-obs-side .seg button", has_text="見え方").click(); calm()
-        pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
+        pg.locator(".moon-sheet .icon-btn.close").click(); calm()
         fit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); const p = document.querySelector('.sun-sheet'); return [b.scrollHeight, b.clientHeight, Math.round(p.getBoundingClientRect().height), innerHeight]; })()")
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
         # 画面の日の出入りは計算だけ（11/19）：太陽のシート・1日モードの行・比較のまとめで同じ時刻（どれも Open-Meteo の値を読まない）。
@@ -1024,9 +1024,9 @@ with sync_playwright() as p:
         # やめると観測所に戻る。ここでは札幌あたりの位置を流す（高知と日の出がはっきり違う）。
         rise0 = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text()
         pg.context.grant_permissions(["geolocation"]); pg.context.set_geolocation({"latitude": 43.0621, "longitude": 141.3544})
-        pg.locator(".sun-foot .btn", has_text="現在地で計算").click(); pg.wait_for_timeout(600)
+        pg.locator(".sun-foot .btn", has_text="現在地で計算").click(); calm()
         rise1 = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text(); here_t = txt(".sun-here"); title1 = txt(".sun-sheet .msheet-head h2")
-        pg.locator(".moon-open").click(); calm(); mo_here = txt(".moon-obs"); pg.locator(".moon-sheet .icon-btn.close").click(); pg.wait_for_timeout(700)
+        pg.locator(".moon-open").click(); calm(); mo_here = txt(".moon-obs"); pg.locator(".moon-sheet .icon-btn.close").click(); calm()
         if os.environ.get("WN_SUN"): pg.screenshot(path=os.environ["WN_SUN"] + "-here.png")
         fit2 = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); return [b.scrollHeight, b.clientHeight]; })()")
         pg.locator(".sun-foot .btn", has_text="現在地で計算").click(); calm()
@@ -1034,7 +1034,7 @@ with sync_playwright() as p:
         check("SS2n 現在地で計算：日の出が替わる、題に（現在地）、丸めた座標、月は現在地から、収まる、やめると戻る",
               rise1 != rise0 and "（現在地）" in title1 and "北緯 43.06°・東経 141.35°" in here_t and "現在地から見た" in mo_here and fit2[0] <= fit2[1] + 1 and rise2 == rise0, (rise0, rise1, rise2, title1, here_t, mo_here[:20], fit2))
         pg.evaluate("""() => { const r = document.querySelector('.sun-slider input'); const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
-          set.call(r, '370'); r.dispatchEvent(new Event('input', { bubbles: true })); }"""); wait(300)
+          set.call(r, '370'); r.dispatchEvent(new Event('input', { bubbles: true })); }"""); calm()
         check("SS3 スライダーで 6:10 に（10分ごと）", txt(".sun-now-time") == "6:10", txt(".sun-now"))
         layout_ok("SS4", "太陽のシート")
         pg.click(".msheet .icon-btn.close"); calm()
@@ -1060,9 +1060,9 @@ with sync_playwright() as p:
         check("TR 文字の役割がどこでも同じ大きさ・太さ", all(set(roles[k]) <= set(v) and roles[k] for k, v in want.items()), str(roles))
         n = pg.locator(".legend-line").count()
         check("AV2 凡例の線は4つ（対象・比較・それぞれの手前）", n == 4, str(n))
-        pg.locator(".legend-line").nth(1).click(); wait(300)
+        pg.locator(".legend-line").nth(1).click(); calm()
         check("AV3 タップで薄く（押されていない状態に）", pg.locator(".legend-line").nth(1).get_attribute("aria-pressed") == "false")
-        pg.locator(".legend-line").nth(1).click(); wait(300)
+        pg.locator(".legend-line").nth(1).click(); calm()
         check("AV4 もう一度で戻る", pg.locator(".legend-line").nth(1).get_attribute("aria-pressed") == "true")
         ticks = lambda: pg.locator(".hour-compare .chart-tick").all_inner_texts()
         calm(4500)
@@ -1072,10 +1072,10 @@ with sync_playwright() as p:
         check("AV5c 差の行の名前も 2週 に", pg.locator(".readout-card .ro-label", has_text="手前2週との差").count() == 1)
         check("AV5b 期間を変えても縦軸は同じ", ticks() == before_ticks, f"{before_ticks} → {ticks()}")
         pg.locator(".avg-window").click(); calm(3600)
-        pg.locator(".ro-grid").last.scroll_into_view_if_needed(); wait(300)
+        pg.locator(".ro-grid").last.scroll_into_view_if_needed(); calm()
         check("AV5d 1か月 でも名前が列に収まる", pg.locator(".readout-card .ro-label", has_text="手前1か月との差").count() == 1)
         layout_ok("AV5e", "手前1か月の読み取り")
-        pg.locator(".avg-window").click(); wait(300)
+        pg.locator(".avg-window").click(); calm()
         check("AV6 1か月 を経て 1週 に戻る", pg.locator(".readout-card .ro-label", has_text="手前1週の平均").count() == 1)
         pg.locator(".back-btn").first.click(); calm()
     step("AV", av)
@@ -1197,7 +1197,7 @@ with sync_playwright() as p:
             y0 = pg.evaluate("scrollY")
             pic.click(); calm()
             opened = pg.locator(".wx-viewer").count() == 1 and pg.locator(".wx-viewer button[aria-label='閉じる']").count() >= 1 and len(pg.context.pages) == 1
-            pg.locator(".wx-viewer button[aria-label='閉じる']").first.click(); pg.wait_for_timeout(600)
+            pg.locator(".wx-viewer button[aria-label='閉じる']").first.click(); calm()
             y1 = pg.evaluate("scrollY")
             check("SD4i 天気図を押すとシートで大きく（×で閉じ、閉じても同じ所）", opened and pg.locator(".wx-viewer").count() == 0 and abs(y1 - y0) < 4, (opened, y0, y1))
         pg.locator(".wx-chart .seg button", has_text="発表の時").click(); calm()
@@ -1216,11 +1216,11 @@ with sync_playwright() as p:
         fb = pg.locator(".fh-days .fold-btn")
         closed = fb.count() == 1 and fb.get_attribute("aria-expanded") == "false" and pg.locator(".fh-days .fold-body[inert]").count() == 1
         if fb.count():
-            fb.click(); pg.wait_for_timeout(500)
+            fb.click(); calm()
         opened = fb.count() == 1 and fb.get_attribute("aria-expanded") == "true" and pg.locator(".fh-days .fold-body").bounding_box()["height"] > 100
         check("SD4g 予報の一覧：前の日の発表は畳まれていて、押すと開く", closed and opened, (closed, opened))
         if fb.count():
-            fb.click(); pg.wait_for_timeout(500)
+            fb.click(); calm()
         # その発表の週間天気予報（11/19）：発表のある行を押すと、シートでその発表の先の日ぜんぶ。府県のときは週間で先を埋め、
         # どの発表かを添える。この日の行に印。閉じると元の位置。
         rows_ok = pg.locator(".fh-days .fh-drow:not(.gap)")
@@ -1278,7 +1278,7 @@ with sync_playwright() as p:
             el.scroll_into_view_if_needed(); calm()
             y0 = pg.evaluate("scrollY")
             el.click(); calm()
-            pg.keyboard.press("Escape"); pg.wait_for_timeout(700)
+            pg.keyboard.press("Escape"); calm()
             back.append((name, y0, pg.evaluate("scrollY")))
         check("SD4k 1日モードから開いた物を閉じると、開く前の位置に戻る", back and all(abs(a - b) < 4 for _, a, b in back), back)
         pg.locator(".dd-value", has_text="降水").first.click(); calm()
@@ -1418,10 +1418,10 @@ with sync_playwright() as p:
         check("R2 開いた時から［記録する］が見える（下に固定）", vis())
         t = txt(".report-save")
         check("R3 押せない間は足りないものを出す", "あと" in t and "感じ方" in t and "今の天気" in t, t)
-        pg.locator(".msheet button", has_text="涼しい").first.click(); wait(300)
+        pg.locator(".msheet button", has_text="涼しい").first.click(); calm()
         t = txt(".report-save")
         check("R4 答えると足りないものが減る", "感じ方" not in t and "あと" in t, t)
-        pg.locator(".msheet").last.evaluate("e => e.scrollTop = e.scrollHeight / 2"); wait(300)
+        pg.locator(".msheet").last.evaluate("e => e.scrollTop = e.scrollHeight / 2"); calm()
         check("R5 途中までスクロールしても見える", vis())
         st = small_text(); check("R6 11px より小さい文字がない（記録）", not st, str(st))
         layout_ok("R7", "記録")
@@ -1452,12 +1452,12 @@ with sync_playwright() as p:
         st = small_text(); check("K6b 11px より小さい文字がない（肌感マップの詳細）", not st, str(st))
         pg.locator(".seg button", has_text="推移").click(); calm()
         bx = pg.locator("svg.scrub").bounding_box()
-        pg.mouse.move(bx["x"] + bx["width"] * 0.3, bx["y"] + 80); wait(200)
+        pg.mouse.move(bx["x"] + bx["width"] * 0.3, bx["y"] + 80); calm()
         check("K7 推移で補助線とタグ", pg.locator("svg.scrub .guide-tag").count() >= 1)
-        pg.mouse.move(5, 5); wait(200)
+        pg.mouse.move(5, 5); calm()
         # 推移 is a drum too: a sideways drag moves the target day.
         before = txt(".band-trend .readout-card .ro-title")
-        pg.locator(".band-trend .drum-pane svg").first.scroll_into_view_if_needed(); wait(300)
+        pg.locator(".band-trend .drum-pane svg").first.scroll_into_view_if_needed(); calm()
         bx = pg.locator(".band-trend .drum-pane svg").first.bounding_box(); y = bx["y"] + min(80, bx["height"] / 2); x = bx["x"] + bx["width"] * 0.75
         touch("touchStart", x, y)
         for k in range(1, 9):
@@ -1483,16 +1483,16 @@ with sync_playwright() as p:
         check("L3 最初は最高が開いて範囲（つまみ2つ）", pg.locator(".cond-line.open[data-cond=max] .slider input").count() == 2)
         st = small_text(); check("L3b 11px より小さい文字がない（条件から選ぶ）", not st, str(st))
         layout_ok("L3b", "条件から選ぶ")
-        pg.locator(".cond-line[data-cond=max] .seg button", has_text="以上").click(); wait(300)
+        pg.locator(".cond-line[data-cond=max] .seg button", has_text="以上").click(); calm()
         check("L4 以上はつまみ1つ", pg.locator(".cond-line[data-cond=max] .slider input").count() == 1, txt(".cond-line[data-cond=max] .cond-value"))
         check("L5 値は「以上」と読める", "以上" in txt(".cond-line[data-cond=max] .cond-value"))
-        pg.locator(".cond-line[data-cond=max] .seg button", has_text="問わない").click(); wait(200)
-        pg.locator(".cond-line[data-cond=min] .cond-head").click(); wait(200)
-        pg.locator(".cond-line[data-cond=min] .seg button", has_text="問わない").click(); wait(200)
+        pg.locator(".cond-line[data-cond=max] .seg button", has_text="問わない").click(); calm()
+        pg.locator(".cond-line[data-cond=min] .cond-head").click(); calm()
+        pg.locator(".cond-line[data-cond=min] .seg button", has_text="問わない").click(); calm()
         check("L6 開くのは1行だけ", pg.locator(".cond-line.open").count() == 1)
-        pg.locator(".cond-line[data-cond=rain] .cond-head").click(); wait(200)
-        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="降らない").click(); wait(200)
-        pg.locator(".cond-line[data-cond=rain] .seg.multi button").nth(1).click(); wait(200)
+        pg.locator(".cond-line[data-cond=rain] .cond-head").click(); calm()
+        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="降らない").click(); calm()
+        pg.locator(".cond-line[data-cond=rain] .seg.multi button").nth(1).click(); calm()
         check("L7 雨は時間帯で", "降らない" in txt(".cond-line[data-cond=rain] .cond-value") and "昼" not in txt(".cond-line[data-cond=rain] .cond-value"), txt(".cond-line[data-cond=rain] .cond-value"))
         for _ in range(30):
             if pg.locator(".cond-col.day").count() and pg.locator(".cond-result .loading").count() == 0: break
@@ -1507,12 +1507,12 @@ with sync_playwright() as p:
         pg.locator(".cond-toast button").click(); calm()
         check("L11 取り消すと元の比較日", txt(".side-compare .date-button") == before, txt(".side-compare .date-button"))
         # 雨の強さ・台風
-        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="降る").click(); wait(200)
+        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="降る").click(); calm()
         check("L12 降るで強さが選べる", pg.locator(".cond-line[data-cond=rain] .seg button", has_text="激しい").count() >= 1)
-        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="激しい").first.click(); wait(200)
+        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="激しい").first.click(); calm()
         check("L13 値は「激しい雨」と読める", "激しい雨" in txt(".cond-line[data-cond=rain] .cond-value"), txt(".cond-line[data-cond=rain] .cond-value"))
-        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="問わない").first.click(); wait(200)
-        pg.locator(".cond-line[data-cond=typhoon] .cond-head").click(); wait(200)
+        pg.locator(".cond-line[data-cond=rain] .seg button", has_text="問わない").first.click(); calm()
+        pg.locator(".cond-line[data-cond=typhoon] .cond-head").click(); calm()
         pg.locator(".cond-line[data-cond=typhoon] .seg button", has_text="台風の日").first.click()
         for _ in range(30):
             if pg.locator(".cond-result .loading").count() == 0: break
@@ -1530,9 +1530,9 @@ with sync_playwright() as p:
     def m():
         pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
         pg.locator(".chart-hit").nth(7).click(force=True); calm()
-        pg.click(".cs-toggle"); wait(300)
+        pg.click(".cs-toggle"); calm()
         check("M1 要約を畳む", pg.locator(".compare-summary.collapsed").count() >= 1)
-        pg.click(".cs-toggle"); wait(300)
+        pg.click(".cs-toggle"); calm()
         check("M2 要約を広げる", pg.locator(".compare-summary.compact").count() == 1)
         pg.click(".back-btn"); calm()
         pg.locator(".side .icon-btn").first.click(); calm()
@@ -1610,13 +1610,13 @@ with sync_playwright() as p:
         pg.locator(".side-compare .date-button").click(); calm()
         check("Q1 比較日のカレンダーにプリセット", pg.locator(".cal-presets .chip").count() == 5)
         check("Q2 マスに天気と最高気温", pg.locator(".cal-day .cal-max").filter(has_text=re.compile(r"\d")).count() >= 20)
-        pg.locator(".cal-presets .chip", has_text="前週").click(); wait(300)
+        pg.locator(".cal-presets .chip", has_text="前週").click(); calm()
         check("Q3 プリセットで組み合わせが前週に", "前週" in txt(".cal-pair-interval"), txt(".cal-pair-interval"))
         st = small_text(); check("Q3b 11px より小さい文字がない（カレンダーの組み合わせ・プリセット）", not st, str(st))
         pg.click(".calendar-foot .primary"); calm()
         check("Q4 決定で前週になる", pg.locator(".side-compare select.mode").input_value() == "lastWeek" and txt(".side-compare .date-button") == "2026/11/3", txt(".side-compare .date-button"))
         pg.locator(".side-compare .date-button").click(); calm()
-        pg.locator(".cal-day:not(:disabled)").nth(1).click(); wait(300)
+        pg.locator(".cal-day:not(:disabled)").nth(1).click(); calm()
         check("Q5 日を選ぶとカスタムと表示", "カスタム" in txt(".cal-pair-interval"), txt(".cal-pair-interval"))
         pg.click(".calendar-foot .primary"); calm()
         check("Q6 決定でカスタムになる", pg.locator(".side-compare select.mode").input_value() == "custom")
@@ -1709,7 +1709,7 @@ with sync_playwright() as p:
         st = small_text(); check("T4b 11px より小さい文字がない（日照と明るさの推移）", not st, str(st))
         before = txt(".light-trend .readout-card .ro-title")
         pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()  # P left the sheet low; the graph must be on screen
-        pg.locator(".light-trend .drum-pane svg").first.scroll_into_view_if_needed(); wait(300)
+        pg.locator(".light-trend .drum-pane svg").first.scroll_into_view_if_needed(); calm()
         bx = pg.locator(".light-trend .drum-pane svg").first.bounding_box(); y = bx["y"] + min(80, bx["height"] / 2); x = bx["x"] + bx["width"] * 0.75
         touch("touchStart", x, y)
         for k in range(1, 9):
@@ -1747,12 +1747,12 @@ with sync_playwright() as p:
         pg.locator(".side-target .strip-col.is-center .cell-stack").first.dispatch_event("click"); calm()  # under the sheet, perhaps
         r = pg.evaluate("""() => {
           const right = (e) => Math.round(e.getBoundingClientRect().right);
-          const col = [...document.querySelectorAll('.side-target .strip-col.is-center .cell-value')].filter(e => /\d/.test(e.textContent)).map(right);
+          const col = [...document.querySelectorAll('.side-target .strip-col.is-center .cell-value')].filter(e => /\\d/.test(e.textContent)).map(right);
           const cs = document.querySelector('.compare-summary');
           const a = cs ? [...cs.querySelectorAll('.cs-val.cs-a .cs-num')].map(right) : [];
           const b = cs ? [...cs.querySelectorAll('.cs-val.cs-b .cs-num')].map(right) : [];
           const units = cs ? cs.querySelectorAll('.cs-val .unit').length : -1;
-          const straight = (document.body.innerText.match(/'\d\d\//g) || []).length;
+          const straight = (document.body.innerText.match(/'\\d\\d\\//g) || []).length;
           const sun = cs ? [...cs.querySelectorAll('.cs-sun .cs-val')].map(e => e.getClientRects().length === 1 && e.scrollWidth <= e.clientWidth + 1 && Math.round(e.getBoundingClientRect().height) < 26) : [];
           return { col, a, b, units, sun, straight };
         }""")

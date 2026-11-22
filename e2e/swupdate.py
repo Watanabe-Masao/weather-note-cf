@@ -35,9 +35,11 @@ with sync_playwright() as p:
     pg = b.new_page()
     pg.goto("http://127.0.0.1:8811/")
     pg.wait_for_function("navigator.serviceWorker.controller !== null", timeout=20000)
-    pg.reload(); pg.wait_for_timeout(1500)
+    pg.reload(); pg.wait_for_selector(".side .date-button")
     pg.evaluate("window.__marker = 1")
-    pg.locator(".side .arrow").nth(1).click(); pg.wait_for_timeout(400)
+    before = pg.locator(".side .date-button").first.inner_text()
+    pg.locator(".side .arrow").nth(1).click()
+    pg.wait_for_function("(b) => document.querySelector('.side .date-button').innerText !== b", arg=before)
     day = pg.locator(".side .date-button").first.inner_text()
     v1 = pg.evaluate("navigator.serviceWorker.controller.scriptURL")
 
@@ -49,14 +51,16 @@ with sync_playwright() as p:
       document.dispatchEvent(new Event('visibilitychange')); }""")
     pg.wait_for_function("window.__swChanged === true", timeout=20000)
     check("新しい版を自動で取りに行き、入れ替わる", True)
-    pg.wait_for_timeout(500)
+    pg.wait_for_timeout(500)  # 再読み込みが起きないことを確かめるので、わざと固定の待ち
     check("画面に出ている間は再読み込みしない", pg.evaluate("window.__marker") == 1)
 
     # Go to the background.
     with pg.expect_navigation(timeout=10000):
         pg.evaluate("""() => { Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
           document.dispatchEvent(new Event('visibilitychange')); }""")
-    pg.wait_for_timeout(2000)
+    pg.wait_for_selector(".side .date-button")
+    try: pg.wait_for_function("(d) => document.querySelector('.side .date-button')?.innerText === d", arg=day, timeout=5000)
+    except Exception: pass  # 違えば下の確認で落ちる
     check("裏に回ったら再読み込みして新しい版に", pg.evaluate("window.__marker") is None)
     check("見ていた日はそのまま", pg.locator(".side .date-button").first.inner_text() == day, day)
     b.close()
