@@ -908,7 +908,7 @@ img.event-pic { object-fit: contain; }
   gap: var(--space-1);
   padding: var(--space-1);
   border-radius: var(--radius-lg);
-  border: var(--stroke-select) solid color-mix(in srgb, var(--accent-base) 70%, transparent);
+  border: var(--stroke-select) solid var(--accent-base);
   margin-top: var(--space-1);
   background: linear-gradient(var(--accent-wash), var(--accent-wash)), var(--surface-inset);
   box-shadow: 0 0 var(--space-4) var(--accent-glow);
@@ -932,12 +932,11 @@ img.event-pic { object-fit: contain; }
 @media (prefers-reduced-motion: no-preference) {
   .ib-open.multi { animation: ib-open-in var(--motion-base) var(--ease-standard); }
 }
-@keyframes ib-open-in { from { opacity: 0; transform: scaleX(0.9); } to { opacity: 1; transform: none; } }
+@keyframes ib-open-in { from { transform: scaleX(0.9); } to { transform: none; } }
 /* 閉じた仲間：中の項目の数だけ小さな点 */
 .ib-dots { display: flex; gap: var(--space-1); height: var(--space-1); }
 .ib-dots i { width: var(--space-1); height: var(--space-1); border-radius: 50%; background: currentColor; }
 .metrics .chip { flex: 1 1 0; min-width: 52px; min-height: 44px; padding: 0 var(--space-2); }
-.ib-cat { gap: 2px; }
 .metrics .chip.on {
   color: var(--surface-base);
   background: var(--accent-base);
