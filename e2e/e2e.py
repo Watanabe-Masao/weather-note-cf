@@ -1580,12 +1580,12 @@ with sync_playwright() as p:
         if covered: pg.evaluate("__flick('.sheet-handle',-700,120)"); calm()
     step("DS", ds)
 
-    # MR. 月の振り返り: opened from the calendar's month name; one place chooses; the pages follow.
+    # MR. 月の概要（もと月の振り返り）: opened from the line under the calendar; one place chooses; the pages follow.
     def mr():
         pg.locator(".side-target .date-button").click(); calm()
         pg.locator(".calendar-head .icon-btn").first.click(); calm()  # the month before: a whole month
         pg.click(".cal-month-review"); calm()
-        check("MR1 カレンダーの月の名前で月の振り返りが開く（カレンダーは閉じる）", pg.locator(".month-review").count() == 1 and pg.locator(".msheet.calendar").count() == 0)
+        check("MR1 カレンダーの下の1行で月の概要が開く（カレンダーは閉じる）", pg.locator(".month-review").count() == 1 and pg.locator(".msheet.calendar").count() == 0)
         check("MR2 ページは4つ（まとめ・日ごと・曜日・肌感）", pg.locator(".month-tabs button").count() == 4, txt(".month-tabs"))
         check("MR3b 台風の日：レポートに台風◯号と出典", "台風99号" in txt(".month-report") and "ベストトラック" in txt(".month-report"), txt(".month-report")[-200:])
         check("MR3 まとめに月の値とレポート（前年同曜日と比べる）", pg.locator(".month-review .readout-card").count() >= 1 and pg.locator(".month-report-part").count() >= 3 and "前年同曜日" in txt(".month-review"))
@@ -1599,8 +1599,8 @@ with sync_playwright() as p:
         check("MR6 つまみでたたむ", pg.locator(".month-filter .month-cal").count() == 0 and pg.locator(".month-filter-days").count() == 1)
         for i, name in enumerate(["日ごと", "曜日", "肌感"]):
             pg.locator(".month-tabs button").nth(i + 1).click(); calm()
-            layout_ok(f"MR7{i}", f"月の振り返り {name}")
-        st = small_text(); check("MR8 11px より小さい文字がない（月の振り返り）", not st, str(st))
+            layout_ok(f"MR7{i}", f"月の概要 {name}")
+        st = small_text(); check("MR8 11px より小さい文字がない（月の概要）", not st, str(st))
         pg.click(".month-review .icon-btn.close"); calm()
         check("MR9 閉じると元の画面", pg.locator(".month-review").count() == 0)
     step("MR", mr)

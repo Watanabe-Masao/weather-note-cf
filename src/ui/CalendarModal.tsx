@@ -43,7 +43,7 @@ interface Props {
   onCompare: (date: string) => void;
   onPreset: (mode: CompareMode) => void;
   onClose: () => void;
-  /** The month's name opens its 月の振り返り (a month up to this one: a later month has no records). */
+  /** 月の概要（月の振り返り）を開く（今月までの月：先の月には記録が無い）。 */
   onMonthReview?: (month: string) => void;
 }
 
@@ -210,7 +210,7 @@ function Body(p: Props) {
             ))}
           </select>
           {/* 月：年と同じ選び方（2026-11-22 渡辺さん「年をタップ → 月をタップ で月を選ぶのが自然」）。
-              月の振り返りは、日の並びの下の1行から開く。 */}
+              月の概要は、日の並びの下の1行から開く。 */}
           <select
             className="cal-year cal-month"
             value={month.slice(5)}

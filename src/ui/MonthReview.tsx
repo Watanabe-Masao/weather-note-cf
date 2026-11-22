@@ -231,7 +231,7 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
   const seriesA = metric === "daylight" ? days.map((d) => sunRow(d, station)) : full.rows;
   const seriesB = metric === "daylight" ? daysB.map((d) => sunRow(d, station)) : fullB.rows;
     return (
-      <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
+      <ModalSheet title={`${label(month)}の概要`} label={`${label(month)}の概要`} onClose={onClose} size="full" className="day-summary-sheet month-review">
         {/* 上は どのページでも同じ（絞り込み・まとめの数字）、下をページに。
             絞り込みは1か所（2026-11-16）: 時間帯と日（曜日・カレンダー）をここだけで選ぶ。 */}
         <div className="month-filter">
@@ -294,7 +294,7 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
         </div>
         <div className="month-tabs">
           <Segmented
-            label="振り返りのページ"
+            label="概要のページ"
             value={tab}
             options={[
               { id: "sum", label: "まとめ" },
