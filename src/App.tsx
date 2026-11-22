@@ -578,6 +578,7 @@ export function App(_: { theme?: string } = {}) {
           side={calendar}
           target={view.target}
           compare={compareDate}
+          single={view.single}
           mode={view.mode}
           min={calendar === "target" ? bounds.min : FIRST_DAY}
           max={calendar === "target" ? bounds.max : last}

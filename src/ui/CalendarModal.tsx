@@ -27,6 +27,8 @@ interface Props {
   side: CalendarSide;
   target: string;
   compare: string | null;
+  /** 1日モード：比較日は無いので、対象日だけを見せる（2026-11-22 渡辺さん）。 */
+  single?: boolean;
   mode: CompareMode;
   /** Range for this side's day. */
   min: string;
@@ -41,7 +43,7 @@ interface Props {
   onCompare: (date: string) => void;
   onPreset: (mode: CompareMode) => void;
   onClose: () => void;
-  /** The month's name opens its 月の振り返り (a month up to this one: a later month has no records). */
+  /** 月の概要（月の振り返り）を開く（今月までの月：先の月には記録が無い）。 */
   onMonthReview?: (month: string) => void;
 }
 
@@ -75,6 +77,8 @@ interface Candidate {
   mode?: CompareMode;
 }
 
+const MONTHS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+
 function Body(p: Props) {
   const close = useSheetClose();
   const value = p.side === "target" ? p.target : (p.compare ?? p.target);
@@ -95,7 +99,7 @@ function Body(p: Props) {
   // The pair as it would be with the candidate.
   const pairTarget = p.side === "target" ? shown : p.target;
   const pairCompare = p.side === "target" ? p.partnerOf(shown) : shown;
-  const other = p.side === "target" ? p.compare : p.target;
+  const other = p.single ? null : p.side === "target" ? p.compare : p.target;
 
   // Load this month's days quietly, so each cell can show its weather.
   const days = daysOfMonth(month);
@@ -135,26 +139,30 @@ function Body(p: Props) {
   return (
     <>
       {/* The pair as it will be. */}
-      <div className={cand ? "cal-pair changed" : "cal-pair"} aria-live="polite">
+      <div className={`cal-pair${cand ? " changed" : ""}${p.single ? " single" : ""}`} aria-live="polite">
         <span className={p.side === "target" ? "cal-pair-side picking" : "cal-pair-side"}>
-          <small>対象</small>
+          {!p.single && <small>対象</small>}
           {dateLabel(pairTarget)}
           {holidayName(pairTarget) && <small className="cal-pair-holiday">{holidayName(pairTarget)}</small>}
         </span>
-        <span className="cal-pair-link" aria-hidden>
-          <Glyph name="pair" size="14px" />
-        </span>
-        <span className={p.side === "compare" ? "cal-pair-side picking" : "cal-pair-side"}>
-          <small>比較</small>
-          {pairCompare ? dateLabel(pairCompare, { year: pairCompare.slice(0, 4) !== pairTarget.slice(0, 4) }) : "—"}
-          {pairCompare && holidayName(pairCompare) && <small className="cal-pair-holiday">{holidayName(pairCompare)}</small>}
-        </span>
-        <span className="cal-pair-interval">
-          {intervalLabel(pairTarget, pairCompare)}
-          {p.side === "compare" && cand && !cand.mode && !COMPARE_MODES.some((m) => m.mode !== "custom" && matchDate(pairTarget, m.mode) === pairCompare)
-            ? "・カスタム"
-            : ""}
-        </span>
+        {!p.single && (
+          <>
+          <span className="cal-pair-link" aria-hidden>
+            <Glyph name="pair" size="14px" />
+          </span>
+          <span className={p.side === "compare" ? "cal-pair-side picking" : "cal-pair-side"}>
+            <small>比較</small>
+            {pairCompare ? dateLabel(pairCompare, { year: pairCompare.slice(0, 4) !== pairTarget.slice(0, 4) }) : "—"}
+            {pairCompare && holidayName(pairCompare) && <small className="cal-pair-holiday">{holidayName(pairCompare)}</small>}
+          </span>
+          <span className="cal-pair-interval">
+            {intervalLabel(pairTarget, pairCompare)}
+            {p.side === "compare" && cand && !cand.mode && !COMPARE_MODES.some((m) => m.mode !== "custom" && matchDate(pairTarget, m.mode) === pairCompare)
+              ? "・カスタム"
+              : ""}
+          </span>
+          </>
+        )}
       </div>
 
       {presets.length > 0 && (
@@ -201,14 +209,26 @@ function Body(p: Props) {
               </option>
             ))}
           </select>
-          {p.onMonthReview && month <= monthOf(p.today) ? (
-            // Dotted underline: a name that opens something, as the dates in the table's head.
-            <button className="cs-date-btn cal-month-review" onClick={() => p.onMonthReview!(month)} aria-label={`${+month.slice(0, 4)}年${+month.slice(5)}月の振り返りを開く`}>
-              {+month.slice(5)}月
-            </button>
-          ) : (
-            <>{+month.slice(5)}月</>
-          )}
+          {/* 月：年と同じ選び方（2026-11-22 渡辺さん「年をタップ → 月をタップ で月を選ぶのが自然」）。
+              月の概要は、日の並びの下の1行から開く。 */}
+          <select
+            className="cal-year cal-month"
+            value={month.slice(5)}
+            onChange={(e) => {
+              const m = `${month.slice(0, 4)}-${e.target.value}`;
+              setMonth(m < monthOf(p.min) ? monthOf(p.min) : m > monthOf(p.max) ? monthOf(p.max) : m);
+            }}
+            aria-label="月"
+          >
+            {MONTHS.map((mm) => {
+              const m = `${month.slice(0, 4)}-${mm}`;
+              return (
+                <option key={mm} value={mm} disabled={m < monthOf(p.min) || m > monthOf(p.max)}>
+                  {+mm}月
+                </option>
+              );
+            })}
+          </select>
         </strong>
         <button className="icon-btn sm flip" disabled={!canNext} onClick={() => move(1)} aria-label="次の月">
           <ChevronIcon />
@@ -294,20 +314,28 @@ function Body(p: Props) {
         );
       })()}
 
+      {p.onMonthReview && month <= monthOf(p.today) && (
+        <p className="cal-review-line">
+          <button className="cs-date-btn cal-month-review" onClick={() => p.onMonthReview!(month)}>
+            {+month.slice(0, 4)}年{+month.slice(5)}月の概要
+          </button>
+        </p>
+      )}
+
       {/* The one next step here: 決定, across the width once a day is picked. */}
       <footer className="calendar-foot">
         <Button kind="primary" block onClick={() => confirm(cand)} disabled={!cand}>
           決定
         </Button>
       </footer>
-      <p className="hint cal-hint">日をタップすると上の組み合わせが変わります。もう一度タップするか［決定］で決まります。</p>
+      <p className="hint cal-hint">日をタップすると上の{p.single ? "日付" : "組み合わせ"}が変わります。もう一度タップするか［決定］で決まります。</p>
     </>
   );
 }
 
 export function CalendarModal(props: Props) {
   return (
-    <ModalSheet title={props.side === "target" ? "対象日を選ぶ" : "比較日を選ぶ"} onClose={props.onClose} className="calendar" size="fit">
+    <ModalSheet title={props.single ? "日を選ぶ" : props.side === "target" ? "対象日を選ぶ" : "比較日を選ぶ"} onClose={props.onClose} className="calendar" size="fit">
       <Body {...props} />
     </ModalSheet>
   );
