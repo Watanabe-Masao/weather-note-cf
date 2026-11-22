@@ -1,7 +1,7 @@
 # The app end to end in a real browser (Playwright, Python): every screen and the main flows,
 # against the built app (dist/client) with the weather API answered by made-up data.
 #
-# Run:  npx vite build && python3 e2e/e2e.py [width]
+# Run:  npx vite build && python3 e2e/e2e.py [width]   (WN_PART=1 / 2: the first or second half only, as CI runs it)
 #       WN_CHROME=/path/to/chrome to use a given browser; exits 1 when a check fails (CI).
 import re
 import time
@@ -249,6 +249,11 @@ def check(name, cond, detail=""):
     results.append((bool(cond), name, detail))
 
 ONLY = [x for x in os.environ.get("WN_ONLY", "").split(",") if x]
+# WN_PART=1 or 2 (#371, CI の時間)：手順を2つに分けて、CI で並べて走らせる。1 は SPLIT より前、2 は SPLIT から後
+# （どちらも最初の画面 A は走らせる）。分け目は、時間がほぼ半分ずつになる所（AV が長い）。空なら全部。
+PART = os.environ.get("WN_PART", "")
+SPLIT = "J"
+_seen_split = [False]
 
 TIMES = []
 def settle(cond, timeout=5.0, every=0.1):
@@ -264,6 +269,9 @@ def settle(cond, timeout=5.0, every=0.1):
 def step(name, fn):
     # WN_ONLY=A,T runs only those steps (and the first view), for looking into one failure.
     if ONLY and name not in ONLY and name != "A":
+        return
+    if name == SPLIT: _seen_split[0] = True
+    if PART and name != "A" and ((PART == "1") == _seen_split[0]):
         return
     t0 = time.monotonic()
     try:
@@ -1859,7 +1867,7 @@ with sync_playwright() as p:
     b.close()
 srv.shutdown()
 ok = sum(r[0] for r in results)
-print(f"WIDTH {W}: {ok}/{len(results)} passed")
+print(f"WIDTH {W}{f' part {PART}' if PART else ''}: {ok}/{len(results)} passed")
 # Where the time goes (#CI): the slowest steps, so a slow run can be read from its log.
 print("STEPS " + " ".join(f"{n}={t:.1f}s" for n, t in sorted(TIMES, key=lambda x: -x[1])[:12]) + f" (all {sum(t for _, t in TIMES):.0f}s)")
 for r in results:
