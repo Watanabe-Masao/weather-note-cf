@@ -5643,3 +5643,31 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 
 /* 風速の札の主な風向（16方位の最頻値）。 */
 .dd-dir { margin-left: var(--space-1); font-size: var(--size-xs); color: var(--ink-secondary); }
+
+/* 今日：ここまでの観測と、このあとの予報（見本 2026-11-22） */
+.ts { margin: var(--space-4) 0 var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--surface-inset); border: var(--stroke-hair) solid var(--line-soft); }
+.ts-bar { position: relative; display: flex; height: var(--space-2); border-radius: var(--radius-pill); overflow: visible; margin: var(--space-6) 0 var(--space-4); }
+.ts-bar i { display: block; height: 100%; }
+.ts-bar i.obs { background: var(--accent-base); border-radius: var(--radius-pill) 0 0 var(--radius-pill); }
+.ts-bar i.fc { flex: 1; border-radius: 0 var(--radius-pill) var(--radius-pill) 0; background: repeating-linear-gradient(135deg, var(--line-strong) 0 1.5px, transparent 1.5px 5px), var(--surface-raised); }
+.ts-now { position: absolute; bottom: calc(100% + var(--space-2)); transform: translateX(-50%); font-size: var(--size-xs); color: var(--ink-secondary); white-space: nowrap; }
+.ts-now::before { content: ""; position: absolute; left: 50%; top: calc(100% + var(--space-1)); width: var(--stroke-focus); height: var(--space-3); margin-left: calc(var(--stroke-focus) / -2); background: var(--ink-primary); border-radius: var(--radius-pill); }
+.ts-cells { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); }
+.ts-cell.fc { padding-left: var(--space-4); border-left: var(--stroke-hair) dashed var(--line-strong); }
+.ts-cap { margin: 0 0 var(--space-2); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); white-space: nowrap; font-size: var(--size-sm); color: var(--ink-primary); font-weight: var(--weight-bold); }
+.ts-cap small { flex-basis: 100%; font-weight: var(--weight-regular); color: var(--ink-tertiary); font-size: var(--size-xs); }
+.ts-tag { display: inline-block; padding: 0 var(--space-2); border-radius: var(--radius-xs); font-size: var(--size-xs); font-weight: var(--weight-bold); line-height: 1.6; }
+.ts-tag.obs { background: var(--accent-base); color: var(--surface-base); }
+.ts-tag.fc { border: var(--stroke-hair) dashed var(--ink-tertiary); color: var(--ink-secondary); }
+.ts-vals { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-3); row-gap: var(--space-1); align-items: baseline; font-size: var(--size-sm); }
+.ts-vals dt { color: var(--ink-tertiary); font-size: var(--size-xs); }
+.ts-vals dd { margin: 0; display: flex; align-items: baseline; gap: var(--space-1); }
+.ts-vals b { font-size: var(--size-lg); font-variant-numeric: tabular-nums; }
+.ts-vals small { color: var(--ink-tertiary); font-size: var(--size-xs); }
+.ts-day { margin: var(--space-4) 0 0; padding-top: var(--space-3); border-top: var(--stroke-hair) solid var(--line-soft); font-size: var(--size-sm); color: var(--ink-secondary); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1); }
+.ts-day b { font-size: var(--size-base); font-variant-numeric: tabular-nums; }
+.ts-day small { color: var(--ink-tertiary); font-size: var(--size-xs); }
+.ts-day span { margin-left: auto; color: var(--ink-tertiary); font-size: var(--size-xs); }
+.ts-line { margin: var(--space-3) 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font-size: var(--size-sm); color: var(--ink-secondary); }
+.ts-line b { font-variant-numeric: tabular-nums; }
+.ts-sep { color: var(--ink-tertiary); }
