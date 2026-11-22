@@ -100,11 +100,14 @@ export function StoryMoon({
   at,
   r = 62,
   img,
+  tint,
 }: {
   p: string;
   at: string;
   r?: number;
   img?: string;
+  /** 月の色を変える薄い面の色（不透明度 0 で置き、場面が動かす：`.${p}-moon-tint`）。CSS の filter は iPhone の SVG で効かないので面で。 */
+  tint?: string;
 }): ReactElement {
   const k = r / 62;
   // 渡辺さんの素材の月の絵があれば、それを円に切って使う（11/20 18:42）。無ければ描いた月。
@@ -128,6 +131,7 @@ export function StoryMoon({
           clipPath={`url(#${p}-moon-clip)`}
           preserveAspectRatio="xMidYMid slice"
         />
+        {tint && <circle r={r} fill={tint} opacity={0} className={`${p}-moon-tint`} />}
         <circle r={r} fill="none" data-story-disc="" />
       </g>
     );
