@@ -34,6 +34,10 @@ export interface AccountsEnv {
   /** Cloudflare's own count of the month's use (usage.ts): a read-only token (secret) and the account. */
   CF_ANALYTICS_TOKEN?: string;
   CF_ACCOUNT_ID?: string;
+  /** 原本の控えを置く Google ドライブの鍵（秘密の値、offsite.ts）。無ければ控えは置かない。 */
+  GDRIVE_CLIENT_ID?: string;
+  GDRIVE_CLIENT_SECRET?: string;
+  GDRIVE_REFRESH_TOKEN?: string;
 }
 
 import {

@@ -27,6 +27,7 @@ export const RUNBOOK: RunbookEntry[] = [
   { code: "R-10", title: "過去の記録の取り込み", severity: "S3", keys: ["importUnknown", "import"] },
   { code: "R-11", title: "取り戻せない欠けが出た", severity: "S2", keys: ["dataLost"] },
   { code: "R-12", title: "週の点検が止まった・抜けが見つかった", severity: "S3", keys: ["weeklyAuditStale"] },
+  { code: "R-13", title: "Google ドライブの控えがたまる", severity: "S3", keys: ["offsiteBehind"] },
 ];
 
 /** 知らせの key から手順を引く（`alert:missing:VPFD51` → `alert:missing`、`cronFailed:notify` → `cronFailed`）。 */

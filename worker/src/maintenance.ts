@@ -10,6 +10,7 @@ import { health } from "./health";
 import type { UsageEnv } from "./usage";
 import { ensureRefetchSchema, refetchSummary } from "./refetch";
 import { lastWeeklyAudit } from "./weeklyAudit";
+import { type DriveEnv, offsiteSummary } from "./offsite";
 
 const DAY = 86_400_000;
 
@@ -56,7 +57,7 @@ const pendingOf = (c: { forecast?: Record<string, { pendingCount?: number }>; ra
 });
 
 /** 管理画面「データの保守」の中身（読むだけ）。 */
-export async function maintenanceSummary(db: Db, now: number, env: UsageEnv & { hasBucket: boolean }) {
+export async function maintenanceSummary(db: Db, now: number, env: UsageEnv & DriveEnv & { hasBucket: boolean }) {
   // 1つが失敗しても画面は出す（2026-11-19、実機で全体が「処理に失敗しました」になった）：部分ごとに受け止め、
   // 失敗した部分と文言を failed に並べる（それ自体が保守の手がかり）。
   const failed: { part: string; message: string }[] = [];
@@ -75,6 +76,7 @@ export async function maintenanceSummary(db: Db, now: number, env: UsageEnv & { 
   const refetch = await part("取得の様子", () => refetchSummary(db, now, env.hasBucket, pendingOf(h?.state.completeness)), { perHour: 0, stages: [] } as Awaited<ReturnType<typeof refetchSummary>>);
   const errors = await part("エラーの記録", () => recentErrors(db, now), [] as ErrorRow[]);
   const weekly = await part("週の点検", () => lastWeeklyAudit(db), null);
+  const offsite = await part("ドライブの控え", () => offsiteSummary(db, now, env), null);
   return {
     at: new Date(now).toISOString(),
     failed,
@@ -86,6 +88,7 @@ export async function maintenanceSummary(db: Db, now: number, env: UsageEnv & { 
     lastDupCheck: lastDup[0] ? { at: lastDup[0].at, result: JSON.parse(lastDup[0].detail) as DupItem[] } : null,
     lastAudit: lastAudit[0] ? { at: lastAudit[0].at, result: JSON.parse(lastAudit[0].detail) as AuditResult } : null,
     weeklyAudit: weekly,
+    offsite,
   };
 }
 

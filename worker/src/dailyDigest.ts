@@ -7,6 +7,7 @@
 // 中身は記録の回数だけ（成功した回／全部の回、新しく保存した数）。表がまだ無い取得は行を出さない。
 
 import { lastWeeklyAudit, weeklyAuditLines } from "./weeklyAudit";
+import { type DriveEnv, offsiteLine, offsiteSummary } from "./offsite";
 import { type Finding, gapText } from "../../shared/healthJudge";
 import { runbookTag } from "../../shared/runbook";
 import type { Db } from "./accounts";
@@ -74,7 +75,7 @@ export async function digestLines(db: Db, now: number): Promise<DigestLine[]> {
 export type CloudflareRuns =
   | { ok: true; empty: boolean; runs: number; byStatus: Record<string, number>; cpuMaxMs: number; startedNotKept?: number; notStarted?: number }
   | { ok: false; error: string };
-export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns): Promise<string[]> {
+export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns, drive?: DriveEnv): Promise<string[]> {
   const from = new Date(now - 24 * 3_600_000).toISOString();
   const to = new Date(now).toISOString();
   const out: string[] = [];
@@ -169,6 +170,13 @@ export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns): Pro
   } catch (e) {
     console.error("weather-note: digest weekly audit", e);
   }
+  // 原本の控え（offsite.ts）：何日分・最後に置いた日・まだの日・最後の失敗。
+  if (drive)
+    try {
+      out.push(offsiteLine(await offsiteSummary(db, now, drive)));
+    } catch (e) {
+      console.error("weather-note: digest offsite", e);
+    }
   return out;
 }
 
