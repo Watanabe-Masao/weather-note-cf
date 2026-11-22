@@ -61,7 +61,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   const typhoon = ty === "none" || ty === "unknown" ? null : ty;
   const comment = useMemo(() => dayComment({ row, other: null, otherName: null, hours: rows, typhoon }), [row, rows, typhoon]);
   const conf = confidenceOfRow(row);
-  // 今日：過ぎた時間は観測、これからは予報。1日の最高・最低は両方を合わせた見込み（見本 2026-11-22）。
+  // 今日：過ぎた時間は観測、これからは予報。1日の最高・最低は両方を合わせた見込み（2026-11-22）。
   const split = date === today ? splitToday(rows) : null;
   const max = split?.max?.v ?? num(row?.max);
   const min = split?.min?.v ?? num(row?.min);
@@ -161,7 +161,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
         {/* 肌感は見出しの右に（空いていた所、2026-11-18 渡辺さん）。押すと肌感マップ（グラフの項目ではないので、項目の選びからは外した）。 */}
         <FeelLine rows={rows} station={station} onOpen={onOpenFeel} />
       </div>
-      {date === today && <TodaySplit rows={rows} look={(() => { try { return localStorage.getItem("wn-today-sample") ?? "card"; } catch { return "card"; } })()} />}
+      {date === today && <TodaySplit rows={rows} station={station} />}
       {comment.length > 0 && <p className="dd-say">{comment.join("")}</p>}
       {!prov && provOpen && row && (
         <div className="dd-prov plain">
