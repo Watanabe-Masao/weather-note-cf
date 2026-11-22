@@ -30,7 +30,7 @@ export const COLD_BEATS = 9;
  * 言葉の合図（11/23 レビュー「跳躍や種は、言葉ごとの間に合わせる」）：動きを合わせる言葉。物語の画面がその言葉の最初の字が
  * 出る拍を計算して、buildColdScene に渡す（cueAt）。
  *   2「ちょん」「ちょん」で跳ねる。3「ひとつぶ」「またひとつぶ」で種が一つずつ消える。4「ひゅう」で枝が揺れる。
- *   5「ふっくら」で羽をふくらませる。6 1行目「雪の野原」と同時に雪原の月明かり、2行目「おおきな」で月が見えきる。
+ *   5「ふっくら」で羽をふくらませる。7「高く」で月がぐっと昇る。6 1行目「雪の野原」と同時に雪原の月明かり、2行目「おおきな」で月が見えきる。
  *   8「月の光」で光の帯が穴の縁を移る。9「フィーチー」で飛び出す →「朝の森」は止まった絵で →「西の空」の前に西へ向く。
  */
 export const COLD_CUES: Record<number, string[]> = {
@@ -39,6 +39,7 @@ export const COLD_CUES: Record<number, string[]> = {
   3: ["ひゅう"],
   4: ["ふっくら"],
   5: ["雪の野原", "おおきな"],
+  6: ["高く"],
   7: ["月の光"],
   8: ["フィーチー", "朝の森", "西の空", "コールドムーン"],
 };
@@ -611,10 +612,13 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     .to(".cw-moon-air", { autoAlpha: 0.45, duration: 0.3, ease: "sine.in" }, lit + 0.12)
     .to(".cw-fluff-closed", { opacity: 0, duration: 0.05 }, lit - 0.08)
     .to(".cw-fluff-open", { opacity: 1, duration: 0.05 }, lit - 0.06);
-  // 7 「どんどん」：見上げる（世界が下へ流れ、月は東から南の高い所へ。真上にはしない）。
+  // 7 「高く、もっと高く。」：見上げる（世界が下へ流れ、月は東から南の高い所へ。真上にはしない）。月は「高く」の字に合わせて
+  // ぐっと昇る（6ページでも昇るので、7ページは「高く、もっと高く」に動きを集める）。
+  const high = Math.min(6.5, Math.max(6.12, cue(6, 0, 6.3)));
   move(6, cam(200, 400, 1.0))
     .to(".cw-moonrise", { opacity: 0, duration: 0.3 }, 6.02)
-    .to(".cw-moon", { attr: { transform: "translate(160 180)" }, duration: 0.7, ease: "sine.inOut" }, 6.02)
+    .to(".cw-moon", { attr: { transform: "translate(130 330)" }, duration: high - 6.02, ease: "sine.inOut" }, 6.02)
+    .to(".cw-moon", { attr: { transform: "translate(160 180)" }, duration: 6.74 - high, ease: "power2.out" }, high)
     .to(".cw-fluff-open", { opacity: 0, duration: 0.05 }, 6.1)
     .to(".cw-fluff-closed", { opacity: 1, duration: 0.05 }, 6.12);
   // 8 ながい夜：穴の口に寄る。月は西南西へ（円盤は画面の外、光だけ）。「月の光」で光の帯が穴の縁を東から西へ移る（鳥の顔は
