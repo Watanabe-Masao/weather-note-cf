@@ -872,7 +872,7 @@ img.event-pic { object-fit: contain; }
   display: flex;
   align-items: stretch;
   gap: var(--space-1);
-  padding: var(--space-1);
+  padding: var(--space-3) var(--space-1) var(--space-1);
   border-radius: var(--radius-xl);
   border: var(--stroke-hair) solid var(--line-soft);
   background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
@@ -900,8 +900,43 @@ img.event-pic { object-fit: contain; }
 .ib-cat:active { transform: scale(0.96); }
 .ib-cat .item-icon,
 .metrics .chip .item-icon { color: inherit; }
-.ib-open { flex: 0 1 auto; display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-lg); background: linear-gradient(var(--accent-wash), var(--accent-wash)), var(--surface-inset); }
-.metrics .chip { flex: 1 1 0; min-width: 52px; padding: 0 var(--space-2); }
+/* 開いた仲間：テーマの色の枠で囲み、上の縁に仲間の名前（枠の切れ目に置く見出し）。中の項目が一つの仲間だと見える。 */
+.ib-open {
+  position: relative;
+  flex: 0 1 auto;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+  border: var(--stroke-select) solid var(--accent-base);
+  margin-top: var(--space-1);
+  background: linear-gradient(var(--accent-wash), var(--accent-wash)), var(--surface-inset);
+  box-shadow: 0 0 var(--space-4) var(--accent-glow);
+}
+.ib-open.multi { padding-top: var(--space-3); }
+.ib-legend {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-base);
+  color: var(--surface-base);
+  font-size: var(--size-xs);
+  font-weight: var(--weight-bold);
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ib-open.multi { animation: ib-open-in var(--motion-base) var(--ease-standard); }
+}
+@keyframes ib-open-in { from { transform: scaleX(0.9); } to { transform: none; } }
+/* 閉じた仲間：中の項目の数だけ小さな点 */
+.ib-dots { display: flex; gap: var(--space-1); height: var(--space-1); }
+.ib-dots i { width: var(--space-1); height: var(--space-1); border-radius: 50%; background: currentColor; }
+.metrics .chip { flex: 1 1 0; min-width: 52px; min-height: 44px; padding: 0 var(--space-2); }
 .metrics .chip.on {
   color: var(--surface-base);
   background: var(--accent-base);

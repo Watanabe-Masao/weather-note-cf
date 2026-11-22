@@ -20,7 +20,12 @@ export function ItemBar({ metric, onPick, barRef }: { metric: string; onPick: (i
     <nav className="metrics item-bar" aria-label="グラフの項目" ref={barRef}>
       {ITEM_GROUPS.map((g) =>
         g === active ? (
-          <div key={g.id} className="ib-open" role="tablist" aria-label={g.label}>
+          <div key={g.id} className={g.items.length > 1 ? "ib-open multi" : "ib-open"} role="tablist" aria-label={g.label}>
+            {g.items.length > 1 && (
+              <span className="ib-legend" aria-hidden>
+                {g.label}
+              </span>
+            )}
             {g.items.map((id) => (
               <button key={id} role="tab" aria-selected={id === metric} data-item={id} className={id === metric ? "chip item on" : "chip item"} onClick={() => onPick(id)}>
                 <ItemIcon id={id} />
@@ -32,6 +37,14 @@ export function ItemBar({ metric, onPick, barRef }: { metric: string; onPick: (i
           <button key={g.id} className="ib-cat" data-items={g.items.join(" ")} aria-label={`${g.label}（${g.items.map(label).join("・")}）`} onClick={() => onPick(g.items[0])}>
             <ItemIcon id={g.items[0]} />
             <span>{g.label}</span>
+            {/* 中の項目の数（2つ以上のとき）：押すと開く仲間だと分かるように */}
+            {g.items.length > 1 && (
+              <span className="ib-dots" aria-hidden>
+                {g.items.map((id) => (
+                  <i key={id} />
+                ))}
+              </span>
+            )}
           </button>
         ),
       )}
