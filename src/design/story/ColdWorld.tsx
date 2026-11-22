@@ -51,21 +51,27 @@ const C = {
   snow: ["#f4f6fb", "#dfe6f2", "#c8d3e8"] as const,
   shadow: "#b6c3de",
   bark: "#f3e9e4",
-  twig: "#6b5240",
 };
 
 // 置く位置（世界の座標 400×860）。主役のシラカバは右寄りに一本。素材の目印は design-src/story/cold/pack/anchors.json。
-/** 主役のシラカバ：根元の中心、幅、太い幹の上の端（そこから上は細い二本の枝になって画面の外へ。
- * 上の方は物語の文字の後ろに来るので、文字が読めるよう細い枝だけにする）。 */
-const BIRCH = { x: 292, base: 690, w: 64, top: 390 };
-/** 太い幹の上の端の幅。 */
-const TOP_W = BIRCH.w - 4;
-/** 主役の幹の形（太い幹＋上で分かれる細い二本の枝）。夜に沈める色の切り抜きにも使う。 */
+/** 主役のシラカバ：根元の中心、幅。太い幹は描き込んだ素材（下から c05b → c05d の二股）で、二股の枝は画面の外まで伸ばす。 */
+const BIRCH = { x: 292, base: 690, w: 64 };
+/** 二股の幹（c05d、1024×1536。下の端の幹は画像の x 457〜697）：下の端を穴のない幹の上に重ねる。 */
+const FORK_IMG = (() => {
+  const s = BIRCH.w / 240;
+  return { s, x: BIRCH.x - 577 * s, y: 430 - 1536 * s, w: 1024 * s, h: 1536 * s };
+})();
+/** 二股の枝の上の端（絵の上の端）の位置：左の枝は画像の x≈225、右は x≈800。そこから上は平たい面でのばす。 */
+const LIMB = {
+  y: FORK_IMG.y + 24,
+  l: FORK_IMG.x + 225 * FORK_IMG.s,
+  r: FORK_IMG.x + 800 * FORK_IMG.s,
+};
+/** 主役の幹の形（素材の下地の太い幹＋画面の外へ伸びる二本の枝）。夜に沈める色の切り抜きにも使う。 */
 const TRUNK_D = [
-  `M${BIRCH.x - BIRCH.w / 2} ${BIRCH.base} L${BIRCH.x - TOP_W / 2} ${BIRCH.top} C ${BIRCH.x - 18} ${BIRCH.top - 30} ${BIRCH.x - 12} ${BIRCH.top - 50} ${BIRCH.x - 10} ${BIRCH.top - 70}`,
-  `L${BIRCH.x - 40} -300 L${BIRCH.x - 28} -300 L${BIRCH.x + 2} ${BIRCH.top - 66}`,
-  `L${BIRCH.x + 34} -300 L${BIRCH.x + 43} -300 L${BIRCH.x + 10} ${BIRCH.top - 62}`,
-  `C ${BIRCH.x + 14} ${BIRCH.top - 44} ${BIRCH.x + 20} ${BIRCH.top - 26} ${BIRCH.x + TOP_W / 2} ${BIRCH.top} L${BIRCH.x + BIRCH.w / 2} ${BIRCH.base} Z`,
+  `M${BIRCH.x - BIRCH.w / 2} ${BIRCH.base} L${BIRCH.x - 29} 420 L${BIRCH.x + 29} 420 L${BIRCH.x + BIRCH.w / 2} ${BIRCH.base} Z`,
+  `M${LIMB.l - 11} ${LIMB.y + 20} L${LIMB.l - 7 - 72} -300 L${LIMB.l + 7 - 72} -300 L${LIMB.l + 11} ${LIMB.y + 20} Z`,
+  `M${LIMB.r - 13} ${LIMB.y + 20} L${LIMB.r - 8 + 33} -300 L${LIMB.r + 8 + 33} -300 L${LIMB.r + 13} ${LIMB.y + 20} Z`,
 ].join(" ");
 /** 木の穴（キツツキの古い穴）。描き込んだ幹（c05）の穴の口に合わせる。 */
 const HOLE = { x: 294, y: 548, rx: 13, ry: 14 };
@@ -74,23 +80,33 @@ const TRUNK_IMG = (() => {
   const s = BIRCH.w / 620;
   return { x: HOLE.x - 510 * s, y: HOLE.y - 671 * s, w: 1024 * s, h: 1536 * s };
 })();
-/** 描き込んだ穴のない幹（c05b、1024×1536。幹は画像の x 347〜678）：根元から、細い枝に分かれる所まで。 */
+/** 描き込んだ穴のない幹（c05b、1024×1536。幹は画像の x 347〜678）：根元から、二股の下まで。 */
 const PLAIN_IMG = (() => {
   const s = BIRCH.w / 331;
   return { x: BIRCH.x - 512 * s, y: BIRCH.base - 1536 * s, w: 1024 * s, h: 1536 * s };
+})();
+/** 夜明けの光を受けた穴のない幹（c05c、1024×1536。幹は画像の x 500〜830）：穴のない幹と同じ所に重ねる。 */
+const DAWN_IMG = (() => {
+  const s = BIRCH.w / 330;
+  return { x: BIRCH.x - 667 * s, y: BIRCH.base - 1536 * s, w: 1024 * s, h: 1536 * s };
 })();
 /** 左上の雪の枝（c09、1774×887。左の端が幹）。ビーバームーンの紅葉の枝と同じ、1・2ページの額縁。 */
 const BRANCH = { x: -46, y: 92, w: 310, h: (310 * 887) / 1774 };
 /** いちばん手前の雪と枯れ草（c08-near、2172×724。上の縁は画像の y≈260〜570）。 */
 const NEAR = { x: -110, y: 700, w: 620, h: (620 * 724) / 2172 };
-/** 雪の枝（幹から左へ）。コガラの足が触れる所。 */
-const BOUGH = { x0: BIRCH.x - BIRCH.w / 2 + 2, y0: 600, x1: 168, y1: 590 };
-/** 枝のコガラ（c01、1536×1024。足が枝に触れる点は画像の (965, 975)）。鳥の幅は画像の約 7 割。 */
-const PERCH = { w: 76, foot: [965, 975] as const, at: [212, 596] as const };
-/** 幹のすきまに種をかくす（c03、1024×1536）：絵の中の足（画像の x≈620, y≈845）を、主役の幹の左の縁（枝の下）に合わせる。
- * 絵の中の幹と茂みは消し（cw-seed-mask）、鳥と種だけを残す。 */
-const SEED = { w: 132, h: 198 };
-const SEED_AT = { x: BIRCH.x - BIRCH.w / 2 - (SEED.w * 600) / 1024, y: 652 - (SEED.h * 845) / 1536 };
+/** 雪の枝（c09c、1536×1024。右の端 x≈1500 が幹に付く切り口、切り口の木の真ん中は画像の y≈640）：幹の左の縁から左へ。
+ * 切り口は幹の絵の後ろに隠す。 */
+const BOUGH = (() => {
+  const s = 118 / 1457;
+  return { x: BIRCH.x - BIRCH.w / 2 + 8 - 1500 * s, y: 600 - 640 * s, w: 1536 * s, h: 1024 * s };
+})();
+/** 枝のコガラ（c01、1536×1024。足が枝に触れる点は画像の (965, 975)）。足は雪の枝の上の雪（画像の x≈900、上の縁 y≈545）。 */
+const PERCH = { w: 76, foot: [965, 975] as const, at: [BOUGH.x + 900 * (BOUGH.w / 1536), BOUGH.y + 547 * (BOUGH.w / 1536)] as const };
+/** 幹にしがみついて種をくわえるコガラ（c03c、1024×1536、幹なし）：つめ（画像の x≈940）を幹の左の縁に、下の足（y≈1000）を枝の下に。 */
+const CLING = (() => {
+  const s = 0.07;
+  return { x: BIRCH.x - BIRCH.w / 2 + 2 - 940 * s, y: 650 - 1000 * s, w: 1024 * s, h: 1536 * s };
+})();
 /** 穴の中のふくらんだコガラ（c06、1536×1024。鳥の幅は画像の約 6 割）。 */
 const FLUFF = { w: 46, h: (46 * 1024) / 1536 };
 /** 夜明けの枝でさえずるコガラ（c07、1536×1024、枝つき）。 */
@@ -132,28 +148,28 @@ function farBirch(x: number, y: number, h: number, key: string, r: () => number)
 
 /** 主役のシラカバ：太い幹は描き込んだ素材（c05b、穴のあたりは c05）、上で分かれる細い枝は平たい面。左へ伸びる雪の枝。 */
 function MainBirch(): ReactElement {
-  const { x, top } = BIRCH;
   return (
     <g>
-      {/* 幹の形（細い枝と、素材の下地） */}
+      {/* 幹の形（素材の下地と、画面の外へ伸びる二本の枝） */}
       <path className="cw-trunk" d={TRUNK_D} fill={C.bark} />
-      {/* 細い枝の黒い節 */}
-      {[60, 180, 280].map((y, i) => (
-        <rect key={`l${i}`} x={x - 30 + ((y + 300) / (top - 70 + 300)) * 18 + (i % 2) * 2} y={y} width={6} height={1.6} fill={C.birchMark} opacity={0.6} />
-      ))}
-      {/* 描き込んだ幹（穴なし） */}
-      <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} mask="url(#cw-plain-mask)" />
-      {/* 穴のあたりは描き込んだ幹（c05）。上下は穴のない幹（c05b）へぼかしてつなぐ（ビーバームーンの住みかと同じ、主役の場所のアクセント）。 */}
+      {/* 二本の枝の黒い節 */}
+      {[-260, -150, -40].map((y, i) => {
+        const t = (LIMB.y + 20 - y) / (LIMB.y + 320);
+        return (
+          <g key={i}>
+            <rect x={LIMB.l - 72 * t - 6 + (i % 2) * 4} y={y} width={7} height={1.6} fill={C.birchMark} opacity={0.6} />
+            <rect x={LIMB.r + 33 * t - 4 - (i % 2) * 3} y={y + 40} width={7} height={1.6} fill={C.birchMark} opacity={0.6} />
+          </g>
+        );
+      })}
+      {/* 雪の枝（切り口は幹の絵の後ろ） */}
+      <image href={A("bough")} x={BOUGH.x} y={BOUGH.y} width={BOUGH.w} height={BOUGH.h} />
+      {/* 描き込んだ幹：穴のない幹（夜明けは光を受けた幹に入れ替える）、二股、穴のあたり */}
+      <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} />
+      <image className="cw-trunk-dawn" href={A("trunk-dawn")} x={DAWN_IMG.x} y={DAWN_IMG.y} width={DAWN_IMG.w} height={DAWN_IMG.h} opacity={0} />
+      <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} mask="url(#cw-fork-mask)" />
+      {/* 穴のあたりは c05。上下は穴のない幹へぼかしてつなぐ（ビーバームーンの住みかと同じ、主役の場所のアクセント）。 */}
       <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} mask="url(#cw-trunk-mask)" />
-      {/* 雪の枝（幹から左へ） */}
-      <path
-        d={`M${BOUGH.x0} ${BOUGH.y0} C ${BOUGH.x0 - 30} ${BOUGH.y0 - 4} ${BOUGH.x1 + 40} ${BOUGH.y1 + 2} ${BOUGH.x1} ${BOUGH.y1} M${BOUGH.x1 + 30} ${BOUGH.y1 + 1} l -14 -10`}
-        stroke={C.twig}
-        strokeWidth={3.2}
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path d={`M${BOUGH.x0 - 2} ${BOUGH.y0 - 3} C ${BOUGH.x0 - 30} ${BOUGH.y0 - 9} ${BOUGH.x1 + 40} ${BOUGH.y1 - 4} ${BOUGH.x1 + 4} ${BOUGH.y1 - 3} Z`} fill={C.snow[0]} stroke={C.snow[0]} strokeWidth={2.4} strokeLinejoin="round" />
     </g>
   );
 }
@@ -310,24 +326,12 @@ export function ColdWorld(): ReactElement {
           <path d={TRUNK_D} fill="#ffffff" />
           <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} filter="url(#cw-white)" />
           <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} filter="url(#cw-white)" />
+          <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} filter="url(#cw-white)" />
         </mask>
         {/* 穴の口（穴の中のコガラは口の形に切る）。 */}
         <clipPath id="cw-hole">
           <ellipse cx={HOLE.x} cy={HOLE.y} rx={HOLE.rx} ry={HOLE.ry} />
         </clipPath>
-        {/* 種をかくすコガラ（c03）の絵の、まわりの茂みを消す（鳥と幹のあたりだけ残す）。 */}
-        <radialGradient id="cw-seed-fade" cx="0.42" cy="0.44" r="0.4">
-          <stop offset="0.7" stopColor="#ffffff" />
-          <stop offset="1" stopColor="#000000" />
-        </radialGradient>
-        <linearGradient id="cw-seed-cut" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0.74" stopColor="#000000" stopOpacity={0} />
-          <stop offset="0.8" stopColor="#000000" stopOpacity={1} />
-        </linearGradient>
-        <mask id="cw-seed-mask" maskContentUnits="objectBoundingBox">
-          <rect width={1} height={1} fill="url(#cw-seed-fade)" />
-          <rect width={1} height={1} fill="url(#cw-seed-cut)" />
-        </mask>
         {/* 描き込んだ幹の上下を平たい幹へぼかす。 */}
         <linearGradient id="cw-trunk-fade" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor="#000000" />
@@ -338,13 +342,15 @@ export function ColdWorld(): ReactElement {
         <mask id="cw-trunk-mask" maskContentUnits="objectBoundingBox">
           <rect width={1} height={1} fill="url(#cw-trunk-fade)" />
         </mask>
-        {/* 穴のない幹の上の端を、細い枝へぼかしてつなぐ。 */}
-        <linearGradient id="cw-plain-fade" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#000000" />
-          <stop offset="0.08" stopColor="#ffffff" />
+        {/* 二股の幹の上の端（平たい枝へ）と下の端（穴のない幹へ）をぼかしてつなぐ。 */}
+        <linearGradient id="cw-fork-fade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0.01" stopColor="#000000" />
+          <stop offset="0.05" stopColor="#ffffff" />
+          <stop offset="0.93" stopColor="#ffffff" />
+          <stop offset="1" stopColor="#000000" />
         </linearGradient>
-        <mask id="cw-plain-mask" maskContentUnits="objectBoundingBox">
-          <rect width={1} height={1} fill="url(#cw-plain-fade)" />
+        <mask id="cw-fork-mask" maskContentUnits="objectBoundingBox">
+          <rect width={1} height={1} fill="url(#cw-fork-fade)" />
         </mask>
         {/* 雪の上の月明かり（ビーバームーンの水面の月の道にあたる）。 */}
         <radialGradient id="cw-moonlit-g" cx="0.5" cy="0.5" r="0.5">
@@ -392,14 +398,16 @@ export function ColdWorld(): ReactElement {
             height={(PERCH.w * 1024) / 1536}
           />
         </g>
-        {/* 幹のすきまに種をかくすコガラ（3ページ、c03）：絵の中の幹を主役の幹に重ね、まわりの茂みは消す。 */}
+        {/* 幹のすきまに種をかくすコガラ（3ページ、c03c）：幹の左の縁につかまる。 */}
         <g className="cw-seed cw-breath" opacity={0}>
-          <image href={A("seed-trunk")} x={SEED_AT.x} y={SEED_AT.y} width={SEED.w} height={SEED.h} mask="url(#cw-seed-mask)" />
+          <image href={A("cling")} x={CLING.x} y={CLING.y} width={CLING.w} height={CLING.h} />
         </g>
         {/* 夜明けの枝でさえずるコガラ（9ページ、c07）。 */}
         <g className="cw-song cw-breath" opacity={0}>
           <image href={A("song")} x={SONG.x} y={SONG.y} width={SONG.w} height={SONG.h} />
         </g>
+        {/* 地面をはう朝もや（c12c、かけ算）：9ページの雪原の低い所。 */}
+        <image className="cw-mist" href={A("mist")} x={-160} y={600} width={720} height={240} preserveAspectRatio="none" opacity={0} style={{ mixBlendMode: "multiply" }} />
         <SnowField front />
         {/* 地上を沈める色（夕方は青いかげ、夜は紺）。地上の形で切り、空と月にはかからない。 */}
         <g mask="url(#cw-land)">
@@ -416,6 +424,10 @@ export function ColdWorld(): ReactElement {
           <image href={A("branch")} x={BRANCH.x} y={BRANCH.y} width={BRANCH.w} height={BRANCH.h} />
         </g>
       </g>
+      {/* 空気感の光（c12。黒い背景のまま足し算で重ねる）：はやい夕暮れと夜明けに、斜めにさす薄い光。 */}
+      <image className="cw-air" href={A("air")} x={-110} y={-30} width={620} height={930} preserveAspectRatio="none" opacity={0} style={{ mixBlendMode: "screen" }} />
+      {/* 月明かりのもや（c12b、足し算）：6〜8ページ。月のある左上から穴の方へ下りる向きに、左右を反転して置く。 */}
+      <image className="cw-moon-air" href={A("moon-air")} x={-110} y={-30} width={620} height={930} preserveAspectRatio="none" transform="matrix(-1 0 0 1 400 0)" opacity={0} style={{ mixBlendMode: "screen" }} />
       <g className="cw-snow">{flakes}</g>
       <rect width={W} height={H} fill="url(#cw-vignette)" pointerEvents="none" />
     </svg>
@@ -487,7 +499,8 @@ function buildBeats(tl: Tween) {
     .to(".cw-seed", { opacity: 0, duration: 0.05 }, 3.0)
     .to(".cw-sky-dusk", { opacity: 1, duration: 0.6, ease: "sine.inOut" }, 3.05)
     .to(".cw-shade-dusk", { opacity: 0.5, duration: 0.6, ease: "sine.inOut" }, 3.05)
-    .to(".cw-bough", { opacity: 0, duration: 0.4 }, 3.1);
+    .to(".cw-bough", { opacity: 0, duration: 0.4 }, 3.1)
+    .to(".cw-air", { opacity: 0.3, duration: 0.6, ease: "sine.inOut" }, 3.1);
   // 5 木の穴へ：穴に寄る（コガラが画面の 3 分の 1 ほど）。穴の中で丸くなる（目を閉じた姿）。
   move(4, cam(HOLE.x - 20, HOLE.y + 30, 2.1)).to(".cw-fluff-closed", { opacity: 1, duration: 0.15 }, 4.35);
   // 6 月が昇る：引いて、北東の地平線（山の向こう）から月。夜になり、穴の口のコガラは目を開けて月を見る。
@@ -499,6 +512,8 @@ function buildBeats(tl: Tween) {
     .to(".cw-moonrise", { opacity: 1, duration: 0.25, ease: "sine.in" }, 5)
     .to(".cw-moon-show", { opacity: 1, duration: 0.03 }, 5.18)
     .to(".cw-moonlit", { opacity: 0.8, duration: 0.4, ease: "sine.in" }, 5.3)
+    .to(".cw-air", { opacity: 0, duration: 0.4 }, 5)
+    .to(".cw-moon-air", { opacity: 0.45, duration: 0.5, ease: "sine.in" }, 5.3)
     .to(".cw-moon", { attr: { transform: "translate(110 420)" }, duration: 0.5, ease: "power1.out" }, 5.2)
     .to(".cw-fluff-closed", { opacity: 0, duration: 0.05 }, 5.2)
     .to(".cw-fluff-open", { opacity: 1, duration: 0.05 }, 5.22);
@@ -516,6 +531,10 @@ function buildBeats(tl: Tween) {
     .to(".cw-sky-night", { opacity: 0, duration: 0.6, ease: "sine.inOut" }, 8.05)
     .to(".cw-stars", { opacity: 0, duration: 0.5 }, 8.05)
     .to(".cw-moonlit", { opacity: 0, duration: 0.5 }, 8.05)
+    .to(".cw-trunk-dawn", { opacity: 1, duration: 0.6, ease: "sine.inOut" }, 8.05)
+    .to(".cw-air", { opacity: 0.5, duration: 0.6, ease: "sine.inOut" }, 8.1)
+    .to(".cw-moon-air", { opacity: 0, duration: 0.5 }, 8.05)
+    .to(".cw-mist", { opacity: 0.7, duration: 0.6, ease: "sine.inOut" }, 8.15)
     .to(".cw-shade-night", { opacity: 0.2, duration: 0.6, ease: "sine.inOut" }, 8.05)
     .set(".cw-moon", { attr: { transform: "translate(64 400) scale(0.5)" } }, 8.02)
     .to(".cw-fluff-closed", { opacity: 0, duration: 0.05 }, 8.1)
