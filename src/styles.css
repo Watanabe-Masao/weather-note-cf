@@ -3408,16 +3408,16 @@ svg.scrub {
 .calendar-head strong {
   display: inline-flex;
   align-items: center;
-  /* 年 and 月 are two things to press (年を選ぶ・月の振り返り): their dotted lines stay apart. */
+  /* 年 and 月 are two things to press (年を選ぶ・月を選ぶ): their dotted lines stay apart. */
   gap: var(--space-5);
   font-size: var(--size-md);
 }
 
-/* 月 (opens 月の振り返り): the same height and dotted line as 年 beside it, so the two lines sit level. */
-.calendar-head .cal-month-review {
-  padding: 0 var(--space-1);
-  line-height: inherit;
-}
+/* 月の振り返り：日の並びの下の1行（月の名前は年と同じ選び方になった、2026-11-22）。 */
+.cal-pair.single { grid-template-columns: minmax(0, 1fr); }
+.cal-pair.single .cal-pair-side { justify-self: start; text-align: left; }
+.cal-review-line { margin: var(--space-3) 0 0; text-align: right; font-size: var(--size-sm); }
+.cal-review-line .cal-month-review { color: var(--ink-secondary); }
 
 .icon-btn.flip svg {
   transform: rotate(180deg);
@@ -3702,7 +3702,7 @@ svg.scrub {
    重なるので広げない。チップ（.chip）も見た目は変えず縦だけ広げる（見本で決めた、2026-11-18 案A）。 */
 .arrow,
 .info-btn,
-.calendar-head .cal-month-review,
+.cal-review-line .cal-month-review,
 .today-chip,
 .date-button,
 .cs-date-btn,
@@ -3720,7 +3720,7 @@ button.label-feel,
 }
 .arrow::after,
 .info-btn::after,
-.calendar-head .cal-month-review::after {
+.cal-review-line .cal-month-review::after {
   content: "";
   position: absolute;
   left: 50%;
