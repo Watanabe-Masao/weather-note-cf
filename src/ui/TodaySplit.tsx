@@ -61,6 +61,9 @@ export function restWord(s: NonNullable<ReturnType<typeof splitToday>>): string 
   return out.join("。") + (out.length ? "。" : "");
 }
 
+/** A tick the "いま" label would lie on (the label is centred on now, or starts or ends at it near the edges). */
+const underNow = (h: number, now: number) => (now <= 2 ? h < now + 6.5 : now >= 22 ? h > now - 6.5 : Math.abs(h - now) < 4);
+
 /** The 24 hours of temperature: observed solid, forecast dashed over a hatch, a line at now. */
 function Curve({ s }: { s: NonNullable<ReturnType<typeof splitToday>> }) {
   const pts = s.rows.map((r) => ({ n: r.n, t: num(r.temp), fc: r.type === "forecast" })).filter((p): p is { n: number; t: number; fc: boolean } => p.t != null);
@@ -97,15 +100,16 @@ function Curve({ s }: { s: NonNullable<ReturnType<typeof splitToday>> }) {
         <path className="ts-line fc" d={path(fcPts)} vectorEffect="non-scaling-stroke" />
         <line className="ts-nowline" x1={x(now)} x2={x(now)} y1={0} y2={H} vectorEffect="non-scaling-stroke" />
       </svg>
-      {mark(s.obs.max, "hot", false)}
-      {s.fc.max && s.obs.max && s.fc.max.v > s.obs.max.v && mark(s.fc.max, "hot", true)}
+      {/* 最高と最低が同じ時刻（観測が1時間だけ、など）のときは最低だけ */}
+      {s.obs.max && s.obs.max.n !== s.min?.n && mark(s.obs.max, "hot", false)}
+      {s.fc.max && s.obs.max && s.fc.max.v > s.obs.max.v && s.fc.max.n !== s.min?.n && mark(s.fc.max, "hot", true)}
       {mark(s.min, "cold", s.min === s.fc.min && s.min !== s.obs.min)}
-      <span className="ts-now" style={{ left: `${(now / 24) * 100}%` }}>
+      <span className={`ts-now${now <= 2 ? " start" : now >= 22 ? " end" : ""}`} style={{ left: `${(now / 24) * 100}%` }}>
         いま {now}時
       </span>
       <span className="ts-ticks">
         {[0, 6, 12, 18, 24].map((h) => (
-          <span key={h} style={{ left: `${(h / 24) * 100}%` }} className={Math.abs(h - now) < 3 ? "hide" : ""}>
+          <span key={h} style={{ left: `${(h / 24) * 100}%` }} className={underNow(h, now) ? "hide" : ""}>
             {h}
           </span>
         ))}

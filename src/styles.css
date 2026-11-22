@@ -5646,7 +5646,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 
 /* 今日：ここまでの観測と、このあとの予報（2026-11-22、案A）。上に24時間の気温の線、下に2つの区切り、最後に1行。 */
 .ts { margin: var(--space-4) 0 var(--space-3); padding: var(--space-4) var(--space-4) var(--space-3); border-radius: var(--radius-lg); background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-inset); border: var(--stroke-hair) solid var(--line-soft); }
-.ts-curve { position: relative; height: 72px; margin: var(--space-6) 0 var(--space-7); }
+.ts-curve { position: relative; height: 72px; margin: var(--space-6) 0 calc(var(--space-9) + var(--space-3)); }
 .ts-curve svg { display: block; width: 100%; height: 100%; overflow: visible; }
 .ts-fc-zone { fill: color-mix(in srgb, var(--status-forecast) 6%, transparent); }
 .ts-area { fill: color-mix(in srgb, var(--data-temp) 14%, transparent); }
@@ -5654,8 +5654,8 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ts-line.obs { stroke: var(--data-temp); stroke-width: var(--stroke-focus); }
 .ts-line.fc { stroke: var(--data-temp); stroke-width: var(--stroke-select); stroke-dasharray: 4 4; opacity: var(--effect-quiet); }
 .ts-nowline { stroke: var(--ink-primary); stroke-width: var(--stroke-select); }
-.ts-now { position: absolute; top: calc(100% + var(--space-1)); z-index: 1; transform: translateX(-50%); padding: 0 var(--space-2); border-radius: var(--radius-pill); background: var(--ink-primary); color: var(--surface-base); font-size: var(--size-xs); font-weight: var(--weight-bold); white-space: nowrap; }
-.ts-ticks { position: absolute; left: 0; right: 0; top: calc(100% + var(--space-1)); font-size: var(--size-xs); color: var(--ink-tertiary); font-variant-numeric: tabular-nums; }
+.ts-now { position: absolute; top: calc(100% + var(--space-5)); z-index: 1; transform: translateX(-50%); padding: 0 var(--space-2); border-radius: var(--radius-pill); background: var(--ink-primary); color: var(--surface-base); font-size: var(--size-xs); font-weight: var(--weight-bold); white-space: nowrap; }
+.ts-ticks { position: absolute; left: 0; right: 0; top: calc(100% + var(--space-5)); font-size: var(--size-xs); color: var(--ink-tertiary); font-variant-numeric: tabular-nums; }
 .ts-ticks span { position: absolute; transform: translateX(-50%); }
 .ts-ticks span:first-child { transform: none; }
 .ts-ticks span:last-child { transform: translateX(-100%); }
@@ -5667,9 +5667,13 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ts-mark.fc i { border-style: dashed; }
 .ts-mark em { position: absolute; left: 0; transform: translateX(-50%); font-style: normal; font-size: var(--size-xs); font-weight: var(--weight-bold); white-space: nowrap; font-variant-numeric: tabular-nums; }
 .ts-mark.hot em { bottom: var(--space-2); }
-.ts-mark.cold em { top: var(--space-2); }
-.ts-mark.start em { transform: translateX(calc(-1 * var(--space-1))); }
-.ts-mark.end em { transform: translateX(calc(-100% + var(--space-1))); }
+.ts-mark.cold em { top: var(--space-1); }
+.ts-mark.cold.start em { transform: translateX(calc(-1 * var(--space-1))); }
+.ts-mark.cold.end em { transform: translateX(calc(-100% + var(--space-1))); }
+.ts-mark.hot.start em { transform: translateX(calc(-1 * var(--space-1))); }
+.ts-mark.hot.end em { transform: translateX(calc(-100% + var(--space-1))); }
+.ts-now.start { transform: none; }
+.ts-now.end { transform: translateX(-100%); }
 .ts-mark em small { margin-left: var(--space-1); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
 .ts-cells { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); }
 .ts-cell.fc { padding-left: var(--space-4); border-left: var(--stroke-hair) dashed var(--line-strong); }
