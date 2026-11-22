@@ -40,7 +40,7 @@ const label = (month: string) => `${+month.slice(0, 4)}年${+month.slice(5)}月`
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const sum = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) : null);
 
-interface MonthStats {
+export interface MonthStats {
   rows: (WeatherRow | null)[];
   temp: number | null;
   max: number | null;
@@ -70,7 +70,7 @@ function rowIn(store: WeatherStore | null, station: string, date: string, parts:
   return { ...row, rain: sum(v("rain")), sun: sum(v("sun")), temp: mean(t), max: t.length ? Math.max(...t) : null, min: t.length ? Math.min(...t) : null, humidity: mean(v("humidity")), wind: mean(v("wind")), pressure: mean(v("pressure")) };
 }
 
-function statsOf(store: WeatherStore | null, station: string, days: string[], parts: ReadonlySet<PartId> | null = null): MonthStats {
+export function statsOf(store: WeatherStore | null, station: string, days: string[], parts: ReadonlySet<PartId> | null = null): MonthStats {
   const rows = days.map((d) => rowIn(store, station, d, parts));
   const vals = (k: string) => rows.map((r) => num(r?.[k])).filter((v): v is number => v != null);
   return {
@@ -460,7 +460,7 @@ function FeelMonth({ store, station, days, daysB }: { store: WeatherStore | null
 }
 
 /** A month's number, big, with the year before's difference under it. */
-function Tile({ name, value, unit, other, digits, color, note }: { name: string; value: number | null; unit: string; other: number | null; digits: number; color: string; note?: string }) {
+export function Tile({ name, value, unit, other, digits, color, note }: { name: string; value: number | null; unit: string; other: number | null; digits: number; color: string; note?: string }) {
   return (
     <div className="month-tile">
       <small>{name}</small>
