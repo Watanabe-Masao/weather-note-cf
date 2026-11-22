@@ -3,7 +3,7 @@
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { addDays } from "../../shared/dates";
 import { clockOf } from "../../shared/dayParts";
-import { skyHidden } from "../../shared/dayWeather";
+import { hidesSky, hoursWeather, skyHidden } from "../../shared/dayWeather";
 import { moonLimb, moonNorth, moonPhase, moonTimes, moonTopo } from "../../shared/moon";
 import type { SkyEvent } from "../../shared/skyEvents";
 import { DEFAULT_LAT_LON, solarAltitude } from "../../shared/sunTimes";
@@ -143,7 +143,12 @@ export function EventNightCard({ event, stage, store, tag }: { event: SkyEvent; 
       .filter((x): x is NonNullable<typeof x> => !!x);
     if (!seen.length) return null;
     const hidden = seen.filter((x) => x.hidden).length;
-    const verdict = hidden === 0 ? "よく見えそう" : hidden === seen.length ? "雲で見えにくいかも" : "雲の切れ間から見えそう";
+    // 月が出ている時間の一部にしか予報が無いときは、どこまでの予報で言っているかを添える（11/23：遅い時間の予報がまだ
+    // 無いのに「よく見えそう」と言い切っていた）。
+    const lastSeen = Math.floor(jst(seen.at(-1)!.at).min / 60);
+    const partial = seen.length < new Set(times.map((t) => Math.floor(t / HOUR_MS))).size;
+    const verdict =
+      (hidden === 0 ? "よく見えそう" : hidden === seen.length ? "雲で見えにくいかも" : "雲の切れ間から見えそう") + (partial ? `（${lastSeen}時台まで）` : "");
     const forecast = [...rows, ...nextRows].some((r) => r.type === "forecast");
     // 同じ天気の続く時間をまとめる：「17〜20時台 晴れ・21〜23時台 くもり」（日をまたいでも時刻だけ）。
     const runs: { from: number; to: number; text: string }[] = [];
@@ -154,7 +159,11 @@ export function EventNightCard({ event, stage, store, tag }: { event: SkyEvent; 
     }
     const hour = (t: number) => Math.floor(jst(t).min / 60);
     const text = runs.map((r) => `${hour(r.from)}${r.to > r.from ? `〜${hour(r.to)}` : ""}時台 ${r.text}`).join("・");
-    return { verdict, text, forecast, good: hidden === 0 };
+    // 昼の天気（その日の 7〜17時）が雨や曇りで、夜は見えそうなとき：日の天気のマーク（雨）と「よく見えそう」が食い違って
+    // 見えないよう、昼と夜を並べて書く（11/23 渡辺さん、11/24 は雨のマークなのに「よく見えそう」）。
+    const day = event.span ? null : hoursWeather(rows, [7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17], STATION).text;
+    const dayFirst = day && hidesSky(day) && hidden < seen.length ? `昼は${day}、夜は ` : "";
+    return { verdict, text: dayFirst + text, forecast, good: hidden === 0 };
   }, [rows, nextRows, event.span, event.at, nightDate, lat, lon]);
   const peakAlt = solar ? solarAltitude(date, jst(event.at).min, lat, lon) : moonTopo(event.at, lat, lon).altitude;
 
