@@ -111,17 +111,26 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
               aria-pressed={m.id === metric}
               aria-label={`${m.label}（${main.map((x) => `${x.s.label} ${x.text || "—"}`).join("、")}${m.unit}${m.id === "wind" && windWord ? `、主な風向 ${windWord}` : ""}）`}
             >
+              {/* 値が2つの札（最高・最低など）は1行ずつ名前を添える（2026-11-22 渡辺さん。「1021/1015」が札に入らず折り返していた）。
+                  単位は、値が2つなら名前の横、1つなら値の後ろ（「日差し MJ/m²」が名前の行で切れていた）。 */}
               <span className="dd-value-name">
                 {m.label}
-                {m.unit && <small>{m.unit}</small>}
+                {m.unit && main.length > 1 && <small>{m.unit}</small>}
               </span>
-              <span className="dd-value-num" aria-hidden>
-                {main.map((x, i) => (
-                  <span key={x.s.key}>
-                    {i > 0 && <small className="dd-slash">/</small>}
-                    <span className={`tone-${x.s.tone}`}>{x.text || "—"}</span>
-                  </span>
-                ))}
+              <span className={main.length > 1 ? "dd-value-num pair" : "dd-value-num"} aria-hidden>
+                {main.length > 1
+                  ? main.map((x) => (
+                      <span key={x.s.key} className="dd-value-line">
+                        <small>{x.s.tableLabel ?? x.s.label}</small>
+                        <span className={`tone-${x.s.tone}`}>{x.text || "—"}</span>
+                      </span>
+                    ))
+                  : main.map((x) => (
+                      <span key={x.s.key} className={`tone-${x.s.tone}`}>
+                        {x.text || "—"}
+                      </span>
+                    ))}
+                {m.unit && main.length === 1 && <small className="dd-unit">{m.unit}</small>}
                 {m.id === "wind" && windWord && <small className="dd-dir">{windWord}</small>}
               </span>
             </button>
