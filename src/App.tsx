@@ -310,7 +310,9 @@ export function App(_: { theme?: string } = {}) {
   // 見本だけ：<html data-bar> で帯の形を切り替える。
   const barLayout = (() => {
     try {
-      return localStorage.getItem("wn-bar-sample") ?? "g1";
+      const c = localStorage.getItem("wn-bar-color");
+      if (c) document.documentElement.dataset.barcolor = c;
+      return localStorage.getItem("wn-bar-sample") ?? "g3";
     } catch {
       return "g1";
     }

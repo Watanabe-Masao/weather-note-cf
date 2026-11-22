@@ -933,6 +933,15 @@ img.event-pic { object-fit: contain; }
 .ib-open-cap { display: none; }
 .ib-g3 .chip { flex-direction: column; gap: 2px; min-height: 48px; min-width: 52px; padding: 0 var(--space-2); font-size: var(--size-xs); }
 
+/* 見本：選んだ項目の色。item＝項目の色で塗る（いま）、accent＝テーマの色で塗る、tint＝項目の色の薄い面と色の絵・文字 */
+html[data-barcolor="accent"] .metrics .chip.on { background: var(--accent-base); box-shadow: 0 var(--space-1) var(--space-4) var(--accent-glow); }
+html[data-barcolor="accent"] .ib-open { background: color-mix(in srgb, var(--accent-base) 12%, var(--surface-inset)); }
+html[data-barcolor="tint"] .metrics .chip.on {
+  color: var(--chip-tone);
+  background: color-mix(in srgb, var(--chip-tone) 18%, var(--surface-raised));
+  box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--chip-tone) 45%, transparent) inset;
+}
+
 /* ---- tables ----------------------------------------------------------------------------------- */
 
 .board {
