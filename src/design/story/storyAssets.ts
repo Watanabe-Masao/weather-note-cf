@@ -116,6 +116,7 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
     "trunk-empty": { file: "design-src/story/cold/pack/c03b-trunk-empty.png", width: 900, quality: 0.8 },
     seed: { file: "design-src/story/cold/pack/c04-seed.png", width: 240 },
     "trunk-hole": { file: "design-src/story/cold/pack/c05-trunk-hole.png", width: 1024, quality: 0.8 },
+    "trunk-plain": { file: "design-src/story/cold/pack/c05b-trunk-plain.png", width: 1024, quality: 0.8 },
     "fluff-open": { file: "design-src/story/cold/pack/c06-fluff-open.png", width: 720 },
     "fluff-closed": { file: "design-src/story/cold/pack/c06-fluff-closed.png", width: 720 },
     song: { file: "design-src/story/cold/pack/c07-song.png", width: 560 },
