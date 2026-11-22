@@ -343,6 +343,30 @@ with sync_playwright() as p:
         t = pg.evaluate(f"__calm({int(max_ms)})")
         if os.environ.get("WN_CALM"): print("CALM", t, sys._getframe(1).f_lineno)
         return t
+    # 最大のシートは画面いっぱい（項目の帯の上から画面の上まで、2026-11-22）。人は引き下げてから下の物を押す。
+    # ここでも同じに：押す物がシートに隠れているときは、シートを中の高さに下げて押し、また最大に戻す。
+    from playwright.sync_api import Locator as _Loc
+    _orig_click = _Loc.click
+    COVERED = """el => { const s = document.querySelector('.sheet[data-detent="max"]');
+      return !!s && !s.contains(el) && !el.closest('.metrics, .msheet, .msheet-backdrop'); }"""
+    def _click(self, *a, **k):
+        try: covered = self.first.evaluate(COVERED, timeout=3000) if not k.get("force") else False
+        except Exception: covered = False
+        if covered:
+            pg.evaluate("__flick('.sheet-handle',600,120)"); calm()
+        try: return _orig_click(self, *a, **k)
+        finally:
+            if covered and pg.locator(".sheet-handle").count() and not pg.locator('.sheet[data-detent="max"]').count():
+                calm(); pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
+    _Loc.click = _click
+    pg.click = lambda sel, **k: pg.locator(sel).first.click(**k)
+    # 項目の帯は仲間に分かれ、選んでいる仲間だけが開く（2026-11-22）。i 番目の項目を選ぶ：閉じた仲間なら仲間を押してから。
+    ITEMS = ["temp", "rain", "radiation", "light", "humidity", "visibility", "wind", "pressure"]
+    item_chip = lambda i: pg.locator(f'.metrics [data-item="{ITEMS[i]}"]')
+    def pick_item(i):
+        if item_chip(i).count() == 0:
+            pg.locator(f'.metrics .ib-cat[data-items~="{ITEMS[i]}"]').click(); calm()
+        if "on" not in (item_chip(i).get_attribute("class") or ""): item_chip(i).click()
     txt = lambda sel: pg.locator(sel).first.inner_text()
     title = lambda: txt(".sheet-head-title")
     no_overflow = lambda: pg.evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1")
@@ -475,13 +499,13 @@ with sync_playwright() as p:
     # B. every item chip
     def bb():
         for i, label in enumerate(["気温", "降水", "日差し", "日照", "湿度", "視程", "風速", "気圧"]):
-            pg.click(f".metrics .chip:nth-child({i+1})"); calm()
-            check(f"B{i+1} {label}: チップがオン", "on" in pg.locator(f".metrics .chip:nth-child({i+1})").get_attribute("class"))
+            pick_item(i); calm()
+            check(f"B{i+1} {label}: チップがオン", "on" in item_chip(i).get_attribute("class"))
             check(f"B{i+1} {label}: シート見出し", title().startswith(label), title())
             check(f"B{i+1} {label}: 読み取りカード", pg.locator(".sheet .readout-card").count() == 1)
             check(f"B{i+1} {label}: 凡例がグラフの下", pg.locator(".sheet .line-legend").count() >= 1)
             layout_ok(f"B{i+1}b", f"{label}の日別")
-        pg.click(".metrics .chip:nth-child(1)"); calm()
+        pick_item(0); calm()
     step("B", bb)
 
 
@@ -491,9 +515,11 @@ with sync_playwright() as p:
         pg.evaluate("__flick('.sheet-handle',-600,120)"); calm()
         h1 = sheet_h()
         top = pg.evaluate("document.querySelector('.sheet').getBoundingClientRect().top")
-        chips = pg.evaluate("document.querySelector('.metrics').getBoundingClientRect().bottom")
+        bar = pg.evaluate("(() => { const r = document.querySelector('.metrics').getBoundingClientRect(); return [r.top, r.bottom]; })()")
+        sb = pg.evaluate("document.querySelector('.sheet').getBoundingClientRect().bottom")
         check("C1 上へ弾くと高くなる", h1 > h0 + 50, f"{h0:.0f}→{h1:.0f}")
-        check("C2 最大はチップの下で止まる", top >= chips - 1, f"top {top:.0f} chips {chips:.0f}")
+        # 項目の帯は画面の下に浮かんで固定、シートはその上に乗って画面の上近くまで上がる（2026-11-22）
+        check("C2 最大は画面の上近くまで・帯の上に乗る", top <= 16 and abs(sb - bar[0]) <= 1 and bar[1] >= 844 - 24, f"top {top:.0f} sheet bottom {sb:.0f} bar {bar}")
         layout_ok("C2b", "シート最大")
         pg.evaluate("__flick('.sheet-handle',600,120)"); calm()
         h2 = sheet_h()
@@ -517,9 +543,9 @@ with sync_playwright() as p:
         layout_ok("TX4b", "気温の幅")
         pg.locator(".chart-look button", has_text="線").click(); calm()
         check("TX5 線に戻せる", pg.locator(".sheet .range-bars").count() == 0 and pg.locator(".sheet .chip-row .chip", has_text="最高").count() == 1)
-        pg.click(".metrics .chip:nth-child(2)"); calm()
+        pick_item(1); calm()
         check("TX6 量の棒は上の角だけ丸い（path）", pg.locator(".sheet .chart svg path[d*='A']").count() > 0 and pg.locator(".sheet .chart svg rect[fill='#45c8d8']").count() == 0)
-        pg.click(".metrics .chip:nth-child(1)"); calm()
+        pick_item(0); calm()
     step("TX", tx)
 
     # D. daily -> hours -> back, every item
@@ -528,9 +554,9 @@ with sync_playwright() as p:
         check("D1 日をタップで時間帯", title().endswith("の時間帯"), title())
         check("D2 戻るボタン", pg.locator(".back-btn").count() == 1)
         for i, label in enumerate(["気温", "降水", "日差し", "日照と明るさ", "湿度", "視程", "風速", "気圧"]):
-            pg.click(f".metrics .chip:nth-child({i+1})"); calm()
+            pick_item(i); calm()
             check(f"D3 時間帯 {label}", title() == f"{label}の時間帯" and pg.locator(".day-chart > svg").count() == 1, title())
-        pg.click(".metrics .chip:nth-child(1)"); wait(300)
+        pick_item(0); wait(300)
         pg.click(".back-btn"); calm()
         check("D4 ‹日別で戻る", title() == "気温の日別", title())
     step("D", d)
@@ -538,7 +564,7 @@ with sync_playwright() as p:
     # U. 日照の時間帯 › 空の色（模式）: なぞると1時間を拡大、テキスト選択・拡大鏡は出ない
     def uu():
         pg.locator(".chart-hit").nth(7).click(force=True); calm()
-        pg.click(".metrics .chip:nth-child(4)"); calm()
+        pick_item(3); calm()
         check("U1 明るさと空：1本の帯（切り替えなし）、マスに空の色と段の線", pg.locator(".light-strip .seg").count() == 0 and pg.locator(".light-cells.sky i b").count() >= 48 and pg.locator(".light-cells.sky i u").count() >= 24 and no_overflow(), str(pg.locator(".light-cells.sky i b").count()))
         check("U2 明るさと空の言葉は帯の下（日ごとに1行）、読み取りの枠には言葉の行が無い", pg.locator(".light-words .light-words-row").count() == 2 and "外に出たとき" in txt(".light-words") and "外に出たとき" not in txt(".sheet .readout-card"), txt(".light-words"))
         st = small_text(); check("U2b 11px より小さい文字がない（時間帯）", not st, str(st))
@@ -563,7 +589,7 @@ with sync_playwright() as p:
         pg.click(".sky-zoom-close"); wait(200)
         check("U8 ×で閉じる", pg.locator(".sky-zoom").count() == 0)
         # 2日の読み取りの枠（2026-11-18）：列の頭は日付だけの1行、畳む物は無い。帯の下の言葉は時刻を替えても高さが同じ。
-        pg.click(".metrics .chip:nth-child(4)"); calm()
+        pick_item(3); calm()
         heads = pg.evaluate("[...document.querySelectorAll('.sheet .readout-card .ro-col')].map(e => Math.round(e.getBoundingClientRect().height))")
         hs = []
         pg.locator(".sheet .day-chart > svg").first.scroll_into_view_if_needed(); calm()
@@ -572,7 +598,7 @@ with sync_playwright() as p:
             pg.mouse.click(gb["x"] + gb["width"] * fx, gb["y"] + gb["height"] * 0.5); calm()
             hs.append(pg.evaluate("Math.round(document.querySelector('.light-words').getBoundingClientRect().height)"))
         check("U2f 2日の読み取り：列の頭は1行・畳むボタンなし、帯の下の言葉は時刻を替えても高さが同じ", max(heads) <= 20 and pg.locator(".sheet .readout-card .fold-btn").count() == 0 and len(set(hs)) == 1, (heads, hs))
-        pg.click(".metrics .chip:nth-child(1)"); calm()
+        pick_item(0); calm()
         pg.click(".back-btn"); calm()
     step("U", uu)
 
@@ -1674,7 +1700,7 @@ with sync_playwright() as p:
     # T. 日照 › 移り変わり (時刻で・明るさで, 1週間〜1年)
     def tt():
         pg.click(".today-chip") if pg.locator(".today-chip").count() else None; calm()
-        pg.click(".metrics .chip:nth-child(4)"); calm()
+        pick_item(3); calm()
         check("T1 日照の日別に［移り変わり］", pg.locator(".trend-btn").count() == 1, title())
         pg.click(".trend-btn"); calm()
         check("T2 見出し", title() == "明るさの移り変わり", title())
@@ -1707,9 +1733,9 @@ with sync_playwright() as p:
         pg.locator(".lt-controls button", has_text="時刻で").click(); calm()
         pg.click(".back-btn"); calm()
         check("T8 ‹日別で戻る", title() == "日照の日別", title())
-        pg.click(".metrics .chip:nth-child(3)"); calm()
+        pick_item(2); calm()
         check("T9 日差しには［移り変わり］がない", pg.locator(".trend-btn").count() == 0)
-        pg.click(".metrics .chip:nth-child(1)"); calm()
+        pick_item(0); calm()
     step("T", tt)
 
     # GR. 数字の格子 (#151): decimal points in one line down the table's centre column and down each

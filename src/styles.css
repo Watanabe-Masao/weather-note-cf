@@ -857,23 +857,56 @@ img.event-pic { object-fit: contain; }
 }
 @keyframes fm-book-sheen { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
-/* The items fit the width: equal columns, no hidden one. Eight items (視程, 2026-11-22) in two rows of four,
-   as the 1日モード's item cards. */
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
+/* The item bar (2026-11-22 渡辺さん): a rounded bar floating at the bottom of the screen, the same in both
+   modes; the graph sheet stands on it (bottom: var(--itembar-h)). The items are in four groups; only the
+   chosen group is open with its items, the others show their name. One row, no sideways scrolling. The
+   chosen item is filled with the theme's colour (the items' own colours are for the graph lines). */
+.metrics.item-bar {
+  position: fixed;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  max-width: 568px;
+  margin: 0 auto;
+  z-index: var(--layer-sheet);
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-xl);
+  border: var(--stroke-hair) solid var(--line-soft);
+  background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
+  box-shadow: var(--shadow-sheet);
 }
-
+.ib-cat,
 .metrics .chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  border-radius: var(--radius-md);
-  padding: var(--space-3) 0;
-  font-size: var(--size-base);
+  gap: var(--space-1);
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--ink-secondary);
+  font: inherit;
+  font-size: var(--size-xs);
   white-space: nowrap;
-  letter-spacing: -0.02em;
-  min-height: 34px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ib-cat { flex: 1 1 0; min-width: 44px; padding: 0; color: var(--ink-tertiary); transition: color var(--motion-quick) var(--ease-standard); }
+.ib-cat:active { transform: scale(0.96); }
+.ib-cat .item-icon,
+.metrics .chip .item-icon { color: inherit; }
+.ib-open { flex: 0 1 auto; display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-lg); background: linear-gradient(var(--accent-wash), var(--accent-wash)), var(--surface-inset); }
+.metrics .chip { flex: 1 1 0; min-width: 52px; padding: 0 var(--space-2); }
+.metrics .chip.on {
+  color: var(--surface-base);
+  background: var(--accent-base);
+  box-shadow: 0 var(--space-1) var(--space-4) var(--accent-glow);
+  font-weight: var(--weight-bold);
 }
 
 /* ---- tables ----------------------------------------------------------------------------------- */
@@ -1327,7 +1360,6 @@ button.label-feel:active { transform: scale(0.97); }
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
   max-width: 600px;
   margin: 0 auto;
   background:
@@ -1340,7 +1372,7 @@ button.label-feel:active { transform: scale(0.97); }
   flex-direction: column;
   overflow: hidden;
   z-index: var(--layer-sheet);
-  padding-bottom: env(safe-area-inset-bottom);
+  bottom: var(--itembar-h, 0px);
   box-shadow: var(--shadow-sheet);
   will-change: height;
   contain: layout paint;

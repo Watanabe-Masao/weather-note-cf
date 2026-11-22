@@ -45,7 +45,9 @@ const ALLOWED: Record<string, number> = {
   "ui/CompareSummary.tsx": 3,
   "ui/StatusBar.tsx": 1,
   "ui/BandMap.tsx": 2,
-  "App.tsx": 4,
+  "App.tsx": 3,
+  // 項目の帯：仲間の名前と項目のタブ（絵の下に名前の縦組み、role="tab"。Chip の横組み・aria-pressed とは別の部品。11/22）。
+  "ui/ItemBar.tsx": 2,
   "account/AdminSheet.tsx": 12,
   "account/NotifySection.tsx": 9,
   "account/ResearchSheet.tsx": 2,
