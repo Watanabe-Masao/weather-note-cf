@@ -53,6 +53,7 @@ import { importShiromatzMonth, importSummary } from "./forecastImport";
 import { type Bucket, r2Summary } from "./r2Archive";
 import { RefetchRefused, refetchNow, refetchSummary } from "./refetch";
 import { dupCheck, maintenanceSummary, tableAudit } from "./maintenance";
+import { claimWeeklyAudit, runWeeklyAudit } from "./weeklyAudit";
 import { keepError } from "./health";
 import { archiveSummary } from "./typhoonArchive";
 import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
@@ -854,6 +855,11 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       if (path === "/api/admin/maintenance" && !post) return json(await maintenanceSummary(db, now, { ...env, hasBucket: !!env.ARCHIVE }));
       if (path === "/api/admin/dupcheck" && post) return json({ items: await dupCheck(db, now, u.id) });
       if (path === "/api/admin/audit" && post) return json(await tableAudit(db, now, u.id));
+      // 週の点検（weeklyAudit.ts、#370）：定時処理を待たずに今すぐ（1分に1回まで、読むだけ）。
+      if (path === "/api/admin/weekly-audit" && post) {
+        if (!(await claimWeeklyAudit(db, now, true))) throw new Refused("少し待ってから押してください（1分に1回まで）。", 429);
+        return json(await runWeeklyAudit(db, env.ARCHIVE, now));
+      }
       if (path === "/api/admin/refetch" && post) {
         const b = await body(req);
         try {

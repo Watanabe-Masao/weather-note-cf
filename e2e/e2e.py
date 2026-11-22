@@ -125,6 +125,12 @@ def api(path, q):
             "errors": [{"at": "2026-11-10T02:50:00Z", "where": "雨雲の保存", "message": "hrpns 20261110023000/8/222/102: HTTP 503"}, {"at": "2026-11-09T14:43:17Z", "where": "アカウント /api/reports/sync", "message": "Error: This promise was created by a request that has since ended, so it can never settle."}],
             "room": {"d1Size": {"bytes": 66480000, "percent": 0.6}, "d1WritesMonth": {"estimate": 635000, "percent": 1.3, "rowsLastDay": 7054}, "r2": {"bytes": 5138000, "percentOfFree": 0}, "cronRunsLastDay": 288, "cronMissing": 0},
             "lastAudit": {"at": "2026-11-10T01:05:00Z", "result": {"tables": [{"name": "forecast_entries", "rows": 182345}, {"name": "reports", "rows": 412}, {"name": "users", "rows": 3}], "links": [{"name": "予報の値で、もとの発表が無い", "n": 0}, {"name": "肌感の記録で、人がいない", "n": 0}]}},
+            "weeklyAudit": {"at": "2026-11-09T18:10:00Z", "result": {"latestOk": True, "historyOk": False, "failed": [], "r2": {"checked": 20, "missing": [], "wrongSize": []},
+                "holes": [{"source": "radar:hrpns", "lost": 3, "recovered": 1, "absent": 0}],
+                "series": [
+                    {"id": "amedas", "name": "アメダスの観測（10分値の原本）", "part": "74182", "first": "2026-11-01T00:00:00+09:00", "last": "2026-11-10T09:00:00+09:00", "have": 63, "missing": 2, "gapCount": 1, "gaps": [{"from": "2026-11-08T06:00:00+09:00", "to": "2026-11-08T15:00:00+09:00", "n": 2}], "ageH": 3.2, "freshH": 12, "fresh": True, "note": "気象庁は約10日しか置かないので、それより前の抜けは取り戻せない。"},
+                    {"id": "air", "name": "空気質（CAMS のモデル値）", "part": "47893", "first": "2023-01-01T00:00:00+09:00", "last": "2026-11-09T23:00:00+09:00", "have": 33576, "missing": 0, "gapCount": 0, "gaps": [], "ageH": 28.2, "freshH": 72, "fresh": True, "note": ""},
+                    {"id": "forecast", "name": "予報の電文", "part": "VPFD51 390000", "first": "2026-11-10T05:00:00+09:00", "last": "2026-11-10T11:00:00+09:00", "have": 1240, "missing": None, "gapCount": 0, "gaps": [], "ageH": 1.2, "freshH": 13, "fresh": True, "note": ""}]}},
             "lastDupCheck": {"at": "2026-11-10T01:00:00Z", "result": [{"name": "予報の電文（同じ中身）", "n": 0, "examples": []}, {"name": "予報の電文（同じ発表時刻に2通以上）", "n": 1, "examples": ["VPFD51 11/9 11:00（2通）"], "note": "訂正報で正しく2通のこともある"}, {"name": "肌感の記録（同じ人・時刻・中身が2件以上）", "n": 0, "examples": []}]}}
     if path == "/api/telegram":
         return {"v": 1, "found": True, "id": q.get("id", ""), "kind": "VPFD51", "office": "390000", "url": "https://www.data.jma.go.jp/developer/xml/data/x.xml", "issuedAt": "2026-11-10T11:00:00+09:00", "fetchedAt": "2026-11-10T02:03:00Z", "hash": "abcdef0123456789", "xml": "<?xml version=\"1.0\"?>\n<Report><Control><Title>府県天気予報（Ｒ１）</Title></Control></Report>", "source": "気象庁 防災情報XML（公共データ利用規約）"}
@@ -1143,6 +1149,10 @@ with sync_playwright() as p:
         ms = pg.locator(".maintenance-sheet")
         rb = ms.locator("button", has_text="今すぐ取り直す")
         check("J6 データの保守：注意の行、取り直しは要る段（雨雲）だけ、ほかは「必要ありません」、エラー2件、重なりの疑い", ms.locator(".mt-badge", has_text="注意 1").count() == 1 and rb.count() == 1 and "あと2回" in rb.inner_text() and ms.locator(".mt-fine", has_text="今は取り直す必要はありません").count() == 3 and "2件" in ms.inner_text() and "訂正報" in ms.inner_text() and "表ごとの行数（3表）" in ms.inner_text(), ms.inner_text()[:300])
+        wk = ms.locator("section[aria-labelledby=mt-weekly]")
+        check("J6c 週の点検：最新と履歴を分けて出し、抜けの回数と R2 の実物、今すぐ点検するボタン", "最新：すべて新しい" in wk.inner_text() and "履歴：抜けのある系列 1" in wk.inner_text() and "抜け 2回（1か所）" in wk.inner_text() and "33,576回分" in wk.inner_text() and "20件中 20件そのまま" in wk.inner_text() and wk.locator("button", has_text="今すぐ点検する").count() == 1, wk.inner_text()[:300])
+        wk.locator("button", has_text="抜けた区間").click(); calm()
+        check("J6d 週の点検：抜けた区間と、取り直せるかの注意書き", "11/8 6:00 〜 11/8 15:00 の間（2回）" in wk.inner_text() and "約10日" in wk.inner_text(), wk.inner_text()[-300:])
         layout_ok("J6b", "データの保守")
         if os.environ.get("WN_SHOT"):
             pg.set_viewport_size({"width": W, "height": 2200}); calm()
