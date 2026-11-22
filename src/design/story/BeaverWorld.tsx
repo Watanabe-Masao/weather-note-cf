@@ -870,6 +870,9 @@ export function BeaverWorld(): ReactElement {
           />
         </g>
       </g>
+      {/* 月明かりのもや（11/23、コールドムーンの c12b を使う。黒い背景のまま足し算で重ねる）：月が昇ってから（6〜9ページ）、
+          月の側から下りる光。夕暮れのページは空の色だけで足りるので重ねない（見本で比べた）。 */}
+      <image className="bw-moon-air" href={storyAsset("cold", "moon-air")} x={-110} y={-30} width={620} height={930} preserveAspectRatio="none" transform="matrix(-1 0 0 1 400 0)" opacity={0} style={{ mixBlendMode: "screen" }} />
       {/* 落ち葉と雪（場面に合わせて見せる） */}
       <g className="bw-leaves">{leaves}</g>
       {/* はらり、はらり（1ページ）：言葉に合わせて落ちる大きな葉が二枚。 */}
@@ -1108,6 +1111,7 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .to(".bw-turn", { opacity: 0, duration: 0.02 }, 4.55)
     .to(".bw-ahead", { opacity: 1, duration: 0.02 }, 4.57);
   // 6 ふわりと明るくなって、まんまるのお月さま：丘の向こうが明るみ、夜になり、月が昇る。カメラが引く。ビーバーは向き直って見上げる。
+  tl.to(".bw-moon-air", { opacity: 0.25, duration: 0.4, ease: "sine.in" }, 5.35);
   tl.to(".bw-moonrise", { opacity: 1, duration: 0.25, ease: "sine.in" }, 5)
     .to(".bw-sky-night", { opacity: 1, duration: 0.5, ease: "sine.inOut" }, 5)
     .to(".bw-water-night", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 5.05)
