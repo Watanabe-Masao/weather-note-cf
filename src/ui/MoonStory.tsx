@@ -630,7 +630,7 @@ export function MoonStory({
         if (!scene) return;
         const tl = gsap.timeline({ paused: true });
         scene.build(gsap as never, el, tl as never, false);
-        tl.progress((scene.beats - 1.5) / scene.beats);
+        tl.progress((scene.still ?? scene.beats - 1.5) / scene.beats);
       });
       media.add("(prefers-reduced-motion: no-preference)", () => {
         const scroller = el;

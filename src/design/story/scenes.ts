@@ -13,6 +13,7 @@ import {
   BeaverWorld,
   buildBeaverScene,
 } from "./BeaverWorld";
+import { COLD_BEATS, COLD_SKY, ColdCoverArt, ColdPaperArt, ColdWindow, ColdWorld, buildColdScene } from "./ColdWorld";
 
 export type StoryScene = {
   /** 場面（コマ）の数。 */
@@ -38,6 +39,11 @@ export type StoryScene = {
    * 丘が明るむと1行目、月の縁が出ると2行目）。無いページは、行を続けて朗読の速さで出す。
    */
   lineAt?: Record<number, number[]>;
+  /**
+   * 動きを減らす設定で見せる一枚の絵の位置（拍）。無ければ最後から 1.5 拍前（ビーバームーンは月が昇ったあと）。
+   * コールドムーンは7ページ（高い月と、穴の中のコガラ）で止まった所。
+   */
+  still?: number;
 };
 
 export const STORY_SCENES: Record<string, StoryScene> = {
@@ -56,5 +62,22 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     PaperArt: BeaverPaperArt,
     build: buildBeaverScene,
     lineAt: BEAVER_LINE_AT,
+  },
+  // 11/22 PR-2（実装計画 v0.2）：場面の寄り・引きと主役の出入りまで。言葉との同期と夜明けの空は PR-3。
+  コールドムーン: {
+    beats: COLD_BEATS,
+    World: ColdWorld,
+    Window: ColdWindow,
+    sky: COLD_SKY,
+    CoverArt: ColdCoverArt,
+    spineArt: {
+      moon: storyAsset("cold", "emboss"),
+      emblem: storyAsset("cold", "perch"),
+    },
+    coverCorner: storyAsset("cold", "branch-berry"),
+    closedArt: storyAsset("cold", "emboss-medal"),
+    PaperArt: ColdPaperArt,
+    build: buildColdScene,
+    still: 6.78,
   },
 };
