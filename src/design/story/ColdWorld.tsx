@@ -27,14 +27,32 @@ import {
 export const COLD_BEATS = 9;
 
 /**
- * 行を出しはじめる所（コマの中の 0〜1、11/23 PR-3。絵コンテ v0.3 と実装計画 v0.2 の順）：
- * 4 「ひゅう、」の行で枝が揺れる。6 北東の空が明るむ → 月の縁 → 1行目（雪原に月明かり）→ 2行目（月が見えきる）。
- * 8 3行目に合わせて月の光が穴の縁を移る。9 朝の光 → 「フィーチー」で穴から出る → 2行目 → 西へ向く → 白い月 → 3行目 →
- * 少しの余白 → 「コールドムーン。」。
- * 字幕はコマの頭より CAP_LEAD（0.16）前から出はじめるので、行が出る拍は「ページ番号 + 値 − 0.16」。6ページは月の縁（5.18）と
- * 雪原の月明かり（5.26）のあとに1行目（5.26）、月がほぼ見えきってから2行目（5.5）。
+ * 言葉の合図（11/23 レビュー「跳躍や種は、言葉ごとの間に合わせる」）：動きを合わせる言葉。物語の画面がその言葉の最初の字が
+ * 出る拍を計算して、buildColdScene に渡す（cueAt）。
+ *   2「ちょん」「ちょん」で跳ねる。3「ひとつぶ」「またひとつぶ」で種が一つずつ消える。4「ひゅう」で枝が揺れる。
+ *   5「ふっくら」で羽をふくらませる。6 1行目「雪の野原」と同時に雪原の月明かり、2行目「おおきな」で月が見えきる。
+ *   8「月の光」で光の帯が穴の縁を移る。9「フィーチー」で飛び出す →「朝の森」は止まった絵で →「西の空」の前に西へ向く。
  */
-export const COLD_LINE_AT: Record<number, number[]> = { 3: [0, 0, 0.45], 5: [0.42, 0.66], 7: [0, 0, 0.42], 8: [0.14, 0.34, 0.66, 0.86] };
+export const COLD_CUES: Record<number, string[]> = {
+  1: ["ちょん", "ちょん"],
+  2: ["ひとつぶ", "またひとつぶ"],
+  3: ["ひゅう"],
+  4: ["ふっくら"],
+  5: ["雪の野原", "おおきな"],
+  7: ["月の光"],
+  8: ["フィーチー", "朝の森", "西の空", "コールドムーン"],
+};
+/**
+ * 行の前の間（秒）：その行を出す前に、絵の動きを見せる。2・3 は鳥が出てから1行目。6 は北東の空が明るみ月の縁が出てから
+ * 1行目、月が昇ってから2行目。9 は朝の光 →1行目、飛び出してとまる → 2行目、止まって西へ向く → 3行目、短い余白 → 名前。
+ * 間を持つページの文は、前のページから先回りして出さず、コマの頭から（MoonStory の capAt）。
+ */
+export const COLD_LINE_PAUSE: Record<number, number[]> = {
+  1: [0.8],
+  2: [0.8],
+  5: [2.4, 1.4],
+  8: [2.0, 2.0, 3.2, 1.2],
+};
 
 /** 渡辺さんの素材（src/design/story/storyAssets.ts の cold）。 */
 const A = (name: string) => storyAsset("cold", name);
@@ -500,8 +518,8 @@ type Gsap = {
 };
 
 /** 場面の動き（tl は COLD_BEATS 拍、スクロールに合わせる）と、くり返す動き（雪・呼吸・月の光）。 */
-export function buildColdScene(gsap: Gsap, root: Element, tl: Tween, loops = true): Loop | null {
-  buildBeats(tl);
+export function buildColdScene(gsap: Gsap, root: Element, tl: Tween, loops = true, cueAt: Record<number, number[]> = {}): Loop | null {
+  buildBeats(tl, cueAt);
   return loops ? startLoops(gsap, root) : null;
 }
 
@@ -532,90 +550,105 @@ function startLoops(gsap: Gsap, root: Element): Loop {
 }
 
 /** 各コマの動きは、そのコマの頭から 0.75 までに終える（docs/moon-story.md「動きの決まり」）。 */
-function buildBeats(tl: Tween) {
+function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   const move = (at: number, c: ReturnType<typeof cam>, duration = 0.75) => tl.to(".cw-camera", { ...c, duration, ease: "power2.inOut" }, at);
+  /** 言葉の合図の拍（無いとき＝動きを減らす設定などは、決めた拍）。動きはそのコマの中（頭から 0.75 まで）に収める。 */
+  const cue = (page: number, k: number, fallback: number) => {
+    const v = cueAt[page]?.[k];
+    return Math.min(page + 0.74, Math.max(page, v != null && Number.isFinite(v) ? v : fallback));
+  };
   // 1 雪の森：少し寄った所から、森全体へ。
   tl.fromTo(".cw-camera", { ...cam(200, 520, 1.3), svgOrigin: "200 430" }, { ...cam(200, 480, 1.1), duration: 0.75, ease: "power2.inOut" }, 0);
-  // 2 「ちょん、」「ちょん。」：雪の枝に寄りながら、コガラが二回跳ねて枝の上へ。
+  // 2 「ちょん、」「ちょん。」：雪の枝に寄り、コガラが出て、言葉の字が出るのに合わせて二回跳ねて枝の上へ。
+  const hop = [cue(1, 0, 1.08), cue(1, 1, 1.2)];
   move(1, cam(225, 545, 1.6))
     .set(".cw-hop", { x: -18, y: 0 }, 1)
-    .to(".cw-perch", { opacity: 1, duration: 0.04 }, 1.04)
-    .to(".cw-hop", { x: -9, duration: 0.08, ease: "none" }, 1.08)
-    .to(".cw-hop", { keyframes: { y: [0, -7, 0] }, duration: 0.08, ease: "none" }, 1.08)
-    .to(".cw-hop", { x: 0, duration: 0.08, ease: "none" }, 1.2)
-    .to(".cw-hop", { keyframes: { y: [0, -7, 0] }, duration: 0.08, ease: "none" }, 1.2);
-  // 3 「ひとつぶ、」「またひとつぶ。」：幹につかまるコガラ。種が一つずつ、くちばしの所から幹のすきまへ消える。
+    .to(".cw-perch", { opacity: 1, duration: 0.03 }, Math.max(1.01, hop[0] - 0.05));
+  hop.forEach((t, k) =>
+    tl
+      .to(".cw-hop", { x: k === 0 ? -9 : 0, duration: 0.06, ease: "none" }, t)
+      .to(".cw-hop", { keyframes: { y: [0, -7, 0] }, duration: 0.06, ease: "none" }, t),
+  );
+  // 3 「ひとつぶ、」「またひとつぶ。」：幹につかまるコガラ。言葉に合わせて、種が一つずつ幹のすきまへ消える。
+  const seeds = [cue(2, 0, 2.14), cue(2, 1, 2.3)];
   move(2, cam(BIRCH.x - 50, 600, 1.8))
-    .to(".cw-perch", { opacity: 0, duration: 0.05 }, 2.02)
-    .to(".cw-seed", { opacity: 1, duration: 0.08 }, 2.05);
-  [2.14, 2.3].forEach((t, k) =>
+    .to(".cw-perch", { opacity: 0, duration: 0.04 }, 2.01)
+    .to(".cw-seed", { opacity: 1, duration: 0.06 }, Math.max(2.02, seeds[0] - 0.08));
+  seeds.forEach((t, k) =>
     tl
       .fromTo(`.cw-seed${k + 1}`, { opacity: 0, x: 0, scale: 1 }, { opacity: 1, duration: 0.02 }, t)
-      .to(`.cw-seed${k + 1}`, { x: 5, scale: 0.55, svgOrigin: `${SEED.at[0]} ${SEED.at[1]}`, duration: 0.08, ease: "power1.in" }, t + 0.02)
-      .to(`.cw-seed${k + 1}`, { opacity: 0, duration: 0.03 }, t + 0.08),
+      .to(`.cw-seed${k + 1}`, { x: 5, scale: 0.55, svgOrigin: `${SEED.at[0]} ${SEED.at[1]}`, duration: 0.07, ease: "power1.in" }, t + 0.02)
+      .to(`.cw-seed${k + 1}`, { opacity: 0, duration: 0.03 }, t + 0.07),
   );
-  // 4 はやい夕暮れ：引いて空を広く。空と雪が青いかげへ。「ひゅう、」の行で枝が揺れ、雪が流れる。
+  // 4 はやい夕暮れ：引いて空を広く。空と雪が青いかげへ。「ひゅう、」で枝が揺れ、雪が流れる。
+  const gust = cue(3, 0, 3.46);
   move(3, cam(200, 470, 1.0))
     .to(".cw-seed", { opacity: 0, duration: 0.05 }, 3.0)
     .to(".cw-sky-dusk", { opacity: 1, duration: 0.6, ease: "sine.inOut" }, 3.05)
     .to(".cw-shade-dusk", { opacity: 0.5, duration: 0.6, ease: "sine.inOut" }, 3.05)
     .to(".cw-bough", { opacity: 0, duration: 0.4 }, 3.1)
     .to(".cw-air", { opacity: 0.3, duration: 0.6, ease: "sine.inOut" }, 3.1)
-    .to(".cw-sway", { keyframes: { rotate: [0, -3, 1.5, -0.8, 0] }, svgOrigin: `${BIRCH.x - BIRCH.w / 2 + 8} 600`, duration: 0.28, ease: "sine.inOut" }, 3.46)
-    .to(".cw-snow", { keyframes: { x: [0, -26, 0] }, duration: 0.28, ease: "sine.inOut" }, 3.46);
+    .to(".cw-sway", { keyframes: { rotate: [0, -3, 1.5, -0.8, 0] }, svgOrigin: `${BIRCH.x - BIRCH.w / 2 + 8} 600`, duration: 0.26, ease: "sine.inOut" }, gust)
+    .to(".cw-snow", { keyframes: { x: [0, -26, 0] }, duration: 0.26, ease: "sine.inOut" }, gust);
   // 5 木の穴へ：穴に寄る。穴の中で丸くなり、「ふっくら」で羽をふくらませる。
   move(4, cam(HOLE.x - 20, HOLE.y + 30, 2.1))
-    .to(".cw-fluff-closed", { opacity: 1, duration: 0.12 }, 4.3)
-    .to(".cw-puff", { keyframes: { scale: [0.9, 1.06, 1] }, svgOrigin: `${HOLE.x} ${HOLE.y + 10}`, duration: 0.3, ease: "sine.out" }, 4.36);
-  // 6 月が昇る：引いて、北東の地平線（山の向こう）の空だけがわずかに明るむ → 月の縁 → 1行目で雪原に月明かりが手前へ
-  // 広がる → 2行目で月の姿が見えきる。月が出る前に雪原全体を照らさない。穴の口のコガラは目を開けて月を見る。
+    .to(".cw-fluff-closed", { opacity: 1, duration: 0.08 }, 4.05)
+    .to(".cw-puff", { keyframes: { scale: [0.9, 1.06, 1] }, svgOrigin: `${HOLE.x} ${HOLE.y + 10}`, duration: 0.22, ease: "sine.out" }, cue(4, 0, 4.36));
+  // 6 月が昇る：引いて、北東の地平線（山の向こう）の空だけがわずかに明るむ → 月の縁（1行目の前の間）→ 1行目「雪の野原」と
+  // 同時に雪原の月明かりが手前へ広がる → 月が昇り、2行目「おおきな」で見えきる。月が出る前に雪原を照らさない。
+  const lit = cue(5, 0, 5.26);
+  const full = Math.max(lit + 0.1, cue(5, 1, 5.5));
   move(5, cam(200, 480, 1.0))
     .to(".cw-sky-night", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 5)
     .to(".cw-shade-night", { opacity: 0.8, duration: 0.4, ease: "sine.inOut" }, 5)
     .to(".cw-shade-dusk", { opacity: 0, duration: 0.4 }, 5.05)
     .to(".cw-air", { opacity: 0, duration: 0.3 }, 5)
     .to(".cw-stars", { opacity: 1, duration: 0.4 }, 5.1)
-    .to(".cw-moonrise", { opacity: 1, duration: 0.18, ease: "sine.in" }, 5.04)
-    .to(".cw-moon-show", { opacity: 1, duration: 0.03 }, 5.18)
-    .to(".cw-moon", { attr: { transform: "translate(110 420)" }, duration: 0.5, ease: "power1.out" }, 5.2)
-    .fromTo(".cw-moonlit", { opacity: 0, scaleY: 0.3, svgOrigin: "130 690" }, { opacity: 0.8, scaleY: 1, duration: 0.35, ease: "sine.out" }, 5.26)
-    .to(".cw-moon-air", { opacity: 0.45, duration: 0.3, ease: "sine.in" }, 5.42)
-    .to(".cw-fluff-closed", { opacity: 0, duration: 0.05 }, 5.2)
-    .to(".cw-fluff-open", { opacity: 1, duration: 0.05 }, 5.22);
+    .to(".cw-moonrise", { opacity: 1, duration: 0.14, ease: "sine.in" }, 5.02)
+    .to(".cw-moon-show", { opacity: 1, duration: 0.03 }, lit - 0.09)
+    .to(".cw-moon", { attr: { transform: "translate(110 420)" }, duration: full - (lit - 0.08), ease: "power1.out" }, lit - 0.08)
+    .fromTo(".cw-moonlit", { opacity: 0, scaleY: 0.3, svgOrigin: "130 690" }, { opacity: 0.8, scaleY: 1, duration: 0.3, ease: "sine.out" }, lit)
+    .to(".cw-moon-air", { opacity: 0.45, duration: 0.3, ease: "sine.in" }, lit + 0.12)
+    .to(".cw-fluff-closed", { opacity: 0, duration: 0.05 }, lit - 0.08)
+    .to(".cw-fluff-open", { opacity: 1, duration: 0.05 }, lit - 0.06);
   // 7 「どんどん」：見上げる（世界が下へ流れ、月は東から南の高い所へ。真上にはしない）。
   move(6, cam(200, 400, 1.0))
     .to(".cw-moonrise", { opacity: 0, duration: 0.3 }, 6.02)
     .to(".cw-moon", { attr: { transform: "translate(160 180)" }, duration: 0.7, ease: "sine.inOut" }, 6.02)
     .to(".cw-fluff-open", { opacity: 0, duration: 0.05 }, 6.1)
     .to(".cw-fluff-closed", { opacity: 1, duration: 0.05 }, 6.12);
-  // 8 ながい夜：穴の口に寄る。月は西南西へ（円盤は画面の外、光だけ）。3行目に合わせて、月の光の帯が穴の縁を東から西へ
-  // 移る（鳥の顔は照らさない）。穴の縁に霜が付く。
+  // 8 ながい夜：穴の口に寄る。月は西南西へ（円盤は画面の外、光だけ）。「月の光」で光の帯が穴の縁を東から西へ移る（鳥の顔は
+  // 照らさない）。穴の縁に霜が付く。
+  const band = cue(7, 0, 7.42);
   move(7, cam(HOLE.x - 20, HOLE.y + 30, 2.3))
     .to(".cw-moon", { attr: { transform: "translate(-120 300)" }, duration: 0.6 }, 7.05)
-    .fromTo(".cw-band", { x: 100, opacity: 0 }, { x: 0, opacity: 0.55, duration: 0.3, ease: "sine.inOut" }, 7.42)
-    .to(".cw-frost", { opacity: 0.9, duration: 0.3 }, 7.42);
-  // 9 コールドムーン：朝の光（木が桃色に照らされる）→「フィーチー」でコガラが穴から出て枝へ → 2行目 → 西へ向く（カメラが
-  // 左へ。月が動いたのでなく見る向きが変わった）→ 白い月 → 3行目 → 余白 → 名前。月は最後まで消さない。
-  move(8, cam(270, 540, 1.3), 0.12)
+    .fromTo(".cw-band", { x: 100, opacity: 0 }, { x: 0, opacity: 0.55, duration: Math.min(0.3, 7.75 - band), ease: "sine.inOut" }, band)
+    .to(".cw-frost", { opacity: 0.9, duration: Math.min(0.3, 7.75 - band) }, band);
+  // 9 コールドムーン：朝の光（木が桃色に照らされる）→「フィーチー」でコガラが穴から出て枝へ →「朝の森」は止まった絵で →
+  // 西へ向く（カメラが左へ。月が動いたのでなく見る向きが変わった）→ 白い月 →「西の空」→ 余白 → 名前。月は最後まで消さない。
+  const fly = cue(8, 0, 8.14);
+  const west = cue(8, 2, 8.74);
+  const turn = Math.max(fly + 0.17, west - 0.11);
+  move(8, cam(270, 540, 1.3), 0.1)
     .set(".cw-moon", { attr: { transform: "translate(64 400) scale(0.5)" }, filter: "saturate(0.15) brightness(1.35)" }, 8.02)
-    .to(".cw-sky-dawn", { opacity: 1, duration: 0.3, ease: "sine.inOut" }, 8)
-    .to(".cw-sky-night", { opacity: 0, duration: 0.3, ease: "sine.inOut" }, 8.03)
-    .to(".cw-stars", { opacity: 0, duration: 0.3 }, 8.03)
-    .to(".cw-moonlit", { opacity: 0, duration: 0.3 }, 8.03)
-    .to(".cw-band", { opacity: 0, duration: 0.15 }, 8)
-    .to(".cw-frost", { opacity: 0.4, duration: 0.3 }, 8.03)
-    .to(".cw-moon-air", { opacity: 0, duration: 0.3 }, 8.03)
-    .to(".cw-trunk-dawn", { opacity: 1, duration: 0.3, ease: "sine.inOut" }, 8.03)
-    .to(".cw-air", { opacity: 0.5, duration: 0.4, ease: "sine.inOut" }, 8.05)
-    .to(".cw-mist", { opacity: 0.45, duration: 0.5, ease: "sine.inOut" }, 8.1)
-    .to(".cw-shade-night", { opacity: 0.2, duration: 0.35, ease: "sine.inOut" }, 8.03)
-    .to(".cw-fluff-closed", { opacity: 0, duration: 0.03 }, 8.14)
-    .to(".cw-fly", { opacity: 1, duration: 0.02 }, 8.14)
-    .to(".cw-fly", { x: -108, duration: 0.14, ease: "sine.inOut" }, 8.15)
-    .to(".cw-fly", { keyframes: { y: [0, -22, 30] }, duration: 0.14, ease: "sine.inOut" }, 8.15)
-    .to(".cw-song", { opacity: 1, duration: 0.04 }, 8.28)
-    .to(".cw-fly", { opacity: 0, duration: 0.03 }, 8.3);
-  // 枝にとまったら、少し止まって（2行目「朝の森に、コガラの声。」を止まった絵で読む）から西へ向く（11/23 レビュー：一つの続いた
-  // 動きにせず、短い静止で余韻を作る）。
-  move(8.46, cam(175, 480, 0.96), 0.28);
+    .to(".cw-sky-dawn", { opacity: 1, duration: 0.25, ease: "sine.inOut" }, 8)
+    .to(".cw-sky-night", { opacity: 0, duration: 0.25, ease: "sine.inOut" }, 8.02)
+    .to(".cw-stars", { opacity: 0, duration: 0.25 }, 8.02)
+    .to(".cw-moonlit", { opacity: 0, duration: 0.25 }, 8.02)
+    .to(".cw-band", { opacity: 0, duration: 0.12 }, 8)
+    .to(".cw-frost", { opacity: 0.4, duration: 0.25 }, 8.02)
+    .to(".cw-moon-air", { opacity: 0, duration: 0.25 }, 8.02)
+    .to(".cw-trunk-dawn", { opacity: 1, duration: 0.25, ease: "sine.inOut" }, 8.02)
+    .to(".cw-air", { opacity: 0.5, duration: 0.35, ease: "sine.inOut" }, 8.04)
+    .to(".cw-mist", { opacity: 0.45, duration: 0.4, ease: "sine.inOut" }, 8.08)
+    .to(".cw-shade-night", { opacity: 0.2, duration: 0.3, ease: "sine.inOut" }, 8.02)
+    .to(".cw-fluff-closed", { opacity: 0, duration: 0.02 }, fly)
+    .to(".cw-fly", { opacity: 1, duration: 0.02 }, fly)
+    .to(".cw-fly", { x: -108, duration: 0.12, ease: "sine.inOut" }, fly + 0.01)
+    .to(".cw-fly", { keyframes: { y: [0, -22, 30] }, duration: 0.12, ease: "sine.inOut" }, fly + 0.01)
+    .to(".cw-song", { opacity: 1, duration: 0.03 }, fly + 0.12)
+    .to(".cw-fly", { opacity: 0, duration: 0.03 }, fly + 0.14);
+  // 枝にとまったら少し止まり（「朝の森に、コガラの声。」を止まった絵で読む）、「西の空」の前に西へ向く（11/23 レビュー：
+  // 一つの続いた動きにせず、短い静止で余韻を作る）。
+  move(turn, cam(175, 480, 0.96), Math.min(0.1, 8.75 - turn));
 }

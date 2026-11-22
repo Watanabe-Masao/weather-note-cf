@@ -13,7 +13,7 @@ import {
   BeaverWorld,
   buildBeaverScene,
 } from "./BeaverWorld";
-import { COLD_BEATS, COLD_LINE_AT, COLD_SKY, ColdCoverArt, ColdPaperArt, ColdWindow, ColdWorld, buildColdScene } from "./ColdWorld";
+import { COLD_BEATS, COLD_CUES, COLD_LINE_PAUSE, COLD_SKY, ColdCoverArt, ColdPaperArt, ColdWindow, ColdWorld, buildColdScene } from "./ColdWorld";
 import { BOOK } from "./palette";
 
 export type StoryScene = {
@@ -34,7 +34,20 @@ export type StoryScene = {
   coverCorner?: string;
   /** 閉じた本の表の真ん中の型押しの絵（素材）。無ければ、表紙の裏の絵を光の効果で型押しにして見せる。 */
   closedArt?: string;
-  build: typeof buildBeaverScene;
+  /**
+   * 場面の動き。cueAt は、cues の言葉の最初の字が出る拍（ページごと、言葉の順）。動きを言葉に合わせる場面だけが使う。
+   */
+  build: (gsap: never, root: Element, tl: never, loops?: boolean, cueAt?: Record<number, number[]>) => { play: () => unknown; pause: () => unknown } | null;
+  /**
+   * 言葉の合図（11/23 レビュー「跳躍や種は、言葉ごとの間に合わせる」）：ページ（0 から）→ 動きを合わせる言葉（本文に出る順）。
+   * 物語の画面がその言葉の最初の字が出る拍を計算して、build の cueAt に渡す。
+   */
+  cues?: Record<number, string[]>;
+  /**
+   * 行の前の間（秒）：ページ（0 から）→ 行ごとに、その行を出す前に絵の動きを見せる秒。読む時間に足すので、コマがそのぶん
+   * 長くなる（lineAt と違い、読み終えてからの rest や、ほかの行の速さを削らない）。
+   */
+  linePause?: Record<number, number[]>;
   /**
    * 行を出しはじめる所（コマの中の 0〜1、行ごと）。絵の動きに合わせて行を出すページだけ（11/21 絵コンテ v0.3：6ページは
    * 丘が明るむと1行目、月の縁が出ると2行目）。無いページは、行を続けて朗読の速さで出す。
@@ -84,7 +97,8 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     closedArt: storyAsset("cold", "emboss-medal"),
     PaperArt: ColdPaperArt,
     build: buildColdScene,
-    lineAt: COLD_LINE_AT,
+    linePause: COLD_LINE_PAUSE,
+    cues: COLD_CUES,
     still: 6.78,
     bookSky: { start: BOOK.coldStart, end: BOOK.coldDawn, after: BOOK.coldAfter },
   },
