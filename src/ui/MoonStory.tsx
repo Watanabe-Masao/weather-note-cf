@@ -1096,13 +1096,15 @@ export function MoonStory({
         });
         // 空の色が進む（11/21 渡辺さん「アイデアも採用」）：表紙のあたりは夕方の色、場面を読み進めるうちに夜へ、締めくくり
         // から先は深夜へ。地の色（.moon-story の --sky-0 / --sky-1）だけを、スクロールに合わせて変える。
+        // 場面が空の流れを持つときは、その色で（コールドムーン：昼 → 夕 → 夜 → 夜明け）。
         const after = el.querySelector(".ms-epilogue") ?? el.querySelector("[data-story-end]");
+        const flow = scene?.bookSky ?? { start: BOOK.dusk, end: BOOK.night, after: BOOK.deep };
         gsap.fromTo(
           el,
-          { "--sky-0": BOOK.dusk[0], "--sky-1": BOOK.dusk[1] },
+          { "--sky-0": flow.start[0], "--sky-1": flow.start[1] },
           {
-            "--sky-0": BOOK.night[0],
-            "--sky-1": BOOK.night[1],
+            "--sky-0": flow.end[0],
+            "--sky-1": flow.end[1],
             ease: "none",
             scrollTrigger: {
               trigger: el.querySelector(".ms-world") ?? el.querySelector(".ms-book"),
@@ -1116,10 +1118,10 @@ export function MoonStory({
         if (after)
           gsap.fromTo(
             el,
-            { "--sky-0": BOOK.night[0], "--sky-1": BOOK.night[1] },
+            { "--sky-0": flow.end[0], "--sky-1": flow.end[1] },
             {
-              "--sky-0": BOOK.deep[0],
-              "--sky-1": BOOK.deep[1],
+              "--sky-0": flow.after[0],
+              "--sky-1": flow.after[1],
               ease: "none",
               immediateRender: false,
               scrollTrigger: {
