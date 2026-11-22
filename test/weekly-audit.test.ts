@@ -125,8 +125,11 @@ describe("週の点検", () => {
       waste: { unparsed: 0, parseFailed: 0, fetchFailuresLastDay: 0 },
     });
     const keys = (n: number) => judgeHealth(view(n) as never, n).notes.map((x) => x.key);
-    expect(keys(NOW + 7 * 24 * H)).not.toContain("weeklyAuditStale");
-    expect(keys(NOW + 9 * 24 * H)).toContain("weeklyAuditStale");
+    // 終わった時刻（done_at）は実際の時計で書かれるので、NOW ではなくその時刻から数える（11/23：実行した日が進むと
+    // NOW + 9 日がまだ 8 日を超えず、テストが落ちた）。
+    const done = Date.parse(at ?? "");
+    expect(keys(done + 7 * 24 * H)).not.toContain("weeklyAuditStale");
+    expect(keys(done + 9 * 24 * H)).toContain("weeklyAuditStale");
   });
 
   it("数える時刻だけを数える（天気図の 21時→翌3時は抜けではない）", () => {
