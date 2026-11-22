@@ -111,6 +111,16 @@ export function EventPath({ event, date, lat, lon, weather, ends }: { event: Sky
   const first = arc[0];
   const last = arc.at(-1);
   const ground = H - PAD.bottom;
+  // 両端の札（出・入り）は地平線のすぐ上に置く。通り道は端から斜めに昇るので、札の高さを抜けるまでの横の距離だけ内側へ
+  // ずらし、線と字が重ならないようにする（11/23 渡辺さん、iPhone で「16:10 出」「翌7:22 入」が線に重なっていた）。
+  const clearOf = (run: typeof arc) => {
+    const p0 = run[0];
+    if (!p0) return 0;
+    const hit = run.find((p) => ground - y(p.alt) >= fs + 6);
+    return hit ? Math.abs(x(hit.az) - x(p0.az)) + 2 : 0;
+  };
+  const fromX = first ? Math.max(PAD.left, x(first.az)) + clearOf(arc) : 0;
+  const toX = last ? Math.min(W - PAD.right, x(last.az)) - clearOf([...arc].reverse()) : 0;
   return (
     <svg ref={svg} className="event-path" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${solar ? "太陽" : "月"}の通り道（南を向いて見上げた空。左が東、右が西）。光る実線は晴れ間、点線は雲で見えにくい時間`}>
       {/* 地平線 */}
@@ -141,12 +151,12 @@ export function EventPath({ event, date, lat, lon, weather, ends }: { event: Sky
       ))}
       {/* 両端：出と入り（食は始めと終わり） */}
       {first && ends.from && (
-        <text x={Math.max(PAD.left, x(first.az))} y={ground - 5} textAnchor="start" fontSize={fs} className="event-path-label strong">
+        <text x={fromX} y={ground - 5} textAnchor="start" fontSize={fs} className="event-path-label strong">
           {ends.from}
         </text>
       )}
       {last && ends.to && (
-        <text x={Math.min(W - PAD.right, x(last.az))} y={ground - 5} textAnchor="end" fontSize={fs} className="event-path-label strong">
+        <text x={toX} y={ground - 5} textAnchor="end" fontSize={fs} className="event-path-label strong">
           {ends.to}
         </text>
       )}
