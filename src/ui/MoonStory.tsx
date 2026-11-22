@@ -828,11 +828,12 @@ export function MoonStory({
               .fromTo(
                 `${cap} .ms-ch`,
                 // 字は inline（11/21 レビュー：一字ずつ inline-block にしていたので、行頭の句点を避ける決まりが効かず、
-                // 「。」だけが次の列の頭に来ていた）。inline には位置の動きが効かないので、滲みと透け具合だけで出す。
-                { opacity: 0, filter: "blur(3px)" },
+                // 「。」だけが次の列の頭に来ていた）。inline には位置の動きが効かないので、透け具合だけで出す。
+                // 一字ずつの滲み（filter: blur）は、iPhone で字が出ている間ずっと描き直しが重なってカクついたのでやめた
+                // （11/23 渡辺さん「文字の表示が進んでいる間、処理がカクつく」）。透け具合だけなら描き直しが軽い。
+                { opacity: 0 },
                 {
                   opacity: 1,
-                  filter: "blur(0px)",
                   duration: 0.12,
                   ease: "power1.out",
                   // 朗読の間：一字ずつ、読む時刻に合わせて（読点・句点で間をおく）。
@@ -849,13 +850,12 @@ export function MoonStory({
                 {
                   opacity: 0,
                   y: lastBook ? 0 : -12,
-                  filter: "blur(2px)",
                   duration: lastBook ? 0.06 : CAP_OUT_DUR,
                   ease: "power1.in",
                 },
                 i + fadeAt,
               )
-              .set(cap, { y: 0, filter: "blur(0px)" }, i + 1);
+              .set(cap, { y: 0 }, i + 1);
           });
           // 一枚の絵の枠：場面が持つときは、最後のページの文が消えてから止まる所まで（文を読む間は出さない）。
           const lastI = lines.length - 1;
