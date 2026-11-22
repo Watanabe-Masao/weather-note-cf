@@ -31,8 +31,10 @@ export const COLD_BEATS = 9;
  * 4 「ひゅう、」の行で枝が揺れる。6 北東の空が明るむ → 月の縁 → 1行目（雪原に月明かり）→ 2行目（月が見えきる）。
  * 8 3行目に合わせて月の光が穴の縁を移る。9 朝の光 → 「フィーチー」で穴から出る → 2行目 → 西へ向く → 白い月 → 3行目 →
  * 少しの余白 → 「コールドムーン。」。
+ * 字幕はコマの頭より CAP_LEAD（0.16）前から出はじめるので、行が出る拍は「ページ番号 + 値 − 0.16」。6ページは月の縁（5.18）と
+ * 雪原の月明かり（5.26）のあとに1行目（5.26）、月がほぼ見えきってから2行目（5.5）。
  */
-export const COLD_LINE_AT: Record<number, number[]> = { 3: [0, 0, 0.45], 5: [0.26, 0.5], 7: [0, 0, 0.42], 8: [0.14, 0.34, 0.6, 0.84] };
+export const COLD_LINE_AT: Record<number, number[]> = { 3: [0, 0, 0.45], 5: [0.42, 0.66], 7: [0, 0, 0.42], 8: [0.14, 0.34, 0.66, 0.86] };
 
 /** 渡辺さんの素材（src/design/story/storyAssets.ts の cold）。 */
 const A = (name: string) => storyAsset("cold", name);
@@ -442,8 +444,8 @@ export function ColdWorld(): ReactElement {
         </g>
         {/* 「フィーチー、フィーチー。」で穴から飛び出し、枝へ（9ページ、c11）。 */}
         <image className="cw-fly" href={A("fly")} x={FLY.x} y={FLY.y} width={FLY.w} height={FLY.h} opacity={0} />
-        {/* 地面をはう朝もや（c12c、かけ算）：9ページの雪原の低い所。 */}
-        <image className="cw-mist" href={A("mist")} x={-160} y={600} width={720} height={240} preserveAspectRatio="none" opacity={0} style={{ mixBlendMode: "multiply" }} />
+        {/* 地面をはう朝もや（c12c、かけ算）：9ページの雪原の表面を低く流れる薄い層。コガラの足元・樹皮・月にはかけない（11/23 レビュー）。 */}
+        <image className="cw-mist" href={A("mist")} x={-160} y={650} width={720} height={200} preserveAspectRatio="none" opacity={0} style={{ mixBlendMode: "multiply" }} />
         <SnowField front />
         {/* 地上を沈める色（夕方は青いかげ、夜は紺）。地上の形で切り、空と月にはかからない。 */}
         <g mask="url(#cw-land)">
@@ -605,7 +607,7 @@ function buildBeats(tl: Tween) {
     .to(".cw-moon-air", { opacity: 0, duration: 0.3 }, 8.03)
     .to(".cw-trunk-dawn", { opacity: 1, duration: 0.3, ease: "sine.inOut" }, 8.03)
     .to(".cw-air", { opacity: 0.5, duration: 0.4, ease: "sine.inOut" }, 8.05)
-    .to(".cw-mist", { opacity: 0.7, duration: 0.5, ease: "sine.inOut" }, 8.1)
+    .to(".cw-mist", { opacity: 0.45, duration: 0.5, ease: "sine.inOut" }, 8.1)
     .to(".cw-shade-night", { opacity: 0.2, duration: 0.35, ease: "sine.inOut" }, 8.03)
     .to(".cw-fluff-closed", { opacity: 0, duration: 0.03 }, 8.14)
     .to(".cw-fly", { opacity: 1, duration: 0.02 }, 8.14)
@@ -613,5 +615,7 @@ function buildBeats(tl: Tween) {
     .to(".cw-fly", { keyframes: { y: [0, -22, 30] }, duration: 0.14, ease: "sine.inOut" }, 8.15)
     .to(".cw-song", { opacity: 1, duration: 0.04 }, 8.28)
     .to(".cw-fly", { opacity: 0, duration: 0.03 }, 8.3);
-  move(8.38, cam(175, 480, 0.96), 0.34);
+  // 枝にとまったら、少し止まって（2行目「朝の森に、コガラの声。」を止まった絵で読む）から西へ向く（11/23 レビュー：一つの続いた
+  // 動きにせず、短い静止で余韻を作る）。
+  move(8.46, cam(175, 480, 0.96), 0.28);
 }
