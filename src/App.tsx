@@ -277,17 +277,8 @@ export function App(_: { theme?: string } = {}) {
     store.wantHours(view.station, open ? days : [], 0, "sheet");
   }, [store, face, sheetDetent, view.station, view.target, compareDate, view.single]);
 
-  // Keep the chosen item in view in the scrolling chip row (also after a reload).
+  // The item bar at the bottom (its height lifts the graph sheet).
   const metricsRef = useRef<HTMLElement>(null);
-  useEffect(() => {
-    const row = metricsRef.current;
-    const chip = row?.querySelector<HTMLElement>('[aria-selected="true"]');
-    if (!row || !chip) return;
-    // The chosen chip comes to the middle of the bar (the ones beside it show that the row goes on).
-    const left = row.scrollLeft + chip.getBoundingClientRect().left - row.getBoundingClientRect().left;
-    const to = left - (row.clientWidth - chip.offsetWidth) / 2;
-    if (Math.abs(to - row.scrollLeft) > 4) row.scrollTo({ left: to, behavior: "smooth" });
-  }, [view.metric]);
 
   // Measure the space under the comparison table: that is the sheet's middle height.
   const boardRef = useRef<HTMLDivElement>(null);
@@ -307,16 +298,6 @@ export function App(_: { theme?: string } = {}) {
   }, [full]);
   // The item bar is fixed at the bottom; the sheet stands on it and may rise to the top of the screen.
   const [barH, setBarH] = useState(0);
-  // 見本だけ：<html data-bar> で帯の形を切り替える。
-  const barLayout = (() => {
-    try {
-      const c = localStorage.getItem("wn-bar-color");
-      if (c) document.documentElement.dataset.barcolor = c;
-      return localStorage.getItem("wn-bar-sample") ?? "g3";
-    } catch {
-      return "g1";
-    }
-  })();
   const [safeTop, setSafeTop] = useState(0);
   useLayoutEffect(() => {
     const el = metricsRef.current;
@@ -671,7 +652,7 @@ export function App(_: { theme?: string } = {}) {
         </BetaContext.Provider>
       )}
 
-      <ItemBar metric={view.metric} onPick={(id) => set("metric", id as typeof view.metric)} barRef={metricsRef} layout={barLayout} />
+      <ItemBar metric={view.metric} onPick={(id) => set("metric", id as typeof view.metric)} barRef={metricsRef} />
 
       {/* その日の要約 (#176): over whatever it was opened from (the table, the calendar, the hours). */}
       {typhoonAsked && <TyphoonSheet station={view.station} date={today} number={typhoonAsked} info={typhoons} onClose={() => setTyphoonAsked(null)} />}

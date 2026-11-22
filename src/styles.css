@@ -857,89 +857,56 @@ img.event-pic { object-fit: contain; }
 }
 @keyframes fm-book-sheen { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
-/* The item bar (2026-11-22 渡辺さん): fixed to the bottom of the screen in both modes, one row that scrolls
-   sideways. The graph sheet stands on it (bottom: var(--itembar-h)). Each chip is a 44px target, with the
-   item's picture, and lights in the item's own colour (the colour of its line in the graphs). */
+/* The item bar (2026-11-22 渡辺さん): a rounded bar floating at the bottom of the screen, the same in both
+   modes; the graph sheet stands on it (bottom: var(--itembar-h)). The items are in four groups; only the
+   chosen group is open with its items, the others show their name. One row, no sideways scrolling. The
+   chosen item is filled with the theme's colour (the items' own colours are for the graph lines). */
 .metrics.item-bar {
   position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  max-width: 600px;
-  margin: 0 auto;
-  z-index: var(--layer-sheet);
-  display: flex;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scroll-snap-type: x proximity;
-  scroll-padding-inline: var(--space-4);
-  scrollbar-width: none;
-}
-.metrics.item-bar::-webkit-scrollbar { display: none; }
-.metrics .chip { flex: 0 0 auto; justify-content: center; scroll-snap-align: center; white-space: nowrap; letter-spacing: -0.02em; }
-.metrics .chip .item-icon { color: inherit; }
-
-/* 浮かぶ帯：画面の下に浮かぶ、丸い角の帯。選んだ項目はその色で塗る。 */
-.metrics.item-bar {
   left: var(--space-4);
   right: var(--space-4);
   bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
   max-width: 568px;
+  margin: 0 auto;
+  z-index: var(--layer-sheet);
+  display: flex;
+  align-items: stretch;
   gap: var(--space-1);
   padding: var(--space-1);
   border-radius: var(--radius-xl);
   border: var(--stroke-hair) solid var(--line-soft);
-  background: color-mix(in srgb, var(--surface-raised) 82%, transparent);
-  -webkit-backdrop-filter: blur(var(--space-5)) saturate(1.4);
-  backdrop-filter: blur(var(--space-5)) saturate(1.4);
+  background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
   box-shadow: var(--shadow-sheet);
 }
+.ib-cat,
 .metrics .chip {
-  min-height: 44px;
-  padding: 0 var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 48px;
   border: 0;
   border-radius: var(--radius-lg);
   background: transparent;
   color: var(--ink-secondary);
-  font-size: var(--size-sm);
+  font: inherit;
+  font-size: var(--size-xs);
+  white-space: nowrap;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
+.ib-cat { flex: 1 1 0; min-width: 44px; padding: 0; color: var(--ink-tertiary); transition: color var(--motion-quick) var(--ease-standard); }
+.ib-cat:active { transform: scale(0.96); }
+.ib-cat .item-icon,
+.metrics .chip .item-icon { color: inherit; }
+.ib-open { flex: 0 1 auto; display: flex; gap: var(--space-1); padding: var(--space-1); border-radius: var(--radius-lg); background: linear-gradient(var(--accent-wash), var(--accent-wash)), var(--surface-inset); }
+.metrics .chip { flex: 1 1 0; min-width: 52px; padding: 0 var(--space-2); }
 .metrics .chip.on {
   color: var(--surface-base);
-  background: var(--chip-tone);
-  box-shadow: 0 var(--space-1) var(--space-4) color-mix(in srgb, var(--chip-tone) 45%, transparent);
-  font-weight: 600;
-}
-
-/* 案1 1行で横に送る、仲間ごとに小さな見出しと区切り */
-.ib-g1 { scroll-padding-inline: var(--space-2); }
-.ib-group { display: flex; flex-direction: column; flex: none; padding: 0 var(--space-1); }
-.ib-group + .ib-group { border-left: var(--stroke-hair) solid var(--line-soft); }
-.ib-cap { padding: 2px var(--space-3) 0; font-size: var(--size-xs); color: var(--ink-tertiary); letter-spacing: 0.08em; }
-.ib-chips { display: flex; gap: var(--space-1); }
-
-/* 案2 2段：上に仲間、下にその仲間の項目 */
-.metrics.item-bar.ib-g2 { flex-direction: column; overflow: visible; gap: var(--space-1); }
-.ib-cats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-1); padding: 2px; border-radius: var(--radius-lg); background: var(--surface-inset); }
-.ib-cat { min-height: 44px; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--ink-tertiary); font: inherit; font-size: var(--size-sm); cursor: pointer; }
-.ib-cat.on { background: var(--surface-raised); color: var(--chip-tone); font-weight: 600; box-shadow: var(--shadow-sheet); }
-.ib-items { display: flex; gap: var(--space-1); }
-.ib-items .chip { flex: 1 1 0; }
-
-/* 案3 ひらく：選んでいる仲間だけ開いて項目が並ぶ（1行、横に送らない） */
-.metrics.item-bar.ib-g3 { overflow: visible; align-items: stretch; }
-.ib-g3 .ib-cat { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 52px; padding: 0; font-size: var(--size-xs); }
-.ib-g3 .ib-cat .item-icon { color: inherit; }
-.ib-open { flex: 0 1 auto; display: flex; gap: 2px; padding: 2px; border-radius: var(--radius-lg); background: color-mix(in srgb, var(--chip-tone, var(--accent-base)) 10%, var(--surface-inset)); }
-.ib-open-cap { display: none; }
-.ib-g3 .chip { flex-direction: column; gap: 2px; min-height: 48px; min-width: 52px; padding: 0 var(--space-2); font-size: var(--size-xs); }
-
-/* 見本：選んだ項目の色。item＝項目の色で塗る（いま）、accent＝テーマの色で塗る、tint＝項目の色の薄い面と色の絵・文字 */
-html[data-barcolor="accent"] .metrics .chip.on { background: var(--accent-base); box-shadow: 0 var(--space-1) var(--space-4) var(--accent-glow); }
-html[data-barcolor="accent"] .ib-open { background: color-mix(in srgb, var(--accent-base) 12%, var(--surface-inset)); }
-html[data-barcolor="tint"] .metrics .chip.on {
-  color: var(--chip-tone);
-  background: color-mix(in srgb, var(--chip-tone) 18%, var(--surface-raised));
-  box-shadow: 0 0 0 var(--stroke-hair) color-mix(in srgb, var(--chip-tone) 45%, transparent) inset;
+  background: var(--accent-base);
+  box-shadow: 0 var(--space-1) var(--space-4) var(--accent-glow);
+  font-weight: var(--weight-bold);
 }
 
 /* ---- tables ----------------------------------------------------------------------------------- */
