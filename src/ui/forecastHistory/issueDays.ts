@@ -7,7 +7,7 @@ export type DayRow = { day: string; from: IssueRow; v: DayValues };
 /** 発表の先の日ごとの値。府県のあとに、週間で府県より先の日を足す。 */
 export function issueDays(r: Extract<ForecastIssueResponse, { found: true }>): DayRow[] {
   const m = new Model({ issues: [r.issue, ...(r.weekly ? [r.weekly] : [])], entries: r.entries, fetchLog: [] });
-  const daysOf = (i: IssueRow) => [...new Set(r.entries.filter((e) => e.issue_id === i.issue_id).map((e) => jstDate(e.valid_from)))].sort().filter((d) => d >= jstDate(i.issued_at));
+  const daysOf = (i: IssueRow) => [...new Set(r.entries.filter((e) => e.issue_id === i.issue_id && e.element !== "temp").map((e) => jstDate(e.valid_from)))].sort().filter((d) => d >= jstDate(i.issued_at));
   const out: DayRow[] = [];
   for (const day of daysOf(r.issue)) {
     const v = m.valuesFor(r.issue, day);

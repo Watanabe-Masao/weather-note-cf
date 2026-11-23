@@ -19,6 +19,7 @@ import { SplitHeader } from "./SplitHeader";
 import { StepChart } from "./StepChart";
 import { Sources } from "./Sources";
 import { IssueWeekSheet } from "./IssueWeek";
+import { pickIssue, usePickedIssue } from "../../data/forecastPick";
 import "./forecastHistory.css";
 
 type Loaded = { date: string; station: string; r: ForecastHistoryResponse } | { date: string; station: string; error: true };
@@ -27,7 +28,8 @@ type Loaded = { date: string; station: string; r: ForecastHistoryResponse } | { 
 const jstNow = () => `${new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
 
 const cache = new Map<string, Promise<ForecastHistoryResponse>>();
-function load(station: string, date: string): Promise<ForecastHistoryResponse> {
+/** 1日分の発表（/api/forecast-history）。時間帯のグラフの「気象庁の予報」も同じものを読む（同じ取得を共有）。 */
+export function loadForecastHistory(station: string, date: string): Promise<ForecastHistoryResponse> {
   const k = `${station}/${date}`;
   let p = cache.get(k);
   if (!p) {
@@ -48,7 +50,7 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
   const [got, setGot] = useState<Loaded | null>(null);
   useEffect(() => {
     let live = true;
-    load(station, date).then(
+    loadForecastHistory(station, date).then(
       (r) => live && setGot({ station, date, r }),
       () => live && setGot({ station, date, error: true }),
     );
@@ -58,13 +60,14 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
   }, [station, date]);
   const res = got && got.station === station && got.date === date ? got : null;
 
-  const [sel, setSel] = useState<string | null>(null);
+  // 選んだ回は時間帯のグラフと共有（src/data/forecastPick.ts）：ここで押した回の3時間ごとの気温がグラフに出る。
+  const sel = usePickedIssue(station, date);
+  const setSel = (k: string | null) => pickIssue(station, date, k);
   const [scrub, setScrub] = useState<string | null>(null);
   const [pop, setPop] = useState<"detail" | "simple">("simple");
   const [onlyChanged, setOnlyChanged] = useState(false);
   // 行を押すと、その発表の週間天気予報（11/19）
   const [weekKey, setWeekKey] = useState<string | null>(null);
-  useEffect(() => setSel(null), [station, date]);
 
   // 回は「今」までの分を並べる（最後に記録のある発表まで、ではない）：記録の無い回も「記録なし」として出す（R5-1）。
   const all = useMemo(() => (res && "r" in res && res.r.supported ? new Model(res.r).slots(date, jstNow()) : []), [res, date]);

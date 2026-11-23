@@ -42,7 +42,7 @@ export async function forecastHistory(db: Db, station: string, date: string): Pr
            FROM forecast_entries e JOIN forecast_issues i ON i.issue_id = e.issue_id
            WHERE i.office = ? AND i.kind IN (SELECT value FROM json_each(?)) AND i.issued_at >= ? AND i.issued_at < ?
              AND e.place IN (SELECT value FROM json_each(?)) AND e.element IN (SELECT value FROM json_each(?))
-             AND e.valid_from >= ? AND e.valid_from < ?
+             AND e.valid_from >= ? AND (e.valid_from < ? OR (e.element = 'temp' AND e.valid_from = ?))
            ORDER BY e.issue_id, e.element, e.valid_from`,
         )
         .bind(
@@ -54,6 +54,7 @@ export async function forecastHistory(db: Db, station: string, date: string): Pr
           JSON.stringify(HISTORY_ELEMENTS),
           jst(date),
           to,
+          to, // 24時（次の日の 0時）の気温も、この日の3時間ごとの終わりとして
         )
         .all<HistoryEntry>()
     ).results;
