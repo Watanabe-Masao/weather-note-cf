@@ -443,7 +443,16 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv & ArchiveEn
       // 抜け: the 5-minute times with no stage kept (cronGaps); the stage `start` (index.ts) is kept first
       // thing, so a run that started and was cut short is not among them.
       // runsLastDay: the runs kept in the fixed window of 288 (cronGaps), so it is out of 288 exactly.
-      cron: { runsLastDay: gaps.kept, longestStageMs: Math.max(0, ...stages.map((s) => s.max_ms)), stages, ...gaps, cloudflare: cfRuns },
+      // longestStageMs: the stages' own length only. `start` keeps how late a run began (not a length), so it
+      // is kept apart as startLateMaxMs (a run Cloudflare began 15 minutes late is not a 15-minute stage).
+      cron: {
+        runsLastDay: gaps.kept,
+        longestStageMs: Math.max(0, ...stages.filter((s) => s.stage !== "start").map((s) => s.max_ms)),
+        startLateMaxMs: Math.max(0, ...stages.filter((s) => s.stage === "start").map((s) => s.max_ms)),
+        stages,
+        ...gaps,
+        cloudflare: cfRuns,
+      },
     },
     // 無駄: what is kept or done for nothing, or not done.
     waste: {

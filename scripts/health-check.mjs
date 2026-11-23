@@ -107,7 +107,7 @@ async function main() {
       `| データベースの大きさ | ${r.d1Size ? mb(r.d1Size.bytes) : "—"} | ${r.d1Size ? r.d1Size.percent + "%（10GB）" : "—"} |`,
       `| 書き込み（月の見込み） | ${r.d1WritesMonth.estimate.toLocaleString()}行（1日 ${r.d1WritesMonth.rowsLastDay.toLocaleString()}行が増えた） | ${r.d1WritesMonth.percent}%（5,000万行） |`,
       `| R2 | ${mb(r.r2.bytes)}（天気図 1日 ${r.r2.chartsLastDay}枚） | ${r.r2.percentOfFree}%（無料枠10GB） |`,
-      `| 定時処理 | 24時間で ${r.cron.runsLastDay}回・いちばん長い段 ${Math.round(r.cron.longestStageMs / 1000)}秒（待ち時間を含む） | 計算時間は上の「実際の使用量」 |`,
+      `| 定時処理 | 24時間で ${r.cron.runsLastDay}回・いちばん長い段 ${Math.round(r.cron.longestStageMs / 1000)}秒（待ち時間を含む）${r.cron.startLateMaxMs != null ? `・始まりの遅れ 最大 ${Math.round(r.cron.startLateMaxMs / 1000)}秒` : ""} | 計算時間は上の「実際の使用量」 |`,
       "",
       "## 無駄（持ちすぎ・やり残し）",
       `- データベースの電文の原文：${mb(w.xmlInDatabase.bytes)}（うち R2 にも写し済み ${mb(w.xmlInDatabase.alsoInR2)}：二重持ち）`,

@@ -30,6 +30,16 @@ describe("段の時間：D1 の待ちを分ける", () => {
     expect(db.raw.prepare("SELECT stage, ms, ok, d1_ms IS NOT NULL AS d FROM cron_runs WHERE stage = 'a'").get()).toMatchObject({ stage: "a", ok: 1, d: 1 });
     expect(db.raw.prepare("SELECT ms FROM cron_runs WHERE stage = 'start'").get()).toEqual({ ms: 1234 });
   });
+  it("/api/health：いちばん長い段に start（始まりの遅れ）を混ぜず、遅れは別に出す", async () => {
+    const db = d1();
+    await ensureSchema(db);
+    await ensureHealthSchema(db);
+    const at = new Date(NOW - 600_000).toISOString();
+    db.raw.prepare("INSERT INTO cron_runs (at, stage, ms, ok) VALUES (?, 'start', 931085, 1)").run(at);
+    db.raw.prepare("INSERT INTO cron_runs (at, stage, ms, ok) VALUES (?, 'notify', 6721, 1)").run(at);
+    const h = await health(db, NOW, {});
+    expect(h.room.cron).toMatchObject({ longestStageMs: 6721, startLateMaxMs: 931085 });
+  });
   it("前からある cron_runs（d1_ms なし）にも列を足す", async () => {
     const db = d1();
     db.raw.exec("CREATE TABLE cron_runs (at TEXT NOT NULL, stage TEXT NOT NULL, ms INTEGER NOT NULL, ok INTEGER NOT NULL, PRIMARY KEY (at, stage))");
