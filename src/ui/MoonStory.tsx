@@ -1477,7 +1477,7 @@ export function MoonStory({
       {scene && World && (
         <section className="ms-world" aria-label="絵本のページ">
           <div
-            className="ms-sticky ms-world-stage"
+            className={scene?.capShade ? "ms-sticky ms-world-stage ms-shade" : "ms-sticky ms-world-stage"}
             role="presentation"
             onClick={nextBeat}
           >

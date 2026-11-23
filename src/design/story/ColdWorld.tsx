@@ -84,7 +84,7 @@ const C = {
 
 // 置く位置（世界の座標 400×860）。主役のシラカバは右寄りに一本。素材の目印は design-src/story/cold/pack/anchors.json。
 /** 主役のシラカバ：根元の中心、幅。太い幹は描き込んだ素材（下から c05b → c05d の二股）で、二股の枝は画面の外まで伸ばす。 */
-const BIRCH = { x: 292, base: 690, w: 64 };
+const BIRCH = { x: 215, base: 690, w: 64 };
 /** 二股の幹（c05d、1024×1536。下の端の幹は画像の x 457〜697）：下の端を穴のない幹の上に重ねる。 */
 const FORK_IMG = (() => {
   const s = BIRCH.w / 240;
@@ -103,7 +103,7 @@ const TRUNK_D = [
   `M${LIMB.r - 13} ${LIMB.y + 20} L${LIMB.r - 8 + 33} -300 L${LIMB.r + 8 + 33} -300 L${LIMB.r + 13} ${LIMB.y + 20} Z`,
 ].join(" ");
 /** 木の穴（キツツキの古い穴）。描き込んだ幹（c05）の穴の口に合わせる。 */
-const HOLE = { x: 294, y: 548, rx: 13, ry: 14 };
+const HOLE = { x: BIRCH.x + 2, y: 548, rx: 13, ry: 14 };
 /** 描き込んだ幹（c05、1024×1536）：穴の口の中心は画像の (510, 671)、幹の幅は画像の約 620。幹の幅を BIRCH.w にそろえる。 */
 const TRUNK_IMG = (() => {
   const s = BIRCH.w / 620;
@@ -150,7 +150,7 @@ const FLY = (() => {
 /** 穴の中のふくらんだコガラ（c06、1536×1024。鳥の幅は画像の約 6 割）。 */
 const FLUFF = { w: 46, h: (46 * 1024) / 1536 };
 /** 夜明けの枝でさえずるコガラ（c07、1536×1024、枝つき）。 */
-const SONG = { w: 92, h: (92 * 1024) / 1536, x: 140, y: 546 };
+const SONG = { w: 92, h: (92 * 1024) / 1536, x: 140 - (292 - BIRCH.x), y: 546 };
 
 /** 場面の最初の空（本のページの窓から場面へつなぐ色。CSS の背景）。 */
 export const COLD_SKY = cssSky(SKY.day);
@@ -572,7 +572,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   );
   // 3 「ひとつぶ、」「またひとつぶ。」：幹につかまるコガラ。言葉に合わせて、種が一つずつ幹のすきまへ消える。
   const seeds = [cue(2, 0, 2.14), cue(2, 1, 2.3)];
-  move(2, cam(BIRCH.x - 50, 600, 1.8))
+  move(2, cam(BIRCH.x + 5, 600, 1.4))
     .to(".cw-perch", { opacity: 0, duration: 0.04 }, 2.01)
     .to(".cw-seed", { opacity: 1, duration: 0.06 }, Math.max(2.02, seeds[0] - 0.08));
   seeds.forEach((t, k) =>
@@ -592,7 +592,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     .to(".cw-sway", { keyframes: { rotate: [0, -3, 1.5, -0.8, 0] }, svgOrigin: `${BIRCH.x - BIRCH.w / 2 + 8} 600`, duration: 0.26, ease: "sine.inOut" }, gust)
     .to(".cw-snow", { keyframes: { x: [0, -26, 0] }, duration: 0.26, ease: "sine.inOut" }, gust);
   // 5 木の穴へ：穴に寄る。穴の中で丸くなり、「ふっくら」で羽をふくらませる。
-  move(4, cam(HOLE.x - 20, HOLE.y + 30, 2.1))
+  move(4, cam(HOLE.x + 10, HOLE.y + 30, 2.1))
     .to(".cw-fluff-closed", { opacity: 1, duration: 0.08 }, 4.05)
     .to(".cw-puff", { keyframes: { scale: [0.9, 1.06, 1] }, svgOrigin: `${HOLE.x} ${HOLE.y + 10}`, duration: 0.22, ease: "sine.out" }, cue(4, 0, 4.36));
   // 6 月が昇る：引いて、北東の地平線（山の向こう）の空だけがわずかに明るむ → 月の縁（1行目の前の間）→ 1行目「雪の野原」と
@@ -617,14 +617,14 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   const high = Math.min(6.5, Math.max(6.12, cue(6, 0, 6.3)));
   move(6, cam(200, 400, 1.0))
     .to(".cw-moonrise", { opacity: 0, duration: 0.3 }, 6.02)
-    .to(".cw-moon", { attr: { transform: "translate(130 330)" }, duration: high - 6.02, ease: "sine.inOut" }, 6.02)
-    .to(".cw-moon", { attr: { transform: "translate(160 180)" }, duration: 6.74 - high, ease: "power2.out" }, high)
+    .to(".cw-moon", { attr: { transform: "translate(95 290)" }, duration: high - 6.02, ease: "sine.inOut" }, 6.02)
+    .to(".cw-moon", { attr: { transform: "translate(78 150)" }, duration: 6.74 - high, ease: "power2.out" }, high)
     .to(".cw-fluff-open", { opacity: 0, duration: 0.05 }, 6.1)
     .to(".cw-fluff-closed", { opacity: 1, duration: 0.05 }, 6.12);
   // 8 ながい夜：穴の口に寄る。月は西南西へ（円盤は画面の外、光だけ）。「月の光」で光の帯が穴の縁を東から西へ移る（鳥の顔は
   // 照らさない）。穴の縁に霜が付く。
   const band = cue(7, 0, 7.42);
-  move(7, cam(HOLE.x - 20, HOLE.y + 30, 2.3))
+  move(7, cam(HOLE.x + 12, HOLE.y + 30, 2.3))
     .to(".cw-moon", { attr: { transform: "translate(-120 300)" }, duration: 0.6 }, 7.05)
     .fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: 0, autoAlpha: 0.55, duration: Math.min(0.3, 7.75 - band), ease: "sine.inOut" }, band)
     .to(".cw-frost", { opacity: 0.9, duration: Math.min(0.3, 7.75 - band) }, band);
