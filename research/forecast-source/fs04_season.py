@@ -62,6 +62,9 @@ def load_wx_pop(folder):
                     slot["wxw"] = CAT.get(code[0])
                 if pop:
                     slot["popw"] = int(pop)
+                rel = r.get("reliabilities") or r.get("reliability") or ""
+                if rel:
+                    slot["rel"] = rel
     out = {}
     for (d0, t), reps in per.items():
         lead = (t - d0).days
@@ -75,6 +78,8 @@ def load_wx_pop(folder):
                 v["wx_中部"] = s["wx1"]
             if s.get("wxw"):
                 v["wx_高知県"] = s["wxw"]
+            if s.get("rel"):
+                v["rel"] = s["rel"]
             if lead == 1 and len(s["pop6"]) >= 3:
                 v["pop"] = max(s["pop6"])
             elif lead >= 2 and "popw" in s:
