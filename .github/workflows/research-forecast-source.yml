@@ -1,0 +1,21 @@
+name: research-forecast-source
+
+# FS-04（雨）：高知の日降水量（気象庁 過去の気象データ、2024-02〜2026-10）をログに出す（research/forecast-source/fs04_rain_obs.py）。
+# 渡辺さんの OK（11/23）。Runs only on a push to research/forecast-source (no schedule); prints to the log, commits nothing. Deleted when done.
+on:
+  push:
+    branches: [research/forecast-source]
+    paths:
+      - research/forecast-source/**
+      - .github/workflows/research-forecast-source.yml
+
+jobs:
+  fs04-rain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python research/forecast-source/fs04_rain_obs.py
