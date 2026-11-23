@@ -427,6 +427,17 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           ))}
         </p>
       )}
+      {/* 気象庁の予報の凡例は、線の凡例とは別の行に：線の凡例・平均・ⓘ の1列（2026-11-18）を崩さない。 */}
+      {jma?.slot && (
+        <p className="line-legend jma-legend">
+          <span className="ls-jma-item">
+            <svg className="ls-jma" viewBox="-6 -6 12 12" aria-hidden>
+              <path d={DIAMOND(4)} style={{ stroke: color }} />
+            </svg>
+            {jmaLabel(jma.slot, date)}
+          </span>
+        </p>
+      )}
       {/* 凡例と ⓘ は1行に（2026-11-18：ⓘ が1行だけ離れていた）。開いた説明はその下に全幅で。 */}
       <div className={other ? "legend-row" : "legend-row one"}>
       <p className="line-legend">
@@ -443,14 +454,6 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           <i className="ls-forecast" />
           予報
         </span>
-        {jma?.slot && (
-          <span className="ls-jma-item">
-            <svg className="ls-jma" viewBox="-6 -6 12 12" aria-hidden>
-              <path d={DIAMOND(4)} style={{ stroke: color }} />
-            </svg>
-            {jmaLabel(jma.slot)}
-          </span>
-        )}
         <button className="avg-window" onClick={stepWindow} aria-label={`${avgWord}の期間（今は手前${WINDOW_LABEL[avgWindow]}）。押すと切り替え`}>
           {avgWord} <b>{WINDOW_LABEL[avgWindow]}</b>
           <span className="steps" aria-hidden>
@@ -466,7 +469,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           </span>
         )}
       </p>
-      <InfoNote more={<>{jma?.slot ? <>◇ は気象庁の府県天気予報の3時間ごとの気温（高知、整数）で、予報の移り変わりで選んだ回、選んでいなければその日の朝5時の発表です（5時の発表がまだ無ければ、その前の発表）。点だけで、間は埋めません。週間天気予報には3時間ごとの気温がありません。</> : null}時刻の下の天気は、その時刻の前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}。薄いのは日照と降水からの推定です。「—」は、その時刻の前後に気象庁の天気の記録が無い時間です（取り損ねではありません。夜は日照も無いので推定もしません。先の時間は予報が出ていれば予報の天気）。凡例の線の名前を押すと、その線を薄くできます。</>} />
+      <InfoNote more={<>{jma?.slot ? <>◇ は気象庁の府県天気予報の3時間ごとの気温（高知、整数）です。いま重ねているのは{jma.slot.kind === "VPFD51" ? "府県天気予報" : "週間天気予報"} {md(jma.slot.at.slice(0, 10))} {hourOf(jma.slot.at)}時発表で、予報の移り変わりで選んだ回、選んでいなければその日の朝5時の発表を出します（5時の発表がまだ無ければ、その前の発表）。点だけで、間は埋めません。週間天気予報には3時間ごとの気温がありません。</> : null}時刻の下の天気は、その時刻の前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}。薄いのは日照と降水からの推定です。「—」は、その時刻の前後に気象庁の天気の記録が無い時間です（取り損ねではありません。夜は日照も無いので推定もしません。先の時間は予報が出ていれば予報の天気）。凡例の線の名前を押すと、その線を薄くできます。</>} />
       </div>
     </div>
   );
@@ -801,10 +804,15 @@ function LegendLine({ look, label, on, onToggle }: { look: LineLook; label: stri
 /** 菱形（中心 0,0、半径 r）。 */
 const DIAMOND = (r: number) => `M0 ${-r}L${r} 0L0 ${r}L${-r} 0Z`;
 
-/** 凡例の名前：どの発表の値か（出典）。 */
-function jmaLabel(s: Slot): string {
-  const when = `${md(s.at.slice(0, 10))} ${hourOf(s.at)}時`;
-  return s.kind === "VPFD51" ? `気象庁 ${when}発表` : `気象庁 週間 ${when}発表（3時間ごとの気温なし）`;
+/**
+ * 凡例の名前：どの発表の値か（出典）。凡例は1行に収めるので短く：対象日の発表なら時刻だけ（気象庁 5時）、前の日なら
+ * 「前日17時」、それより前は日付も。くわしい説明は ⓘ。
+ */
+function jmaLabel(s: Slot, day: string): string {
+  const d = s.at.slice(0, 10);
+  const h = `${hourOf(s.at)}時`;
+  const when = d === day ? h : d === addDays(day, -1) ? `前日${h}` : `${md(d)} ${h}`;
+  return s.kind === "VPFD51" ? `気象庁 ${when}` : `気象庁 週間${when}（気温なし）`;
 }
 
 function HourChart({

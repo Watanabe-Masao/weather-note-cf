@@ -5748,6 +5748,9 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .chart-jma-label {
   font-size: var(--size-xs);
 }
+.jma-legend {
+  margin: var(--space-3) var(--space-3) 0;
+}
 .ls-jma-item {
   display: inline-flex;
   align-items: center;
