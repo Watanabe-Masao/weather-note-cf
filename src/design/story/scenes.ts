@@ -54,6 +54,11 @@ export type StoryScene = {
    */
   frameAfterText?: boolean;
   /**
+   * 字の後ろを少しだけ沈める（11/23：コールドムーンは白いシラカバの幹が字の後ろに来て読みにくかった）。字の列の後ろの
+   * 影（.ms-caps-veil）を少し濃く広く、字のまわりのにじみ（text-shadow）を一段足す。濃くはせず、背景から字をわずかに分ける。
+   */
+  capShade?: boolean;
+  /**
    * 行を出しはじめる所（コマの中の 0〜1、行ごと）。絵の動きに合わせて行を出すページだけ（11/21 絵コンテ v0.3：6ページは
    * 丘が明るむと1行目、月の縁が出ると2行目）。無いページは、行を続けて朗読の速さで出す。
    */
@@ -105,6 +110,7 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     linePause: COLD_LINE_PAUSE,
     cues: COLD_CUES,
     frameAfterText: true,
+    capShade: true,
     still: 6.78,
     bookSky: { start: BOOK.coldStart, end: BOOK.coldDawn, after: BOOK.coldAfter },
   },

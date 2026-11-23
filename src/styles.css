@@ -596,6 +596,9 @@ img.event-pic { object-fit: contain; }
 .ms-ch { display: inline; }
 /* 文の後ろの薄い夜（16:27 のレビュー「文章が背景に埋もれている」）：空が明るい夕暮れでも読める。 */
 .ms-caps-veil { position: absolute; top: 0; right: 0; width: 80%; height: 64svh; background: radial-gradient(ellipse at 78% 34%, var(--bk-night-1), transparent 68%); opacity: 0.6; pointer-events: none; }
+/* 字の後ろを少しだけ沈める場面（StoryScene.capShade、コールドムーン）：白い幹の上でも字が背景から分かれるように。 */
+.ms-shade .ms-caps-veil { width: 92%; height: 70svh; background: radial-gradient(ellipse 58% 48% at 72% 38%, var(--bk-night-1), transparent 100%); opacity: 0.72; }
+.ms-shade .ms-cap { text-shadow: 0 0 var(--space-3) var(--bk-night-1), 0 0 var(--space-2) var(--bk-night-1), 0 0 var(--space-1) var(--bk-night-1); }
 /* 物語をとばす（今夜の情報へ）。 */
 .ms-flymoon { position: fixed; left: 0; top: 0; z-index: 1; width: 0; height: 0; border-radius: 50%; opacity: 0; pointer-events: none; background: radial-gradient(circle at 40% 36%, var(--bk-moon-0), var(--bk-moon-1) 70%, var(--bk-moon-2)); box-shadow: 0 0 var(--space-7) var(--bk-moon-1); will-change: transform; }
 .ms-skip { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); left: var(--space-4); z-index: 3; transition: opacity var(--motion-quick) var(--ease-standard); }
