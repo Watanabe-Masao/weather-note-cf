@@ -55,7 +55,7 @@ const ALLOWED: Record<string, number> = {
   "account/NotifySection.tsx": 9,
   "account/ResearchSheet.tsx": 2,
   "account/ReauthForm.tsx": 1,
-  "account/AccountSection.tsx": 10
+  "account/AccountSection.tsx": 9
 };
 
 describe("操作は kit の部品", () => {

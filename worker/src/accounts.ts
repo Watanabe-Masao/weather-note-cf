@@ -53,6 +53,7 @@ import {
   vapidKeys,
 } from "./notify";
 import { importShiromatzMonth, importSummary } from "./forecastImport";
+import { forecastTypesSummary } from "./forecastTypeWatch";
 import { type Bucket, r2Summary } from "./r2Archive";
 import { RefetchRefused, refetchNow, refetchSummary } from "./refetch";
 import { dupCheck, maintenanceSummary, tableAudit } from "./maintenance";
@@ -851,6 +852,8 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       if (path === "/api/admin/typhoon-archive" && !post) return json({ ...(await archiveSummary(db)), ...(await alertSummary(db)) });
       // 予報の履歴 (#250, R2): the record of JMA's forecasts, taken a month at a time by hand.
       if (path === "/api/admin/forecast-import" && !post) return json(await importSummary(db));
+      // 予報が外れやすい型の確かめ（forecastTypeWatch.ts、11/24）：影の運用の記録と、型ごとのこれまで。読むだけ。
+      if (path === "/api/admin/forecast-types" && !post) return json(await forecastTypesSummary(db));
       if (path === "/api/admin/archive" && !post) return json(await r2Summary(db));
       // 今すぐ取り直す（refetch.ts、#299 P1）：段ごとの様子と、1回だけ動かす（1時間に3回まで、記録を残す）。
       if (path === "/api/admin/refetch" && !post) return json(await refetchSummary(db, now, !!env.ARCHIVE));

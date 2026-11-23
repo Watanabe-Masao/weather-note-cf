@@ -309,3 +309,37 @@ export function matchedTypes(t: string, fc: LeadLookup): { type: ForecastType; l
     }
   return out;
 }
+
+/** 管理者ページ（予報 → 型の確かめ、/api/admin/forecast-types）：型ごとの、これまでの当てはまりと答え合わせ、合格の判定。 */
+export interface TypeSummary {
+  id: string;
+  stage: "candidate" | "watch";
+  fs05: string;
+  item: string;
+  leads: number[];
+  text: string;
+  frozenAt: string;
+  expected: { ratio: number; ci: [number, number]; hitRate: number; baseRate: number; directionShare?: number };
+  /** 判定した件（当てはまった／当てはまらない） */
+  judged: number;
+  matched: number;
+  /** 当てはまった対象日の数（合格の基準は対象日で数える） */
+  matchedDays: number;
+  /** 答え合わせ済み：当てはまった件の大外れ／件、当てはまらない件の大外れ／件 */
+  inRule: { n: number; miss: number };
+  outRule: { n: number; miss: number };
+  ratio: number | null;
+  ci: [number, number] | null;
+  /** 大外れのうち、記録した向きと同じ側の割合（向きのある型だけ） */
+  directionShare: number | null;
+  status: "pass" | "checking" | "notYet";
+}
+
+export interface ForecastTypesResponse {
+  frozenAt: string;
+  pass: typeof PASS;
+  runs: { day: string; at: string; judged: number; checked: number; error: string | null }[];
+  firstJudged: string | null;
+  types: TypeSummary[];
+}
+

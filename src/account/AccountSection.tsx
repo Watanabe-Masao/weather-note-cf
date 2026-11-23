@@ -3,9 +3,7 @@
 
 import { type FormEvent, useState } from "react";
 import { DELETION_NOTE_KEY, deleteAccountAndLeave, syncNow, logOutAndLeave, useSync } from "../beta/useSync";
-import { AdminSheet } from "./AdminSheet";
-import { MaintenanceSheet } from "./MaintenanceSheet";
-import { Button, Segmented } from "../ui/kit";
+import { Segmented } from "../ui/kit";
 import { NotifySection } from "./NotifySection";
 import { answerResearch, logIn, setUp, useAccount } from "./account";
 
@@ -223,8 +221,6 @@ function DeletionNote() {
 /** `station`: the one chosen in the settings (its sun names the notification times). */
 export function AccountSection({ station }: { station: string }) {
   const { me, status } = useAccount();
-  const [admin, setAdmin] = useState(false);
-  const [maint, setMaint] = useState(false);
   const [leaving, setLeaving] = useState<null | "ask" | "busy">(null);
   const [kept, setKept] = useState<number | null>(null);
   return (
@@ -270,14 +266,6 @@ export function AccountSection({ station }: { station: string }) {
           <NotifySection station={station} />
           <Research />
           {me.role !== "admin" ? <DeleteAccount /> : null}
-          {me.role === "admin" ? (
-            <div className="actions tight">
-              <button onClick={() => setAdmin(true)}>ユーザー管理</button>
-              <Button onClick={() => setMaint(true)}>データの保守</Button>
-            </div>
-          ) : null}
-          {admin ? <AdminSheet onClose={() => setAdmin(false)} /> : null}
-          {maint ? <MaintenanceSheet onClose={() => setMaint(false)} /> : null}
         </>
       )}
     </section>
