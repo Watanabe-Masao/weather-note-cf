@@ -13,8 +13,16 @@ UA = "weather-note-cf research (GitHub Actions)"
 ROBOTS = {}
 
 
+# robots.txt が禁止でも、渡辺さんの OK で読むホスト（FS-02 の6、2026-11-23：Previous Runs だけ、
+# 高知の最高・最低・1〜7日前に限って Actions で1回）。ほかの Open-Meteo の API は読まない。
+PERMITTED = {"previous-runs-api.open-meteo.com"}
+
+
 def allowed(url):
     host = url.split("/")[2]
+    if host in PERMITTED:
+        print(f"[robots] {host}: 禁止だが渡辺さんの OK（2026-11-23）で読む")
+        return True
     if host not in ROBOTS:
         rp = urllib.robotparser.RobotFileParser()
         try:
@@ -526,6 +534,8 @@ def part_accuracy():
                         om.setdefault((day, lead), []).append(v)
         s = e + timedelta(days=1)
     omd = {k: {"max": max(v), "min": min(v)} for k, v in om.items() if len(v) == 24}
+    print("[Open-Meteo] 24時間そろった日の数（何日前ごと）", {l: sum(1 for (d, x) in omd if x == l) for l in range(1, 8)},
+          "最初の日", {l: min((d for (d, x) in omd if x == l), default=None) for l in range(1, 8)})
 
     def table(label, src, days=None):
         print(f"[比べ] {label}")
