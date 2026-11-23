@@ -116,9 +116,9 @@ export const OPEN_METEO_LICENCE_URL = "https://creativecommons.org/licenses/by/4
 export const JMA_FORECAST_URL = "https://www.jma.go.jp/bosai/forecast/#area_type=offices&area_code=390000";
 
 /**
- * 補完の日の目安（FS-02 の6、2026-11-23）：高知の最高・最低を約1,000日比べると、Open-Meteo の最高は気象庁の発表より
- * いつも低め（平均 −1.3〜−2.2℃）。値は変えず（混ぜない・調整しない）、ⓘ で知らせるだけ。比べたのは高知だけ。
+ * 補完の日の目安（FS-02 の6、2026-11-23）：Open-Meteo の予報を気象庁の観測（実績）と約1,000日比べると、最高は
+ * いつも低め（平均 −1.3〜−2.2℃）。予報どうしは混ぜない・比べない。観測は事実として共通に使う（11/23 渡辺さん）。値は変えず（混ぜない・調整しない）、ⓘ で知らせるだけ。比べたのは高知だけ。
  */
 export const OM_BIAS_NOTE: Record<string, string> = {
-  "47893": "高知では、Open-Meteo の最高は気象庁の予報より平均 1〜2℃低めに出やすい（2024〜2026年の約1,000日を Weather Note が比べた目安。値は直していません）",
+  "47893": "高知では、Open-Meteo の最高は実際（気象庁の観測）より平均 1〜2℃低めに出やすい（2024〜2026年の約1,000日、Open-Meteo の予報を気象庁の観測と Weather Note が比べた目安。値は直していません）",
 };
