@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { addDays, daysBetween } from "../../shared/dates";
 import { DATA_VERSION, memoryStorage, openStorage, type Storage } from "../../src/data/db";
 import { FORECAST_DAYS, viewPlan } from "../../src/data/plan";
-import { WeatherStore } from "../../src/data/store";
+import { LIVE_EVERY, WeatherStore } from "../../src/data/store";
 import { fakeApi, NOW, TODAY } from "./fake-api";
 
 const KOCHI = "47893";
@@ -362,6 +362,25 @@ describe("storage", () => {
 });
 
 describe("today's hours", () => {
+  it("asks today's observations again once they are 10 minutes old, and nothing else (refreshLive)", async () => {
+    let now = NOW;
+    const { store, api } = makeStore(await openStorage(), fakeApi(), () => now);
+    store.setView(KOCHI, [TODAY]);
+    store.wantHours(KOCHI, [TODAY]);
+    await store.idle();
+    api.calls.length = 0;
+    now += LIVE_EVERY - 60_000;
+    expect(store.refreshLive()).toBe(false);
+    await store.idle();
+    expect(api.calls).toEqual([]);
+    now += 60_000;
+    expect(store.refreshLive()).toBe(true);
+    await store.idle();
+    expect(api.calls).toEqual([`/api/current?station=${KOCHI}`]);
+    // Asked once: right after, nothing more.
+    expect(store.refreshLive()).toBe(false);
+  });
+
   it("keep the forecast's radiation for observed hours, which have none", async () => {
     const { mergeHours } = await import("../../src/data/store");
     const forecast = [{ date: TODAY, n: 10, type: "forecast", provider: "Open-Meteo", solar: 420, raw: {}, quality: {} }];

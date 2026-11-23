@@ -29,10 +29,15 @@ export function startStore(): Promise<WeatherStore> {
     });
     await store.start();
     store.subscribe(() => version++);
+    // A new day starts a new session; otherwise only today's observations are asked again, and
+    // only while the app is on screen (refreshLive asks nothing until they are 10 minutes old).
+    const tick = async () => {
+      if (!(await store.checkDate()) && !document.hidden) store.refreshLive();
+    };
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) void store.checkDate();
+      if (!document.hidden) void tick();
     });
-    setInterval(() => void store.checkDate(), 60_000);
+    setInterval(() => void tick(), 60_000);
     instance = store;
     version++;
     return store;
