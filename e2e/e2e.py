@@ -111,6 +111,14 @@ def api(path, q):
         return {"users": [{"id": "u1", "login_id": "masao", "name": "渡辺", "role": "admin", "created_at": 1762800000000, "last_login": 1762800000000, "disabled_at": None, "reports": 0, "research": None}, {"id": "u2", "login_id": "tanaka", "name": None, "role": "user", "created_at": 1762800000000, "last_login": None, "disabled_at": None, "reports": 3, "research": 1}]}
     if path == "/api/admin/forecast-import":
         return {"first": "2025-01", "last": "2026-11", "next": {"month": "2025-02", "expected": "2025-03-02", "available": False}, "parser": {"telegram": 1, "record": 1}, "months": [{"office": "390000", "month": "2025-01", "commit_sha": "abc", "fetched_at": "2026-11-17T03:00:00Z", "rows": 4791, "issues": 186, "empty_days": [], "overlaps": 0, "differ": 0, "license": "CC BY-SA 4.0"}]}
+    if path == "/api/admin/forecast-types":
+        # 予報が外れやすい型の確かめ（11/24）: made-up — 1回分の記録、型は固定した9つ（答え合わせはまだ）。
+        ids = ["A-min-raised-L1", "B-max-rain-L2-3", "B-max-rain-L4-7", "G-rain-summer-cloudy-L2-3", "G-rain-summer-cloudy-L4-7", "E-min-turning-drop-L4-7", "C-max-moved-L2-3", "C-max-moved-L4-6", "W-max-autumn-falling-L1-3"]
+        t = lambda i: {"id": i, "stage": "watch" if i.startswith("W") else "candidate", "fs05": "A", "item": "min", "leads": [1], "text": "型 " + i, "frozenAt": "2026-11-24",
+                       "expected": {"ratio": 2.0, "ci": [1.5, 2.5], "hitRate": 0.2, "baseRate": 0.1}, "judged": 7, "matched": 1, "matchedDays": 1,
+                       "inRule": {"n": 0, "miss": 0}, "outRule": {"n": 0, "miss": 0}, "ratio": None, "ci": None, "directionShare": None, "status": "checking"}
+        return {"frozenAt": "2026-11-24", "pass": {"minRatio": 1.3, "ciLowAbove": 1, "minDays": 20, "directionShareAbove": 0.5},
+                "runs": [{"day": "2026-11-23", "at": "2026-11-23T17:05:00Z", "judged": 56, "checked": 0, "error": None}], "firstJudged": "2026-11-23T17:05:00Z", "types": [t(i) for i in ids]}
     if path == "/api/admin/maintenance":
         st = lambda i, n, r, ok, w, left, needed, why, last=None: {"id": i, "name": n, "reach": r, "lastOk": ok, "waiting": w, "left": left, "available": True, "needed": needed, "why": why, "last": last}
         ser = lambda e, k, p, l, pend=[], lost=[]: {"expected": e, "kept": k, "pendingCount": p, "lostCount": l, "absentCount": 0, "pending": pend, "lost": lost, "absent": [], "watermark": None}
@@ -500,6 +508,12 @@ with sync_playwright() as p:
         return pg.evaluate("document.querySelector('.sheet').getBoundingClientRect().height")
     def esc():
         pg.keyboard.press("Escape"); calm()
+
+    # 研究用（テスト）の比べ板は、管理者ページの「確認用」に移した（11/24）。設定はもう開いている前提。
+    def open_board(label):
+        pg.locator(".msheet.settings button", has_text="管理者ページ").click(); calm()
+        pg.locator(".admin-page-sheet .seg button", has_text="確認用").click(); calm()
+        pg.locator(".admin-page-sheet button", has_text=label).click(); calm()
 
     # A. first view
     def a():
@@ -1147,23 +1161,30 @@ with sync_playwright() as p:
         layout_ok("J1c", "設定")
         buttons_ok("J1d", "設定", 0)
         check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
-        check("J3 管理者には「研究用（テスト）」に比べ板が4つまとまる（雨の見込みは 1日モードへ移した）", pg.locator("#set-research").count() == 1 and pg.locator("section[aria-labelledby='set-research'] .actions button").count() == 4)
+        # 管理者ページ（11/24）：入口は設定のいちばん下に1つ。中は 運用・予報・確認用・ユーザー の切り替え。
+        check("J2b 管理者の項目は設定の中に散らばらない（入口の1つだけ）", pg.locator("#set-research").count() == 0 and pg.locator("#set-event").count() == 0 and pg.locator(".msheet.settings button", has_text="データの保守").count() == 0 and pg.locator(".msheet.settings button", has_text="管理者ページ").count() == 1)
+        pg.locator(".msheet.settings button", has_text="管理者ページ").click(); calm()
+        ap = pg.locator(".admin-page-sheet")
+        ap.locator(".seg button", has_text="確認用").click(); calm()
+        check("J3 管理者ページの確認用：「研究用（テスト）」に比べ板が4つ、イベントの見出しの確かめ", ap.locator("#set-research").count() == 1 and ap.locator("section[aria-labelledby='set-research'] .actions button").count() == 4 and ap.locator("#set-event").count() == 1)
         check("J4 肌感の基準にはテストのボタンがない", pg.locator("section[aria-labelledby='set-feel'] button", has_text="比べる").count() == 0)
         # 予報の履歴 (#250, R2): the record's months, taken one at a time by the administrator.
-        pg.locator(".msheet.settings button", has_text="ユーザー管理").click(); calm()
-        settle(lambda: pg.locator(".admin-imports li").count() == 1)
+        ap.locator(".seg button", has_text="予報").click(); calm()
+        settle(lambda: pg.locator(".admin-imports li").count() == 1 and pg.locator(".ad-types li").count() > 0)
+        check("J5d 管理者ページの予報：影の運用の記録と型の確かめ（型ごとの期待とこれまで）、型にならなかったもの", "2026-11-23 の発表：判定 56件" in ap.locator("section[aria-labelledby=ad-shadow]").inner_text() and pg.locator(".ad-types li").count() == 9 and pg.locator(".ad-rejected li").count() >= 3, ap.inner_text()[:200])
         sec = pg.locator("section[aria-labelledby='admin-forecast-import']")
         sec.scroll_into_view_if_needed(); calm()
         check("J5 管理：予報の履歴の取り込み（取り込んだ月と次の月のボタン）", pg.locator(".admin-imports li").count() == 1 and sec.locator("button", has_text="2025-02 を取り込む").count() == 1, sec.inner_text()[:120])
         btn = sec.locator("button", has_text="2025-02 を取り込む")
         check("J5c 次の月が記録にまだ無いときは押せず、入る見込みの日を出す", btn.count() == 1 and btn.is_disabled() and "2025年3月2日の夜の見込み" in sec.inner_text(), sec.inner_text()[:200])
-        layout_ok("J5b", "ユーザー管理")
+        layout_ok("J5b", "管理者ページ（予報）")
         if os.environ.get("WN_SHOT"): sec.screenshot(path=f"{os.environ['WN_SHOT']}-admin-import.png")
-        pg.locator(".admin-sheet .icon-btn.close").click(); calm()
-        # データの保守（#299 P1、2026-11-19）：今の状態・取得（取り直しは要る段だけ）・欠け・エラー（コピー）・重なり・大きさ。
-        pg.locator(".msheet.settings button", has_text="データの保守").click(); calm()
-        settle(lambda: pg.locator(".maintenance-sheet .mt-list").count() >= 3)
-        ms = pg.locator(".maintenance-sheet")
+        ap.locator(".seg button", has_text="ユーザー").click(); calm()
+        check("J5e 管理者ページのユーザー：ユーザーの追加と一覧", ap.locator("#admin-add").count() == 1 and ap.locator("#admin-users").count() == 1)
+        # データの保守（#299 P1、2026-11-19）：今の状態・取得（取り直しは要る段だけ）・欠け・エラー（コピー）・重なり・大きさ。管理者ページの「運用」（11/24）。
+        ap.locator(".seg button", has_text="運用").click(); calm()
+        settle(lambda: pg.locator(".admin-page-sheet .mt-list").count() >= 3)
+        ms = pg.locator(".admin-page-sheet")
         rb = ms.locator("button", has_text="今すぐ取り直す")
         check("J6 データの保守：注意の行、取り直しは要る段（雨雲）だけ、ほかは「必要ありません」、エラー2件、重なりの疑い", ms.locator(".mt-badge", has_text="注意 1").count() == 1 and rb.count() == 1 and "あと2回" in rb.inner_text() and ms.locator(".mt-fine", has_text="今は取り直す必要はありません").count() == 3 and "2件" in ms.inner_text() and "訂正報" in ms.inner_text() and "表ごとの行数（3表）" in ms.inner_text(), ms.inner_text()[:300])
         wk = ms.locator("section[aria-labelledby=mt-weekly]")
@@ -1172,7 +1193,7 @@ with sync_playwright() as p:
         check("J6e 原本の控え（GitHub）：何日分・大きさ・最後に置いた日・遅れなし", "23日分（23.0MB）・最後に置いた日 2026-11-09・遅れなし" in od.inner_text(), od.inner_text()[:200])
         wk.locator("button", has_text="抜けた区間").click(); calm()
         check("J6d 週の点検：抜けた区間と、取り直せるかの注意書き", "11/8 6:00 〜 11/8 15:00 の間（2回）" in wk.inner_text() and "約10日" in wk.inner_text(), wk.inner_text()[-300:])
-        layout_ok("J6b", "データの保守")
+        layout_ok("J6b", "管理者ページ（運用）")
         if os.environ.get("WN_SHOT"):
             pg.set_viewport_size({"width": W, "height": 2200}); calm()
             ms.screenshot(path=f"{os.environ['WN_SHOT']}-maintenance.png")
@@ -1387,7 +1408,7 @@ with sync_playwright() as p:
     # AC. 長期の気温履歴を比べる（テスト）: L1 and L2 through the new core, side by side (#189)
     def ac():
         pg.click(".app-head .icon-btn"); calm()
-        pg.locator(".msheet.settings button", has_text="長期の気温履歴を比べる").click(); calm()
+        open_board("長期の気温履歴を比べる")
         check("AC1 長期の気温履歴の比べ板が開く", pg.locator(".msheet.history-cmp").count() == 1)
         settle(lambda: "比べた日" in txt(".history-cmp-facts") and pg.locator(".history-cmp tbody tr").count() == 24, 8)
         t = txt(".history-cmp-facts")
@@ -1414,7 +1435,7 @@ with sync_playwright() as p:
     # AS. 短期の履歴と答え（テスト）: one day's 肌感, S and rate from the new core (#189 S0)
     def as_():
         pg.click(".app-head .icon-btn"); calm()
-        pg.locator(".msheet.settings button", has_text="短期の履歴と答え").click(); calm()
+        open_board("短期の履歴と答え")
         check("AS1 短期の履歴と答えが開く", pg.locator(".msheet.short-hist").count() == 1)
         settle(lambda: pg.locator(".short-hist svg[aria-label*='短期の履歴 S']").count() == 1, 8)
         # 横軸を共有する1つのグラフに2段（design-system 4.1）：時刻の目盛りは下に1組だけ
@@ -1435,7 +1456,7 @@ with sync_playwright() as p:
     # AL. 学習あり版を比べる（テスト）: one step ahead on the person's answers (#189, #117)
     def al():
         pg.click(".app-head .icon-btn"); calm()
-        pg.locator(".msheet.settings button", has_text="学習あり版を比べる").click(); calm()
+        open_board("学習あり版を比べる")
         check("AL1 学習あり版を比べるが開く", pg.locator(".msheet.learned-cmp").count() == 1)
         t = txt(".learned-cmp .history-cmp-facts")
         check("AL2 要約に答えの件数", "答え" in t and "件" in t, t)

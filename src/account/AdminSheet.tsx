@@ -185,7 +185,8 @@ function ForecastImport() {
   );
 }
 
-function Body() {
+/** 管理者ページの「ユーザー」：ユーザーの追加・一覧・研究用データ・読み出しの記録。 */
+export function UsersBody() {
   const [users, setUsers] = useState<Row[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loginId, setLoginId] = useState("");
@@ -343,11 +344,6 @@ function Body() {
         <ExportLog />
       </section>
 
-      <section className="set-group" aria-labelledby="admin-forecast-import">
-        <h3 id="admin-forecast-import">予報の履歴：過去の記録の取り込み</h3>
-        <p className="set-lead">2025年1月から、気象庁が発表した予報（高知）を外部の記録から1か月ずつ取り込みます。2026年11月10日からはアプリが自分で保存した電文を使い、重なる分は突き合わせに使います。</p>
-        <ForecastImport />
-      </section>
     </div>
   );
 }
@@ -357,8 +353,19 @@ function Body() {
 export function AdminSheet({ onClose }: { onClose: () => void }) {
   return createPortal(
     <ModalSheet title="ユーザー管理" onClose={onClose} className="admin-sheet">
-      <Body />
+      <UsersBody />
     </ModalSheet>,
     document.body,
+  );
+}
+
+/** 管理者ページの「予報」：予報の履歴の過去の記録の取り込み（ユーザー管理から移した、11/24）。 */
+export function ForecastImportSection() {
+  return (
+    <section className="set-group" aria-labelledby="admin-forecast-import">
+      <h3 id="admin-forecast-import">予報の履歴：過去の記録の取り込み</h3>
+      <p className="set-lead">2025年1月から、気象庁が発表した予報（高知）を外部の記録から1か月ずつ取り込みます。2026年11月10日からはアプリが自分で保存した電文を使い、重なる分は突き合わせに使います。</p>
+      <ForecastImport />
+    </section>
   );
 }

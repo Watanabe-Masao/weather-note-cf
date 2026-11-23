@@ -5788,3 +5788,49 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .source-legend a {
   color: var(--accent-base);
 }
+
+/* 管理者ページ（11/24）：4つの切り替えと、予報の型の確かめ。 */
+.admin-page > .seg {
+  margin: 0 0 var(--space-3);
+}
+.ad-types,
+.ad-rejected {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+.ad-types li {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong);
+}
+.ad-types li.pass {
+  box-shadow: inset 0 0 0 var(--stroke-hair) var(--accent-base);
+}
+.ad-types small,
+.ad-rejected li {
+  color: var(--ink-secondary);
+  font-size: var(--size-xs);
+  line-height: 1.6;
+}
+.ad-type-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.ad-progress {
+  height: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  overflow: hidden;
+}
+.ad-progress i {
+  display: block;
+  height: 100%;
+  background: var(--accent-base);
+}

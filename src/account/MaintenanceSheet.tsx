@@ -70,7 +70,8 @@ function digest(s: Summary): string {
   return out.join("\n");
 }
 
-function Body() {
+/** 管理者ページの「運用」：データの保守の中身。 */
+export function MaintenanceBody() {
   const [s, setS] = useState<Summary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -422,7 +423,7 @@ function Body() {
 export function MaintenanceSheet({ onClose }: { onClose: () => void }) {
   return createPortal(
     <ModalSheet title="データの保守" onClose={onClose} className="maintenance-sheet">
-      <Body />
+      <MaintenanceBody />
     </ModalSheet>,
     document.body,
   );
