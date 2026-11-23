@@ -7,6 +7,7 @@
 // then docks under the sheet's head (outside the scrolling area, covering nothing); tapping it
 // scrolls back up.
 
+import { type SourceTag, sourceTag } from "../sourceTag";
 import { type ReactNode, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CalendarSide } from "./CalendarModal";
 import { createPortal } from "react-dom";
@@ -50,11 +51,10 @@ interface Props {
 
 const COLLAPSED = "weather-note:summary-collapsed";
 
-function kindOf(store: WeatherStore | null, station: string, date: string): "予報" | "暫定" | "実績" | null {
+function kindOf(store: WeatherStore | null, station: string, date: string): SourceTag | null {
   const day = store?.getDay(station, date);
   if (day?.state !== "ready" || !day.row) return null;
-  if (day.row.type === "forecast") return "予報";
-  return day.kind === "variable" ? "暫定" : "実績";
+  return sourceTag(day.row, day.kind) || null;
 }
 
 function relative(date: string, today: string): "今日" | "昨日" | "明日" | null {
