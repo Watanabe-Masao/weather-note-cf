@@ -143,8 +143,10 @@ export class ForecastHistory {
 
   /** 対象日 `day` の値を、1つの発表から読む。 */
   valuesFor(issue: IssueRow, day: string): DayValues | null {
+    // 3時間ごとの気温（temp）は1日の値ではない（tempPoints が読む）：24時の点が次の日の 0時に入るので、それだけで
+    // 「この日を予報した」とはしない。
     const es = (this.byIssue.get(issue.issue_id) ?? []).filter(
-      (e) => jstDate(e.valid_from) === day,
+      (e) => e.element !== "temp" && jstDate(e.valid_from) === day,
     );
     if (!es.length) return null;
     const pick = (el: string, jma?: string): V => {
