@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { overlayOfficial } from "../../src/data/official";
 import { formatValue } from "../../src/design/format";
 import { dayFigure, dayHighLow, dayText } from "../../src/sourceTag";
-import { restWord, splitToday, withDay } from "../../src/ui/TodaySplit";
+import { restWord, splitToday, withDay } from "../../src/todaySplit";
 import type { OfficialDay } from "../../shared/jmaOfficial";
 import type { WeatherRow } from "../../shared/types";
 
