@@ -330,6 +330,74 @@ def part_more():
                         print("[電文 VPFD51] 中部", sorted({x.get("type") for x in it.iter() if x.get("type")}), [x.text for x in it.iter() if tag(x) == "WindSpeedLevel"][:12])
 
 
+def inside(pt, ring):
+    x, y = pt
+    c = False
+    for i in range(len(ring)):
+        x1, y1 = ring[i][:2]
+        x2, y2 = ring[i - 1][:2]
+        if (y1 > y) != (y2 > y) and x < (x2 - x1) * (y - y1) / (y2 - y1 + 1e-12) + x1:
+            c = not c
+    return c
+
+
+def polys(geo):
+    t, c = geo.get("type"), geo.get("coordinates") or []
+    if t == "Polygon":
+        return [c]
+    if t == "MultiPolygon":
+        return c
+    return []
+
+
+def part_wdist():
+    print("\n===== 2c. 天気分布予報（5km）の値を、高知・室戸岬・清水の場所で読む")
+    pts = {"高知": (133.5483, 33.5667), "室戸岬": (134.1767, 33.2517), "清水": (133.01, 32.7217)}
+    tt = get("https://www.jma.go.jp/bosai/jmatile/data/wdist/targetTimes.json")
+    if not tt:
+        return
+    d = sorted(json.loads(tt[0]), key=lambda t: t["validtime"])
+    base = d[0]["basetime"]
+    print("[wdist] basetime", base, "時刻", [t["validtime"][6:10] for t in d])
+    rows = defaultdict(dict)
+    for t in d:
+        vt = t["validtime"]
+        for el in t["elements"]:
+            if el.endswith("_nd"):
+                continue
+            if el in ("temp", "max_temp", "min_temp"):
+                continue  # 色分けの面（_point に数値がある）
+            if el in ("r3", "s3") and vt not in (d[1]["validtime"], d[len(d) // 2]["validtime"]):
+                continue  # 面は2つの時刻だけ
+            r = get(f"https://www.jma.go.jp/bosai/jmatile/data/wdist/{base}/none/{vt}/surf/{el}/data.geojson?id={el}")
+            if not r:
+                continue
+            feats = json.loads(r[0]).get("features", [])
+            for name, (lon, lat) in pts.items():
+                if el.endswith("_point"):
+                    best = min(((f["geometry"]["coordinates"][0] - lon) ** 2 + (f["geometry"]["coordinates"][1] - lat) ** 2, f) for f in feats if (f.get("geometry") or {}).get("type") == "Point")
+                    c = best[1]["geometry"]["coordinates"]
+                    km = ((c[0] - lon) * 92.6) ** 2 + ((c[1] - lat) * 111) ** 2
+                    rows[name][(vt, el)] = f"{best[1]['properties'].get('value')}({km**0.5:.1f}km)"
+                else:
+                    hit = [f["properties"] for f in feats for poly in polys(f.get("geometry") or {}) if poly and inside((lon, lat), poly[0]) and not any(inside((lon, lat), h) for h in poly[1:])]
+                    rows[name][(vt, el)] = str(hit[-1]) if hit else "（どの面にも入らない＝なし）"
+            print(f"   {el} {vt[6:10]} {r[1]['size']}B")
+    for name, v in rows.items():
+        print(f"[wdist {name}]")
+        for (vt, el), x in sorted(v.items()):
+            print(f"   {vt[6:8]}日{vt[8:10]}時 {el}: {x}")
+    r = get("https://www.data.jma.go.jp/cpd/twoweek/data/Latest/data_47893.json")
+    if r:
+        j = json.loads(r[0])
+        for k, v in j.items():
+            if isinstance(v, list) and v and isinstance(v[0], dict):
+                print(f"[２週間 JSON] {k}: {len(v)}件 項目{sorted(v[0].keys())} 最初{v[0]} 最後{v[-1]}")
+                print("    要素ごと", Counter(x.get("elem") for x in v), "日付", sorted({f"{x.get('mm')}-{x.get('dd')}" for x in v})[:20])
+            else:
+                print(f"[２週間 JSON] {k}: {v}")
+
+
 # ---------------------------------------------------------------- 6. 当たり具合
 def etrn_month(y, m):
     u = f"https://www.data.jma.go.jp/obd/stats/etrn/view/daily_s1.php?prec_no=74&block_no=47893&year={y}&month={m}&day=&view="
@@ -410,14 +478,18 @@ def part_accuracy():
             rep = r["reportDatetime"]
             td = r["timeDefine"]
             tdate = td[:10]
-            if r.get("tempsMax"):
-                per_rep[rep].setdefault(tdate, {})["max"] = float(r["tempsMax"])
-            if r.get("tempsMin"):
-                per_rep[rep].setdefault(tdate, {})["min"] = float(r["tempsMin"])
-            if r.get("temps") and tdate > rep[:10]:
+            # 2024 年の CSV は列の名前が単数（tempMax など）
+            tmax = r.get("tempsMax", r.get("tempMax"))
+            tmin = r.get("tempsMin", r.get("tempMin"))
+            temps = r.get("temps", r.get("temp"))
+            if tmax:
+                per_rep[rep].setdefault(tdate, {})["max"] = float(tmax)
+            if tmin:
+                per_rep[rep].setdefault(tdate, {})["min"] = float(tmin)
+            if temps and tdate > rep[:10]:
                 key = "min" if td[11:13] == "00" else ("max" if td[11:13] == "09" else None)
                 if key:
-                    per_rep[rep].setdefault(tdate, {}).setdefault(key, float(r["temps"]))
+                    per_rep[rep].setdefault(tdate, {}).setdefault(key, float(temps))
     # 予報した日（発表の日付）ごとに、値のある中でいちばん遅い発表を使う（臨時の発表には週間の値が無いため）
     for rep in sorted(per_rep):
         d = date.fromisoformat(rep[:10])
@@ -503,7 +575,7 @@ def part_accuracy():
 
 if __name__ == "__main__":
     which = sys.argv[1:] or ["tel", "json", "pages", "more", "acc"]
-    for w, f in (("tel", part_telegrams), ("json", part_bosai), ("pages", part_pages), ("more", part_more), ("acc", part_accuracy)):
+    for w, f in (("tel", part_telegrams), ("json", part_bosai), ("pages", part_pages), ("more", part_more), ("wdist", part_wdist), ("acc", part_accuracy)):
         if w in which:
             try:
                 f()
