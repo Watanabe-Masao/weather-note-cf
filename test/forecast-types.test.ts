@@ -80,3 +80,41 @@ describe("材料：保存した電文から", () => {
     expect(matchedTypes("2026-11-19", fc).every((m) => !m.type.id.startsWith("C-") && !m.type.id.startsWith("A-"))).toBe(true);
   });
 });
+
+describe("影の運用：毎日の判定と答え合わせ（worker/src/forecastTypeWatch.ts）", () => {
+  const fixture = (name: string) => readFileSync(new URL(`./fixtures/forecast/${name}`, import.meta.url), "utf8");
+  it("judges the issues of a day for the next 7 days (matched or not), then checks them against JMA's daily table", async () => {
+    const { checkTypes, claimForecastTypeRun, ensureForecastTypeSchema, judgeTypes } = await import("../worker/src/forecastTypeWatch");
+    const db = d1();
+    await ensureForecastSchema(db);
+    await ensureForecastTypeSchema(db);
+    const keep = (id: string, kind: string, xml: string) =>
+      db.raw
+        .prepare("INSERT INTO forecast_telegrams (id, kind, office, url, issued_at, fetched_at, hash, xml) VALUES (?, ?, '390000', 'u', ?, '2026-11-17T02:00:00Z', 'h', ?)")
+        .run(id, kind, /<ReportDateTime>([^<]+)</.exec(xml)?.[1] ?? null, xml);
+    keep("d05", "VPFD51", fixture("vpfd51-390000-0500.xml"));
+    keep("d11", "VPFD51", fixture("vpfd51-390000-1100.xml"));
+    keep("w11", "VPFW50", fixture("vpfw50-390000-1100.xml"));
+    await parseForecasts(db, 50);
+    const now = Date.parse("2026-11-18T02:30:00+09:00");
+    // 2時台に1回だけ引き受ける（前の日 11/17 の分）
+    expect(await claimForecastTypeRun(db, now)).toBe("2026-11-17");
+    expect(await claimForecastTypeRun(db, now)).toBeNull();
+    expect(await claimForecastTypeRun(db, Date.parse("2026-11-18T05:00:00+09:00"))).toBeNull();
+    const n = await judgeTypes(db, "2026-11-17", now);
+    expect(n).toBeGreaterThan(0);
+    const rows = db.raw.prepare("SELECT target, lead, type_id, matched FROM forecast_type_log ORDER BY target, lead, type_id").all() as { target: string; lead: number; type_id: string; matched: number }[];
+    expect(rows.every((r) => r.target === addDays("2026-11-17", r.lead))).toBe(true);
+    expect(rows.every((r) => r.matched === 0 || r.matched === 1)).toBe(true);
+    // 答え合わせ：2日以上前になった対象日だけ。表に無い日は次の日に回す。
+    const read = async () => ({ rows: [{ date: "2026-11-18", n: 18, type: "actual" as const, provider: "JMA", raw: {}, quality: {}, max: 13, min: 9, rain: 4.5 }], source: "x" });
+    const checked = await checkTypes(db, "2026-11-20", now, read);
+    expect(checked).toBe(rows.filter((r) => r.target === "2026-11-18").length);
+    const done = db.raw.prepare("SELECT observed, big_miss FROM forecast_type_log WHERE target = '2026-11-18'").all() as { observed: string; big_miss: number | null }[];
+    expect(done.every((r) => JSON.parse(r.observed).max === 13)).toBe(true);
+    const later = db.raw.prepare("SELECT count(*) AS n FROM forecast_type_log WHERE target > '2026-11-18' AND checked_at IS NOT NULL").get() as { n: number };
+    expect(later.n).toBe(0);
+  });
+});
+
+const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
