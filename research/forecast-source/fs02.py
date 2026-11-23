@@ -100,16 +100,6 @@ def shimizu():
                     print("   ", ln[:200])
 
 
-if __name__ == "__main__":
-    which = sys.argv[1:]
-    for f in [x for x in (shimizu, wdist, wm_points) if not which or x.__name__ in which]:
-        try:
-            f()
-        except Exception as e:
-            import traceback
-            traceback.print_exc()
-            print("[失敗]", f.__name__, e)
-
 
 def wm_points():
     """天気の面を、全部の輪を偶奇で数えて地点ごとに読む（1回目は1つ目の輪を外側・残りを穴とみなして読めなかった）。"""
@@ -141,3 +131,13 @@ def wm_points():
         print(f"[{jst} JST] " + " ".join(f"{k}={v}" for k, v in res.items()))
     f0 = g["features"]
     print("[形]", Counter((f.get("geometry") or {}).get("type") for f in f0), "輪の数", [len((f.get("geometry") or {}).get("coordinates") or []) for f in f0])
+
+if __name__ == "__main__":
+    which = sys.argv[1:]
+    for f in [x for x in (shimizu, wdist, wm_points) if not which or x.__name__ in which]:
+        try:
+            f()
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print("[失敗]", f.__name__, e)
