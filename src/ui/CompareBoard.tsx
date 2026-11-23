@@ -16,6 +16,7 @@ import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
 import type { CalendarSide } from "./CalendarModal";
 import { DateNav } from "./DateNav";
+import { JmaForecastLink, OpenMeteoCredit } from "./SourceCredit";
 import { FeelBar, FeelContext } from "./FeelBar";
 import { Strip, StripSync } from "./Strip";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
@@ -268,7 +269,9 @@ function SourceLegend() {
           <dd>府県・週間の日に、その値だけ Open-Meteo（気象庁の予報に無い値：平均・雨の量 など）</dd>
         </div>
       </dl>
-      <p>日を押すと、値ごとにどの発表の値かが見られます（1日の画面の ⓘ）。</p>
+      <p>
+        補完・点線の値：<OpenMeteoCredit />。気象庁の予報：<JmaForecastLink />。寒暖差は最高−最低を Weather Note が計算。日を押すと、値ごとにどの発表の値かが見られます（1日の画面の ⓘ）。
+      </p>
     </div>
   );
 }

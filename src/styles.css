@@ -5783,3 +5783,8 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .source-legend dl > div { display: grid; grid-template-columns: 3.5em minmax(0, 1fr); gap: var(--space-3); align-items: baseline; }
 .source-legend dd { margin: 0; line-height: 1.5; }
 .source-legend p { margin: var(--space-2) 0 0; color: var(--ink-tertiary); font-size: var(--size-xs); }
+/* 出典のリンク（FS-02）：設定の出典と同じ色。 */
+.dd-prov a,
+.source-legend a {
+  color: var(--accent-base);
+}

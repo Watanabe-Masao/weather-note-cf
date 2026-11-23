@@ -20,7 +20,7 @@ export const SOURCE_TEXT: Record<SourceTag, string> = {
   速報: "気象庁 アメダスの速報（過去の気象データに載る前の直近の日）",
   府県: "気象庁 府県天気予報（いちばん新しい発表）",
   週間: "気象庁 週間天気予報（いちばん新しい発表）。A・B・C は気象庁の信頼度",
-  補完: "Open-Meteo（気象庁の予報が無い日：8日先から、11時の発表までの7日先）。A・B・C は計算のばらつき",
+  補完: "Open-Meteo（気象庁の予報が無い日：8日先から、11時の発表までの7日先）。A・B・C は Open-Meteo のアンサンブル（ECMWF IFS）から Weather Note が計算",
 };
 
 /** 予報の札か（信頼度を添える札）。 */
@@ -85,7 +85,8 @@ export function valueSource(row: WeatherRow | null | undefined, field: keyof Jma
   const from = fields?.map((f) => s?.[f]).filter((x): x is JmaSource => !!x) ?? [];
   if (fields && from.length === fields.length && from.length) {
     const one = from[0];
-    if (one.pop6?.length) return `${issueText(one)}（6時間降水確率のいちばん高い区切り）`;
+    // 気象庁の値に手を入れた所は「気象庁の値」と「Weather Note の計算」を分けて書く（FS-02：「加工して作成」、国が作ったように見せない）。
+    if (one.pop6?.length) return `${issueText(one)}の6時間降水確率から、いちばん高い区切りを Weather Note が選んだ値（加工）`;
     return [...new Set(from.map(issueText))].join("／");
   }
   return isJmaForecastDay(row) ? "Open-Meteo（気象庁の予報に無い値）" : "Open-Meteo（気象庁の予報がまだ無い日）";
@@ -100,3 +101,16 @@ export function jmaValue(row: WeatherRow | null | undefined, key: string): boole
 
 /** 気象庁の値の書き方：整数のまま（「20.0」を「20」に）。 */
 export const jmaText = (text: string) => text.replace(/\.0(?=\D*$)/, "");
+
+/** 寒暖差の出典：最高・最低が両方気象庁なら「気象庁の値から Weather Note が計算」。 */
+export function rangeSource(row: WeatherRow | null | undefined): string | null {
+  const s = sourcesOf(row);
+  if (!s?.max || !s?.min) return null;
+  return `${[...new Set([issueText(s.max), issueText(s.min)])].join("／")}の最高・最低から Weather Note が計算（最高−最低）`;
+}
+
+/** Open-Meteo のリンク（CC BY 4.0：値のそばにリンクとライセンス、FS-02）。 */
+export const OPEN_METEO_URL = "https://open-meteo.com/";
+export const OPEN_METEO_LICENCE_URL = "https://creativecommons.org/licenses/by/4.0/";
+/** 気象庁 府県天気予報（高知県）のページ。 */
+export const JMA_FORECAST_URL = "https://www.jma.go.jp/bosai/forecast/#area_type=offices&area_code=390000";

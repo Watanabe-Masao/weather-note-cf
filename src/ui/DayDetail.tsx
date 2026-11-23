@@ -10,9 +10,10 @@
 // Nothing here is computed anew: the values, hours, parts and words are the ones the comparison
 // screens already use (chartMetrics, dayDetail, dayParts, dayComment).
 
-import { jmaValue, SOURCE_TEXT, sourceTag, valueSource } from "../sourceTag";
+import { isJmaForecastDay, jmaValue, rangeSource, SOURCE_TEXT, sourceTag, valueSource } from "../sourceTag";
+import { JmaForecastLink, OpenMeteoCredit } from "./SourceCredit";
 import { SECTORS, windSummary } from "../../shared/windDirection";
-import { Fragment, useContext, useMemo, useState } from "react";
+import { Fragment, type ReactNode, useContext, useMemo, useState } from "react";
 import { clockOf, dayEdges, dayParts, hoursIn } from "../../shared/dayParts";
 import { hoursWeather } from "../../shared/dayWeather";
 import { provisionalNote } from "../../shared/provisionalNote";
@@ -75,14 +76,32 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   const [rainOpen, setRainOpen] = useState(false);
   // 出どころ（予報の出典、2026-11-23）：予報の日は項目ごとに（気象庁のどの発表か、Open-Meteo か）。実績の日は札の説明。
   const tag = day?.state === "ready" ? sourceTag(row, day.kind) : "";
-  const sources: [string, string][] =
+  // 気象庁の値に手を入れた所（降水確率の選び・寒暖差）は「Weather Note が…」と分けて書く。Open-Meteo はリンクとライセンス（FS-02）。
+  const range = rangeSource(row);
+  const om = (what: string) => (
+    <>
+      <OpenMeteoCredit />
+      {what}
+    </>
+  );
+  const fromJma = (text: string) => (text.startsWith("Open-Meteo") ? om(text.slice("Open-Meteo".length)) : text);
+  const sources: [string, ReactNode][] =
     row?.type === "forecast"
       ? [
-          ["天気", valueSource(row, "dayWeather")!],
-          ["最高・最低", [...new Set([valueSource(row, "max")!, valueSource(row, "min")!])].join("／")],
-          ["降水確率", valueSource(row, "probability")!],
-          ...(conf ? ([["信頼度", `${valueSource(row, "confidence")}（${CONF_TEXT[conf]}）`]] as [string, string][]) : []),
-          ["そのほか", "Open-Meteo（平均・雨の量・湿度・風 など、気象庁の予報に無い値）"],
+          ["天気", fromJma(valueSource(row, "dayWeather")!)],
+          ["最高・最低", fromJma([...new Set([valueSource(row, "max")!, valueSource(row, "min")!])].join("／"))],
+          ...(range ? ([["寒暖差", range]] as [string, ReactNode][]) : []),
+          ["降水確率", fromJma(valueSource(row, "probability")!)],
+          ...(conf
+            ? ([
+                [
+                  "信頼度",
+                  isJmaForecastDay(row) ? `${valueSource(row, "confidence")}（${CONF_TEXT[conf]}）` : om(`のアンサンブル（ECMWF IFS）から Weather Note が計算（${CONF_TEXT[conf]}）`),
+                ],
+              ] as [string, ReactNode][])
+            : []),
+          ["そのほか", om("：平均・雨の量・湿度・風 など、気象庁の予報に無い値")],
+          ...(isJmaForecastDay(row) ? ([["気象庁", <JmaForecastLink key="jma" />]] as [string, ReactNode][]) : []),
         ]
       : [["出どころ", tag ? SOURCE_TEXT[tag] : "—"]];
 
