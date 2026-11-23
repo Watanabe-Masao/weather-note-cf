@@ -5739,3 +5739,25 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .year-standouts b { font-variant-numeric: tabular-nums; }
 .year-month { cursor: pointer; }
 .year-bar-prev { stroke-width: var(--stroke-select); }
+
+/* 気象庁の予報（時間帯のグラフ、府県天気予報の3時間ごとの気温）：白抜きの菱形と値。色は線の色（HourCompare が style で渡す）。 */
+.chart-jma path {
+  fill: var(--surface-base);
+  stroke-width: var(--stroke-select);
+}
+.chart-jma-label {
+  font-size: var(--size-xs);
+}
+.ls-jma-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.ls-jma {
+  width: 12px;
+  height: 12px;
+}
+.ls-jma path {
+  fill: none;
+  stroke-width: var(--stroke-select);
+}

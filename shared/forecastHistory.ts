@@ -59,8 +59,11 @@ export const HISTORY_PLACES: Record<string, { office: string; area: string; poin
   Object.entries(STATION_PLACES).map(([id, p]) => [id, p.forecast]),
 );
 
-/** The elements the screen reads (R6-1). */
-export const HISTORY_ELEMENTS = ["weather", "weather_text", "weather_code", "weather_3h", "pop", "temp_max", "temp_min", "reliability"];
+/**
+ * The elements the screen reads (R6-1). `temp`: 府県天気予報's 3-hourly temperature at the point (高知), drawn
+ * over the day's hourly temperature as 「気象庁の予報」 (2026-11-23).
+ */
+export const HISTORY_ELEMENTS = ["weather", "weather_text", "weather_code", "weather_3h", "pop", "temp_max", "temp_min", "reliability", "temp"];
 
 /** How far back the issues of a day go: 7日前〜当日 (R6-1), and the day before for the first comparison. */
 export const HISTORY_DAYS_BEFORE = 8;

@@ -278,6 +278,8 @@ export class ForecastHistory {
     for (const i of this.sc.issues) {
       const k = `${i.kind}|${i.issued_at}`;
       if (keys.has(k) || (i.kind !== "VPFD51" && i.kind !== "VPFW50")) continue;
+      // 今より先の発表は、定時でなくても出さない（定時の回と同じ決まり）。
+      if (i.issued_at > until) continue;
       if (jstDate(i.issued_at) > day || dayDiff(day, jstDate(i.issued_at)) > 7)
         continue;
       if (this.valuesFor(i, day))
@@ -560,4 +562,43 @@ export function prevOf(all: Slot[], s: Slot): Slot | null {
       .reverse()
       .find((p) => p.kind === s.kind && p.state === "ok" && p.values) ?? null
   );
+}
+
+/** 府県天気予報の3時間ごとの気温（地点）：その日の 0〜24時のどこか（24 は次の日の 0時）。 */
+export interface TempPoint {
+  hour: number;
+  v: number;
+  entry: EntryRow;
+}
+
+/**
+ * 1つの発表の、対象日 `day` の3時間ごとの気温（2026-11-23「今日の予報はどうだったか」）。気象庁の値のまま
+ * （整数、補間しない）。週間天気予報には無いので空。
+ */
+export function tempPoints(h: ForecastHistory, issue: IssueRow | null, day: string): TempPoint[] {
+  if (!issue || issue.kind !== "VPFD51") return [];
+  const start = Date.parse(`${day}T00:00:00+09:00`);
+  const out: TempPoint[] = [];
+  for (const e of h.byIssue.get(issue.issue_id) ?? []) {
+    if (e.element !== "temp" || e.value == null) continue;
+    const hour = (Date.parse(e.valid_from) - start) / H;
+    const v = Number(e.value);
+    if (!Number.isInteger(hour) || hour < 0 || hour > 24 || !Number.isFinite(v)) continue;
+    out.push({ hour, v, entry: e });
+  }
+  return out.sort((a, b) => a.hour - b.hour);
+}
+
+/**
+ * 時間帯のグラフに重ねる発表：選んだ回（予報の移り変わりで押した回）があればそれ。無ければ、その日の朝5時の
+ * 府県天気予報（2026-11-23 渡辺さん「朝5時の発表」）。5時の発表がまだ・無いときは、それより前のいちばん新しい
+ * 府県天気予報（前の日の17時など）。`slots` は ForecastHistory.slots(day, now) のすべて（oneSource の前）。
+ */
+export function tempSlot(slots: Slot[], day: string, picked: string | null): Slot | null {
+  if (picked) {
+    const s = slots.find((z) => z.key === picked);
+    if (s) return s;
+  }
+  const morning = `${day}T05:00:00+09:00`;
+  return [...slots].reverse().find((z) => z.kind === "VPFD51" && z.state === "ok" && !!z.shown && z.at <= morning) ?? null;
 }

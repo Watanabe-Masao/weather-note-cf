@@ -48,6 +48,8 @@ import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
 import { levelOf, type Thresholds } from "../../shared/feel";
 import { Segmented } from "./kit";
 import { SunSheet } from "./SunSheet";
+import { hourOf, md, type Slot, type TempPoint } from "../../shared/forecastHistoryModel";
+import { useJmaTemps } from "./jmaTemps";
 import { personalThresholds, useDayComfortState } from "../beta/useDayComfort";
 import { feelOn } from "../feelSeason";
 
@@ -108,6 +110,9 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   };
 
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings, station), [hours, metricId, settings]);
+  // 気象庁の予報（府県天気予報の3時間ごとの気温、2026-11-23）：気温のときの対象日だけ。
+  const jma = useJmaTemps(station, metricId === "temp" ? date : null);
+  const jmaAt = (h: number) => jma?.points.find((p) => p.hour === h)?.v ?? null;
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings, station), [otherHours, metricId, settings]);
   const air = useMemo(() => (metricId === "feel" ? hourSeries(hours?.rows ?? [], "temp", settings) : null), [hours, metricId, settings]);
   // 手前の平均 (src/hourAverage.ts): each day's own weeks before it, hour by hour. Tapping the legend
@@ -261,6 +266,19 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             b: other ? formatDetail(at(second), metric) : "—",
             diff: other && metric.unit !== "h" ? diffOf(at(main), at(second)) : "",
           },
+          // 気象庁の予報（3時間ごとの時刻だけ値）と、観測との差（観測のある時刻だけ。予報の時間どうしは比べない）。
+          ...(jma?.slot
+            ? [
+                { key: "jma", label: "気象庁の予報", color, a: jmaAt(shownHour) == null ? "—" : String(jmaAt(shownHour)), b: "—", diff: "" },
+                {
+                  key: "jmaDiff",
+                  label: "予報との差",
+                  a: jmaAt(shownHour) != null && at(main) != null && !main[shownHour - 1]?.forecast ? signedDiff(at(main), jmaAt(shownHour), metric.unit) || "—" : "—",
+                  b: "—",
+                  diff: "",
+                },
+              ]
+            : []),
           // The same hour over each day's own weeks before it, and how far the day is from that.
           ...(avgMain || avgOther
             ? [
@@ -323,6 +341,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         air={air}
         avgMain={avgMain}
         avgOther={avgOther}
+        jma={jma?.points}
         axisExtra={axisExtra}
         dim={dim}
         ranges={levelRanges(bands === "you" && personal ? personal : dayFeel.thresholds, settings.scale)}
@@ -424,6 +443,14 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           <i className="ls-forecast" />
           予報
         </span>
+        {jma?.slot && (
+          <span className="ls-jma-item">
+            <svg className="ls-jma" viewBox="-6 -6 12 12" aria-hidden>
+              <path d={DIAMOND(4)} style={{ stroke: color }} />
+            </svg>
+            {jmaLabel(jma.slot)}
+          </span>
+        )}
         <button className="avg-window" onClick={stepWindow} aria-label={`${avgWord}の期間（今は手前${WINDOW_LABEL[avgWindow]}）。押すと切り替え`}>
           {avgWord} <b>{WINDOW_LABEL[avgWindow]}</b>
           <span className="steps" aria-hidden>
@@ -439,7 +466,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           </span>
         )}
       </p>
-      <InfoNote more={<>時刻の下の天気は、その時刻の前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}。薄いのは日照と降水からの推定です。「—」は、その時刻の前後に気象庁の天気の記録が無い時間です（取り損ねではありません。夜は日照も無いので推定もしません。先の時間は予報が出ていれば予報の天気）。凡例の線の名前を押すと、その線を薄くできます。</>} />
+      <InfoNote more={<>{jma?.slot ? <>◇ は気象庁の府県天気予報の3時間ごとの気温（高知、整数）で、予報の移り変わりで選んだ回、選んでいなければその日の朝5時の発表です（5時の発表がまだ無ければ、その前の発表）。点だけで、間は埋めません。週間天気予報には3時間ごとの気温がありません。</> : null}時刻の下の天気は、その時刻の前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}。薄いのは日照と降水からの推定です。「—」は、その時刻の前後に気象庁の天気の記録が無い時間です（取り損ねではありません。夜は日照も無いので推定もしません。先の時間は予報が出ていれば予報の天気）。凡例の線の名前を押すと、その線を薄くできます。</>} />
       </div>
     </div>
   );
@@ -771,6 +798,15 @@ function LegendLine({ look, label, on, onToggle }: { look: LineLook; label: stri
   );
 }
 
+/** 菱形（中心 0,0、半径 r）。 */
+const DIAMOND = (r: number) => `M0 ${-r}L${r} 0L0 ${r}L${-r} 0Z`;
+
+/** 凡例の名前：どの発表の値か（出典）。 */
+function jmaLabel(s: Slot): string {
+  const when = `${md(s.at.slice(0, 10))} ${hourOf(s.at)}時`;
+  return s.kind === "VPFD51" ? `気象庁 ${when}発表` : `気象庁 週間 ${when}発表（3時間ごとの気温なし）`;
+}
+
 function HourChart({
   metricId,
   main,
@@ -778,6 +814,7 @@ function HourChart({
   air,
   avgMain,
   avgOther,
+  jma,
   axisExtra,
   dim,
   ranges,
@@ -819,6 +856,8 @@ function HourChart({
   air: HourPoint[] | null;
   /** Each day's own weeks before it (手前の平均), hour by hour. */
   avgMain?: HourPoint[] | null;
+  /** 気象庁の予報：府県天気予報の3時間ごとの気温（点で、線にしない）。 */
+  jma?: TempPoint[];
   /** Values the axis must hold besides the lines shown (every span's averages, so switching the span keeps the axis). */
   axisExtra?: number[];
   avgOther?: HourPoint[] | null;
@@ -845,7 +884,7 @@ function HourChart({
   const w = useDrawnWidth(ref, [], 320);
 
   const metric = detailMetric(metricId);
-  const values = [main, second ?? [], air ?? [], avgMain ?? [], avgOther ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null).concat(axisExtra ?? []);
+  const values = [main, second ?? [], air ?? [], avgMain ?? [], avgOther ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null).concat(axisExtra ?? [], (jma ?? []).map((p) => p.v));
   // Round ticks (10 / 15 / 20): the padded data range widened to whole steps.
   const range = axisRange(values, metric);
   const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
@@ -1113,6 +1152,15 @@ function HourChart({
               .map(([k, pts, look]) => (
                 <g key={k}>{line(pts!, look)}</g>
               ))}
+            {/* 気象庁の予報：白抜きの菱形と値（線の色、形で「予報の点」と分かる）。 */}
+            {(jma ?? []).map((p) => (
+              <g key={`jma${p.hour}`} className="chart-jma">
+                <path d={DIAMOND(4.5)} transform={`translate(${xOf(p.hour)} ${yOf(p.v)})`} style={{ stroke: color }} />
+                <text x={Math.min(xOf(p.hour), xOf(24) - 6)} y={yOf(p.v) - 8} textAnchor="middle" style={{ fill: color }} className="chart-jma-label">
+                  {p.v}
+                </text>
+              </g>
+            ))}
             {[main, ...(second ? [second] : [])].map((s, k) => {
               const p = s[hour - 1];
               const c = (k ? d.other : d.main) ? LINE.dimmed : color;
