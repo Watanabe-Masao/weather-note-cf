@@ -71,6 +71,10 @@ def load_wx_pop(folder):
             wx = s.get("wx1") if lead <= 2 else s.get("wxw")
             if wx:
                 v["wx"] = wx
+            if s.get("wx1"):
+                v["wx_中部"] = s["wx1"]
+            if s.get("wxw"):
+                v["wx_高知県"] = s["wxw"]
             if lead == 1 and len(s["pop6"]) >= 3:
                 v["pop"] = max(s["pop6"])
             elif lead >= 2 and "popw" in s:
