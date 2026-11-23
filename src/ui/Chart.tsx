@@ -3,6 +3,7 @@
 // outlined) and lighter. Forecast days are a hatched background with 予報 at the top.
 // Missing values break the line (never interpolated).
 
+import { jmaValue } from "../sourceTag";
 import type { DataColor } from "../design/tokens";
 import { usualLightOf } from "../light";
 import { useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -357,8 +358,9 @@ export function Chart({ store, station, target, partner, metric, height = 190, o
               color: COLORS[s.tone],
               // 肌感 is an index, not a temperature (D18): no ℃ on its row.
               ...(s.key === "feel" ? { unit: "" } : {}),
-              a: a == null ? "—" : a.toFixed(d),
-              b: b == null ? "—" : b.toFixed(d),
+              // 気象庁の予報の値は整数のまま（src/sourceTag.ts）。
+              a: a == null ? "—" : jmaValue(store?.getDay(station, shownDay).row, s.key) ? String(a) : a.toFixed(d),
+              b: b == null ? "—" : shownPartner && jmaValue(store?.getDay(station, shownPartner).row, s.key) ? String(b) : b.toFixed(d),
               diff: signedDiff(a, b, d),
             };
           })}

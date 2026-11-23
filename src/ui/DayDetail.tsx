@@ -10,8 +10,9 @@
 // Nothing here is computed anew: the values, hours, parts and words are the ones the comparison
 // screens already use (chartMetrics, dayDetail, dayParts, dayComment).
 
+import { jmaValue, SOURCE_TEXT, sourceTag, valueSource } from "../sourceTag";
 import { SECTORS, windSummary } from "../../shared/windDirection";
-import { useContext, useMemo, useState } from "react";
+import { Fragment, useContext, useMemo, useState } from "react";
 import { clockOf, dayEdges, dayParts, hoursIn } from "../../shared/dayParts";
 import { hoursWeather } from "../../shared/dayWeather";
 import { provisionalNote } from "../../shared/provisionalNote";
@@ -72,7 +73,18 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   // この日の値の出どころは ⓘ で開く（2026-11-18 渡辺さん「出どころは ⓘ でいい」）。暫定の日は待っているものも。
   // 雨の見込みは「今」のものなので、今日の 1日モードにだけ（RainNowCard）。押すと地図のシート。
   const [rainOpen, setRainOpen] = useState(false);
-  const source = row?.type === "forecast" ? `気象庁の予報${conf ? `（${CONF_TEXT[conf]}）` : ""}` : `気象庁の観測（${kindLabel(store, station, date) || "—"}）`;
+  // 出どころ（予報の出典、2026-11-23）：予報の日は項目ごとに（気象庁のどの発表か、Open-Meteo か）。実績の日は札の説明。
+  const tag = day?.state === "ready" ? sourceTag(row, day.kind) : "";
+  const sources: [string, string][] =
+    row?.type === "forecast"
+      ? [
+          ["天気", valueSource(row, "dayWeather")!],
+          ["最高・最低", [...new Set([valueSource(row, "max")!, valueSource(row, "min")!])].join("／")],
+          ["降水確率", valueSource(row, "probability")!],
+          ...(conf ? ([["信頼度", `${valueSource(row, "confidence")}（${CONF_TEXT[conf]}）`]] as [string, string][]) : []),
+          ["そのほか", "Open-Meteo（平均・雨の量・湿度・風 など、気象庁の予報に無い値）"],
+        ]
+      : [["出どころ", tag ? SOURCE_TEXT[tag] : "—"]];
 
   // グラフの項目を選ぶ（値つき）：24時間のグラフのすぐ上に小さく並べる（2026-11-18 渡辺さん「連動しているのに離れていて長い」）。
   // 押した項目の残りの値（平均・寒暖差など）は、並びの下の1行に。
@@ -153,9 +165,9 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
       <div className="dd-hero">
         <span className="dd-pic">{row ? <DayWeatherIcon row={row} station={station} size={52} /> : <span className="skeleton icon" />}</span>
         <span className="dd-temps">
-          <span className="tone-hot">{max == null ? "—" : max.toFixed(1)}</span>
+          <span className="tone-hot">{max == null ? "—" : !split && jmaValue(row, "max") ? String(max) : max.toFixed(1)}</span>
           <span className="dd-slash">/</span>
-          <span className="tone-cold">{min == null ? "—" : min.toFixed(1)}</span>
+          <span className="tone-cold">{min == null ? "—" : !split && jmaValue(row, "min") ? String(min) : min.toFixed(1)}</span>
           <small>℃</small>
         </span>
         <span className="dd-kind">
@@ -175,14 +187,18 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
       {!prov && provOpen && row && (
         <div className="dd-prov plain">
           <dl>
-            <dt>出どころ</dt>
-            <dd>{source}</dd>
+            {sources.map(([k, v]) => (
+              <Fragment key={k}>
+                <dt>{k}</dt>
+                <dd>{v}</dd>
+              </Fragment>
+            ))}
           </dl>
         </div>
       )}
       {prov && provOpen && (
         <div className="dd-prov">
-          <p className="dd-prov-lead">暫定：まだ確定していない値です</p>
+          <p className="dd-prov-lead">{tag || "暫定"}：まだ確定していない値です</p>
           <dl>
             <dt>いまの値</dt>
             <dd>{prov.source}</dd>

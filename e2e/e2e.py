@@ -171,6 +171,22 @@ def api(path, q):
             if d < TODAY: rows.append(row(d))
             d += datetime.timedelta(days=1)
         return {"station": "47893", "month": q["month"], "rows": rows, "fixed": True, "source": None, "fetchedAt": ""}
+    if path == "/api/forecast-official":
+        # 予報の出典（2026-11-23）: made-up — 今日・明日は府県天気予報の 11時、2〜6日先は週間天気予報の 11時。7日先から
+        # は無い（画面は Open-Meteo の「補完」）。
+        def src(kind): return {"kind": kind, "issuedAt": f"{TODAY.isoformat()}T11:00:00+09:00", "issueId": f"kari:{kind}", "place": "74182", "placeName": "高知"}
+        days = []
+        for n in range(0, 7):
+            d = TODAY + datetime.timedelta(days=n)
+            k = "VPFD51" if n < 2 else "VPFW50"
+            base = row0(d, "forecast")
+            v = lambda x, lo=None, up=None: {"v": x, "lower": lo, "upper": up, "from": src(k)}
+            days.append({"date": d.isoformat(), "weather": {"v": {"code": "101", "label": "晴れ時々くもり", "partial": None}, "from": src(k)},
+                         "max": v(round(base["max"]), *( (round(base["max"]) - 2, round(base["max"]) + 2) if k == "VPFW50" else (None, None))),
+                         "min": v(round(base["min"])), "popDay": v(30) if k == "VPFW50" else None,
+                         "pop6": [v(x) for x in (10, 20, 30, 10)] if k == "VPFD51" else [None, None, None, None],
+                         "reliability": v("B") if n >= 3 else None})
+        return {"v": 1, "station": "47893", "today": TODAY.isoformat(), "supported": True, "places": {"office": "390000", "area": "390010", "point": "74182"}, "days": days}
     if path == "/api/forecast":
         rows = [dict(row(TODAY + datetime.timedelta(days=i), "forecast"), probability=[10, 30, 70, 50, 20, 0, 40, 60][i % 8], radiation=round(6 + i * 0.7, 1), confidence=("A" if i < 3 else "B" if i < 8 else "C") if i < 15 else None) for i in range(16)]
         import math
@@ -1311,7 +1327,7 @@ with sync_playwright() as p:
         pg.locator(".dd-kind .info-btn").click(); calm()
         src = pg.locator(".dd-prov").inner_text() if pg.locator(".dd-prov").count() else ""
         pg.locator(".dd-kind .info-btn").click(); calm()
-        check("SD7a 予報の日：ⓘ で出どころが開き、暫定の説明は出ない、「根拠と記録」に出どころの行は無い", closed0 and "出どころ" in src and "気象庁の予報" in src and "暫定" not in src and pg.locator(".dd-basis", has_text="出どころ").count() == 0, src[:80])
+        check("SD7a 予報の日：ⓘ で出どころが項目ごとに開き（気象庁のどの発表か・そのほか Open-Meteo）、暫定の説明は出ない、「根拠と記録」に出どころの行は無い", closed0 and "府県天気予報" in src and "Open-Meteo" in src and "最高・最低" in src and "暫定" not in src and pg.locator(".dd-basis", has_text="出どころ").count() == 0, src[:80])
         pg.locator("button[aria-label$='1日前へ']").first.click(); calm()
         settle(lambda: pg.locator(".dd-kind .info-btn").count() == 1, 5)
         check("SD7d 暫定の日：ふだんは「暫定 ⓘ」だけ（説明は閉じている）", pg.locator(".dd-kind .info-btn").count() == 1 and pg.locator(".dd-prov").count() == 0)
