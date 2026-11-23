@@ -139,11 +139,13 @@ D1 は1つ（バインディング `DB`）、原本のファイルは R2（`ARCH
 
 | 分け | 表 | 中身 |
 | --- | --- | --- |
-| 気象 | `forecast_telegrams`・`forecast_issues`・`forecast_entries`・`forecast_fetch_log`・`forecast_imports`・`forecast_alerts`・`typhoon_telegrams`・`typhoon_fetch_log`・`typhoon_json_log`・`typhoon_alerts`・`warning_telegrams`・`warning_fetch_log`・`longrange_telegrams`・`longrange_fetch_log`・`radar_saved`・`radar_fetch_log`・`amedas_saved`・`amedas_fetch_log`・`air_quality_hourly`・`air_quality_fetch_log`・`soramame_hourly`・`soramame_fetch_log`・`wxchart_saved`・`wxchart_fetch_log`・`archive_copies`・`source_listed`・`data_gaps`・`data_absent` | 公開の気象情報と、その取得の記録・欠け。人を指す列は持たない |
+| 気象 | `forecast_telegrams`・`forecast_issues`・`forecast_entries`・`forecast_fetch_log`・`forecast_imports`・`forecast_alerts`・`forecast_type_log`・`typhoon_telegrams`・`typhoon_fetch_log`・`typhoon_json_log`・`typhoon_alerts`・`warning_telegrams`・`warning_fetch_log`・`longrange_telegrams`・`longrange_fetch_log`・`radar_saved`・`radar_fetch_log`・`amedas_saved`・`amedas_fetch_log`・`air_quality_hourly`・`air_quality_fetch_log`・`soramame_hourly`・`soramame_fetch_log`・`wxchart_saved`・`wxchart_fetch_log`・`archive_copies`・`source_listed`・`data_gaps`・`data_absent` | 公開の気象情報と、その取得の記録・欠け。人を指す列は持たない |
 | ユーザー | `users`・`sessions`・`session_reauth`・`schema_version`・`reports`・`consents`・`research_withdrawals`・`push_subscriptions`・`server_keys`・`notify_settings`・`notify_log`・`typhoon_notify_settings`・`typhoon_notify_log`・`export_log`・`export_tokens` | アカウント・肌感の記録・同意・通知。研究に出すときは研究用の番号で（#55） |
-| 運用 | `cron_runs`・`health_checks`・`health_alerts`・`app_errors`・`refetch_log`・`schema_migrations`・`weekly_audit`・`offsite_copies`・`offsite_state`・`offsite_log` | 定時処理・見張り・エラー・取り直し・週の点検・ドライブの控えの記録。数と時刻が主。エラーの文言と押した管理者は管理者の画面だけに出す |
+| 運用 | `cron_runs`・`health_checks`・`health_alerts`・`app_errors`・`refetch_log`・`schema_migrations`・`weekly_audit`・`forecast_type_runs`・`offsite_copies`・`offsite_state`・`offsite_log` | 定時処理・見張り・エラー・取り直し・週の点検・ドライブの控えの記録。数と時刻が主。エラーの文言と押した管理者は管理者の画面だけに出す |
 
 **表の作りの変更**（2026-11-19）：表は各ファイルの `CREATE TABLE IF NOT EXISTS` で作り、作ったあとの変更（列を足すなど）は `worker/src/migrate.ts` の `migrate` で部分ごとの版として1回ずつ当て、`schema_migrations` に残す。版は足すだけで、当て終わった版は書き換えない（直すときは次の版）。消す・作り直す変更は元に戻せないので、個別に確かめてから。アカウントの `schema_version`（v1）は前からのもので、そのまま。
+
+**予報が外れやすい型の影の運用**（2026-11-24）：固定した型（`shared/forecastTypes.ts`、FS-05・FS-06）に、気象庁の予報が当てはまるかを毎日（日本時間の2時台）判定して `forecast_type_log` に残し（当てはまらない件も分母として）、対象日が2日以上前になったら気象庁の日の表の最高・最低・降水量で答え合わせを付ける。予報どうしは混ぜない（材料は気象庁の予報だけ）、答え合わせは気象庁の観測。画面には出さない。引き受けた日と件数は `forecast_type_runs`（`worker/src/forecastTypeWatch.ts`）。
 
 **週の点検**（2026-11-22、#370）：週に1回（日本時間の3時台）、保存している系列（アメダスの原本・雨雲と解析雨量・天気図の実況・空気質・そらまめ・予報の電文・長い先の予報の電文）を**取り始めから今まで**の全期間で見て、「最新」（いちばん新しい時刻が新しいか）と「履歴」（途中に抜けが無いか）を分けて数える。R2 に置いたはずのファイルも毎回20件選んで、実物と大きさを確かめる。読むだけで、何も消さない。結果は `weekly_audit`（60回分）に残し、保守の画面と毎朝の点検に出す（`worker/src/weeklyAudit.ts`、手引き R-12）。
 

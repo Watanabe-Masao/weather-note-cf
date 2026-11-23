@@ -39,6 +39,13 @@ export type LeadLookup = (t: string, L: number) => LeadForecast | undefined;
 
 export interface ForecastType {
   id: string;
+  /**
+   * "candidate"：合格すれば画面に出す候補（FS-05 のおすすめ）。"watch"：様子を見るだけ（件数が少なく確かめられなかった、
+   * FS-06）。どちらも画面には出さず、毎日の判定と答え合わせを続ける。
+   */
+  stage: "candidate" | "watch";
+  /** 固定した日（あとから条件を変えない） */
+  frozenAt: string;
   /** FS-05 の表の記号 */
   fs05: string;
   item: TypeItem;
@@ -84,6 +91,8 @@ function dayChange(t: string, L: number, fc: LeadLookup, k: "max" | "min"): numb
 export const FORECAST_TYPES: ForecastType[] = [
   {
     id: "A-min-raised-L1",
+    stage: "candidate",
+    frozenAt: TYPES_FROZEN_AT,
     fs05: "A",
     item: "min",
     leads: [1],
@@ -98,6 +107,8 @@ export const FORECAST_TYPES: ForecastType[] = [
   },
   {
     id: "B-max-rain-L2-3",
+    stage: "candidate",
+    frozenAt: TYPES_FROZEN_AT,
     fs05: "B・B'",
     item: "max",
     leads: [2, 3],
@@ -112,6 +123,8 @@ export const FORECAST_TYPES: ForecastType[] = [
   },
   {
     id: "B-max-rain-L4-7",
+    stage: "candidate",
+    frozenAt: TYPES_FROZEN_AT,
     fs05: "B''",
     item: "max",
     leads: [4, 5, 6, 7],
@@ -126,6 +139,8 @@ export const FORECAST_TYPES: ForecastType[] = [
   },
   {
     id: "G-rain-summer-cloudy-L2-3",
+    stage: "candidate",
+    frozenAt: TYPES_FROZEN_AT,
     fs05: "G",
     item: "rainMiss",
     leads: [2, 3],
@@ -136,6 +151,8 @@ export const FORECAST_TYPES: ForecastType[] = [
   },
   {
     id: "G-rain-summer-cloudy-L4-7",
+    stage: "candidate",
+    frozenAt: TYPES_FROZEN_AT,
     fs05: "G'",
     item: "rainMiss",
     leads: [4, 5, 6, 7],
@@ -146,6 +163,8 @@ export const FORECAST_TYPES: ForecastType[] = [
   },
   {
     id: "E-min-turning-drop-L4-7",
+    stage: "candidate",
+    frozenAt: TYPES_FROZEN_AT,
     fs05: "E",
     item: "min",
     leads: [4, 5, 6, 7],
@@ -161,6 +180,8 @@ export const FORECAST_TYPES: ForecastType[] = [
   },
   {
     id: "C-max-moved-L2-3",
+    stage: "candidate",
+    frozenAt: TYPES_FROZEN_AT,
     fs05: "C",
     item: "max",
     leads: [2, 3],
@@ -171,6 +192,8 @@ export const FORECAST_TYPES: ForecastType[] = [
   },
   {
     id: "C-max-moved-L4-6",
+    stage: "candidate",
+    frozenAt: TYPES_FROZEN_AT,
     fs05: "C''",
     item: "max",
     leads: [4, 5, 6],
@@ -178,6 +201,26 @@ export const FORECAST_TYPES: ForecastType[] = [
     direction: null,
     expected: { ratio: 1.59, ci: [1.33, 1.87], hitRate: 0.44, baseRate: 0.28 },
     match: (t, L, fc) => moved(t, L, fc),
+  },
+  {
+    id: "W-max-autumn-falling-L1-3",
+    stage: "watch",
+    frozenAt: "2026-11-24",
+    fs05: "FS-06",
+    item: "max",
+    leads: [1, 2, 3],
+    text: "秋に、最高気温の予報が下がり続けた日は外れやすい（様子を見る候補）",
+    direction: null,
+    // FS-06（PR #459、fs06b.py）：66件、大外れ ふだんの 2.04 倍（1.10〜3.04）。件数が少なく確かめられなかった。
+    expected: { ratio: 2.04, ci: [1.1, 3.04], hitRate: 0, baseRate: 0 },
+    // 8〜11月、7日前から L 日前までの並びで、どの発表でも前の発表より上がっておらず、7日前より 2℃以上下がっている
+    match: (t, L, fc) => {
+      if (![8, 9, 10, 11].includes(month(t))) return false;
+      const s = seq(t, L, fc, "max");
+      if (!s) return false;
+      for (let i = 0; i < s.length - 1; i++) if (s[i] > s[i + 1]) return false;
+      return s[0] - s[s.length - 1] <= -2;
+    },
   },
 ];
 

@@ -19,6 +19,7 @@ import { collectForecasts } from "./forecastArchive";
 import { collectWarnings } from "./warningArchive";
 import { parseForecasts } from "./forecastParse";
 import { forecastHistory, forecastIssue, forecastOfficial } from "./forecastHistory";
+import { runForecastTypes } from "./forecastTypeWatch";
 import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { saveRadar } from "./radarArchive";
@@ -298,7 +299,9 @@ export default {
         // 警報・注意報の電文 (高知県, warningArchive.ts): before the reading too — a telegram missed for 7 days cannot be taken again.
         .then(stage("warning archive", (d) => collectWarnings(d)))
         // Then read what was kept: values with their times, for the history (forecastParse.ts).
-        .then(stage("forecast parse", (d) => parseForecasts(d))),
+        .then(stage("forecast parse", (d) => parseForecasts(d)))
+        // 予報が外れやすい型の影の運用（forecastTypeWatch.ts、11/24）：日本時間の2時台に1回、判定と答え合わせ。画面には出さない。
+        .then(stage("forecast types", (d) => runForecastTypes(d, event.scheduledTime))),
     );
     // 毎時の見張り (healthWatch.ts), apart from the rest: once an hour (most runs only find it is not due,
     // one statement), /api/health judged and the administrators told when a problem starts or is over.
