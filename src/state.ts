@@ -4,6 +4,7 @@
 // Independent: each side moves on its own. Switching back to linked keeps the current pair by
 // turning the gap into a custom offset (spec decision).
 
+import stationList from "../shared/stations.json";
 import { useCallback, useEffect, useState } from "react";
 import { addDays, FIRST_DAY, isDay, jstToday } from "../shared/dates";
 import { clampDay, type CompareMode, matchDate, offsetOf, presetOf, targetBounds } from "./compare";
@@ -38,6 +39,8 @@ export interface ViewState {
 }
 
 const SAVED = "weather-note:view";
+/** 前の番号 → 今の番号（shared/stations.json を直したとき）。 */
+const RENAMED_STATIONS: Record<string, string> = { "47896": "47899" };
 /** The days being looked at, for this session only: a reload (a new version, pwa.ts) keeps them. */
 const SESSION = "weather-note:view-days";
 const DEFAULTS: Omit<ViewState, "target" | "compare"> = {
@@ -50,6 +53,12 @@ const DEFAULTS: Omit<ViewState, "target" | "compare"> = {
   single: false,
 };
 
+/** 覚えていた地点の番号を、今の一覧の番号に（直した番号は新しい番号へ、一覧に無ければ高知）。 */
+export function knownStation(id: unknown): string {
+  const s = typeof id === "string" ? (RENAMED_STATIONS[id] ?? id) : "";
+  return (stationList as { blockNo: string }[]).some((x) => x.blockNo === s) ? s : DEFAULTS.station;
+}
+
 function load(today: string): ViewState {
   let saved: Partial<ViewState> = {};
   try {
@@ -58,6 +67,9 @@ function load(today: string): ViewState {
     // Storage blocked or corrupt: start from defaults.
   }
   const base = { ...DEFAULTS, ...saved };
+  // 番号を直した地点（2026-11-23、FS-02：室戸岬は気象庁の 47899。47896 では気象庁の表が開けなかった）。
+  // 前の番号を覚えていたら新しい番号に。一覧に無い地点は既定（高知）に戻す。
+  base.station = knownStation(base.station);
   base.metric = knownMetric(base.metric);
   base.single = base.single === true;
   try {
