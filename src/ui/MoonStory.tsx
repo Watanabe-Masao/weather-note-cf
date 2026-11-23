@@ -158,6 +158,14 @@ export function beatSeconds(lines: string[], rests: number[] = [], holdLast = fa
 export const pauseSum = (p?: number[]) => (p ?? []).reduce((a, b) => a + b, 0);
 /** 最後のページで、読み終えてから文が消えはじめるまでの秒。 */
 export const LAST_TAIL = 1.6;
+
+/**
+ * 一字が浮かび切るまで（11/24）：絵本の形のページは秒で決める（CHAR_FADE_SEC）。前はコマの長さの 12%（拍）で決めていて、
+ * 行の前の間で長くなったページ（コールドムーンの9ページは約40秒）では一字に4〜5秒かかり、最後の「。」が浮かび切る前に
+ * 文が消え始めていた。字が出始める時刻（朗読の間）は変えない。絵本でない物語は前のまま（拍の 12%）。
+ */
+export const CHAR_FADE_SEC = 0.6;
+export const charFadeBeats = (secsPerBeat: number, book: boolean) => (book ? CHAR_FADE_SEC / Math.max(secsPerBeat, 0.001) : 0.12);
 /**
  * 文の出入り（コマの中の位置、11/21 レビュー）：止まる所（BEAT_REST）を過ぎて送りはじめたら、すぐ消しはじめて短く消す。
  * 次のページの文は、そのコマの頭より CAP_LEAD 前から出しはじめる（前の文が消えてから1秒ほどで出はじめる）。
@@ -834,7 +842,7 @@ export function MoonStory({
                 { opacity: 0 },
                 {
                   opacity: 1,
-                  duration: 0.12,
+                  duration: charFadeBeats(secs, !!story?.book),
                   ease: "power1.out",
                   // 朗読の間：一字ずつ、読む時刻に合わせて（読点・句点で間をおく）。
                   stagger: (k: number) => {

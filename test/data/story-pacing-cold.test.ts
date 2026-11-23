@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fullMoonInfo } from "../../shared/fullMoonNames";
-import { BEAT_REST, beatSeconds, CAP_LEAD, LAST_TAIL, pauseSum, readingTimes, revealTimes, tateNum } from "../../src/ui/MoonStory";
+import { BEAT_REST, beatSeconds, CAP_LEAD, CHAR_FADE_SEC, charFadeBeats, LAST_TAIL, pauseSum, readingTimes, revealTimes, tateNum } from "../../src/ui/MoonStory";
 import { COLD_CUES, COLD_LINE_PAUSE } from "../../src/design/story/ColdWorld";
 
 // コールドムーンの間（11/23 レビュー「言葉ごとの間を活かす」）：行の前の間（linePause）と言葉の合図（cues）。
@@ -60,6 +60,19 @@ describe("コールドムーンの間", () => {
     const i = lines.length - 1;
     const fadeEnd = 0.06 + (readingTimes(tateNum(lines[i])).total + pauseSum(pauses[i]) + LAST_TAIL) / secs[i] + 0.06;
     expect((BEAT_REST - fadeEnd) * secs[i]).toBeCloseTo(3, 1);
+  });
+  it("どのページも、最後の字が浮かび切ってから文が消え始める（一字は秒で浮かぶ、長いページでも遅くならない）", () => {
+    lines.forEach((line, i) => {
+      // 一字の浮かぶ時間は、拍の長さによらず CHAR_FADE_SEC 秒
+      expect(charFadeBeats(secs[i], true) * secs[i]).toBeCloseTo(CHAR_FADE_SEC, 5);
+      if (i !== lines.length - 1) return;
+      // 最後のページ：最後の字が出始める時刻 + 浮かぶ時間 < 文が消え始める時刻（LAST_TAIL のうちに浮かび切り、残りの間は全部見える）
+      const t = revealTimes(tateNum(line), secs[i], undefined, pauses[i]);
+      const lastStart = t[t.length - 1] - 0.06;
+      const fadeAt = (readingTimes(tateNum(line)).total + pauseSum(pauses[i]) + LAST_TAIL) / secs[i];
+      expect(lastStart + charFadeBeats(secs[i], true)).toBeLessThan(fadeAt);
+      expect((fadeAt - lastStart - charFadeBeats(secs[i], true)) * secs[i]).toBeGreaterThan(0.5);
+    });
   });
   it("9ページは、飛び出す → 止まった絵で2行目 → 西へ向く間 → 3行目 → 余白 → 名前、の順", () => {
     const [fly, morning, west, name] = [0, 1, 2, 3].map((k) => cueBeat(8, k));
