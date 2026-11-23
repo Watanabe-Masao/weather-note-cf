@@ -7,6 +7,7 @@
 // then docks under the sheet's head (outside the scrolling area, covering nothing); tapping it
 // scrolls back up.
 
+import { dayFigure } from "../sourceTag";
 import { type SourceTag, sourceTag } from "../sourceTag";
 import { type ReactNode, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CalendarSide } from "./CalendarModal";
@@ -199,14 +200,15 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     r("pMin", "pressure", "気圧最低", UNIT.pressure, hourlyExtreme(hoursOf(target), "pressure", "min"), hourlyExtreme(hoursOf(other), "pressure", "min"), "pressureLow"),
   ];
 
-  const value = (v: number | null, row: Row) =>
+  // 日の値の書き方は表と同じ（気象庁の値は整数のまま、src/sourceTag.ts dayFigure、2026-11-24）。
+  const value = (v: number | null, row: Row, day: WeatherRow | null) =>
     v == null ? (
       <span className="cs-none">—</span>
     ) : (
       // The number alone, in a box of one width (#151 grid): right-aligned, so the decimal points
       // stand in one line down each side.
       <span className="cs-num">
-        {v.toFixed(row.digits)}
+        {dayFigure(day, row.key, v, row.digits)}
       </span>
     );
 
@@ -346,7 +348,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
 
       {rows.map((r) => (
         <div key={r.key} className={r.metric === metric ? "cs-row chosen" : "cs-row"}>
-          <span className={`cs-val cs-a${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.a, r)}</span>
+          <span className={`cs-val cs-a${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.a, r, a)}</span>
           {/* The unit once, after the name (as in the readouts); the difference right-aligned in its column. */}
           <span className="cs-mid cs-grid">
             <span className="cs-label">
@@ -357,7 +359,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
               {signedDiff(r.a, r.b, r.digits)}
             </span>
           </span>
-          <span className={`cs-val cs-b${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.b, r)}</span>
+          <span className={`cs-val cs-b${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.b, r, b)}</span>
         </div>
       ))}
 

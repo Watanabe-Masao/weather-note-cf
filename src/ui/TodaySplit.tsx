@@ -46,16 +46,35 @@ export function splitToday(rows: WeatherRow[] | null) {
   return { rows: sorted, obs, fc, max: pick(obs.max, fc.max, true), min: pick(obs.min, fc.min, false) };
 }
 
+/** 出す値：n はその時刻（日の行の値に置きかえたときは null：気象庁の日の値には時刻が無い）。 */
+type Fig = { v: number; n: number | null };
+/** 出す区切り：最高・最低は Fig。 */
+type Shown = Omit<Part, "max" | "min"> & { max: Fig | null; min: Fig | null };
+type Split = NonNullable<ReturnType<typeof splitToday>>;
+
 const t1 = (v: number | null | undefined) => (v == null ? "—" : v.toFixed(1));
+/** 時間の値は小数1桁、日の行の値（時刻なし＝気象庁の日の値など）は表と同じ書き方（整数のまま）。 */
+const fig = (m: { v: number; n: number | null }) => (m.n == null && Number.isInteger(m.v) ? String(m.v) : m.v.toFixed(1));
+
+/**
+ * 「このあと」の最高・最低を、その日の値（表と同じ日の行、2026-11-24 渡辺さん「揃えてください」）にそろえる：
+ * その日の最高がまだ来ていない（ここまでの観測より高い）なら、このあとの最高は日の最高。最低も同じ。
+ * もう過ぎていれば時間の値のまま（観測は事実）。時間ごとの線（Curve）は時間の値のまま。
+ */
+export function withDay(s: Split, day: { max: number | null; min: number | null }): Omit<Split, "fc"> & { fc: Shown } {
+  const max: Fig | null = day.max != null && (!s.obs.max || day.max > s.obs.max.v) ? { v: day.max, n: null } : s.fc.max;
+  const min: Fig | null = day.min != null && (!s.obs.min || day.min < s.obs.min.v) ? { v: day.min, n: null } : s.fc.min;
+  return { ...s, fc: { ...s.fc, max, min } };
+}
 
 /** One line about the rest of the day: has the high already been, will it get colder or wetter. */
-export function restWord(s: NonNullable<ReturnType<typeof splitToday>>): string {
+export function restWord(s: { obs: Part; fc: Shown }): string {
   const out: string[] = [];
   if (s.obs.max && s.fc.max) {
     if (s.obs.max.v >= s.fc.max.v) out.push(`今日の最高は${s.obs.max.n}時の ${s.obs.max.v.toFixed(1)}℃ で、もう過ぎました`);
-    else out.push(`最高はこのあと ${s.fc.max.n}時ごろ ${s.fc.max.v.toFixed(1)}℃ の見込み`);
+    else out.push(`最高はこのあと${s.fc.max.n != null ? ` ${s.fc.max.n}時ごろ` : ""} ${fig(s.fc.max)}℃ の見込み`);
   }
-  if (s.fc.min && s.obs.min && s.fc.min.v < s.obs.min.v) out.push(`夜は ${s.fc.min.v.toFixed(1)}℃ まで下がりそう`);
+  if (s.fc.min && s.obs.min && s.fc.min.v < s.obs.min.v) out.push(s.fc.min.n != null ? `夜は ${fig(s.fc.min)}℃ まで下がりそう` : `このあと ${fig(s.fc.min)}℃ まで下がりそう`);
   if ((s.fc.rain ?? 0) >= 0.5) out.push(`このあと雨 ${(s.fc.rain ?? 0).toFixed(1)}mm の予報`);
   else if ((s.obs.rain ?? 0) >= 0.5) out.push("このあと雨の予報はありません");
   return out.join("。") + (out.length ? "。" : "");
@@ -118,10 +137,12 @@ function Curve({ s }: { s: NonNullable<ReturnType<typeof splitToday>> }) {
   );
 }
 
-export function TodaySplit({ rows, station }: { rows: WeatherRow[] | null; station: string }) {
-  const s = splitToday(rows);
-  if (!s) return null;
-  const cell = (p: Part, kind: "obs" | "fc") => {
+export function TodaySplit({ rows, station, day }: { rows: WeatherRow[] | null; station: string; day: { max: number | null; min: number | null } }) {
+  const raw = splitToday(rows);
+  if (!raw) return null;
+  // 値（ここまで／このあと・言葉）は日の値にそろえ、線は時間の値のまま。
+  const s = withDay(raw, day);
+  const cell = (p: Shown, kind: "obs" | "fc") => {
     const wx = hoursWeather(s.rows, p.hours, station).text;
     return (
       <div className={`ts-cell ${kind}`}>
@@ -141,13 +162,13 @@ export function TodaySplit({ rows, station }: { rows: WeatherRow[] | null; stati
         <dl className="ts-vals">
           <dt>最高</dt>
           <dd>
-            <b className="tone-hot">{t1(p.max?.v)}</b>
-            <small>{p.max ? `${p.max.n}時` : ""}</small>
+            <b className="tone-hot">{p.max ? fig(p.max) : "—"}</b>
+            <small>{p.max?.n != null ? `${p.max.n}時` : ""}</small>
           </dd>
           <dt>最低</dt>
           <dd>
-            <b className="tone-cold">{t1(p.min?.v)}</b>
-            <small>{p.min ? `${p.min.n}時` : ""}</small>
+            <b className="tone-cold">{p.min ? fig(p.min) : "—"}</b>
+            <small>{p.min?.n != null ? `${p.min.n}時` : ""}</small>
           </dd>
           <dt>降水</dt>
           <dd>
@@ -166,7 +187,7 @@ export function TodaySplit({ rows, station }: { rows: WeatherRow[] | null; stati
   const word = restWord(s);
   return (
     <section className="ts" aria-label="今日：ここまでの観測と、このあとの予報">
-      <Curve s={s} />
+      <Curve s={raw} />
       <div className="ts-cells">
         {cell(s.obs, "obs")}
         {cell(s.fc, "fc")}
