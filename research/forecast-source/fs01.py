@@ -244,6 +244,92 @@ def part_pages():
         br.close()
 
 
+# ---------------------------------------------------------------- 2b. 天気分布予報・２週間・地点・robots
+def part_more():
+    print("\n===== 2b. 天気分布予報の中身、２週間気温予報の JSON、予報の地点、robots")
+    for host in ("api.open-meteo.com", "ensemble-api.open-meteo.com", "historical-forecast-api.open-meteo.com",
+                 "archive-api.open-meteo.com", "air-quality-api.open-meteo.com", "open-meteo.com"):
+        allowed(f"https://{host}/v1/x")
+    res = get("https://www.jma.go.jp/bosai/wdist/table/wdist.properties__c64b4660a3de3dcd4ac7.xml")
+    if res:
+        x = res[0]
+        print("[wdist 設定] ", re.sub(r"\s+", " ", x)[:2500])
+    tt = get("https://www.jma.go.jp/bosai/jmatile/data/wdist/targetTimes.json")
+    if tt:
+        d = json.loads(tt[0])
+        print(f"[wdist targetTimes] {len(d)}件", d[:3], "…", d[-2:])
+        els = sorted({e for t in d for e in t.get("elements", [])})
+        print("   要素:", els)
+        base = d[0]["basetime"]
+        times = [t["validtime"] for t in d]
+        print("   予報の時刻:", times[:1], "〜", times[-1:], len(times))
+        # 高知（74182、33.5667,133.5483 付近）にいちばん近い格子の値（geojson がある要素だけ）
+        for el in els:
+            for vt in (times[0], times[-1]):
+                u = f"https://www.jma.go.jp/bosai/jmatile/data/wdist/{base}/none/{vt}/surf/{el}/data.geojson?id={el}"
+                r = get(u)
+                if not r:
+                    continue
+                g = json.loads(r[0])
+                feats = g.get("features", [])
+                best = None
+                for f in feats:
+                    geo = f.get("geometry") or {}
+                    c = geo.get("coordinates")
+                    if geo.get("type") == "Point" and c:
+                        dd = (c[0] - 133.548) ** 2 + (c[1] - 33.567) ** 2
+                        if best is None or dd < best[0]:
+                            best = (dd, c, f.get("properties"))
+                print(f"   [{el} {vt}] {r[1]['size']}B 地物{len(feats)} 型{Counter((f.get('geometry') or {}).get('type') for f in feats)} 高知に最も近い {best[1:] if best else None}")
+                if feats and not best:
+                    print("     例:", str(feats[0])[:300])
+    # ２週間気温予報（ホームページの JSON）
+    for u in ("https://www.data.jma.go.jp/cpd/twoweek/data/Latest/data_47893.json",
+              "https://www.data.jma.go.jp/cpd/twoweek/data/Latest/data_29.json"):
+        r = get(u)
+        if r:
+            print(f"[２週間 JSON] {u.rsplit('/',1)[1]} {r[1]}")
+            print("   ", re.sub(r"\s+", " ", r[0])[:1800])
+    # 予報の地点（アメダスの表）
+    r = get("https://www.jma.go.jp/bosai/amedas/const/amedastable.json")
+    if r:
+        t = json.loads(r[0])
+        for code in ("74182", "74372", "74516"):
+            a = t.get(code)
+            print(f"[アメダス] {code} {a.get('kjName')} 緯度{a.get('lat')} 経度{a.get('lon')} 高さ{a.get('alt')}m 種類{a.get('type')} 要素{a.get('elems')}")
+    r = get("https://www.jma.go.jp/bosai/forecast/const/forecast_area.json")
+    if r:
+        print("[予報の地点の表] 390000:", json.loads(r[0]).get("390000"))
+    r = get("https://www.jma.go.jp/bosai/forecast/const/week_area.json")
+    if r:
+        print("[週間の地点の表] 390000:", json.loads(r[0]).get("390000"))
+    # 地域時系列予報の JSON と電文（VPFD51）の3時間ごとの気温を並べる
+    r = get("https://www.jma.go.jp/bosai/jmatile/data/wdist/VPFD/390010.json")
+    if r:
+        d = json.loads(r[0])
+        p = d["pointTimeSeries"]
+        print("[地域時系列 390010]", d.get("reportDateTime"), "気温", p.get("temperature"), "最高", p.get("maxTemperature"), "最低", p.get("minTemperature"))
+        a = d["areaTimeSeries"]
+        print("   区域の項目", list(a.keys()), "天気", a.get("weather"), "風", str(a.get("wind"))[:300])
+    es = [e for e in feed_entries("regular") if e["link"].endswith("_VPFD51_390000.xml")]
+    if es:
+        e = max(es, key=lambda e: e.get("updated", ""))
+        r = get(e["link"])
+        if r:
+            root = ET.fromstring(r[0])
+            rt = [x.text for x in root.iter() if tag(x) == "ReportDateTime"][0]
+            for tsi in root.iter():
+                if tag(tsi) != "TimeSeriesInfo":
+                    continue
+                for it in [i for i in tsi if tag(i) == "Item"]:
+                    nm = [x.text for x in it.iter() if tag(x) == "Name"][:1]
+                    ty = [x.text for x in it.iter() if tag(x) == "Type"][:1]
+                    if nm == ["高知"] and ty == ["３時間毎気温"]:
+                        print("[電文 VPFD51]", rt, "高知 ３時間毎気温", [x.text for x in it.iter() if tag(x) == "Temperature"])
+                    if nm == ["中部"] and ty and ty[0].startswith("３時間"):
+                        print("[電文 VPFD51] 中部", sorted({x.get("type") for x in it.iter() if x.get("type")}), [x.text for x in it.iter() if tag(x) == "WindSpeedLevel"][:12])
+
+
 # ---------------------------------------------------------------- 6. 当たり具合
 def etrn_month(y, m):
     u = f"https://www.data.jma.go.jp/obd/stats/etrn/view/daily_s1.php?prec_no=74&block_no=47893&year={y}&month={m}&day=&view="
@@ -298,42 +384,53 @@ def part_accuracy():
     hours_used = Counter()
     zdir = "shiromatz/forecast"
     per_rep = defaultdict(dict)  # report -> target -> {max,min}
+    def find_csv(zbytes, name):
+        with zipfile.ZipFile(io.BytesIO(zbytes)) as z:
+            names = z.namelist()
+            if name in names:
+                return z.read(name)
+            for n in names:
+                if n.endswith(".zip"):
+                    r = find_csv(z.read(n), name)
+                    if r:
+                        return r
+        return None
+
     for fn in sorted(os.listdir(zdir)):
         ym = fn[9:15]
         if not (f"{start:%Y%m}" <= ym <= f"{end:%Y%m}"):
             continue
-        with zipfile.ZipFile(os.path.join(zdir, fn)) as z:
-            name = f"forecast_{ym}_390000.csv"
-            if name not in z.namelist():
-                print("  なし", name)
+        raw = find_csv(open(os.path.join(zdir, fn), "rb").read(), f"forecast_{ym}_390000.csv")
+        if raw is None:
+            print("  なし", fn)
+            continue
+        for r in csv.DictReader(io.StringIO(raw.decode("utf-8-sig"))):
+            if r["areaCode"] != "74182":
                 continue
-            rows = csv.DictReader(io.TextIOWrapper(z.open(name), encoding="utf-8-sig"))
-            for r in rows:
-                if r["areaCode"] != "74182":
-                    continue
-                rep = r["reportDatetime"]
-                td = r["timeDefine"]
-                tdate = td[:10]
-                if r.get("tempsMax"):
-                    per_rep[rep].setdefault(tdate, {})["max"] = float(r["tempsMax"])
-                if r.get("tempsMin"):
-                    per_rep[rep].setdefault(tdate, {})["min"] = float(r["tempsMin"])
-                if r.get("temps") and tdate > rep[:10]:
-                    key = "min" if td[11:13] == "00" else ("max" if td[11:13] == "09" else None)
-                    if key:
-                        per_rep[rep].setdefault(tdate, {}).setdefault(key, float(r["temps"]))
-    # 日ごとに、その日のいちばん遅い発表を使う
-    by_day = defaultdict(list)
-    for rep in per_rep:
-        by_day[rep[:10]].append(rep)
-    for d, reps in by_day.items():
-        rep = max(reps)
-        hours_used[rep[11:13]] += 1
+            rep = r["reportDatetime"]
+            td = r["timeDefine"]
+            tdate = td[:10]
+            if r.get("tempsMax"):
+                per_rep[rep].setdefault(tdate, {})["max"] = float(r["tempsMax"])
+            if r.get("tempsMin"):
+                per_rep[rep].setdefault(tdate, {})["min"] = float(r["tempsMin"])
+            if r.get("temps") and tdate > rep[:10]:
+                key = "min" if td[11:13] == "00" else ("max" if td[11:13] == "09" else None)
+                if key:
+                    per_rep[rep].setdefault(tdate, {}).setdefault(key, float(r["temps"]))
+    # 予報した日（発表の日付）ごとに、値のある中でいちばん遅い発表を使う（臨時の発表には週間の値が無いため）
+    for rep in sorted(per_rep):
+        d = date.fromisoformat(rep[:10])
         for tdate, v in per_rep[rep].items():
-            lead = (date.fromisoformat(tdate) - date.fromisoformat(d)).days
+            lead = (date.fromisoformat(tdate) - d).days
             if 1 <= lead <= 7:
-                jma[(date.fromisoformat(tdate), lead)] = v
-    print(f"[気象庁] 発表 {len(per_rep)}本、使った発表の時（日ごとに最後） {dict(hours_used)}")
+                slot = jma.setdefault((date.fromisoformat(tdate), lead), {})
+                for k, x in v.items():
+                    slot[k] = x
+                    slot["rep_" + k] = rep[11:13]
+    for (t, lead), v in jma.items():
+        hours_used[(lead, v.get("rep_max"), v.get("rep_min"))] += 1
+    print(f"[気象庁] 発表 {len(per_rep)}本、（何日前, 最高の発表の時, 最低の発表の時）の数 {sorted(hours_used.items(), key=lambda x: (x[0][0], -x[1]))[:30]}")
 
     # Open-Meteo（Previous Runs API、既定のモデル、1時間ごと → 1時〜24時の最高・最低）
     om = {}
@@ -374,31 +471,39 @@ def part_accuracy():
             print(f"   {lead}日前： " + " ／ ".join(line))
 
     table("気象庁（全部の日）", jma)
-    table("Open-Meteo（全部の日）", omd)
+    if omd:
+        table("Open-Meteo（全部の日）", omd)
     # 同じ日だけで比べる（両方そろった日）
     common = {d for (d, l) in jma if l == 7} & {d for (d, l) in omd if l == 7} & set(obs)
     common_all = set()
-    for d in common:
-        if all((d, l) in jma and (d, l) in omd for l in range(1, 8)):
-            common_all.add(d)
+    if omd:
+        for d in common:
+            if all((d, l) in jma and (d, l) in omd for l in range(1, 8)):
+                common_all.add(d)
+    else:
+        print("[比べ] Open-Meteo の値が無い（読まなかった）ので、気象庁だけで分ける")
+        common_all = {d for (d, l) in jma if all((d, k) in jma and {"max", "min"} <= set(jma[(d, k)]) for k in range(1, 8))} & set(obs)
     print(f"[比べ] 1〜7日前の全部がそろった日 {len(common_all)}日")
     table("気象庁（そろった日）", jma, common_all)
-    table("Open-Meteo（そろった日）", omd, common_all)
+    if omd:
+        table("Open-Meteo（そろった日）", omd, common_all)
     for name, months in (("寒い半年 11〜4月", {11, 12, 1, 2, 3, 4}), ("暖かい半年 5〜10月", {5, 6, 7, 8, 9, 10})):
         ds = {d for d in common_all if d.month in months}
         table(f"気象庁 {name}", jma, ds)
-        table(f"Open-Meteo {name}", omd, ds)
+        if omd:
+            table(f"Open-Meteo {name}", omd, ds)
     # 年ごと（1日前・3日前・5日前の最高）
     for yr in (2024, 2025, 2026):
         ds = {d for d in common_all if d.year == yr}
         print(f"[年] {yr} {len(ds)}日")
         table(f"気象庁 {yr}", jma, ds)
-        table(f"Open-Meteo {yr}", omd, ds)
+        if omd:
+            table(f"Open-Meteo {yr}", omd, ds)
 
 
 if __name__ == "__main__":
-    which = sys.argv[1:] or ["tel", "json", "pages", "acc"]
-    for w, f in (("tel", part_telegrams), ("json", part_bosai), ("pages", part_pages), ("acc", part_accuracy)):
+    which = sys.argv[1:] or ["tel", "json", "pages", "more", "acc"]
+    for w, f in (("tel", part_telegrams), ("json", part_bosai), ("pages", part_pages), ("more", part_more), ("acc", part_accuracy)):
         if w in which:
             try:
                 f()
