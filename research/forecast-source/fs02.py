@@ -101,10 +101,43 @@ def shimizu():
 
 
 if __name__ == "__main__":
-    for f in (shimizu, wdist):
+    which = sys.argv[1:]
+    for f in [x for x in (shimizu, wdist, wm_points) if not which or x.__name__ in which]:
         try:
             f()
         except Exception as e:
             import traceback
             traceback.print_exc()
             print("[失敗]", f.__name__, e)
+
+
+def wm_points():
+    """天気の面を、全部の輪を偶奇で数えて地点ごとに読む（1回目は1つ目の輪を外側・残りを穴とみなして読めなかった）。"""
+    print("\n===== 5b. 天気の面を地点で読む（偶奇）")
+    from fs01 import inside
+    pts = {"高知": (133.5483, 33.5667), "室戸岬": (134.1767, 33.2517), "清水": (133.01, 32.7217)}
+    d = json.loads(get(f"{W}/targetTimes.json")[0])
+    base = d[0]["basetime"]
+    for t in sorted(d, key=lambda t: t["validtime"]):
+        vt = t["validtime"]
+        if "wm" not in t["elements"]:
+            continue
+        g = json.loads(get(f"{W}/{base}/none/{vt}/surf/wm/data.geojson?id=wm")[0])
+        rings_n = Counter()
+        res = {}
+        for name, p in pts.items():
+            hit = []
+            for f in g["features"]:
+                geo = f.get("geometry") or {}
+                polys = geo.get("coordinates") or []
+                if geo.get("type") == "Polygon":
+                    polys = [polys]
+                n = sum(1 for poly in polys for ring in poly if ring and inside(p, ring))
+                rings_n[geo.get("type")] += 0
+                if n % 2 == 1:
+                    hit.append(f["properties"].get("level"))
+            res[name] = hit
+        jst = (datetime.strptime(vt, "%Y%m%d%H%M%S") + timedelta(hours=9)).strftime("%d日%H時")
+        print(f"[{jst} JST] " + " ".join(f"{k}={v}" for k, v in res.items()))
+    f0 = g["features"]
+    print("[形]", Counter((f.get("geometry") or {}).get("type") for f in f0), "輪の数", [len((f.get("geometry") or {}).get("coordinates") or []) for f in f0])
