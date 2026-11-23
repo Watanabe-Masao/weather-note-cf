@@ -2,6 +2,7 @@
 // The rows are forecast_issues / forecast_entries / forecast_fetch_log as they are kept (R4), only cut
 // to the day and the places of the station — the screen decides what to show from them, not the server.
 
+import type { OfficialDay } from "./jmaOfficial";
 import { STATION_PLACES } from "./stationPlaces";
 
 /** forecast_issues, as kept. */
@@ -95,3 +96,8 @@ export type ForecastIssueResponse =
     }
   | { v: 1; station: string; supported: true; found: false }
   | { v: 1; station: string; supported: false };
+
+/** 今日から先の日ごとの、気象庁のいちばん新しい値と出どころ（/api/forecast-official、shared/jmaOfficial.ts）。 */
+export type ForecastOfficialResponse =
+  | { v: 1; station: string; today: string; supported: true; places: { office: string; area: string; point: string }; days: OfficialDay[] }
+  | { v: 1; station: string; today: string; supported: false };

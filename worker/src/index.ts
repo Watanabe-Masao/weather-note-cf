@@ -18,7 +18,7 @@ import { activeTyphoons } from "./typhoon";
 import { collectForecasts } from "./forecastArchive";
 import { collectWarnings } from "./warningArchive";
 import { parseForecasts } from "./forecastParse";
-import { forecastHistory, forecastIssue } from "./forecastHistory";
+import { forecastHistory, forecastIssue, forecastOfficial } from "./forecastHistory";
 import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { saveRadar } from "./radarArchive";
@@ -49,6 +49,8 @@ function publicMessage(e: unknown): string {
 const FORECAST_TTL = 30 * 60; // seconds
 const TYPHOON_TTL = 30 * 60;
 const HISTORY_TTL = 10 * 60;
+/** 今（JST、"+09:00"）：発表の時刻と同じ書き方。 */
+const jstNowIso = () => `${new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
 
 const findStation = (id: string | null): Station => {
   const s = stations.find((x) => x.blockNo === id);
@@ -171,6 +173,15 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
       if (!db) return jsonResponse({ v: 1, station: station.blockNo, date: day, supported: false });
       return cachedFor(url.origin, `${CACHE_VERSION}/forecast-history/${station.blockNo}/${day}`, HISTORY_TTL, waitUntil, () =>
         forecastHistory(db, station.blockNo, day),
+      );
+    }
+    case "/api/forecast-official": {
+      // 予報の出典（2026-11-23）：今日から先の日ごとの値の、気象庁のいちばん新しい発表と出どころ。発表は 5・11・17時
+      // （と臨時）で、数分のうちに読み込むので、予報の履歴と同じ長さだけ共有する。
+      const station = findStation(q.get("station"));
+      if (!db) return jsonResponse({ v: 1, station: station.blockNo, today, supported: false });
+      return cachedFor(url.origin, `${CACHE_VERSION}/forecast-official/${station.blockNo}/${today}`, HISTORY_TTL, waitUntil, () =>
+        forecastOfficial(db, station.blockNo, today, jstNowIso()),
       );
     }
     case "/api/forecast-issue": {
