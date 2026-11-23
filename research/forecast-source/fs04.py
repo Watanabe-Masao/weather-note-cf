@@ -1,19 +1,22 @@
 """FS-04：予報の当たり具合のふりかえりの指標（EWMA 管理図）。高知、気象庁の府県・週間天気予報、1〜7日前、最高・最低。
 
 材料は FS-03 と同じ（shiromatz の記録・fs03_obs_47893.csv）。外部は読まない。
-使い方：python3 -I fs04.py <forecast の ZIP があるフォルダ>
+使い方：python3 -I fs04.py <forecast の ZIP があるフォルダ>   （図 fs04_ewma.png も作る）
 
-向き：d = 実際 − 予報（℃）。上に外れた分 up = max(d, 0)、下に外れた分 dn = max(−d, 0)、大きさ |d| = up + dn。
+誤差 e = 予報 − 実績（℃）。
+  上に外れた分 up = max(−e, 0)（実績＞予報）、下に外れた分 dn = max(e, 0)（実績＜予報）、大きさ |e| = up + dn。かたより = e の平均。
 ふだん：何日前 × 対象日の月の前後2か月（5か月の窓）で、作る期間の平均と標準偏差。
-直近：その日の時点で答えの分かっている誤差（対象日が昨日まで）を、日ごとに EWMA（半減期 h 日）。
-標準化 z = (x − ふだん平均) / ふだん標準偏差 を EWMA し、管理の線 ±L·σ_EWMA（σ_EWMA = √(λ/(2−λ))、独立を仮定）と比べる。
+直近：その日の時点で答えの分かっている誤差（対象日が昨日まで）を標準化 z = (値 − ふだん平均) / ふだん標準偏差 し、
+      日ごとに EWMA（半減期 h 日）。比べ役に直近28日の単純平均。
+線：±L·σ（EWMA は √(λ/(2−λ))、28日平均は 1/√28。誤差が日ごとに独立と仮定）。
+単純な予測：持続（n 日前の予報の代わりに、対象日の n 日前の実績）と平年（実績の、同じ時期の他の年の前後15日の平均。気象庁の平年値ではない）。
 """
-import math, os, statistics as st, sys
+import csv, io, math, os, random, statistics as st, sys
 from collections import Counter, defaultdict
 from datetime import date, timedelta
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from fs03 import load_forecasts, load_obs  # noqa: E402
+from fs03 import find_csv, load_forecasts, load_obs  # noqa: E402
 
 START, END = date(2024, 2, 1), date(2026, 10, 31)
 TRAIN_END = date(2025, 10, 31)
@@ -21,6 +24,8 @@ HALF = (3, 5, 7, 14)
 LS = (1.5, 2.0, 2.5, 3.0)
 SEASON = {12: "冬", 1: "冬", 2: "冬", 3: "春", 4: "春", 5: "春", 6: "夏", 7: "夏", 8: "夏", 9: "秋", 10: "秋", 11: "秋"}
 KEYS = (("max", "最高"), ("min", "最低"))
+ALL = tuple(range(1, 8))
+NAMES = ("abs", "up", "dn", "e")
 
 
 def window(m):
@@ -34,90 +39,106 @@ def days(a, b):
         d += timedelta(days=1)
 
 
+def comp(x):
+    return {"abs": abs(x), "up": max(-x, 0.0), "dn": max(x, 0.0), "e": x}
+
+
 def build(folder):
     fc, obs = load_forecasts(folder), load_obs()
-    D = {}  # (key, lead, 対象日) -> d
+    clim = climatology(obs)
+    E = {"気象庁": {}, "持続": {}, "平年": {}}
+    F = {}
     for (t, lead), v in fc.items():
-        if START <= t <= END and t in obs:
-            for key, _ in KEYS:
-                if key in v and obs[t][key] is not None:
-                    D[(key, lead, t)] = obs[t][key] - v[key]
-    return D, obs, fc
+        if not (START <= t <= END) or t not in obs:
+            continue
+        for key, _ in KEYS:
+            o = obs[t][key]
+            if key in v and o is not None:
+                E["気象庁"][(key, lead, t)] = v[key] - o
+                F[(key, lead, t)] = v[key]
+                p = obs.get(t - timedelta(days=lead), {}).get(key)
+                if p is not None:
+                    E["持続"][(key, lead, t)] = p - o
+                if (key, t) in clim:
+                    E["平年"][(key, lead, t)] = clim[(key, t)] - o
+    return E, F, obs
 
 
-def baseline(D, keys, leads, until):
-    """ふだん：（何日前, 月）ごとに |d|・up・dn・d の平均と標準偏差。keys・leads をまとめる時は、日ごとに平均した系列で。"""
+def climatology(obs):
     out = {}
-    for m in range(1, 13):
-        w = window(m)
-        for key in keys:
-            for lead in leads:
-                xs = [x for (k, l, t), x in D.items() if l == lead and k == key and t <= until and t.month in w]
-                out[(key, lead, m)] = stats(xs)
+    for t in obs:
+        for key in ("max", "min"):
+            xs = []
+            for y in (2024, 2025, 2026):
+                if y == t.year:
+                    continue
+                try:
+                    c = t.replace(year=y)
+                except ValueError:
+                    c = t.replace(year=y, day=28)
+                for k in range(-15, 16):
+                    v = obs.get(c + timedelta(days=k), {}).get(key)
+                    if v is not None:
+                        xs.append(v)
+            if xs:
+                out[(key, t)] = st.mean(xs)
     return out
 
 
-def stats(xs):
-    a = [abs(x) for x in xs]
-    u = [max(x, 0) for x in xs]
-    n = [max(-x, 0) for x in xs]
-    return {"abs": (st.mean(a), st.stdev(a)), "up": (st.mean(u), st.stdev(u)), "dn": (st.mean(n), st.stdev(n)),
-            "d": (st.mean(xs), st.stdev(xs)), "n": len(xs)}
+def baseline(D, until):
+    by = defaultdict(list)
+    for (k, l, t), x in D.items():
+        if t <= until:
+            for m in range(1, 13):
+                if t.month in window(m):
+                    by[(k, l, m)].append(comp(x))
+    return {g: {n: (st.mean(c[n] for c in cs), st.stdev(c[n] for c in cs)) for n in NAMES} for g, cs in by.items()}
 
 
-def daily_z(D, base, keys, leads, t):
-    """対象日 t の、標準化した値（まとめる時は keys×leads の平均）。無ければ None。"""
-    zs = defaultdict(list)
-    raw = defaultdict(list)
-    for k in keys:
-        for lead in leads:
-            x = D.get((k, lead, t))
-            if x is None:
-                continue
-            b = base[(k, lead, t.month)]
-            for name, v in (("abs", abs(x)), ("up", max(x, 0)), ("dn", max(-x, 0)), ("d", x)):
-                mu, sd = b[name]
-                zs[name].append((v - mu) / sd)
-                raw[name].append(v)
-    if not zs:
-        return None
-    return {k: st.mean(v) for k, v in zs.items()}, {k: st.mean(v) for k, v in raw.items()}
+def series(D, keys, leads, base):
+    acc = defaultdict(lambda: (defaultdict(list), defaultdict(list)))
+    for (k, lead, t), x in D.items():
+        if k not in keys or lead not in leads:
+            continue
+        b = base[(k, lead, t.month)]
+        z, r = acc[t]
+        for n, v in comp(x).items():
+            mu, sd = b[n]
+            z[n].append((v - mu) / sd)
+            r[n].append(v)
+    return {t: ({n: st.mean(v) for n, v in z.items()}, {n: st.mean(v) for n, v in r.items()}) for t, (z, r) in acc.items()}
 
 
-def series(D, keys, leads, base, a, b):
-    return {t: z for t in days(a, b) if (z := daily_z(D, base, keys, leads, t))}
-
-
-def ewma(ser, h, a, b):
-    """日 t の値 = 対象日が t−1 までの z の EWMA（欠けた日は飛ばす）。"""
-    lam = 1 - 0.5 ** (1 / h)
-    e = {k: 0.0 for k in ("abs", "up", "dn", "d")}
+def smoother(ser, h, a, b):
     out = {}
+    if h == "28日":
+        for t in days(a, b):
+            xs = [ser[t - timedelta(days=k)][0] for k in range(1, 29) if (t - timedelta(days=k)) in ser]
+            out[t] = {n: st.mean(x[n] for x in xs) for n in NAMES} if len(xs) >= 20 else {n: 0.0 for n in NAMES}
+        return out, 1 / math.sqrt(28)
+    lam = 1 - 0.5 ** (1 / h)
+    e = {n: 0.0 for n in NAMES}
     for t in days(a, b):
         out[t] = dict(e)
         if t in ser:
-            z = ser[t][0]
-            for k in e:
-                e[k] = lam * z[k] + (1 - lam) * e[k]
+            for n in NAMES:
+                e[n] = lam * ser[t][0][n] + (1 - lam) * e[n]
     return out, math.sqrt(lam / (2 - lam))
 
 
 def ahead(ser, t, n=3):
-    """t から n 日の、実際の z の平均（|d| と d）。"""
     xs = [ser[t + timedelta(days=i)][0] for i in range(n) if (t + timedelta(days=i)) in ser]
     if len(xs) < n:
         return None
-    return st.mean(x["abs"] for x in xs), st.mean(x["d"] for x in xs)
+    return {k: st.mean(x[k] for x in xs) for k in NAMES}
 
 
 def lag1(xs):
     m = st.mean(xs)
-    num = sum((xs[i] - m) * (xs[i - 1] - m) for i in range(1, len(xs)))
-    return num / sum((x - m) ** 2 for x in xs)
+    return sum((xs[i] - m) * (xs[i - 1] - m) for i in range(1, len(xs))) / sum((x - m) ** 2 for x in xs)
 
 
 def episodes(ser, thr=0.75, win=7):
-    """ずれやすい時期（答え）：対象日を中心に7日の |d| の z の平均が thr 以上の日が続く所。"""
     flag = {}
     for t in ser:
         xs = [ser[t + timedelta(days=i)][0]["abs"] for i in range(-(win // 2), win // 2 + 1) if (t + timedelta(days=i)) in ser]
@@ -136,160 +157,255 @@ def episodes(ser, thr=0.75, win=7):
     return eps
 
 
-def evaluate(D, keys, leads, h, L, label, verbose=False, Llow=None):
-    """作る期間でふだんを作り、確かめる期間で警告を出して当たり具合を見る。"""
-    base = baseline(D, keys, leads, TRAIN_END)
-    ser_all = series(D, keys, leads, base, START, END)
-    a, b = TRAIN_END + timedelta(days=1), END
-    ew, sig = ewma(ser_all, h, START, END)
-    lim = L * sig
-    test_days = [t for t in days(a, b) if ahead(ser_all, t)]
-    res = Counter()
-    nxt = defaultdict(list)
-    for t in test_days:
-        e = ew[t]
-        lvl = "ずれやすい" if e["abs"] > lim else ("安定" if e["abs"] < -(Llow or L) * sig else "ふつう")
-        dirn = "上" if e["d"] > lim else ("下" if e["d"] < -lim else "なし")
-        res[lvl] += 1
-        res["向き" + dirn] += 1
-        fa, fd = ahead(ser_all, t)
-        nxt[lvl].append(fa)
-        nxt["向き" + dirn].append(fd)
-    n = len(test_days)
-    # 作る期間での警告の多さ（ふだんどおりのはずの期間で、どれだけ線を越えるか）
+def mbb(xs, block=7, B=2000, seed=1):
+    """移動ブロック・ブートストラップ（ブロック7日）で、平均の 95% の幅。xs は日付の順。"""
+    rnd = random.Random(seed)
+    n = len(xs)
+    k = math.ceil(n / block)
+    means = []
+    for _ in range(B):
+        s = []
+        for _ in range(k):
+            i = rnd.randrange(0, n - block + 1)
+            s += xs[i:i + block]
+        means.append(st.mean(s[:n]))
+    means.sort()
+    return means[int(0.025 * B)], means[int(0.975 * B)]
+
+
+TESTS = {"ずれやすい": lambda x: x["abs"] > 0, "安定": lambda x: x["abs"] < 0,
+         "上に外れやすい": lambda x: x["e"] < 0, "下に外れやすい": lambda x: x["e"] > 0}
+
+
+def evaluate(ser, h, L, Llow=None):
+    ew, sig = smoother(ser, h, START, END)
+    hi, lo = L * sig, (Llow if Llow is not None else L) * sig
+    test = [t for t in days(TRAIN_END + timedelta(days=1), END) if ahead(ser, t)]
+    lv = defaultdict(list)
+    for t in test:
+        e, nx = ew[t], ahead(ser, t)
+        lv["ずれやすい" if e["abs"] > hi else ("安定" if e["abs"] < -lo else "ふつう")].append(nx)
+        # e の z が上＝予報が高め＝実績が下に出る
+        lv["下に外れやすい" if e["e"] > hi else ("上に外れやすい" if e["e"] < -hi else "向きなし")].append(nx)
+    n = len(test)
+    allnx = [ahead(ser, t) for t in test]
+    rate = lambda lst, f: sum(1 for x in lst if f(x)) / len(lst) if lst else float("nan")
+    r = {k: (len(lv[k]) / n, rate(lv[k], f), rate(allnx, f)) for k, f in TESTS.items()}
     tr = [ew[t] for t in days(START + timedelta(days=60), TRAIN_END)]
-    fa_rate = sum(1 for e in tr if abs(e["abs"]) > lim) / len(tr)
-    fd_rate = sum(1 for e in tr if abs(e["d"]) > lim) / len(tr)
-    # 気づくまで：確かめる期間の「ずれやすい時期」に、警告が出るまでの日数
-    eps = [ep for ep in episodes(ser_all) if ep[0] > TRAIN_END]
+    r["越え_大きさ"] = sum(1 for e in tr if e["abs"] > hi) / len(tr)
+    r["越え_向き"] = sum(1 for e in tr if abs(e["e"]) > hi) / len(tr)
+    eps = [ep for ep in episodes(ser) if ep[0] > TRAIN_END]
     delays, missed = [], 0
     for s, e_ in eps:
-        hit = [t for t in days(s, e_ + timedelta(days=3)) if t in ew and ew[t]["abs"] > lim]
+        hit = [t for t in days(s, e_ + timedelta(days=3)) if t in ew and ew[t]["abs"] > hi]
         if hit:
             delays.append((hit[0] - s).days)
         else:
             missed += 1
-    # 警告の後3日の z の平均（ずれやすい：|d| が大きいか／向き：d の符号が合うか）
-    def m(v):
-        return f"{st.mean(v):+.2f}" if v else "—"
-    prec_hi = sum(1 for x in nxt["ずれやすい"] if x > 0) / len(nxt["ずれやすい"]) if nxt["ずれやすい"] else float("nan")
-    prec_lo = sum(1 for x in nxt["安定"] if x < 0) / len(nxt["安定"]) if nxt["安定"] else float("nan")
-    prec_up = sum(1 for x in nxt["向き上"] if x > 0) / len(nxt["向き上"]) if nxt["向き上"] else float("nan")
-    prec_dn = sum(1 for x in nxt["向き下"] if x < 0) / len(nxt["向き下"]) if nxt["向き下"] else float("nan")
-    base_hi = sum(1 for t in test_days if ahead(ser_all, t)[0] > 0) / n
-    out = {
-        "label": label, "h": h, "L": L, "n": n,
-        "ずれやすい日%": res["ずれやすい"] / n * 100, "安定日%": res["安定"] / n * 100,
-        "上日%": res["向き上"] / n * 100, "下日%": res["向き下"] / n * 100,
-        "後3日z_ずれやすい": m(nxt["ずれやすい"]), "後3日z_ふつう": m(nxt["ふつう"]), "後3日z_安定": m(nxt["安定"]),
-        "当たり_ずれやすい": prec_hi, "当たり_安定": prec_lo, "当たり_上": prec_up, "当たり_下": prec_dn, "ふだんの割合": base_hi,
-        "後3日d_上": m(nxt["向き上"]), "後3日d_下": m(nxt["向き下"]),
-        "作る期間の越え%": fa_rate * 100, "作る期間の向き越え%": fd_rate * 100,
-        "時期": len(eps), "見逃し": missed, "気づく日数": (st.median(delays) if delays else None),
-    }
-    return out
+    r["時期"], r["見逃し"], r["気づく"] = len(eps), missed, (st.median(delays) if delays else None)
+    return r
 
 
-def fmt(r):
-    def p(x):
-        return "—" if x != x else f"{x * 100:.0f}%"
-    gd = "—" if r["気づく日数"] is None else f"{r['気づく日数']:.0f}日"
-    return (f"{r['label']} 半減期{r['h']} 線{r['L']}σ：ずれやすい{r['ずれやすい日%']:.0f}%の日（後3日 z {r['後3日z_ずれやすい']}、当たり {p(r['当たり_ずれやすい'])}／ふだん {p(r['ふだんの割合'])}）"
-            f" 安定{r['安定日%']:.0f}%（後3日 z {r['後3日z_安定']}、当たり {p(r['当たり_安定'])}） ふつうの後3日 z {r['後3日z_ふつう']}"
-            f"｜上{r['上日%']:.0f}%（当たり {p(r['当たり_上'])}、後3日 d {r['後3日d_上']}） 下{r['下日%']:.0f}%（当たり {p(r['当たり_下'])}、後3日 d {r['後3日d_下']}）"
-            f"｜作る期間で線を越えた日 {r['作る期間の越え%']:.0f}%・向き {r['作る期間の向き越え%']:.0f}%"
-            f"｜ずれやすい時期 {r['時期']} 回、見逃し {r['見逃し']}、気づくまで（中央） {gd}")
+def pct(x):
+    return "—" if x != x else f"{x * 100:.0f}%"
+
+
+def fmtr(label, h, L, r):
+    parts = [f"{k} {pct(r[k][0])} 当{pct(r[k][1])}/{pct(r[k][2])}" for k in TESTS]
+    gd = "—" if r["気づく"] is None else f"{r['気づく']:.0f}日"
+    hl = h if h == "28日" else f"h{h}"
+    return (f"{label} {hl} {L}σ｜" + "｜".join(parts) +
+            f"｜越え 大{pct(r['越え_大きさ'])}・向{pct(r['越え_向き'])}｜時期{r['時期']} 逃{r['見逃し']} 気づく{gd}")
 
 
 def main(folder):
-    D, obs, fc = build(folder)
-    print("誤差の数：", len(D))
+    E, F, obs = build(folder)
+    J = E["気象庁"]
+    bases = {src: baseline(D, TRAIN_END) for src, D in E.items()}
+    full = {src: baseline(D, END) for src, D in E.items()}
+    print("誤差の数：", {k: len(v) for k, v in E.items()})
 
-    # ---------------------------------------------------------------- 1. ふだんの値（全期間で作った表、何日前 × 月）
-    print("\n## 1. ふだんの値（全期間、何日前 × 対象日の月の前後2か月）：大きさ＝上＋下（℃）")
+    print("\n## 1. ふだんの値（全期間、何日前 × 月の前後2か月）：MAE＝上＋下（かたより）℃")
     for key, name in KEYS:
-        base = baseline(D, (key,), range(1, 8), END)
         for lead in (1, 3, 7):
             row = []
             for m in range(1, 13):
-                b = base[(key, lead, m)]
-                row.append(f"{m}月 {b['abs'][0]:.2f}={b['up'][0]:.2f}+{b['dn'][0]:.2f}")
-            print(f"  {name} {lead}日前：" + "  ".join(row))
-        chk = max(abs(base[k]["abs"][0] - base[k]["up"][0] - base[k]["dn"][0]) for k in base)
-        print(f"  （大きさ−上−下 の最大のずれ {chk:.1e}）")
+                b = full["気象庁"][(key, lead, m)]
+                row.append(f"{m}月 {b['abs'][0]:.2f}={b['up'][0]:.2f}+{b['dn'][0]:.2f}({b['e'][0]:+.2f})")
+            print(f"  {name} {lead}日前：" + " ".join(row))
+    chk = max(abs(v["abs"][0] - v["up"][0] - v["dn"][0]) for v in full["気象庁"].values())
+    print(f"  （MAE−上−下 の最大のずれ {chk:.1e}）")
 
-    # 誤差の日ごとのつながり
-    print("\n## 誤差の日ごとのつながり（1日ずらした相関、全期間、標準化した値）")
+    print("\n## 3. 単純な予測との比べ（全期間、MAE ℃）")
     for key, name in KEYS:
-        for lead in (1, 3, 7):
-            base = baseline(D, (key,), (lead,), END)
-            ser = series(D, (key,), (lead,), base, START, END)
-            ts = sorted(ser)
-            print(f"  {name} {lead}日前：大きさ {lag1([ser[t][0]['abs'] for t in ts]):+.2f}  向き d {lag1([ser[t][0]['d'] for t in ts]):+.2f}")
+        for lead in ALL:
+            row = [f"{src} {st.mean(abs(x) for (k, l, t), x in E[src].items() if k == key and l == lead):.2f}" for src in ("気象庁", "持続", "平年")]
+            print(f"  {name} {lead}日前：" + " ".join(row))
 
-    # ---------------------------------------------------------------- 2〜4. 半減期 × 線の幅
-    print("\n## 2〜4. 半減期 × 線の幅（作る期間 2024-02〜2025-10 でふだんを作り、確かめる期間 2025-11〜2026-10 で確かめる）")
-    print("  当たり：その日から3日の実際の |d| の z の平均が 0 より上（ずれやすい）／下（安定）、d の平均の符号が合う（上・下）割合")
+    print("\n## 5. 外れ方が続くか（1日ずらした相関、全期間の z）")
+    for key, name in KEYS:
+        line = []
+        for lead in ALL:
+            s = series(J, (key,), (lead,), full["気象庁"])
+            ts = sorted(s)
+            line.append(f"{lead}日 大{lag1([s[t][0]['abs'] for t in ts]):+.2f}/向{lag1([s[t][0]['e'] for t in ts]):+.2f}")
+        s = series(J, (key,), ALL, full["気象庁"])
+        ts = sorted(s)
+        line.append(f"まとめ 大{lag1([s[t][0]['abs'] for t in ts]):+.2f}/向{lag1([s[t][0]['e'] for t in ts]):+.2f}")
+        print(f"  {name}：" + " ".join(line))
+        runs, cur, last = [], 0, None
+        for t in ts:
+            sg = 1 if s[t][1]["e"] > 0 else -1
+            if sg == last:
+                cur += 1
+            else:
+                if last is not None:
+                    runs.append(cur)
+                cur, last = 1, sg
+        print(f"    同じ向き（1〜7日前まとめの e の符号）の続く日数：平均 {st.mean(runs):.2f}日（でたらめなら約 2）、5日以上 {sum(x >= 5 for x in runs)} 回／{len(runs)}、最長 {max(runs)}日")
+
+    print("\n## 2・4・6. 半減期 × 線（作る期間 2024-02〜2025-10 でふだん、確かめる期間 2025-11〜2026-10。当＝その日から3日の実際の z の当たり/何もしない時）")
     combos = [("最高 1日前", ("max",), (1,)), ("最低 1日前", ("min",), (1,)),
-              ("最高 1〜7日前", ("max",), tuple(range(1, 8))), ("最低 1〜7日前", ("min",), tuple(range(1, 8))),
-              ("最高・最低 1〜7日前", ("max", "min"), tuple(range(1, 8))), ("最高・最低 1〜3日前", ("max", "min"), (1, 2, 3))]
-    results = []
+              ("最高 1〜7日前", ("max",), ALL), ("最低 1〜7日前", ("min",), ALL), ("最高・最低 1〜7日前", ("max", "min"), ALL)]
     for label, keys, leads in combos:
-        for h in HALF:
+        ser = series(J, keys, leads, bases["気象庁"])
+        for h in HALF + ("28日",):
             for L in LS:
-                r = evaluate(D, keys, leads, h, L, label)
-                results.append(r)
-                print("  " + fmt(r))
-
-    # 作る期間で線を越えた割合を、名目（独立なら）と比べる
-    print("\n  名目の越える割合（独立で正規なら、片側）：1.5σ 6.7%・2σ 2.3%・2.5σ 0.6%・3σ 0.1%")
-
-    # 「安定」の線：下の側は |d| の分布が 0 で止まるので、同じ幅では越えない。狭い線（0.5・1.0σ）を試す
-    print("\n## 3b. 「安定」の線（半減期3日、ずれやすいの線 2σ、安定の線を 0.5σ・1.0σ）")
-    for label, keys, leads in combos[:4]:
+                print("  " + fmtr(label, h, L, evaluate(ser, h, L)))
+    print("  名目（独立で正規なら片側）：1.5σ 6.7%・2σ 2.3%・2.5σ 0.6%・3σ 0.1%")
+    print("\n  「安定」の下の線だけ狭くする（半減期3日・上の線 2σ）")
+    for label, keys, leads in combos:
+        ser = series(J, keys, leads, bases["気象庁"])
         for lo in (0.5, 1.0):
-            r = evaluate(D, keys, leads, 3, 2.0, label, Llow=lo)
-            print(f"  {label} 安定の線 {lo}σ：安定 {r['安定日%']:.0f}% の日、後3日 z {r['後3日z_安定']}、当たり（後3日 z<0） {r['当たり_安定'] * 100 if r['当たり_安定'] == r['当たり_安定'] else float('nan'):.0f}%（ふだん z<0 は {100 - r['ふだんの割合'] * 100:.0f}%）")
+            share, hit, base = evaluate(ser, 3, 2.0, Llow=lo)["安定"]
+            print(f"    {label} 下 {lo}σ：安定 {pct(share)}の日 当たり {pct(hit)}／何もしない時 {pct(base)}")
 
-    # ---------------------------------------------------------------- 5. ずれやすい時期の姿
-    print("\n## 5. ずれやすい時期の姿（全期間、何日前 1〜7 をまとめた最高・最低それぞれ、答え：中心7日の |d| の z 平均 ≥ 0.75）")
+    print("\n## 3b. 見分けの線（半減期3日、1〜7日前まとめ。後3日の z：気象庁／単純な予測）")
     for key, name in KEYS:
-        base = baseline(D, (key,), range(1, 8), END)
-        ser = series(D, (key,), tuple(range(1, 8)), base, START, END)
-        eps = episodes(ser)
-        lens = [(e - s).days + 1 for s, e in eps]
-        yrs = (END - START).days / 365.25
-        dirs = Counter()
-        months = Counter()
-        for s, e in eps:
-            dd = st.mean(ser[t][1]["d"] for t in days(s, e) if t in ser)
-            dirs["上（実際が高い）" if dd > 0.3 else ("下（実際が低い）" if dd < -0.3 else "混じる")] += 1
-            months[SEASON[s.month]] += 1
-        print(f"  {name}：{len(eps)} 回（年 {len(eps) / yrs:.1f} 回）、長さ 中央 {st.median(lens):.0f}日・最長 {max(lens)}日、向き {dict(dirs)}、季節 {dict(months)}")
-        for s, e in eps[:40]:
-            dd = st.mean(ser[t][1]["d"] for t in days(s, e) if t in ser)
-            print(f"    {s}〜{e}（{(e - s).days + 1}日）d の平均 {dd:+.1f}℃")
+        sj = series(J, (key,), ALL, bases["気象庁"])
+        ej, sig = smoother(sj, 3, START, END)
+        for ref in ("平年", "持続"):
+            sn = series(E[ref], (key,), ALL, bases[ref])
+            en, _ = smoother(sn, 3, START, END)
+            for Lj, Ln in ((2.0, 0.0), (2.0, 1.0), (2.0, 1.5), (2.0, 2.0)):
+                grp = defaultdict(list)
+                for t in days(TRAIN_END + timedelta(days=1), END):
+                    a1, a2 = ahead(sj, t), ahead(sn, t)
+                    if not a1 or not a2:
+                        continue
+                    jbad, nbad = ej[t]["abs"] > Lj * sig, en[t]["abs"] > Ln * sig
+                    g = "読みにくい" if jbad and nbad else ("予報の側" if jbad else ("単純だけ悪い" if nbad else "ふつう"))
+                    grp[g].append((a1["abs"], a2["abs"]))
+                desc = " ".join(f"{g} {len(v)}日（{st.mean(x for x, _ in v):+.2f}／{st.mean(y for _, y in v):+.2f}）" for g, v in sorted(grp.items()))
+                print(f"  {name} 単純={ref} 線 気象庁{Lj}σ・単純{Ln}σ：{desc}")
 
-    # どんな日に外れやすいか（記録で分かる範囲：実績の前日からの変化・ふだんより冷え込んだ朝・予報で雨の日・季節）
-    print("\n## 5b. どんな日に外れやすいか（何日前 1〜7 をまとめた、対象日の |d| と d の平均、℃）")
-    rainy = rain_forecast(folder)
+    print("\n## 6b. かたよりの候補（作る期間で 95% の幅が 0 を含まない季節）を確かめる期間で確かめる（1〜7日前まとめの日ごとの e、ブロック7日のブートストラップ）")
+    for key, name in KEYS:
+        s = series(J, (key,), ALL, bases["気象庁"])
+        for sea in ("冬", "春", "夏", "秋"):
+            tr = [s[t][1]["e"] for t in sorted(s) if t <= TRAIN_END and SEASON[t.month] == sea]
+            te = [s[t][1]["e"] for t in sorted(s) if t > TRAIN_END and SEASON[t.month] == sea]
+            lo1, hi1 = mbb(tr)
+            lo2, hi2 = mbb(te)
+            cand = "候補" if lo1 > 0 or hi1 < 0 else "—"
+            print(f"  {name} {sea}：作る {st.mean(tr):+.2f}（{lo1:+.2f}〜{hi1:+.2f}）{cand}／確かめる {st.mean(te):+.2f}（{lo2:+.2f}〜{hi2:+.2f}）")
+    print("  全期間（何日前ごと、かたよりと MAE の 95% の幅）")
+    for key, name in KEYS:
+        for lead in (1, 4, 7):
+            xs = [J[g] for g in sorted((g for g in J if g[0] == key and g[1] == lead), key=lambda g: g[2])]
+            a1, b1 = mbb(xs)
+            a2, b2 = mbb([abs(x) for x in xs])
+            print(f"    {name} {lead}日前：かたより {st.mean(xs):+.2f}（{a1:+.2f}〜{b1:+.2f}） MAE {st.mean(abs(x) for x in xs):.2f}（{a2:.2f}〜{b2:.2f}）")
+
+    print("\n## ずれやすい時期（全期間のふだん、1〜7日前まとめ、中心7日の |e| の z 平均 ≥ 0.75）")
+    yrs = (END - START).days / 365.25
+    for key, name in KEYS:
+        s = series(J, (key,), ALL, full["気象庁"])
+        eps = episodes(s)
+        lens = [(b - a).days + 1 for a, b in eps]
+        dirs, sea = Counter(), Counter()
+        for a, b in eps:
+            m = st.mean(s[t][1]["e"] for t in days(a, b) if t in s)
+            dirs["下（実績が予報より低い）" if m > 0.3 else ("上（実績が予報より高い）" if m < -0.3 else "混じる")] += 1
+            sea[SEASON[a.month]] += 1
+        print(f"  {name}：{len(eps)} 回（年 {len(eps) / yrs:.1f}）、長さ 中央 {st.median(lens):.0f}日・最長 {max(lens)}日、向き {dict(dirs)}、季節 {dict(sea)}")
+
+    print("\n## 7. 条件別（1〜7日前まとめ、かたより e と MAE ℃。天気・風は府県天気予報 中部の予報の文）")
+    wx = forecast_weather(folder)
     sm = smooth_obs(obs)
     for key, name in KEYS:
-        groups = defaultdict(list)
-        for (k, lead, t), d in D.items():
-            if k != key or t - timedelta(days=1) not in obs:
+        g = defaultdict(list)
+        for (k, lead, t), x in J.items():
+            if k != key:
                 continue
-            prev = obs[t - timedelta(days=1)][key]
-            jump = obs[t][key] - prev if prev is not None else 0
-            anom = obs[t][key] - sm[key].get(t, obs[t][key])
-            groups["全部"].append(d)
-            groups["前日より 4℃以上下がった" if jump <= -4 else ("前日より 4℃以上上がった" if jump >= 4 else "前日から ±4℃未満")].append(d)
-            groups["ふだん（前後15日の平均）より 3℃以上低い" if anom <= -3 else ("3℃以上高い" if anom >= 3 else "ふだん ±3℃未満")].append(d)
-            groups["予報で雨（その日の発表の天気に「雨」）" if rainy.get(t) else "予報で雨なし"].append(d)
-            groups[f"季節 {SEASON[t.month]}"].append(d)
+            w = wx.get(t, "")
+            g["全部"].append(x)
+            if "雨" in w:
+                g["予報で雨"].append(x)
+            elif "晴" in w and "雪" not in w:
+                g["予報で晴れ（雨・雪なし）"].append(x)
+                if obs[t]["min"] is not None and obs[t]["min"] - sm["min"].get(t, obs[t]["min"]) <= -2:
+                    g["予報で晴れ、朝が冷え込んだ（実績の最低が前後15日の平均より2℃以上低い）"].append(x)
+            if "雷" in w or "強く" in wx.get(("wind", t), ""):
+                g["荒れた予報（天気に雷、または風に「強く」）"].append(x)
+            g["季節の変わり目（3・4・10・11月）" if t.month in (3, 4, 10, 11) else "それ以外の月"].append(x)
+            prev = obs.get(t - timedelta(days=1), {}).get(key)
+            if prev is not None:
+                j = obs[t][key] - prev
+                if j <= -4:
+                    g["実績が前日より4℃以上下がった（後から分かる）"].append(x)
+                elif j >= 4:
+                    g["実績が前日より4℃以上上がった（後から分かる）"].append(x)
+            g[f"季節 {SEASON[t.month]}"].append(x)
         print(f"  {name}")
-        for g, xs in groups.items():
-            print(f"    {g}: n={len(xs)} 大きさ {st.mean(abs(x) for x in xs):.2f} 向き {st.mean(xs):+.2f}（上 {st.mean(max(x, 0) for x in xs):.2f}・下 {st.mean(max(-x, 0) for x in xs):.2f}）")
+        for k_, xs in g.items():
+            print(f"    {k_}: n={len(xs)} かたより {st.mean(xs):+.2f} MAE {st.mean(abs(x) for x in xs):.2f}")
+    print("  台風：shiromatz の記録（天気・風・波の文）に「台風」の文字が無く、記録からは分けられない。")
+
+    print("\n## 8. 予報の更新幅（同じ対象日、Δ＝1日前の予報−7日前の予報）")
+    for key, name in KEYS:
+        bins = defaultdict(list)
+        for (k, l, t), f1 in F.items():
+            if k != key or l != 1 or (key, 7, t) not in F:
+                continue
+            dl = f1 - F[(key, 7, t)]
+            b = "0〜1℃" if abs(dl) <= 1 else ("2〜3℃" if abs(dl) <= 3 else "4℃以上")
+            bins[b].append((J[(key, 1, t)], J[(key, 7, t)], dl))
+        for b in ("0〜1℃", "2〜3℃", "4℃以上"):
+            v = bins[b]
+            short = sum(1 for e1, _, dl in v if dl != 0 and (e1 > 0) == (dl > 0) and e1 != 0) / len(v)
+            print(f"  {name} 動き {b}: {len(v)}日（{len(v) / sum(len(x) for x in bins.values()) * 100:.0f}%） 1日前の MAE {st.mean(abs(a) for a, _, _ in v):.2f}・かたより {st.mean(a for a, _, _ in v):+.2f}"
+                  f" 7日前の MAE {st.mean(abs(c) for _, c, _ in v):.2f}／1日前の誤差が動いた向きと同じ側（動き足りない）{short * 100:.0f}%")
+
+    try:
+        figure(J, bases["気象庁"])
+    except Exception as ex:
+        print("[図] 描けなかった", ex)
+
+
+def forecast_weather(folder):
+    last = {}
+    for fn in sorted(os.listdir(folder)):
+        ym = fn[9:15]
+        raw = find_csv(open(os.path.join(folder, fn), "rb").read(), f"forecast_{ym}_390000.csv")
+        if raw is None:
+            continue
+        for r in csv.DictReader(io.StringIO(raw.decode("utf-8-sig"))):
+            if r["areaCode"] != "390010":
+                continue
+            w = r.get("weathers") or r.get("weather") or ""
+            wd = r.get("winds") or r.get("wind") or ""
+            if not w:
+                continue
+            t = date.fromisoformat(r["timeDefine"][:10])
+            rep = r["reportDatetime"]
+            if rep[:10] < str(t) and (t not in last or rep >= last[t][0]):
+                last[t] = (rep, w, wd)
+    out = {}
+    for t, (rep, w, wd) in last.items():
+        out[t] = w
+        out[("wind", t)] = wd
+    return out
 
 
 def smooth_obs(obs):
@@ -301,28 +417,41 @@ def smooth_obs(obs):
     return out
 
 
-def rain_forecast(folder):
-    """対象日に、府県天気予報（区域 中部 390010）のいちばん遅い発表の天気に「雨」があるか（予報の天気。実際の雨ではない）。"""
-    import csv, io
-    from fs03 import find_csv
-    last = {}
-    for fn in sorted(os.listdir(folder)):
-        ym = fn[9:15]
-        raw = find_csv(open(os.path.join(folder, fn), "rb").read(), f"forecast_{ym}_390000.csv")
-        if raw is None:
-            continue
-        for r in csv.DictReader(io.StringIO(raw.decode("utf-8-sig"))):
-            if r["areaCode"] != "390010":
-                continue
-            w = r.get("weathers") or r.get("weather") or ""
-            if not w:
-                continue
-            t = date.fromisoformat(r["timeDefine"][:10])
-            rep = r["reportDatetime"]
-            if rep[:10] < str(t) or rep[:10] == str(t):
-                if t not in last or rep >= last[t][0]:
-                    last[t] = (rep, w)
-    return {t: ("雨" in w) for t, (rep, w) in last.items()}
+def figure(J, base):
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib import font_manager
+    names = {x.name for x in font_manager.fontManager.ttflist}
+    for f in ("Noto Sans CJK JP", "Noto Sans CJK TC"):
+        if f in names:
+            plt.rcParams["font.family"] = f
+            break
+    fig, axes = plt.subplots(4, 1, figsize=(14, 13), sharex=True)
+    for row, (key, name) in enumerate(KEYS):
+        s = series(J, (key,), ALL, base)
+        ts = sorted(s)
+        ew, sig = smoother(s, 3, START, END)
+        m28, _ = smoother(s, "28日", START, END)
+        dd = sorted(ew)
+        for col, (stat, title) in enumerate((("abs", "大きさ（|e| の z）"), ("e", "向き（e の z。＋は実績が予報より低い）"))):
+            ax = axes[row * 2 + col]
+            ax.bar(ts, [s[t][0][stat] for t in ts], width=1.0, color="#cccccc", label="日ごとの z（1〜7日前の平均）")
+            ax.plot(dd, [ew[t][stat] for t in dd], color="#c0392b", lw=1.4, label="EWMA（半減期3日）")
+            ax.plot(dd, [m28[t][stat] for t in dd], color="#2c3e50", lw=1.0, label="直近28日の平均")
+            ax.axhline(2 * sig, color="#c0392b", ls="--", lw=0.8)
+            ax.axhline(-2 * sig, color="#c0392b", ls="--", lw=0.8)
+            ax.axhline(0, color="black", lw=0.5)
+            ax.axvline(TRAIN_END, color="#888888", lw=0.8)
+            ax.set_ylim(-2.5, 3.5)
+            ax.set_title(f"{name}　{title}　点線＝±2σ（EWMA）、縦線＝作る期間の終わり", fontsize=10)
+            if row == 0 and col == 0:
+                ax.legend(loc="upper left", fontsize=8)
+    fig.suptitle("FS-04　高知の気象庁の予報（1〜7日前）の誤差の z と直近の平均（2024-02〜2026-10）", fontsize=12)
+    fig.tight_layout()
+    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fs04_ewma.png")
+    fig.savefig(out, dpi=100)
+    print("[図]", out)
 
 
 if __name__ == "__main__":
