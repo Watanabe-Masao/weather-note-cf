@@ -10,7 +10,7 @@
 // Nothing here is computed anew: the values, hours, parts and words are the ones the comparison
 // screens already use (chartMetrics, dayDetail, dayParts, dayComment).
 
-import { isJmaForecastDay, jmaValue, rangeSource, SOURCE_TEXT, sourceTag, valueSource } from "../sourceTag";
+import { isJmaForecastDay, jmaValue, OM_BIAS_NOTE, rangeSource, SOURCE_TEXT, sourceTag, valueSource } from "../sourceTag";
 import { JmaForecastLink, OpenMeteoCredit } from "./SourceCredit";
 import { SECTORS, windSummary } from "../../shared/windDirection";
 import { Fragment, type ReactNode, useContext, useMemo, useState } from "react";
@@ -101,6 +101,8 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
               ] as [string, ReactNode][])
             : []),
           ["そのほか", om("：平均・雨の量・湿度・風 など、気象庁の予報に無い値")],
+          // 補完の日（最高も Open-Meteo）：低めに出やすい目安（比べた地点だけ）。
+          ...(!jmaValue(row, "max") && OM_BIAS_NOTE[station] ? ([["目安", OM_BIAS_NOTE[station]]] as [string, ReactNode][]) : []),
           ...(isJmaForecastDay(row) ? ([["気象庁", <JmaForecastLink key="jma" />]] as [string, ReactNode][]) : []),
         ]
       : [["出どころ", tag ? SOURCE_TEXT[tag] : "—"]];

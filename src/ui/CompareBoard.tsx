@@ -11,7 +11,7 @@ import { dayTone, weekdayOf } from "../../shared/holidays";
 import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
 import type { WeatherStore } from "../data/store";
 import { tableSeries } from "../chartMetrics";
-import { jmaText, jmaValue, omValue, SOURCE_TAGS, SOURCE_TEXT, sourceTag } from "../sourceTag";
+import { jmaText, jmaValue, OM_BIAS_NOTE, omValue, SOURCE_TAGS, SOURCE_TEXT, sourceTag } from "../sourceTag";
 import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
 import type { CalendarSide } from "./CalendarModal";
@@ -250,7 +250,7 @@ function Labels({
 }
 
 /** 札の説明（ⓘ で開く）：札ごとに、どこの値か。 */
-function SourceLegend() {
+function SourceLegend({ station }: { station: string }) {
   return (
     <div className="source-legend">
       <dl>
@@ -270,7 +270,7 @@ function SourceLegend() {
         </div>
       </dl>
       <p>
-        補完・点線の値：<OpenMeteoCredit />。気象庁の予報：<JmaForecastLink />。寒暖差は最高−最低を Weather Note が計算。日を押すと、値ごとにどの発表の値かが見られます（1日の画面の ⓘ）。
+        補完・点線の値：<OpenMeteoCredit />。気象庁の予報：<JmaForecastLink />。寒暖差は最高−最低を Weather Note が計算。{OM_BIAS_NOTE[station] ? `補完の日の目安：${OM_BIAS_NOTE[station]}。` : ""}日を押すと、値ごとにどの発表の値かが見られます（1日の画面の ⓘ）。
       </p>
     </div>
   );
@@ -428,7 +428,7 @@ export function CompareBoard({
             />
           </div>
         </div>
-        {sourcesOpen && <SourceLegend />}
+        {sourcesOpen && <SourceLegend station={station} />}
       </div>
 
       {!single && (

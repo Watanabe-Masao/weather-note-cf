@@ -114,3 +114,11 @@ export const OPEN_METEO_URL = "https://open-meteo.com/";
 export const OPEN_METEO_LICENCE_URL = "https://creativecommons.org/licenses/by/4.0/";
 /** 気象庁 府県天気予報（高知県）のページ。 */
 export const JMA_FORECAST_URL = "https://www.jma.go.jp/bosai/forecast/#area_type=offices&area_code=390000";
+
+/**
+ * 補完の日の目安（FS-02 の6、2026-11-23）：高知の最高・最低を約1,000日比べると、Open-Meteo の最高は気象庁の発表より
+ * いつも低め（平均 −1.3〜−2.2℃）。値は変えず（混ぜない・調整しない）、ⓘ で知らせるだけ。比べたのは高知だけ。
+ */
+export const OM_BIAS_NOTE: Record<string, string> = {
+  "47893": "高知では、Open-Meteo の最高は気象庁の予報より平均 1〜2℃低めに出やすい（2024〜2026年の約1,000日を Weather Note が比べた目安。値は直していません）",
+};
