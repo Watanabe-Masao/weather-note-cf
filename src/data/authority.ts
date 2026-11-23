@@ -16,9 +16,13 @@ import { hasAllHours } from "../../shared/fixed";
 import type { WeatherRow } from "../../shared/types";
 import type { DayRecord, HourRecord } from "./db";
 
-export type Origin = "jma-fixed" | "jma" | "amedas" | "forecast";
+/**
+ * "jma-forecast"：気象庁の予報（府県・週間天気予報）の値を予報の日に重ねたもの（src/data/official.ts）。保存はせず、
+ * 画面に出すときに重ねる：観測（amedas）より下、Open-Meteo の予報（forecast）より上。
+ */
+export type Origin = "jma-fixed" | "jma" | "amedas" | "jma-forecast" | "forecast";
 
-export const RANK: Record<Origin, number> = { "jma-fixed": 4, jma: 3, amedas: 2, forecast: 1 };
+export const RANK: Record<Origin, number> = { "jma-fixed": 4, jma: 3, amedas: 2, "jma-forecast": 1.5, forecast: 1 };
 
 /**
  * What a forecast may lend to a measured row: only values the measuring source does not have at
@@ -31,7 +35,7 @@ export const RANK: Record<Origin, number> = { "jma-fixed": 4, jma: 3, amedas: 2,
 const FORECAST_LENDS = new Set(["solar", "weather", "weatherCode"]); // AMeDAS has no radiation; weather only at some points
 
 /** Row keys that describe the row rather than hold a weather value. */
-const META = new Set(["date", "n", "type", "provider", "raw", "quality", "unpublished", "provisional", "origin", "from", "solarSource", "confidence", "spread", "forecastWeather"]);
+const META = new Set(["date", "n", "type", "provider", "raw", "quality", "unpublished", "provisional", "origin", "from", "solarSource", "confidence", "spread", "forecastWeather", "jmaSources", "jmaWeatherCode"]);
 
 /** Where a day record as a whole came from. */
 export function dayOrigin(r: Pick<DayRecord, "kind" | "source">): Origin {

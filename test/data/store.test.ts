@@ -362,7 +362,7 @@ describe("storage", () => {
 });
 
 describe("today's hours", () => {
-  it("asks today's observations again once they are 10 minutes old, and nothing else (refreshLive)", async () => {
+  it("asks today's observations and the forecasts again once they are 10 minutes old, and nothing else (refreshLive)", async () => {
     let now = NOW;
     const { store, api } = makeStore(await openStorage(), fakeApi(), () => now);
     store.setView(KOCHI, [TODAY]);
@@ -376,7 +376,8 @@ describe("today's hours", () => {
     now += 60_000;
     expect(store.refreshLive()).toBe(true);
     await store.idle();
-    expect(api.calls).toEqual([`/api/current?station=${KOCHI}`]);
+    // 今日の観測、気象庁の予報（出典）、Open-Meteo の予報だけ。過去の日は取り直さない。
+    expect([...api.calls].sort()).toEqual([`/api/current?station=${KOCHI}`, `/api/forecast-official?station=${KOCHI}`, `/api/forecast?station=${KOCHI}`].sort());
     // Asked once: right after, nothing more.
     expect(store.refreshLive()).toBe(false);
   });
@@ -451,12 +452,12 @@ describe("正本管理 in the store", () => {
     const g = gated();
     const { store } = makeStore(await openStorage(), g.api);
     store.setView(KOCHI, [addDays(TODAY, 10)]); // forecast days only: nothing else will ask again
-    await g.until(() => g.held.some((h) => h.path.startsWith("/api/forecast")));
-    const forecasts = () => g.held.filter((h) => h.path.startsWith("/api/forecast")).length;
+    await g.until(() => g.held.some((h) => h.path.startsWith("/api/forecast?")));
+    const forecasts = () => g.held.filter((h) => h.path.startsWith("/api/forecast?")).length;
     expect(forecasts()).toBe(1);
     store.refresh();
     await g.drain(store); // the old forecast answers after the refresh
-    expect(g.raw.calls.filter((c) => c.startsWith("/api/forecast")).length).toBe(2); // asked again
+    expect(g.raw.calls.filter((c) => c.startsWith("/api/forecast?")).length).toBe(2); // asked again
   });
 
   it("keeps the current station's screen apart from answers for the station left behind", async () => {
@@ -546,5 +547,25 @@ describe("正本管理 in the store", () => {
     expect(api.calls).toContain(`/api/daily?station=${KOCHI}&month=2025-06`);
     expect(api.calls.some((c) => c.includes("month=2025-05"))).toBe(false); // outside the listed period
     expect(store.getDay(KOCHI, "2025-06-11").row).not.toBeNull();
+  });
+});
+
+describe("予報の出典：予報の日に気象庁の値を重ねる", () => {
+  it("shows JMA's values on a forecast day, each marked as JMA's with the issue it came from", async () => {
+    const { store } = makeStore(await openStorage());
+    store.setView(KOCHI, [TODAY]);
+    await store.idle();
+    const tomorrow = store.getDay(KOCHI, addDays(TODAY, 1)).row!;
+    expect([tomorrow.max, tomorrow.min, tomorrow.dayWeather, tomorrow.probability]).toEqual([21, 12, "晴時々曇", 30]);
+    const origin = tomorrow.origin as Record<string, string>;
+    expect([origin.max, origin.min, origin.dayWeather, origin.probability]).toEqual(["jma-forecast", "jma-forecast", "jma-forecast", "jma-forecast"]);
+    expect((tomorrow.jmaSources as { max: { kind: string; issuedAt: string } }).max).toMatchObject({ kind: "VPFD51", issuedAt: `${TODAY}T11:00:00+09:00` });
+    // 気象庁に無い項目（平均・雨の量）は Open-Meteo のまま。府県天気予報の日は信頼度を付けない。
+    expect(origin.temp).toBeUndefined();
+    expect(tomorrow.confidence).toBeNull();
+    // 気象庁の値が無い日は Open-Meteo の行のまま。同じものを2度読むと同じ行（再描画を増やさない）。
+    const later = store.getDay(KOCHI, addDays(TODAY, 3)).row!;
+    expect(later.jmaSources).toBeUndefined();
+    expect(store.getDay(KOCHI, addDays(TODAY, 1)).row).toBe(tomorrow);
   });
 });
