@@ -10,6 +10,10 @@
 //   2. The direction of travel is fetched first (plan.ts).
 //   3. While a gesture is in progress, nothing on screen changes: notifications are held.
 //   4. Navigating never refreshes variable data; only missing days are fetched.
+//
+// One exception to "once per session": today's observations (AMeDAS, every 10 minutes) are asked
+// again when they are 10 minutes old and the screen is shown (freshenToday), so an app left open
+// does not keep showing observed hours as forecast.
 
 import { addDays, daysBetween, FIRST_DAY, jstToday, monthOf } from "../../shared/dates";
 import { type Correction, CORRECTIONS, correctionRev } from "../../shared/corrections";
@@ -21,6 +25,8 @@ import { type Direction, isRecent, lastDay, Priority, sourceFor, viewPlan } from
 import { RequestQueue } from "./queue";
 
 export const RETRY_DELAYS = [5_000, 30_000, 120_000];
+/** How old today's observations may get before they are asked again (AMeDAS adds a value every 10 minutes). */
+export const CURRENT_EVERY_MS = 10 * 60_000;
 export const MAX_HOURLY_SPAN = 14;
 // Per data version: a version change empties the store on purpose, which is not a loss.
 const LAST_COUNT_KEY = `weather-note:last-count:v${DATA_VERSION}`;
@@ -115,6 +121,7 @@ export class WeatherStore {
   private hours = new Map<string, HourRecord>();
   private looked = new Set<string>(); // day/hour keys already looked up in storage
   private fresh = new Set<string>(); // task keys completed in this session
+  private currentAt = new Map<string, number>(); // today's observations: when each station's request started
   private errors = new Map<string, Failed>(); // "d:" / "h:" + key -> what failed, when, by which request
   private blocked = new Map<string, { until: number; attempt: number }>(); // task key -> retry state
   private timers = new Set<unknown>();
@@ -199,6 +206,23 @@ export class WeatherStore {
     this.errors.clear();
     this.blocked.clear();
     this.sync();
+  }
+
+  /**
+   * Today's observations that are 10 minutes old are asked again (2026-11-23: an app opened at 15時 and
+   * shown again at 18時 still drew 15〜18時 as forecast). Only the observations: the rest of the
+   * session's data stays as it is (rule 4), and nothing is asked when today is not on screen.
+   * Call when the app becomes visible and once a minute.
+   */
+  freshenToday(): void {
+    const now = this.now();
+    let stale = false;
+    for (const key of this.fresh) {
+      if (!key.startsWith("current:") || now - (this.currentAt.get(key) ?? 0) < CURRENT_EVERY_MS) continue;
+      this.fresh.delete(key);
+      stale = true;
+    }
+    if (stale) this.sync();
   }
 
   /** Call when the app becomes visible and once a minute: a new day starts a new session. */
@@ -559,6 +583,7 @@ export class WeatherStore {
       // the new session asks again on its own.
       if (ctx.gen !== this.gen || ctx.session !== this.session) return;
       this.fresh.add(task.key);
+      if (task.key.startsWith("current:")) this.currentAt.set(task.key, ctx.at);
       this.blocked.delete(task.key);
       // Clear only this kind's failures: a day's hours arriving says nothing about its daily row.
       const kind = task.key.startsWith("hourly:") ? "h:" : "d:";

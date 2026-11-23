@@ -29,10 +29,14 @@ export function startStore(): Promise<WeatherStore> {
     });
     await store.start();
     store.subscribe(() => version++);
+    // A new day starts a new session; otherwise only today's observations are asked again once they are 10 minutes old.
+    const check = () => void store.checkDate().then((newDay) => newDay || store.freshenToday());
     document.addEventListener("visibilitychange", () => {
-      if (!document.hidden) void store.checkDate();
+      if (!document.hidden) check();
     });
-    setInterval(() => void store.checkDate(), 60_000);
+    setInterval(() => {
+      if (!document.hidden) check();
+    }, 60_000);
     instance = store;
     version++;
     return store;

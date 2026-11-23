@@ -133,6 +133,37 @@ describe("acceptance criteria (spec 2.7)", () => {
     expect(store.today).toBe("2026-11-11");
   });
 
+  it("asks today's observations again once they are 10 minutes old, and nothing else (2026-11-23)", async () => {
+    let now = NOW;
+    const { store, api } = makeStore(await openStorage(), fakeApi(), () => now);
+    store.setView(KOCHI, [TODAY]);
+    store.wantHours(KOCHI, [TODAY]);
+    await store.idle();
+    expect(api.calls.some((c) => c.startsWith("/api/current"))).toBe(true);
+
+    api.calls.length = 0;
+    now += 9 * 60_000;
+    store.freshenToday();
+    await store.idle();
+    expect(api.calls).toEqual([]); // not yet 10 minutes
+
+    now += 60_000;
+    store.freshenToday();
+    await store.idle();
+    expect(api.calls.filter((c) => c.startsWith("/api/current"))).toHaveLength(1);
+    expect(api.calls.every((c) => c.startsWith("/api/current"))).toBe(true); // the forecast and months stay as they are
+
+    // Today not on screen: nothing is asked.
+    store.setView(KOCHI, ["2026-09-01"], -1);
+    store.wantHours(KOCHI, []);
+    await store.idle();
+    api.calls.length = 0;
+    now += 20 * 60_000;
+    store.freshenToday();
+    await store.idle();
+    expect(api.calls.some((c) => c.startsWith("/api/current"))).toBe(false);
+  });
+
   it("holds screen updates during a gesture and delivers them once on release", async () => {
     const { store } = makeStore(await openStorage());
     let updates = 0;
