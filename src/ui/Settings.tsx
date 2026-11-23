@@ -496,8 +496,9 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
           </button>
         </div>
         <p className="credit">
-          出典：<a href="https://www.jma.go.jp/">気象庁ホームページ</a>（実績）／
-          <a href="https://open-meteo.com/">Open-Meteo</a>（予報・CC BY 4.0）
+          出典：<a href="https://www.jma.go.jp/">気象庁ホームページ</a>（実績：過去の気象データ・アメダス／予報：府県天気予報・府県週間天気予報、防災情報XML）。補完：
+          <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>（
+          <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>）。降水確率の選び・寒暖差・信頼度（補完の日）など一部は、気象庁・Open-Meteo の値を Weather Note が加工しています。
         </p>
     </>
   );

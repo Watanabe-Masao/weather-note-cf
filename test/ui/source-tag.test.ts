@@ -1,7 +1,7 @@
 // 日ごとの値の出どころの札（src/sourceTag.ts、2026-11-23）。
 import { describe, expect, it } from "vitest";
 import { overlayOfficial } from "../../src/data/official";
-import { jmaText, jmaValue, omValue, sourceTag, valueSource } from "../../src/sourceTag";
+import { jmaText, jmaValue, omValue, rangeSource, sourceTag, valueSource } from "../../src/sourceTag";
 import type { OfficialDay } from "../../shared/jmaOfficial";
 import type { WeatherRow } from "../../shared/types";
 
@@ -37,6 +37,12 @@ describe("出どころの札", () => {
     expect(jmaText("−3.0")).toBe("−3");
     expect(valueSource(jma, "max")).toBe("気象庁 週間天気予報 11/22 17時発表・高知");
     expect(valueSource(jma, "temp")).toBe("Open-Meteo（気象庁の予報に無い値）");
+    // 寒暖差は Weather Note の計算と分けて書く（FS-02「加工して作成」）。
+    expect(rangeSource(jma)).toBe("気象庁 週間天気予報 11/22 17時発表・高知の最高・最低から Weather Note が計算（最高−最低）");
+    // 府県の日の降水確率：6時間ごとからアプリが選んだと書く。
+    const fd = overlayOfficial(om, { ...weekly, popDay: null, pop6: [null, { v: 20, from: from("VPFD51") }, { v: 40, from: from("VPFD51") }, null] });
+    expect(valueSource(fd, "probability")).toBe("気象庁 府県天気予報 11/22 17時発表・高知の6時間降水確率から、いちばん高い区切りを Weather Note が選んだ値（加工）");
+    expect(fd.probability).toBe(40);
     // 補完の日は札で分かるので点線は付けない。
     expect(omValue(om, "temp")).toBe(false);
   });
