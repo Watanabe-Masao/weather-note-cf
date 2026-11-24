@@ -114,9 +114,9 @@ def api(path, q):
     if path == "/api/admin/forecast-types":
         # 予報が外れやすい型の確かめ（11/24）: made-up — 1回分の記録、型は固定した9つ（答え合わせはまだ）。
         ids = ["A-min-raised-L1", "B-max-rain-L2-3", "B-max-rain-L4-7", "G-rain-summer-cloudy-L2-3", "G-rain-summer-cloudy-L4-7", "E-min-turning-drop-L4-7", "C-max-moved-L2-3", "C-max-moved-L4-6", "W-max-autumn-falling-L1-3"]
-        t = lambda i: {"id": i, "stage": "watch" if i.startswith("W") else "candidate", "fs05": "A", "item": "min", "leads": [1], "text": "型 " + i, "frozenAt": "2026-11-24",
+        t = lambda i: {"id": i, "stage": "watch" if i.startswith(("W", "E")) or i.endswith("L4-6") else "candidate", "fs05": "A", "item": "min", "leads": [1], "text": "型 " + i, "frozenAt": "2026-11-24",
                        "expected": {"ratio": 2.0, "ci": [1.5, 2.5], "hitRate": 0.2, "baseRate": 0.1}, "judged": 7, "matched": 1, "matchedDays": 1,
-                       "inRule": {"n": 0, "miss": 0}, "outRule": {"n": 0, "miss": 0}, "ratio": None, "ci": None, "directionShare": None, "status": "checking"}
+                       "inRule": {"n": 0, "miss": 0}, "outRule": {"n": 0, "miss": 0}, "base": {"n": 0, "miss": 0}, "ratio": None, "ci": None, "directionShare": None, "status": "checking"}
         return {"frozenAt": "2026-11-24", "pass": {"minRatio": 1.3, "ciLowAbove": 1, "minDays": 20, "directionShareAbove": 0.5},
                 "runs": [{"day": "2026-11-23", "at": "2026-11-23T17:05:00Z", "judged": 56, "checked": 0, "error": None}], "firstJudged": "2026-11-23T17:05:00Z", "types": [t(i) for i in ids]}
     if path == "/api/admin/maintenance":

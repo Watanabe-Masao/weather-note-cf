@@ -9,7 +9,7 @@
 
 import { addDays } from "../../shared/dates";
 import { type HistoryEntry, type HistoryIssue, HISTORY_PLACES } from "../../shared/forecastHistory";
-import { bigMiss, FORECAST_TYPES, type ForecastTypesResponse, leadLookup, PASS, TYPES_FROZEN_AT, type TypeSummary } from "../../shared/forecastTypes";
+import { bigMiss, FORECAST_TYPES, type ForecastType, type ForecastTypesResponse, leadLookup, PASS, TYPES_FROZEN_AT, type TypeSummary } from "../../shared/forecastTypes";
 import type { Station } from "../../shared/types";
 import type { Db } from "./accounts";
 import { stations } from "./config";
@@ -171,9 +171,20 @@ export async function runForecastTypes(db: Db, now: number, force = false): Prom
   }
 }
 
-type LogRow = { target: string; lead: number; type_id: string; matched: number; forecast: string; observed: string | null; big_miss: number | null };
+export type LogRow = { target: string; lead: number; type_id: string; matched: number; forecast: string; observed: string | null; big_miss: number | null };
 
-/** 対象日を7日ずつまとめて取り直す（ブロック・ブートストラップ）倍率の 95% の幅。件が少なければ null。 */
+/**
+ * 倍率：当てはまった件の大外れの割合 ÷ ふだん（答え合わせできた全部の件、当てはまった件も含む）の大外れの割合
+ * （11/25 渡辺さん、FS-05・FS-08 と同じ。前は当てはまらない件で割っていた）。ふだんに大外れが無ければ null。
+ */
+function ratioOf(rows: LogRow[]): number | null {
+  const inR = rows.filter((r) => r.matched);
+  const inMiss = inR.filter((r) => r.big_miss === 1).length;
+  const allMiss = rows.filter((r) => r.big_miss === 1).length;
+  return inR.length && allMiss ? inMiss / inR.length / (allMiss / rows.length) : null;
+}
+
+/** 対象日を7日ずつまとめて取り直す（ブロック・ブートストラップ）倍率の 95% の幅。分母は点の倍率と同じ「ふだん」。件が少なければ null。 */
 function blockCi(rows: LogRow[], seed = 7): [number, number] | null {
   const checked = rows.filter((r) => r.big_miss != null);
   if (checked.length < 20) return null;
@@ -187,22 +198,62 @@ function blockCi(rows: LogRow[], seed = 7): [number, number] | null {
   const rnd = () => ((s = (s * 1103515245 + 12345) % 2147483648) / 2147483648);
   const ratios: number[] = [];
   for (let b = 0; b < 400; b++) {
-    let im = 0, inn = 0, om = 0, on = 0;
-    for (let i = 0; i < list.length; i++)
-      for (const r of list[Math.floor(rnd() * list.length)]) {
-        if (r.matched) {
-          inn++;
-          im += r.big_miss!;
-        } else {
-          on++;
-          om += r.big_miss!;
-        }
-      }
-    if (inn && on && om) ratios.push(im / inn / (om / on));
+    const pick: LogRow[] = [];
+    for (let i = 0; i < list.length; i++) pick.push(...list[Math.floor(rnd() * list.length)]);
+    const v = ratioOf(pick);
+    if (v != null) ratios.push(v);
   }
   if (ratios.length < 100) return null;
   ratios.sort((a, b) => a - b);
   return [ratios[Math.floor(ratios.length * 0.025)], ratios[Math.floor(ratios.length * 0.975)]];
+}
+
+/** 1つの型の、これまでの当てはまりと答え合わせ、合格の判定（`mine`：その型の記録の全部、答え合わせ前の件も含む）。 */
+export function summarizeType(type: ForecastType, mine: LogRow[]): TypeSummary {
+  const checked = mine.filter((r) => r.big_miss != null);
+  const inR = checked.filter((r) => r.matched);
+  const outR = checked.filter((r) => !r.matched);
+  const inMiss = inR.filter((r) => r.big_miss === 1);
+  const ratio = ratioOf(checked);
+  // 向き：大外れの日に、記録した向き（"low"：実際が予報より低い）と同じ側だったか
+  let same = 0;
+  if (type.direction && type.item !== "rainMiss")
+    for (const r of inMiss) {
+      const f = JSON.parse(r.forecast)[type.item];
+      const o = r.observed ? JSON.parse(r.observed)[type.item] : null;
+      if (f != null && o != null && (type.direction === "low" ? o < f : o > f)) same++;
+    }
+  // 合格の「20日」は、答え合わせできた当てはまった対象日（重なりなし、FS-08 と同じ。答え合わせ前の日は数えない）
+  const matchedDays = new Set(inR.map((r) => r.target)).size;
+  const ci = blockCi(checked);
+  const dirShare = type.direction && inMiss.length ? same / inMiss.length : null;
+  const passed =
+    matchedDays >= PASS.minDays &&
+    ratio != null &&
+    ratio >= PASS.minRatio &&
+    ci != null &&
+    ci[0] > PASS.ciLowAbove &&
+    (!type.direction || (dirShare ?? 0) > PASS.directionShareAbove);
+  return {
+    id: type.id,
+    stage: type.stage,
+    fs05: type.fs05,
+    item: type.item,
+    leads: type.leads,
+    text: type.text,
+    frozenAt: type.frozenAt,
+    expected: type.expected,
+    judged: mine.length,
+    matched: mine.filter((r) => r.matched).length,
+    matchedDays,
+    inRule: { n: inR.length, miss: inMiss.length },
+    outRule: { n: outR.length, miss: outR.filter((r) => r.big_miss === 1).length },
+    base: { n: checked.length, miss: checked.filter((r) => r.big_miss === 1).length },
+    ratio,
+    ci,
+    directionShare: dirShare,
+    status: passed ? "pass" : matchedDays >= PASS.minDays ? "notYet" : "checking",
+  };
 }
 
 export async function forecastTypesSummary(db: Db): Promise<ForecastTypesResponse> {
@@ -217,49 +268,6 @@ export async function forecastTypesSummary(db: Db): Promise<ForecastTypesRespons
       .bind(STATION)
       .all<LogRow>()
   ).results;
-  const types = FORECAST_TYPES.map((type): TypeSummary => {
-    const mine = rows.filter((r) => r.type_id === type.id);
-    const inR = mine.filter((r) => r.matched && r.big_miss != null);
-    const outR = mine.filter((r) => !r.matched && r.big_miss != null);
-    const inMiss = inR.filter((r) => r.big_miss === 1);
-    const ratio = inR.length && outR.length && outR.some((r) => r.big_miss === 1) ? inMiss.length / inR.length / (outR.filter((r) => r.big_miss === 1).length / outR.length) : null;
-    // 向き：大外れの日に、記録した向き（"low"：実際が予報より低い）と同じ側だったか
-    let same = 0;
-    if (type.direction && type.item !== "rainMiss")
-      for (const r of inMiss) {
-        const f = JSON.parse(r.forecast)[type.item];
-        const o = r.observed ? JSON.parse(r.observed)[type.item] : null;
-        if (f != null && o != null && (type.direction === "low" ? o < f : o > f)) same++;
-      }
-    const matchedDays = new Set(mine.filter((r) => r.matched).map((r) => r.target)).size;
-    const ci = blockCi(mine);
-    const dirShare = type.direction && inMiss.length ? same / inMiss.length : null;
-    const passed =
-      matchedDays >= PASS.minDays &&
-      ratio != null &&
-      ratio >= PASS.minRatio &&
-      ci != null &&
-      ci[0] > PASS.ciLowAbove &&
-      (!type.direction || (dirShare ?? 0) > PASS.directionShareAbove);
-    return {
-      id: type.id,
-      stage: type.stage,
-      fs05: type.fs05,
-      item: type.item,
-      leads: type.leads,
-      text: type.text,
-      frozenAt: type.frozenAt,
-      expected: type.expected,
-      judged: mine.length,
-      matched: mine.filter((r) => r.matched).length,
-      matchedDays,
-      inRule: { n: inR.length, miss: inMiss.length },
-      outRule: { n: outR.length, miss: outR.filter((r) => r.big_miss === 1).length },
-      ratio,
-      ci,
-      directionShare: dirShare,
-      status: passed ? "pass" : matchedDays >= PASS.minDays ? "notYet" : "checking",
-    };
-  });
+  const types = FORECAST_TYPES.map((type) => summarizeType(type, rows.filter((r) => r.type_id === type.id)));
   return { frozenAt: TYPES_FROZEN_AT, pass: PASS, runs, firstJudged: first?.at ?? null, types };
 }

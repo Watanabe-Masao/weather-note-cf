@@ -163,7 +163,9 @@ export const FORECAST_TYPES: ForecastType[] = [
   },
   {
     id: "E-min-turning-drop-L4-7",
-    stage: "candidate",
+    // 11/25：まだ見ていない手前の期間（2021-11〜2024-01、FS-08）で不合格（1.47 倍、0.83〜2.12、向き 42%）。条件は変えず、
+    // 画面に出す候補から外して様子を見る（渡辺さん）。
+    stage: "watch",
     frozenAt: TYPES_FROZEN_AT,
     fs05: "E",
     item: "min",
@@ -192,7 +194,8 @@ export const FORECAST_TYPES: ForecastType[] = [
   },
   {
     id: "C-max-moved-L4-6",
-    stage: "candidate",
+    // 11/25：手前の期間（FS-08）で不合格（1.13 倍、0.63〜1.63）。条件は変えず、様子を見る（渡辺さん）。
+    stage: "watch",
     frozenAt: TYPES_FROZEN_AT,
     fs05: "C''",
     item: "max",
@@ -250,8 +253,11 @@ export function bigMiss(item: TypeItem, forecast: LeadForecast, observed: { max?
 }
 
 /**
- * 合格の基準（11/24、画面に出す前）：当てはまった日の大外れの割合が、当てはまらない日の 1.3 倍以上、その倍率の 95% の幅の
- * 下の端が 1 を超える、当てはまった対象日が 20 日以上、外れる向きが決まっている型は向きが同じ側に半分より多い。
+ * 合格の基準（11/24、画面に出す前）：当てはまった日の大外れの割合が、ふだんの 1.3 倍以上、その倍率の 95% の幅の
+ * 下の端が 1 を超える、答え合わせできた当てはまった対象日が 20 日以上、外れる向きが決まっている型は向きが同じ側に半分より多い。
+ *
+ * 「ふだん」（倍率の分母、11/25 渡辺さん、FS-05・FS-08 と同じ）：同じ型の何日前の件のうち、答え合わせできた全部の件
+ * （当てはまった件も含む）。雨の見逃しの型は、そのうち降水確率 50% 未満の件だけ（bigMiss が null の件は入らない）。
  */
 export const PASS = { minRatio: 1.3, ciLowAbove: 1, minDays: 20, directionShareAbove: 0.5 };
 
@@ -323,17 +329,21 @@ export interface TypeSummary {
   /** 判定した件（当てはまった／当てはまらない） */
   judged: number;
   matched: number;
-  /** 当てはまった対象日の数（合格の基準は対象日で数える） */
+  /** 答え合わせできた、当てはまった対象日の数（重なりなし。合格の基準は対象日で数える） */
   matchedDays: number;
-  /** 答え合わせ済み：当てはまった件の大外れ／件、当てはまらない件の大外れ／件 */
+  /** 答え合わせ済み：当てはまった件・当てはまらない件・ふだん（全部の件、倍率の分母）の大外れ／件 */
   inRule: { n: number; miss: number };
   outRule: { n: number; miss: number };
+  base: { n: number; miss: number };
   ratio: number | null;
   ci: [number, number] | null;
   /** 大外れのうち、記録した向きと同じ側の割合（向きのある型だけ） */
   directionShare: number | null;
   status: "pass" | "checking" | "notYet";
 }
+
+/** 画面に出してよい型か：画面に出す候補（candidate）で、合格した型だけ（11/25 渡辺さん）。 */
+export const shownOnScreen = (t: Pick<TypeSummary, "stage" | "status">) => t.stage === "candidate" && t.status === "pass";
 
 export interface ForecastTypesResponse {
   frozenAt: string;

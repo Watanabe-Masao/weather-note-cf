@@ -118,3 +118,59 @@ describe("影の運用：毎日の判定と答え合わせ（worker/src/forecast
 });
 
 const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+describe("影の運用の集計：倍率の分母は「ふだん」＝答え合わせできた全部の件（2026-11-25 渡辺さん、FS-08 と同じ）", () => {
+  const row = (target: string, matched: boolean, miss: boolean | null, lead = 1) => ({
+    target,
+    lead,
+    type_id: "A-min-raised-L1",
+    matched: matched ? 1 : 0,
+    forecast: JSON.stringify({ min: 5 }),
+    observed: miss == null ? null : JSON.stringify({ min: miss ? 2 : 5 }),
+    big_miss: miss == null ? null : miss ? 1 : 0,
+  });
+  const day = (i: number) => addDays("2026-01-01", i);
+  it("倍率＝当てはまった件の大外れの割合 ÷ 全部の件の大外れの割合（当てはまらない件だけで割らない）", async () => {
+    const { summarizeType } = await import("../worker/src/forecastTypeWatch");
+    // 当てはまった 10 件中 4 件が大外れ、当てはまらない 30 件中 3 件：全部 40 件中 7 件
+    const rows = [
+      ...Array.from({ length: 10 }, (_, i) => row(day(i), true, i < 4)),
+      ...Array.from({ length: 30 }, (_, i) => row(day(10 + i), false, i < 3)),
+    ];
+    const s = summarizeType(type("A-min-raised-L1"), rows);
+    expect(s.base).toEqual({ n: 40, miss: 7 });
+    expect(s.outRule).toEqual({ n: 30, miss: 3 });
+    expect(s.ratio).toBeCloseTo(0.4 / (7 / 40), 6); // 2.29（当てはまらない件で割ると 4.0）
+  });
+  it("合格の「20日」は、答え合わせできた当てはまった対象日（重なりなし）で数える", async () => {
+    const { summarizeType } = await import("../worker/src/forecastTypeWatch");
+    const rows = [
+      ...Array.from({ length: 15 }, (_, i) => row(day(i), true, false)),
+      // 同じ対象日の別の何日前（重ならないように1日として数える）
+      ...Array.from({ length: 15 }, (_, i) => row(day(i), true, false, 2)),
+      // 答え合わせ前の当てはまり：数えない
+      ...Array.from({ length: 10 }, (_, i) => row(day(30 + i), true, null)),
+    ];
+    const s = summarizeType(type("A-min-raised-L1"), rows);
+    expect(s.matchedDays).toBe(15);
+    expect(s.matched).toBe(40);
+    expect(s.status).toBe("checking");
+  });
+  it("雨の見逃しの型は、降水確率 50% 以上の件をふだんに入れない（答え合わせで big_miss が付かない）", () => {
+    expect(bigMiss("rainMiss", { pop: 60 }, { rainMm: 5 })).toBeNull();
+    expect(bigMiss("rainMiss", { pop: 40 }, { rainMm: 5 })).toBe(true);
+  });
+});
+
+describe("画面に出す候補（11/25、FS-08 の結果）", () => {
+  it("E と C（4〜6日前）は様子を見る型に（条件は変えない）、W もそのまま。画面に出すのは候補で合格した型だけ", async () => {
+    const { shownOnScreen } = await import("../shared/forecastTypes");
+    expect(FORECAST_TYPES.filter((t) => t.stage === "watch").map((t) => t.id).sort()).toEqual(["C-max-moved-L4-6", "E-min-turning-drop-L4-7", "W-max-autumn-falling-L1-3"]);
+    expect(FORECAST_TYPES.filter((t) => t.stage === "candidate").map((t) => t.id).sort()).toEqual(
+      ["A-min-raised-L1", "B-max-rain-L2-3", "B-max-rain-L4-7", "C-max-moved-L2-3", "G-rain-summer-cloudy-L2-3", "G-rain-summer-cloudy-L4-7"].sort(),
+    );
+    expect(shownOnScreen({ stage: "candidate", status: "pass" })).toBe(true);
+    expect(shownOnScreen({ stage: "watch", status: "pass" })).toBe(false);
+    expect(shownOnScreen({ stage: "candidate", status: "notYet" })).toBe(false);
+  });
+});
