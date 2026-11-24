@@ -6,6 +6,7 @@
 - 降った：日降水量 1mm 以上（fs04_rain_47893.csv）。
 - 区切りのまとめ方・幅は作る期間（2024-02〜2025-10）だけで決め、確かめる期間（2025-11〜2026-10）で1回だけ数える。
 使い方：python3 -I fs07.py <forecast の ZIP があるフォルダ>   （図 fs07_paths.png も作る）
+      python3 -I fs07.py early <forecast の ZIP があるフォルダ>   （手前の期間 2021-11〜2024-01 で、judge_aligned で1回だけ数える）
 """
 import math, os, random, statistics as st, sys
 from collections import Counter, defaultdict
@@ -329,5 +330,58 @@ def judge_aligned(rows, path="上がってきた"):
     return {"判定": "差がある" if ok else "差があるとは言えない", "差": v, "幅": (lo, hi), path: n_path, "横ばい": n_flat}
 
 
+# ---------------------------------------------------------------- 手前の期間で確かめる（11/24 渡辺さん OK）
+# 期間 2021-11-01〜2024-01-31（shiromatz の記録の始まり〜作る期間の前）。実績は fs07_rain_47893_early.csv。
+# 決め方は judge_aligned のまま（変えない）。この期間で1回だけ数える。季節ごとは件数だけ（合否は全体で）。
+EARLY_START, EARLY_END = date(2021, 11, 1), date(2024, 1, 31)
+SEASONS = (("春（3〜5月）", (3, 4, 5)), ("夏（6〜8月）", (6, 7, 8)), ("秋（9〜11月）", (9, 10, 11)), ("冬（12〜2月）", (12, 1, 2)))
+
+
+def load_early_rain():
+    out = {}
+    with open(os.path.join(HERE, "fs07_rain_47893_early.csv"), encoding="utf-8") as f:
+        next(f)
+        for line in f:
+            d, v = line.strip().split(",")
+            out[date.fromisoformat(d)] = float(v)
+    return out
+
+
+def load_early(folder):
+    wp, rain = load_wx_pop(folder), load_early_rain()
+    rows, miss = [], Counter()
+    for t in days(EARLY_START, EARLY_END):
+        p1, p2, p5 = (wp.get((t, L), {}).get("pop") for L in (1, 2, 5))
+        r = rain.get(t)
+        lack = [n for n, v in (("前日の確率", p1), ("2日前", p2), ("5日前", p5), ("実績", r)) if v is None]
+        if lack:
+            for n in lack:
+                miss[n] += 1
+            miss["使わなかった日"] += 1
+            continue
+        rows.append({"t": t, "p1": p1, "d": p2 - p5, "p2": p2, "p5": p5, "rain": r >= 1.0})
+    return rows, miss
+
+
+def main_early(folder):
+    rows, miss = load_early(folder)
+    print(f"期間 {EARLY_START}〜{EARLY_END}：使った日 {len(rows)}、欠け {dict(miss)}")
+    print("経路の件数", Counter(path_of(r["d"], STEP) for r in rows))
+    for path in ("上がってきた", "下がってきた"):
+        res = judge_aligned(rows, path)
+        used, _, _ = aligned_pairs(rows, path)
+        print(f"\n[{path} と 横ばい] 差に入った区切り {[label(b) for b in used]}")
+        print({k: (round(v, 3) if isinstance(v, float) else tuple(round(x, 3) for x in v) if isinstance(v, tuple) else v) for k, v in res.items()})
+        for b in used:
+            a = [r["rain"] for r in rows if r["p1"] == b[0] and path_of(r["d"], STEP) == path]
+            h = [r["rain"] for r in rows if r["p1"] == b[0] and path_of(r["d"], STEP) == "横ばい"]
+            print(f"  {label(b)}：{path} {sum(a)}/{len(a)}、横ばい {sum(h)}/{len(h)}")
+        for name, ms in SEASONS:
+            print("  ", name, count_only([r for r in rows if r["t"].month in ms], path))
+
+
 if __name__ == "__main__":
-    main(sys.argv[1])
+    if sys.argv[1] == "early":
+        main_early(sys.argv[2])
+    else:
+        main(sys.argv[1])
