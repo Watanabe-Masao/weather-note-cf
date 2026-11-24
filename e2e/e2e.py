@@ -1281,6 +1281,11 @@ with sync_playwright() as p:
         closed = fbb.count() == 1 and fbb.get_attribute("aria-expanded") == "false"
         fbb.click(); calm()
         check("SD4n 根拠と記録：ふだん畳まれていて、押すと開く", closed and fbb.get_attribute("aria-expanded") == "true")
+        # この日の予報の変化（2026-11-24）：予報の移り変わりのいちばん上に、変化を新しい順に3つまで（無ければ「大きく変わっていません」）。
+        settle(lambda: pg.locator(".fc-changes").count() == 1, 10)
+        fc = pg.evaluate("""() => ({ rows: [...document.querySelectorAll('.fc-changes .fc-change')].map(e => e.innerText.replace(/\\s+/g, ' ')), none: !!document.querySelector('.fc-changes-none'), head: !!document.querySelector('.dd-change') })""")
+        check("SD4p この日の予報の変化：3つまで（または「大きく変わっていません」）、まとめの見出しの下の1行は変化があるときだけ",
+              (0 < len(fc["rows"]) <= 3 and not fc["none"] and fc["head"]) or (len(fc["rows"]) == 0 and fc["none"] and not fc["head"]), str(fc))
         if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day.png"); pg.locator(".day-detail .dd-sec").last.screenshot(path=f"{shots}-basis.png")
         lr = pg.locator(".day-detail .legend-row")
         if lr.count():
@@ -1362,6 +1367,13 @@ with sync_playwright() as p:
             src.scroll_into_view_if_needed(); calm(); pg.locator(".fh").screenshot(path=f"{os.environ['WN_SHOT']}-fh-sources.png")
         src.locator(".info-btn").click(); calm()
         st = small_text(); check("SD4c 11px より小さい文字がない（1日モード・天気図）", not st, str(st))
+        # 変化の行を押すと、その発表を選ぶ（上の枠がその発表に）。
+        if fc["rows"]:
+            ch = pg.locator(".fc-changes .fc-change").first
+            when = ch.inner_text().split("の発表で")[0].split("〜")[-1].split("のあいだ")[0].strip()
+            ch.scroll_into_view_if_needed(); ch.click(); calm()
+            hour = re.search(r"(\d+)時", when)
+            check("SD4q 変化の行を押すと、その発表が上の枠に", bool(hour) and f"{hour.group(1)}時" in txt(".fh-split"), (when, txt(".fh-split")[:60]))
         rotate_ok("SD4r", "1日モード")
         # 仲間の中で項目を切り替えても、グラフの読み取りの枠は動かない（2026-11-18 渡辺さん「切り替えで画面がぶれるのが嫌い」）。
         ro_tops = []
