@@ -109,6 +109,7 @@ export function App(_: { theme?: string } = {}) {
     last,
     bounds,
     compareDate,
+    gap,
     direction,
     moveTarget,
     moveCompare,
@@ -406,6 +407,7 @@ export function App(_: { theme?: string } = {}) {
               last={last}
               bounds={bounds}
               compareDate={compareDate}
+              compareGap={gap}
               metric={metric}
               single={view.single}
               moveTarget={moveTarget}
