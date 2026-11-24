@@ -35,6 +35,8 @@ export interface SummaryInput {
   sun: { rise: string; set: string };
   /** 過ぎた日か（言い方：「降った」「降りそう」）。 */
   past: boolean;
+  /** 1時間ごとの値の様子：読み込み中・そろった・取れなかった・無い（雨なしと言ってよいかの判断に使う）。 */
+  hoursState?: "loading" | "ready" | "error" | "none";
 }
 
 /** 気温の行。 */
@@ -43,14 +45,31 @@ function tempLine(x: SummaryInput): string {
   return parts.length ? parts.join("。") : "—";
 }
 
-/** 雨の行：雨のある時間（0.5mm 以上）の数と、いちばん多い時刻、日の量。 */
+/** 1日の時間の数（1〜24時）。 */
+const DAY_HOURS = 24;
+
+/**
+ * 雨の行：雨のある時間（0.5mm 以上）の数と、いちばん多い時刻、日の量。
+ * 「雨なし」と言うのは、1日の時間がそろって確かめられたとき、または日の量が 0 と分かっているときだけ（2026-11-24 渡辺さん、
+ * docs/thread-rules.md「ゼロ・該当なし・変化なしは…確認できた場合に」）。読み込み中・取れなかった・一部だけは、そう言う。
+ */
 function rainLine(x: SummaryInput): string {
-  const wet = (x.hours ?? []).filter((r) => (num(r.rain) ?? 0) >= 0.5);
+  const hours = x.hours ?? [];
+  const known = hours.filter((r) => num(r.rain) != null);
+  const wet = known.filter((r) => (num(r.rain) ?? 0) >= 0.5);
   const total = num(x.row?.rain);
-  if (!wet.length) return total != null && total >= 0.5 ? `雨 ${total.toFixed(1)}mm` : x.past ? "雨は降らなかった" : "雨の予報はありません";
-  const top = wet.reduce((a, b) => ((num(b.rain) ?? 0) > (num(a.rain) ?? 0) ? b : a));
-  const amount = total != null ? `・${total.toFixed(1)}mm` : "";
-  return `雨は${wet.length}時間${amount}。多いのは${top.n - 1}時台`;
+  const part = known.length < DAY_HOURS ? `（${known.length}時間分）` : "";
+  if (wet.length) {
+    const top = wet.reduce((a, b) => ((num(b.rain) ?? 0) > (num(a.rain) ?? 0) ? b : a));
+    const amount = total != null ? `・${total.toFixed(1)}mm` : "";
+    return `雨は${wet.length}時間${amount}${part}。多いのは${top.n - 1}時台`;
+  }
+  if (!known.length) {
+    if (total != null) return total >= 0.5 ? `雨 ${total.toFixed(1)}mm` : x.past ? "雨は降らなかった" : "雨の見込みはありません";
+    return x.hoursState === "loading" ? "読み込み中…" : x.hoursState === "error" ? "雨のデータを取れませんでした" : "雨のデータがありません";
+  }
+  if (part) return `${known.length}時間分だけ分かっています（その中では雨なし）`;
+  return x.past ? "雨は降らなかった" : "雨の見込みはありません";
 }
 
 /** 風の行：主な風向と、日中の風速の幅。 */
