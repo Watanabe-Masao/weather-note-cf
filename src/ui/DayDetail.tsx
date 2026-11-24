@@ -42,6 +42,7 @@ import { WxChart } from "./WxChart";
 import { RainNowBoard } from "./rainNow/RainNowBoard";
 import { RainNowCard } from "./rainNow/RainNowCard";
 import { ForecastHistoryPanel } from "./forecastHistory/ForecastHistory";
+import { RainWindHistory } from "./forecastHistory/RainWindHistory";
 import { TodaySplit } from "./TodaySplit";
 
 interface Props {
@@ -114,7 +115,10 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
 
   // 帯で選んだ仲間（src/ui/ItemBar.tsx）。まとめ（summary）は帯の先頭、1日を開いたときはいつもここから（2026-11-24）。
   const group = summary ? "summary" : (ITEM_GROUPS.find((g) => g.items.includes(metric))?.id ?? "temp");
-  const [basisOpen, setBasisOpen] = useState(false);
+  // 根拠と記録の開け閉め：仲間（とその日）ごと。ほかの仲間や日に移ると畳んだところから（中身が違うので）。
+  const [basisFor, setBasisFor] = useState<string | null>(null);
+  const basisOpen = basisFor === `${group}/${date}`;
+  const setBasisOpen = (open: boolean) => setBasisFor(open ? `${group}/${date}` : null);
   // 風の、表に無い値（主な風向・まとまり・静穏。16方位の最頻値、2026-11-22 渡辺さん）は雨・風のグラフの下に1行。
   const wind = group === "rainwind" && rows?.length ? windSummary(rows) : null;
   const windNote =
@@ -245,7 +249,15 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
         {group === "temp" && <FeelLine rows={rows} station={station} onOpen={onOpenFeel} />}
       </div>
 
-      {/* 根拠と記録は、その項目に関係するものだけ（2026-11-24）：気温は自分の記録（肌感）。予報の移り変わりと天気図はまとめに。 */}
+      {/* 根拠と記録は、その項目に関係するものだけ（2026-11-24）：気温は自分の記録（肌感）、雨・風は降水確率と風の予報の移り変わり。
+          天気・最高・最低の移り変わりと天気図はまとめに。空・光・大気は気象庁の予報に無い項目なので置かない。 */}
+      {group === "rainwind" && (
+        <div className="dd-sec dd-basis-sec">
+          <Fold open={basisOpen} onToggle={() => setBasisOpen(!basisOpen)} openLabel="根拠と記録（降水確率と風の予報の移り変わり）" closeLabel="根拠と記録を閉じる">
+            <RainWindHistory station={station} date={date} />
+          </Fold>
+        </div>
+      )}
       {group === "temp" && (
         <div className="dd-sec dd-basis-sec">
           <Fold open={basisOpen} onToggle={() => setBasisOpen(!basisOpen)} openLabel="根拠と記録（自分の記録）" closeLabel="根拠と記録を閉じる">

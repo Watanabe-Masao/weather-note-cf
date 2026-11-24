@@ -196,3 +196,18 @@
 .fh-wk-day.on, .fh-wk-c.on { background: var(--accent-wash); }
 .fh-wk-day.on { color: var(--accent-base); }
 .fh-wk-detail { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-4); margin: var(--space-4) 0 var(--space-2); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--surface-inset); font-size: var(--size-sm); }
+
+/* 雨・風の根拠と記録：降水確率と風の予報の移り変わり（2026-11-24、RainWindHistory） */
+.rw { display: grid; gap: var(--space-3); }
+.rw-lead { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.6; }
+.rw-mark { color: var(--ink-primary); }
+.rw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.rw-row { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--surface-inset); display: grid; gap: var(--space-1); }
+.rw-head { margin: 0; display: flex; align-items: center; gap: var(--space-2); font-size: var(--size-sm); }
+.rw-head small { color: var(--ink-tertiary); font-size: var(--size-xs); }
+.rw-pop, .rw-wind { margin: 0; display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: var(--space-2); align-items: baseline; font-size: var(--size-sm); color: var(--ink-secondary); }
+.rw-pop > small, .rw-wind > small { color: var(--ink-tertiary); font-size: var(--size-xs); }
+.rw-pop small { margin-left: var(--space-1); color: var(--ink-tertiary); font-size: var(--size-xs); }
+.rw-v { display: inline-block; min-width: 2.2em; text-align: right; font-variant-numeric: tabular-nums; color: var(--data-rain); }
+.rw-v.chg, .rw-wind.chg > span { font-weight: var(--weight-bold); color: var(--ink-primary); }
+.rw-src { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }

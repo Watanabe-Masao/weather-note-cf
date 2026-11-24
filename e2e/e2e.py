@@ -151,7 +151,14 @@ def api(path, q):
         # 予報の履歴 (R6): made-up — 2026-10 の記録（shiromatz）を日付だけずらした、TODAY を対象日にした1日分。
         if q.get("date") == TODAY.isoformat():
             with open(os.path.join(HERE, "forecast-history.json"), encoding="utf-8") as f:
-                return json.load(f)
+                h = json.load(f)
+            # 風（2026-11-24、電文の読み直し parser 2）：府県天気予報の天気の文に合わせて、その日の風の文を足す。
+            # 発表ごとに文を替えて、変わった印が出るように（作ったもの）。
+            words = ["北の風", "北の風　後　北西の風", "北西の風　やや強く"]
+            texts = [e for e in h["entries"] if e["element"] == "weather_text"]
+            for i, e in enumerate(texts):
+                h["entries"].append(dict(e, element="wind_text", value=words[min(i, len(words) - 1)], jma_type="風の文"))
+            return h
         return {"v": 1, "station": "47893", "date": q.get("date"), "supported": True, "places": {"office": "390000", "area": "390010", "point": "74182"}, "issues": [], "entries": [], "fetchLog": []}
     if path == "/api/forecast-issue":
         # その発表の週間天気予報（11/19）: made-up — 上の1日分から、その発表の行を、対象日から先の日へずらして並べる。
@@ -1382,6 +1389,20 @@ with sync_playwright() as p:
             back.append((name, y0, pg.evaluate("scrollY")))
         check("SD4k 1日モードから開いた物を閉じると、開く前の位置に戻る", back and all(abs(a - b) < 4 for _, a, b in back), back)
         group("rain"); calm()
+        # 雨・風の根拠と記録：降水確率と風の予報の移り変わり（気象庁の値だけ、2026-11-24）。
+        rw_btn = pg.locator(".day-detail .dd-basis-sec > .fold > .fold-btn")
+        rw_closed = rw_btn.get_attribute("aria-expanded") == "false"  # ほかの仲間で開いていても、移ると畳んだところから
+        rw_btn.click(); calm()
+        settle(lambda: pg.locator(".rw .rw-row").count() >= 1 and rw_btn.get_attribute("aria-expanded") == "true", 10)
+        rw = pg.evaluate("""() => ({ older: (() => { const b = document.querySelector('.rw .fold-body'); return b ? Math.round(b.getBoundingClientRect().height) : -1; })(), rows: document.querySelectorAll('.rw .rw-row').length, wind: [...document.querySelectorAll('.rw .rw-wind span')].map(e => e.textContent),
+          chg: document.querySelectorAll('.rw .rw-wind.chg').length, pop: document.querySelectorAll('.rw .rw-pop').length, fh: document.querySelectorAll('.day-detail .fh').length })""")
+        if shots:
+            pg.evaluate("document.querySelector('.item-bar').style.visibility='hidden'")
+            pg.locator(".rw").scroll_into_view_if_needed(); time.sleep(0.8)
+            pg.screenshot(path=f"{shots}-rainwind-history.png")
+            pg.evaluate("document.querySelector('.item-bar').style.visibility=''")
+        check("SD5b 雨・風の根拠と記録：はじめは畳んである、開くと発表ごとの降水確率と風の文（変わった所に印）、前の発表は畳んだまま（外の畳みといっしょに開かない）、天気・気温の移り変わりは無い", rw_closed and rw["older"] in (-1, 0) and rw["rows"] >= 1 and rw["pop"] == rw["rows"] and len(rw["wind"]) >= 1 and rw["fh"] == 0, str(rw))
+        pg.locator(".day-detail .dd-basis-sec > .fold > .fold-btn").click(); calm()
         check("SD5 帯で雨・風を押すと降水に（項目を選ぶのは帯だけ）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
         if shots: pg.screenshot(path=f"{shots}-single.png", full_page=True)
         # 暫定の説明 (2026-11-18)：昨日（暫定）にすると、出どころ・待っているもの・確定の見込みが出る。予報の今日には出ない。
