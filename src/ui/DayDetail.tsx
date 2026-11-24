@@ -136,6 +136,7 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
   const nextMin = nextLow == null ? null : dayFigure(nextRow, "min", nextLow);
   const feelSettings = useContext(FeelContext);
   const sunTimes = useMemo(() => shownSun(date, station), [date, station]);
+  const latest = date === today ? (store?.getLatest(station) ?? null) : null;
   const lines = summaryLines({
     row,
     hours: rows,
@@ -144,8 +145,8 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
     sun: { rise: shownClock(sunTimes.rise), set: shownClock(sunTimes.set) },
     past: date < today,
     hoursState: hours?.state === "ready" ? "ready" : hours?.state === "error" ? "error" : store?.hoursComing(station, date) ? "loading" : "none",
+    now: latest ? { temp: typeof latest.temp === "number" ? latest.temp : null, rain: typeof latest.rain === "number" ? latest.rain : null, at: typeof latest.observedAt === "string" ? latest.observedAt : null } : null,
   });
-  const latest = date === today ? (store?.getLatest(station) ?? null) : null;
   // 予報の変化のいちばん大事な1つ（まとめの見出しの下、2026-11-24 見本の①）。押すと根拠と記録の「この日の予報の変化」へ。
   const history = useForecastHistory(station, date, group === "summary");
   const headline = useMemo(() => {
