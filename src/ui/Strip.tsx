@@ -4,6 +4,8 @@
 // - The selected day only changes when scrolling has settled (finger up and no movement).
 // - Linked strips share one Sync object: the strip the finger is on leads, the others follow.
 // - While a strip is being moved, `onGesture(true)` lets the store hold screen updates.
+// - A tap (the strip did not move between finger down and up) is not a gesture: the column's own tap
+//   chooses its day, and the strip glides that day to the centre (2026-11-24 渡辺さん「タップでも選択」).
 
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { centerIndex, COLUMNS, scrollFor } from "../compare";
@@ -11,6 +13,8 @@ import { centerIndex, COLUMNS, scrollFor } from "../compare";
 const SETTLE_MS = 140;
 /** 幅が変わってからこの間（ms）の、指でないスクロールはなぞったことにしない。 */
 const RESIZE_QUIET_MS = 400;
+/** 指を置いてから離すまでに、これより動いていなければタップ（px）。 */
+const TAP_SLOP = 6;
 
 /** Shared between linked strips. */
 export class StripSync {
@@ -49,6 +53,8 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
     col: 0,
     /** When the strip's width last changed (performance.now()). */
     resizedAt: 0,
+    /** Where the strip was when the finger (or mouse) went down. */
+    downLeft: 0,
   });
   const latest = useRef({ dates, center, onSettle, onGesture, selectable, columns });
   latest.current = { dates, center, onSettle, onGesture, selectable, columns };
@@ -216,7 +222,22 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
 
   const onTouchStart = () => {
     state.current.touching = true;
+    state.current.downLeft = ref.current?.scrollLeft ?? 0;
     begin();
+  };
+
+  // A tap on a column: the strip did not move, so there is nothing to settle. End the gesture before the
+  // column's own tap runs (capture phase): its new day then glides to the centre like a day chosen from
+  // outside, instead of being taken back by the settle of a gesture that never moved.
+  const onClickCapture = () => {
+    const el = ref.current;
+    const s = state.current;
+    if (!el || s.touching || !s.active || Math.abs(el.scrollLeft - s.downLeft) > TAP_SLOP) return;
+    window.clearTimeout(s.timer);
+    s.active = false;
+    if (sync && sync.leader === id) sync.leader = null;
+    for (const m of sync?.members.values() ?? []) m.classList.remove("following");
+    latest.current.onGesture(false);
   };
   const onTouchEnd = () => {
     const s = state.current;
@@ -234,10 +255,12 @@ export function Strip({ id, dates, center, sync, onSettle, onGesture, renderColu
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchEnd}
+      onClickCapture={onClickCapture}
       // A mouse's release is heard on the window: it may land elsewhere (a sheet opened by a long
       // press, #176), and a release the strip never hears would keep the screen held as moving.
       onPointerDown={(e) => {
         if (e.pointerType !== "mouse") return;
+        state.current.downLeft = ref.current?.scrollLeft ?? 0;
         begin();
         window.addEventListener("pointerup", onTouchEnd, { once: true });
       }}
