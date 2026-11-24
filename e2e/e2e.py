@@ -1287,6 +1287,7 @@ with sync_playwright() as p:
         # 予報の移り変わり (R6): 選んだ発表と実績・グラフ・発表した日ごとの一覧。降水確率の欄を押すと 1マス⇄6時間ごと。
         settle(lambda: pg.locator(".fh-split").count() == 1)
         check("SD4d 予報の移り変わり：上の枠・グラフ・日ごとの一覧", pg.locator(".fh-split").count() == 1 and pg.locator(".fh-step > svg").count() == 1 and pg.locator(".fh-dgroup").count() >= 5, (pg.locator(".fh-split").count(), pg.locator(".fh-dgroup").count()))
+        check("SD4d2 予報の移り変わり：いつ取れた分かを一覧の見出しに（「HH:MM に確認」、今日は開き直すと取り直す）", pg.locator(".fh-rows-head .fh-checked").count() == 1 and "に確認" in txt(".fh-rows-head .fh-checked"), txt(".fh-rows-head") if pg.locator(".fh-rows-head").count() else "")
         n0 = pg.locator(".fh-step .fh-step-cell").count()
         pg.locator(".fh-step > svg").scroll_into_view_if_needed(); calm()
         b = pg.locator(".fh-step .fh-step-cell").first.bounding_box()
