@@ -1,0 +1,25 @@
+name: research-forecast-source
+
+# FS-07（手前の期間）：高知の日降水量（気象庁 過去の気象データ、2021-10-25〜2024-01-31）を取る（research/forecast-source/fs07_rain_obs.py）。
+# 渡辺さんの OK（11/24）。Runs only on a push to research/forecast-source (no schedule). The log shows counts only; the CSV is an artifact (1 day). Deleted when done.
+on:
+  push:
+    branches: [research/forecast-source]
+    paths:
+      - .github/workflows/research-forecast-source.yml
+
+jobs:
+  fs07-rain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python research/forecast-source/fs07_rain_obs.py fs07_rain_47893_early.csv
+      - uses: actions/upload-artifact@v4
+        with:
+          name: fs07-rain
+          path: fs07_rain_47893_early.csv
+          retention-days: 1
