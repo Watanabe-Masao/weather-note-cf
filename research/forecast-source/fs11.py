@@ -5,6 +5,7 @@
   python3 -I fs11.py describe <フォルダ> <main の shared>   1. 外れ方の分け方（数えるだけ）
   python3 -I fs11.py train <フォルダ> <main の shared>      2. 作る期間で、切り口を偽の発見率と合格の基準で選ぶ
   python3 -I fs11.py confirm <フォルダ> <main の shared>    2. 候補を、確かめる期間と手前の期間で1回ずつ数える
+  python3 -I fs11.py rel_train|rel_confirm <フォルダ> <main の shared>   FS-11b（信頼度ごと）
 """
 import csv, io, os, re, sys
 from collections import Counter, defaultdict
@@ -254,10 +255,93 @@ def confirm(W, P, rain, texts):
             print(("【候補】" if n in cands else "（参考）") + show(n, s, verdict(s, n) if n in cands else "－").lstrip())
 
 
+# ---------------------------------------------------------------- FS-11b：信頼度ごと
+def rel_units(W, P, rain, per):
+    R, _ = units(W, P, rain, per)
+    return [u for u in R if u["v"]["rel"] in ("A", "B", "C")]
+
+
+def rel_table(W, P, rain, per):
+    R = rel_units(W, P, rain, per)
+    for rel in ("A", "B", "C"):
+        parts = []
+        for L in list(range(3, 8)) + ["3〜7"]:
+            us = [u for u in R if u["v"]["rel"] == rel and (L == "3〜7" or u["L"] == L)]
+            n = len(us)
+            if not n:
+                parts.append(f"{L}日前 0件")
+                continue
+            hit = sum(u["out"] == "当たり" for u in us) / n
+            sh = sum(u["out"] in SHIFT for u in us) / n
+            kv = sum(u["out"] == "空振り" for u in us) / n
+            parts.append(f"{L}日前 {n}件 当たり{hit * 100:.0f}%・ずれ{sh * 100:.0f}%・空振り{kv * 100:.0f}%")
+        print(f"  信頼度 {rel}：" + "／".join(parts))
+
+
+def rel_compare(W, P, rain, per):
+    from fs10 import ratio_ci
+    R = rel_units(W, P, rain, per)
+    out = {}
+    for name, pred in (("ずれ", lambda u: u["out"] in SHIFT), ("空振り", lambda u: u["out"] == "空振り")):
+        grp, base = defaultdict(list), defaultdict(list)
+        for u in R:
+            (grp if u["v"]["rel"] == "C" else base)[u["t"]].append(int(pred(u)))
+        n = sum(len(v) for v in grp.values())
+        k = sum(sum(v) for v in grp.values())
+        nb = sum(len(v) for v in base.values())
+        kb = sum(sum(v) for v in base.values())
+        rc, rb = (k / n if n else float("nan")), (kb / nb if nb else float("nan"))
+        ci = ratio_ci(list(days(*per)), grp, base) if n and nb else (float("nan"),) * 2
+        p = binom.sf(k - 1, n, rb) if n else 1.0
+        out[name] = {"n": n, "k": k, "nb": nb, "kb": kb, "rc": rc, "rb": rb, "ratio": rc / rb if rb else float("nan"),
+                     "ci": ci, "p": p, "days": len(grp)}
+    return out
+
+
+def rel_verdict(s):
+    if s["days"] < PASS["minDays"]:
+        return "件数が足りず判断できない"
+    why = []
+    if not s["ratio"] >= PASS["minRatio"]:
+        why.append("倍率 1.3 未満")
+    if not s["ci"][0] > PASS["ciLowAbove"]:
+        why.append("幅の下の端が 1 以下")
+    return "合格" if not why else "不合格（" + "・".join(why) + "）"
+
+
+def rel_line(name, s, v):
+    return (f"  C 対 A・B の{name}：C {s['k']}/{s['n']}（{s['rc'] * 100:.0f}%、{s['days']} 日）、A・B {s['kb']}/{s['nb']}（{s['rb'] * 100:.0f}%）、"
+            f"倍率 {s['ratio']:.2f}（{s['ci'][0]:.2f}〜{s['ci'][1]:.2f}）、p {s['p']:.4f} → {v}")
+
+
+def rel_train(W, P, rain, texts, out=True):
+    S = rel_compare(W, P, rain, TRAIN)
+    thr = bh([S[n]["p"] for n in S])
+    cands = [n for n in S if S[n]["p"] <= thr and rel_verdict(S[n]) == "合格"]
+    if out:
+        print("## FS-11b 作る期間")
+        rel_table(W, P, rain, TRAIN)
+        for n in S:
+            print(rel_line(n, S[n], rel_verdict(S[n])) + f"、偽の発見率で{'残った' if S[n]['p'] <= thr else '残らない'}")
+        print("候補：", cands)
+    return cands
+
+
+def rel_confirm(W, P, rain, texts):
+    cands = rel_train(W, P, rain, texts, out=False)
+    print("FS-11b 候補：", cands)
+    for pn, per in (("確かめる", TEST), ("手前", EARLY)):
+        print(f"\n## {pn}")
+        rel_table(W, P, rain, per)
+        S = rel_compare(W, P, rain, per)
+        for n in S:
+            print(("【候補】" if n in cands else "（参考）") + rel_line(n, S[n], rel_verdict(S[n]) if n in cands else "－").lstrip())
+
+
 if __name__ == "__main__":
     W, P = load(sys.argv[2])
     _, rain = load_obs_all()
     texts = code_texts(sys.argv[3])
     if sys.argv[1] == "train":
         print("## 作る期間")
-    {"describe": describe, "train": train, "confirm": confirm}[sys.argv[1]](W, P, rain, texts)
+    {"describe": describe, "train": train, "confirm": confirm, "rel_train": rel_train, "rel_confirm": rel_confirm}[sys.argv[1]](W, P, rain, texts)
