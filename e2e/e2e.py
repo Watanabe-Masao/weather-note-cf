@@ -114,9 +114,9 @@ def api(path, q):
     if path == "/api/admin/forecast-types":
         # 予報が外れやすい型の確かめ（11/24）: made-up — 1回分の記録、型は固定した9つ（答え合わせはまだ）。
         ids = ["A-min-raised-L1", "B-max-rain-L2-3", "B-max-rain-L4-7", "G-rain-summer-cloudy-L2-3", "G-rain-summer-cloudy-L4-7", "E-min-turning-drop-L4-7", "C-max-moved-L2-3", "C-max-moved-L4-6", "W-max-autumn-falling-L1-3"]
-        t = lambda i: {"id": i, "stage": "watch" if i.startswith("W") else "candidate", "fs05": "A", "item": "min", "leads": [1], "text": "型 " + i, "frozenAt": "2026-11-24",
+        t = lambda i: {"id": i, "stage": "watch" if i.startswith(("W", "E")) or i.endswith("L4-6") else "candidate", "fs05": "A", "item": "min", "leads": [1], "text": "型 " + i, "frozenAt": "2026-11-24",
                        "expected": {"ratio": 2.0, "ci": [1.5, 2.5], "hitRate": 0.2, "baseRate": 0.1}, "judged": 7, "matched": 1, "matchedDays": 1,
-                       "inRule": {"n": 0, "miss": 0}, "outRule": {"n": 0, "miss": 0}, "ratio": None, "ci": None, "directionShare": None, "status": "checking"}
+                       "inRule": {"n": 0, "miss": 0}, "outRule": {"n": 0, "miss": 0}, "base": {"n": 0, "miss": 0}, "ratio": None, "ci": None, "directionShare": None, "status": "checking"}
         return {"frozenAt": "2026-11-24", "pass": {"minRatio": 1.3, "ciLowAbove": 1, "minDays": 20, "directionShareAbove": 0.5},
                 "runs": [{"day": "2026-11-23", "at": "2026-11-23T17:05:00Z", "judged": 56, "checked": 0, "error": None}], "firstJudged": "2026-11-23T17:05:00Z", "types": [t(i) for i in ids]}
     if path == "/api/admin/maintenance":
@@ -151,7 +151,14 @@ def api(path, q):
         # 予報の履歴 (R6): made-up — 2026-10 の記録（shiromatz）を日付だけずらした、TODAY を対象日にした1日分。
         if q.get("date") == TODAY.isoformat():
             with open(os.path.join(HERE, "forecast-history.json"), encoding="utf-8") as f:
-                return json.load(f)
+                h = json.load(f)
+            # 風（2026-11-24、電文の読み直し parser 2）：府県天気予報の天気の文に合わせて、その日の風の文を足す。
+            # 発表ごとに文を替えて、変わった印が出るように（作ったもの）。
+            words = ["北の風", "北の風　後　北西の風", "北西の風　やや強く"]
+            texts = [e for e in h["entries"] if e["element"] == "weather_text"]
+            for i, e in enumerate(texts):
+                h["entries"].append(dict(e, element="wind_text", value=words[min(i, len(words) - 1)], jma_type="風の文"))
+            return h
         return {"v": 1, "station": "47893", "date": q.get("date"), "supported": True, "places": {"office": "390000", "area": "390010", "point": "74182"}, "issues": [], "entries": [], "fetchLog": []}
     if path == "/api/forecast-issue":
         # その発表の週間天気予報（11/19）: made-up — 上の1日分から、その発表の行を、対象日から先の日へずらして並べる。
@@ -1062,9 +1069,13 @@ with sync_playwright() as p:
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
         # 画面の日の出入りは計算だけ（11/19）：太陽のシート・1日モードの行・比較のまとめで同じ時刻（どれも Open-Meteo の値を読まない）。
         sheet_rise = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text(); sheet_set = pg.locator(".sun-keys:not(.moon) .sun-key b").nth(2).inner_text()
+        # 日の出の行は空・光の仲間だけ（2026-11-24）：空・光にして読む。
+        sky = pg.locator(".item-bar .ib-cat[data-items^='radiation']")
+        if sky.count(): sky.dispatch_event("click"); calm()  # 太陽のシートの下
         others = pg.evaluate("""() => ({ dd: [...document.querySelectorAll('.dd-sun b')].slice(0, 2).map(e => e.textContent), cs: (document.querySelector('.cs-sun .cs-a') || {}).textContent || null })""")
         same = (not others["dd"] or others["dd"] == [sheet_rise, sheet_set]) and (others["cs"] is None or others["cs"].strip() == f"{sheet_rise}–{sheet_set}")
         check("SS2o 日の出入りが太陽のシート・1日モード・比較のまとめで同じ", same and (others["dd"] or others["cs"]), (sheet_rise, sheet_set, others))
+        if pg.locator(".item-bar .ib-cat[data-items^='temp']").count(): pg.locator(".item-bar .ib-cat[data-items^='temp']").dispatch_event("click"); calm()
         # 現在地で計算（11/19）：位置を許可すると、太陽と月は現在地（0.01° に丸めた値）で。題に（現在地）、月のこよみは「現在地から見た」。
         # やめると観測所に戻る。ここでは札幌あたりの位置を流す（高知と日の出がはっきり違う）。
         rise0 = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text()
@@ -1231,12 +1242,50 @@ with sync_playwright() as p:
         shots = os.environ.get("WN_SHOT")
         pg.locator(".app-head .seg button", has_text="1日").click(); calm()
         check("SD1 1日：比較の表と下のシートが消え、1日の画面が出る", pg.locator(".side-compare").count() == 0 and pg.locator(".day-detail").count() == 1 and pg.locator("aside.sheet").count() == 0)
+        # 1日を開いたときはいつも「まとめ」から（2026-11-24 渡辺さん）：見出し（天気・一言・出どころ）と、仲間ごとに1行。
+        # 数字は上の表だけ（見出しに最高・最低なし、項目の札なし）。行を押すとその仲間の画面。
+        settle(lambda: pg.locator(".dd-hero .dd-kind").count() == 1 and pg.locator(".dd-sum-row").count() == 5, 10)
+        if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day-summary.png")
+        check("SD1c 1日はまとめから：帯の先頭の「まとめ」が選ばれ、5行（気温・雨・風・空・光・大気）、グラフは無い",
+              pg.get_attribute(".day-detail", "data-group") == "summary" and pg.locator(".item-bar [data-item='summary'][aria-selected='true']").count() == 1
+              and [t.strip() for t in pg.locator(".dd-sum-label").all_inner_texts()] == ["気温", "雨", "風", "空・光", "大気"] and pg.locator(".day-detail .hour-face").count() == 0,
+              str(pg.locator(".dd-sum-label").all_inner_texts()))
+        pg.locator(".dd-sum-line").first.click(); calm()
         settle(lambda: pg.locator(".dd-part").count() == 5)
+        check("SD1b 気温の行を押すと気温の画面：数字は表だけ（見出し・項目の札なし）、グラフは1本", pg.get_attribute(".day-detail", "data-group") == "temp" and pg.locator(".dd-hero").count() == 0 and pg.locator(".dd-temps").count() == 0 and pg.locator(".dd-value").count() == 0 and pg.locator(".ts-curve").count() == 0 and pg.locator(".day-detail .hour-face").count() == 1)
         check("SD2 時間帯は5つ", pg.locator(".dd-part").count() == 5, pg.locator(".dd-part").count())
         pg.locator(".dd-part").nth(2).click(); calm()
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
-        # 項目の選び（値つき）は 24時間の見出しのすぐ下（2026-11-18）。肌感は見出しの下の1行で、押すと肌感マップ。
-        check("SD4 グラフの項目：8つが24時間のグラフのすぐ上、肌感は上の1行", pg.locator(".hour-face .dd-pick .dd-value").count() == 8 and pg.locator(".dd-feel-line").count() == 1, pg.locator(".dd-value").count())
+        # 下は帯で選んだ仲間のものだけ（2026-11-24）。気温：グラフ・時間帯の気温・肌感の1行（押すと肌感マップ）。
+        check("SD4 気温の仲間：時間帯の気温・肌感の1行、日の出の行は無い", pg.get_attribute(".day-detail", "data-group") == "temp" and "°" in txt(".dd-part") and pg.locator(".dd-feel-line").count() == 1 and pg.locator(".dd-sun").count() == 0)
+        group = lambda first: pg.locator(f".item-bar .ib-cat[data-items^='{first}']").click() if pg.locator(f".item-bar .ib-cat[data-items^='{first}']").count() else None
+        seen = {}
+        for first, name in (("rain", "雨・風"), ("radiation", "空・光"), ("humidity", "大気")):
+            group(first); calm()
+            if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day-{first}.png")
+            seen[name] = (pg.get_attribute(".day-detail", "data-group"), pg.locator(".dd-part").count(), "%" in (txt(".dd-parts") if pg.locator(".dd-parts").count() else ""),
+                          pg.locator(".dd-sun").count(), pg.locator(".dd-feel-line").count(), pg.locator(".day-detail .hour-face").count())
+        group("temp"); calm()
+        check("SD4m 仲間ごと：雨・風は時間帯の降水確率、空・光は日の出の行、大気はグラフだけ（肌感は気温だけ）",
+              seen["雨・風"][0] == "rainwind" and seen["雨・風"][1] == 5 and seen["雨・風"][2] and seen["雨・風"][4] == 0
+              and seen["空・光"][0] == "sky" and seen["空・光"][3] == 1 and seen["空・光"][1] == 0
+              and seen["大気"][0] == "air" and seen["大気"][1] == 0 and seen["大気"][3] == 0 and seen["大気"][5] == 1, str(seen))
+        # 根拠と記録は項目ごと（2026-11-24）：気温は自分の記録だけ、予報の移り変わり・天気図・その日の要約はまとめに。
+        # ふだん畳んである。押すと開く。
+        pg.locator(".day-detail .dd-basis-sec > .fold > .fold-btn").click(); calm()
+        temp_basis = (pg.locator(".day-detail .dd-basis .fh, .day-detail .wx-chart").count(), pg.locator(".day-detail .dd-basis").count())
+        pg.locator(".day-detail .dd-basis-sec > .fold > .fold-btn").click(); calm()
+        check("SD4o 気温の根拠と記録は自分の記録だけ（予報の移り変わり・天気図は無い）", temp_basis == (0, 1) and pg.locator(".day-detail .fh").count() == 0, str(temp_basis))
+        pg.locator(".item-bar [data-items='summary']").click(); calm()
+        fbb = pg.locator(".dd-basis-sec > .fold > .fold-btn")
+        closed = fbb.count() == 1 and fbb.get_attribute("aria-expanded") == "false"
+        fbb.click(); calm()
+        check("SD4n 根拠と記録：ふだん畳まれていて、押すと開く", closed and fbb.get_attribute("aria-expanded") == "true")
+        # この日の予報の変化（2026-11-24）：予報の移り変わりのいちばん上に、変化を新しい順に3つまで（無ければ「大きく変わっていません」）。
+        settle(lambda: pg.locator(".fc-changes").count() == 1, 10)
+        fc = pg.evaluate("""() => ({ rows: [...document.querySelectorAll('.fc-changes .fc-change')].map(e => e.innerText.replace(/\\s+/g, ' ')), none: !!document.querySelector('.fc-changes-none'), head: !!document.querySelector('.dd-change') })""")
+        check("SD4p この日の予報の変化：3つまで（または「大きく変わっていません」）、まとめの見出しの下の1行は変化があるときだけ",
+              (0 < len(fc["rows"]) <= 3 and not fc["none"] and fc["head"]) or (len(fc["rows"]) == 0 and fc["none"] and not fc["head"]), str(fc))
         if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day.png"); pg.locator(".day-detail .dd-sec").last.screenshot(path=f"{shots}-basis.png")
         lr = pg.locator(".day-detail .legend-row")
         if lr.count():
@@ -1262,6 +1311,7 @@ with sync_playwright() as p:
         # 予報の移り変わり (R6): 選んだ発表と実績・グラフ・発表した日ごとの一覧。降水確率の欄を押すと 1マス⇄6時間ごと。
         settle(lambda: pg.locator(".fh-split").count() == 1)
         check("SD4d 予報の移り変わり：上の枠・グラフ・日ごとの一覧", pg.locator(".fh-split").count() == 1 and pg.locator(".fh-step > svg").count() == 1 and pg.locator(".fh-dgroup").count() >= 5, (pg.locator(".fh-split").count(), pg.locator(".fh-dgroup").count()))
+        check("SD4d2 予報の移り変わり：いつ取れた分かを一覧の見出しに（「HH:MM に確認」、今日は開き直すと取り直す）", pg.locator(".fh-rows-head .fh-checked").count() == 1 and "に確認" in txt(".fh-rows-head .fh-checked"), txt(".fh-rows-head") if pg.locator(".fh-rows-head").count() else "")
         n0 = pg.locator(".fh-step .fh-step-cell").count()
         pg.locator(".fh-step > svg").scroll_into_view_if_needed(); calm()
         b = pg.locator(".fh-step .fh-step-cell").first.bounding_box()
@@ -1317,33 +1367,88 @@ with sync_playwright() as p:
             src.scroll_into_view_if_needed(); calm(); pg.locator(".fh").screenshot(path=f"{os.environ['WN_SHOT']}-fh-sources.png")
         src.locator(".info-btn").click(); calm()
         st = small_text(); check("SD4c 11px より小さい文字がない（1日モード・天気図）", not st, str(st))
+        # 変化の行を押すと、その発表を選ぶ（上の枠がその発表に）。
+        if fc["rows"]:
+            ch = pg.locator(".fc-changes .fc-change").first
+            when = ch.inner_text().split("の発表で")[0].split("〜")[-1].split("のあいだ")[0].strip()
+            ch.scroll_into_view_if_needed(); ch.click(); calm()
+            hour = re.search(r"(\d+)時", when)
+            check("SD4q 変化の行を押すと、その発表が上の枠に", bool(hour) and f"{hour.group(1)}時" in txt(".fh-split"), (when, txt(".fh-split")[:60]))
+        # 時点に印（2026-11-24）：「前日 14時」で、その時刻までのいちばん新しい発表（前日11時）に印、後の発表は薄く。「やめる」で戻る。
+        pg.locator(".fh-point .chip", has_text="前日 14時").first.scroll_into_view_if_needed()
+        pg.locator(".fh-point .chip", has_text="前日 14時").first.click(); calm()
+        pt = pg.evaluate("""() => ({ say: (document.querySelector('.fh-point-say') || {}).textContent || '', point: [...document.querySelectorAll('.fh-drow.point .fh-drow-t b')].map(e => e.textContent),
+          after: document.querySelectorAll('.fh-drow.after').length, split: (document.querySelector('.fh-split') || {}).textContent || '' })""")
+        if shots:
+            pg.evaluate("document.querySelector('.item-bar').style.visibility='hidden'")
+            pg.locator(".fh-point").scroll_into_view_if_needed(); time.sleep(0.6); pg.screenshot(path=f"{shots}-point.png")
+            pg.evaluate("document.querySelector('.item-bar').style.visibility=''")
+        # ほかの発表を手で選ぶと時点の印は外れる（印と上の枠が食い違わないように）。
+        pg.locator(".fh-days .fh-drow:not(.gap):not(.point)").last.scroll_into_view_if_needed()
+        pg.locator(".fh-days .fh-drow:not(.gap):not(.point)").last.click(); calm()
+        esc() if pg.locator(".fh-week-sheet").count() else None
+        by_hand = pg.locator(".fh-drow.point, .fh-drow.after").count() == 0 and pg.locator(".fh-point-say").count() == 0
+        # その時刻までの発表が無い時点：上の枠も出さず「確かめられません」
+        pg.locator(".fh-point select").select_option(index=pg.locator(".fh-point select option").count() - 1); calm()
+        empty = (pg.locator(".fh-split").count(), "確かめられません" in pg.locator(".fh").inner_text(), "発表がありません" in txt(".fh-point-say"))
+        check("SD4s2 時点の印：ほかの発表を選ぶと外れる、その時刻までの発表が無ければ上の枠も出さない", by_hand and empty == (0, True, True), (by_hand, empty))
+        pg.locator(".fh-point .chip", has_text="前日 14時").first.click(); calm()
+        pg.locator(".fh-point .chip", has_text="やめる").click(); calm()
+        check("SD4s 時点に印：前日14時までの最新は前日11時の発表（印1つ・後の発表は薄く・上の枠もその発表）、やめると印は消える",
+              "前日 14時までの最新" in pt["say"] and "11時の発表" in pt["say"] and pt["point"] == ["11時"] and pt["after"] >= 1 and "11時" in pt["split"]
+              and pg.locator(".fh-drow.point, .fh-drow.after").count() == 0, str(pt)[:200])
+        # まとめの見出しの下の1行を押すと、その発表を選んで開く（2026-11-24）。
+        if pg.locator(".dd-change").count():
+            want = pg.locator(".fc-changes .fc-change").first.inner_text()
+            pg.evaluate("window.scrollTo(0, 0)"); pg.locator(".dd-change").click(); calm()
+            hour = re.search(r"(\d+)時の発表", pg.locator(".dd-change").inner_text())
+            check("SD4t まとめの変化の1行を押すと、その発表が選ばれる（上の枠がその発表）", bool(hour) and f"{hour.group(1)}時" in txt(".fh-split"), (want[:40], txt(".fh-split")[:40]))
         rotate_ok("SD4r", "1日モード")
-        # 項目を切り替えても、項目の選び（とその上）は動かない（2026-11-18 渡辺さん「切り替えで画面がぶれるのが嫌い」）。
-        tops = []
-        for i in range(pg.locator(".dd-pick .dd-value").count()):
-            pg.locator(".dd-pick .dd-value").nth(i).click(); calm()
-            tops.append(pg.evaluate("Math.round(document.querySelector('.dd-pick').getBoundingClientRect().top - document.querySelector('.day-detail').getBoundingClientRect().top)"))
-            tops.append(pg.evaluate("Math.round(document.querySelector('.hour-face .readout-card').getBoundingClientRect().top - document.querySelector('.day-detail').getBoundingClientRect().top)"))
-        pick_tops, ro_tops = tops[0::2], tops[1::2]
-        check("SD4j 項目を切り替えても項目の選びと読み取りの枠の位置は変わらない", max(pick_tops) - min(pick_tops) <= 1 and max(ro_tops) - min(ro_tops) <= 1, (pick_tops, ro_tops))
-        pg.locator(".dd-pick .dd-value").first.click(); calm()
+        # 仲間の中で項目を切り替えても、グラフの読み取りの枠は動かない（2026-11-18 渡辺さん「切り替えで画面がぶれるのが嫌い」）。
+        ro_tops = []
+        for first in ("rain", "humidity"):
+            group(first); calm()
+            items = pg.locator(".item-bar .ib-open .chip.item")
+            tops = []
+            for i in range(items.count()):
+                items.nth(i).click(); calm()
+                tops.append(pg.evaluate("Math.round(document.querySelector('.day-detail .hour-face .readout-card').getBoundingClientRect().top - document.querySelector('.day-detail').getBoundingClientRect().top)"))
+            ro_tops.append(tops)
+        group("temp"); calm()
+        check("SD4j 仲間の中で項目を切り替えても、読み取りの枠の位置は変わらない", all(len(t) >= 2 and max(t) - min(t) <= 1 for t in ro_tops), ro_tops)
         # 開いて閉じたら、開く前の位置に戻る（2026-11-18 渡辺さん「戻るときは戻る前の位置が基本」）：1日モードの下の方から開く物。
         back = []
+        pg.locator(".item-bar [data-items='summary']").click(); calm()
         for name, opener in (("その日の要約", lambda: pg.locator(".dd-links .chip", has_text="その日の要約").first), ("肌感マップ", lambda: pg.locator(".dd-feel-line").first)):
+            if name == "肌感マップ": group("temp"); calm()
             el = opener()
             if not el.count(): continue
-            pg.locator(".dd-links").scroll_into_view_if_needed(); calm()
             el.scroll_into_view_if_needed(); calm()
             y0 = pg.evaluate("scrollY")
             el.click(); calm()
             pg.keyboard.press("Escape"); calm()
             back.append((name, y0, pg.evaluate("scrollY")))
         check("SD4k 1日モードから開いた物を閉じると、開く前の位置に戻る", back and all(abs(a - b) < 4 for _, a, b in back), back)
-        pg.locator(".dd-value", has_text="降水").first.click(); calm()
-        check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
+        group("rain"); calm()
+        # 雨・風の根拠と記録：降水確率と風の予報の移り変わり（気象庁の値だけ、2026-11-24）。
+        rw_btn = pg.locator(".day-detail .dd-basis-sec > .fold > .fold-btn")
+        rw_closed = rw_btn.get_attribute("aria-expanded") == "false"  # ほかの仲間で開いていても、移ると畳んだところから
+        rw_btn.click(); calm()
+        settle(lambda: pg.locator(".rw .rw-row").count() >= 1 and rw_btn.get_attribute("aria-expanded") == "true", 10)
+        rw = pg.evaluate("""() => ({ older: (() => { const b = document.querySelector('.rw .fold-body'); return b ? Math.round(b.getBoundingClientRect().height) : -1; })(), rows: document.querySelectorAll('.rw .rw-row').length, wind: [...document.querySelectorAll('.rw .rw-wind span')].map(e => e.textContent),
+          chg: document.querySelectorAll('.rw .rw-wind.chg').length, pop: document.querySelectorAll('.rw .rw-pop').length, fh: document.querySelectorAll('.day-detail .fh').length })""")
+        if shots:
+            pg.evaluate("document.querySelector('.item-bar').style.visibility='hidden'")
+            pg.locator(".rw").scroll_into_view_if_needed(); time.sleep(0.8)
+            pg.screenshot(path=f"{shots}-rainwind-history.png")
+            pg.evaluate("document.querySelector('.item-bar').style.visibility=''")
+        check("SD5b 雨・風の根拠と記録：はじめは畳んである、開くと発表ごとの降水確率と風の文（変わった所に印）、前の発表は畳んだまま（外の畳みといっしょに開かない）、天気・気温の移り変わりは無い", rw_closed and rw["older"] in (-1, 0) and rw["rows"] >= 1 and rw["pop"] == rw["rows"] and len(rw["wind"]) >= 1 and rw["fh"] == 0, str(rw))
+        pg.locator(".day-detail .dd-basis-sec > .fold > .fold-btn").click(); calm()
+        check("SD5 帯で雨・風を押すと降水に（項目を選ぶのは帯だけ）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
         if shots: pg.screenshot(path=f"{shots}-single.png", full_page=True)
         # 暫定の説明 (2026-11-18)：昨日（暫定）にすると、出どころ・待っているもの・確定の見込みが出る。予報の今日には出ない。
         # 出どころは ⓘ で開く（2026-11-18）：予報の日は ⓘ だけ、開くと出どころ（信頼度の意味まで）。暫定の説明は出ない。
+        pg.locator(".item-bar [data-items='summary']").click(); calm()
         closed0 = pg.locator(".dd-prov").count() == 0 and pg.locator(".dd-kind .info-btn").count() == 1
         pg.locator(".dd-kind .info-btn").click(); calm()
         src = pg.locator(".dd-prov").inner_text() if pg.locator(".dd-prov").count() else ""
@@ -1359,6 +1464,23 @@ with sync_playwright() as p:
         layout_ok("SD7c", "暫定の説明")
         if shots: pg.locator(".dd-hero").screenshot(path=f"{shots}-prov-hero.png"); pg.locator(".dd-prov").screenshot(path=f"{shots}-prov.png")
         pg.locator("button[aria-label$='1日後へ']").first.click(); calm()
+        # 表の日はタップでも選べる（2026-11-24 渡辺さん）：押した日が選ばれ、表がその日を真ん中へ滑らせる（指の操作として
+        # 扱って、元の日へ戻さない）。
+        strip = ".side-target .strip"
+        center_date = lambda: pg.locator(f"{strip} .strip-col.is-center .cell-date").inner_text().split("\n")[0].strip()
+        before = center_date()
+        cols = pg.locator(f"{strip} .strip-col")
+        idx = [i for i in range(cols.count()) if "is-center" in (cols.nth(i).get_attribute("class") or "")][0]
+        want = cols.nth(idx + 1).locator(".cell-date").inner_text().split("\n")[0].strip()
+        cols.nth(idx + 1).locator(".cell-kind").tap()
+        off = lambda: pg.evaluate(f"""() => {{ const s = document.querySelector('{strip}').getBoundingClientRect();
+          const c = document.querySelector('{strip} .strip-col.is-center').getBoundingClientRect();
+          return Math.abs((c.left + c.width / 2) - (s.left + s.width / 2)); }}""")
+        ok = settle(lambda: center_date() == want and off() < 2, 5)
+        time.sleep(0.5)
+        check("SD8 表の日をタップすると、その日が選ばれて真ん中へ（戻らない）", ok and center_date() == want and off() < 2 and want != before, (before, want, center_date(), off()))
+        cols.nth(idx).locator(".cell-kind").tap()
+        settle(lambda: center_date() == before and off() < 2, 5)
         pg.locator(".metrics button", has_text="気温").click(); calm()
         pg.locator(".app-head .seg button", has_text="比較").click(); calm()
         check("SD6 比較に戻すと比較の表が戻る", pg.locator(".side-compare").count() == 1 and pg.locator(".day-detail").count() == 0)
@@ -1370,6 +1492,10 @@ with sync_playwright() as p:
         shots = os.environ.get("WN_SHOT")
         # 雨の見込みは今日の 1日モードにある（2026-11-18）：札の言葉と「直近の雨雲レーダー」。過去の日には出ない。
         pg.locator(".app-head .seg button", has_text="1日").click(); calm()
+        # 雨の見込みは雨・風の仲間に（2026-11-24）。気温の仲間には出ない。
+        no_rain_in_temp = pg.locator(".rn-card").count() == 0  # 1日はまとめから（まとめは雨雲レーダーのボタンだけ）
+        pg.locator(".item-bar .ib-cat[data-items^='rain']").click(); calm()
+        check("RN0a 雨の見込みの札は雨・風の仲間だけ（まとめには出ない）", no_rain_in_temp)
         settle(lambda: pg.locator(".rn-card .rn-say-item").count() == 2 and "読み込み中" not in txt(".rn-card"), 15)
         check("RN0 今日の 1日モードに雨の見込み（1時間・15時間の2枚と「直近の雨雲レーダー」）", pg.locator(".rn-card .rn-say-item").count() == 2 and pg.locator(".rn-card button", has_text="直近の雨雲レーダー").count() == 1, txt(".rn-card")[:120])
         if shots: pg.screenshot(path=f"{shots}-rain-card.png", clip={**pg.locator(".day-detail").bounding_box(), "height": 520})
@@ -1402,6 +1528,7 @@ with sync_playwright() as p:
         check("RN9 取れ方（確認用）：一覧3つとこまの数", pg.locator(".rn-diag tbody tr").count() == 3 and "こまのうち" in txt(".rn-diag-body"), txt(".rn-diag-body")[:200])
         if shots: pg.screenshot(path=f"{shots}-rain-hourly.png", full_page=True)
         esc()
+        pg.locator(".item-bar .ib-cat[data-items^='temp']").click(); calm()
         pg.locator(".app-head .seg button", has_text="比較").click(); calm()
     step("RN", rn)
 
@@ -1824,6 +1951,26 @@ with sync_playwright() as p:
         pg.evaluate("window.scrollTo(0, 0)")
         # The day's hours: its sheet opens with the comparison summary at the top.
         pg.locator(".side-target .strip-col.is-center .cell-stack").first.dispatch_event("click"); calm()  # under the sheet, perhaps
+        if os.environ.get("WN_SHOT"):
+            settle(lambda: pg.locator(".compare-summary").count() == 1, 10)
+            for first in ("temp", "rain", "radiation", "humidity"):
+                if pg.locator(f".item-bar .ib-cat[data-items^='{first}']").count(): pg.locator(f".item-bar .ib-cat[data-items^='{first}']").click(); calm()
+                pg.screenshot(path=f"{os.environ['WN_SHOT']}-hours-{first}.png", full_page=True)
+            pg.locator(".item-bar .ib-cat[data-items^='temp']").click(); calm()
+        # 並べるのは帯で選んだ仲間の項目だけ、ほかは「ほかの項目も見る」（2026-11-24 渡辺さん、1日画面と同じ考え方）。
+        settle(lambda: pg.locator(".compare-summary.compact").count() == 1, 10)
+        labels = lambda: pg.evaluate("[...document.querySelectorAll('.compare-summary.compact .cs-label')].map(e => e.firstChild.textContent.trim())")
+        by = {}
+        for first in ("temp", "radiation", "rain", "humidity"):
+            cat = pg.locator(f".item-bar .ib-cat[data-items^='{first}']")
+            if cat.count(): cat.click(); calm()
+            by[first] = (labels(), pg.locator(".compare-summary .cs-beta").count())
+        pg.locator(".item-bar .ib-cat[data-items^='temp']").click(); calm()
+        check("GR7 比較のまとめ：選んだ仲間の項目だけ（気温：最高・最低・平均、空・光：日射・日照・日の出、雨・風：降水・風速・主な風向、大気：湿度・視程最小・気圧）、肌感 β は気温だけ",
+              by["temp"][0] == ["最高", "最低", "平均"] and by["radiation"][0] == ["日射", "日照", "日の出"] and by["rain"][0] == ["降水", "風速", "主な風向"]
+              and by["humidity"][0] == ["湿度", "視程最小", "気圧最高", "気圧最低"] and by["radiation"][1] == 0 and by["rain"][1] == 0 and by["humidity"][1] == 0, str(by))
+        pg.locator(".compare-summary .cs-more").click(); calm()
+        check("GR8 「ほかの項目も見る」で全部の項目（気温の仲間のあとに、ほかの仲間）", len(labels()) == 13 and labels()[:3] == ["最高", "最低", "平均"], str(labels()))
         r = pg.evaluate("""() => {
           const right = (e) => Math.round(e.getBoundingClientRect().right);
           const col = [...document.querySelectorAll('.side-target .strip-col.is-center .cell-value')].filter(e => /\\d/.test(e.textContent)).map(right);
@@ -1835,6 +1982,15 @@ with sync_playwright() as p:
           const sun = cs ? [...cs.querySelectorAll('.cs-sun .cs-val')].map(e => e.getClientRects().length === 1 && e.scrollWidth <= e.clientWidth + 1 && Math.round(e.getBoundingClientRect().height) < 26) : [];
           return { col, a, b, units, sun, straight };
         }""")
+        # 同じ日の同じ値は、どこに出しても同じ数字（2026-11-24 渡辺さん「揃えてください」「テストで仕様として固める」）。
+        same = pg.evaluate("""() => {
+          const t = (root, sel) => ((root && root.querySelector(sel)) || {}).textContent?.trim() ?? null;
+          const col = document.querySelector('.side-target .strip-col.is-center');
+          const rows = [...document.querySelectorAll('.compare-summary .cs-row:not(.cs-sun)')];
+          return { table: [t(col, '.cell-value.tone-hot'), t(col, '.cell-value.tone-cold')], cs: rows.slice(0, 2).map(r => t(r, '.cs-a .cs-num')) };
+        }""")
+        if same["cs"] and all(same["cs"]):
+            check("GR6 比較のまとめの最高・最低は、表の同じ日と同じ数字（気象庁の値は整数のまま）", same["cs"] == same["table"], str(same))
         check("GR1 表の列で小数点が縦にそろう（右そろえ）", len(r["col"]) >= 3 and max(r["col"]) - min(r["col"]) <= 1, str(r["col"]))
         if r["a"]:
             check("GR2 比較の要約の両側で小数点が縦にそろう", max(r["a"]) - min(r["a"]) <= 1 and max(r["b"]) - min(r["b"]) <= 1, f'{r["a"]} {r["b"]}')
@@ -1845,6 +2001,30 @@ with sync_playwright() as p:
             check("GR2 比較の要約が開いている", False, "no .compare-summary")
         pg.click(".back-btn"); calm()
     step("GR", gr)
+
+    # TD. 対象日は比較のしかたから独立（2026-11-24 渡辺さん「対象日が意図せず動く」）：予報の最後の日を選んで「翌週」に
+    # しても対象日はそのまま、比較側に理由。1日 → 比較に戻っても動かない。前日に戻すと比較日が出る。
+    def td():
+        esc() if pg.locator(".msheet").count() else None
+        pg.evaluate("window.scrollTo(0, 0)")
+        fwd = pg.locator(".side-target button[aria-label$='1日後へ']").first
+        for _ in range(30):
+            if fwd.is_disabled(): break
+            fwd.click(); calm()
+        last = pg.locator(".side-target .date-button").first.get_attribute("aria-label")
+        pg.locator("select.chip.mode").first.select_option("nextWeek"); calm()
+        after_mode = pg.locator(".side-target .date-button").first.get_attribute("aria-label")
+        gap = txt(".compare-gap") if pg.locator(".compare-gap").count() else ""
+        pg.locator(".app-head .seg button", has_text="1日").click(); calm()
+        pg.locator(".app-head .seg button", has_text="比較").click(); calm()
+        after_single = pg.locator(".side-target .date-button").first.get_attribute("aria-label")
+        check("TD1 予報の最後の日で「翌週」にしても対象日はそのまま、比較側に「翌週の予報がまだありません」（1日から戻っても同じ）",
+              fwd.is_disabled() and last == after_mode == after_single and gap == "翌週の予報がまだありません", (last, after_mode, after_single, gap))
+        pg.locator("select.chip.mode").first.select_option("yesterday"); calm()
+        check("TD2 前日に戻すと理由は消え、対象日はそのまま", pg.locator(".compare-gap").count() == 0 and pg.locator(".side-target .date-button").first.get_attribute("aria-label") == last)
+        pg.locator("select.chip.mode").first.select_option("sameDate"); calm()
+        if pg.locator(".side-target .today-chip").count(): pg.locator(".side-target .today-chip").first.click(); calm()
+    step("TD", td)
 
     # TY. 近づいている台風: a card at the top while a typhoon concerns the station; from it, the past typhoon days.
     def ty():

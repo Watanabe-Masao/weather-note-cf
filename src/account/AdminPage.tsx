@@ -77,7 +77,7 @@ function ForecastTypesSection() {
       <section className="set-group" aria-labelledby="ad-types">
         <h3 id="ad-types">予報の型の確かめ</h3>
         <p className="set-lead">
-          合格：当てはまった日の大外れが、ふだんの {s.pass.minRatio}倍以上・95%の幅の下の端が {s.pass.ciLowAbove} 超・{s.pass.minDays}日以上・向きが同じ側に半分より多い。合格した型だけを予報のそばに出します。説明と根拠は Project の「予報が外れやすい型」。
+          合格：当てはまった日の大外れが、ふだん（答え合わせできた全部の日、当てはまった日も含む）の {s.pass.minRatio}倍以上・95%の幅の下の端が {s.pass.ciLowAbove} 超・答え合わせできた当てはまりが {s.pass.minDays}日以上・向きが同じ側に半分より多い。画面に出す候補で合格した型だけを予報のそばに出します（様子を見る型は出しません）。説明と根拠は Project の「予報が外れやすい型」。
         </p>
         <ul className="ad-types">
           {s.types.map((t) => (
@@ -95,7 +95,7 @@ function ForecastTypesSection() {
                 {t.expected.directionShare ? `、向き ${Math.round(t.expected.directionShare * 100)}%` : ""}
               </small>
               <small>
-                これまで：当てはまり {t.matchedDays}日（{t.matched}件）・大外れ {pct(t.inRule.miss, t.inRule.n)}（ふだん {pct(t.outRule.miss, t.outRule.n)}）
+                これまで：当てはまり {t.matchedDays}日（{t.matched}件）・大外れ {pct(t.inRule.miss, t.inRule.n)}（ふだん {pct(t.base.miss, t.base.n)}・当てはまらない日 {pct(t.outRule.miss, t.outRule.n)}）
                 {t.ratio != null ? `・${t.ratio.toFixed(2)}倍` : ""}
                 {t.ci ? `（${t.ci[0].toFixed(2)}〜${t.ci[1].toFixed(2)}）` : ""}
                 {t.directionShare != null ? `・向き ${Math.round(t.directionShare * 100)}%` : ""}

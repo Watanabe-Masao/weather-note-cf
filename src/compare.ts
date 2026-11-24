@@ -62,6 +62,17 @@ export function targetBounds(mode: CompareMode, customOffset: number, last: stri
   return { min, max };
 }
 
+/**
+ * 比較日が無い・まだ無いときの理由（2026-11-24 渡辺さん：対象日は比較のしかたに合わせて動かさない。
+ * 比較できないときは、比較側にその理由を出す）。比較できるときは null。
+ */
+export function compareGap(compare: string | null, mode: CompareMode, last: string): string | null {
+  if (compare == null) return mode === "sameDate" || mode === "sameWeekday" ? "前年に同じ日（2月29日）がありません" : "比較日がありません";
+  if (compare > last) return mode === "nextWeek" ? "翌週の予報がまだありません" : `${+compare.slice(5, 7)}/${+compare.slice(8, 10)}の予報はまだありません`;
+  if (compare < FIRST_DAY) return "1977年より前の記録はありません";
+  return null;
+}
+
 export const clampDay = (d: string, min: string, max: string) => (d < min ? min : d > max ? max : d);
 
 // ---- drum strip arithmetic ------------------------------------------------------------------

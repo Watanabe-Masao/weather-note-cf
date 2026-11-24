@@ -11,7 +11,7 @@ import { dayTone, weekdayOf } from "../../shared/holidays";
 import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
 import type { WeatherStore } from "../data/store";
 import { tableSeries } from "../chartMetrics";
-import { jmaText, jmaValue, OM_BIAS_NOTE, omValue, SOURCE_TAGS, SOURCE_TEXT, sourceTag } from "../sourceTag";
+import { dayText, OM_BIAS_NOTE, omValue, SOURCE_TAGS, SOURCE_TEXT, sourceTag } from "../sourceTag";
 import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
 import type { CalendarSide } from "./CalendarModal";
@@ -35,6 +35,8 @@ interface Props {
   last: string;
   bounds: { min: string; max: string };
   compareDate: string | null;
+  /** 比較日が無い・まだ無いときの理由（対象日は動かさず、比較側に出す、2026-11-24）。 */
+  compareGap?: string | null;
   metric: Metric;
   /** 1日モード (#247): the target's week only; the comparison table is left out. */
   single?: boolean;
@@ -149,7 +151,7 @@ function Column({
             ? formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel, station), s.unit ?? metric.unit)
             : "";
         // 気象庁の予報の値は整数のまま（小数を付けると、無い桁を言うことになる）。
-        const text = jmaValue(day?.row, s.key) ? jmaText(raw) : raw;
+        const text = dayText(day?.row, s.key, raw);
         return (
         <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}${longValue(text) ? " long" : ""}${state === "ready" && omValue(day?.row, s.key) ? " om" : ""}`}>
           {state === "ready" ? (
@@ -290,6 +292,7 @@ export function CompareBoard({
   last,
   bounds,
   compareDate,
+  compareGap = null,
   metric,
   single = false,
   moveTarget,
@@ -434,6 +437,11 @@ export function CompareBoard({
       {!single && (
       <div className="side side-compare">
         {compareNav}
+        {compareGap && (
+          <p className="compare-gap" role="status">
+            {compareGap}
+          </p>
+        )}
         <div className="side-body">
           <Labels metric={metric} past={comparePast} sun={view.sun} onToggleSun={onToggleSun} diffs />
           <div className="strip-wrap" ref={lowWrap}>

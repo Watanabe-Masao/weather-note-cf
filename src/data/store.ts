@@ -21,6 +21,7 @@ import type { DailyMonthResponse, HourlyResponse, WeatherRow } from "../../share
 import { decideDay, decideHours, fillFrom } from "./authority";
 import type { ForecastOfficialResponse } from "../../shared/forecastHistory";
 import type { OfficialDay } from "../../shared/jmaOfficial";
+import { overlayObserved } from "./observed";
 import { overlayOfficial } from "./official";
 import { DATA_VERSION, type DayRecord, type HourRecord, type Kind, type Storage } from "./db";
 import { type Direction, isRecent, lastDay, Priority, sourceFor, viewPlan } from "./plan";
@@ -133,6 +134,8 @@ export class WeatherStore {
   private official = new Map<string, Map<string, OfficialDay>>();
   /** getDay が重ねた行（同じ記録・同じ気象庁の値なら同じ行を返す：画面の再描画を増やさない）。 */
   private overlaid = new Map<string, { row: WeatherRow; day: OfficialDay; out: WeatherRow }>();
+  /** getDay が今日に観測を重ねた行（同じ行・同じ時間の記録なら同じ行、src/data/observed.ts）。 */
+  private observedMemo = new Map<string, { row: WeatherRow | null; hours: WeatherRow[]; out: WeatherRow | null }>();
   private errors = new Map<string, Failed>(); // "d:" / "h:" + key -> what failed, when, by which request
   private blocked = new Map<string, { until: number; attempt: number }>(); // task key -> retry state
   private timers = new Set<unknown>();
@@ -353,7 +356,7 @@ export class WeatherStore {
     if (!this.inRange(date)) return { date, state: "outside", row: null, kind: null };
     const k = dayKey(station, date);
     const rec = this.days.get(k);
-    if (rec) return { date, state: "ready", row: this.withOfficial(k, station, date, rec.row), kind: rec.kind };
+    if (rec) return { date, state: "ready", row: this.withObserved(k, date, this.withOfficial(k, station, date, rec.row)), kind: rec.kind };
     const error = this.errors.get("d:" + k)?.message;
     return { date, state: error ? "error" : "empty", row: null, kind: null, error };
   }
@@ -367,6 +370,18 @@ export class WeatherStore {
     if (memo && memo.row === row && memo.day === day) return memo.out;
     const out = overlayOfficial(row, day);
     this.overlaid.set(k, { row, day, out });
+    return out;
+  }
+
+  /** 今日だけ：ここまでの観測が予報の最高・最低を超えていたら観測の値に（観測を優先、2026-11-24）。同じものなら前と同じ行。 */
+  private withObserved(k: string, date: string, row: WeatherRow | null): WeatherRow | null {
+    if (date !== this.today || !row || row.type !== "forecast") return row;
+    const hours = this.hours.get(k)?.rows;
+    if (!hours?.length) return row;
+    const memo = this.observedMemo.get(k);
+    if (memo && memo.row === row && memo.hours === hours) return memo.out;
+    const out = overlayObserved(row, hours);
+    this.observedMemo.set(k, { row, hours, out });
     return out;
   }
 
@@ -394,6 +409,16 @@ export class WeatherStore {
     const k = dayKey(station, date);
     if (this.hours.has(k) || this.errors.has("h:" + k)) return false;
     return date >= this.today ? !this.fresh.has(`forecast:${station}`) : !this.fresh.has(`hour:${station}:${date}`);
+  }
+
+  /**
+   * 今日から先の1時間ごとの予報（/api/forecast）の様子：このセッションで届いた・取りに行っている途中・失敗してやり直し待ち
+   * （2026-11-24 渡辺さんの共有したレビュー：朝に観測だけ先に届くと、今日の時間はそろって見えるが、このあとの予報はまだ）。
+   */
+  forecastState(station: string): "ready" | "loading" | "error" {
+    const key = `forecast:${station}`;
+    if (this.fresh.has(key)) return "ready";
+    return this.blocked.has(key) ? "error" : "loading";
   }
 
   getLatest(station: string): WeatherRow | null {

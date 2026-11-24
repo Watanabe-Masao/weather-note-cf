@@ -2,12 +2,11 @@
 // 点で重ねる。どの回か：予報の移り変わりで選んだ回、何も選んでいなければその日の朝5時の府県天気予報
 // （shared/forecastHistoryModel.ts tempSlot）。値は気象庁のまま（整数、点だけで線にしない＝補間しない）。
 
-import { useEffect, useMemo, useState } from "react";
-import type { ForecastHistoryResponse } from "../../shared/forecastHistory";
+import { useMemo } from "react";
 import { HISTORY_PLACES } from "../../shared/forecastHistory";
 import { ForecastHistory as Model, OWN_FROM, type Slot, type TempPoint, tempPoints, tempSlot } from "../../shared/forecastHistoryModel";
 import { usePickedIssue } from "../data/forecastPick";
-import { loadForecastHistory } from "./forecastHistory/ForecastHistory";
+import { useForecastHistory } from "../data/historyCache";
 
 export interface JmaTemps {
   /** 重ねている発表の回（無ければ null：この日を予報した府県天気予報の記録が無い）。 */
@@ -23,24 +22,13 @@ const jstNow = () => `${new Date(Date.now() + 9 * 3_600_000).toISOString().slice
 /** `date` が null（気温でない・自前の電文より前の日）なら何も読まない。 */
 export function useJmaTemps(station: string, date: string | null): JmaTemps | null {
   const on = !!date && date >= OWN_FROM && !!HISTORY_PLACES[station];
-  const [got, setGot] = useState<{ key: string; r: ForecastHistoryResponse } | null>(null);
-  const key = `${station}/${date}`;
-  useEffect(() => {
-    if (!on || !date) return;
-    let live = true;
-    loadForecastHistory(station, date).then(
-      (r) => live && setGot({ key, r }),
-      () => {}, // 読めなければ重ねないだけ（グラフはそのまま）
-    );
-    return () => {
-      live = false;
-    };
-  }, [on, station, date, key]);
+  // 予報の移り変わりと同じ取り置き（取り直しも同じ、src/data/historyCache.ts）。読めなければ重ねないだけ。
+  const r = useForecastHistory(station, date ?? "", on).r;
   const picked = usePickedIssue(station, date ?? "");
   return useMemo(() => {
-    if (!on || !date || !got || got.key !== key || !got.r.supported) return null;
-    const model = new Model(got.r);
+    if (!on || !date || !r || !r.supported) return null;
+    const model = new Model(r);
     const slot = tempSlot(model.slots(date, jstNow()), date, picked);
     return { slot, points: tempPoints(model, slot?.shown ?? null, date), picked: !!picked && slot?.key === picked };
-  }, [on, date, got, key, picked]);
+  }, [on, date, r, picked]);
 }

@@ -1,7 +1,8 @@
 // 予報の履歴 (#250, R1-7): JMA's forecast telegrams (防災情報XML, kept as issued by
 // worker/src/forecastArchive.ts) read into one issue and its values:
 //   VPFD51 府県天気予報（Ｒ１）  — by area (区域): 天気 (its summary and its sentence) and its code for 今日・明日・明後日, the 6-hour
-//                                 降水確率, the 3-hour 卓越天気; by station (地点): 朝の最低気温,
+//                                 降水確率, the 3-hour 卓越天気, 風 (its sentence, and the 3-hour 代表風: 風向 and 風速階級
+//                                 with its m/s range; parser 2, 2026-11-24); by station (地点): 朝の最低気温,
 //                                 日中の最高気温, 最高気温, the 3-hour 気温.
 //   VPFW50 府県週間天気予報    — by area: 天気 and its code, 日降水確率, 信頼度 (A/B/C) for 7 days; by
 //                                 station: 最高・最低気温 with their 予測範囲 (lower / upper).
@@ -14,7 +15,8 @@
 // parser changes, FORECAST_XML_PARSER goes up and the kept XML is read again (N-5).
 // The form is FH-04's reading of the telegrams of 2026-11 (#250). 出典：気象庁（防災情報XML）。
 
-export const FORECAST_XML_PARSER = 1;
+// 2 (2026-11-24 渡辺さん「予報の移り変わりを風にも」)：風の文（wind_text）と3時間ごとの代表風（wind_dir_3h・wind_speed_3h）。
+export const FORECAST_XML_PARSER = 2;
 
 export type ForecastElement =
   | "weather" // the weather in words, as JMA writes it (くもり時々晴れ)
@@ -26,6 +28,9 @@ export type ForecastElement =
   | "temp_min" // 最低気温 (℃): 朝 (0–9時) or the day's
   | "temp" // ３時間毎気温 (℃), at an instant
   | "reliability" // 信頼度 A / B / C (週間)
+  | "wind_text" // 風 as JMA's sentence (西の風　後　北西の風　やや強く), by day (府県)
+  | "wind_dir_3h" // ３時間内代表風の風向（８方位漢字）
+  | "wind_speed_3h" // ３時間内代表風の風速階級：value is the 階級, lower / upper its m/s range
   | "overview"; // 天気概況の本文
 
 export interface ForecastEntry {
@@ -70,11 +75,18 @@ const blocks = (xml: string, tag: string) =>
   [...xml.matchAll(new RegExp(`<${tag}\\b([^>]*)>([\\s\\S]*?)</${tag}>`, "g"))].map((m) => ({ attrs: m[1], body: m[2] }));
 const attr = (attrs: string, name: string) => new RegExp(`\\b${name}="([^"]*)"`).exec(attrs)?.[1] ?? null;
 /** jmx_eb elements, self-closing (値なし) or not. */
+// 風速階級（WindSpeedLevel）だけは jmx_eb: の付かない要素で来る。
 const values = (xml: string, tag: string) =>
-  [...xml.matchAll(new RegExp(`<jmx_eb:${tag}\\b([^>]*?)(?:/>|>([^<]*)</jmx_eb:${tag}>)`, "g"))].map((m) => ({
+  [...xml.matchAll(new RegExp(`<(?:jmx_eb:)?${tag}\\b([^>]*?)(?:/>|>([^<]*)</(?:jmx_eb:)?${tag}>)`, "g"))].map((m) => ({
     attrs: m[1],
     text: m[2]?.trim() ?? "",
   }));
+
+/** 風速階級の幅 "3 5" → 3〜5 m/s（"15" のように一つなら下だけ）。 */
+function speedRange(r: string | null): { lower: number | null; upper: number | null } {
+  const [a, b] = (r ?? "").trim().split(/\s+/).map(Number);
+  return { lower: Number.isFinite(a) ? a : null, upper: Number.isFinite(b) ? b : null };
+}
 
 /** P1D, PT13H, PT6H … → milliseconds (null when it does not read). */
 function durationMs(d: string): number | null {
@@ -140,6 +152,9 @@ const PROPERTY: Record<string, string[]> = {
   最高気温予測範囲: ["Temperature"],
   最低気温予測範囲: ["Temperature"],
   "３時間内卓越天気": ["Weather"],
+  // 風：日ごとの文は DetailForecast の WindForecastPart（weather_text と同じ読み方）。数の部品（風向・風速階級）は文の中の言い直しなので読まない。
+  風: [],
+  "３時間内代表風": ["WindDirection", "WindSpeedLevel"],
   "３時間毎気温": ["Temperature"],
 };
 
@@ -160,16 +175,20 @@ function readTimeSeries(ts: string, problems: string[], out: ForecastEntry[]) {
       if (!tags) continue;
       // 天気 in 府県天気予報 also carries DetailForecast: its sentence is read (weather_text, the words JMA's
       // forecast page and JSON show), its word-by-word parts are not.
-      for (const { attrs, body: part } of blocks(prop, "WeatherForecastPart")) {
-        const ref = attr(attrs, "refID") ?? "";
-        const time = times.get(ref);
-        const sentence = /^\s*<Sentence>([^<]*)<\/Sentence>/.exec(part)?.[1]?.trim();
-        if (!time || !sentence) {
-          problems.push(`${type}：文が読めない`);
-          continue;
+      for (const [partTag, element, jmaType] of [
+        ["WeatherForecastPart", "weather_text", "天気の文"],
+        ["WindForecastPart", "wind_text", "風の文"],
+      ] as const)
+        for (const { attrs, body: part } of blocks(prop, partTag)) {
+          const ref = attr(attrs, "refID") ?? "";
+          const time = times.get(ref);
+          const sentence = /^\s*<Sentence>([^<]*)<\/Sentence>/.exec(part)?.[1]?.trim();
+          if (!time || !sentence) {
+            problems.push(`${type}：文が読めない`);
+            continue;
+          }
+          out.push({ ...where, element, validFrom: time.from, validTo: time.to, period: time.period, label: time.label, value: sentence, unit: null, lower: null, upper: null, jmaType, condition: null });
         }
-        out.push({ ...where, element: "weather_text", validFrom: time.from, validTo: time.to, period: time.period, label: time.label, value: sentence, unit: null, lower: null, upper: null, jmaType: "天気の文", condition: null });
-      }
       const parts = prop.replace(/<DetailForecast>[\s\S]*?<\/DetailForecast>/g, "");
       for (const tag of tags)
         for (const v of values(parts, tag)) {
@@ -187,8 +206,8 @@ function readTimeSeries(ts: string, problems: string[], out: ForecastEntry[]) {
             ranges.push({ base: range[1], end: range[2] === "上" ? "upper" : "lower", ref, v: n != null && Number.isFinite(n) ? n : null });
             continue;
           }
-          // ３時間内卓越天気 is 天気 by type; it is told apart by its Property.
-          const element = type === "３時間内卓越天気" ? "weather_3h" : ELEMENT[jmaType];
+          // ３時間内卓越天気 is 天気 by type; it is told apart by its Property. ３時間内代表風 is 風向 and 風速階級.
+          const element = type === "３時間内卓越天気" ? "weather_3h" : type === "３時間内代表風" ? (jmaType === "風向" ? "wind_dir_3h" : jmaType === "風速階級" ? "wind_speed_3h" : undefined) : ELEMENT[jmaType];
           if (!element) {
             problems.push(`読まない種類：${jmaType}`);
             continue;
@@ -202,9 +221,9 @@ function readTimeSeries(ts: string, problems: string[], out: ForecastEntry[]) {
             period: time.period,
             label: time.label,
             value: v.text === "" ? null : v.text,
-            unit: unit === "度" ? "℃" : unit,
-            lower: null,
-            upper: null,
+            unit: element === "wind_speed_3h" ? "m/s" : unit === "度" ? "℃" : unit,
+            // 風速階級の幅（range="3 5"、毎秒3から5メートル）。上の無い階級は上が null。
+            ...(element === "wind_speed_3h" ? speedRange(attr(v.attrs, "range")) : { lower: null, upper: null }),
             jmaType,
             condition,
           });

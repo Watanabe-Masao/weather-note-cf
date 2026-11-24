@@ -128,7 +128,9 @@ with sync_playwright() as p:
             swipe = """([x0, x1]) => new Promise((res) => { const el = document.querySelector('.moon-story'); const mk = (x) => new Touch({ identifier: 1, target: el, clientX: x, clientY: 500 });
               const fire = (t, x) => el.dispatchEvent(new TouchEvent(t, { touches: t === 'touchend' ? [] : [mk(x)], changedTouches: [mk(x)], cancelable: true, bubbles: true }));
               fire('touchstart', x0); let i = 1; const tick = () => { fire('touchmove', x0 + (x1 - x0) * i / 8); if (++i <= 8) setTimeout(tick, 16); else { fire('touchend', x1); res(); } }; setTimeout(tick, 16); })"""
-            settle = "new Promise((res) => { const s = document.querySelector('.moon-story'); let p = -1; const t = () => { const c = s.scrollTop; if (Math.abs(c - p) < 0.5) res(c); else { p = c; setTimeout(t, 400); } }; setTimeout(t, 400); })"
+            # 止まったと見るのは、0.4秒ごとに3回続けて動かなかったとき（11/24：朗読の速さで運ぶ途中の一瞬の止まりを、着いたと
+            # 取り違えて main の e2e が落ちた。15743 → 14258 → 14258 → 14673）。
+            settle = "new Promise((res) => { const s = document.querySelector('.moon-story'); let p = -1, still = 0; const t = () => { const c = s.scrollTop; if (Math.abs(c - p) < 0.5) { if (++still >= 3) return res(c); } else still = 0; p = c; setTimeout(t, 400); }; setTimeout(t, 400); })"
             pg.evaluate(swipe, [W - 80, 80]); back = pg.evaluate(settle)
             pg.evaluate(swipe, [8, W - 80]); edge = pg.evaluate(settle)
             pg.evaluate(swipe, [80, W - 80]); fwd = pg.evaluate(settle)
