@@ -7,6 +7,7 @@
 //     「降水確率が上がった」と言い「雨に変わった」とは言わない）／最高・最低が 2℃ 以上。
 //   - 間の同じ種類の発表が欠けていたら（記録なし・取れなかった・届いていない・取り消し）、変わった時刻を断定せず
 //     「前の発表〜この発表のあいだ」と言う。
+//   - 細かいところ（detail）は「18 → 16℃ ▼2」「12〜18時 20 → 60% ▲40」：向きは ▲▼（一覧の書き方と同じ）。
 //   - 新しい順。いちばん大事な1つ（まとめの1行）は、雨の有無 → 降水確率 → 気温 の順で、その中の新しいもの。
 import { hourOf, leadLabel, oneSource, type Kind, type Slot, type V } from "./forecastHistoryModel";
 
@@ -61,6 +62,9 @@ const issueWord = (s: Pick<Slot, "lead" | "at">) => `${leadLabel(s.lead)}${hourO
 
 const POP_RANGE = ["0〜6時", "6〜12時", "12〜18時", "18〜24時"];
 
+/** 変わった向きと幅：上がったら ▲、下がったら ▼（予報の移り変わりの上の枠・一覧と同じ書き方、2026-11-24 渡辺さん）。 */
+const delta = (d: number) => `${d > 0 ? "▲" : "▼"}${Math.abs(d)}`;
+
 /** その日の予報の変化（新しい順）。`all`：ForecastHistory.slots(day, now) の全部（記録なしの回も含む、時刻の順）。 */
 export function dayChanges(all: Slot[]): DayChange[] {
   const out: DayChange[] = [];
@@ -104,7 +108,7 @@ export function dayChanges(all: Slot[]): DayChange[] {
           if (pairs.length) {
             const big = pairs.reduce((x, y) => (Math.abs(y.b - y.a) > Math.abs(x.b - x.a) ? y : x));
             const up = big.b > big.a;
-            out.push({ ...base, kind: up ? "popUp" : "popDown", when, what: up ? "降水確率が上がった" : "降水確率が下がった", detail: pairs.map((x) => `${x.range} ${x.a} → ${x.b}%`).join("、") });
+            out.push({ ...base, kind: up ? "popUp" : "popDown", when, what: up ? "降水確率が上がった" : "降水確率が下がった", detail: pairs.map((x) => `${x.range} ${x.a} → ${x.b}% ${delta(x.b - x.a)}`).join("、") });
           }
         }
         // 最高・最低
@@ -116,7 +120,7 @@ export function dayChanges(all: Slot[]): DayChange[] {
           const b = num(v[k]);
           if (a == null || b == null || Math.abs(b - a) < TEMP_STEP) continue;
           const up = b > a;
-          out.push({ ...base, kind: `${k}${up ? "Up" : "Down"}` as ChangeKind, when, what: `${word}の予報が${up ? "上がった" : "下がった"}`, detail: `${a} → ${b}℃（${Math.abs(b - a)}℃）` });
+          out.push({ ...base, kind: `${k}${up ? "Up" : "Down"}` as ChangeKind, when, what: `${word}の予報が${up ? "上がった" : "下がった"}`, detail: `${a} → ${b}℃ ${delta(b - a)}` });
         }
       }
       prev = s;
