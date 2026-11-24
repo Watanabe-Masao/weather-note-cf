@@ -1383,10 +1383,26 @@ with sync_playwright() as p:
             pg.evaluate("document.querySelector('.item-bar').style.visibility='hidden'")
             pg.locator(".fh-point").scroll_into_view_if_needed(); time.sleep(0.6); pg.screenshot(path=f"{shots}-point.png")
             pg.evaluate("document.querySelector('.item-bar').style.visibility=''")
+        # ほかの発表を手で選ぶと時点の印は外れる（印と上の枠が食い違わないように）。
+        pg.locator(".fh-days .fh-drow:not(.gap):not(.point)").last.scroll_into_view_if_needed()
+        pg.locator(".fh-days .fh-drow:not(.gap):not(.point)").last.click(); calm()
+        esc() if pg.locator(".fh-week-sheet").count() else None
+        by_hand = pg.locator(".fh-drow.point, .fh-drow.after").count() == 0 and pg.locator(".fh-point-say").count() == 0
+        # その時刻までの発表が無い時点：上の枠も出さず「確かめられません」
+        pg.locator(".fh-point select").select_option(index=pg.locator(".fh-point select option").count() - 1); calm()
+        empty = (pg.locator(".fh-split").count(), "確かめられません" in pg.locator(".fh").inner_text(), "発表がありません" in txt(".fh-point-say"))
+        check("SD4s2 時点の印：ほかの発表を選ぶと外れる、その時刻までの発表が無ければ上の枠も出さない", by_hand and empty == (0, True, True), (by_hand, empty))
+        pg.locator(".fh-point .chip", has_text="前日 14時").first.click(); calm()
         pg.locator(".fh-point .chip", has_text="やめる").click(); calm()
-        check("SD4s 時点に印：前日14時の時点の最新は前日11時の発表（印1つ・後の発表は薄く・上の枠もその発表）、やめると印は消える",
-              "前日 14時の時点" in pt["say"] and "11時の発表" in pt["say"] and pt["point"] == ["11時"] and pt["after"] >= 1 and "11時" in pt["split"]
+        check("SD4s 時点に印：前日14時までの最新は前日11時の発表（印1つ・後の発表は薄く・上の枠もその発表）、やめると印は消える",
+              "前日 14時までの最新" in pt["say"] and "11時の発表" in pt["say"] and pt["point"] == ["11時"] and pt["after"] >= 1 and "11時" in pt["split"]
               and pg.locator(".fh-drow.point, .fh-drow.after").count() == 0, str(pt)[:200])
+        # まとめの見出しの下の1行を押すと、その発表を選んで開く（2026-11-24）。
+        if pg.locator(".dd-change").count():
+            want = pg.locator(".fc-changes .fc-change").first.inner_text()
+            pg.evaluate("window.scrollTo(0, 0)"); pg.locator(".dd-change").click(); calm()
+            hour = re.search(r"(\d+)時の発表", pg.locator(".dd-change").inner_text())
+            check("SD4t まとめの変化の1行を押すと、その発表が選ばれる（上の枠がその発表）", bool(hour) and f"{hour.group(1)}時" in txt(".fh-split"), (want[:40], txt(".fh-split")[:40]))
         rotate_ok("SD4r", "1日モード")
         # 仲間の中で項目を切り替えても、グラフの読み取りの枠は動かない（2026-11-18 渡辺さん「切り替えで画面がぶれるのが嫌い」）。
         ro_tops = []

@@ -44,6 +44,7 @@ import { RainNowCard } from "./rainNow/RainNowCard";
 import { ForecastHistoryPanel } from "./forecastHistory/ForecastHistory";
 import { RainWindHistory } from "./forecastHistory/RainWindHistory";
 import { useForecastHistory } from "../data/historyCache";
+import { pickIssue } from "../data/forecastPick";
 import { headlineChange, shownChanges } from "../../shared/forecastChanges";
 import { ForecastHistory as HistoryModel } from "../../shared/forecastHistoryModel";
 import { TodaySplit } from "./TodaySplit";
@@ -142,6 +143,7 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
     nextMin,
     sun: { rise: shownClock(sunTimes.rise), set: shownClock(sunTimes.set) },
     past: date < today,
+    hoursState: hours?.state === "ready" ? "ready" : hours?.state === "error" ? "error" : store?.hoursComing(station, date) ? "loading" : "none",
   });
   const latest = date === today ? (store?.getLatest(station) ?? null) : null;
   // 予報の変化のいちばん大事な1つ（まとめの見出しの下、2026-11-24 見本の①）。押すと根拠と記録の「この日の予報の変化」へ。
@@ -208,6 +210,8 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
             kind="quiet"
             className={`dd-change ${headline.kind}`}
             onClick={() => {
+              // その発表を選んで開く（変わる前と後を、上の枠・グラフ・一覧で見比べられるように、2026-11-24）。
+              pickIssue(station, date, headline.key);
               setBasisOpen(true);
               requestAnimationFrame(() => basisRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
             }}

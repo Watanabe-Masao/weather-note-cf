@@ -20,10 +20,10 @@ import { Sources } from "./Sources";
 import { IssueWeekSheet } from "./IssueWeek";
 import { pickIssue, usePickedIssue } from "../../data/forecastPick";
 import { historyCache, useForecastHistory } from "../../data/historyCache";
-import { shownChanges } from "../../../shared/forecastChanges";
+import { comparablePairs, shownChanges } from "../../../shared/forecastChanges";
 import { ChangeList } from "./ChangeList";
 import { PointPicker } from "./PointPicker";
-import { latestAt } from "../../../shared/forecastPoint";
+import { corrected, latestAt } from "../../../shared/forecastPoint";
 import "./forecastHistory.css";
 
 /** 今の日本時間（発表の時刻と同じ書き方、"2026-11-17T23:40:00+09:00"）。 */
@@ -59,6 +59,7 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
   const slots = useMemo(() => oneSource(all), [all]);
   // この日の予報の変化（2026-11-24）：同じ種類の発表どうしで、雨の有無・降水確率・最高と最低（shared/forecastChanges.ts）。
   const changes = useMemo(() => shownChanges(all), [all]);
+  const pairs = useMemo(() => comparablePairs(all), [all]);
   // 時点に印（2026-11-24）：選んだ時刻までのいちばん新しい発表を選び（上の枠・グラフ・天気図もその発表に）、後の発表は薄く。
   const [point, setPoint] = useState<string | null>(null);
   const pointLatest = useMemo(() => (point ? latestAt(slots, point) : null), [point, slots]);
@@ -67,6 +68,13 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
     const l = iso ? latestAt(slots, iso) : null;
     if (l) setSel(l.key);
   };
+  // 時点を選んでいる間に、ほかの発表を選んだら時点の印を外す（印と上の枠が食い違わないように、2026-11-24）。
+  const pickByHand = (k: string | null) => {
+    if (point && k !== pointLatest?.key) setPoint(null);
+    setSel(k);
+  };
+  // 時点を選んで、その時刻までの発表が無いとき：上の枠・グラフ・天気図に別の発表を出したままにしない。
+  const pointEmpty = !!point && !pointLatest;
 
   // 実績：その日と前の日（朝 0〜9時の最低の 0時の値）。
   const dayView = store?.getDay(station, date);
@@ -89,33 +97,37 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
 
   // 上に出す発表：なぞっている間は指の下、離したら選んだ発表。何も選んでいなければいちばん新しい発表。
   const latest = [...slots].reverse().find((z) => z.state === "ok" && z.values)?.key ?? null;
-  const focusKey = scrub ?? sel ?? latest;
+  const focusKey = pointEmpty ? null : (scrub ?? sel ?? latest);
   const focusSlot = slots.find((s) => s.key === focusKey) ?? null;
   const onScrub = (k: string | null, phase: "move" | "end") => {
     if (phase === "move") return setScrub(k);
     setScrub(null);
-    if (k) setSel(k);
+    if (k) pickByHand(k);
   };
 
   return (
     <div className="fh">
-      <ChangeList changes={changes} onPick={setSel} />
+      <ChangeList changes={changes} pairs={pairs} onPick={pickByHand} />
       <PointPicker day={date} point={point} latest={pointLatest} onPoint={onPoint} />
+      {pointEmpty && <p className="fh-note">この時点の発表を確かめられません（保存している記録に、この時刻までの発表がない）。</p>}
       {focusSlot && (
         <SplitHeader s={focusSlot} slots={slots} day={date} a={a} aPrev={aPrev} dayIcon={dayRow && dayRow.type !== "forecast" ? <DayWeatherIcon row={dayRow} station={station} size={32} /> : null} />
+      )}
+      {point && pointLatest && corrected(pointLatest) && focusSlot?.key === pointLatest.key && (
+        <p className="fh-note">この発表には訂正があり、上は今の版の値です。訂正がいつ出たかは記録に無いので、この時点で見えていた値かは言い切れません。</p>
       )}
       <StepChart
         slots={slots}
         day={date}
         focus={focusKey}
         onScrub={onScrub}
-        onSelect={setSel}
+        onSelect={pickByHand}
         pop={pop}
         hint
         onTogglePop={() => setPop((v) => (v === "simple" ? "detail" : "simple"))}
       />
       {/* なぞっている間は変えず、離して選んだ発表で（絵の読み込みを指の速さで走らせない）。 */}
-      {chart?.(((k) => (k && k.state === "ok" ? k.at : null))(slots.find((s) => s.key === (sel ?? latest)) ?? null))}
+      {chart?.(pointEmpty ? null : ((k) => (k && k.state === "ok" ? k.at : null))(slots.find((s) => s.key === (sel ?? latest)) ?? null))}
       {/* 絞り込みは一覧の見出しの右に小さく（2026-11-18：全幅の切り替えをやめて短く） */}
       <div className="fh-rows-head">
         <span>
@@ -125,7 +137,7 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
           変わった発表だけ
         </Chip>
       </div>
-      <DayRows slots={slots} all={all} day={date} selected={focusKey} onSelect={setSel} onOpen={setWeekKey} onlyChanged={onlyChanged} point={point ? { until: point, key: pointLatest?.key ?? null } : null} />
+      <DayRows slots={slots} all={all} day={date} selected={focusKey} onSelect={pickByHand} onOpen={setWeekKey} onlyChanged={onlyChanged} point={point ? { until: point, key: pointLatest?.key ?? null } : null} />
       {(() => {
         const w = slots.find((s) => s.key === weekKey);
         return w?.shown ? <IssueWeekSheet station={station} issue={w.shown} day={date} onClose={() => setWeekKey(null)} /> : null;

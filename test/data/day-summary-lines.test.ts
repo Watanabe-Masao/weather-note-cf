@@ -27,7 +27,7 @@ describe("まとめの行", () => {
   });
   it("雨：雨のある時間の数・量・いちばん多い時刻（時台）", () => {
     expect(text(summaryLines(base), "雨")).toBe("雨は8時間・19.0mm。多いのは9時台");
-    expect(text(summaryLines({ ...base, hours: hours.map((h) => ({ ...h, rain: 0 })), row: row({}) }), "雨")).toBe("雨の予報はありません");
+    expect(text(summaryLines({ ...base, hours: hours.map((h) => ({ ...h, rain: 0 })), row: row({}) }), "雨")).toBe("雨の見込みはありません");
     expect(text(summaryLines({ ...base, past: true, hours: hours.map((h) => ({ ...h, rain: 0 })), row: row({ rain: 0 }) }), "雨")).toBe("雨は降らなかった");
   });
   it("風：主な風向と日中の風速の幅、空・光：日照と日の出入り、大気：湿度と見通し", () => {
@@ -45,5 +45,20 @@ describe("いまの値（項目の画面の上、その仲間だけ）", () => {
     expect(nowValues(latest, "temp")).toEqual({ at: "15:40", items: [expect.objectContaining({ label: "気温", text: "15.2" })] });
     expect(nowValues(latest, "air").items.map((x) => [x.label, x.text])).toEqual([["湿度", "73"], ["気圧", "1016.3"]]);
     expect(nowValues(latest, "rainwind").items.map((x) => [x.label, x.text, x.note])).toEqual([["降水（この1時間）", "0.0", ""], ["風速", "2.2", "北西"]]);
+  });
+});
+
+describe("雨の行：データが無いことを「雨なし」と言わない（2026-11-24 渡辺さん、thread-rules）", () => {
+  it("読み込み中・取れなかった・無い", () => {
+    expect(text(summaryLines({ ...base, hours: null, row: row({}), hoursState: "loading" }), "雨")).toBe("読み込み中…");
+    expect(text(summaryLines({ ...base, hours: [], row: row({}), hoursState: "error" }), "雨")).toBe("雨のデータを取れませんでした");
+    expect(text(summaryLines({ ...base, past: true, hours: [], row: row({}), hoursState: "none" }), "雨")).toBe("雨のデータがありません");
+  });
+  it("一部の時間だけ分かっているときは、その中では雨なしと言うだけ", () => {
+    const part = hours.slice(0, 10).map((h) => ({ ...h, rain: 0 }));
+    expect(text(summaryLines({ ...base, past: true, hours: part, row: row({}) }), "雨")).toBe("10時間分だけ分かっています（その中では雨なし）");
+  });
+  it("時間が無くても、日の量が 0 と分かっていれば「降らなかった」", () => {
+    expect(text(summaryLines({ ...base, past: true, hours: [], row: row({ rain: 0 }), hoursState: "none" }), "雨")).toBe("雨は降らなかった");
   });
 });
