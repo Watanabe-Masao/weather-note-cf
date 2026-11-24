@@ -391,6 +391,30 @@ describe("today's hours", () => {
   });
 });
 
+describe("今日の最高・最低は観測を優先（2026-11-24 渡辺さん）", () => {
+  it("ここまでの観測が予報を超えたら、表にも1日の画面にも同じ観測の値（getDay の行）。ほかの日は変えない", async () => {
+    const api = fakeApi();
+    const live: typeof api.fetchJson = async <T,>(path: string) => {
+      const r = await api.fetchJson<T>(path);
+      if (!path.startsWith("/api/current")) return r;
+      const c = r as unknown as { rows: Record<string, unknown>[] };
+      // 1時 40℃、2時 -5℃、3時 15℃：予報の最高（20〜26℃）より高く、最低（10〜14℃）より低い。
+      return { ...c, rows: c.rows.map((x, i) => ({ ...x, temp: [40, -5, 15][i] })) } as T;
+    };
+    const { store } = makeStore(await openStorage(), { ...api, fetchJson: live });
+    store.setView(KOCHI, [TODAY, addDays(TODAY, 1)]);
+    store.wantHours(KOCHI, [TODAY]);
+    await store.idle();
+    const today = store.getDay(KOCHI, TODAY).row!;
+    expect(today).toMatchObject({ type: "forecast", max: 40, min: -5, observed: { max: { v: 40, n: 1 }, min: { v: -5, n: 2 } } });
+    expect((today.origin as Record<string, string>).max).toBe("observed");
+    // 同じものなら同じ行（画面の再描画を増やさない）。
+    expect(store.getDay(KOCHI, TODAY).row).toBe(today);
+    // 明日は気象庁の予報のまま。
+    expect(store.getDay(KOCHI, addDays(TODAY, 1)).row).toMatchObject({ max: 21, min: 12 });
+  });
+});
+
 describe("正本管理 in the store", () => {
   it("drops answers to requests made before 保存データを消去", async () => {
     const api = fakeApi();

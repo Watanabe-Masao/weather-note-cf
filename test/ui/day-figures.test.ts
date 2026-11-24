@@ -5,13 +5,16 @@
 //   2. 書き方は1つ（dayText / dayFigure）：気象庁の予報の値は整数のまま、ほかは formatValue の桁。
 //   3. 今日の「このあと」は、その日の最高（最低）がまだ来ていなければ日の値。過ぎていれば時間の値（観測は事実）。
 //   4. 日の値を出す画面は、みな 1〜3 を通る（下の「使う所」）。
-// 画面の上で同じ数字になることは e2e（SD1b・GR4）で確かめる。
+//   5. 今日は観測を優先（2026-11-24 渡辺さん「観測を優先します」）：ここまでの観測が予報の最高より高い（最低より低い）
+//      なら、日の値はその観測の値（getDay の行、src/data/observed.ts）。混ぜない：どちらか一方をそのまま、出典は観測。
+// 画面の上で同じ数字になることは e2e（SD1b・GR6）で確かめる。
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { overlayObserved } from "../../src/data/observed";
 import { overlayOfficial } from "../../src/data/official";
 import { formatValue } from "../../src/design/format";
-import { dayFigure, dayHighLow, dayText } from "../../src/sourceTag";
+import { dayFigure, dayHighLow, dayText, jmaValue, omValue, rangeSource, sourceTag, valueSource } from "../../src/sourceTag";
 import { restWord, splitToday, withDay } from "../../src/todaySplit";
 import type { OfficialDay } from "../../shared/jmaOfficial";
 import type { WeatherRow } from "../../shared/types";
@@ -98,5 +101,50 @@ describe("4. 日の値を出す画面は、みな同じ関数を通る", () => {
   it("「16.0」の元（気象庁の値を小数で書く）を戻さない：日の値を toFixed で直接書かない", () => {
     expect(src("DayDetail.tsx")).not.toMatch(/(max|min)\.toFixed\(/);
     expect(src("CompareSummary.tsx")).not.toMatch(/v\.toFixed\(row\.digits\)/);
+  });
+});
+
+describe("5. 今日は観測を優先", () => {
+  // 午後：13時までの観測が 17.2℃（予報の最高 16 を超えた）、朝 6時に 9.5℃（予報の最低 10 を下回った）。
+  const after = [
+    ...[11.0, 9.5, 12, 17.2].map((t, i) => row({ n: [2, 6, 10, 13][i], type: "actual", provider: "JMA-amedas", temp: t })),
+    ...[16.5, 14, 11].map((t, i) => row({ n: 14 + i * 4, temp: t })),
+  ];
+  const now = overlayObserved(jma, after)!;
+  it("超えた項目だけ観測の値（そのまま、足したり平均したりしない）", () => {
+    expect(dayHighLow(now)).toEqual({ max: 17.2, min: 9.5 });
+    expect(now.observed).toEqual({ max: { v: 17.2, n: 13 }, min: { v: 9.5, n: 6 } });
+  });
+  it("超えていなければ予報のまま（同じ行）", () => {
+    expect(overlayObserved(jma, hours)).toBe(jma);
+    expect(overlayObserved(jma, [])).toBe(jma);
+  });
+  it("過ぎた日（観測の行）は変えない", () => {
+    const past = row({ type: "actual", provider: "JMA", max: 15, min: 8 });
+    expect(overlayObserved(past, after)).toBe(past);
+  });
+  it("書き方は観測の桁（気象庁の予報の値ではなくなったので整数にしない）", () => {
+    expect(jmaValue(now, "max")).toBe(false);
+    expect(dayFigure(now, "max", 17.2)).toBe("17.2");
+    expect(dayFigure(now, "range", 7.7)).toBe("7.7");
+  });
+  it("出典は観測（Open-Meteo の印を付けない）。札は天気の出どころのまま", () => {
+    expect(valueSource(now, "max")).toContain("アメダスの観測");
+    expect(valueSource(now, "max")).not.toContain("Open-Meteo");
+    expect(omValue(now, "max")).toBe(false);
+    expect(omValue(now, "range")).toBe(false);
+    expect(rangeSource(now)).toContain("アメダスの観測");
+    expect(sourceTag(now, null)).toBe("府県");
+  });
+  it("最高だけ超えたら、最低は気象庁の値のまま", () => {
+    const half = overlayObserved(jma, after.filter((r) => r.n !== 6))!;
+    expect(dayHighLow(half)).toEqual({ max: 17.2, min: 10 });
+    expect(jmaValue(half, "min")).toBe(true);
+    expect(valueSource(half, "range")).toMatch(/アメダスの観測.*府県天気予報/);
+  });
+  it("「このあと」と一言：最高はもう過ぎた（観測の値と時刻）", () => {
+    const w = withDay(splitToday(after)!, dayHighLow(now));
+    expect(w.fc.max).toEqual({ v: 16.5, n: 14 });
+    expect(restWord(w)).toContain("今日の最高は13時の 17.2℃ で、もう過ぎました");
   });
 });
