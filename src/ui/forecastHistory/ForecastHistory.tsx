@@ -6,9 +6,8 @@
 // データは /api/forecast-history（D1 の行のまま）、何を出すかは shared/forecastHistoryModel.ts。
 // 実績はアプリが読んでいる気象庁の値（日の表・1時間ごとの表）。
 
-import { type ReactNode, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { addDays } from "../../../shared/dates";
-import type { ForecastHistoryResponse } from "../../../shared/forecastHistory";
 import { ForecastHistory as Model, oneSource } from "../../../shared/forecastHistoryModel";
 import type { WeatherStore } from "../../data/store";
 import { Chip } from "../kit";
@@ -20,45 +19,27 @@ import { StepChart } from "./StepChart";
 import { Sources } from "./Sources";
 import { IssueWeekSheet } from "./IssueWeek";
 import { pickIssue, usePickedIssue } from "../../data/forecastPick";
+import { historyCache, useForecastHistory } from "../../data/historyCache";
 import "./forecastHistory.css";
-
-type Loaded = { date: string; station: string; r: ForecastHistoryResponse } | { date: string; station: string; error: true };
 
 /** 今の日本時間（発表の時刻と同じ書き方、"2026-11-17T23:40:00+09:00"）。 */
 const jstNow = () => `${new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
 
-const cache = new Map<string, Promise<ForecastHistoryResponse>>();
-/** 1日分の発表（/api/forecast-history）。時間帯のグラフの「気象庁の予報」も同じものを読む（同じ取得を共有）。 */
-export function loadForecastHistory(station: string, date: string): Promise<ForecastHistoryResponse> {
-  const k = `${station}/${date}`;
-  let p = cache.get(k);
-  if (!p) {
-    p = fetch(`/api/forecast-history?station=${encodeURIComponent(station)}&date=${date}`).then((r) => {
-      if (!r.ok) throw new Error(String(r.status));
-      return r.json() as Promise<ForecastHistoryResponse>;
-    });
-    p.catch(() => cache.delete(k));
-    cache.set(k, p);
-  }
-  return p;
-}
+/** 1日分の発表（/api/forecast-history）。時間帯のグラフの「気象庁の予報」も同じ取り置きを読む（src/data/historyCache.ts）。 */
+export const loadForecastHistory = (station: string, date: string) => historyCache.load(station, date);
+
+const hm = (ms: number) => new Date(ms + 9 * 3_600_000).toISOString().slice(11, 16);
 
 /**
  * `chart`：選んでいる発表の時刻（発表が無い日は null）を受けて、天気図を描く（グラフの下、一覧の上。WxChart と連動）。
  */
 export function ForecastHistoryPanel({ store, station, date, chart }: { store: WeatherStore | null; station: string; date: string; chart?: (issued: string | null) => ReactNode }) {
-  const [got, setGot] = useState<Loaded | null>(null);
-  useEffect(() => {
-    let live = true;
-    loadForecastHistory(station, date).then(
-      (r) => live && setGot({ station, date, r }),
-      () => live && setGot({ station, date, error: true }),
-    );
-    return () => {
-      live = false;
-    };
-  }, [station, date]);
-  const res = got && got.station === station && got.date === date ? got : null;
+  // 今日と先の日は、開いたとき・アプリに戻ったときに、10分たっていれば取り直す（2026-11-24）。
+  const h = useForecastHistory(station, date);
+  type Res = { r: NonNullable<typeof h.r> } | { error: true };
+  const res: Res | null = h.r ? { r: h.r } : h.failed ? { error: true } : null;
+  // いつ取れた分か：取り直し中・取り直せなかったときも、最後に取れた分を出したまま時刻を添える。
+  const checked = h.at == null ? null : h.loading ? `${hm(h.at)} の分・確かめています…` : h.failed ? `${hm(h.at)} の分（取り直せませんでした）` : `${hm(h.at)} に確認`;
 
   // 選んだ回は時間帯のグラフと共有（src/data/forecastPick.ts）：ここで押した回の3時間ごとの気温がグラフに出る。
   const sel = usePickedIssue(station, date);
@@ -121,7 +102,9 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
       {chart?.(((k) => (k && k.state === "ok" ? k.at : null))(slots.find((s) => s.key === (sel ?? latest)) ?? null))}
       {/* 絞り込みは一覧の見出しの右に小さく（2026-11-18：全幅の切り替えをやめて短く） */}
       <div className="fh-rows-head">
-        <span>発表の一覧</span>
+        <span>
+          発表の一覧{checked && <small className="fh-checked">{checked}</small>}
+        </span>
         <Chip size="sm" on={onlyChanged} onClick={() => setOnlyChanged(!onlyChanged)}>
           変わった発表だけ
         </Chip>

@@ -178,6 +178,8 @@
 .fh-ctab .c.span4 ~ .c, .fh-ctab .rh.ac ~ .c { height: 3em; }
 .fh-days { gap: var(--space-3); }
 .fh-rows-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }
+/* いつ取れた分か（2026-11-24：今日と先の日は開き直すと取り直す） */
+.fh-checked { margin-left: var(--space-2); font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
 
 /* その発表の週間天気予報（11/19）：横に日が並ぶ表（気象庁の週間天気予報と同じ向き）。左の列は項目名で、横に送っても残る。 */
 .fh-week-sheet { --wk-col: 40px; }
