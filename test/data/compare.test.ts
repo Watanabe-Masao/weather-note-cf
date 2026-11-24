@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { dayTone, holidayName, weekdayOf } from "../../shared/holidays";
 import {
   centerIndex,
+  compareGap,
   matchDate,
   needsRewindow,
   offsetOf,
@@ -98,5 +99,22 @@ describe("interval in words (calendar)", () => {
     expect(intervalLabel("2026-11-10", "2025-11-10")).toBe("前年同日");
     expect(intervalLabel("2026-11-10", "2025-11-04")).toBe("1年前の6日前");
     expect(intervalLabel("2026-11-10", "2024-11-10")).toBe("2年前の同じ日");
+  });
+});
+
+describe("対象日は比較のしかたから独立（2026-11-24 渡辺さん）：比較できないときは比較側に理由", () => {
+  const last = "2026-11-24";
+  it("比較できるときは理由なし", () => {
+    expect(compareGap(matchDate("2026-11-17", "nextWeek"), "nextWeek", last)).toBeNull();
+    expect(compareGap(matchDate("2026-11-24", "yesterday"), "yesterday", last)).toBeNull();
+  });
+  it("翌週がまだ予報の先なら「翌週の予報がまだありません」（カスタムは日付で）", () => {
+    expect(compareGap(matchDate("2026-11-24", "nextWeek"), "nextWeek", last)).toBe("翌週の予報がまだありません");
+    expect(compareGap(matchDate("2026-11-24", "custom", 3), "custom", last)).toBe("11/27の予報はまだありません");
+  });
+  it("前年に2月29日が無い・記録の始まりより前", () => {
+    expect(compareGap(matchDate("2028-02-29", "sameDate"), "sameDate", last)).toBe("前年に同じ日（2月29日）がありません");
+    expect(compareGap(matchDate("2028-02-29", "sameWeekday"), "sameWeekday", last)).toBe("前年に同じ日（2月29日）がありません");
+    expect(compareGap(matchDate("1977-01-03", "lastWeek"), "lastWeek", last)).toBe("1977年より前の記録はありません");
   });
 });
