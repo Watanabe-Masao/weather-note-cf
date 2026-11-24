@@ -122,6 +122,9 @@ export function App(_: { theme?: string } = {}) {
   const today = store?.today ?? startToday;
   const [detent, setDetent] = useState<Detent>("mid");
   const [full, setFull] = useState(false);
+  // 1日の「まとめ」（帯の先頭、2026-11-24 渡辺さん）：1日を開いたときはいつもまとめから。覚えない。
+  const [daySummary, setDaySummary] = useState(true);
+  const inSummary = view.single && daySummary;
   const [settings, setSettings] = useState(false);
   // 記録: from the header at any time, or from a notification (?report=1&n=<when it was due>).
   const [reportFrom, setReportFrom] = useState<{ notifiedAt?: number } | null>(null);
@@ -355,7 +358,10 @@ export function App(_: { theme?: string } = {}) {
                 { id: "compare", label: "比較" },
                 { id: "single", label: "1日" },
               ]}
-              onChange={(v) => setSingle(v === "single")}
+              onChange={(v) => {
+                if (v === "single") setDaySummary(true);
+                setSingle(v === "single");
+              }}
             />
             {account.me && (
               <Button size="sm" className="head-report" onClick={() => setReportFrom({})} aria-label="今の感じ方を記録する">
@@ -408,7 +414,8 @@ export function App(_: { theme?: string } = {}) {
               bounds={bounds}
               compareDate={compareDate}
               compareGap={gap}
-              metric={metric}
+              // まとめでは、表は天気・最高・最低（気温の行）。
+              metric={inSummary ? metricById("temp") : metric}
               single={view.single}
               moveTarget={moveTarget}
               moveCompare={moveCompare}
@@ -462,6 +469,11 @@ export function App(_: { theme?: string } = {}) {
               date={view.target}
               today={today}
               metric={view.metric}
+              summary={inSummary}
+              onPickItem={(id) => {
+                setDaySummary(false);
+                set("metric", id);
+              }}
               onOpenFeel={() => setFeelMap(true)}
               onToggleSun={() => set("sun", !view.sun)}
             />
@@ -666,7 +678,15 @@ export function App(_: { theme?: string } = {}) {
         </BetaContext.Provider>
       )}
 
-      <ItemBar metric={view.metric} onPick={(id) => set("metric", id as typeof view.metric)} barRef={metricsRef} />
+      <ItemBar
+        metric={view.metric}
+        onPick={(id) => {
+          setDaySummary(false);
+          set("metric", id as typeof view.metric);
+        }}
+        barRef={metricsRef}
+        summary={view.single ? { on: daySummary, onPick: () => setDaySummary(true) } : undefined}
+      />
 
       {/* その日の要約 (#176): over whatever it was opened from (the table, the calendar, the hours). */}
       {typhoonAsked && <TyphoonSheet station={view.station} date={today} number={typhoonAsked} info={typhoons} onClose={() => setTyphoonAsked(null)} />}

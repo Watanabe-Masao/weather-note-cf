@@ -14,6 +14,9 @@
 import { dayFigure, dayHighLow, isJmaForecastDay, jmaValue, OM_BIAS_NOTE, rangeSource, SOURCE_TEXT, sourceTag, valueSource } from "../sourceTag";
 import { JmaForecastLink, OpenMeteoCredit } from "./SourceCredit";
 import { SECTORS, windSummary } from "../../shared/windDirection";
+import { nowValues, summaryLines } from "../daySummaryLines";
+import type { WeatherRow } from "../../shared/types";
+import type { FeelSettings } from "../../shared/feel";
 import { Fragment, type ReactNode, useContext, useMemo, useState } from "react";
 import { clockOf, dayEdges, dayParts, hoursIn } from "../../shared/dayParts";
 import { hoursWeather } from "../../shared/dayWeather";
@@ -31,7 +34,7 @@ import { DaySummaryContext } from "./daySummaryPress";
 import { FeelContext, levelColor, levelName } from "./FeelBar";
 import { HourFace } from "./HourFace";
 import { shownClock, shownDayLength, shownSun } from "../data/sun";
-import { Chip, Conf, CONF_TEXT, confidenceOfRow, Fold, Glyph } from "./kit";
+import { Button, Chip, Conf, CONF_TEXT, confidenceOfRow, Fold, Glyph } from "./kit";
 import { ITEM_GROUPS } from "./ItemBar";
 import { addDays } from "../../shared/dates";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
@@ -47,12 +50,16 @@ interface Props {
   date: string;
   today: string;
   metric: MetricId;
+  /** まとめ（帯の先頭）を見ているか。 */
+  summary: boolean;
+  /** まとめの行を押した：その仲間の項目へ。 */
+  onPickItem: (id: MetricId) => void;
   onOpenFeel: () => void;
   onToggleSun: () => void;
 }
 
 
-export function DayDetail({ store, station, date, today, metric, onOpenFeel, onToggleSun }: Props) {
+export function DayDetail({ store, station, date, today, metric, summary, onPickItem, onOpenFeel, onToggleSun }: Props) {
   const openSummary = useContext(DaySummaryContext);
   const day = store?.getDay(station, date);
   const row = day?.state === "ready" ? (day.row ?? null) : null;
@@ -105,8 +112,8 @@ export function DayDetail({ store, station, date, today, metric, onOpenFeel, onT
         ]
       : [["出どころ", tag ? SOURCE_TEXT[tag] : "—"]];
 
-  // 帯で選んだ仲間（src/ui/ItemBar.tsx）：この下はその仲間のものだけ。
-  const group = ITEM_GROUPS.find((g) => g.items.includes(metric))?.id ?? "temp";
+  // 帯で選んだ仲間（src/ui/ItemBar.tsx）。まとめ（summary）は帯の先頭、1日を開いたときはいつもここから（2026-11-24）。
+  const group = summary ? "summary" : (ITEM_GROUPS.find((g) => g.items.includes(metric))?.id ?? "temp");
   const [basisOpen, setBasisOpen] = useState(false);
   // 風の、表に無い値（主な風向・まとまり・静穏。16方位の最頻値、2026-11-22 渡辺さん）は雨・風のグラフの下に1行。
   const wind = group === "rainwind" && rows?.length ? windSummary(rows) : null;
@@ -119,58 +126,108 @@ export function DayDetail({ store, station, date, today, metric, onOpenFeel, onT
   const nextRow = next?.state === "ready" ? next.row : null;
   const nextLow = dayHighLow(nextRow).min;
   const nextMin = nextLow == null ? null : dayFigure(nextRow, "min", nextLow);
-  const flow = (
-    <HourFace store={store} station={station} target={date} compareDate={null} metric={metric} today={today} height={200} summary={false} onToggleSun={onToggleSun} />
-  );
+  const feelSettings = useContext(FeelContext);
+  const sunTimes = useMemo(() => shownSun(date, station), [date, station]);
+  const lines = summaryLines({
+    row,
+    hours: rows,
+    feelWord: dayFeelWord(rows, station, feelSettings),
+    nextMin,
+    sun: { rise: shownClock(sunTimes.rise), set: shownClock(sunTimes.set) },
+    past: date < today,
+  });
+  const latest = date === today ? (store?.getLatest(station) ?? null) : null;
+
+  if (group === "summary")
+    return (
+      <section className="day-detail" aria-label="1日のまとめ" data-group="summary">
+        {/* 見出し：天気と一言と出どころ。数字は上の表だけ（2026-11-24）。 */}
+        <div className="dd-hero">
+          <span className="dd-pic">{row ? <DayWeatherIcon row={row} station={station} size={44} /> : <span className="skeleton icon" />}</span>
+          <p className="dd-say">{comment.length > 0 ? comment.join("") : row ? "" : "…"}</p>
+          <span className="dd-kind">
+            {kindLabel(store, station, date)}
+            {conf && <Conf value={conf} />}
+            {row && (
+              <button className="info-btn" onClick={() => setProvOpen(!provOpen)} aria-expanded={provOpen} aria-label={provOpen ? "出どころの説明を閉じる" : "出どころの説明を開く"}>
+                ⓘ
+              </button>
+            )}
+          </span>
+        </div>
+        {!prov && provOpen && row && (
+          <div className="dd-prov plain">
+            <dl>
+              {sources.map(([k, v]) => (
+                <Fragment key={k}>
+                  <dt>{k}</dt>
+                  <dd>{v}</dd>
+                </Fragment>
+              ))}
+            </dl>
+          </div>
+        )}
+        {prov && provOpen && (
+          <div className="dd-prov">
+            <p className="dd-prov-lead">{tag || "暫定"}：まだ確定していない値です</p>
+            <dl>
+              <dt>いまの値</dt>
+              <dd>{prov.source}</dd>
+              <dt>待っているもの</dt>
+              <dd>
+                {/* 待っているものは1行に1つ（「、」でつなぐと読み分けにくい、2026-11-18 本番の見た目） */}
+                {prov.waiting.map((w) => (
+                  <span key={w} className="dd-prov-item">
+                    {w}
+                  </span>
+                ))}
+              </dd>
+              <dt>確定の見込み</dt>
+              <dd>{prov.when}</dd>
+            </dl>
+          </div>
+        )}
+
+        {/* 仲間ごとに1行。押すとその仲間の画面へ。今日の雨の行には雨雲レーダー。 */}
+        <div className="dd-sum" role="list" aria-label="項目ごとのまとめ">
+          {lines.map((l) => (
+            <div key={l.label} className="dd-sum-row" role="listitem">
+              <Button kind="quiet" className="dd-sum-line" onClick={() => onPickItem(ITEM_GROUPS.find((g) => g.id === l.group)!.items[l.label === "風" ? 1 : 0] as MetricId)} aria-label={`${l.label}：${l.text}。押すと${l.label}の画面`}>
+                <span className="dd-sum-label">{l.label}</span>
+                <span className="dd-sum-text">{l.text}</span>
+                <Glyph name="next" />
+              </Button>
+              {l.label === "雨" && date === today && (
+                <Chip size="sm" onClick={() => setRainOpen(true)}>
+                  雨雲レーダー
+                </Chip>
+              )}
+            </div>
+          ))}
+        </div>
+        {rainOpen && <RainNowBoard station={station} onClose={() => setRainOpen(false)} />}
+
+        {/* まとめの根拠と記録：天気図・予報の移り変わり・その日の要約（2026-11-24 渡辺さん、項目ごとに見直し）。 */}
+        <div className="dd-sec dd-basis-sec">
+          <Fold open={basisOpen} onToggle={() => setBasisOpen(!basisOpen)} openLabel="根拠と記録（予報の移り変わり・天気図・その日の要約）" closeLabel="根拠と記録を閉じる">
+            <h4 className="dd-sub">この日の予報の移り変わり</h4>
+            <ForecastHistoryPanel store={store} station={station} date={date} chart={(issued) => <WxChart date={date} today={today} issued={issued} />} />
+            <div className="dd-links">
+              {openSummary != null && (
+                <Chip size="sm" onClick={() => openSummary({ date, other: null })}>
+                  その日の要約{typhoon ? "・台風" : ""}
+                </Chip>
+              )}
+            </div>
+          </Fold>
+        </div>
+      </section>
+    );
 
   return (
     <section className="day-detail" aria-label="1日の詳しい様子" data-group={group}>
-      {/* 見出し：天気と一言と出どころ。数字は上の表だけ（2026-11-24）。 */}
-      <div className="dd-hero">
-        <span className="dd-pic">{row ? <DayWeatherIcon row={row} station={station} size={44} /> : <span className="skeleton icon" />}</span>
-        <p className="dd-say">{comment.length > 0 ? comment.join("") : row ? "" : "…"}</p>
-        <span className="dd-kind">
-          {kindLabel(store, station, date)}
-          {conf && <Conf value={conf} />}
-          {row && (
-            <button className="info-btn" onClick={() => setProvOpen(!provOpen)} aria-expanded={provOpen} aria-label={provOpen ? "出どころの説明を閉じる" : "出どころの説明を開く"}>
-              ⓘ
-            </button>
-          )}
-        </span>
-      </div>
-      {!prov && provOpen && row && (
-        <div className="dd-prov plain">
-          <dl>
-            {sources.map(([k, v]) => (
-              <Fragment key={k}>
-                <dt>{k}</dt>
-                <dd>{v}</dd>
-              </Fragment>
-            ))}
-          </dl>
-        </div>
-      )}
-      {prov && provOpen && (
-        <div className="dd-prov">
-          <p className="dd-prov-lead">{tag || "暫定"}：まだ確定していない値です</p>
-          <dl>
-            <dt>いまの値</dt>
-            <dd>{prov.source}</dd>
-            <dt>待っているもの</dt>
-            <dd>
-              {/* 待っているものは1行に1つ（「、」でつなぐと読み分けにくい、2026-11-18 本番の見た目） */}
-              {prov.waiting.map((w) => (
-                <span key={w} className="dd-prov-item">
-                  {w}
-                </span>
-              ))}
-            </dd>
-            <dt>確定の見込み</dt>
-            <dd>{prov.when}</dd>
-          </dl>
-        </div>
-      )}
+      {/* いまの値：その仲間の項目だけ（今日、2026-11-24 渡辺さん「今の気温や湿度は個別の項目別として切り出す」）。 */}
+      {latest && <NowCard latest={latest} group={group} />}
 
       {group === "rainwind" && date === today && (
         <div className="dd-sec">
@@ -181,28 +238,52 @@ export function DayDetail({ store, station, date, today, metric, onOpenFeel, onT
 
       <div className="dd-sec dd-flow">
         {group === "sky" && <SunLine station={station} date={date} />}
-        {flow}
+        <HourFace store={store} station={station} target={date} compareDate={null} metric={metric} today={today} height={200} summary={false} onToggleSun={onToggleSun} />
         {windNote && <p className="dd-note">{windNote}</p>}
         {date === today && (group === "temp" || group === "rainwind") && <TodaySplit rows={rows} station={station} day={{ max, min }} group={group} nextMin={nextMin} />}
         {(group === "temp" || group === "rainwind") && <Parts store={store} station={station} date={date} show={group === "temp" ? "temp" : "prob"} />}
         {group === "temp" && <FeelLine rows={rows} station={station} onOpen={onOpenFeel} />}
       </div>
 
-      <div className="dd-sec dd-basis-sec">
-        <Fold open={basisOpen} onToggle={() => setBasisOpen(!basisOpen)} openLabel="根拠と記録（自分の記録・予報の移り変わり・天気図）" closeLabel="根拠と記録を閉じる">
-          <MyReports station={station} date={date} />
-          <h4 className="dd-sub">この日の予報の移り変わり</h4>
-          <ForecastHistoryPanel store={store} station={station} date={date} chart={(issued) => <WxChart date={date} today={today} issued={issued} />} />
-          <div className="dd-links">
-            {openSummary != null && (
-              <Chip size="sm" onClick={() => openSummary({ date, other: null })}>
-                その日の要約{typhoon ? "・台風" : ""}
-              </Chip>
-            )}
-          </div>
-        </Fold>
-      </div>
+      {/* 根拠と記録は、その項目に関係するものだけ（2026-11-24）：気温は自分の記録（肌感）。予報の移り変わりと天気図はまとめに。 */}
+      {group === "temp" && (
+        <div className="dd-sec dd-basis-sec">
+          <Fold open={basisOpen} onToggle={() => setBasisOpen(!basisOpen)} openLabel="根拠と記録（自分の記録）" closeLabel="根拠と記録を閉じる">
+            <MyReports station={station} date={date} />
+          </Fold>
+        </div>
+      )}
     </section>
+  );
+}
+
+/** 日中の肌感の言葉（表の肌感・肌感の1行と同じ、chartMetrics の気温の feel）。 */
+function dayFeelWord(rows: WeatherRow[] | null, station: string, feel: FeelSettings): string | null {
+  const temp = METRICS.find((m) => m.id === "temp")!;
+  const s = temp.series.find((x) => x.key === "feel");
+  const v = s && rows?.length ? s.value(null, rows, feel, station) : null;
+  return v == null ? null : levelName(levelOf(v, feel), feel.scale);
+}
+
+function NowCard({ latest, group }: { latest: WeatherRow; group: string }) {
+  const { at, items } = nowValues(latest, group);
+  if (!items.length) return null;
+  return (
+    <div className="dd-now" role="group" aria-label="いまの値">
+      <p className="dd-now-head">いま{at ? <small>{at} 観測</small> : null}</p>
+      <div className="dd-now-vals">
+        {items.map((x) => (
+          <span key={x.key} className="dd-now-val">
+            <small>{x.label}</small>
+            <b className={`tone-${x.tone}`}>{x.text}</b>
+            <small>
+              {x.unit}
+              {x.note ? `・${x.note}` : ""}
+            </small>
+          </span>
+        ))}
+      </div>
+    </div>
   );
 }
 
