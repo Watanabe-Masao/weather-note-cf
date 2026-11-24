@@ -35,6 +35,8 @@ interface Props {
   last: string;
   bounds: { min: string; max: string };
   compareDate: string | null;
+  /** 比較日が無い・まだ無いときの理由（対象日は動かさず、比較側に出す、2026-11-24）。 */
+  compareGap?: string | null;
   metric: Metric;
   /** 1日モード (#247): the target's week only; the comparison table is left out. */
   single?: boolean;
@@ -290,6 +292,7 @@ export function CompareBoard({
   last,
   bounds,
   compareDate,
+  compareGap = null,
   metric,
   single = false,
   moveTarget,
@@ -434,6 +437,11 @@ export function CompareBoard({
       {!single && (
       <div className="side side-compare">
         {compareNav}
+        {compareGap && (
+          <p className="compare-gap" role="status">
+            {compareGap}
+          </p>
+        )}
         <div className="side-body">
           <Labels metric={metric} past={comparePast} sun={view.sun} onToggleSun={onToggleSun} diffs />
           <div className="strip-wrap" ref={lowWrap}>

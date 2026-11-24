@@ -7,7 +7,7 @@
 import stationList from "../shared/stations.json";
 import { useCallback, useEffect, useState } from "react";
 import { addDays, FIRST_DAY, isDay, jstToday } from "../shared/dates";
-import { clampDay, type CompareMode, matchDate, offsetOf, presetOf, targetBounds } from "./compare";
+import { clampDay, compareGap, type CompareMode, matchDate, offsetOf, presetOf } from "./compare";
 import { lastDay } from "./data/plan";
 import { knownMetric, type MetricId } from "./metrics";
 
@@ -98,16 +98,16 @@ export function useViewState() {
   }, [view, today]);
 
   const last = lastDay(jstToday());
-  // 1日モード: any day can be looked at (the comparison rule's reach does not bound it), and no
-  // comparison day is asked for.
-  const bounds = view.linked && !view.single ? targetBounds(view.mode, view.offset, last) : { min: FIRST_DAY, max: last };
+  // 対象日は比較のしかたから独立（2026-11-24 渡辺さん「対象日が意図せず動く」）：どの比較でも、1日モードでも、
+  // 記録の始まりから予報の最後の日まで選べる。比較日が無い・まだ無いときは、比較側に理由（compareGap）。
+  const bounds = { min: FIRST_DAY, max: last };
   const compareDate = view.single ? null : view.linked ? matchDate(view.target, view.mode, view.offset) : view.compare;
+  const gap = view.single ? null : compareGap(compareDate, view.mode, last);
 
   const moveTarget = useCallback(
     (next: string) => {
       setView((v) => {
-        const b = v.linked && !v.single ? targetBounds(v.mode, v.offset, lastDay(jstToday())) : { min: FIRST_DAY, max: lastDay(jstToday()) };
-        const t = clampDay(next, b.min, b.max);
+        const t = clampDay(next, FIRST_DAY, lastDay(jstToday()));
         if (t !== v.target) setDirection(t < v.target ? -1 : 1);
         return v.linked ? { ...v, target: t } : named({ ...v, target: t });
       });
@@ -121,8 +121,7 @@ export function useViewState() {
       if (v.linked) {
         const current = matchDate(v.target, v.mode, v.offset) ?? v.target;
         const delta = offsetOf(current, next);
-        const b = targetBounds(v.mode, v.offset, lastDay(jstToday()));
-        const t = clampDay(addDays(v.target, delta), b.min, b.max);
+        const t = clampDay(addDays(v.target, delta), FIRST_DAY, lastDay(jstToday()));
         if (t !== v.target) setDirection(t < v.target ? -1 : 1);
         return { ...v, target: t };
       }
@@ -154,13 +153,10 @@ export function useViewState() {
       // shown now (前日 → −1 day, 前年同曜日 → −364 …), never from an older custom setting.
       const shown = v.linked ? (matchDate(v.target, v.mode, v.offset) ?? v.compare) : v.compare;
       const offset = mode === "custom" ? offsetOf(v.target, shown) : v.offset;
-      // A rule may not reach every target day (翌週 needs a forecast day a week later): pull the
-      // target day back inside the new rule's range.
-      const b = v.linked ? targetBounds(mode, offset, lastDay(jstToday())) : null;
-      const target = b ? clampDay(v.target, b.min, b.max) : v.target;
-      if (target !== v.target) setDirection(target < v.target ? -1 : 1);
-      const compare = matchDate(target, mode, offset) ?? v.compare;
-      return { ...v, mode, offset, target, compare };
+      // The target day stays (2026-11-24): a rule that does not reach it (翌週 needs a forecast day a
+      // week later) leaves the comparison side empty, with the reason (compareGap).
+      const compare = matchDate(v.target, mode, offset) ?? v.compare;
+      return { ...v, mode, offset, compare };
     });
   }, []);
 
@@ -168,14 +164,10 @@ export function useViewState() {
     setView((v) => ({ ...v, [key]: value }));
   }, []);
 
-  /** 比較｜1日 (#247). Back to the comparison: the day is pulled inside the rule's reach if it left it. */
+  /** 比較｜1日 (#247). The selected day stays either way (2026-11-24). */
   const setSingle = useCallback((single: boolean) => {
-    setView((v) => {
-      if (single || !v.linked) return { ...v, single };
-      const b = targetBounds(v.mode, v.offset, lastDay(jstToday()));
-      return { ...v, single, target: clampDay(v.target, b.min, b.max) };
-    });
+    setView((v) => ({ ...v, single }));
   }, []);
 
-  return { view, today, last, bounds, compareDate, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set, setSingle };
+  return { view, today, last, bounds, compareDate, gap, direction, moveTarget, moveCompare, setLinked, setMode, pickCompare, set, setSingle };
 }

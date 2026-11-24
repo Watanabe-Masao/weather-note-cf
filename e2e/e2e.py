@@ -1909,6 +1909,30 @@ with sync_playwright() as p:
         pg.click(".back-btn"); calm()
     step("GR", gr)
 
+    # TD. 対象日は比較のしかたから独立（2026-11-24 渡辺さん「対象日が意図せず動く」）：予報の最後の日を選んで「翌週」に
+    # しても対象日はそのまま、比較側に理由。1日 → 比較に戻っても動かない。前日に戻すと比較日が出る。
+    def td():
+        esc() if pg.locator(".msheet").count() else None
+        pg.evaluate("window.scrollTo(0, 0)")
+        fwd = pg.locator(".side-target button[aria-label$='1日後へ']").first
+        for _ in range(30):
+            if fwd.is_disabled(): break
+            fwd.click(); calm()
+        last = pg.locator(".side-target .date-button").first.get_attribute("aria-label")
+        pg.locator("select.chip.mode").first.select_option("nextWeek"); calm()
+        after_mode = pg.locator(".side-target .date-button").first.get_attribute("aria-label")
+        gap = txt(".compare-gap") if pg.locator(".compare-gap").count() else ""
+        pg.locator(".app-head .seg button", has_text="1日").click(); calm()
+        pg.locator(".app-head .seg button", has_text="比較").click(); calm()
+        after_single = pg.locator(".side-target .date-button").first.get_attribute("aria-label")
+        check("TD1 予報の最後の日で「翌週」にしても対象日はそのまま、比較側に「翌週の予報がまだありません」（1日から戻っても同じ）",
+              fwd.is_disabled() and last == after_mode == after_single and gap == "翌週の予報がまだありません", (last, after_mode, after_single, gap))
+        pg.locator("select.chip.mode").first.select_option("yesterday"); calm()
+        check("TD2 前日に戻すと理由は消え、対象日はそのまま", pg.locator(".compare-gap").count() == 0 and pg.locator(".side-target .date-button").first.get_attribute("aria-label") == last)
+        pg.locator("select.chip.mode").first.select_option("sameDate"); calm()
+        if pg.locator(".side-target .today-chip").count(): pg.locator(".side-target .today-chip").first.click(); calm()
+    step("TD", td)
+
     # TY. 近づいている台風: a card at the top while a typhoon concerns the station; from it, the past typhoon days.
     def ty():
         check("TY0 台風がないときカードは出ない", pg.locator(".typhoon-card").count() == 0)
