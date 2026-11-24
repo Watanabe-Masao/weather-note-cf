@@ -1464,6 +1464,23 @@ with sync_playwright() as p:
         layout_ok("SD7c", "暫定の説明")
         if shots: pg.locator(".dd-hero").screenshot(path=f"{shots}-prov-hero.png"); pg.locator(".dd-prov").screenshot(path=f"{shots}-prov.png")
         pg.locator("button[aria-label$='1日後へ']").first.click(); calm()
+        # 表の日はタップでも選べる（2026-11-24 渡辺さん）：押した日が選ばれ、表がその日を真ん中へ滑らせる（指の操作として
+        # 扱って、元の日へ戻さない）。
+        strip = ".side-target .strip"
+        center_date = lambda: pg.locator(f"{strip} .strip-col.is-center .cell-date").inner_text().split("\n")[0].strip()
+        before = center_date()
+        cols = pg.locator(f"{strip} .strip-col")
+        idx = [i for i in range(cols.count()) if "is-center" in (cols.nth(i).get_attribute("class") or "")][0]
+        want = cols.nth(idx + 1).locator(".cell-date").inner_text().split("\n")[0].strip()
+        cols.nth(idx + 1).locator(".cell-kind").tap()
+        off = lambda: pg.evaluate(f"""() => {{ const s = document.querySelector('{strip}').getBoundingClientRect();
+          const c = document.querySelector('{strip} .strip-col.is-center').getBoundingClientRect();
+          return Math.abs((c.left + c.width / 2) - (s.left + s.width / 2)); }}""")
+        ok = settle(lambda: center_date() == want and off() < 2, 5)
+        time.sleep(0.5)
+        check("SD8 表の日をタップすると、その日が選ばれて真ん中へ（戻らない）", ok and center_date() == want and off() < 2 and want != before, (before, want, center_date(), off()))
+        cols.nth(idx).locator(".cell-kind").tap()
+        settle(lambda: center_date() == before and off() < 2, 5)
         pg.locator(".metrics button", has_text="気温").click(); calm()
         pg.locator(".app-head .seg button", has_text="比較").click(); calm()
         check("SD6 比較に戻すと比較の表が戻る", pg.locator(".side-compare").count() == 1 and pg.locator(".day-detail").count() == 0)
