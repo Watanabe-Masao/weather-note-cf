@@ -31,7 +31,7 @@ describe("予報の履歴：電文を読む", () => {
     keep("g1", "VPFG50", fixture("vpfg50-390000-1036.xml"));
     expect(await parseForecasts(db)).toEqual({ read: 3, failed: 0 });
     expect(db.raw.prepare("SELECT issue_id, source, kind, issued_at, info_type, preferred, parser, entries, problems FROM forecast_issues ORDER BY issue_id").all()).toEqual([
-      { issue_id: "d1", source: "jma-xml", kind: "VPFD51", issued_at: "2026-11-17T11:00:00+09:00", info_type: "発表", preferred: 1, parser: FORECAST_XML_PARSER, entries: 132, problems: null },
+      { issue_id: "d1", source: "jma-xml", kind: "VPFD51", issued_at: "2026-11-17T11:00:00+09:00", info_type: "発表", preferred: 1, parser: FORECAST_XML_PARSER, entries: 213, problems: null }, // 風の文と3時間ごとの代表風で +81（3区域、parser 2）
       { issue_id: "g1", source: "jma-xml", kind: "VPFG50", issued_at: "2026-11-17T10:36:00+09:00", info_type: "発表", preferred: 1, parser: FORECAST_XML_PARSER, entries: 1, problems: null },
       { issue_id: "w1", source: "jma-xml", kind: "VPFW50", issued_at: "2026-11-17T11:00:00+09:00", info_type: "発表", preferred: 1, parser: FORECAST_XML_PARSER, entries: 42, problems: null },
     ]);
