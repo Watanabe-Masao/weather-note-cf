@@ -4,6 +4,8 @@
 使い方：
   python3 -I fs10.py train <フォルダ>     作る期間（2024-02〜2025-10）で、前日・当日の両方を数えて、1つと候補を決める
   python3 -I fs10.py confirm <フォルダ>   決めた方の候補を、確かめる期間と手前の期間で、それぞれ1回だけ数える
+  python3 -I fs10.py train_b / confirm_b <フォルダ>   FS-10b（晴れ・くもりの予報＝番号の頭 1・2 で降った日）
+  python3 -I fs10.py c <フォルダ>         FS-10c（雨の空振りの日は外れにくいか）
 """
 import csv, io, math, os, random, sys
 from collections import defaultdict
@@ -45,6 +47,7 @@ def load_rain_fc(folder):
                 wx = r.get("weathers") or r.get("weather") or ""
                 if wx:
                     s["wx"] = wx
+                    s["code"] = r.get("weatherCodes") or r.get("weatherCode") or ""
                 pop = r.get("pops") or r.get("pop") or ""
                 if pop and td[11:13] in ("00", "06", "12", "18"):
                     s["pops"].append(int(pop))
@@ -58,7 +61,7 @@ def load_rain_fc(folder):
         for rep in sorted(rs):  # 遅い発表で上書き（値のあるもの）
             s = rs[rep]
             if s.get("wx") and len(s["pops"]) >= 3:
-                v["wx"], v["pop"] = s["wx"], max(s["pops"])
+                v["wx"], v["pop"], v["code"] = s["wx"], max(s["pops"]), s.get("code", "")
             if "max" in s:
                 v["max"] = s["max"]
         if "wx" in v:
@@ -68,6 +71,16 @@ def load_rain_fc(folder):
 
 def is_rain_fc(v):
     return ("雨" in v["wx"] or "雪" in v["wx"]) or v["pop"] >= 50
+
+
+def is_rain_fc_b(v):
+    """FS-10b：天気の番号の頭が 3・4、または降水確率 50% 以上。"""
+    return v["code"][:1] in ("3", "4") or v["pop"] >= 50
+
+
+def g_day(t, v):
+    """FS-10b で除く、型 G の条件に当たる日（6〜8月、番号の頭が 2、降水確率 30〜40%）。"""
+    return t.month in (6, 7, 8) and v["code"][:1] == "2" and 30 <= v["pop"] <= 40
 
 
 def build(folder):
@@ -120,7 +133,7 @@ def ratio_ci(cal, grp, base, block=7, B=2000, seed=5):
     return res[int(0.025 * len(res))], res[int(0.975 * len(res))]
 
 
-def evaluate(kind, group, item, per, data, direction=None):
+def evaluate(kind, group, item, per, data, direction=None, rule=is_rain_fc, exclude=None):
     rfc, fc, obs, rain = data
     gname, g_rainfc, g_rained = group
     cs = item_cases(kind, item, per, rfc, fc, obs)
@@ -128,9 +141,11 @@ def evaluate(kind, group, item, per, data, direction=None):
     gr, br = [], []
     for t, r in cs:
         v = rfc[kind].get(t)
-        if v is None or rain.get(t) is None:
+        if v is None or rain.get(t) is None or not v.get("code", "x")[:1].isdigit() and rule is is_rain_fc_b:
             continue
-        rf, rd = is_rain_fc(v), rain[t] >= 1
+        if exclude and exclude(t, v):
+            continue
+        rf, rd = rule(v), rain[t] >= 1
         y = int(abs(r) > 2)
         alld[t].append(y)
         if rf == g_rainfc and rd == g_rained:
@@ -229,6 +244,68 @@ def confirm(data):
                 print(tag + line(g[0], it[0], r, dr).lstrip())
 
 
+# ---------------------------------------------------------------- FS-10b：晴れ・くもりの予報（番号の頭 1・2）で降った日
+MISS_B = ("晴れ・くもりの見逃し", False, True)
+
+
+def train_b(data, show=True):
+    score, cands = {}, {}
+    for kind in ("前日", "当日"):
+        score[kind], cands[kind] = 0, []
+        n_sun = sum(1 for t in days(*TRAIN) if t in data[0][kind] and not is_rain_fc_b(data[0][kind][t]))
+        n_miss = sum(1 for t in days(*TRAIN) if t in data[0][kind] and not is_rain_fc_b(data[0][kind][t]) and (data[3].get(t) or 0) >= 1)
+        if show:
+            print(f"\n## FS-10b 作る期間・{kind}の予報（晴れ・くもりの予報 {n_sun} 日、うち降った {n_miss} 日）")
+        for it in items_for(kind):
+            r = evaluate(kind, MISS_B, it, TRAIN, data, rule=is_rain_fc_b)
+            dr = decide_direction(r)
+            if dr:
+                r = evaluate(kind, MISS_B, it, TRAIN, data, dr, rule=is_rain_fc_b)
+            if show:
+                print(line(MISS_B[0], it[0], r, dr))
+                rx = evaluate(kind, MISS_B, it, TRAIN, data, dr, rule=is_rain_fc_b, exclude=g_day)
+                print("    G の日を除く：" + line(MISS_B[0], it[0], rx, dr).split("：", 1)[1])
+            if r["判定"] == "合格":
+                cands[kind].append((it, dr))
+                if it[0] != "その日の最低":
+                    score[kind] += 1
+    choice = "当日" if score["当日"] > score["前日"] else "前日"
+    if show:
+        print(f"\n共通の 7 での合格の数：前日 {score['前日']}・当日 {score['当日']} → {choice}の予報に決める")
+        print("候補：", [(it[0], dr) for it, dr in cands[choice]])
+    return choice, cands[choice]
+
+
+def confirm_b(data):
+    choice, cands = train_b(data, show=False)
+    print(f"FS-10b 決めた材料：{choice}の予報。候補 {len(cands)} 個")
+    keys = {it[0] for it, _ in cands}
+    for pn, per in (("確かめる", TEST), ("手前", EARLY)):
+        print(f"\n## {pn}の期間")
+        for it in items_for(choice):
+            dr = next((d for ii, d in cands if ii == it), None)
+            for label, ex in (("", None), ("G の日を除く ", g_day)):
+                r = evaluate(choice, MISS_B, it, per, data, dr, rule=is_rain_fc_b, exclude=ex)
+                tag = "【候補】" if it[0] in keys and not ex else "（参考）"
+                if tag == "（参考）":
+                    r["判定"] = "－"
+                print(tag + label + line(MISS_B[0], it[0], r, dr).lstrip())
+
+
+# ---------------------------------------------------------------- FS-10c：雨の空振りの日は外れにくいか
+def run_c(data):
+    g = GROUPS[0]
+    for pn, per in (("作る", TRAIN), ("確かめる", TEST), ("手前", EARLY)):
+        for it in ITEMS_SAME:
+            r = evaluate("前日", g, it, per, data)
+            if r["日"] < 20:
+                v = "件数が足りず判断できない"
+            else:
+                v = "外れにくいと言える" if r["倍率"] <= 1 / 1.3 and r["幅"][1] < 1 else "外れにくいとは言えない"
+            print(f"{pn}｜{it[0]}：日 {r['日']}、大外れ {r['大外れ'] * 100:.0f}%／雨が当たった日 {r['ふだん'] * 100:.0f}%、"
+                  f"倍率 {r['倍率']:.2f}（{r['幅'][0]:.2f}〜{r['幅'][1]:.2f}） → {v}")
+
+
 if __name__ == "__main__":
     data = build(sys.argv[2])
-    {"train": train, "confirm": confirm}[sys.argv[1]](data)
+    {"train": train, "confirm": confirm, "train_b": train_b, "confirm_b": confirm_b, "c": run_c}[sys.argv[1]](data)
