@@ -144,7 +144,19 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
     nextMin,
     sun: { rise: shownClock(sunTimes.rise), set: shownClock(sunTimes.set) },
     past: date < today,
-    hoursState: hours?.state === "ready" ? "ready" : hours?.state === "error" ? "error" : store?.hoursComing(station, date) ? "loading" : "none",
+    today: date === today,
+    hourNow: date === today ? new Date(Date.now() + 9 * 3_600_000).getUTCHours() : undefined,
+    // 今日は「このあと」の予報の様子（観測だけ先に届いても、予報を待っているなら読み込み中）。
+    hoursState:
+      date === today && store
+        ? store.forecastState(station)
+        : hours?.state === "ready"
+          ? "ready"
+          : hours?.state === "error"
+            ? "error"
+            : store?.hoursComing(station, date)
+              ? "loading"
+              : "none",
     now: latest ? { temp: typeof latest.temp === "number" ? latest.temp : null, rain: typeof latest.rain === "number" ? latest.rain : null, at: typeof latest.observedAt === "string" ? latest.observedAt : null } : null,
   });
   // 予報の変化のいちばん大事な1つ（まとめの見出しの下、2026-11-24 見本の①）。押すと根拠と記録の「この日の予報の変化」へ。
