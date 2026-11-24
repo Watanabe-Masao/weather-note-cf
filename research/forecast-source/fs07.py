@@ -286,5 +286,48 @@ def figure(tab, bins):
     print("[図] fs07_paths.png")
 
 
+# ---------------------------------------------------------------- 確かめ直しの決め方（2026-11-24 の判断で切り替え）
+# 理由：作る期間で「20 件になるまでとなりとまとめる」とした区切り（30〜60%）の中に、前日の確率の違いが残った
+# （上がってきた日の平均 49%、横ばいの日 42%）。そのため、確かめ直しは 10% ごとにそろえる。
+# - 区切り：前日の確率の 10% ごと（まとめない）。
+# - 差：区切りごとに（上がってきた − 横ばい）の降った割合の差を出し、横ばいの件数で重みをつけて1つにまとめる
+#   （両方が1件以上ある区切りだけ）。stratified_diff と同じ計算。
+# - 件数：20 件以上かは、差に入った区切りの合計で判断する（上がってきた・横ばいのどちらも合計 20 件以上）。
+# - 合格：差が 10 点以上、かつ 7日ブロックのブートストラップの 95% の幅が 0 をまたがない（今のまま）。
+# - 合否は 1年分（2026-11〜2027-10）がそろってから。半年（〜2027-04）の時点では件数だけ数える（count_only）。
+FINE_BINS = [(v,) for v in range(0, 101, 10)]
+
+
+def aligned_pairs(rows, path="上がってきた", step=STEP):
+    """差に入る区切り（両方が1件以上）と、その合計の件数。"""
+    used, n_path, n_flat = [], 0, 0
+    for b in FINE_BINS:
+        a = sum(1 for r in rows if r["p1"] == b[0] and path_of(r["d"], step) == path)
+        h = sum(1 for r in rows if r["p1"] == b[0] and path_of(r["d"], step) == "横ばい")
+        if a and h:
+            used.append(b)
+            n_path += a
+            n_flat += h
+    return used, n_path, n_flat
+
+
+def count_only(rows, path="上がってきた"):
+    """半年の時点：件数だけ（差も合否も出さない）。"""
+    used, n_path, n_flat = aligned_pairs(rows, path)
+    return {"区切り": [label(b) for b in used], path: n_path, "横ばい": n_flat}
+
+
+def judge_aligned(rows, path="上がってきた"):
+    """1年分がそろった時点の判定。返り値：判定、差、95% の幅、件数。"""
+    used, n_path, n_flat = aligned_pairs(rows, path)
+    if n_path < MIN_N or n_flat < MIN_N:
+        return {"判定": "件数が足りず判断できない", path: n_path, "横ばい": n_flat}
+    comparable = {(b, path) for b in used}
+    v = stratified_diff(rows, FINE_BINS, STEP, path, comparable)
+    lo, hi = boot_ci(rows, FINE_BINS, STEP, path, comparable)
+    ok = abs(v) >= 0.10 and (lo > 0 or hi < 0)
+    return {"判定": "差がある" if ok else "差があるとは言えない", "差": v, "幅": (lo, hi), path: n_path, "横ばい": n_flat}
+
+
 if __name__ == "__main__":
     main(sys.argv[1])
