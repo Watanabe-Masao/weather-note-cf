@@ -143,3 +143,20 @@ export function shownChanges(all: Slot[]): DayChange[] {
   const keys = new Set(oneSource(all).map((s) => s.key));
   return dayChanges(all).filter((c) => keys.has(c.key));
 }
+
+/**
+ * 比べられた組の数（同じ種類で、前の「発表あり」があり、当日でない発表）。0 なら「変化なし」とは言えない
+ * （2026-11-24 渡辺さん：比べる材料が無いのに「大きく変わっていません」と言っていた）。
+ */
+export function comparablePairs(all: Slot[]): number {
+  let n = 0;
+  for (const kind of ["VPFD51", "VPFW50"] as Kind[]) {
+    let prev = false;
+    for (const s of all.filter((x) => x.kind === kind)) {
+      if (s.state !== "ok" || !s.values) continue;
+      if (prev && s.lead > 0) n++;
+      prev = true;
+    }
+  }
+  return n;
+}

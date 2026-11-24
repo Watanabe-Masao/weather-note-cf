@@ -89,3 +89,12 @@ describe("画面に出す変化", () => {
     expect(shownChanges(all)).toEqual([]);
   });
 });
+
+import { comparablePairs } from "../shared/forecastChanges";
+describe("比べる材料（2026-11-24 渡辺さん、thread-rules）", () => {
+  it("同じ種類の発表が1つだけなら比べた組は 0（「変化なし」と言わない）", () => {
+    expect(comparablePairs([slot("VPFD51", "2026-11-23T11:00:00+09:00", 1)])).toBe(0);
+    expect(comparablePairs([slot("VPFW50", "2026-11-22T11:00:00+09:00", 2), slot("VPFD51", "2026-11-23T11:00:00+09:00", 1)])).toBe(0);
+    expect(comparablePairs([slot("VPFD51", "2026-11-23T05:00:00+09:00", 1), slot("VPFD51", "2026-11-23T11:00:00+09:00", 1), slot("VPFD51", "2026-11-24T05:00:00+09:00", 0)])).toBe(1);
+  });
+});

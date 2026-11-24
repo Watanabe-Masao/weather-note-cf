@@ -38,13 +38,13 @@ export function PointPicker({ day, point, latest, onPoint }: { day: string; poin
           {latest ? (
             <>
               <span>
-                {pointLabel(day, point)}の時点でいちばん新しかったのは <b>{issueLabel(latest.at)}の発表</b> <Badge kind={latest.kind === "VPFD51" ? "府県" : "週間"} />
+                保存している記録のうち、{pointLabel(day, point)}までの最新は <b>{issueLabel(latest.at)}の発表</b> <Badge kind={latest.kind === "VPFD51" ? "府県" : "週間"} />
               </span>
               {corrected(latest) && <small>この発表には、あとで訂正あり（訂正がいつ出たかは記録に無いので、その時点で見えていたかは言い切れない）</small>}
               <small>それより後の発表は薄く（その時点ではまだ出ていない）</small>
             </>
           ) : (
-            <>{pointLabel(day, point)}の時点では、この日を予報した発表はまだありません</>
+            <>保存している記録には、{pointLabel(day, point)}までにこの日を予報した発表がありません</>
           )}
         </p>
       )}
