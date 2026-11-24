@@ -2300,6 +2300,9 @@ svg.scrub {
   display: contents;
 }
 
+/* ほかの仲間の項目を開く（2026-11-24）：表の幅いっぱいの1行、真ん中に。 */
+.cs-more { grid-column: 1 / -1; justify-self: center; margin: var(--space-2) 0; }
+
 .cs-val {
   font-size: var(--size-md);
   line-height: 1.2;

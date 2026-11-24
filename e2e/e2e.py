@@ -1062,9 +1062,13 @@ with sync_playwright() as p:
         check("SS2b 太陽のシートはスクロールしないで収まる", fit[0] <= fit[1] + 1, fit)
         # 画面の日の出入りは計算だけ（11/19）：太陽のシート・1日モードの行・比較のまとめで同じ時刻（どれも Open-Meteo の値を読まない）。
         sheet_rise = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text(); sheet_set = pg.locator(".sun-keys:not(.moon) .sun-key b").nth(2).inner_text()
+        # 日の出の行は空・光の仲間だけ（2026-11-24）：空・光にして読む。
+        sky = pg.locator(".item-bar .ib-cat[data-items^='radiation']")
+        if sky.count(): sky.dispatch_event("click"); calm()  # 太陽のシートの下
         others = pg.evaluate("""() => ({ dd: [...document.querySelectorAll('.dd-sun b')].slice(0, 2).map(e => e.textContent), cs: (document.querySelector('.cs-sun .cs-a') || {}).textContent || null })""")
         same = (not others["dd"] or others["dd"] == [sheet_rise, sheet_set]) and (others["cs"] is None or others["cs"].strip() == f"{sheet_rise}–{sheet_set}")
         check("SS2o 日の出入りが太陽のシート・1日モード・比較のまとめで同じ", same and (others["dd"] or others["cs"]), (sheet_rise, sheet_set, others))
+        if pg.locator(".item-bar .ib-cat[data-items^='temp']").count(): pg.locator(".item-bar .ib-cat[data-items^='temp']").dispatch_event("click"); calm()
         # 現在地で計算（11/19）：位置を許可すると、太陽と月は現在地（0.01° に丸めた値）で。題に（現在地）、月のこよみは「現在地から見た」。
         # やめると観測所に戻る。ここでは札幌あたりの位置を流す（高知と日の出がはっきり違う）。
         rise0 = pg.locator(".sun-keys:not(.moon) .sun-key b").first.inner_text()
@@ -1859,6 +1863,20 @@ with sync_playwright() as p:
                 if pg.locator(f".item-bar .ib-cat[data-items^='{first}']").count(): pg.locator(f".item-bar .ib-cat[data-items^='{first}']").click(); calm()
                 pg.screenshot(path=f"{os.environ['WN_SHOT']}-hours-{first}.png", full_page=True)
             pg.locator(".item-bar .ib-cat[data-items^='temp']").click(); calm()
+        # 並べるのは帯で選んだ仲間の項目だけ、ほかは「ほかの項目も見る」（2026-11-24 渡辺さん、1日画面と同じ考え方）。
+        settle(lambda: pg.locator(".compare-summary.compact").count() == 1, 10)
+        labels = lambda: pg.evaluate("[...document.querySelectorAll('.compare-summary.compact .cs-label')].map(e => e.firstChild.textContent.trim())")
+        by = {}
+        for first in ("temp", "radiation", "rain", "humidity"):
+            cat = pg.locator(f".item-bar .ib-cat[data-items^='{first}']")
+            if cat.count(): cat.click(); calm()
+            by[first] = (labels(), pg.locator(".compare-summary .cs-beta").count())
+        pg.locator(".item-bar .ib-cat[data-items^='temp']").click(); calm()
+        check("GR7 比較のまとめ：選んだ仲間の項目だけ（気温：最高・最低・平均、空・光：日射・日照・日の出、雨・風：降水・風速・主な風向、大気：湿度・視程最小・気圧）、肌感 β は気温だけ",
+              by["temp"][0] == ["最高", "最低", "平均"] and by["radiation"][0] == ["日射", "日照", "日の出"] and by["rain"][0] == ["降水", "風速", "主な風向"]
+              and by["humidity"][0] == ["湿度", "視程最小", "気圧最高", "気圧最低"] and by["radiation"][1] == 0 and by["rain"][1] == 0 and by["humidity"][1] == 0, str(by))
+        pg.locator(".compare-summary .cs-more").click(); calm()
+        check("GR8 「ほかの項目も見る」で全部の項目（気温の仲間のあとに、ほかの仲間）", len(labels()) == 13 and labels()[:3] == ["最高", "最低", "平均"], str(labels()))
         r = pg.evaluate("""() => {
           const right = (e) => Math.round(e.getBoundingClientRect().right);
           const col = [...document.querySelectorAll('.side-target .strip-col.is-center .cell-value')].filter(e => /\\d/.test(e.textContent)).map(right);

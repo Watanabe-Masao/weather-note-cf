@@ -1028,6 +1028,7 @@ function HourChart({
         onScrub?.(false);
       }}
     >
+      {/* 幅を測る前（0）でも、長方形の幅は負にしない（コンソールのエラー、2026-11-24） */}
       <svg width={w} height={H + SUN_H} role="img" aria-label={`${metric.label}の時間ごとのグラフ`}>
         {/* Feel levels behind the lines. */}
         {metricId === "feel" &&
@@ -1035,7 +1036,7 @@ function HourChart({
             if (to <= lo || from >= hi) return null;
             const top = yOf(Math.min(hi, to));
             const bottom = yOf(Math.max(lo, from));
-            return <rect key={i} x={left} width={plotW} y={top} height={Math.max(0, bottom - top)} fill={color} opacity={0.14} />;
+            return <rect key={i} x={left} width={Math.max(0, plotW)} y={top} height={Math.max(0, bottom - top)} fill={color} opacity={0.14} />;
           })}
         {metricId === "feel" &&
           guides?.map((v, i) =>
@@ -1050,7 +1051,7 @@ function HourChart({
           if (!fc(h)) return null;
           return (
             <g key={`fc-${h}`}>
-              <rect x={xOf(h - 1)} width={xOf(h) - xOf(h - 1)} y={PAD.top} height={H - PAD.top - PAD.bottom} fill="url(#fc-hours)" className="chart-forecast" />
+              <rect x={xOf(h - 1)} width={Math.max(0, xOf(h) - xOf(h - 1))} y={PAD.top} height={H - PAD.top - PAD.bottom} fill="url(#fc-hours)" className="chart-forecast" />
               {(h === 1 || !fc(h - 1)) && (
                 <text x={xOf(h - 1) + 4} y={PAD.top + 12} className="chart-forecast-label">
                   予報
@@ -1074,8 +1075,8 @@ function HourChart({
                 </linearGradient>
               ))}
             </defs>
-            <rect x={xOf(0)} width={xOf(24) - xOf(0)} y={stripTop} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-zenith)`} />
-            <rect x={xOf(0)} width={xOf(24) - xOf(0)} y={(stripTop + stripBottom) / 2} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-horizon)`} />
+            <rect x={xOf(0)} width={Math.max(0, xOf(24) - xOf(0))} y={stripTop} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-zenith)`} />
+            <rect x={xOf(0)} width={Math.max(0, xOf(24) - xOf(0))} y={(stripTop + stripBottom) / 2} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-horizon)`} />
           </>
         )}
         {/* Over the sky, the sun's line (the primary ink) rides on a dark edge (#173: on a clear noon sky white alone
@@ -1126,7 +1127,7 @@ function HourChart({
           </g>
         )}
         {metric.chart === "bar" ? (
-          <rect x={xOf(hour - 1)} width={step} y={PAD.top} height={H - PAD.top - PAD.bottom} className="day-cursor-bar" />
+          <rect x={xOf(hour - 1)} width={Math.max(0, step)} y={PAD.top} height={H - PAD.top - PAD.bottom} className="day-cursor-bar" />
         ) : (
           <GuideLines
             x={xOf(hour)}
