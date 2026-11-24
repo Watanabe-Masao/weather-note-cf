@@ -3,11 +3,12 @@
 // 前は、一度読んだ日の発表を、アプリを開き直すまで使い続けていた（朝に開いて、夕方に戻っても朝の分のまま）。
 //   - 今日と先の日：最後に頼んでから 10分（LIVE_EVERY、今日の観測・予報と同じ）たっていれば、開くとき・アプリに
 //     戻ったとき・開いている間の1分ごとの見回りで取り直す。過ぎた日は発表がもう増えないので取り直さない。
+//     ただし、その日が終わる前に取れた分は、日付が変わったあとに1回取り直す（失敗したら10分たって次に開いたとき）。
 //   - 取り直している間も、失敗しても、最後に取れた分を出したまま。いつ取れた分か（at）と、取り直せなかったか（failed）を持つ。
 //   - 予報の移り変わりと時間帯のグラフ（気象庁の予報の ◇）は、同じ取り置きを読む（同じ取得を共有）。
 import { useEffect, useSyncExternalStore } from "react";
 import type { ForecastHistoryResponse } from "../../shared/forecastHistory";
-import { jstToday } from "../../shared/dates";
+import { addDays, jstToday } from "../../shared/dates";
 import { LIVE_EVERY } from "./store";
 
 export interface HistoryState {
@@ -60,7 +61,11 @@ export class HistoryCache {
     const e = this.entries.get(this.key(station, date));
     if (!e) return true;
     if (!e.r) return !e.loading;
-    return date >= this.today() && this.now() - e.asked >= LIVE_EVERY;
+    if (e.loading || this.now() - e.asked < LIVE_EVERY) return false;
+    if (date >= this.today()) return true;
+    // 過ぎた日でも、その日が終わる前に取れた分は、日付が変わったあとに1回取り直す（夕方の発表が抜けたまま残らないように、
+    // 2026-11-24 渡辺さんの共有したレビュー）。取り直せなければ、10分たって次に開いたとき（アプリに戻ったとき）にもう一度。
+    return e.at == null || e.at < Date.parse(`${addDays(date, 1)}T00:00:00+09:00`);
   }
 
   /** 要るときだけ取る（取っている途中なら、その取得を待つ）。 */
