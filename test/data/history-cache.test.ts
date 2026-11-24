@@ -5,7 +5,7 @@ import { LIVE_EVERY } from "../../src/data/store";
 import type { ForecastHistoryResponse } from "../../shared/forecastHistory";
 
 const TODAY = "2026-11-24";
-function setup(fail = () => false) {
+function setup(fail = () => false, today = () => TODAY) {
   let now = Date.parse("2026-11-24T00:00:00Z"); // 9時
   let n = 0;
   const calls: string[] = [];
@@ -16,7 +16,7 @@ function setup(fail = () => false) {
       return { v: ++n } as unknown as ForecastHistoryResponse;
     },
     () => now,
-    () => TODAY,
+    today,
   );
   return { cache, calls, later: (ms: number) => (now += ms), version: () => (cache.get("47893", TODAY).r as unknown as { v: number } | null)?.v };
 }
@@ -70,5 +70,39 @@ describe("予報の移り変わりの取り直し", () => {
     await cache.ensure("47893", "2026-11-20");
     expect(calls.length).toBe(2);
     expect(cache.get("47893", "2026-11-20").failed).toBe(false);
+  });
+});
+
+describe("日付をまたいだら（2026-11-24 渡辺さんの共有したレビュー）", () => {
+  it("今日のうちに取れた分は、翌日に開いたとき1回だけ取り直す。そのあとは取り直さない", async () => {
+    let day = TODAY;
+    const { cache, calls, later } = setup(() => false, () => day);
+    await cache.ensure("47893", TODAY); // 9時
+    later(14 * 3_600_000); // 23時に閉じて、翌日 7時に開く
+    day = "2026-11-25";
+    later(8 * 3_600_000);
+    await cache.ensure("47893", TODAY);
+    expect(calls.length).toBe(2);
+    later(24 * 3_600_000);
+    await cache.ensure("47893", TODAY);
+    expect(calls.length).toBe(2);
+  });
+  it("翌日の取り直しに失敗したら、10分たって次に開いたときにもう一度", async () => {
+    let day = TODAY;
+    let bad = false;
+    const { cache, calls, later } = setup(() => bad, () => day);
+    await cache.ensure("47893", TODAY);
+    day = "2026-11-25";
+    later(22 * 3_600_000);
+    bad = true;
+    await cache.ensure("47893", TODAY);
+    expect(cache.get("47893", TODAY).failed).toBe(true);
+    await cache.ensure("47893", TODAY); // すぐは頼まない
+    expect(calls.length).toBe(2);
+    bad = false;
+    later(LIVE_EVERY);
+    await cache.ensure("47893", TODAY);
+    expect(calls.length).toBe(3);
+    expect(cache.get("47893", TODAY).failed).toBe(false);
   });
 });
