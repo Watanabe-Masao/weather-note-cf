@@ -64,16 +64,26 @@ export function withDay(s: Split, day: { max: number | null; min: number | null 
   return { ...s, fc: { ...s.fc, max, min } };
 }
 
-/** One line about the rest of the day: has the high already been, will it get colder or wetter. */
-export function restWord(s: { obs: Part; fc: Shown }): string {
+/** 「ここまで／このあと」で出す仲間（帯の仲間：気温は最高・最低、雨・風は降水・風）。 */
+export type SplitGroup = "temp" | "rainwind";
+
+/**
+ * One line about the rest of the day, for the chosen group: 気温 — has the high already been, and how cold
+ * tomorrow morning gets (nextMin: tomorrow's low as the table writes it; 2026-11-24 渡辺さん C — the night's
+ * low comes at dawn, and the table already has it); 雨・風 — will it get wetter.
+ */
+export function restWord(s: { obs: Part; fc: Shown }, group: SplitGroup = "temp", nextMin: string | null = null): string {
   const out: string[] = [];
-  if (s.obs.max && s.fc.max) {
-    if (s.obs.max.v >= s.fc.max.v) out.push(`今日の最高は${s.obs.max.n}時の ${s.obs.max.v.toFixed(1)}℃ で、もう過ぎました`);
-    else out.push(`最高はこのあと${s.fc.max.n != null ? ` ${s.fc.max.n}時ごろ` : ""} ${fig(s.fc.max)}℃ の見込み`);
+  if (group === "temp") {
+    if (s.obs.max && s.fc.max) {
+      if (s.obs.max.v >= s.fc.max.v) out.push(`今日の最高は${s.obs.max.n}時の ${s.obs.max.v.toFixed(1)}℃ で、もう過ぎました`);
+      else out.push(`最高はこのあと${s.fc.max.n != null ? ` ${s.fc.max.n}時ごろ` : ""} ${fig(s.fc.max)}℃ の見込み`);
+    }
+    if (nextMin != null) out.push(`明日の朝は ${nextMin}℃ まで下がりそう`);
+  } else {
+    if ((s.fc.rain ?? 0) >= 0.5) out.push(`このあと雨 ${(s.fc.rain ?? 0).toFixed(1)}mm の予報`);
+    else if ((s.obs.rain ?? 0) >= 0.5) out.push("このあと雨の予報はありません");
   }
-  if (s.fc.min && s.obs.min && s.fc.min.v < s.obs.min.v) out.push(s.fc.min.n != null ? `夜は ${fig(s.fc.min)}℃ まで下がりそう` : `このあと ${fig(s.fc.min)}℃ まで下がりそう`);
-  if ((s.fc.rain ?? 0) >= 0.5) out.push(`このあと雨 ${(s.fc.rain ?? 0).toFixed(1)}mm の予報`);
-  else if ((s.obs.rain ?? 0) >= 0.5) out.push("このあと雨の予報はありません");
   return out.join("。") + (out.length ? "。" : "");
 }
 
