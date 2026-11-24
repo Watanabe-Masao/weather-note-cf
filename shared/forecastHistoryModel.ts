@@ -92,6 +92,13 @@ export interface DayValues {
   max: V;
   min: V;
   reliability: V | null;
+  /**
+   * 府県：その日の風の文（「西の風　後　北西の風　やや強く」）と、それが何時からの文か（今日の発表は途中から）。
+   * 電文の読み直し（parser 2、2026-11-24）より前・外部の記録には無い（null）。
+   */
+  wind?: { text: string; from: number } | null;
+  /** 府県：3時間ごとの代表風（0・3・…・21時から）。風向（8方位）と風速の幅（m/s）。無ければ null。 */
+  wind3?: ({ dir: string | null; lower: number | null; upper: number | null } | null)[] | null;
 }
 
 export type SlotState = "ok" | "cancelled" | "missing" | "failed" | "notIssued";
@@ -215,6 +222,17 @@ export class ForecastHistory {
           (h) => w3.find((x) => hourOf(x.valid_from) === h)?.value ?? null,
         )
       : null;
+    const wt = es.find((x) => x.element === "wind_text");
+    const wd = es.filter((x) => x.element === "wind_dir_3h");
+    const ws = es.filter((x) => x.element === "wind_speed_3h");
+    const wind3 =
+      wd.length || ws.length
+        ? [0, 3, 6, 9, 12, 15, 18, 21].map((h) => {
+            const d = wd.find((x) => hourOf(x.valid_from) === h);
+            const sp = ws.find((x) => hourOf(x.valid_from) === h);
+            return d || sp ? { dir: d?.value ?? null, lower: sp?.lower ?? null, upper: sp?.upper ?? null } : null;
+          })
+        : null;
     return {
       weather,
       wx3,
@@ -223,6 +241,8 @@ export class ForecastHistory {
       max: pick("temp_max", "日中の最高気温"),
       min: pick("temp_min", "朝の最低気温"),
       reliability: null,
+      wind: wt?.value ? { text: wt.value, from: hourOf(wt.valid_from) } : null,
+      wind3,
     };
   }
 
@@ -363,6 +383,8 @@ function markChanges(slots: Slot[]) {
       if (!sameMain(p.max, v.max)) s.changed.add("max");
       if (!sameMain(p.min, v.min)) s.changed.add("min");
       if (!sameMain(p.reliability, v.reliability)) s.changed.add("reliability");
+      // 風の文：同じ区切り（何時からの文か）どうしだけ比べる（天気と同じ）。
+      if (p.wind && v.wind && p.wind.from === v.wind.from && p.wind.text !== v.wind.text) s.changed.add("wind");
     }
     prev[s.kind] = s;
   }

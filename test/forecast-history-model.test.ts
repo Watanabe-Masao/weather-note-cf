@@ -138,3 +138,23 @@ describe("時間帯のグラフの気象庁の予報（3時間ごとの気温、
     expect(tempPoints(h, w11.shown, "2026-11-18")).toEqual([]);
   });
 });
+
+describe("予報の履歴：風（2026-11-24 渡辺さん「予報の移り変わりを風にも」、電文の読み直し parser 2）", () => {
+  it("府県天気予報の回に、その日の風の文と3時間ごとの代表風。週間には無い", async () => {
+    const h = await day("2026-11-18");
+    const all = h.slots("2026-11-18");
+    const d05 = all.find((x) => x.kind === "VPFD51" && x.at === "2026-11-17T05:00:00+09:00")!;
+    expect(d05.values?.wind).toEqual({ text: "西の風　後　北西の風　やや強く　海上　では　後　北西の風　強く", from: 0 });
+    expect(d05.values?.wind3).toHaveLength(8);
+    expect(d05.values?.wind3?.[0]).toMatchObject({ dir: expect.any(String) });
+    const w = all.find((x) => x.kind === "VPFW50" && x.state === "ok")!;
+    expect(w.values?.wind ?? null).toBeNull();
+  });
+  it("風の文が変わったら印（同じ区切りどうしだけ）", async () => {
+    const h = await day("2026-11-18");
+    const all = h.slots("2026-11-18");
+    const d11 = all.find((x) => x.kind === "VPFD51" && x.at === "2026-11-17T11:00:00+09:00")!;
+    const p = prevOf(all, d11)!;
+    expect(d11.changed.has("wind")).toBe(!!p.values?.wind && !!d11.values?.wind && p.values.wind.text !== d11.values.wind.text);
+  });
+});
