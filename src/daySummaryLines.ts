@@ -35,13 +35,20 @@ export interface SummaryInput {
   sun: { rise: string; set: string };
   /** 過ぎた日か（言い方：「降った」「降りそう」）。 */
   past: boolean;
+  /**
+   * 今日だけ：アメダスのいちばん新しい10分の観測（今の気温・この1時間の雨と、その時刻）。朝の確認で、今の気温と
+   * 降り始めを先に読めるように（2026-11-24 渡辺さん）。今日でなければ null。
+   */
+  now?: { temp: number | null; rain: number | null; at: string | null } | null;
   /** 1時間ごとの値の様子：読み込み中・そろった・取れなかった・無い（雨なしと言ってよいかの判断に使う）。 */
   hoursState?: "loading" | "ready" | "error" | "none";
 }
 
 /** 気温の行。 */
 function tempLine(x: SummaryInput): string {
-  const parts = [x.feelWord ? `日中は${x.feelWord}` : null, x.nextMin != null ? `明日の朝は ${x.nextMin}℃ まで` : null].filter(Boolean);
+  // 今日は、いちばん先に今の気温を1つだけ（観測の時刻つき）。湿度・風などの今の値は項目の画面で（2026-11-24 渡辺さん）。
+  const now = x.now?.temp != null ? `いま ${x.now.temp.toFixed(1)}℃${x.now.at ? `（${x.now.at}観測）` : ""}` : null;
+  const parts = [now, x.feelWord ? `日中は${x.feelWord}` : null, x.nextMin != null ? `明日の朝は ${x.nextMin}℃ まで` : null].filter(Boolean);
   return parts.length ? parts.join("。") : "—";
 }
 
@@ -54,6 +61,7 @@ const DAY_HOURS = 24;
  * docs/thread-rules.md「ゼロ・該当なし・変化なしは…確認できた場合に」）。読み込み中・取れなかった・一部だけは、そう言う。
  */
 function rainLine(x: SummaryInput): string {
+  if (x.now) return todayRainLine(x);
   const hours = x.hours ?? [];
   const known = hours.filter((r) => num(r.rain) != null);
   const wet = known.filter((r) => (num(r.rain) ?? 0) >= 0.5);
@@ -70,6 +78,28 @@ function rainLine(x: SummaryInput): string {
   }
   if (part) return `${known.length}時間分だけ分かっています（その中では雨なし）`;
   return x.past ? "雨は降らなかった" : "雨の見込みはありません";
+}
+
+/**
+ * 今日の雨の行：降り始めを先に（2026-11-24 渡辺さん）。観測と予報を読み分ける：
+ *   - 今降っている（この1時間の観測が 0.5mm 以上）→「雨を観測（8:50時点）」、このあとの予報を添える
+ *   - まだ降っていない → このあとの1時間ごとの予報で最初に 0.5mm 以上の時刻「9時ごろから雨の見込み」
+ * 量と時間は「このあと」の予報の分だと書く（1日の分と混ぜない）。そろっていないときは雨なしと言わない。
+ */
+function todayRainLine(x: SummaryInput): string {
+  const hours = x.hours ?? [];
+  const ahead = hours.filter((r) => r.type === "forecast");
+  const known = ahead.filter((r) => num(r.rain) != null);
+  const wet = known.filter((r) => (num(r.rain) ?? 0) >= 0.5);
+  const sum = wet.reduce((a, r) => a + (num(r.rain) ?? 0), 0);
+  const rest = wet.length ? `このあと ${wet.length}時間・${sum.toFixed(1)}mm の見込み` : null;
+  const raining = (x.now?.rain ?? 0) >= 0.5;
+  if (raining) return [`雨を観測（${x.now?.at ?? "いま"}時点）`, rest].filter(Boolean).join("。");
+  if (wet.length) return `${wet[0].n - 1}時ごろから雨の見込み（${rest}）`;
+  if (!hours.length) return x.hoursState === "loading" ? "読み込み中…" : x.hoursState === "error" ? "雨のデータを取れませんでした" : "雨のデータがありません";
+  if (!ahead.length) return "このあとの予報はありません（今日はもう予報の時間が無い）";
+  if (known.length < ahead.length) return `このあと ${known.length}時間分だけ分かっています（その中では雨なし）`;
+  return "このあと雨の見込みはありません";
 }
 
 /** 風の行：主な風向と、日中の風速の幅。 */

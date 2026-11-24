@@ -62,3 +62,26 @@ describe("雨の行：データが無いことを「雨なし」と言わない�
     expect(text(summaryLines({ ...base, past: true, hours: [], row: row({ rain: 0 }), hoursState: "none" }), "雨")).toBe("雨は降らなかった");
   });
 });
+
+describe("今日のまとめ：今の気温と雨の降り始め（2026-11-24 渡辺さん）", () => {
+  // 7時：0〜7時は観測（雨なし）、8時からは予報で 9時台から雨
+  const today = Array.from({ length: 24 }, (_, i) =>
+    row({ n: i + 1, type: i < 7 ? "actual" : "forecast", rain: i >= 9 && i < 13 ? (i === 10 ? 3 : 1) : 0, wind: 2, direction: 270 }),
+  );
+  const now = { temp: 15.2, rain: 0, at: "07:10" };
+  it("気温の行は、いちばん先に今の気温を1つ（観測の時刻つき）", () => {
+    expect(text(summaryLines({ ...base, now }), "気温")).toBe("いま 15.2℃（07:10観測）。日中は肌寒い。明日の朝は 5℃ まで");
+  });
+  it("まだ降っていなければ、予報で最初に降る時刻から（量と時間は「このあと」の予報の分）", () => {
+    expect(text(summaryLines({ ...base, hours: today, now }), "雨")).toBe("9時ごろから雨の見込み（このあと 4時間・6.0mm の見込み）");
+  });
+  it("今降っていれば「雨を観測（時点）」、このあとの予報を添える", () => {
+    expect(text(summaryLines({ ...base, hours: today, now: { ...now, rain: 1.5, at: "08:50" } }), "雨")).toBe("雨を観測（08:50時点）。このあと 4時間・6.0mm の見込み");
+  });
+  it("このあとの予報に雨が無ければ、そろっているときだけ「見込みはありません」", () => {
+    const dry = today.map((h) => ({ ...h, rain: 0 }));
+    expect(text(summaryLines({ ...base, hours: dry, now }), "雨")).toBe("このあと雨の見込みはありません");
+    const part = dry.map((h, i) => (i > 15 ? { ...h, rain: null } : h));
+    expect(text(summaryLines({ ...base, hours: part, now }), "雨")).toBe("このあと 9時間分だけ分かっています（その中では雨なし）");
+  });
+});
