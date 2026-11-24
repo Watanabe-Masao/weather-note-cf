@@ -1,0 +1,30 @@
+name: research-forecast-source
+
+# FS-08：高知の日最高・日最低（気象庁 過去の気象データ、2021-11-01〜2024-01-31）を取り、CSV をこのブランチに commit する（research/forecast-source/fs08.py fetch）。
+# 渡辺さんの OK（11/25）。Runs only on a push to research/forecast-source (no schedule). The log shows counts only. Deleted when done.
+on:
+  push:
+    branches: [research/forecast-source]
+    paths:
+      - .github/workflows/research-forecast-source.yml
+
+jobs:
+  fs08-obs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: research/forecast-source
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python research/forecast-source/fs08.py fetch research/forecast-source/fs08_obs_47893_early.csv
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add research/forecast-source/fs08_obs_47893_early.csv
+          git commit -q -m "FS-08：高知 47893 の日最高・日最低（2021-11-01〜2024-01-31、気象庁 過去の気象データ）"
+          git push -q origin HEAD:research/forecast-source
