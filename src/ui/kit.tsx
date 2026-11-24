@@ -221,15 +221,17 @@ export function IconButton({ label, onClick, children, size = "md", disabled }: 
   );
 }
 
-export type Kind = "予報" | "暫定" | "実績";
+/** 日の値の出どころの札（src/sourceTag.ts）。 */
+export type Kind = "確定" | "暫定" | "速報" | "府県" | "週間" | "補完";
 
-/** Status of a day's values. */
+/** Status of a day's values: where they came from. */
 export function Badge({ kind, confidence }: { kind: Kind | "今日" | "昨日" | "明日"; confidence?: Confidence | null }) {
-  const cls = kind === "予報" ? "forecast" : kind === "暫定" ? "provisional" : kind === "実績" ? "actual" : "relative";
+  const forecast = kind === "府県" || kind === "週間" || kind === "補完";
+  const cls = forecast ? "forecast" : kind === "暫定" || kind === "速報" ? "provisional" : kind === "確定" ? "actual" : "relative";
   return (
     <span className={`badge ${cls}`}>
       {kind}
-      {kind === "予報" && confidence && <Conf value={confidence} />}
+      {forecast && confidence && <Conf value={confidence} />}
     </span>
   );
 }
@@ -592,6 +594,15 @@ const ChevronGlyph = ({ dir }: { dir: "left" | "right" }) => (
     <path d={dir === "left" ? "M10 3L5 8l5 5" : "M6 3l5 5-5 5"} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
+
+/** ⓘ だけ（開くものが別の場所にあるとき：表の見出しの ⓘ で表の下に開く、など）。押せる範囲は 44px（.info-btn）。 */
+export function InfoButton({ open, onToggle, what }: { open: boolean; onToggle: () => void; what: string }) {
+  return (
+    <button className="info-btn" onClick={onToggle} aria-expanded={open} aria-label={open ? `${what}を閉じる` : `${what}を開く`}>
+      ⓘ
+    </button>
+  );
+}
 
 /**
  * A note that stays short: one line always shown (what you must know, or nothing), and the rest

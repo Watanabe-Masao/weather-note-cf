@@ -9,6 +9,8 @@ import type { Db } from "./accounts";
 import { health } from "./health";
 import type { UsageEnv } from "./usage";
 import { ensureRefetchSchema, refetchSummary } from "./refetch";
+import { lastWeeklyAudit } from "./weeklyAudit";
+import { type ArchiveEnv, offsiteSummary } from "./offsite";
 
 const DAY = 86_400_000;
 
@@ -37,6 +39,9 @@ export async function recentErrors(db: Db, now: number, limit = 50): Promise<Err
     ["typhoon_fetch_log", "台風の取得"],
     ["radar_fetch_log", "雨雲の保存"],
     ["wxchart_fetch_log", "天気図の保存"],
+    ["amedas_fetch_log", "アメダスの保存"],
+    ["air_quality_fetch_log", "空気質の保存"],
+    ["soramame_fetch_log", "大気汚染の実測の保存"],
     ["longrange_fetch_log", "長い先の予報の取得"],
   ];
   for (const [table, name] of LOGS)
@@ -52,7 +57,7 @@ const pendingOf = (c: { forecast?: Record<string, { pendingCount?: number }>; ra
 });
 
 /** 管理画面「データの保守」の中身（読むだけ）。 */
-export async function maintenanceSummary(db: Db, now: number, env: UsageEnv & { hasBucket: boolean }) {
+export async function maintenanceSummary(db: Db, now: number, env: UsageEnv & ArchiveEnv & { hasBucket: boolean }) {
   // 1つが失敗しても画面は出す（2026-11-19、実機で全体が「処理に失敗しました」になった）：部分ごとに受け止め、
   // 失敗した部分と文言を failed に並べる（それ自体が保守の手がかり）。
   const failed: { part: string; message: string }[] = [];
@@ -70,6 +75,8 @@ export async function maintenanceSummary(db: Db, now: number, env: UsageEnv & { 
   const lastAudit = await part("表の点検", () => rows<{ at: string; detail: string }>(db, "SELECT at, detail FROM refetch_log WHERE stage = 'audit' ORDER BY id DESC LIMIT 1"), []);
   const refetch = await part("取得の様子", () => refetchSummary(db, now, env.hasBucket, pendingOf(h?.state.completeness)), { perHour: 0, stages: [] } as Awaited<ReturnType<typeof refetchSummary>>);
   const errors = await part("エラーの記録", () => recentErrors(db, now), [] as ErrorRow[]);
+  const weekly = await part("週の点検", () => lastWeeklyAudit(db), null);
+  const offsite = await part("GitHub の控え", () => offsiteSummary(db, now, env), null);
   return {
     at: new Date(now).toISOString(),
     failed,
@@ -80,6 +87,8 @@ export async function maintenanceSummary(db: Db, now: number, env: UsageEnv & { 
     room: h ? { d1Size: h.room.d1Size, d1WritesMonth: h.room.d1WritesMonth, r2: { bytes: h.room.r2.bytes, percentOfFree: h.room.r2.percentOfFree }, cronRunsLastDay: h.room.cron.runsLastDay, cronMissing: h.room.cron.missing } : null,
     lastDupCheck: lastDup[0] ? { at: lastDup[0].at, result: JSON.parse(lastDup[0].detail) as DupItem[] } : null,
     lastAudit: lastAudit[0] ? { at: lastAudit[0].at, result: JSON.parse(lastAudit[0].detail) as AuditResult } : null,
+    weeklyAudit: weekly,
+    offsite,
   };
 }
 

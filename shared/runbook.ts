@@ -19,13 +19,15 @@ export const RUNBOOK: RunbookEntry[] = [
   { code: "R-02", title: "台風の電文が取れない・読めない", severity: "S1", keys: ["typhoonStale", "alert:collector", "alert:json", "alert:mismatch", "alert:problems"] },
   { code: "R-03", title: "雨雲レーダー・解析雨量が保存できない", severity: "S1", keys: ["radarStale"] },
   { code: "R-04", title: "警報・注意報の電文が保存できない", severity: "S1", keys: ["warningStale"] },
-  { code: "R-05", title: "天気図・長い先の予報が保存できない", severity: "S2", keys: ["chartsStale", "longRangeStale"] },
+  { code: "R-05", title: "天気図・長い先の予報・アメダスの観測・空気質が保存できない", severity: "S2", keys: ["chartsStale", "longRangeStale", "amedasStale", "airStale", "soramameStale"] },
   { code: "R-06", title: "定時処理が抜ける・失敗する・遅い", severity: "S2", keys: ["cronRuns", "cronFailed", "cronSlow"] },
   { code: "R-07", title: "アカウントの処理（同期・通知・管理）の失敗", severity: "S2", keys: ["accountErrors"] },
   { code: "R-08", title: "電文が読めない・たまる", severity: "S2", keys: ["unparsed", "parseFailed"] },
   { code: "R-09", title: "余裕", severity: "S3", keys: ["d1Size", "d1Writes", "r2", "cpuP99", "month", "usage"] },
   { code: "R-10", title: "過去の記録の取り込み", severity: "S3", keys: ["importUnknown", "import"] },
   { code: "R-11", title: "取り戻せない欠けが出た", severity: "S2", keys: ["dataLost"] },
+  { code: "R-12", title: "週の点検が止まった・抜けが見つかった", severity: "S3", keys: ["weeklyAuditStale"] },
+  { code: "R-13", title: "原本の控え（GitHub）がたまる", severity: "S3", keys: ["offsiteBehind"] },
 ];
 
 /** 知らせの key から手順を引く（`alert:missing:VPFD51` → `alert:missing`、`cronFailed:notify` → `cronFailed`）。 */

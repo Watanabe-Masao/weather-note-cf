@@ -178,6 +178,8 @@
 .fh-ctab .c.span4 ~ .c, .fh-ctab .rh.ac ~ .c { height: 3em; }
 .fh-days { gap: var(--space-3); }
 .fh-rows-head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-3); font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }
+/* いつ取れた分か（2026-11-24：今日と先の日は開き直すと取り直す） */
+.fh-checked { margin-left: var(--space-2); font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
 
 /* その発表の週間天気予報（11/19）：横に日が並ぶ表（気象庁の週間天気予報と同じ向き）。左の列は項目名で、横に送っても残る。 */
 .fh-week-sheet { --wk-col: 40px; }
@@ -194,3 +196,40 @@
 .fh-wk-day.on, .fh-wk-c.on { background: var(--accent-wash); }
 .fh-wk-day.on { color: var(--accent-base); }
 .fh-wk-detail { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-4); margin: var(--space-4) 0 var(--space-2); padding: var(--space-3); border-radius: var(--radius-sm); background: var(--surface-inset); font-size: var(--size-sm); }
+
+/* 雨・風の根拠と記録：降水確率と風の予報の移り変わり（2026-11-24、RainWindHistory） */
+.rw { display: grid; gap: var(--space-3); }
+.rw-lead { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.6; }
+.rw-mark { color: var(--ink-primary); }
+.rw-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.rw-row { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--surface-inset); display: grid; gap: var(--space-1); }
+.rw-head { margin: 0; display: flex; align-items: center; gap: var(--space-2); font-size: var(--size-sm); }
+.rw-head small { color: var(--ink-tertiary); font-size: var(--size-xs); }
+.rw-pop, .rw-wind { margin: 0; display: grid; grid-template-columns: 6.5em minmax(0, 1fr); gap: var(--space-2); align-items: baseline; font-size: var(--size-sm); color: var(--ink-secondary); }
+.rw-pop > small, .rw-wind > small { color: var(--ink-tertiary); font-size: var(--size-xs); }
+.rw-pop small { margin-left: var(--space-1); color: var(--ink-tertiary); font-size: var(--size-xs); }
+.rw-v { display: inline-block; min-width: 2.2em; text-align: right; font-variant-numeric: tabular-nums; color: var(--data-rain); }
+.rw-v.chg, .rw-wind.chg > span { font-weight: var(--weight-bold); color: var(--ink-primary); }
+.rw-src { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+
+/* この日の予報の変化（2026-11-24、ChangeList）：予報の移り変わりのいちばん上 */
+.fc-changes { display: grid; gap: var(--space-1); padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-inset); }
+.fc-changes-head { margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); font-size: var(--size-sm); }
+.fc-changes-head small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.fc-changes-none { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
+.fc-change.btn { display: grid; justify-items: start; gap: 0; min-height: var(--tap-min); padding: var(--space-2) var(--space-1); border: none; background: transparent; text-align: left; color: var(--ink-primary); font-weight: var(--weight-regular); border-top: var(--stroke-hair) solid var(--line-soft); border-radius: 0; }
+.fc-change-what { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font-size: var(--size-sm); white-space: normal; }
+.fc-change.rainOn .fc-change-what b, .fc-change.popUp .fc-change-what b { color: var(--data-rain); }
+.fc-change-detail { font-size: var(--size-xs); color: var(--ink-secondary); white-space: normal; }
+
+/* 時点に印（2026-11-24、PointPicker）：選んだ時刻までのいちばん新しい発表に印、後の発表は薄く */
+.fh-point { display: grid; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-inset); }
+.fh-point-head { margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); font-size: var(--size-sm); }
+.fh-point-head small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.fh-point-chips { flex-wrap: wrap; }
+.fh-point-any { min-height: var(--tap-min); }
+.fh-point-say { margin: 0; display: grid; gap: var(--space-1); font-size: var(--size-sm); line-height: 1.6; }
+.fh-point-say small { font-size: var(--size-xs); color: var(--ink-secondary); }
+.fh-drow.after { opacity: var(--effect-quiet); }
+.fh-drow.point { box-shadow: inset 0 0 0 var(--stroke-select) var(--accent-base); }
+.fh-point-mark { margin-left: var(--space-1); padding: 0 var(--space-2); border-radius: var(--radius-xs); background: var(--accent-base); color: var(--surface-base); font-size: var(--size-xs); font-weight: var(--weight-bold); white-space: nowrap; }

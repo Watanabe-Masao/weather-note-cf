@@ -3,6 +3,7 @@
 // day, how far the wind went past JMA's criteria. Under the values: the day by time band (weather) and
 // by the hour (temperature and rain, a small graph).
 
+import { dayText } from "../sourceTag";
 import { dayWeatherOf } from "../../shared/dayWeather";
 import { STORM, stormOfRow, type StormLevel } from "../../shared/storm";
 import type { WeatherRow } from "../../shared/types";
@@ -43,7 +44,8 @@ export function DaySummaryCard({ store, station, ask, typhoons, onClose }: { sto
     store?.wantHours(station, [date, ...(other ? [other] : [])], Priority.Visible, "summary");
     return () => store?.wantHours(station, [], Priority.Visible, "summary");
   }, [store, station, date, other]);
-  const v = (row: WeatherRow | null, k: string, unit: string) => (row ? formatValue(row[k], unit) : "—");
+  // 日の値の書き方は表と同じ（気象庁の値は整数のまま、src/sourceTag.ts dayText、2026-11-24）。
+  const v = (row: WeatherRow | null, k: string, unit: string) => (row ? dayText(row, k, formatValue(row[k], unit)) : "—");
   const d = (k: string, unit: string) => (a && b ? signedDiff(num(a[k]), num(b[k]), unit) : "");
   // An estimated weather says so in its word, and why under the words (not only in a title, #296).
   const word = (row: WeatherRow | null) => {

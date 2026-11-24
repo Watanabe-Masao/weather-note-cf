@@ -18,13 +18,19 @@ import { activeTyphoons } from "./typhoon";
 import { collectForecasts } from "./forecastArchive";
 import { collectWarnings } from "./warningArchive";
 import { parseForecasts } from "./forecastParse";
-import { forecastHistory, forecastIssue } from "./forecastHistory";
+import { forecastHistory, forecastIssue, forecastOfficial } from "./forecastHistory";
+import { runForecastTypes } from "./forecastTypeWatch";
 import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { saveRadar } from "./radarArchive";
+import { saveAmedas } from "./amedasArchive";
+import { saveAirQuality } from "./airQuality";
+import { saveSoramame } from "./soramame";
 import { collectLongRange } from "./longRangeArchive";
 import { health, markStart, timed } from "./health";
 import { claimHealthWatch, watchHealth } from "./healthWatch";
+import { claimWeeklyAudit, runWeeklyAudit } from "./weeklyAudit";
+import { copyOffsite } from "./offsite";
 import { collectTyphoons } from "./typhoonArchive";
 import { recentTracks, typhoonTelegrams } from "./typhoonRecent";
 import { forecastCharts } from "../../shared/wxchart";
@@ -44,6 +50,8 @@ function publicMessage(e: unknown): string {
 const FORECAST_TTL = 30 * 60; // seconds
 const TYPHOON_TTL = 30 * 60;
 const HISTORY_TTL = 10 * 60;
+/** 今（JST、"+09:00"）：発表の時刻と同じ書き方。 */
+const jstNowIso = () => `${new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
 
 const findStation = (id: string | null): Station => {
   const s = stations.find((x) => x.blockNo === id);
@@ -168,6 +176,15 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
         forecastHistory(db, station.blockNo, day),
       );
     }
+    case "/api/forecast-official": {
+      // 予報の出典（2026-11-23）：今日から先の日ごとの値の、気象庁のいちばん新しい発表と出どころ。発表は 5・11・17時
+      // （と臨時）で、数分のうちに読み込むので、予報の履歴と同じ長さだけ共有する。
+      const station = findStation(q.get("station"));
+      if (!db) return jsonResponse({ v: 1, station: station.blockNo, today, supported: false });
+      return cachedFor(url.origin, `${CACHE_VERSION}/forecast-official/${station.blockNo}/${today}`, HISTORY_TTL, waitUntil, () =>
+        forecastOfficial(db, station.blockNo, today, jstNowIso()),
+      );
+    }
     case "/api/forecast-issue": {
       // 1つの発表の先の日ぜんぶ（11/19）：発表の一覧の行から開く「その発表の週間天気予報」。発表の中身は変わらないが、
       // 訂正の電文で優先が替わることがあるので、予報の履歴と同じ長さだけ共有する。
@@ -282,7 +299,9 @@ export default {
         // 警報・注意報の電文 (高知県, warningArchive.ts): before the reading too — a telegram missed for 7 days cannot be taken again.
         .then(stage("warning archive", (d) => collectWarnings(d)))
         // Then read what was kept: values with their times, for the history (forecastParse.ts).
-        .then(stage("forecast parse", (d) => parseForecasts(d))),
+        .then(stage("forecast parse", (d) => parseForecasts(d)))
+        // 予報が外れやすい型の影の運用（forecastTypeWatch.ts、11/24）：日本時間の2時台に1回、判定と答え合わせ。画面には出さない。
+        .then(stage("forecast types", (d) => runForecastTypes(d, event.scheduledTime))),
     );
     // 毎時の見張り (healthWatch.ts), apart from the rest: once an hour (most runs only find it is not due,
     // one statement), /api/health judged and the administrators told when a problem starts or is over.
@@ -291,6 +310,14 @@ export default {
         .then((due) => (due ? stage("health watch", (d) => watchHealth(d, event.scheduledTime, env))() : undefined))
         .catch((e) => console.error("weather-note: health watch", e)),
     );
+    // 週の点検（weeklyAudit.ts、#370）：日本時間の3時台に、前から約1週間たっていれば。読むだけ、何も消さない。
+    ctx.waitUntil(
+      claimWeeklyAudit(db, event.scheduledTime)
+        .then((due) => (due ? stage("weekly audit", (d) => runWeeklyAudit(d, env.ARCHIVE, event.scheduledTime))() : undefined))
+        .catch((e) => console.error("weather-note: weekly audit", e)),
+    );
+    // 空気質（Open-Meteo の CAMS、airQuality.ts）：1時間に1回まで、終わった日の1時間ごとの値を D1 に。
+    ctx.waitUntil(stage("air quality", (d) => saveAirQuality(d))().then(stage("soramame", (d) => saveSoramame(d))));
     // Files kept in R2 (r2Archive.ts), apart from the rest: the rain radar every 30 minutes first (JMA lists
     // only about 3 hours of it, radarArchive.ts), the day's weather charts, and the telegrams copied as files.
     const bucket = env.ARCHIVE;
@@ -298,9 +325,13 @@ export default {
       ctx.waitUntil(
         stage("radar save", (d) => saveRadar(d, bucket))()
           .then(stage("wxchart save", (d) => saveCharts(d, bucket)))
+          // アメダスの10分ごとの観測の原本（約10日で消える。視程の10分値と天気は過去の表に無い、amedasArchive.ts）。
+          .then(stage("amedas save", (d) => saveAmedas(d, bucket)))
           .then(stage("archive copy", (d) => copyTelegrams(d, bucket)))
           // 長い先の予報（1か月予報・早期天候情報・2週間気温予報）：R2 に gzip で、30分ごと（longRangeArchive.ts）。
-          .then(stage("long range", (d) => collectLongRange(d, bucket))),
+          .then(stage("long range", (d) => collectLongRange(d, bucket)))
+          // 原本の控え（offsite.ts、#370）：GitHub の非公開リポジトリに1日ずつ。鍵が無ければ何もしない。
+          .then(stage("offsite copy", (d) => copyOffsite(d, bucket, env, event.scheduledTime))),
       );
   },
 } satisfies ExportedHandler<AccountsEnv>;

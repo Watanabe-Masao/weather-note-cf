@@ -27,8 +27,8 @@ const SLOP = 7;
  * (`spaceBelow`), so the graph and the selected column are both visible on any phone.
  */
 export function sheetHeights(spaceBelow: number, viewport = window.innerHeight, topLimit = 0): Record<Detent, number> {
-  // Highest: up to just under `topLimit` (the item chips), never above 88% of the screen.
-  const max = Math.round(Math.min(viewport * 0.88, topLimit > 0 ? viewport - topLimit - 6 : viewport * 0.82));
+  // Highest: up to `topLimit` from the top of the screen (the whole height above the item bar, 2026-11-22).
+  const max = Math.round(topLimit > 0 ? viewport - topLimit : viewport * 0.82);
   const mid = Math.round(Math.min(max - 40, Math.max(MID_FLOOR, spaceBelow)));
   return { min: MIN_HEIGHT, mid, max };
 }
@@ -214,7 +214,7 @@ export function GraphSheet({ title, tabs, detent, heights, onDetent, children, s
           シートの外に置いて上の縁に付いて動く。押すと引き手と同じ（引く・押して高さを替える）。読み上げは引き手の方で。 */}
       <div
         className="sheet-handle-reach"
-        style={{ bottom: Math.max(0, height), transition: live == null ? `bottom ${duration}ms ${SHEET_EASE}` : "none" }}
+        style={{ bottom: `calc(var(--itembar-h, 0px) + ${Math.max(0, height)}px)`, transition: live == null ? `bottom ${duration}ms ${SHEET_EASE}` : "none" }}
         onPointerDown={handleDown}
         onPointerMove={(e) => follow(e.clientY)}
         onPointerUp={handleUp}

@@ -89,6 +89,29 @@ function respond(path: string, today: string): unknown {
         ),
       };
     }
+    case "/api/forecast-official": {
+      // 気象庁の予報（予報の出典）：明日だけ、府県天気予報 の最高・最低・天気。
+      const from = (kind: string, at: string) => ({ kind, issuedAt: at, issueId: `x:${kind}:${at}`, place: "74182", placeName: "高知" });
+      const d51 = from("VPFD51", `${today}T11:00:00+09:00`);
+      return {
+        v: 1,
+        station: q.get("station"),
+        today,
+        supported: true,
+        places: { office: "390000", area: "390010", point: "74182" },
+        days: [
+          {
+            date: addDays(today, 1),
+            weather: { v: { code: "101", label: "晴れ時々くもり", partial: null }, from: d51 },
+            max: { v: 21, lower: null, upper: null, from: d51 },
+            min: { v: 12, lower: null, upper: null, from: d51 },
+            popDay: null,
+            pop6: [10, 20, 30, 10].map((v) => ({ v, lower: null, upper: null, from: d51 })),
+            reliability: null,
+          },
+        ],
+      };
+    }
     case "/api/hourly": {
       const days = daysBetween(q.get("from")!, q.get("to")!).map((date) => ({
         date,

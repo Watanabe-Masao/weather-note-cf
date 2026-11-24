@@ -67,6 +67,8 @@ export function parseTable(html: string, hourly = false): ParsedRow[] {
         snowDepth: find(/積雪/),
         direction: find(/風向/, /風向$/),
         weather: find(/^天気/),
+        // 視程（km）：官署だけの列。高知は2020年2月から自動の視程計（KC-04）。上限はおよそ 20 km。
+        visibility: find(/視程/),
       }
     : {
         temp: find(/気温/, /平均/),

@@ -10,6 +10,8 @@ import { FeelContext } from "./FeelBar";
 import type { CalendarSide } from "./CalendarModal";
 import { CompareSummary } from "./CompareSummary";
 import { HourCompare } from "./HourCompare";
+import { VisibilityBars } from "./VisibilityBars";
+import { WindRose } from "./WindRose";
 import { Segmented, SectionHead } from "./kit";
 
 interface Props {
@@ -63,6 +65,8 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
       </SectionHead>
       {top}
       <HourCompare store={store} station={station} date={target} other={compareDate} metricId={id} today={today} height={height} />
+      {id === "visibility" && <VisibilityBars store={store} station={station} date={target} other={compareDate} />}
+      {id === "wind" && <WindRose store={store} station={station} date={target} other={compareDate} />}
     </div>
   );
 }

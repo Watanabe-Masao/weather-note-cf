@@ -10,6 +10,10 @@ export interface StationPlaces {
   radar: { lat: number; lon: number; z: number; around: number };
   /** 長い先の予報：地方の予報（1か月予報・早期天候情報）を出す官署（地方の中枢）。2週間気温予報は全国1通。 */
   longRange: { regionOffice: string };
+  /** アメダスの観測点（10分ごとの JSON を R2 に残す、amedasArchive.ts）。 */
+  amedas: string;
+  /** 大気汚染の実測（そらまめくん、soramame.ts）：都道府県コードと測定局コード。 */
+  soramame: { pref: string; station: string };
 }
 
 export const STATION_PLACES: Record<string, StationPlaces> = {
@@ -20,5 +24,9 @@ export const STATION_PLACES: Record<string, StationPlaces> = {
     radar: { lat: 33.56, lon: 133.53, z: 8, around: 1 },
     // 四国地方の1か月予報は高松地方気象台（ファイル名 370000、#283 KC-02）。早期天候情報も同じと見込む（実物で確かめる）。
     longRange: { regionOffice: "370000" },
+    // アメダスは高知（74182、高知地方気象台）。視程・天気（自動観測）が入る（KC-04）。
+    amedas: "74182",
+    // 大気汚染の実測は高知市の介良局（39201350、一般局。PM2.5 を測る高知市でただ一つの局。KC-04）。
+    soramame: { pref: "39", station: "39201350" },
   },
 };

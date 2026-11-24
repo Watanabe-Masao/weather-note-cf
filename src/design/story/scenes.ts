@@ -13,6 +13,8 @@ import {
   BeaverWorld,
   buildBeaverScene,
 } from "./BeaverWorld";
+import { COLD_BEATS, COLD_CUES, COLD_LINE_PAUSE, COLD_SKY, ColdCoverArt, ColdPaperArt, ColdWindow, ColdWorld, buildColdScene } from "./ColdWorld";
+import { BOOK } from "./palette";
 
 export type StoryScene = {
   /** 場面（コマ）の数。 */
@@ -32,12 +34,45 @@ export type StoryScene = {
   coverCorner?: string;
   /** 閉じた本の表の真ん中の型押しの絵（素材）。無ければ、表紙の裏の絵を光の効果で型押しにして見せる。 */
   closedArt?: string;
-  build: typeof buildBeaverScene;
+  /**
+   * 場面の動き。cueAt は、cues の言葉の最初の字が出る拍（ページごと、言葉の順）。動きを言葉に合わせる場面だけが使う。
+   */
+  build: (gsap: never, root: Element, tl: never, loops?: boolean, cueAt?: Record<number, number[]>) => { play: () => unknown; pause: () => unknown } | null;
+  /**
+   * 言葉の合図（11/23 レビュー「跳躍や種は、言葉ごとの間に合わせる」）：ページ（0 から）→ 動きを合わせる言葉（本文に出る順）。
+   * 物語の画面がその言葉の最初の字が出る拍を計算して、build の cueAt に渡す。
+   */
+  cues?: Record<number, string[]>;
+  /**
+   * 行の前の間（秒）：ページ（0 から）→ 行ごとに、その行を出す前に絵の動きを見せる秒。読む時間に足すので、コマがそのぶん
+   * 長くなる（lineAt と違い、読み終えてからの rest や、ほかの行の速さを削らない）。
+   */
+  linePause?: Record<number, number[]>;
+  /**
+   * 一枚の絵の金の枠を、最後のページの文が消えてから出す（11/23 渡辺さん「枠が現れるタイミングはこれが適切？」：文を読んで
+   * いる間に枠が出ていた）。無ければ、いままでどおり最後のページの 0.25 から。
+   */
+  frameAfterText?: boolean;
+  /**
+   * 字の後ろを少しだけ沈める（11/23：コールドムーンは白いシラカバの幹が字の後ろに来て読みにくかった）。字の列の後ろの
+   * 影（.ms-caps-veil）を少し濃く広く、字のまわりのにじみ（text-shadow）を一段足す。濃くはせず、背景から字をわずかに分ける。
+   */
+  capShade?: boolean;
   /**
    * 行を出しはじめる所（コマの中の 0〜1、行ごと）。絵の動きに合わせて行を出すページだけ（11/21 絵コンテ v0.3：6ページは
    * 丘が明るむと1行目、月の縁が出ると2行目）。無いページは、行を続けて朗読の速さで出す。
    */
   lineAt?: Record<number, number[]>;
+  /**
+   * 動きを減らす設定で見せる一枚の絵の位置（拍）。無ければ最後から 1.5 拍前（ビーバームーンは月が昇ったあと）。
+   * コールドムーンは7ページ（高い月と、穴の中のコガラ）で止まった所。
+   */
+  still?: number;
+  /**
+   * 物語のページの地の空の流れ（.moon-story の --sky-0 / --sky-1、上・下）：表紙のあたり → 場面の終わり → あとがきから先。
+   * 無ければ、夕方 → 夜 → 深夜（palette.ts の BOOK.dusk / night / deep）。コールドムーンは 昼 → 夕 → 夜 → 夜明け（PR-3）。
+   */
+  bookSky?: { start: [string, string]; end: [string, string]; after: [string, string] };
 };
 
 export const STORY_SCENES: Record<string, StoryScene> = {
@@ -56,5 +91,27 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     PaperArt: BeaverPaperArt,
     build: buildBeaverScene,
     lineAt: BEAVER_LINE_AT,
+  },
+  // 11/22 PR-2（実装計画 v0.2）：場面の寄り・引きと主役の出入り。11/23 PR-3：言葉との同期（lineAt）と夜明けの空（bookSky）。
+  コールドムーン: {
+    beats: COLD_BEATS,
+    World: ColdWorld,
+    Window: ColdWindow,
+    sky: COLD_SKY,
+    CoverArt: ColdCoverArt,
+    spineArt: {
+      moon: storyAsset("cold", "emboss"),
+      emblem: storyAsset("cold", "perch"),
+    },
+    coverCorner: storyAsset("cold", "branch-berry"),
+    closedArt: storyAsset("cold", "emboss-medal"),
+    PaperArt: ColdPaperArt,
+    build: buildColdScene,
+    linePause: COLD_LINE_PAUSE,
+    cues: COLD_CUES,
+    frameAfterText: true,
+    capShade: true,
+    still: 6.78,
+    bookSky: { start: BOOK.coldStart, end: BOOK.coldDawn, after: BOOK.coldAfter },
   },
 };

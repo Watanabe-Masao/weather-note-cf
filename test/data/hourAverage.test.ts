@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { HourPoint } from "../../src/dayDetail";
-import { daysBefore, meanByHour, nextWindow } from "../../src/hourAverage";
+import { daysBefore, meanByHour, medianByHour, nextWindow } from "../../src/hourAverage";
+import { detailMetric, formatDetail, visibilityDiff } from "../../src/dayDetail";
 
 const day = (f: (h: number) => number | null): HourPoint[] => Array.from({ length: 24 }, (_, i) => ({ hour: i + 1, v: f(i + 1), forecast: false }));
 
@@ -21,6 +22,31 @@ describe("手前の平均", () => {
     expect(m[4].v).toBe(6); // hour 5: (5 + 7) / 2, two of three days
     const sparse = meanByHour([day((h) => h), day(() => null), day(() => null), day(() => null)], 7);
     expect(sparse.every((p) => p.v == null)).toBe(true);
+  });
+
+  it("視程：the median of each hour (before → after), the days counted, missing days left out", () => {
+    // 1週のうち 5 日は上限の 20、2 日だけ霞んで 6・8 km（9 時）。欠けた日が 1 日。
+    const week = [20, 20, 20, 6, 20, 8, 20].map((v9) => day((h) => (h === 9 ? v9 : 20)));
+    week[2] = day((h) => (h === 9 ? null : 20));
+    const before = meanByHour(week, 7)[8];
+    const after = medianByHour(week, 7)[8];
+    expect(+before.v!.toFixed(2)).toBe(15.67); // 平均：霞んだ 2 日に引っぱられる
+    expect(after.v).toBe(20); // 中央値：ふつうの見通し（「20 km 以上」）
+    expect(after.n).toBe(6); // 値のあった日（欠けた 1 日は数えない）
+    expect(medianByHour([day(() => 6), day(() => 10), day(() => 20), day(() => 12)], 4)[0].v).toBe(11);
+    // ほかの項目は平均のまま（数も持つ）。
+    expect(meanByHour(week, 7)[8].n).toBe(6);
+  });
+
+  it("視程：20 reads 20 km or more, and a difference with it is a bound or unknown", () => {
+    const m = detailMetric("visibility");
+    expect(formatDetail(20, m)).toBe("20.0+");
+    expect(formatDetail(12.4, m)).toBe("12.4");
+    expect(formatDetail(20, detailMetric("humidity"))).toBe("20");
+    expect(visibilityDiff(12, 20)).toBe("−8.0以下");
+    expect(visibilityDiff(20, 14)).toBe("+6.0以上");
+    expect(visibilityDiff(20, 20)).toBe("");
+    expect(visibilityDiff(12, 9.5)).toBe("+2.5");
   });
 
   it("steps 1週 → 2週 → 1か月 → 1週", () => {

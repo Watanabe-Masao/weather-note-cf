@@ -21,6 +21,7 @@ jobs:
   # against the built app with made-up weather. Screenshots are kept when it fails.
   # The two widths run side by side (each ~2.5 min; one after the other the job took ~5.5 min).
   # 画面全体（e2e.py、約4分）とイベントの日の見出し（event.py、約2分）も別の仕事に分けて並べる（#371：一幅 約6分 → 約4分）。
+  # 11/22：e2e.py も前半・後半の2つに分けて並べる（WN_PART、約5分半 → 約3分ずつ）。
   e2e-width:
     name: e2e (${{ matrix.width }}, ${{ matrix.suite }})
     runs-on: ubuntu-latest
@@ -28,7 +29,8 @@ jobs:
       fail-fast: false
       matrix:
         width: [390, 360]
-        suite: [app, event]
+        # app は2つに分けて並べる（#371：e2e.py を1つで走らせると約5分半、分けると約3分ずつ。WN_PART）。
+        suite: [app1, app2, event]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -43,8 +45,10 @@ jobs:
       - run: pip install playwright==1.63.0
       - run: python -m playwright install --with-deps chromium
       - run: npx vite build
-      - if: matrix.suite == 'app'
-        run: python3 e2e/e2e.py ${{ matrix.width }}
+      - if: matrix.suite == 'app1'
+        run: WN_PART=1 python3 e2e/e2e.py ${{ matrix.width }}
+      - if: matrix.suite == 'app2'
+        run: WN_PART=2 python3 e2e/e2e.py ${{ matrix.width }}
       # イベントの日の見出し（docs/event-banner.md 6章）：時計を満月の日に合わせて、3テーマで。
       - if: matrix.suite == 'event'
         run: python3 e2e/event.py ${{ matrix.width }}

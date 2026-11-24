@@ -2,7 +2,7 @@
 // Linked: both strips render the same run of target days (the comparison cell is that day's partner)
 // and scroll as one. Independent: each strip has its own run of days.
 
-import { Conf, confidenceOfRow } from "./kit";
+import { Conf, confidenceOfRow, InfoButton } from "./kit";
 import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
 import { signedDiff } from "../design/format";
 import { type ReactNode, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
@@ -11,10 +11,12 @@ import { dayTone, weekdayOf } from "../../shared/holidays";
 import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
 import type { WeatherStore } from "../data/store";
 import { tableSeries } from "../chartMetrics";
+import { dayText, OM_BIAS_NOTE, omValue, SOURCE_TAGS, SOURCE_TEXT, sourceTag } from "../sourceTag";
 import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
 import type { CalendarSide } from "./CalendarModal";
 import { DateNav } from "./DateNav";
+import { JmaForecastLink, OpenMeteoCredit } from "./SourceCredit";
 import { FeelBar, FeelContext } from "./FeelBar";
 import { Strip, StripSync } from "./Strip";
 import { DayWeatherIcon, WeatherIcon } from "./WeatherIcon";
@@ -33,6 +35,8 @@ interface Props {
   last: string;
   bounds: { min: string; max: string };
   compareDate: string | null;
+  /** 比較日が無い・まだ無いときの理由（対象日は動かさず、比較側に出す、2026-11-24）。 */
+  compareGap?: string | null;
   metric: Metric;
   /** 1日モード (#247): the target's week only; the comparison table is left out. */
   single?: boolean;
@@ -77,9 +81,8 @@ function GridNum({ text }: { text: string }) {
 export function kindLabel(store: WeatherStore | null, station: string, date: string) {
   const day = store?.getDay(station, date);
   if (day?.state !== "ready" || !day.row) return "";
-  // The status only (one meaning per row): the rain chance has its own row under 降水.
-  if (day.row.type === "forecast") return "予報";
-  return day.kind === "variable" ? "暫定" : "実績";
+  // The source only (one meaning per row, src/sourceTag.ts): the rain chance has its own row under 降水.
+  return sourceTag(day.row, day.kind);
 }
 
 function Column({
@@ -143,12 +146,14 @@ function Column({
         {state === "ready" && confidenceOfRow(day?.row) && <Conf value={confidenceOfRow(day?.row)!} />}
       </span>
       {tableSeries(metric, past).map((s) => {
-        const text =
+        const raw =
           state === "ready" && !(s.forecastOnly && day?.row?.type !== "forecast")
             ? formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel, station), s.unit ?? metric.unit)
             : "";
+        // 気象庁の予報の値は整数のまま（小数を付けると、無い桁を言うことになる）。
+        const text = dayText(day?.row, s.key, raw);
         return (
-        <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}${longValue(text) ? " long" : ""}`}>
+        <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}${longValue(text) ? " long" : ""}${state === "ready" && omValue(day?.row, s.key) ? " om" : ""}`}>
           {state === "ready" ? (
             <GridNum text={text} />
           ) : state === "error" ? (
@@ -246,6 +251,33 @@ function Labels({
   );
 }
 
+/** 札の説明（ⓘ で開く）：札ごとに、どこの値か。 */
+function SourceLegend({ station }: { station: string }) {
+  return (
+    <div className="source-legend">
+      <dl>
+        {SOURCE_TAGS.map((t) => (
+          <div key={t}>
+            <dt>
+              <span className={`badge ${t === "府県" || t === "週間" || t === "補完" ? "forecast" : t === "確定" ? "actual" : "provisional"}`}>{t}</span>
+            </dt>
+            <dd>{SOURCE_TEXT[t]}</dd>
+          </div>
+        ))}
+        <div>
+          <dt>
+            <span className="om">点線</span>
+          </dt>
+          <dd>府県・週間の日に、その値だけ Open-Meteo（気象庁の予報に無い値：平均・雨の量 など）</dd>
+        </div>
+      </dl>
+      <p>
+        補完・点線の値：<OpenMeteoCredit />。気象庁の予報：<JmaForecastLink />。寒暖差は最高−最低を Weather Note が計算。{OM_BIAS_NOTE[station] ? `補完の日の目安：${OM_BIAS_NOTE[station]}。` : ""}日を押すと、値ごとにどの発表の値かが見られます（1日の画面の ⓘ）。
+      </p>
+    </div>
+  );
+}
+
 /** A value of five characters or more (−10.7, 1016) steps down one size so it keeps to its column. */
 // Five characters or more (−10.7), or four digits (1023 hPa: at full size it ran into the next day's).
 const longValue = (text: string) => text.replace(/[^\d.−+\-]/g, "").length >= 5 || text.replace(/\D/g, "").length >= 4;
@@ -260,6 +292,7 @@ export function CompareBoard({
   last,
   bounds,
   compareDate,
+  compareGap = null,
   metric,
   single = false,
   moveTarget,
@@ -271,6 +304,8 @@ export function CompareBoard({
   compareExtra,
 }: Props) {
   const sync = useMemo(() => (view.linked ? new StripSync() : null), [view.linked]);
+  // 札（確定・暫定・速報・府県・週間・補完）の説明：ふだんは隠し、ⓘ で表の下に開く（2026-11-23）。
+  const [sourcesOpen, setSourcesOpen] = useState(false);
   const targetDays = useWindow(view.target, bounds.min, bounds.max);
   const compareDays = useWindow(view.linked ? view.target : view.compare, view.linked ? bounds.min : "1977-01-01", view.linked ? bounds.max : last);
   const gestures = useRef(0);
@@ -361,7 +396,12 @@ export function CompareBoard({
           onOpenCalendar={() => onOpenCalendar("target")}
           todayChip={chip}
           onToday={() => moveTarget(today)}
-          extra={targetExtra}
+          extra={
+            <>
+              <InfoButton open={sourcesOpen} onToggle={() => setSourcesOpen(!sourcesOpen)} what="値の出どころの説明" />
+              {targetExtra}
+            </>
+          }
         />
         <div className="side-body">
           <Labels metric={metric} sun={view.sun} onToggleSun={onToggleSun} />
@@ -391,11 +431,17 @@ export function CompareBoard({
             />
           </div>
         </div>
+        {sourcesOpen && <SourceLegend station={station} />}
       </div>
 
       {!single && (
       <div className="side side-compare">
         {compareNav}
+        {compareGap && (
+          <p className="compare-gap" role="status">
+            {compareGap}
+          </p>
+        )}
         <div className="side-body">
           <Labels metric={metric} past={comparePast} sun={view.sun} onToggleSun={onToggleSun} diffs />
           <div className="strip-wrap" ref={lowWrap}>

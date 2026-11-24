@@ -34,6 +34,9 @@ export interface AccountsEnv {
   /** Cloudflare's own count of the month's use (usage.ts): a read-only token (secret) and the account. */
   CF_ANALYTICS_TOKEN?: string;
   CF_ACCOUNT_ID?: string;
+  /** 原本の控えを置く GitHub のリポジトリと、そこだけに書けるトークン（秘密の値、offsite.ts）。トークンが無ければ控えは置かない。 */
+  GITHUB_ARCHIVE_TOKEN?: string;
+  ARCHIVE_REPO?: string;
 }
 
 import {
@@ -50,9 +53,11 @@ import {
   vapidKeys,
 } from "./notify";
 import { importShiromatzMonth, importSummary } from "./forecastImport";
+import { forecastTypesSummary } from "./forecastTypeWatch";
 import { type Bucket, r2Summary } from "./r2Archive";
 import { RefetchRefused, refetchNow, refetchSummary } from "./refetch";
 import { dupCheck, maintenanceSummary, tableAudit } from "./maintenance";
+import { claimWeeklyAudit, runWeeklyAudit } from "./weeklyAudit";
 import { keepError } from "./health";
 import { archiveSummary } from "./typhoonArchive";
 import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
@@ -847,6 +852,8 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       if (path === "/api/admin/typhoon-archive" && !post) return json({ ...(await archiveSummary(db)), ...(await alertSummary(db)) });
       // 予報の履歴 (#250, R2): the record of JMA's forecasts, taken a month at a time by hand.
       if (path === "/api/admin/forecast-import" && !post) return json(await importSummary(db));
+      // 予報が外れやすい型の確かめ（forecastTypeWatch.ts、11/24）：影の運用の記録と、型ごとのこれまで。読むだけ。
+      if (path === "/api/admin/forecast-types" && !post) return json(await forecastTypesSummary(db));
       if (path === "/api/admin/archive" && !post) return json(await r2Summary(db));
       // 今すぐ取り直す（refetch.ts、#299 P1）：段ごとの様子と、1回だけ動かす（1時間に3回まで、記録を残す）。
       if (path === "/api/admin/refetch" && !post) return json(await refetchSummary(db, now, !!env.ARCHIVE));
@@ -854,6 +861,11 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       if (path === "/api/admin/maintenance" && !post) return json(await maintenanceSummary(db, now, { ...env, hasBucket: !!env.ARCHIVE }));
       if (path === "/api/admin/dupcheck" && post) return json({ items: await dupCheck(db, now, u.id) });
       if (path === "/api/admin/audit" && post) return json(await tableAudit(db, now, u.id));
+      // 週の点検（weeklyAudit.ts、#370）：定時処理を待たずに今すぐ（1分に1回まで、読むだけ）。
+      if (path === "/api/admin/weekly-audit" && post) {
+        if (!(await claimWeeklyAudit(db, now, true))) throw new Refused("少し待ってから押してください（1分に1回まで）。", 429);
+        return json(await runWeeklyAudit(db, env.ARCHIVE, now));
+      }
       if (path === "/api/admin/refetch" && post) {
         const b = await body(req);
         try {

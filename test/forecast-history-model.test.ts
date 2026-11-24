@@ -3,7 +3,7 @@
 
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { changesOf, ForecastHistory, oneSource, prevOf, type Slot } from "../shared/forecastHistoryModel";
+import { changesOf, ForecastHistory, oneSource, prevOf, type Slot, tempPoints, tempSlot } from "../shared/forecastHistoryModel";
 import { ensureForecastSchema } from "../worker/src/forecastArchive";
 import { forecastHistory } from "../worker/src/forecastHistory";
 import { parseForecasts } from "../worker/src/forecastParse";
@@ -97,5 +97,64 @@ describe("予報の履歴：記録の無い回も今まで並べる", () => {
       "VPFD51 11-18T11",
     ]);
     expect(after.every((s) => s.state !== "ok")).toBe(true);
+  });
+});
+
+describe("時間帯のグラフの気象庁の予報（3時間ごとの気温、2026-11-23）", () => {
+  it("shows the morning's 5時 issue unless one is picked, as JMA gave it (whole degrees, no fill between)", async () => {
+    const h = await day("2026-11-17");
+    const slots = h.slots("2026-11-17", "2026-11-17T23:00:00+09:00");
+    const s = tempSlot(slots, "2026-11-17", null)!;
+    expect([s.kind, s.at]).toEqual(["VPFD51", "2026-11-17T05:00:00+09:00"]);
+    // 5時の発表は 6時から：0時・3時は無い。24時（次の日の 0時）まで。
+    expect(tempPoints(h, s.shown, "2026-11-17").map((p) => [p.hour, p.v])).toEqual([
+      [6, 12],
+      [9, 16],
+      [12, 19],
+      [15, 16],
+      [18, 15],
+      [21, 15],
+      [24, 14],
+    ]);
+  });
+
+  it("before 5時, or with no 5時 issue, takes the latest 府県天気予報 before it", async () => {
+    const h = await day("2026-11-17");
+    const early = h.slots("2026-11-17", "2026-11-17T04:00:00+09:00");
+    expect(tempSlot(early, "2026-11-17", null)?.at).toBe("2026-11-16T17:00:00+09:00");
+    // 次の日は、その日の 5時の発表がまだ無い：前の日の 11時。
+    const next = await day("2026-11-18");
+    expect(tempSlot(next.slots("2026-11-18", "2026-11-17T12:00:00+09:00"), "2026-11-18", null)?.at).toBe("2026-11-17T11:00:00+09:00");
+  });
+
+  it("follows the issue picked in 予報の移り変わり; a 週間 issue has no 3-hourly temperatures", async () => {
+    const h = await day("2026-11-18");
+    const slots = h.slots("2026-11-18", "2026-11-17T23:00:00+09:00");
+    const d11 = slots.find((z) => z.kind === "VPFD51" && z.at === "2026-11-17T11:00:00+09:00")!;
+    expect(tempSlot(slots, "2026-11-18", d11.key)).toBe(d11);
+    expect(tempPoints(h, d11.shown, "2026-11-18").map((p) => p.hour)).toEqual([0, 3, 6, 9, 12, 15, 18, 21, 24]);
+    const w11 = slots.find((z) => z.kind === "VPFW50" && z.at === "2026-11-17T11:00:00+09:00")!;
+    expect(tempSlot(slots, "2026-11-18", w11.key)).toBe(w11);
+    expect(tempPoints(h, w11.shown, "2026-11-18")).toEqual([]);
+  });
+});
+
+describe("予報の履歴：風（2026-11-24 渡辺さん「予報の移り変わりを風にも」、電文の読み直し parser 2）", () => {
+  it("府県天気予報の回に、その日の風の文と3時間ごとの代表風。週間には無い", async () => {
+    const h = await day("2026-11-18");
+    const all = h.slots("2026-11-18");
+    const d05 = all.find((x) => x.kind === "VPFD51" && x.at === "2026-11-17T05:00:00+09:00")!;
+    expect(d05.values?.wind).toEqual({ text: "西の風　後　北西の風　やや強く　海上　では　後　北西の風　強く", from: 0 });
+    expect(d05.values?.wind3).toHaveLength(8);
+    expect(d05.values?.wind3?.[0]).toMatchObject({ dir: expect.any(String) });
+    const w = all.find((x) => x.kind === "VPFW50" && x.state === "ok")!;
+    expect(w.values?.wind ?? null).toBeNull();
+  });
+  it("風の文が変わったら印（同じ区切りどうしだけ）", async () => {
+    const h = await day("2026-11-18");
+    const all = h.slots("2026-11-18");
+    const d11 = all.find((x) => x.kind === "VPFD51" && x.at === "2026-11-17T11:00:00+09:00")!;
+    const p = prevOf(all, d11)!;
+    expect(d11.changed.has("wind")).toBe(!!p.values?.wind && !!d11.values?.wind && p.values.wind.text !== d11.values.wind.text);
   });
 });

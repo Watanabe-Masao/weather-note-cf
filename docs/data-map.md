@@ -39,6 +39,9 @@ Weather Note が使うデータを、**外から取りに行くもの**（取り
 | 天気図（実況・予想天気図） | 2026-11-17 | 実況は3時間ごと、予想は発表ごと | R2 `wxchart/quick/`・`wxchart/forecast/`、D1 `wxchart_saved` | PNG のまま | 予想天気図をあとから見る（気象庁は最新しか置かない） | 1時間止まると注意 |
 | 雨雲レーダー（高解像度降水ナウキャストの実況、その瞬間の強さ mm/h） | 2026-11-17（#276） | 30分ごと（毎時0分・30分）、高知のまわり 段階8 の 3×3（四国全体） | R2 `radar/hrpns/`、D1 `radar_saved` | 地図タイルの PNG（気象庁のまま） | 雨雲の動きの記録（画面はこれから） | 1時間止まると注意、2時間で異常（一覧は約3時間で消える） |
 | 解析雨量（1時間雨量 mm、雨量計で直したもの） | #281 のマージから | 30分ごと、同じ範囲、一覧の member（none・immed）ごと | R2 `radar/rasrf/`、D1 `radar_saved` | 地図タイルの PNG（気象庁のまま） | どこでどれだけ降ったかの記録、予報との比べ合わせ（画面はこれから） | 雨雲レーダーと共通（一覧は約12時間で消える） |
+| アメダスの10分ごとの観測（高知 74182、気象庁 bosai の地点の JSON） | #（この PR）のマージから（初回に8日分さかのぼる） | 3時間ごとのファイル（10分ごと18回分）を、その3時間が終わって20分後から | R2 `amedas/point/74182/`（gzip）、D1 `amedas_saved` | 原本のまま（気温・湿度・気圧・雨・風向風速・突風・日照・**視程（10分ごと）・天気（自動観測、1時間ごと）**など28項目） | 視程の10分値の記録（過去の気象データの10分値の表には視程の列が無い。視程と天気の1時間値は時別値の表にある。KC-04）。画面はこれから | 半日止まると注意、2日で異常（気象庁は約10日で消す） |
+| 空気質（Open-Meteo Air Quality、もとは CAMS。PM2.5・PM10・黄砂 dust・エアロゾルの光学的厚さ AOD） | #（この PR）のマージから。過去は 2023-01-01 まで1か月ずつさかのぼる | 1時間に1回まで、終わった日（昨日まで）の1時間ごとの値。高知（雨雲と同じ位置） | D1 `air_quality_hourly` | モデルの値（観測ではない。#208 の決まり3の材料にはしない）。予報の履歴は持たない | 月の見え方の空気の濁り β（AOD から）、空気質の表示（画面はこれから）。出典 Open-Meteo.com（CC BY 4.0）・Copernicus CAMS | 2日止まると注意（2023-01 から取り直せる） |
+| 大気汚染の実測（環境省 そらまめくんの API、速報値。高知市 介良局 39201350） | #（この PR）のマージから。1年前までさかのぼる | 6時間に1回まで：今月と先月を取り直し（速報値の直しも入る）、古い側へ3か月ずつ | D1 `soramame_hourly` | PM2.5（µg/m³）・光化学オキシダント（ppm）・SPM（mg/m³）・NO2・SO2（ppm）・風向（16方位）・風速（m/s）の1時間値。時は 01〜24 | PM2.5 の実測（CAMS との比べ合わせ、表示はこれから）。個人利用（渡辺さん 11/21）。データの著作権は環境省・高知市など | 2日で注意、2週間で異常（API は今月から1年。それより古い速報値は取れない） |
 | 長い先の予報の電文（四国の地方1か月予報 VPCK50・早期天候情報 VPAW51、全国の2週間気温予報 VPCK70） | #285 のマージから | 発表ごと（1か月予報は週1回、2週間気温予報は毎日、早期天候情報は出たときだけ）。配信の一覧を30分ごとに読む | R2 `telegrams/longrange/`（gzip）、D1 `longrange_telegrams`（原文は持たない） | 原文のまま（高知の値の読み取りはこれから） | 季節の見通しの移り変わり | 12時間止まると注意 |
 | アカウント・感じ方の記録・同意・通知 | アプリの開始から | 利用者の操作ごと | D1 | 本人の記録（研究への協力の同意つき） | β・記録・研究用の分析 | アカウント処理の失敗を `/api/health` に |
 | 処理の記録 | — | 5分ごと・毎時 | D1 `cron_runs`・`*_fetch_log`・`health_checks`・`health_alerts` ほか | 何を取れたか・取れなかったか | 見張り（取れなかったと、もともと無いを分ける） | — |
@@ -136,11 +139,30 @@ D1 は1つ（バインディング `DB`）、原本のファイルは R2（`ARCH
 
 | 分け | 表 | 中身 |
 | --- | --- | --- |
-| 気象 | `forecast_telegrams`・`forecast_issues`・`forecast_entries`・`forecast_fetch_log`・`forecast_imports`・`forecast_alerts`・`typhoon_telegrams`・`typhoon_fetch_log`・`typhoon_json_log`・`typhoon_alerts`・`warning_telegrams`・`warning_fetch_log`・`longrange_telegrams`・`longrange_fetch_log`・`radar_saved`・`radar_fetch_log`・`wxchart_saved`・`wxchart_fetch_log`・`archive_copies`・`source_listed`・`data_gaps`・`data_absent` | 公開の気象情報と、その取得の記録・欠け。人を指す列は持たない |
+| 気象 | `forecast_telegrams`・`forecast_issues`・`forecast_entries`・`forecast_fetch_log`・`forecast_imports`・`forecast_alerts`・`forecast_type_log`・`typhoon_telegrams`・`typhoon_fetch_log`・`typhoon_json_log`・`typhoon_alerts`・`warning_telegrams`・`warning_fetch_log`・`longrange_telegrams`・`longrange_fetch_log`・`radar_saved`・`radar_fetch_log`・`amedas_saved`・`amedas_fetch_log`・`air_quality_hourly`・`air_quality_fetch_log`・`soramame_hourly`・`soramame_fetch_log`・`wxchart_saved`・`wxchart_fetch_log`・`archive_copies`・`source_listed`・`data_gaps`・`data_absent` | 公開の気象情報と、その取得の記録・欠け。人を指す列は持たない |
 | ユーザー | `users`・`sessions`・`session_reauth`・`schema_version`・`reports`・`consents`・`research_withdrawals`・`push_subscriptions`・`server_keys`・`notify_settings`・`notify_log`・`typhoon_notify_settings`・`typhoon_notify_log`・`export_log`・`export_tokens` | アカウント・肌感の記録・同意・通知。研究に出すときは研究用の番号で（#55） |
-| 運用 | `cron_runs`・`health_checks`・`health_alerts`・`app_errors`・`refetch_log`・`schema_migrations` | 定時処理・見張り・エラー・取り直しの記録。数と時刻が主。エラーの文言と押した管理者は管理者の画面だけに出す |
+| 運用 | `cron_runs`・`health_checks`・`health_alerts`・`app_errors`・`refetch_log`・`schema_migrations`・`weekly_audit`・`forecast_type_runs`・`offsite_copies`・`offsite_state`・`offsite_log` | 定時処理・見張り・エラー・取り直し・週の点検・ドライブの控えの記録。数と時刻が主。エラーの文言と押した管理者は管理者の画面だけに出す |
 
 **表の作りの変更**（2026-11-19）：表は各ファイルの `CREATE TABLE IF NOT EXISTS` で作り、作ったあとの変更（列を足すなど）は `worker/src/migrate.ts` の `migrate` で部分ごとの版として1回ずつ当て、`schema_migrations` に残す。版は足すだけで、当て終わった版は書き換えない（直すときは次の版）。消す・作り直す変更は元に戻せないので、個別に確かめてから。アカウントの `schema_version`（v1）は前からのもので、そのまま。
+
+**予報が外れやすい型の影の運用**（2026-11-24）：固定した型（`shared/forecastTypes.ts`、FS-05・FS-06）に、気象庁の予報が当てはまるかを毎日（日本時間の2時台）判定して `forecast_type_log` に残し（当てはまらない件も分母として）、対象日が2日以上前になったら気象庁の日の表の最高・最低・降水量で答え合わせを付ける。予報どうしは混ぜない（材料は気象庁の予報だけ）、答え合わせは気象庁の観測。画面には出さない。引き受けた日と件数は `forecast_type_runs`（`worker/src/forecastTypeWatch.ts`）。
+
+**週の点検**（2026-11-22、#370）：週に1回（日本時間の3時台）、保存している系列（アメダスの原本・雨雲と解析雨量・天気図の実況・空気質・そらまめ・予報の電文・長い先の予報の電文）を**取り始めから今まで**の全期間で見て、「最新」（いちばん新しい時刻が新しいか）と「履歴」（途中に抜けが無いか）を分けて数える。R2 に置いたはずのファイルも毎回20件選んで、実物と大きさを確かめる。読むだけで、何も消さない。結果は `weekly_audit`（60回分）に残し、保守の画面と毎朝の点検に出す（`worker/src/weeklyAudit.ts`、手引き R-12）。
+
+**原本の控え（GitHub）**（2026-11-22、#370）
+- 経緯：渡辺さんが、はじめは Google ドライブにすると決めたが、Google の同意画面が本番に出せず、GitHub の非公開リポジトリに変えた。
+- 対象：R2 の原本（電文の写し・長い先の予報・アメダスの10分値・天気図・雨雲と解析雨量）。
+- まとめ方：
+  - 日本時間でその日に保存した分ずつ tar にまとめる。
+  - 300ファイルを超える日は `<日付>_1of3.tar` のように分ける。
+  - 中に `manifest.json`（鍵・表・大きさ・sha256）を入れる。
+- 置き場所：非公開リポジトリ（`wrangler.jsonc` の `ARCHIVE_REPO`）の、月ごとのリリース `archive-YYYY-MM` に置く。
+- 確かめ方：置いたら読み戻して sha256 を確かめ、確かめられた分だけを `offsite_copies` に残す。
+- 進め方：定時処理の1回に1つずつ、古い日から。
+- 鍵：そのリポジトリだけに書けるトークン（Cloudflare の秘密の値 `GITHUB_ARCHIVE_TOKEN`）。無ければ何もしない。
+- 置いたファイルは消さない。
+- 肌感の記録などのユーザーのデータは入れない（入れるかは別に決める）。
+- コードは `worker/src/offsite.ts`、手引きは R-13。
 
 エラーの記録は、Cloudflare のログ（アプリから読めず、数日で消える）ではなく、ここ（`app_errors`・`cron_runs.error`）を正にします（#341・#344）。時刻の書き方は 2 章の「時刻の決まり（要件 R4）」のとおりで、書き換えません。
 

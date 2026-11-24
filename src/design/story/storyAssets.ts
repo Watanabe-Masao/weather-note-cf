@@ -105,6 +105,36 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
     },
     pines: { rect: [1424, 732, 84, 64], key: true },
   },
+  // コールドムーン（11/22 渡辺さんの素材、検収済み。design-src/story/cold/pack/README.md）。幅は「納品の決まり」の
+  // 画素の目安（画面で表示する最大の大きさの3倍）と元の大きさの小さい方。背景の3枚は寄るとぼけてよい（遠いので）。
+  cold: {
+    moon: { file: "design-src/story/common/moon.png", width: 512 },
+    emboss: { file: "design-src/story/common/emboss.png", width: 160 },
+    perch: { file: "design-src/story/cold/pack/c01-perch.png", width: 640 },
+    "perch-berry": { file: "design-src/story/cold/pack/c01b-perch-berry.png", width: 520 },
+    "seed-trunk": { file: "design-src/story/cold/pack/c03-seed-trunk.png", width: 900, quality: 0.8 },
+    "trunk-empty": { file: "design-src/story/cold/pack/c03b-trunk-empty.png", width: 900, quality: 0.8 },
+    seed: { file: "design-src/story/cold/pack/c04-seed.png", width: 240 },
+    "trunk-hole": { file: "design-src/story/cold/pack/c05-trunk-hole.png", width: 1024, quality: 0.8 },
+    "trunk-plain": { file: "design-src/story/cold/pack/c05b-trunk-plain.png", width: 1024, quality: 0.8 },
+    "trunk-dawn": { file: "design-src/story/cold/pack/c05c-trunk-dawn.png", width: 1024, quality: 0.8 },
+    "trunk-fork": { file: "design-src/story/cold/pack/c05d-trunk-fork.png", width: 1024, quality: 0.8 },
+    cling: { file: "design-src/story/cold/pack/c03c-cling.png", width: 480 },
+    bough: { file: "design-src/story/cold/pack/c09c-bough.png", width: 900, quality: 0.8 },
+    air: { file: "design-src/story/cold/pack/c12-air.png", width: 512, quality: 0.8 },
+    "moon-air": { file: "design-src/story/cold/pack/c12b-moon-air.png", width: 512, quality: 0.8 },
+    mist: { file: "design-src/story/cold/pack/c12c-mist.png", width: 1000, quality: 0.8 },
+    "fluff-open": { file: "design-src/story/cold/pack/c06-fluff-open.png", width: 720 },
+    "fluff-closed": { file: "design-src/story/cold/pack/c06-fluff-closed.png", width: 720 },
+    song: { file: "design-src/story/cold/pack/c07-song.png", width: 560 },
+    fly: { file: "design-src/story/cold/pack/c11-fly.png", width: 560 },
+    far: { file: "design-src/story/cold/pack/c08-far.png", width: 1400, quality: 0.8 },
+    middle: { file: "design-src/story/cold/pack/c08-middle.png", width: 1400, quality: 0.8 },
+    near: { file: "design-src/story/cold/pack/c08-near.png", width: 1400, quality: 0.8 },
+    branch: { file: "design-src/story/cold/pack/c09-branch.png", width: 1000, quality: 0.8 },
+    "branch-berry": { file: "design-src/story/cold/pack/c09b-branch-berry.png", width: 520 },
+    "emboss-medal": { file: "design-src/story/cold/pack/c10-emboss-medal.png", width: 520 },
+  },
 };
 
 /**

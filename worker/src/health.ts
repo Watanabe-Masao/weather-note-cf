@@ -9,6 +9,8 @@
 //                run; wall time is what can be measured from inside, and bounds it);
 //   app_errors — failures of the account requests (the log keeps them only 3–7 days, the count here 30).
 
+import { weeklyAuditLastAt } from "./weeklyAudit";
+import { type ArchiveEnv, offsiteConfigured, pendingDays } from "./offsite";
 import { SHIROMATZ_SOURCE } from "../../shared/forecastShiromatz";
 import type { Db, Stmt } from "./accounts";
 import { importPosition } from "./forecastImport";
@@ -246,6 +248,12 @@ const TABLES: [string, string | null][] = [
   ["wxchart_fetch_log", "at"],
   ["radar_saved", "fetched_at"],
   ["radar_fetch_log", "at"],
+  ["amedas_saved", "fetched_at"],
+  ["amedas_fetch_log", "at"],
+  ["air_quality_hourly", "fetched_at"],
+  ["air_quality_fetch_log", "at"],
+  ["soramame_hourly", "fetched_at"],
+  ["soramame_fetch_log", "at"],
   ["longrange_telegrams", "fetched_at"],
   ["longrange_fetch_log", "at"],
   ["cron_runs", "at"],
@@ -257,7 +265,7 @@ const TABLES: [string, string | null][] = [
 
 const pct = (part: number, whole: number) => Math.round((part / whole) * 1000) / 10;
 
-export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usageFetch?: Parameters<typeof monthUsage>[2]) {
+export async function health(db: Db, now = Date.now(), env: UsageEnv & ArchiveEnv = {}, usageFetch?: Parameters<typeof monthUsage>[2]) {
   await ensureHealthSchema(db);
   const iso = (ms: number) => new Date(ms).toISOString();
   const dayAgo = iso(now - 86_400_000);
@@ -454,6 +462,13 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
       // Not there until the saving has run once (a database without R2, or before the first run): not judged then.
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM radar_fetch_log"))?.n ? { radarLastOk: await lastOk("radar_fetch_log") } : {}),
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM longrange_fetch_log"))?.n ? { longRangeLastOk: await lastOk("longrange_fetch_log") } : {}),
+      ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM amedas_fetch_log"))?.n ? { amedasLastOk: await lastOk("amedas_fetch_log") } : {}),
+      ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM air_quality_fetch_log"))?.n ? { airLastOk: await lastOk("air_quality_fetch_log") } : {}),
+      ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM soramame_fetch_log"))?.n ? { soramameLastOk: await lastOk("soramame_fetch_log") } : {}),
+      // 週の点検（weeklyAudit.ts、#370）：最後に終わった時刻。表がまだ無ければ判断しない。
+      ...(await weeklyAt(db)),
+      // 原本の控え（offsite.ts）：鍵が入っているときだけ、まだ置いていない日の数。
+      ...(offsiteConfigured(env) ? { offsitePending: (await pendingDays(db, now)).length } : {}),
       // 欠けの発見（completeness.ts、#299）：定時の発表・30分ごとの時刻が1つずつそろっているか。数と時刻だけ。
       completeness: await readCompleteness(db, now),
       warnings: {
@@ -474,4 +489,9 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv = {}, usage
     },
     tables,
   };
+}
+
+async function weeklyAt(db: Db): Promise<{ weeklyAuditAt?: string | null }> {
+  const at = await weeklyAuditLastAt(db);
+  return at === undefined ? {} : { weeklyAuditAt: at };
 }

@@ -1,0 +1,176 @@
+// 予報が外れやすい型（shared/forecastTypes.ts、FS-05、2026-11-24 に固定）：条件と、保存した電文からの材料の作り方。
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import { bigMiss, FORECAST_TYPES, type LeadForecast, leadLookup, matchedTypes, TYPES_FROZEN_AT } from "../shared/forecastTypes";
+import { ensureForecastSchema } from "../worker/src/forecastArchive";
+import { forecastHistory } from "../worker/src/forecastHistory";
+import { parseForecasts } from "../worker/src/forecastParse";
+import { d1 } from "./d1";
+
+/** 表の形の材料：table[t][L] */
+const lookup = (table: Record<string, Record<number, LeadForecast>>) => (t: string, L: number) => table[t]?.[L];
+const type = (id: string) => FORECAST_TYPES.find((x) => x.id === id)!;
+
+describe("型の定義（固定）", () => {
+  it("is fixed on 2026-11-24 with unique ids, and each says what JMA's forecast it reads", () => {
+    expect(TYPES_FROZEN_AT).toBe("2026-11-24");
+    expect(new Set(FORECAST_TYPES.map((x) => x.id)).size).toBe(FORECAST_TYPES.length);
+    for (const x of FORECAST_TYPES) expect(x.expected.ci[0]).toBeGreaterThan(1);
+  });
+
+  it("A: the day before, the minimum raised by 2℃ or more since 7 days before", () => {
+    const steps = (vals: number[]) => Object.fromEntries(vals.map((v, i) => [i + 1, { min: v }])); // 1日前…7日前
+    expect(type("A-min-raised-L1").match("2026-12-01", 1, lookup({ "2026-12-01": steps([6, 5, 5, 4, 4, 4, 4]) }))).toBe(true);
+    expect(type("A-min-raised-L1").match("2026-12-01", 1, lookup({ "2026-12-01": steps([5, 5, 5, 4, 4, 4, 4]) }))).toBe(false);
+    // 7日前までそろわなければ判定しない
+    expect(type("A-min-raised-L1").match("2026-12-01", 1, lookup({ "2026-12-01": steps([6, 5, 5, 4]) }))).toBe(false);
+  });
+
+  it("B: rain chance 50% or more 2–3 days before; only 50–60% 4–7 days before", () => {
+    const f = (pop: number) => lookup({ "2026-12-01": { 2: { pop }, 5: { pop } } });
+    expect(type("B-max-rain-L2-3").match("2026-12-01", 2, f(70))).toBe(true);
+    expect(type("B-max-rain-L4-7").match("2026-12-01", 5, f(70))).toBe(false);
+    expect(type("B-max-rain-L4-7").match("2026-12-01", 5, f(60))).toBe(true);
+  });
+
+  it("G: summer, cloudy, 30–40%; E: turning months, a drop of 2–3℃ from the day before; C: moved 2–3℃ from the issue before", () => {
+    const g = lookup({ "2027-07-10": { 3: { pop: 40, wx: "くもり" } }, "2026-12-10": { 3: { pop: 40, wx: "くもり" } } });
+    expect(type("G-rain-summer-cloudy-L2-3").match("2027-07-10", 3, g)).toBe(true);
+    expect(type("G-rain-summer-cloudy-L2-3").match("2026-12-10", 3, g)).toBe(false);
+    // 同じ日（11/24）に出た予報：11/29 の最低 5、11/28 の最低 8 → 3℃下がる
+    const e = lookup({ "2026-11-29": { 5: { min: 5 } }, "2026-11-28": { 4: { min: 8 } } });
+    expect(type("E-min-turning-drop-L4-7").match("2026-11-29", 5, e)).toBe(true);
+    const c = (a: number) => lookup({ "2026-12-01": Object.fromEntries([3, 4, 5, 6, 7].map((l) => [l, { max: l === 3 ? a : 15 }])) });
+    expect(type("C-max-moved-L2-3").match("2026-12-01", 3, c(18))).toBe(true);
+    expect(type("C-max-moved-L2-3").match("2026-12-01", 3, c(19))).toBe(false); // 4℃は「2〜3℃」でない
+  });
+
+  it("calls a miss big at more than 2℃, and a rain miss when below 50% and 1mm or more fell", () => {
+    expect(bigMiss("min", { min: 6 }, { min: 3.9 })).toBe(true);
+    expect(bigMiss("min", { min: 6 }, { min: 4 })).toBe(false);
+    expect(bigMiss("rainMiss", { pop: 40 }, { rainMm: 1.5 })).toBe(true);
+    expect(bigMiss("rainMiss", { pop: 60 }, { rainMm: 3 })).toBeNull();
+  });
+});
+
+describe("材料：保存した電文から", () => {
+  const fixture = (name: string) => readFileSync(new URL(`./fixtures/forecast/${name}`, import.meta.url), "utf8");
+  it("reads the latest issue of the day before for each target day and lead", async () => {
+    const db = d1();
+    await ensureForecastSchema(db);
+    const keep = (id: string, kind: string, xml: string) =>
+      db.raw
+        .prepare("INSERT INTO forecast_telegrams (id, kind, office, url, issued_at, fetched_at, hash, xml) VALUES (?, ?, '390000', 'u', ?, '2026-11-17T02:00:00Z', 'h', ?)")
+        .run(id, kind, /<ReportDateTime>([^<]+)</.exec(xml)?.[1] ?? null, xml);
+    keep("d17", "VPFD51", fixture("vpfd51-390000-1700.xml"));
+    keep("d05", "VPFD51", fixture("vpfd51-390000-0500.xml"));
+    keep("d11", "VPFD51", fixture("vpfd51-390000-1100.xml"));
+    keep("w11", "VPFW50", fixture("vpfw50-390000-1100.xml"));
+    await parseForecasts(db, 50);
+    const r = await forecastHistory(db, "47893", "2026-11-19");
+    if (!r.supported) throw new Error("supported");
+    const fc = leadLookup(r, "2026-11-17T12:00:00+09:00");
+    // 11/19 の 2日前（11/17 に出た）：気温は週間の 11時、天気は府県の 11時、降水確率は週間
+    const f = fc("2026-11-19", 2)!;
+    expect(f.max).toBe(16);
+    expect(f.min).toBe(8);
+    expect(f.pop).toBe(30);
+    expect(["晴", "くもり", "雨", "雪"]).toContain(f.wx);
+    // 型の当てはまりは、そろう材料だけで判定する（7日前の発表が無いので動きの型は当てはまらない）
+    expect(matchedTypes("2026-11-19", fc).every((m) => !m.type.id.startsWith("C-") && !m.type.id.startsWith("A-"))).toBe(true);
+  });
+});
+
+describe("影の運用：毎日の判定と答え合わせ（worker/src/forecastTypeWatch.ts）", () => {
+  const fixture = (name: string) => readFileSync(new URL(`./fixtures/forecast/${name}`, import.meta.url), "utf8");
+  it("judges the issues of a day for the next 7 days (matched or not), then checks them against JMA's daily table", async () => {
+    const { checkTypes, claimForecastTypeRun, ensureForecastTypeSchema, judgeTypes } = await import("../worker/src/forecastTypeWatch");
+    const db = d1();
+    await ensureForecastSchema(db);
+    await ensureForecastTypeSchema(db);
+    const keep = (id: string, kind: string, xml: string) =>
+      db.raw
+        .prepare("INSERT INTO forecast_telegrams (id, kind, office, url, issued_at, fetched_at, hash, xml) VALUES (?, ?, '390000', 'u', ?, '2026-11-17T02:00:00Z', 'h', ?)")
+        .run(id, kind, /<ReportDateTime>([^<]+)</.exec(xml)?.[1] ?? null, xml);
+    keep("d05", "VPFD51", fixture("vpfd51-390000-0500.xml"));
+    keep("d11", "VPFD51", fixture("vpfd51-390000-1100.xml"));
+    keep("w11", "VPFW50", fixture("vpfw50-390000-1100.xml"));
+    await parseForecasts(db, 50);
+    const now = Date.parse("2026-11-18T02:30:00+09:00");
+    // 2時台に1回だけ引き受ける（前の日 11/17 の分）
+    expect(await claimForecastTypeRun(db, now)).toBe("2026-11-17");
+    expect(await claimForecastTypeRun(db, now)).toBeNull();
+    expect(await claimForecastTypeRun(db, Date.parse("2026-11-18T05:00:00+09:00"))).toBeNull();
+    const n = await judgeTypes(db, "2026-11-17", now);
+    expect(n).toBeGreaterThan(0);
+    const rows = db.raw.prepare("SELECT target, lead, type_id, matched FROM forecast_type_log ORDER BY target, lead, type_id").all() as { target: string; lead: number; type_id: string; matched: number }[];
+    expect(rows.every((r) => r.target === addDays("2026-11-17", r.lead))).toBe(true);
+    expect(rows.every((r) => r.matched === 0 || r.matched === 1)).toBe(true);
+    // 答え合わせ：2日以上前になった対象日だけ。表に無い日は次の日に回す。
+    const read = async () => ({ rows: [{ date: "2026-11-18", n: 18, type: "actual" as const, provider: "JMA", raw: {}, quality: {}, max: 13, min: 9, rain: 4.5 }], source: "x" });
+    const checked = await checkTypes(db, "2026-11-20", now, read);
+    expect(checked).toBe(rows.filter((r) => r.target === "2026-11-18").length);
+    const done = db.raw.prepare("SELECT observed, big_miss FROM forecast_type_log WHERE target = '2026-11-18'").all() as { observed: string; big_miss: number | null }[];
+    expect(done.every((r) => JSON.parse(r.observed).max === 13)).toBe(true);
+    const later = db.raw.prepare("SELECT count(*) AS n FROM forecast_type_log WHERE target > '2026-11-18' AND checked_at IS NOT NULL").get() as { n: number };
+    expect(later.n).toBe(0);
+  });
+});
+
+const addDays = (d: string, n: number) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+describe("影の運用の集計：倍率の分母は「ふだん」＝答え合わせできた全部の件（2026-11-25 渡辺さん、FS-08 と同じ）", () => {
+  const row = (target: string, matched: boolean, miss: boolean | null, lead = 1) => ({
+    target,
+    lead,
+    type_id: "A-min-raised-L1",
+    matched: matched ? 1 : 0,
+    forecast: JSON.stringify({ min: 5 }),
+    observed: miss == null ? null : JSON.stringify({ min: miss ? 2 : 5 }),
+    big_miss: miss == null ? null : miss ? 1 : 0,
+  });
+  const day = (i: number) => addDays("2026-01-01", i);
+  it("倍率＝当てはまった件の大外れの割合 ÷ 全部の件の大外れの割合（当てはまらない件だけで割らない）", async () => {
+    const { summarizeType } = await import("../worker/src/forecastTypeWatch");
+    // 当てはまった 10 件中 4 件が大外れ、当てはまらない 30 件中 3 件：全部 40 件中 7 件
+    const rows = [
+      ...Array.from({ length: 10 }, (_, i) => row(day(i), true, i < 4)),
+      ...Array.from({ length: 30 }, (_, i) => row(day(10 + i), false, i < 3)),
+    ];
+    const s = summarizeType(type("A-min-raised-L1"), rows);
+    expect(s.base).toEqual({ n: 40, miss: 7 });
+    expect(s.outRule).toEqual({ n: 30, miss: 3 });
+    expect(s.ratio).toBeCloseTo(0.4 / (7 / 40), 6); // 2.29（当てはまらない件で割ると 4.0）
+  });
+  it("合格の「20日」は、答え合わせできた当てはまった対象日（重なりなし）で数える", async () => {
+    const { summarizeType } = await import("../worker/src/forecastTypeWatch");
+    const rows = [
+      ...Array.from({ length: 15 }, (_, i) => row(day(i), true, false)),
+      // 同じ対象日の別の何日前（重ならないように1日として数える）
+      ...Array.from({ length: 15 }, (_, i) => row(day(i), true, false, 2)),
+      // 答え合わせ前の当てはまり：数えない
+      ...Array.from({ length: 10 }, (_, i) => row(day(30 + i), true, null)),
+    ];
+    const s = summarizeType(type("A-min-raised-L1"), rows);
+    expect(s.matchedDays).toBe(15);
+    expect(s.matched).toBe(40);
+    expect(s.status).toBe("checking");
+  });
+  it("雨の見逃しの型は、降水確率 50% 以上の件をふだんに入れない（答え合わせで big_miss が付かない）", () => {
+    expect(bigMiss("rainMiss", { pop: 60 }, { rainMm: 5 })).toBeNull();
+    expect(bigMiss("rainMiss", { pop: 40 }, { rainMm: 5 })).toBe(true);
+  });
+});
+
+describe("画面に出す候補（11/25、FS-08 の結果）", () => {
+  it("E と C（4〜6日前）は様子を見る型に（条件は変えない）、W もそのまま。画面に出すのは候補で合格した型だけ", async () => {
+    const { shownOnScreen } = await import("../shared/forecastTypes");
+    expect(FORECAST_TYPES.filter((t) => t.stage === "watch").map((t) => t.id).sort()).toEqual(["C-max-moved-L4-6", "E-min-turning-drop-L4-7", "W-max-autumn-falling-L1-3"]);
+    expect(FORECAST_TYPES.filter((t) => t.stage === "candidate").map((t) => t.id).sort()).toEqual(
+      ["A-min-raised-L1", "B-max-rain-L2-3", "B-max-rain-L4-7", "C-max-moved-L2-3", "G-rain-summer-cloudy-L2-3", "G-rain-summer-cloudy-L4-7"].sort(),
+    );
+    expect(shownOnScreen({ stage: "candidate", status: "pass" })).toBe(true);
+    expect(shownOnScreen({ stage: "watch", status: "pass" })).toBe(false);
+    expect(shownOnScreen({ stage: "candidate", status: "notYet" })).toBe(false);
+  });
+});

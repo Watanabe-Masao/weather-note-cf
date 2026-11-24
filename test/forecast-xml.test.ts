@@ -58,6 +58,24 @@ describe("府県天気予報（VPFD51）を読む", () => {
     expect(pick(t.entries, { place: "390010", element: "weather_3h" })).toHaveLength(12);
   });
 
+  it("reads 風 as JMA's sentence by day, and the 3-hour 代表風 (風向・風速階級 with its m/s range; parser 2, 2026-11-24)", () => {
+    const e = parseForecastXml(fixture("vpfd51-390000-0500.xml"), "VPFD51", "390000");
+    expect(e.problems).toEqual([]);
+    expect(pick(e.entries, { place: "390010", element: "wind_text" }).map((x) => [x.label, x.value])).toEqual([
+      ["今日", "西の風　日中　南の風"],
+      ["明日", "西の風　後　北西の風　やや強く　海上　では　後　北西の風　強く"],
+    ]);
+    const dir = pick(e.entries, { place: "390010", element: "wind_dir_3h" });
+    const speed = pick(e.entries, { place: "390010", element: "wind_speed_3h" });
+    expect(dir).toHaveLength(14);
+    expect(dir.slice(0, 3).map((x) => x.value)).toEqual(["西", "南", "南"]);
+    expect(speed).toHaveLength(14);
+    expect(speed[0]).toMatchObject({ value: "2", unit: "m/s", lower: 3, upper: 5, jmaType: "風速階級", period: "PT3H" });
+    expect(speed.at(-1)).toMatchObject({ value: "4", lower: 10, upper: 14 });
+    // 文の中の風向（DetailForecast の言い直し）は値として読まない
+    expect(e.entries.filter((x) => x.jmaType === "風向" && x.element !== "wind_dir_3h")).toEqual([]);
+  });
+
   it("an evening one: 今夜, and the day's lowest of tomorrow morning", () => {
     const e = parseForecastXml(fixture("vpfd51-390000-1700.xml"), "VPFD51", "390000");
     expect(pick(e.entries, { place: "390010", element: "weather" })[0].label).toBe("今夜");

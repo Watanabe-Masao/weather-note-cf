@@ -10,18 +10,32 @@
 //   2. The direction of travel is fetched first (plan.ts).
 //   3. While a gesture is in progress, nothing on screen changes: notifications are held.
 //   4. Navigating never refreshes variable data; only missing days are fetched.
+//      Today's observations are the one exception to "once per session": while the app is on
+//      screen they are asked again when they are LIVE_EVERY old (refreshLive), so an app left open
+//      or brought back from the background does not keep showing the afternoon as forecast.
 
 import { addDays, daysBetween, FIRST_DAY, jstToday, monthOf } from "../../shared/dates";
 import { type Correction, CORRECTIONS, correctionRev } from "../../shared/corrections";
 import { inRevalidation, isFixedDay, isFixedHourlyDay } from "../../shared/fixed";
 import type { DailyMonthResponse, HourlyResponse, WeatherRow } from "../../shared/types";
 import { decideDay, decideHours, fillFrom } from "./authority";
+import type { ForecastOfficialResponse } from "../../shared/forecastHistory";
+import type { OfficialDay } from "../../shared/jmaOfficial";
+import { overlayObserved } from "./observed";
+import { overlayOfficial } from "./official";
 import { DATA_VERSION, type DayRecord, type HourRecord, type Kind, type Storage } from "./db";
 import { type Direction, isRecent, lastDay, Priority, sourceFor, viewPlan } from "./plan";
 import { RequestQueue } from "./queue";
 
 export const RETRY_DELAYS = [5_000, 30_000, 120_000];
 export const MAX_HOURLY_SPAN = 14;
+/** How old today's observations may get while the app is on screen (AMeDAS updates every 10 minutes). */
+export const LIVE_EVERY = 10 * 60_000;
+/**
+ * What refreshLive asks again: today's observations, JMA's latest forecasts (their values on the
+ * forecast days, 2026-11-23) and the Open-Meteo forecast (shared by the server for 30 minutes).
+ */
+const LIVE_KEYS = ["current:", "official:", "forecast:"];
 // Per data version: a version change empties the store on purpose, which is not a loss.
 const LAST_COUNT_KEY = `weather-note:last-count:v${DATA_VERSION}`;
 
@@ -115,6 +129,13 @@ export class WeatherStore {
   private hours = new Map<string, HourRecord>();
   private looked = new Set<string>(); // day/hour keys already looked up in storage
   private fresh = new Set<string>(); // task keys completed in this session
+  private freshAt = new Map<string, number>(); // when each was asked (for refreshLive)
+  /** 気象庁の予報の日ごとの値（/api/forecast-official）：地点ごと、日付ごと。保存しない（src/data/official.ts）。 */
+  private official = new Map<string, Map<string, OfficialDay>>();
+  /** getDay が重ねた行（同じ記録・同じ気象庁の値なら同じ行を返す：画面の再描画を増やさない）。 */
+  private overlaid = new Map<string, { row: WeatherRow; day: OfficialDay; out: WeatherRow }>();
+  /** getDay が今日に観測を重ねた行（同じ行・同じ時間の記録なら同じ行、src/data/observed.ts）。 */
+  private observedMemo = new Map<string, { row: WeatherRow | null; hours: WeatherRow[]; out: WeatherRow | null }>();
   private errors = new Map<string, Failed>(); // "d:" / "h:" + key -> what failed, when, by which request
   private blocked = new Map<string, { until: number; attempt: number }>(); // task key -> retry state
   private timers = new Set<unknown>();
@@ -201,6 +222,25 @@ export class WeatherStore {
     this.sync();
   }
 
+  /**
+   * Today's observations, asked again once they are LIVE_EVERY old (2026-11-23: an app opened at
+   * 15時 and brought back at 18時 still showed 15〜18時 as forecast). Only the observations: the
+   * forecast and the past stay once per session. Call when the app becomes visible and once a
+   * minute while it is on screen; it asks nothing when they are newer.
+   */
+  refreshLive(): boolean {
+    const now = this.now();
+    let stale = false;
+    for (const key of [...this.fresh]) {
+      if (!LIVE_KEYS.some((p) => key.startsWith(p))) continue;
+      if (now - (this.freshAt.get(key) ?? 0) < LIVE_EVERY) continue;
+      this.fresh.delete(key);
+      stale = true;
+    }
+    if (stale) this.sync();
+    return stale;
+  }
+
   /** Call when the app becomes visible and once a minute: a new day starts a new session. */
   async checkDate(): Promise<boolean> {
     const today = jstToday(this.now());
@@ -213,6 +253,8 @@ export class WeatherStore {
     this.errors.clear();
     this.blocked.clear();
     this.latest.clear();
+    this.official.clear();
+    this.overlaid.clear();
     await this.prunePastForecasts();
     this.emit();
     this.sync();
@@ -239,6 +281,8 @@ export class WeatherStore {
     this.errors.clear();
     this.blocked.clear();
     this.latest.clear();
+    this.official.clear();
+    this.overlaid.clear();
     this.localStore?.setItem(LAST_COUNT_KEY, "0");
     this.lostSince = null;
     this.emit();
@@ -312,9 +356,38 @@ export class WeatherStore {
     if (!this.inRange(date)) return { date, state: "outside", row: null, kind: null };
     const k = dayKey(station, date);
     const rec = this.days.get(k);
-    if (rec) return { date, state: "ready", row: rec.row, kind: rec.kind };
+    if (rec) return { date, state: "ready", row: this.withObserved(k, date, this.withOfficial(k, station, date, rec.row)), kind: rec.kind };
     const error = this.errors.get("d:" + k)?.message;
     return { date, state: error ? "error" : "empty", row: null, kind: null, error };
+  }
+
+  /** 予報の日の行に気象庁の値を重ねる（src/data/official.ts）。同じものなら前と同じ行。 */
+  private withOfficial(k: string, station: string, date: string, row: WeatherRow | null): WeatherRow | null {
+    if (!row || row.type !== "forecast") return row;
+    const day = this.official.get(station)?.get(date);
+    if (!day) return row;
+    const memo = this.overlaid.get(k);
+    if (memo && memo.row === row && memo.day === day) return memo.out;
+    const out = overlayOfficial(row, day);
+    this.overlaid.set(k, { row, day, out });
+    return out;
+  }
+
+  /** 今日だけ：ここまでの観測が予報の最高・最低を超えていたら観測の値に（観測を優先、2026-11-24）。同じものなら前と同じ行。 */
+  private withObserved(k: string, date: string, row: WeatherRow | null): WeatherRow | null {
+    if (date !== this.today || !row || row.type !== "forecast") return row;
+    const hours = this.hours.get(k)?.rows;
+    if (!hours?.length) return row;
+    const memo = this.observedMemo.get(k);
+    if (memo && memo.row === row && memo.hours === hours) return memo.out;
+    const out = overlayObserved(row, hours);
+    this.observedMemo.set(k, { row, hours, out });
+    return out;
+  }
+
+  /** 気象庁の予報の、ある日の値（出どころつき）。無ければ null。 */
+  officialDay(station: string, date: string): OfficialDay | null {
+    return this.official.get(station)?.get(date) ?? null;
   }
 
   getHours(station: string, date: string): HourView {
@@ -336,6 +409,16 @@ export class WeatherStore {
     const k = dayKey(station, date);
     if (this.hours.has(k) || this.errors.has("h:" + k)) return false;
     return date >= this.today ? !this.fresh.has(`forecast:${station}`) : !this.fresh.has(`hour:${station}:${date}`);
+  }
+
+  /**
+   * 今日から先の1時間ごとの予報（/api/forecast）の様子：このセッションで届いた・取りに行っている途中・失敗してやり直し待ち
+   * （2026-11-24 渡辺さんの共有したレビュー：朝に観測だけ先に届くと、今日の時間はそろって見えるが、このあとの予報はまだ）。
+   */
+  forecastState(station: string): "ready" | "loading" | "error" {
+    const key = `forecast:${station}`;
+    if (this.fresh.has(key)) return "ready";
+    return this.blocked.has(key) ? "error" : "loading";
   }
 
   getLatest(station: string): WeatherRow | null {
@@ -457,6 +540,7 @@ export class WeatherStore {
       const source = sourceFor(date, this.today);
       if (source.kind === "forecast") {
         addTask(this.forecastTask(station, priority));
+        addTask(this.officialTask(station, priority));
         if (date === this.today && priority === Priority.Visible) addTask(this.currentTask(station, priority));
         continue;
       }
@@ -559,6 +643,7 @@ export class WeatherStore {
       // the new session asks again on its own.
       if (ctx.gen !== this.gen || ctx.session !== this.session) return;
       this.fresh.add(task.key);
+      this.freshAt.set(task.key, ctx.at);
       this.blocked.delete(task.key);
       // Clear only this kind's failures: a day's hours arriving says nothing about its daily row.
       const kind = task.key.startsWith("hourly:") ? "h:" : "d:";
@@ -649,6 +734,30 @@ export class WeatherStore {
         // Observed hours (today) keep winning over forecast hours: decided hour by hour on save.
         const records = [...byDate].map(([date, rows]) => this.hourRecord(ctx, station, date, rows, "variable", "forecast"));
         await this.saveHours(records, ctx);
+      },
+    };
+  }
+
+  /**
+   * 気象庁の予報の日ごとの値（予報の出典、2026-11-23）。日の記録には保存せず、getDay が予報の日に重ねる。
+   * 失敗しても日の「取れなかった」にはしない（days: []）：Open-Meteo の値がそのまま出る。
+   */
+  private officialTask(station: string, priority: number): Task {
+    return {
+      key: `official:${station}`,
+      channel: "forecast",
+      priority,
+      days: [],
+      run: async (ctx) => {
+        const data = await this.fetchJson<ForecastOfficialResponse>(`/api/forecast-official?station=${station}`);
+        if (ctx.gen !== this.gen || ctx.session !== this.session) return;
+        const days = data?.supported ? data.days : [];
+        const old = this.official.get(station);
+        const next = new Map(days.map((d) => [d.date, old?.get(d.date) && JSON.stringify(old.get(d.date)) === JSON.stringify(d) ? old.get(d.date)! : d]));
+        const same = old && old.size === next.size && [...next].every(([d, v]) => old.get(d) === v);
+        if (same) return;
+        this.official.set(station, next);
+        this.emit();
       },
     };
   }

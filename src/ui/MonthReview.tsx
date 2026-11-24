@@ -40,7 +40,7 @@ const label = (month: string) => `${+month.slice(0, 4)}年${+month.slice(5)}月`
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
 const sum = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) : null);
 
-interface MonthStats {
+export interface MonthStats {
   rows: (WeatherRow | null)[];
   temp: number | null;
   max: number | null;
@@ -70,7 +70,7 @@ function rowIn(store: WeatherStore | null, station: string, date: string, parts:
   return { ...row, rain: sum(v("rain")), sun: sum(v("sun")), temp: mean(t), max: t.length ? Math.max(...t) : null, min: t.length ? Math.min(...t) : null, humidity: mean(v("humidity")), wind: mean(v("wind")), pressure: mean(v("pressure")) };
 }
 
-function statsOf(store: WeatherStore | null, station: string, days: string[], parts: ReadonlySet<PartId> | null = null): MonthStats {
+export function statsOf(store: WeatherStore | null, station: string, days: string[], parts: ReadonlySet<PartId> | null = null): MonthStats {
   const rows = days.map((d) => rowIn(store, station, d, parts));
   const vals = (k: string) => rows.map((r) => num(r?.[k])).filter((v): v is number => v != null);
   return {
@@ -143,10 +143,10 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
     { key: "max", label: "最高の平均", unit: "℃", color: DATA.hot, a: f1(a.max), b: f1(b.max), diff: d1(a.max, b.max, "℃") },
     { key: "min", label: "最低の平均", unit: "℃", color: DATA.cold, a: f1(a.min), b: f1(b.min), diff: d1(a.min, b.min, "℃") },
     { key: "rain", label: "降水の合計", unit: "mm", color: DATA.rain, a: f1(a.rain), b: f1(b.rain), diff: d1(a.rain, b.rain, "mm") },
-    { key: "rainDays", label: "雨の日（1mm以上）", text: true, unit: "", a: cnt(a.rainDays), b: cnt(b.rainDays), diff: `${a.rainDays - b.rainDays >= 0 ? "+" : "−"}${Math.abs(a.rainDays - b.rainDays)}` },
+    { key: "rainDays", label: "雨の日", text: true, unit: "", a: cnt(a.rainDays), b: cnt(b.rainDays), diff: `${a.rainDays - b.rainDays >= 0 ? "+" : "−"}${Math.abs(a.rainDays - b.rainDays)}` },
     { key: "sun", label: "日照の合計", unit: "h", color: DATA.sun, a: f1(a.sun), b: f1(b.sun), diff: d1(a.sun, b.sun, "h") },
-    { key: "hot25", label: "夏日（25℃以上）", text: true, unit: "", a: cnt(a.hot25), b: cnt(b.hot25), diff: `${a.hot25 - b.hot25 >= 0 ? "+" : "−"}${Math.abs(a.hot25 - b.hot25)}` },
-    { key: "hot30", label: "真夏日（30℃以上）", text: true, unit: "", a: cnt(a.hot30), b: cnt(b.hot30), diff: `${a.hot30 - b.hot30 >= 0 ? "+" : "−"}${Math.abs(a.hot30 - b.hot30)}` },
+    { key: "hot25", label: "夏日", text: true, unit: "", a: cnt(a.hot25), b: cnt(b.hot25), diff: `${a.hot25 - b.hot25 >= 0 ? "+" : "−"}${Math.abs(a.hot25 - b.hot25)}` },
+    { key: "hot30", label: "真夏日", text: true, unit: "", a: cnt(a.hot30), b: cnt(b.hot30), diff: `${a.hot30 - b.hot30 >= 0 ? "+" : "−"}${Math.abs(a.hot30 - b.hot30)}` },
   ];
   // The month in words: from the numbers above only.
   const words: string[] = [];
@@ -231,7 +231,7 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
   const seriesA = metric === "daylight" ? days.map((d) => sunRow(d, station)) : full.rows;
   const seriesB = metric === "daylight" ? daysB.map((d) => sunRow(d, station)) : fullB.rows;
     return (
-      <ModalSheet title={`${label(month)}の振り返り`} label={`${label(month)}の振り返り`} onClose={onClose} size="full" className="day-summary-sheet month-review">
+      <ModalSheet title={`${label(month)}の概要`} label={`${label(month)}の概要`} onClose={onClose} size="full" className="day-summary-sheet month-review">
         {/* 上は どのページでも同じ（絞り込み・まとめの数字）、下をページに。
             絞り込みは1か所（2026-11-16）: 時間帯と日（曜日・カレンダー）をここだけで選ぶ。 */}
         <div className="month-filter">
@@ -294,7 +294,7 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
         </div>
         <div className="month-tabs">
           <Segmented
-            label="振り返りのページ"
+            label="概要のページ"
             value={tab}
             options={[
               { id: "sum", label: "まとめ" },
@@ -307,7 +307,8 @@ export function MonthReview({ store, station, month, today, onClose }: { store: 
         </div>
         {tab === "sum" && (
           <>
-            <GraphReadout title={`${picked.size ? `選んだ ${picked.size}日` : "月"}の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={picked.size ? { a: "", b: "前年同曜日" } : monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
+            <GraphReadout title={`${picked.size ? `${picked.size}日` : "月"}の値${parts == null ? "" : `（${partsLabel}）`}`} unit="" dates={picked.size ? { a: "", b: "前年同曜日" } : monthDates} rows={rows.filter((r) => !["temp", "rain", "sun"].includes(r.key))} />
+            <p className="chart-key-note">雨の日は1mm以上、夏日は最高25℃以上、真夏日は30℃以上の日。</p>
             <SectionHead title={picked.size ? `選んだ ${picked.size}日のレポート` : "月のレポート"} />
             <MonthReport station={station} days={sel} rows={a.rows} rowsB={b.rows} picked={picked.size > 0} typhoons={typhoons} typhoonsB={typhoonsB} typhoonKnown={typhoonKnown} standouts={standouts.map((x) => (x.p ? `${x.label}は ${md(x.p.date)}（${x.fmt(x.p.v)}）。` : ""))} />
           </>
@@ -460,7 +461,7 @@ function FeelMonth({ store, station, days, daysB }: { store: WeatherStore | null
 }
 
 /** A month's number, big, with the year before's difference under it. */
-function Tile({ name, value, unit, other, digits, color, note }: { name: string; value: number | null; unit: string; other: number | null; digits: number; color: string; note?: string }) {
+export function Tile({ name, value, unit, other, digits, color, note }: { name: string; value: number | null; unit: string; other: number | null; digits: number; color: string; note?: string }) {
   return (
     <div className="month-tile">
       <small>{name}</small>

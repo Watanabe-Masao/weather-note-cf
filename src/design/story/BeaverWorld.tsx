@@ -572,6 +572,14 @@ export function BeaverWorld(): ReactElement {
           <stop offset="0.6" stopColor="#c9d6f2" stopOpacity={0.18} />
           <stop offset="1" stopColor="#c9d6f2" stopOpacity={0} />
         </radialGradient>
+        {/* 月明かりのもやを画面の下の方だけに（上は消す）。 */}
+        <linearGradient id="bw-low-g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0.58" stopColor="#000000" />
+          <stop offset="0.74" stopColor="#ffffff" />
+        </linearGradient>
+        <mask id="bw-low" maskUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}>
+          <rect width={W} height={H} fill="url(#bw-low-g)" />
+        </mask>
         <radialGradient id="bw-vignette" cx="0.5" cy="0.45" r="0.75">
           <stop offset="0.6" stopColor="#000000" stopOpacity={0} />
           <stop offset="1" stopColor="#000000" stopOpacity={0.55} />
@@ -703,6 +711,12 @@ export function BeaverWorld(): ReactElement {
           fill="url(#bw-fog)"
           opacity={0}
         />
+        {/* 置いたあとの静けさ（3・7ページ）：枝を置き終えたページで、住みかのまわりに水の輪がゆっくり広がって消える。
+            くり返す動き（startLoops）で、見えるのはそのページの間だけ（buildBeats が opacity を出し入れする）。 */}
+        <g className="bw-calm" fill="none" stroke="#cfe0ff" opacity={0}>
+          <ellipse className="bw-calm-ring" cx={292} cy={664} rx={62} ry={8} strokeWidth={1} />
+          <ellipse className="bw-calm-ring" cx={292} cy={664} rx={62} ry={8} strokeWidth={1} />
+        </g>
         {/* 住みかと、水に蓄えた枝 */}
         <g transform="translate(292 652)">
           <g transform="translate(-8 4)">
@@ -789,7 +803,7 @@ export function BeaverWorld(): ReactElement {
           />
         </g>
         {/* 月を見上げるビーバー（素材）：月が昇るコマで、枝を持つ姿から替わる。 */}
-        <g className="bw-look" opacity={0}>
+        <g className="bw-look bw-breath" opacity={0}>
           <image href={A("beaver")} x={212} y={524} width={98} height={94} />
         </g>
         {/* 4ページ：前足で泥をぬる（素材 B-06）。5ページ：前を見る（B-02）→ 振り返って住みかを見る（B-01）→ 前を見る。
@@ -797,16 +811,16 @@ export function BeaverWorld(): ReactElement {
         <g className="bw-mud2" opacity={0}>
           <image href={A("beaver-mud2")} x={205} y={564} width={140} height={94} />
         </g>
-        <g className="bw-ahead" opacity={0}>
+        <g className="bw-ahead bw-breath" opacity={0}>
           <image href={A("beaver-ahead")} x={229} y={528} width={126} height={92} />
         </g>
-        <g className="bw-turn" opacity={0}>
+        <g className="bw-turn bw-breath" opacity={0}>
           <image href={A("beaver-turn")} x={236} y={528} width={112} height={92} />
         </g>
-        <g className="bw-down" opacity={0}>
+        <g className="bw-down bw-breath" opacity={0}>
           <image className="bw-night-img" href={A("beaver-down")} x={220} y={528} width={100} height={92} />
         </g>
-        <g className="bw-sit" opacity={0}>
+        <g className="bw-sit bw-breath" opacity={0}>
           {/* 枝を持つビーバー（素材）。枝を置く動きは、この絵を少し傾けて（.bw-branch）。 */}
           <image
             className="bw-branch"
@@ -864,6 +878,10 @@ export function BeaverWorld(): ReactElement {
           />
         </g>
       </g>
+      {/* 月明かりのもや（11/23 渡辺さん「雪が降り始めて少したって紅葉が消えた頃に、少しだけ下の方に薄く」）：8ページで
+          雪が降りはじめ、紅葉の枝が消えたあとに、水辺と住みかのあたり（画面の下の方）にだけ薄く。コールドムーンの c12b を、
+          黒い背景のまま足し算で重ね、上の方は消す。夕暮れのページと 6・7ページには重ねない。 */}
+      <image className="bw-moon-air" href={storyAsset("cold", "moon-air")} x={-110} y={-30} width={620} height={930} preserveAspectRatio="none" transform="matrix(-1 0 0 1 400 0)" opacity={0} mask="url(#bw-low)" style={{ visibility: "hidden", mixBlendMode: "screen" }} />
       {/* 落ち葉と雪（場面に合わせて見せる） */}
       <g className="bw-leaves">{leaves}</g>
       {/* はらり、はらり（1ページ）：言葉に合わせて落ちる大きな葉が二枚。 */}
@@ -967,6 +985,20 @@ function startLoops(gsap: Gsap, root: Element): Loop {
     },
     0,
   );
+  // 呼吸（11/22）：止まっている姿は、数秒に一度、ごくわずかにふくらんで戻る（足もとを基準に、縦に 1.5%）。
+  // 見えていない姿にも掛かるが、opacity 0 なので見えない（姿の出し入れはスクロールの側）。
+  loop.to(
+    ".bw-breath",
+    { scaleY: 1.015, scaleX: 1.005, transformOrigin: "50% 100%", duration: 1.4, ease: "sine.inOut", yoyo: true, repeat: -1, repeatDelay: 1.8 },
+    0,
+  );
+  // 置いたあとの静けさ（11/22）：住みかのまわりの水の輪が、二つずらしてゆっくり広がって消える（4秒、間をおいて）。
+  loop.fromTo(
+    ".bw-calm-ring",
+    { scale: 0.8, opacity: 0.55, svgOrigin: "292 664" },
+    { scale: 1.45, opacity: 0, duration: 4, ease: "sine.out", stagger: { each: 2.6, repeat: -1, repeatDelay: 1.2 } },
+    0,
+  );
   // 開いたときに、もう降っている途中から。
   loop.time(40);
   return loop;
@@ -1034,6 +1066,9 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     2.12,
   )
     .to(".bw-stash", { opacity: 1, duration: 0.3 }, 2.4)
+    // 置き終えたあとの静けさ：水の輪を出し、次のページの頭で消す。
+    .to(".bw-calm", { opacity: 1, duration: 0.15, ease: "sine.inOut" }, 2.5)
+    .to(".bw-calm", { opacity: 0, duration: 0.1 }, 3.0)
     // 枝を住みかに置く（前足と枝が下りて、また上がる）。
     .fromTo(
       ".bw-branch",
@@ -1125,6 +1160,9 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .to(".bw-swim", { opacity: 0, duration: 0.08 }, 6.44)
     // 最後の一本を置いたら、見上げる姿ではなく、その一本を見下ろす姿で止まる（素材 B-05。6ページと違う絵）。
     .to(".bw-down", { opacity: 1, duration: 0.1 }, 6.5)
+    // 最後の一本を置いたあとの静けさ（3ページと同じ水の輪。8ページの頭で消す）。
+    .to(".bw-calm", { opacity: 0.8, duration: 0.15, ease: "sine.inOut" }, 6.55)
+    .to(".bw-calm", { opacity: 0, duration: 0.1 }, 7.0)
     .to(".bw-fog", { opacity: 1, duration: 0.4 }, 6.2)
     // 秋から冬へ（11/21 承認）：7ページは紅葉を残し、読み終えたあとの間から8ページの頭にかけて、上の紅葉の枝と
     // 紅葉の木をゆっくり消す（8・9ページは冬の森。急に消えないように）。
@@ -1134,6 +1172,7 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
   tl.fromTo(".bw-flake1", { opacity: 0, y: 0 }, { opacity: 0.95, y: 560, duration: 0.36, ease: "none" }, 7.02)
     .to(".bw-flake1", { opacity: 0, duration: 0.05 }, 7.38)
     .to(".bw-snow", { opacity: 1, duration: 0.3 }, 7.3)
+    .to(".bw-moon-air", { autoAlpha: 0.32, duration: 0.2, ease: "sine.in" }, 7.55)
     // 住みかへ帰る（11/21 承認）：住みかの上の姿が消え、住みかの前の水面を進み、頭を下げて尾が少し残り、水に消える。
     // 波の輪が姿の消えたあとに残る。8ページの静けさを保つため、大きくは動かさない。
     // 住みかの上の姿が消えきってから泳ぐ姿を出す（二つの姿が半透明で重ならないように。7ページと同じ）。

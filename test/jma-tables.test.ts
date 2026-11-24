@@ -61,6 +61,14 @@ describe("hourly table", () => {
   const rows = (): WeatherRow[] =>
     parseTable(fixture("hourly.html"), true).map((r) => ({ ...r, date: "2025-11-01", type: "actual", provider: "JMA" }));
 
+  it("reads the visibility (km) of an official station, every hour (KC-04)", () => {
+    const hours = rows();
+    expect(hours.every((h) => typeof h.visibility === "number" && h.visibility > 0 && h.visibility <= 20)).toBe(true);
+    // 天気も自動観測で毎時ある（表では絵で、alt が「晴れ」「曇」など。KC-04 で文字だけ見て空欄と誤った）。
+    expect(hours.every((h) => typeof h.weather === "string")).toBe(true);
+    expect(hours[0].weather).toBe("晴れ");
+  });
+
   it("reads 24 hours of temperature", () => {
     const hours = rows();
     expect(hours.map((h) => h.n)).toEqual(Array.from({ length: 24 }, (_, i) => i + 1));

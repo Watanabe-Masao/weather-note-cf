@@ -6,6 +6,7 @@ import { addDays } from "../../shared/dates";
 import {
   type ForecastHistoryResponse,
   type ForecastIssueResponse,
+  type ForecastOfficialResponse,
   HISTORY_DAYS_BEFORE,
   HISTORY_ELEMENTS,
   HISTORY_PLACES,
@@ -13,6 +14,7 @@ import {
   type HistoryFetchLog,
   type HistoryIssue,
 } from "../../shared/forecastHistory";
+import { OFFICIAL_DAYS, OFFICIAL_ELEMENTS, officialDays } from "../../shared/jmaOfficial";
 import type { Db } from "./accounts";
 
 const jst = (day: string) => `${day}T00:00:00+09:00`;
@@ -42,7 +44,7 @@ export async function forecastHistory(db: Db, station: string, date: string): Pr
            FROM forecast_entries e JOIN forecast_issues i ON i.issue_id = e.issue_id
            WHERE i.office = ? AND i.kind IN (SELECT value FROM json_each(?)) AND i.issued_at >= ? AND i.issued_at < ?
              AND e.place IN (SELECT value FROM json_each(?)) AND e.element IN (SELECT value FROM json_each(?))
-             AND e.valid_from >= ? AND e.valid_from < ?
+             AND e.valid_from >= ? AND (e.valid_from < ? OR (e.element = 'temp' AND e.valid_from = ?))
            ORDER BY e.issue_id, e.element, e.valid_from`,
         )
         .bind(
@@ -54,6 +56,7 @@ export async function forecastHistory(db: Db, station: string, date: string): Pr
           JSON.stringify(HISTORY_ELEMENTS),
           jst(date),
           to,
+          to, // 24時（次の日の 0時）の気温も、この日の3時間ごとの終わりとして
         )
         .all<HistoryEntry>()
     ).results;
@@ -123,3 +126,46 @@ export async function forecastIssue(db: Db, station: string, issueId: string): P
 }
 
 const jstMinusDays = (iso: string, n: number) => `${addDays(iso.slice(0, 10), -n)}T00:00:00+09:00`;
+
+/**
+ * 今日から先の日ごとの値の、気象庁のいちばん新しい発表（予報の出典、2026-11-23）：/api/forecast-official。
+ * 使うのは2日前からの発表（週間天気予報は毎日出るので、今日から7日先までをいちばん新しい発表が受け持つ）。
+ * 値の選び方は shared/jmaOfficial.ts（値ごとに、値のあるいちばん新しい発表）。読むだけ。
+ */
+export async function forecastOfficial(db: Db, station: string, today: string, now: string): Promise<ForecastOfficialResponse> {
+  const places = HISTORY_PLACES[station];
+  if (!places) return { v: 1, station, today, supported: false };
+  const kinds = JSON.stringify(["VPFD51", "VPFW50"]);
+  const from = jst(addDays(today, -2));
+  const until = jst(addDays(today, OFFICIAL_DAYS + 1));
+  try {
+    const issues = (
+      await db
+        .prepare(
+          `SELECT issue_id, source, office, kind, issued_at, info_type, revision_of, preferred, parser, entries, problems
+           FROM forecast_issues
+           WHERE office = ? AND kind IN (SELECT value FROM json_each(?)) AND issued_at >= ? AND issued_at <= ?
+           ORDER BY issued_at, kind, issue_id`,
+        )
+        .bind(places.office, kinds, from, now)
+        .all<HistoryIssue>()
+    ).results;
+    const entries = (
+      await db
+        .prepare(
+          `SELECT e.issue_id, e.place, e.place_name, e.place_type, e.element, e.valid_from, e.valid_to, e.period, e.label, e.value, e.unit, e.lower, e.upper, e.jma_type, e.condition
+           FROM forecast_entries e JOIN forecast_issues i ON i.issue_id = e.issue_id
+           WHERE i.office = ? AND i.kind IN (SELECT value FROM json_each(?)) AND i.issued_at >= ? AND i.issued_at <= ?
+             AND e.place IN (SELECT value FROM json_each(?)) AND e.element IN (SELECT value FROM json_each(?))
+             AND e.valid_from >= ? AND e.valid_from < ?
+           ORDER BY e.issue_id, e.element, e.valid_from`,
+        )
+        .bind(places.office, kinds, from, now, JSON.stringify([places.office, places.area, places.point]), JSON.stringify(OFFICIAL_ELEMENTS), jst(today), until)
+        .all<HistoryEntry>()
+    ).results;
+    return { v: 1, station, today, supported: true, places, days: officialDays({ issues, entries }, today, now) };
+  } catch (e) {
+    if (/no such table/i.test(String(e))) return { v: 1, station, today, supported: true, places, days: officialDays({ issues: [], entries: [] }, today, now) };
+    throw e;
+  }
+}

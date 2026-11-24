@@ -31,7 +31,7 @@ describe("絵本の形（book）", () => {
   }
   it("コールドムーン：8・9ページは作品テーマのとおり（月を見守り役にしない、夜と戦う言い方をしない）", () => {
     const p = fullMoonInfo("コールドムーン")!.book!.pages;
-    expect(p[7].lines).toEqual(["ながい、ながい夜。", "コガラは、ふっくらまるくなって 眠ります。", "月の光が、ゆっくり うつっていきます。"]);
+    expect(p[7].lines).toEqual(["ながい、ながい夜。", "コガラは、まあるくなって眠ります。", "月の光が、ゆっくり移っていきます。"]);
     expect(p[8].lines[2]).toBe("西の空には、白い月が まだ のこっています。");
     expect(p.flatMap((x) => x.lines).join("")).not.toMatch(/それでも|負けず/);
     expect(p.map((x) => x.rest)).toEqual([1, 1, 1, 1, 1.5, 2.5, 1.5, 2.5, 3]);

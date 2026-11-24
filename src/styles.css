@@ -123,6 +123,7 @@ p {
 .tone-radiation { color: var(--data-radiation); }
 .tone-humidity { color: var(--data-humidity); }
 .tone-humidityLow { color: var(--data-humidity-low); }
+.tone-visibility { color: var(--data-visibility); }
 .tone-wind { color: var(--data-wind); }
 .tone-gust { color: var(--data-gust); }
 .tone-pressure { color: var(--data-pressure); }
@@ -498,9 +499,9 @@ img.event-pic { object-fit: contain; }
 .ms-topband { position: fixed; inset: 0 0 auto; z-index: 2; height: calc(env(safe-area-inset-top, 0px) + var(--space-4) * 2 + var(--tap-min) + var(--space-4)); background: linear-gradient(var(--bk-night-1), transparent); opacity: 0.85; pointer-events: none; }
 /* 満月の物語の書体（11/20 19:52 渡辺さん「システムフォントは雰囲気台無し」）：しっぽり明朝と Cormorant Garamond（どちらも OFL）。
    物語で使う字だけに絞った woff2（scripts/story-fonts.py）。物語を開いたときだけ読む（/event/ の下、版つき）。 */
-@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-500.woff2?v=7") format("woff2"); font-weight: 400 500; font-display: block; }
-@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-600.woff2?v=7") format("woff2"); font-weight: 600 700; font-display: block; }
-@font-face { font-family: "Story Engrave"; src: url("/event/story/fonts/zen-old-mincho-700.woff2?v=6") format("woff2"); font-weight: 400 900; font-display: block; }
+@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-500.woff2?v=8") format("woff2"); font-weight: 400 500; font-display: block; }
+@font-face { font-family: "Story Mincho"; src: url("/event/story/fonts/shippori-mincho-600.woff2?v=8") format("woff2"); font-weight: 600 700; font-display: block; }
+@font-face { font-family: "Story Engrave"; src: url("/event/story/fonts/zen-old-mincho-700.woff2?v=7") format("woff2"); font-weight: 400 900; font-display: block; }
 @font-face { font-family: "Story Garamond"; src: url("/event/story/fonts/cormorant-garamond.woff2?v=1") format("woff2"); font-weight: 300 700; font-style: normal; font-display: block; }
 @font-face { font-family: "Story Garamond"; src: url("/event/story/fonts/cormorant-garamond-italic.woff2?v=1") format("woff2"); font-weight: 300 700; font-style: italic; font-display: block; }
 /* 本（11/20 渡辺さんの見本：紺の革の表紙・金の飾り・生成りの紙）。テーマによらず一つ（色は src/design/story）。
@@ -581,7 +582,7 @@ img.event-pic { object-fit: contain; }
    文（16:23「物語部分のフォントやエフェクトの見直し」）：明朝の縦書きで空に置き、一字ずつにじみから浮かぶ。 */
 .ms-world { position: relative; height: calc(var(--beats) * 110svh + 100svh); margin-top: -100svh; }
 .ms-world-stage { background: var(--bk-night-1); }
-.ms-world-stage .bw { position: absolute; inset: 0; width: 100%; height: 100%; }
+.ms-world-stage .bw, .ms-world-stage .cw { position: absolute; inset: 0; width: 100%; height: 100%; }
 /* 金の枠は、上の「物語をとばす」・閉じると、下のドットに掛からない所に（11/21 レビュー）。 */
 .ms-world-frame { position: absolute; inset: calc(env(safe-area-inset-top, 0px) + var(--tap-min) + var(--space-4)) var(--space-3) calc(env(safe-area-inset-bottom, 0px) + var(--tap-min) + var(--space-3)); opacity: 0; pointer-events: none; }
 /* 縦書きの文は、最後のコマで入ってくる金の枠（内の線は端から約 18px）の内側に収まる位置を基準に（11/20 22:14 渡辺さん）。 */
@@ -595,6 +596,9 @@ img.event-pic { object-fit: contain; }
 .ms-ch { display: inline; }
 /* 文の後ろの薄い夜（16:27 のレビュー「文章が背景に埋もれている」）：空が明るい夕暮れでも読める。 */
 .ms-caps-veil { position: absolute; top: 0; right: 0; width: 80%; height: 64svh; background: radial-gradient(ellipse at 78% 34%, var(--bk-night-1), transparent 68%); opacity: 0.6; pointer-events: none; }
+/* 字の後ろを少しだけ沈める場面（StoryScene.capShade、コールドムーン）：白い幹の上でも字が背景から分かれるように。 */
+.ms-shade .ms-caps-veil { width: 92%; height: 70svh; background: radial-gradient(ellipse 58% 48% at 72% 38%, var(--bk-night-1), transparent 100%); opacity: 0.72; }
+.ms-shade .ms-cap { text-shadow: 0 0 var(--space-3) var(--bk-night-1), 0 0 var(--space-2) var(--bk-night-1), 0 0 var(--space-1) var(--bk-night-1); }
 /* 物語をとばす（今夜の情報へ）。 */
 .ms-flymoon { position: fixed; left: 0; top: 0; z-index: 1; width: 0; height: 0; border-radius: 50%; opacity: 0; pointer-events: none; background: radial-gradient(circle at 40% 36%, var(--bk-moon-0), var(--bk-moon-1) 70%, var(--bk-moon-2)); box-shadow: 0 0 var(--space-7) var(--bk-moon-1); will-change: transform; }
 .ms-skip { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); left: var(--space-4); z-index: 3; transition: opacity var(--motion-quick) var(--ease-standard); }
@@ -787,7 +791,7 @@ img.event-pic { object-fit: contain; }
   .bk-cover { position: relative; aspect-ratio: 5 / 7; }
   .ms-world { height: auto; margin-top: 0; }
   .ms-world-stage { position: relative; height: auto; display: block; }
-  .ms-world-stage .bw { position: relative; display: block; height: 100svh; }
+  .ms-world-stage .bw, .ms-world-stage .cw { position: relative; display: block; height: 100svh; }
   .ms-caps { position: relative; top: auto; right: auto; width: auto; height: auto; display: grid; gap: var(--space-5); padding: var(--space-7) var(--space-6); background: var(--bk-night-1); }
   .ms-cap { position: relative; height: auto; opacity: 1; writing-mode: horizontal-tb; font-size: var(--size-lg); }
 }
@@ -856,22 +860,91 @@ img.event-pic { object-fit: contain; }
 }
 @keyframes fm-book-sheen { from { background-position: 100% 0; } to { background-position: 0 0; } }
 
-/* The six items fit the width: equal columns, no hidden seventh. */
-.metrics {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
+/* The item bar (2026-11-22 渡辺さん): a rounded bar floating at the bottom of the screen, the same in both
+   modes; the graph sheet stands on it (bottom: var(--itembar-h)). The items are in four groups; only the
+   chosen group is open with its items, the others show their name. One row, no sideways scrolling. The
+   chosen item is filled with the theme's colour (the items' own colours are for the graph lines). */
+.metrics.item-bar {
+  position: fixed;
+  left: var(--space-4);
+  right: var(--space-4);
+  bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  max-width: 568px;
+  margin: 0 auto;
+  z-index: var(--layer-sheet);
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-1) var(--space-1);
+  border-radius: var(--radius-xl);
+  border: var(--stroke-hair) solid var(--line-soft);
+  background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-raised);
+  box-shadow: var(--shadow-sheet);
 }
-
+.ib-cat,
 .metrics .chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
-  border-radius: var(--radius-md);
-  padding: var(--space-3) 0;
-  font-size: var(--size-base);
+  gap: var(--space-1);
+  min-height: 48px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--ink-secondary);
+  font: inherit;
+  font-size: var(--size-xs);
   white-space: nowrap;
-  letter-spacing: -0.02em;
-  min-height: 34px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.ib-cat { flex: 1 1 0; min-width: 44px; padding: 0; color: var(--ink-tertiary); transition: color var(--motion-quick) var(--ease-standard); }
+.ib-cat:active { transform: scale(0.96); }
+.ib-cat .item-icon,
+.metrics .chip .item-icon { color: inherit; }
+/* 開いた仲間：テーマの色の枠で囲み、上の縁に仲間の名前（枠の切れ目に置く見出し）。中の項目が一つの仲間だと見える。 */
+.ib-open {
+  position: relative;
+  flex: 0 1 auto;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border-radius: var(--radius-lg);
+  border: var(--stroke-select) solid var(--accent-base);
+  margin-top: var(--space-1);
+  background: linear-gradient(var(--accent-wash), var(--accent-wash)), var(--surface-inset);
+  box-shadow: 0 0 var(--space-4) var(--accent-glow);
+}
+.ib-open.multi { padding-top: var(--space-3); }
+.ib-legend {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -60%);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-pill);
+  background: var(--accent-base);
+  color: var(--surface-base);
+  font-size: var(--size-xs);
+  font-weight: var(--weight-bold);
+  line-height: 1.5;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ib-open.multi { animation: ib-open-in var(--motion-base) var(--ease-standard); }
+}
+@keyframes ib-open-in { from { transform: scaleX(0.9); } to { transform: none; } }
+/* 閉じた仲間：中の項目の数だけ小さな点 */
+.ib-dots { display: flex; gap: var(--space-1); height: var(--space-1); }
+.ib-dots i { width: var(--space-1); height: var(--space-1); border-radius: 50%; background: currentColor; }
+.metrics .chip { flex: 1 1 0; min-width: 52px; min-height: 44px; padding: 0 var(--space-2); }
+.metrics .chip.on {
+  color: var(--surface-base);
+  background: var(--accent-base);
+  box-shadow: 0 var(--space-1) var(--space-4) var(--accent-glow);
+  font-weight: var(--weight-bold);
 }
 
 /* ---- tables ----------------------------------------------------------------------------------- */
@@ -1325,7 +1398,6 @@ button.label-feel:active { transform: scale(0.97); }
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
   max-width: 600px;
   margin: 0 auto;
   background:
@@ -1338,7 +1410,7 @@ button.label-feel:active { transform: scale(0.97); }
   flex-direction: column;
   overflow: hidden;
   z-index: var(--layer-sheet);
-  padding-bottom: env(safe-area-inset-bottom);
+  bottom: var(--itembar-h, 0px);
   box-shadow: var(--shadow-sheet);
   will-change: height;
   contain: layout paint;
@@ -2228,6 +2300,12 @@ svg.scrub {
   display: contents;
 }
 
+/* 比較日が無い・まだ無いときの理由（対象日は動かさない、2026-11-24） */
+.compare-gap { margin: 0 var(--space-4) var(--space-2); font-size: var(--size-sm); color: var(--ink-secondary); }
+
+/* ほかの仲間の項目を開く（2026-11-24）：表の幅いっぱいの1行、真ん中に。 */
+.cs-more { grid-column: 1 / -1; justify-self: center; margin: var(--space-2) 0; }
+
 .cs-val {
   font-size: var(--size-md);
   line-height: 1.2;
@@ -2739,13 +2817,14 @@ svg.scrub {
 
 /* 畳む・開く（Fold）：高さを 0 から中身の高さへなめらかに（grid の行で、中身の高さを測らずに）。 */
 .fold { display: grid; }
-.fold.open .fold-inner { padding-top: var(--space-3); }
+/* 子の組み合わせ（>）で：畳みの中の畳み（根拠と記録の中の「前の発表も見る」）が、外の畳みといっしょに開かないように（2026-11-24）。 */
+.fold.open > .fold-body > .fold-inner { padding-top: var(--space-3); }
 .fold-body {
   display: grid;
   grid-template-rows: 0fr;
   transition: grid-template-rows var(--motion-enter) var(--ease-standard);
 }
-.fold.open .fold-body {
+.fold.open > .fold-body {
   grid-template-rows: 1fr;
 }
 .fold-inner { min-height: 0; overflow: hidden; }
@@ -3339,16 +3418,16 @@ svg.scrub {
 .calendar-head strong {
   display: inline-flex;
   align-items: center;
-  /* 年 and 月 are two things to press (年を選ぶ・月の振り返り): their dotted lines stay apart. */
+  /* 年 and 月 are two things to press (年を選ぶ・月を選ぶ): their dotted lines stay apart. */
   gap: var(--space-5);
   font-size: var(--size-md);
 }
 
-/* 月 (opens 月の振り返り): the same height and dotted line as 年 beside it, so the two lines sit level. */
-.calendar-head .cal-month-review {
-  padding: 0 var(--space-1);
-  line-height: inherit;
-}
+/* 月の振り返り：日の並びの下の1行（月の名前は年と同じ選び方になった、2026-11-22）。 */
+.cal-pair.single { grid-template-columns: minmax(0, 1fr); }
+.cal-pair.single .cal-pair-side { justify-self: start; text-align: left; }
+.cal-review-line { margin: var(--space-3) 0 0; display: flex; justify-content: flex-end; gap: var(--space-5); font-size: var(--size-sm); }
+.cal-review-line .cal-month-review { color: var(--ink-secondary); }
 
 .icon-btn.flip svg {
   transform: rotate(180deg);
@@ -3633,7 +3712,7 @@ svg.scrub {
    重なるので広げない。チップ（.chip）も見た目は変えず縦だけ広げる（見本で決めた、2026-11-18 案A）。 */
 .arrow,
 .info-btn,
-.calendar-head .cal-month-review,
+.cal-review-line .cal-month-review,
 .today-chip,
 .date-button,
 .cs-date-btn,
@@ -3651,7 +3730,7 @@ button.label-feel,
 }
 .arrow::after,
 .info-btn::after,
-.calendar-head .cal-month-review::after {
+.cal-review-line .cal-month-review::after {
   content: "";
   position: absolute;
   left: 50%;
@@ -4761,6 +4840,12 @@ select.chip.sm {
 .hour-chart-wrap:has(.band-wx) .state-overlay { bottom: calc(26px + 22px + 34px); }
 .ro-wx { display: inline-flex; align-items: center; gap: var(--space-2); }
 .ro-wx small { font-size: var(--size-sm); color: var(--ink-secondary); }
+/* 風向の行（風速のときだけ）：1時間ごとの矢印（吹いていく向き）と静穏の丸。比べる日は下の段で控えめに。 */
+.band-wind { position: relative; height: var(--space-5); }
+.band-wind.two { height: calc(var(--space-5) * 2); }
+.band-wind-cell { position: absolute; top: 0; width: var(--space-3); height: var(--space-3); transform: translateX(-50%); color: var(--data-wind); }
+.band-wind-cell.other { top: var(--space-5); opacity: var(--effect-quiet); }
+.band-wind-cell svg { display: block; width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: var(--stroke-select); stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .band-wx-name { position: absolute; left: 0; text-align: right; font-size: var(--size-xs); color: var(--ink-tertiary); line-height: 1; }
 .band-wx-name.main { top: var(--space-2); }
 .band-wx-name.other { top: 21px; }
@@ -5477,12 +5562,34 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
   grid-template-columns: minmax(0, 1fr);
   gap: var(--space-3);
 }
-.dd-hero { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: auto auto; column-gap: var(--space-6); align-items: center; }
+/* 見出し：天気の絵・一言・出どころ（数字は上の表だけ、2026-11-24） */
+.dd-hero { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; column-gap: var(--space-5); row-gap: var(--space-1); align-items: center; }
 .dd-pic { grid-row: span 2; display: inline-flex; }
-.dd-temps { font-size: var(--size-xl); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: var(--space-2); }
-.dd-temps small, .dd-slash { color: var(--ink-tertiary); font-size: var(--size-sm); font-weight: var(--weight-regular); }
 .dd-kind { color: var(--ink-secondary); font-size: var(--size-sm); display: inline-flex; gap: var(--space-2); align-items: center; }
-.dd-say { margin: 0; color: var(--ink-secondary); font-size: var(--size-base); line-height: 1.6; }
+.dd-say { margin: 0; color: var(--ink-primary); font-size: var(--size-base); line-height: 1.6; }
+.dd-note { margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.5; }
+/* 1日のまとめ（2026-11-24）：仲間ごとに1行。押すとその仲間の画面。今日の雨の行には雨雲レーダー。 */
+.dd-sum { display: grid; margin-top: var(--space-2); border-radius: var(--radius-lg); background: var(--surface-inset); padding: 0 var(--space-2); }
+.dd-sum-row { display: flex; align-items: center; gap: var(--space-2); border-top: var(--stroke-hair) solid var(--line-soft); }
+.dd-sum-row:first-child { border-top: none; }
+.dd-sum-line.btn { flex: 1 1 auto; min-width: 0; min-height: var(--tap-min); display: grid; grid-template-columns: 4em minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-2); text-align: left; border: none; background: transparent; color: var(--ink-primary); font-weight: var(--weight-regular); justify-content: stretch; }
+.dd-sum-label { font-size: var(--size-xs); color: var(--ink-tertiary); white-space: nowrap; }
+.dd-sum-text { font-size: var(--size-sm); line-height: 1.5; white-space: normal; }
+/* 予報の変化のいちばん大事な1つ（まとめの見出しの下、2026-11-24）。押すと根拠と記録の「この日の予報の変化」へ。 */
+.dd-change.btn { width: 100%; margin-top: var(--space-2); display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; align-items: center; column-gap: var(--space-2); min-height: var(--tap-min); padding: var(--space-2) var(--space-3); border: none; border-radius: var(--radius-md); background: var(--surface-inset); text-align: left; color: var(--ink-primary); font-weight: var(--weight-regular); }
+.dd-change > span { font-size: var(--size-sm); white-space: normal; }
+.dd-change > span b { margin-left: var(--space-1); }
+.dd-change.rainOn > span b, .dd-change.popUp > span b { color: var(--data-rain); }
+.dd-change > small { grid-row: 2; font-size: var(--size-xs); color: var(--ink-secondary); white-space: normal; }
+.dd-change > .glyph, .dd-change > svg { grid-row: 1 / span 2; grid-column: 2; }
+/* いまの値（今日、その仲間の項目だけ） */
+.dd-now { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--surface-inset); }
+.dd-now-head { margin: 0 0 var(--space-1); font-size: var(--size-sm); color: var(--ink-secondary); font-weight: var(--weight-bold); }
+.dd-now-head small { margin-left: var(--space-2); font-weight: var(--weight-regular); color: var(--ink-tertiary); font-size: var(--size-xs); }
+.dd-now-vals { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); }
+.dd-now-val { display: inline-flex; align-items: baseline; gap: var(--space-1); }
+.dd-now-val small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.dd-now-val b { font-size: var(--size-xl); font-variant-numeric: tabular-nums; }
 /* 暫定の説明（shared/provisionalNote.ts）：暫定の色は枠線だけ（Badge と同じ） */
 .dd-prov { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); box-shadow: inset 0 0 0 var(--stroke-hair) var(--status-provisional); font-size: var(--size-sm); color: var(--ink-secondary); }
 .dd-prov.plain { box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong); }
@@ -5516,34 +5623,17 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .dd-hours th, .dd-hours td { white-space: nowrap; }
 .dd-hours td.dd-feel { text-align: left; font-size: var(--size-xs); }
 .dd-feel i, .dd-swatch { display: inline-block; width: 10px; height: 10px; border-radius: var(--radius-tick); margin-right: var(--space-2); vertical-align: -1px; }
-/* 肌感：見出しの右上（気温の横の空いた所）。押すと肌感マップ。 */
+/* 肌感：気温の仲間のいちばん下に1行（2026-11-24）。押すと肌感マップ。 */
 .dd-feel-line {
-  grid-column: 3; grid-row: 1 / span 2; justify-self: end; align-self: center;
-  display: grid; justify-items: end; gap: 0; min-height: var(--tap-min); min-width: 0; max-width: 100%;
+  width: 100%; margin-top: var(--space-3);
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-1) var(--space-3); min-height: var(--tap-min); min-width: 0;
   padding: var(--space-2) var(--space-4); border-radius: var(--radius-md); border: none; background: var(--surface-inset);
-  color: var(--ink-primary); text-align: right; font-size: var(--size-sm);
+  color: var(--ink-primary); text-align: left; font-size: var(--size-sm);
 }
 .dd-feel-line small { font-size: var(--size-xs); color: var(--ink-tertiary); white-space: nowrap; }
 .dd-feel-when { margin-left: var(--space-2); }
 .dd-feel-line b { font-weight: var(--weight-bold); white-space: nowrap; }
 .dd-feel-go { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--size-xs); color: var(--ink-secondary); white-space: nowrap; }
-/* グラフの項目（値つき）：24時間の見出しの下に 4列×2段。選んでいるものだけ選んだ色のふち。 */
-.dd-pick-wrap { display: grid; gap: var(--space-2); margin-bottom: var(--space-3); }
-.dd-pick { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }
-/* 7つ目（気圧、桁が多い）は残りの2列を使う（空いたマスを残さない）。 */
-.dd-pick > :last-child:nth-child(4n + 3) { grid-column: span 2; }
-.dd-value {
-  display: grid; align-content: center; gap: 0; text-align: left; min-height: var(--tap-min); min-width: 0;
-  padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm);
-  background: var(--surface-inset); border: var(--stroke-hair) solid transparent; color: var(--ink-primary);
-}
-.dd-value[aria-pressed="true"] { border-color: var(--accent-base); box-shadow: 0 0 0 calc(var(--stroke-select) - var(--stroke-hair)) var(--accent-base) inset; }
-.dd-value-name { font-size: var(--size-xs); color: var(--ink-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dd-value-name small { margin-left: var(--space-1); font-size: inherit; color: var(--ink-tertiary); }
-.dd-value-num { font-size: var(--size-sm); font-weight: var(--weight-bold); font-variant-numeric: tabular-nums; display: flex; align-items: baseline; gap: 0 var(--space-1); flex-wrap: wrap; line-height: 1.25; }
-.dd-value-num small { font-size: var(--size-xs); color: var(--ink-tertiary); font-weight: var(--weight-regular); }
-.dd-pick-rest { margin: 0; min-height: 1.5em; line-height: 1.5; font-size: var(--size-xs); color: var(--ink-secondary); }
-.dd-pick-rest b { color: var(--ink-primary); font-weight: var(--weight-bold); margin-right: var(--space-1); }
 .dd-basis { margin: 0; display: flex; gap: var(--space-5); font-size: var(--size-base); align-items: baseline; }
 .dd-basis span:first-child { flex: 0 0 auto; min-width: 5.5em; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .dd-links { display: flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-3); }
@@ -5566,3 +5656,160 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .wx-empty { display: grid; place-items: center; aspect-ratio: 600 / 581; border-radius: var(--radius-md); outline: var(--stroke-hair) dashed var(--line-strong); outline-offset: calc(-1 * var(--stroke-hair)); color: var(--ink-tertiary); font-size: var(--size-xs); text-align: center; padding: var(--space-2); }
 .wx-none { margin: 0; color: var(--ink-secondary); font-size: var(--size-sm); }
 .wx-links { margin: 0; display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+
+/* 視程の比べ（VisibilityBars）：0〜20 km の物差しに、日ごとの最小〜最大の横棒と平均の印。選んだ日は塗り、比べる日は
+   縁だけ（色を薄めない決まり）。 */
+.vb { display: grid; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
+.vb-legend { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); }
+.vb-mean-key::before { content: ""; display: inline-block; width: var(--stroke-select); height: var(--space-3); margin-right: var(--space-1); background: var(--ink-primary); vertical-align: middle; }
+.vb-scale { margin-left: auto; }
+.vb-row { display: grid; grid-template-columns: 6.5em minmax(0, 1fr) 6.5em; gap: var(--space-2); align-items: center; }
+.vb-label { font-size: var(--size-xs); color: var(--ink-secondary); font-family: var(--font-numeric); }
+.vb-track { position: relative; display: block; height: var(--space-4); border-radius: var(--radius-pill); background: var(--surface-inset); }
+.vb-fill { position: absolute; top: 0; bottom: 0; border-radius: var(--radius-pill); background: var(--data-visibility); }
+.vb-b .vb-fill { background: transparent; box-shadow: inset 0 0 0 var(--stroke-select) var(--data-visibility); }
+.vb-mean { position: absolute; top: calc(var(--space-1) * -1); bottom: calc(var(--space-1) * -1); width: var(--stroke-select); background: var(--ink-primary); }
+.vb-num { font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-primary); text-align: right; }
+.vb-tick { position: absolute; top: 0; bottom: 0; width: var(--stroke-hair); background: var(--line-shade); }
+.vb-word { display: block; font-size: var(--size-xs); color: var(--ink-secondary); }
+.vb-guide { position: relative; height: var(--space-5); margin: 0 6.5em 0 calc(6.5em + var(--space-2)); font-size: var(--size-xs); color: var(--ink-secondary); }
+.vb-guide span { position: absolute; top: 0; overflow: hidden; text-align: center; white-space: nowrap; border-left: var(--stroke-hair) solid var(--line-shade); }
+.vb-guide .vb-guide-top { left: 100%; transform: translateX(-50%); border: 0; color: var(--data-visibility); }
+.vb-axis { display: flex; justify-content: space-between; margin: 0 6.5em 0 calc(6.5em + var(--space-2)); padding-right: var(--space-2); font-family: var(--font-numeric); font-size: var(--size-xs); color: var(--ink-secondary); }
+
+/* 風向の比べ（WindRose）：2日を横に並べた16方位の風配図。選んだ日は塗り、比べる日は縁だけ。最頻の方位は文字の色の縁。 */
+.wr { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: var(--space-3); padding: var(--space-3) var(--space-4); }
+.wr-day { display: grid; justify-items: center; gap: var(--space-1); margin: 0; }
+.wr-rose { width: 100%; max-width: 9rem; aspect-ratio: 1; overflow: visible; }
+.wr-ring { fill: none; stroke: var(--line-shade); stroke-width: var(--stroke-hair); vector-effect: non-scaling-stroke; }
+.wr-petal { fill: var(--data-wind); stroke: none; }
+.wr-petal.wr-top { stroke: var(--ink-primary); stroke-width: var(--stroke-select); vector-effect: non-scaling-stroke; }
+.wr-b .wr-petal { fill: none; stroke: var(--data-wind); stroke-width: var(--stroke-hair); vector-effect: non-scaling-stroke; }
+.wr-b .wr-petal.wr-top { stroke: var(--data-wind); stroke-width: var(--stroke-select); }
+.wr-mean { stroke: var(--ink-primary); stroke-width: var(--stroke-hair); vector-effect: non-scaling-stroke; }
+.wr-calm, .wr-n { font-size: var(--size-xs); text-anchor: middle; dominant-baseline: middle; fill: var(--ink-secondary); transform: scale(0.5); transform-box: fill-box; transform-origin: center; }
+.wr-day figcaption { display: grid; justify-items: center; font-size: var(--size-xs); color: var(--ink-secondary); text-align: center; }
+.wr-day figcaption strong { color: var(--ink-primary); }
+
+/* 風速の札の主な風向（16方位の最頻値）。 */
+.dd-dir { margin-left: var(--space-1); font-size: var(--size-xs); color: var(--ink-secondary); }
+
+/* 今日：ここまでの観測と、このあとの予報（2026-11-22、案A）。2つの区切りと1行（線は24時間のグラフ1本、2026-11-24）。 */
+.ts { margin: var(--space-4) 0 var(--space-3); padding: var(--space-4) var(--space-4) var(--space-3); border-radius: var(--radius-lg); background: linear-gradient(180deg, var(--effect-gloss), transparent), var(--surface-inset); border: var(--stroke-hair) solid var(--line-soft); }
+.ts-cells { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4); }
+.ts-cell.fc { padding-left: var(--space-4); border-left: var(--stroke-hair) dashed var(--line-strong); }
+.ts-cap { margin: 0 0 var(--space-2); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); white-space: nowrap; font-size: var(--size-sm); color: var(--ink-primary); font-weight: var(--weight-bold); }
+.ts-cap small { flex-basis: 100%; font-weight: var(--weight-regular); color: var(--ink-tertiary); font-size: var(--size-xs); }
+.ts-tag { display: inline-block; padding: 0 var(--space-2); border-radius: var(--radius-xs); font-size: var(--size-xs); font-weight: var(--weight-bold); line-height: 1.6; }
+.ts-tag.obs { background: var(--accent-base); color: var(--surface-base); }
+.ts-tag.fc { border: var(--stroke-hair) dashed var(--ink-tertiary); color: var(--ink-secondary); }
+.ts-wx { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); font-size: var(--size-sm); color: var(--ink-secondary); }
+.ts-vals { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--space-3); row-gap: var(--space-1); align-items: baseline; font-size: var(--size-sm); }
+.ts-vals dt { color: var(--ink-tertiary); font-size: var(--size-xs); }
+.ts-vals dd { margin: 0; display: flex; align-items: baseline; gap: var(--space-1); min-width: 0; }
+.ts-vals b { font-size: var(--size-lg); font-variant-numeric: tabular-nums; }
+.ts-vals small { color: var(--ink-tertiary); font-size: var(--size-xs); white-space: nowrap; }
+.ts-say { margin: var(--space-3) 0 0; padding-top: var(--space-3); border-top: var(--stroke-hair) solid var(--line-soft); font-size: var(--size-sm); color: var(--ink-secondary); line-height: 1.6; }
+
+/* 年の概要（2026-11-22） */
+.year-standouts { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.year-standouts li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: baseline; gap: var(--space-3); font-size: var(--size-sm); }
+.year-standouts small { color: var(--ink-secondary); font-size: var(--size-sm); }
+.year-standouts b { font-variant-numeric: tabular-nums; }
+.year-month { cursor: pointer; }
+.year-bar-prev { stroke-width: var(--stroke-select); }
+
+/* 気象庁の予報（時間帯のグラフ、府県天気予報の3時間ごとの気温）：白抜きの菱形と値。色は線の色（HourCompare が style で渡す）。 */
+.chart-jma path {
+  fill: var(--surface-base);
+  stroke-width: var(--stroke-select);
+}
+.chart-jma-label {
+  font-size: var(--size-xs);
+}
+.jma-legend {
+  margin: var(--space-3) var(--space-3) 0;
+}
+.ls-jma-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.ls-jma {
+  width: 12px;
+  height: 12px;
+}
+.ls-jma path {
+  fill: none;
+  stroke-width: var(--stroke-select);
+}
+
+/* 予報の出典（2026-11-23）：府県・週間の日に、その値だけ Open-Meteo の印（点線）。札の説明は ⓘ で表の下に。 */
+.cell-value.om,
+.om {
+  text-decoration: underline dotted var(--ink-tertiary);
+  text-underline-offset: var(--space-1);
+}
+.source-legend {
+  margin: var(--space-2) var(--space-3) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong);
+  font-size: var(--size-sm);
+  color: var(--ink-secondary);
+}
+.source-legend dl { margin: 0; display: grid; gap: var(--space-1); }
+.source-legend dl > div { display: grid; grid-template-columns: 3.5em minmax(0, 1fr); gap: var(--space-3); align-items: baseline; }
+.source-legend dd { margin: 0; line-height: 1.5; }
+.source-legend p { margin: var(--space-2) 0 0; color: var(--ink-tertiary); font-size: var(--size-xs); }
+/* 出典のリンク（FS-02）：設定の出典と同じ色。 */
+.dd-prov a,
+.source-legend a {
+  color: var(--accent-base);
+}
+
+/* 管理者ページ（11/24）：4つの切り替えと、予報の型の確かめ。 */
+.admin-page > .seg {
+  margin: 0 0 var(--space-3);
+}
+.ad-types,
+.ad-rejected {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--space-2);
+}
+.ad-types li {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong);
+}
+.ad-types li.pass {
+  box-shadow: inset 0 0 0 var(--stroke-hair) var(--accent-base);
+}
+.ad-types small,
+.ad-rejected li {
+  color: var(--ink-secondary);
+  font-size: var(--size-xs);
+  line-height: 1.6;
+}
+.ad-type-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+.ad-progress {
+  height: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--surface-inset);
+  overflow: hidden;
+}
+.ad-progress i {
+  display: block;
+  height: 100%;
+  background: var(--accent-base);
+}

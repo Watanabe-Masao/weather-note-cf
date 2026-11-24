@@ -2,6 +2,7 @@
 // temperature feels: the five levels drawn as the same coloured band as the 肌感 bar), 表示 (日なた /
 // 日かげ). Saved data (spec chapter 1), refresh and clear sit folded at the end.
 
+import { AdminPage } from "../account/AdminPage";
 import { type ThemeChoice, useThemeChoice } from "../design/theme";
 import { ModalSheet, useSheetClose } from "./ModalSheet";
 import { EventPreviewSheet } from "./EventPreviewSheet";
@@ -225,7 +226,7 @@ function FeelSection({ feel }: { feel: Props["feel"] }) {
 }
 
 /** イベントの見出しの確かめ（docs/event-banner.md 5章）：管理者だけ。見出しの帯の一覧と、この日として見出しを表示。 */
-function EventPreviewSection({ store }: { store: WeatherStore | null }) {
+export function EventPreviewSection({ store }: { store: WeatherStore | null }) {
   const { me } = useAccount();
   const [open, setOpen] = useState(false);
   if (me?.role !== "admin") return null;
@@ -245,7 +246,7 @@ function EventPreviewSection({ store }: { store: WeatherStore | null }) {
  * 研究用（テスト）: the boards for looking into the models (#189, #207) — for the administrator only.
  * They change nothing in the app; other people's settings do not show them.
  */
-function ResearchSection({ store, station }: { store: WeatherStore | null; station: string }) {
+export function ResearchSection({ store, station }: { store: WeatherStore | null; station: string }) {
   const { me } = useAccount();
   const [open, setOpen] = useState<null | "sun" | "history" | "short" | "learned">(null);
   if (me?.role !== "admin") return null;
@@ -365,8 +366,6 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
 
       <AccountSection station={station} />
 
-      <ResearchSection store={store} station={station} />
-      <EventPreviewSection store={store} />
 
       {beta.enabled && (
       <section className="set-group" aria-labelledby="set-beta">
@@ -495,11 +494,29 @@ function SettingsBody({ store, station, onStation, feel, sun, onSun, onClose: _d
             保存データを消去
           </button>
         </div>
+        <AdminEntry store={store} station={station} />
         <p className="credit">
-          出典：<a href="https://www.jma.go.jp/">気象庁ホームページ</a>（実績）／
-          <a href="https://open-meteo.com/">Open-Meteo</a>（予報・CC BY 4.0）
+          出典：<a href="https://www.jma.go.jp/">気象庁ホームページ</a>（実績：過去の気象データ・アメダス／予報：府県天気予報・府県週間天気予報、防災情報XML）。補完：
+          <a href="https://open-meteo.com/">Weather data by Open-Meteo.com</a>（
+          <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>）。降水確率の選び・寒暖差・信頼度（補完の日）など一部は、気象庁・Open-Meteo の値を Weather Note が加工しています。
         </p>
     </>
+  );
+}
+
+/** 管理者の入口（11/24）：管理者ページを1つだけ。管理者にだけ見える。 */
+function AdminEntry({ store, station }: { store: WeatherStore | null; station: string }) {
+  const { me } = useAccount();
+  const [open, setOpen] = useState(false);
+  if (me?.role !== "admin") return null;
+  return (
+    <section className="set-group" aria-labelledby="set-admin">
+      <h3 id="set-admin">管理者</h3>
+      <Button block onClick={() => setOpen(true)}>
+        管理者ページ（運用・予報・確認用・ユーザー）
+      </Button>
+      {open && <AdminPage store={store} station={station} onClose={() => setOpen(false)} />}
+    </section>
   );
 }
 

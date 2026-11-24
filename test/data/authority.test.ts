@@ -87,6 +87,16 @@ describe("正本管理: whose copy of a day is kept", () => {
     expect(out.solar).toBe(300); // radiation, which the measuring source does not have at all
   });
 
+  it("keeps an observed weather, and the forecast's weather beside it as forecastWeather", () => {
+    const measured = row({ weather: "晴れ" });
+    const forecast = row({ type: "forecast", weather: "曇り", weatherCode: 3 });
+    const out = fillFrom(measured, "amedas", forecast, "forecast");
+    expect(out.weather).toBe("晴れ");
+    expect(out.forecastWeather).toBe("曇り");
+    expect(out.weatherCode).toBe(3);
+    expect((out.origin as Record<string, string>).weatherCode).toBe("forecast");
+  });
+
   it("counts filled values as present", () => {
     expect(completeness(row({ sun: 5, unpublished: ["sun"], origin: { sun: "amedas" } }))).toBe(completeness(row()));
   });

@@ -45,6 +45,8 @@ describe("予報の履歴：1日分を返す", () => {
     ]);
     expect(r.entries.length).toBeGreaterThan(0);
     for (const e of r.entries) {
+      // その日の値だけ。3時間ごとの気温だけは 24時（次の日の 0時）も、その日の終わりとして入る。
+      if (e.element === "temp" && e.valid_from === "2026-11-19T00:00:00+09:00") continue;
       expect(e.valid_from.slice(0, 10)).toBe("2026-11-18");
       expect(["390000", "390010", "74182"]).toContain(e.place);
       expect(HISTORY_ELEMENTS).toContain(e.element);
@@ -54,6 +56,12 @@ describe("予報の履歴：1日分を返す", () => {
     expect(d11.filter((e) => e.element === "pop").map((e) => e.valid_from.slice(11, 13))).toEqual(["00", "06", "12", "18"]);
     expect(d11.some((e) => e.element === "weather_3h")).toBe(true);
     expect(d11.filter((e) => e.element.startsWith("temp_")).every((e) => e.place === "74182")).toBe(true);
+    // 3時間ごとの気温（高知）：0〜21時と 24時（2026-11-23、時間帯のグラフの「気象庁の予報」）。
+    expect(d11.filter((e) => e.element === "temp").map((e) => [e.place, e.valid_from.slice(5, 13)])).toEqual(
+      ["18T00", "18T03", "18T06", "18T09", "18T12", "18T15", "18T18", "18T21", "19T00"].map((t) => ["74182", `11-${t}`]),
+    );
+    // 次の日の他の項目（6時間降水確率・天気）は入らない。
+    expect(r.entries.filter((e) => e.valid_from.startsWith("2026-11-19")).every((e) => e.element === "temp")).toBe(true);
     // 他の区域（東部・西部）や他の地点は入らない。
     expect(new Set(r.entries.map((e) => e.place)).size).toBeLessThanOrEqual(3);
     expect(r.fetchLog.map((l) => l.at)).toEqual(["2026-11-16T08:00:00Z", "2026-11-16T08:05:00Z"]);

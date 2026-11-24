@@ -1,6 +1,8 @@
 // Weather Note: compare a target day with a comparison day, around a 7-day centre-fixed strip.
 
 import { Brand } from "./ui/Brand";
+import { ItemBar } from "./ui/ItemBar";
+import { YearReview } from "./ui/YearReview";
 import { AfterAnswer } from "./beta/AfterAnswer";
 import { useSeasonDays } from "./feelSeason";
 import type { WeatherStore } from "./data/store";
@@ -14,7 +16,7 @@ import {
   matchDate,
 } from "./compare";
 import { useWeatherStore } from "./data";
-import { METRICS, metricById } from "./metrics";
+import { metricById } from "./metrics";
 import { useFeelSettings } from "./feelSettings";
 import { BetaContext, useBetaSettings } from "./beta/settings";
 import { useAutoSync } from "./beta/useSync";
@@ -98,6 +100,7 @@ export function App(_: { theme?: string } = {}) {
   const [calendar, setCalendar] = useState<CalendarSide | null>(null);
   // 月の振り返り: opened from the calendar's month name; the calendar closes behind it.
   const [monthReview, setMonthReview] = useState<string | null>(null);
+  const [yearReview, setYearReview] = useState<string | null>(null);
   // その日の要約 (#176): a long press on a day's weather picture.
   const [summary, setSummary] = useState<DaySummaryAsk | null>(null);
   const {
@@ -106,6 +109,7 @@ export function App(_: { theme?: string } = {}) {
     last,
     bounds,
     compareDate,
+    gap,
     direction,
     moveTarget,
     moveCompare,
@@ -118,6 +122,9 @@ export function App(_: { theme?: string } = {}) {
   const today = store?.today ?? startToday;
   const [detent, setDetent] = useState<Detent>("mid");
   const [full, setFull] = useState(false);
+  // 1日の「まとめ」（帯の先頭、2026-11-24 渡辺さん）：1日を開いたときはいつもまとめから。覚えない。
+  const [daySummary, setDaySummary] = useState(true);
+  const inSummary = view.single && daySummary;
   const [settings, setSettings] = useState(false);
   // 記録: from the header at any time, or from a notification (?report=1&n=<when it was due>).
   const [reportFrom, setReportFrom] = useState<{ notifiedAt?: number } | null>(null);
@@ -276,19 +283,8 @@ export function App(_: { theme?: string } = {}) {
     store.wantHours(view.station, open ? days : [], 0, "sheet");
   }, [store, face, sheetDetent, view.station, view.target, compareDate, view.single]);
 
-  // Keep the chosen item in view in the scrolling chip row (also after a reload).
-  const metricsRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const row = metricsRef.current;
-    const chip = row?.querySelector<HTMLElement>('[aria-selected="true"]');
-    if (!row || !chip) return;
-    const left = chip.offsetLeft - row.offsetLeft;
-    if (
-      left < row.scrollLeft ||
-      left + chip.offsetWidth > row.scrollLeft + row.clientWidth
-    )
-      row.scrollTo({ left: left - 8, behavior: "smooth" });
-  }, [view.metric]);
+  // The item bar at the bottom (its height lifts the graph sheet).
+  const metricsRef = useRef<HTMLElement>(null);
 
   // Measure the space under the comparison table: that is the sheet's middle height.
   const boardRef = useRef<HTMLDivElement>(null);
@@ -306,18 +302,34 @@ export function App(_: { theme?: string } = {}) {
       window.removeEventListener("resize", measure);
     };
   }, [full]);
-  // The sheet's highest position stops just under the item chips, so they stay usable.
-  const [chipsBottom, setChipsBottom] = useState(0);
+  // The item bar is fixed at the bottom; the sheet stands on it and may rise to the top of the screen.
+  const [barH, setBarH] = useState(0);
+  const [safeTop, setSafeTop] = useState(0);
   useLayoutEffect(() => {
     const el = metricsRef.current;
     if (!el) return;
-    const measure = () =>
-      setChipsBottom(el.getBoundingClientRect().bottom + window.scrollY);
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none";
+    document.body.appendChild(probe);
+    const measure = () => {
+      // From the bar's top to the bottom of the screen (a floating bar has a gap under it).
+      setBarH(Math.round(window.innerHeight - el.getBoundingClientRect().top));
+      setSafeTop(Math.round(probe.getBoundingClientRect().height));
+    };
     measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [full]);
-  const heights = sheetHeights(spaceBelow, window.innerHeight, chipsBottom);
+    return () => {
+      ro.disconnect();
+      probe.remove();
+      window.removeEventListener("resize", measure);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    document.documentElement.style.setProperty("--itembar-h", `${barH}px`);
+  }, [barH]);
+  const heights = sheetHeights(spaceBelow - barH, window.innerHeight - barH, safeTop + 8);
   // Overlay sheets open to the same height as the graph sheet at its highest (rule: 重なり順と高さ).
   useLayoutEffect(() => {
     document.documentElement.style.setProperty(
@@ -332,7 +344,7 @@ export function App(_: { theme?: string } = {}) {
     <TyphoonDaysContext.Provider value={typhoonOn}>
     <div
       className={full ? "app full wide" : "app"}
-      style={{ paddingBottom: view.single ? 24 : heights[sheetDetent] + 12 }}
+      style={{ paddingBottom: (view.single ? 24 : heights[sheetDetent] + 12) + barH }}
     >
       {!full && (
         <header className="app-head">
@@ -346,7 +358,10 @@ export function App(_: { theme?: string } = {}) {
                 { id: "compare", label: "比較" },
                 { id: "single", label: "1日" },
               ]}
-              onChange={(v) => setSingle(v === "single")}
+              onChange={(v) => {
+                if (v === "single") setDaySummary(true);
+                setSingle(v === "single");
+              }}
             />
             {account.me && (
               <Button size="sm" className="head-report" onClick={() => setReportFrom({})} aria-label="今の感じ方を記録する">
@@ -378,20 +393,6 @@ export function App(_: { theme?: string } = {}) {
         />
       )}
 
-      <div className="metrics" role="tablist" ref={metricsRef}>
-        {METRICS.map((m) => (
-          <button
-            key={m.id}
-            role="tab"
-            aria-selected={m.id === view.metric}
-            className={m.id === view.metric ? "chip item on" : "chip item"}
-            onClick={() => set("metric", m.id)}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
-
       <SeasonDays store={store} station={view.station} dates={[view.target, compareDate]} />
       <StatusBar
         store={store}
@@ -412,7 +413,9 @@ export function App(_: { theme?: string } = {}) {
               last={last}
               bounds={bounds}
               compareDate={compareDate}
-              metric={metric}
+              compareGap={gap}
+              // まとめでは、表は天気・最高・最低（気温の行）。
+              metric={inSummary ? metricById("temp") : metric}
               single={view.single}
               moveTarget={moveTarget}
               moveCompare={moveCompare}
@@ -466,7 +469,11 @@ export function App(_: { theme?: string } = {}) {
               date={view.target}
               today={today}
               metric={view.metric}
-              onMetric={(id) => set("metric", id)}
+              summary={inSummary}
+              onPickItem={(id) => {
+                setDaySummary(false);
+                set("metric", id);
+              }}
               onOpenFeel={() => setFeelMap(true)}
               onToggleSun={() => set("sun", !view.sun)}
             />
@@ -482,9 +489,8 @@ export function App(_: { theme?: string } = {}) {
             detent={sheetDetent}
             heights={heights}
             onDetent={setDetent}
-            scrimTop={chipsBottom}
             tabs={
-              // The item chips stay visible above the sheet, so the sheet only says what it shows.
+              // The item bar stays visible under the sheet, so the sheet only says what it shows.
               <div className="sheet-head">
                 {shownFace === "trend" ? (
                   <>
@@ -587,6 +593,7 @@ export function App(_: { theme?: string } = {}) {
           side={calendar}
           target={view.target}
           compare={compareDate}
+          single={view.single}
           mode={view.mode}
           min={calendar === "target" ? bounds.min : FIRST_DAY}
           max={calendar === "target" ? bounds.max : last}
@@ -602,7 +609,17 @@ export function App(_: { theme?: string } = {}) {
             setCalendar(null);
             setMonthReview(m);
           }}
+          onYearReview={(y) => {
+            setCalendar(null);
+            setYearReview(y);
+          }}
         />
+      )}
+
+      {yearReview && (
+        <FeelContext.Provider value={feelSettings}>
+          <YearReview store={store} station={view.station} year={yearReview} today={today} onClose={() => setYearReview(null)} onMonth={setMonthReview} />
+        </FeelContext.Provider>
       )}
 
       {monthReview && (
@@ -660,6 +677,16 @@ export function App(_: { theme?: string } = {}) {
           />
         </BetaContext.Provider>
       )}
+
+      <ItemBar
+        metric={view.metric}
+        onPick={(id) => {
+          setDaySummary(false);
+          set("metric", id as typeof view.metric);
+        }}
+        barRef={metricsRef}
+        summary={view.single ? { on: daySummary, onPick: () => setDaySummary(true) } : undefined}
+      />
 
       {/* その日の要約 (#176): over whatever it was opened from (the table, the calendar, the hours). */}
       {typhoonAsked && <TyphoonSheet station={view.station} date={today} number={typhoonAsked} info={typhoons} onClose={() => setTyphoonAsked(null)} />}

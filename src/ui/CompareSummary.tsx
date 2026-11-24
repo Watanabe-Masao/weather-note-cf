@@ -2,11 +2,16 @@
 // the comparison day (lower table) on the right; item and difference in the middle.
 //
 // Compact: one line per item (value · "item diff" · value), the chosen item highlighted.
+// 2026-11-24 渡辺さん（1日画面と同じ考え方）：並べるのは帯で選んだ仲間の項目だけ。ほかの項目は「ほかの項目も見る」で開く。
+//   気温：最高・最低・平均／空・光：日射・日照・日の出／雨・風：降水・風速・主な風向／大気：湿度・視程（最小）・気圧最高・気圧最低
+//   肌感 β の行は気温の仲間だけ。
 // Minimised: a single line for the chosen item (max and min for temperature) — by ▴/▾ (remembered
 // on this device), and on its own once the summary's dates have scrolled out of the sheet: the line
 // then docks under the sheet's head (outside the scrolling area, covering nothing); tapping it
 // scrolls back up.
 
+import { dayFigure } from "../sourceTag";
+import { type SourceTag, sourceTag } from "../sourceTag";
 import { type ReactNode, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CalendarSide } from "./CalendarModal";
 import { createPortal } from "react-dom";
@@ -22,6 +27,8 @@ import type { MetricId } from "../metrics";
 import { useSwipeDays } from "./useSwipeDays";
 import { TyphoonTag } from "./TyphoonTag";
 import { DayWeatherIcon } from "./WeatherIcon";
+import { ITEM_GROUPS } from "./ItemBar";
+import { SECTORS, windSummary } from "../../shared/windDirection";
 import { BetaContext } from "../beta/settings";
 import { baselineStateOf, driversOfDay, useBaselineHistory } from "../beta/useBaseline";
 import type { BaselineState } from "../beta/adaptation";
@@ -50,11 +57,10 @@ interface Props {
 
 const COLLAPSED = "weather-note:summary-collapsed";
 
-function kindOf(store: WeatherStore | null, station: string, date: string): "予報" | "暫定" | "実績" | null {
+function kindOf(store: WeatherStore | null, station: string, date: string): SourceTag | null {
   const day = store?.getDay(station, date);
   if (day?.state !== "ready" || !day.row) return null;
-  if (day.row.type === "forecast") return "予報";
-  return day.kind === "variable" ? "暫定" : "実績";
+  return sourceTag(day.row, day.kind) || null;
 }
 
 function relative(date: string, today: string): "今日" | "昨日" | "明日" | null {
@@ -76,6 +82,8 @@ interface Row {
   key: string;
   /** The chip this row belongs to. */
   metric: MetricId;
+  /** Not on the one-line summary (平均：the line keeps 最高／最低). */
+  minor?: boolean;
   label: string;
   unit: string;
   tone?: string;
@@ -166,6 +174,8 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const depA = comfortOfDay(store, station, target, a, hoursOf(target), stA, beta, feelSettings);
   const depB = comfortOfDay(store, station, other, b, hoursOf(other), stB, beta, feelSettings);
   const [reporting, setReporting] = useState(false);
+  // ほかの仲間の項目（ふだん畳む、2026-11-24）。
+  const [more, setMore] = useState(false);
   const [basis, setBasis] = useState(false);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
@@ -190,23 +200,28 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const rows: Row[] = [
     r("max", "temp", "最高", UNIT.temp, num(a?.max), num(b?.max), "hot"),
     r("min", "temp", "最低", UNIT.temp, num(a?.min), num(b?.min), "cold"),
+    // 平均は表の「平均」と同じ値（日の行の temp、chartMetrics の気温の平均）。
+    { ...r("temp", "temp", "平均", UNIT.temp, num(a?.temp), num(b?.temp), "mean"), minor: true },
     r("rain", "rain", "降水", UNIT.rain, num(a?.rain), num(b?.rain), "rain"),
     r("radiation", "radiation", "日射", UNIT.radiation, dailyRadiation(a, hoursOf(target)), dailyRadiation(b, hoursOf(other)), "radiation"),
     r("sun", "light", "日照", UNIT.hours, num(a?.sun), num(b?.sun), "sun"),
     r("humidity", "humidity", "湿度", UNIT.percent, num(a?.humidity), num(b?.humidity), "humidity"),
     r("wind", "wind", "風速", UNIT.wind, num(a?.wind), num(b?.wind), "wind"),
+    // 視程は表と同じ最小（chartMetrics の視程、1時間の値のいちばん小さいもの）。
+    r("visibilityMin", "visibility", "視程最小", "km", hourlyExtreme(hoursOf(target), "visibility", "min"), hourlyExtreme(hoursOf(other), "visibility", "min"), "visibility"),
     r("pMax", "pressure", "気圧最高", UNIT.pressure, hourlyExtreme(hoursOf(target), "pressure", "max"), hourlyExtreme(hoursOf(other), "pressure", "max"), "pressureHigh"),
     r("pMin", "pressure", "気圧最低", UNIT.pressure, hourlyExtreme(hoursOf(target), "pressure", "min"), hourlyExtreme(hoursOf(other), "pressure", "min"), "pressureLow"),
   ];
 
-  const value = (v: number | null, row: Row) =>
+  // 日の値の書き方は表と同じ（気象庁の値は整数のまま、src/sourceTag.ts dayFigure、2026-11-24）。
+  const value = (v: number | null, row: Row, day: WeatherRow | null) =>
     v == null ? (
       <span className="cs-none">—</span>
     ) : (
       // The number alone, in a box of one width (#151 grid): right-aligned, so the decimal points
       // stand in one line down each side.
       <span className="cs-num">
-        {v.toFixed(row.digits)}
+        {dayFigure(day, row.key, v, row.digits)}
       </span>
     );
 
@@ -241,8 +256,47 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     </button>
   );
 
+  // 帯で選んだ仲間（src/ui/ItemBar.tsx）の項目だけを並べ、ほかは「ほかの項目も見る」で（2026-11-24）。
+  const group = ITEM_GROUPS.find((g) => g.items.includes(metric ?? "temp")) ?? ITEM_GROUPS[0];
+  const inGroup = rows.filter((r) => group.items.includes(r.metric));
+  const others = rows.filter((r) => !group.items.includes(r.metric));
+  // 主な風向（16方位の最頻、1日画面と同じ windSummary）：雨・風の仲間の行。
+  const dir = (d: string | null) => {
+    const h = hoursOf(d);
+    const w = h?.length ? windSummary(h) : null;
+    return w && (w.n || w.calm) ? (w.mode != null ? SECTORS[w.mode] : "定まらない") : null;
+  };
+  const textRow = (key: string, label: string, ta: string | null, tb: string | null, diff: string) => (
+    <div key={key} className="cs-row cs-sun">
+      <span className="cs-val cs-a">{ta ?? "—"}</span>
+      <span className="cs-mid cs-grid">
+        <span className="cs-label">{label}</span>
+        <span className="cs-diff">{diff}</span>
+      </span>
+      <span className="cs-val cs-b">{other ? (tb ?? "—") : "—"}</span>
+    </div>
+  );
+  const sunRow = textRow("sun-times", "日の出", `${shownClock(sunA.rise)}–${shownClock(sunA.set)}`, sunB ? `${shownClock(sunB.rise)}–${shownClock(sunB.set)}` : null, minutes(sunA.rise, sunB?.rise ?? null));
+  const dirRow = textRow("wind-dir", "主な風向", dir(target), dir(other), "");
+  const numRow = (r: Row) => (
+    <div key={r.key} className={r.metric === metric ? "cs-row chosen" : "cs-row"}>
+      <span className={`cs-val cs-a${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.a, r, a)}</span>
+      {/* The unit once, after the name (as in the readouts); the difference right-aligned in its column. */}
+      <span className="cs-mid cs-grid">
+        <span className="cs-label">
+          {r.label}
+          <small className="unit">{r.unit}</small>
+        </span>
+        <span className="cs-diff">{signedDiff(r.a, r.b, r.digits)}</span>
+      </span>
+      <span className={`cs-val cs-b${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.b, r, b)}</span>
+    </div>
+  );
+  const extra = (id: string) => (id === "sky" ? [sunRow] : id === "rainwind" ? [dirRow] : []);
+  const otherGroups = ITEM_GROUPS.filter((g) => g !== group);
+
   // The line for the chosen item: its row(s) only.
-  const chosen = rows.filter((r) => r.metric === (metric ?? "temp"));
+  const chosen = rows.filter((r) => r.metric === (metric ?? "temp") && !r.minor);
   const lineRows = chosen.length ? chosen : rows.slice(0, 2);
   const short = (v: number | null, r: Row) => (v == null ? "—" : v.toFixed(r.digits));
   const line = (pinned: boolean) => (
@@ -344,37 +398,16 @@ export function CompareSummary({ store, station, target, other, today, metric, o
         {toggle}
       </div>
 
-      {rows.map((r) => (
-        <div key={r.key} className={r.metric === metric ? "cs-row chosen" : "cs-row"}>
-          <span className={`cs-val cs-a${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.a, r)}</span>
-          {/* The unit once, after the name (as in the readouts); the difference right-aligned in its column. */}
-          <span className="cs-mid cs-grid">
-            <span className="cs-label">
-              {r.label}
-              <small className="unit">{r.unit}</small>
-            </span>
-            <span className="cs-diff">
-              {signedDiff(r.a, r.b, r.digits)}
-            </span>
-          </span>
-          <span className={`cs-val cs-b${r.tone ? ` tone-${r.tone}` : ""}`}>{value(r.b, r)}</span>
-        </div>
-      ))}
+      {inGroup.map(numRow)}
+      {extra(group.id)}
+      <Button size="sm" className="cs-more" aria-expanded={more} onClick={() => setMore(!more)}>
+        <Glyph name={more ? "up" : "down"} size="12px" />
+        {more ? "ほかの項目を閉じる" : "ほかの項目も見る"}
+      </Button>
+      {more &&
+        otherGroups.map((g) => [...others.filter((r) => g.items.includes(r.metric)).map(numRow), ...extra(g.id)])}
 
-      <div className="cs-row cs-sun">
-        <span className="cs-val cs-a">
-          {shownClock(sunA.rise)}–{shownClock(sunA.set)}
-        </span>
-        <span className="cs-mid cs-grid">
-          <span className="cs-label">日の出</span>
-          <span className="cs-diff">{minutes(sunA.rise, sunB?.rise ?? null)}</span>
-        </span>
-        <span className="cs-val cs-b">
-          {sunB ? `${shownClock(sunB.rise)}–${shownClock(sunB.set)}` : "—"}
-        </span>
-      </div>
-
-      {beta.enabled && <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} learning={beta.learning} hidden={{ a: !centreVisible(target), b: other != null && !centreVisible(other) }} />}
+      {beta.enabled && group.id === "temp" && <BetaRows a={depA} b={depB} loadingA={stA.state === "loading"} loadingB={stB.state === "loading"} onReport={target === today ? () => setReporting(true) : undefined} onBasis={() => setBasis(true)} saved={saved} learning={beta.learning} hidden={{ a: !centreVisible(target), b: other != null && !centreVisible(other) }} />}
     </section>
     </div>
     </div>

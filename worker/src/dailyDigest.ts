@@ -6,6 +6,8 @@
 // 警告にはならない）。7〜10時のうちに見張りが1回も無かった日は送らない（昼に遅れて届かないように）。
 // 中身は記録の回数だけ（成功した回／全部の回、新しく保存した数）。表がまだ無い取得は行を出さない。
 
+import { lastWeeklyAudit, weeklyAuditLines } from "./weeklyAudit";
+import { type ArchiveEnv, offsiteLine, offsiteSummary } from "./offsite";
 import { type Finding, gapText } from "../../shared/healthJudge";
 import { runbookTag } from "../../shared/runbook";
 import type { Db } from "./accounts";
@@ -24,6 +26,9 @@ const SOURCES = [
   { table: "longrange_fetch_log", name: "長い先の予報の電文", added: "added", unit: "通" },
   { table: "wxchart_fetch_log", name: "天気図", added: "saved", unit: "枚" },
   { table: "radar_fetch_log", name: "雨雲レーダー・解析雨量", added: "saved", unit: "枚" },
+  { table: "amedas_fetch_log", name: "アメダスの観測", added: "saved", unit: "ファイル" },
+  { table: "air_quality_fetch_log", name: "空気質（CAMS）", added: "saved", unit: "時間" },
+  { table: "soramame_fetch_log", name: "大気汚染の実測（そらまめくん）", added: "saved", unit: "時間" },
 ] as const;
 
 export interface DigestLine {
@@ -70,7 +75,7 @@ export async function digestLines(db: Db, now: number): Promise<DigestLine[]> {
 export type CloudflareRuns =
   | { ok: true; empty: boolean; runs: number; byStatus: Record<string, number>; cpuMaxMs: number; startedNotKept?: number; notStarted?: number }
   | { ok: false; error: string };
-export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns): Promise<string[]> {
+export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns, drive?: ArchiveEnv): Promise<string[]> {
   const from = new Date(now - 24 * 3_600_000).toISOString();
   const to = new Date(now).toISOString();
   const out: string[] = [];
@@ -159,6 +164,19 @@ export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns): Pro
   } catch (e) {
     if (!/no such table/i.test(String(e))) throw e;
   }
+  // 週の点検（weeklyAudit.ts、#370）：全期間で見た「最新」と「履歴」、R2 の実物。いちばん新しい結果を毎朝くり返す。
+  try {
+    out.push(...weeklyAuditLines(await lastWeeklyAudit(db)));
+  } catch (e) {
+    console.error("weather-note: digest weekly audit", e);
+  }
+  // 原本の控え（offsite.ts）：何日分・最後に置いた日・まだの日・最後の失敗。
+  if (drive)
+    try {
+      out.push(offsiteLine(await offsiteSummary(db, now, drive)));
+    } catch (e) {
+      console.error("weather-note: digest offsite", e);
+    }
   return out;
 }
 

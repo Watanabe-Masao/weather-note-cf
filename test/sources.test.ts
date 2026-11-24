@@ -44,6 +44,15 @@ describe("AMeDAS observations", () => {
     expect(rows.map((r) => r.n)).toEqual([21, 22, 23]);
   });
 
+  it("reads the observed weather on the hour (only the codes checked, KC-05) and the visibility in km", () => {
+    const { rows } = parseLivePoint(evening, "2026-11-08");
+    expect(rows.map((r) => r.weather)).toEqual(["曇", "曇", "曇"]);
+    expect(rows[0].visibility).toBe(20);
+    // 確かめていない番号は文字にしない（予報の天気を借りる）。
+    const odd = { "20261108210000": { ...evening["20261108210000"], weather: [3, 0] } } as PointData;
+    expect(parseLivePoint(odd, "2026-11-08").rows[0].weather).toBeUndefined();
+  });
+
   it("uses the 24:00 closing record for max, min and rain when it is available", () => {
     const { daily, hourly } = aggregateRecentDay({ ...evening, ...midnight }, "2026-11-08");
     expect(hourly.at(-1)).toMatchObject({ n: 24, observedAt: "24:00" });
@@ -76,6 +85,12 @@ describe("Open-Meteo daily totals from the hourly forecast", () => {
     const { rows } = normalizeForecast(payload);
     expect(rows[0].radiation).toBe(10.8); // 12 h × 250 W/㎡ × 3600 s
     expect(rows[0].snow).toBe(1.4);
+  });
+
+  it("shows the forecast visibility in km stopped at 20, and keeps the whole value for judging", () => {
+    const { hourlyRows } = normalizeForecast({ ...payload, hourly: { ...payload.hourly, visibility: payload.hourly.time.map((_, i) => (i === 1 ? 43_500 : 6_150)) } });
+    expect(hourlyRows[1]).toMatchObject({ visibility: 20, visibilityFull: 43.5 });
+    expect(hourlyRows[2]).toMatchObject({ visibility: 6.2, visibilityFull: 6.2 });
   });
 
   it("leaves snow empty when the API did not send it", () => {

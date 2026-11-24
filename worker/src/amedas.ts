@@ -2,6 +2,7 @@
 // before the daily tables are published.
 
 import { addDays, jstToday } from "../../shared/dates";
+import { amedasWeather } from "../../shared/amedasWeather";
 import type { Station, WeatherRow } from "../../shared/types";
 import { SourceError } from "./errors";
 
@@ -41,7 +42,24 @@ function toRow(key: string, source: Point, day: string): WeatherRow {
     row.quality[field] = v == null ? "missing" : "normal";
   }
   const dir = value(source.windDirection);
+  // 風向は16方位の番号（1 北北東 … 16 北）。0 は「静穏」（風が弱く向きが決まらない）で、値なしではない。
+  // 角度にはできないので direction は null のまま、静穏であることを calm に残す。
   row.direction = dir != null && dir !== 0 ? dir * 22.5 : null;
+  if (dir === 0) row.calm = true;
+  // 天気（自動観測、気象台など天気を観測する地点の正時だけ）：確かめた番号だけ文字に（shared/amedasWeather.ts）。
+  const wx = amedasWeather(value(source.weather));
+  if (wx) {
+    row.weather = wx;
+    row.raw.weather = wx;
+    row.quality.weather = "normal";
+  }
+  // 視程（m → 過去の気象データの表と同じ km）。視程計のある官署だけ（高知は 74182、KC-04）。
+  const vis = value(source.visibility);
+  if (vis != null) {
+    row.visibility = vis / 1000;
+    row.raw.visibility = String(vis / 1000);
+    row.quality.visibility = "normal";
+  }
   return row;
 }
 

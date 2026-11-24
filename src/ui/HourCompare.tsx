@@ -26,6 +26,7 @@ const readBands = (): Bands => {
 };
 import { StormMark, WeatherIcon } from "./WeatherIcon";
 import { stormLevel, type StormLevel } from "../../shared/storm";
+import { windOf } from "../../shared/windDirection";
 import { isNightAt, shownSunHours } from "../data/sun";
 import {
   axisRange,
@@ -36,15 +37,19 @@ import {
   hourSeries,
   initialHour,
   signedDiff,
+  VISIBILITY_TOP,
+  visibilityDiff,
 } from "../dayDetail";
 import { barLook, barPath, type DataColor, DATA, LIGHT_LEVELS, LINE, type LineLook, lineLook, onSkyVars } from "../design/tokens";
-import { type AverageWindow, AVERAGE_WINDOWS, daysBefore, meanByHour, nextWindow, WINDOW_LABEL } from "../hourAverage";
+import { type AverageWindow, AVERAGE_WINDOWS, daysBefore, meanByHour, medianByHour, nextWindow, WINDOW_LABEL } from "../hourAverage";
 import { Priority } from "../data/plan";
 import { axisWidth, dateLabel, niceTicks, shortDay, tickLabel } from "../design/format";
 import { FeelContext, legendOf, levelName, levelRanges } from "./FeelBar";
 import { levelOf, type Thresholds } from "../../shared/feel";
 import { Segmented } from "./kit";
 import { SunSheet } from "./SunSheet";
+import { hourOf, md, type Slot, type TempPoint } from "../../shared/forecastHistoryModel";
+import { useJmaTemps } from "./jmaTemps";
 import { personalThresholds, useDayComfortState } from "../beta/useDayComfort";
 import { feelOn } from "../feelSeason";
 
@@ -56,6 +61,7 @@ export const HOUR_TONE: Record<DetailMetricId, DataColor> = {
   snow: "snow",
   probability: "rain",
   humidity: "humidity",
+  visibility: "visibility",
   wind: "wind",
   radiation: "radiation",
   sun: "sun",
@@ -104,6 +110,9 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   };
 
   const main = useMemo(() => hourSeries(hours?.rows ?? [], metricId, settings, station), [hours, metricId, settings]);
+  // 気象庁の予報（府県天気予報の3時間ごとの気温、2026-11-23）：気温のときの対象日だけ。
+  const jma = useJmaTemps(station, metricId === "temp" ? date : null);
+  const jmaAt = (h: number) => jma?.points.find((p) => p.hour === h)?.v ?? null;
   const second = useMemo(() => hourSeries(otherHours?.rows ?? [], metricId, settings, station), [otherHours, metricId, settings]);
   const air = useMemo(() => (metricId === "feel" ? hourSeries(hours?.rows ?? [], "temp", settings) : null), [hours, metricId, settings]);
   // 手前の平均 (src/hourAverage.ts): each day's own weeks before it, hour by hour. Tapping the legend
@@ -138,10 +147,14 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const averageOf = (series: (HourPoint[] | null)[], days: string[], anchor: string, w: number) => {
     const span = days.filter((d) => d >= addDays(anchor, -w)); // a prefix: nearest first
     if (!span.length) return null;
-    const m = meanByHour(series.slice(0, span.length).filter((x): x is HourPoint[] => !!x), span.length);
+    // 視程は中央値（上限 20 で止まり、霞んだ日に引っぱられるため。2026-11-22 渡辺さん承認）、ほかは平均。
+    const m = (metricId === "visibility" ? medianByHour : meanByHour)(series.slice(0, span.length).filter((x): x is HourPoint[] => !!x), span.length);
     return m.some((p) => p.v != null) ? m : null;
   };
   const avgMain = averageOf(daySeriesMain, avgDaysMain, date, avgWindow);
+  const avgWord = metricId === "visibility" ? "中央値" : "平均";
+  // 視程の差は、20（「20 km 以上」）がからむと「…以下・…以上」か、分からない（visibilityDiff）。
+  const diffOf = (x: number | null, y: number | null) => (metricId === "visibility" ? visibilityDiff(x, y) : signedDiff(x, y, metric.unit));
   const avgOther = other ? averageOf(daySeriesOther, avgDaysOther, other, avgWindow) : null;
   // The axis: the days' own values and every span's averages, whichever span is shown.
   const axisExtra = AVERAGE_WINDOWS.flatMap((w) => [averageOf(daySeriesMain, avgDaysMain, date, w), other ? averageOf(daySeriesOther, avgDaysOther, other, w) : null])
@@ -183,6 +196,15 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
       other: other ? WX_TICKS.map((h) => tick(otherHours?.rows ?? [], h)) : null,
     };
   }, [hours, otherHours, other]);
+  // 風速のときだけ、1時間ごとの風向（2026-11-22 渡辺さん）：天気の行の下に、風の吹いていく向きの矢印。静穏は丸。
+  const windDirs = useMemo(() => {
+    if (metricId !== "wind") return null;
+    const of = (rows: WeatherRow[] | undefined) => Array.from({ length: 24 }, (_, i) => {
+      const r = rows?.find((x) => x.n === i + 1);
+      return r ? windOf(r) : null;
+    });
+    return { main: of(hours?.rows), other: other ? of(otherHours?.rows) : null };
+  }, [metricId, hours, otherHours, other]);
   // β (#118): the person's own levels for the day, beside everyone's.
   const comfort = useDayComfortState(store, station, metricId === "feel" ? date : null, hours?.rows, "hour-bands");
   const [bandsPick, setBandsPick] = useState<Bands>(readBands);
@@ -212,6 +234,13 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
   const skyStep = (list: (SkyColour[] | null)[] | null) => list?.[shownHour - 1]?.[step ?? 3] ?? null;
 
   const at = (points: HourPoint[]) => points[shownHour - 1]?.v ?? null;
+  // 中央値は、その時刻に値のあった日の数が期間より少ないときだけ「（5日）」と添える（記録は HourPoint の n）。
+  const daysNote = (() => {
+    if (metricId !== "visibility") return "";
+    const ns = [avgMain, avgOther].map((s) => s?.[shownHour - 1]?.n).filter((n): n is number => n != null);
+    const few = ns.filter((n) => n < avgWindow);
+    return few.length ? `（${Math.min(...few)}日）` : "";
+  })();
   // Same month and day a year apart would read "11/10" twice: the comparison day keeps its year.
   const mainLabel = dateLabel(date, { weekday: false });
   // Another year as 'YY (as in the summary line), so the title fits beside the column heads.
@@ -235,26 +264,44 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
             color,
             a: formatDetail(at(main), metric),
             b: other ? formatDetail(at(second), metric) : "—",
-            diff: other && metric.unit !== "h" ? signedDiff(at(main), at(second), metric.unit) : "",
+            diff: other && metric.unit !== "h" ? diffOf(at(main), at(second)) : "",
           },
+          // 気象庁の予報（3時間ごとの時刻だけ値）と、観測との差（観測のある時刻だけ。予報の時間どうしは比べない）。
+          ...(jma?.slot
+            ? [
+                { key: "jma", label: "気象庁の予報", color, a: jmaAt(shownHour) == null ? "—" : String(jmaAt(shownHour)), b: "—", diff: "" },
+                {
+                  key: "jmaDiff",
+                  label: "予報との差",
+                  a: jmaAt(shownHour) != null && at(main) != null && !main[shownHour - 1]?.forecast ? signedDiff(at(main), jmaAt(shownHour), metric.unit) || "—" : "—",
+                  b: "—",
+                  diff: "",
+                },
+              ]
+            : []),
           // The same hour over each day's own weeks before it, and how far the day is from that.
           ...(avgMain || avgOther
             ? [
                 {
                   key: "avg",
-                  label: other ? `手前${WINDOW_LABEL[avgWindow]}の平均` : `${WINDOW_LABEL[avgWindow]}平均`,
+                  // 中央値のときは、その時刻の値があった日の数も（そろっていないときだけ、例「5日」）。
+                  label: `${other ? `手前${WINDOW_LABEL[avgWindow]}の` : WINDOW_LABEL[avgWindow]}${avgWord}${daysNote}`,
                   // Read as numbers: in the secondary ink (the reference line's own colour is drawn faint, #241).
                   color: "var(--ink-secondary)",
                   a: avgMain ? formatDetail(at(avgMain), metric) : "—",
                   b: avgOther ? formatDetail(at(avgOther), metric) : "—",
-                  diff: avgMain && avgOther ? signedDiff(at(avgMain), at(avgOther), metric.unit) : "",
+                  diff: avgMain && avgOther ? diffOf(at(avgMain), at(avgOther)) : "",
                 },
                 {
                   key: "dev",
-                  label: other ? `手前${WINDOW_LABEL[avgWindow]}との差` : `${WINDOW_LABEL[avgWindow]}平均との差`,
-                  a: (avgMain && signedDiff(at(main), at(avgMain), metric.unit)) || "—",
-                  b: (avgOther && signedDiff(at(second), at(avgOther), metric.unit)) || "—",
-                  diff: avgMain && avgOther ? signedDiff(devOf(at(main), at(avgMain)), devOf(at(second), at(avgOther)), metric.unit) : "",
+                  label: other ? `手前${WINDOW_LABEL[avgWindow]}との差` : `${WINDOW_LABEL[avgWindow]}${avgWord}との差`,
+                  a: (avgMain && diffOf(at(main), at(avgMain))) || "—",
+                  b: (avgOther && diffOf(at(second), at(avgOther))) || "—",
+                  // 視程で 20（以上）がからむと、ずれの差は分からない。
+                  diff:
+                    avgMain && avgOther && !(metricId === "visibility" && [at(main), at(avgMain), at(second), at(avgOther)].some((v) => v != null && v >= VISIBILITY_TOP))
+                      ? signedDiff(devOf(at(main), at(avgMain)), devOf(at(second), at(avgOther)), metric.unit)
+                      : "",
                 },
               ]
             : []),
@@ -294,6 +341,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         air={air}
         avgMain={avgMain}
         avgOther={avgOther}
+        jma={jma?.points}
         axisExtra={axisExtra}
         dim={dim}
         ranges={levelRanges(bands === "you" && personal ? personal : dayFeel.thresholds, settings.scale)}
@@ -310,6 +358,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
         height={height}
         color={color}
         bandWx={bandWx}
+        windDirs={windDirs}
         sky={skyStrip}
         otherSun={sunOther}
         onPlotLeft={setPlotLeft}
@@ -378,6 +427,17 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           ))}
         </p>
       )}
+      {/* 気象庁の予報の凡例は、線の凡例とは別の行に：線の凡例・平均・ⓘ の1列（2026-11-18）を崩さない。 */}
+      {jma?.slot && (
+        <p className="line-legend jma-legend">
+          <span className="ls-jma-item">
+            <svg className="ls-jma" viewBox="-6 -6 12 12" aria-hidden>
+              <path d={DIAMOND(4)} style={{ stroke: color }} />
+            </svg>
+            {jmaLabel(jma.slot, date)}
+          </span>
+        </p>
+      )}
       {/* 凡例と ⓘ は1行に（2026-11-18：ⓘ が1行だけ離れていた）。開いた説明はその下に全幅で。 */}
       <div className={other ? "legend-row" : "legend-row one"}>
       <p className="line-legend">
@@ -394,8 +454,8 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           <i className="ls-forecast" />
           予報
         </span>
-        <button className="avg-window" onClick={stepWindow} aria-label={`平均の期間（今は手前${WINDOW_LABEL[avgWindow]}）。押すと切り替え`}>
-          平均 <b>{WINDOW_LABEL[avgWindow]}</b>
+        <button className="avg-window" onClick={stepWindow} aria-label={`${avgWord}の期間（今は手前${WINDOW_LABEL[avgWindow]}）。押すと切り替え`}>
+          {avgWord} <b>{WINDOW_LABEL[avgWindow]}</b>
           <span className="steps" aria-hidden>
             {AVERAGE_WINDOWS.map((w) => (
               <i key={w} className={w === avgWindow ? "on" : undefined} />
@@ -409,7 +469,7 @@ export function HourCompare({ store, station, date, other, metricId, today, heig
           </span>
         )}
       </p>
-      <InfoNote more={<>時刻の下の天気は、その時刻の前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}。薄いのは日照と降水からの推定です。「—」は、その時刻の前後に気象庁の天気の記録が無い時間です（取り損ねではありません。夜は日照も無いので推定もしません。先の時間は予報が出ていれば予報の天気）。凡例の線の名前を押すと、その線を薄くできます。</>} />
+      <InfoNote more={<>{jma?.slot ? <>◇ は気象庁の府県天気予報の3時間ごとの気温（高知、整数）です。いま重ねているのは気象庁 {jma.slot.kind === "VPFD51" ? "府県天気予報" : "週間天気予報"} {md(jma.slot.at.slice(0, 10))} {hourOf(jma.slot.at)}時発表・高知の値（そのまま）で、予報の移り変わりで選んだ回、選んでいなければその日の朝5時の発表を出します（5時の発表がまだ無ければ、その前の発表）。点だけで、間は埋めません。週間天気予報には3時間ごとの気温がありません。</> : null}時刻の下の天気は、その時刻の前後1時間。大きい方が対象{other ? "・小さい方が比較" : ""}。薄いのは日照と降水からの推定です。「—」は、その時刻の前後に気象庁の天気の記録が無い時間です（取り損ねではありません。夜は日照も無いので推定もしません。先の時間は予報が出ていれば予報の天気）。凡例の線の名前を押すと、その線を薄くできます。</>} />
       </div>
     </div>
   );
@@ -741,6 +801,20 @@ function LegendLine({ look, label, on, onToggle }: { look: LineLook; label: stri
   );
 }
 
+/** 菱形（中心 0,0、半径 r）。 */
+const DIAMOND = (r: number) => `M0 ${-r}L${r} 0L0 ${r}L${-r} 0Z`;
+
+/**
+ * 凡例の名前：どの発表の値か（出典）。凡例は1行に収めるので短く：対象日の発表なら時刻だけ（気象庁 5時）、前の日なら
+ * 「前日17時」、それより前は日付も。くわしい説明は ⓘ。
+ */
+function jmaLabel(s: Slot, day: string): string {
+  const d = s.at.slice(0, 10);
+  const h = `${hourOf(s.at)}時`;
+  const when = d === day ? h : d === addDays(day, -1) ? `前日${h}` : `${md(d)} ${h}`;
+  return s.kind === "VPFD51" ? `気象庁 ${when}` : `気象庁 週間${when}（気温なし）`;
+}
+
 function HourChart({
   metricId,
   main,
@@ -748,6 +822,7 @@ function HourChart({
   air,
   avgMain,
   avgOther,
+  jma,
   axisExtra,
   dim,
   ranges,
@@ -760,6 +835,7 @@ function HourChart({
   height,
   color,
   bandWx,
+  windDirs,
   guides,
   onSun,
   sky,
@@ -778,6 +854,8 @@ function HourChart({
   /** The sky's colour every 10 minutes (shared/sky.ts), the strip's ground: night, twilight, day. */
   sky?: (SkyColour[] | null)[];
   bandWx?: { main: BandWx[]; other: BandWx[] | null };
+  /** 風向の行（風速のときだけ）：時間 1〜24 の向き（°、北 0、吹いてくる向き）・静穏・分からない。 */
+  windDirs?: { main: (number | "calm" | null)[]; other: (number | "calm" | null)[] | null } | null;
   /** Other boundaries drawn as dashed lines over the feel ranges (everyone's, when the ranges are the person's). */
   guides?: readonly number[];
   metricId: DetailMetricId;
@@ -786,6 +864,8 @@ function HourChart({
   air: HourPoint[] | null;
   /** Each day's own weeks before it (手前の平均), hour by hour. */
   avgMain?: HourPoint[] | null;
+  /** 気象庁の予報：府県天気予報の3時間ごとの気温（点で、線にしない）。 */
+  jma?: TempPoint[];
   /** Values the axis must hold besides the lines shown (every span's averages, so switching the span keeps the axis). */
   axisExtra?: number[];
   avgOther?: HourPoint[] | null;
@@ -812,7 +892,7 @@ function HourChart({
   const w = useDrawnWidth(ref, [], 320);
 
   const metric = detailMetric(metricId);
-  const values = [main, second ?? [], air ?? [], avgMain ?? [], avgOther ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null).concat(axisExtra ?? []);
+  const values = [main, second ?? [], air ?? [], avgMain ?? [], avgOther ?? []].flatMap((s) => s.map((p) => p.v)).filter((v): v is number => v != null).concat(axisExtra ?? [], (jma ?? []).map((p) => p.v));
   // Round ticks (10 / 15 / 20): the padded data range widened to whole steps.
   const range = axisRange(values, metric);
   const { lo, hi, ticks } = niceTicks(range.lo, range.hi, 5);
@@ -948,6 +1028,7 @@ function HourChart({
         onScrub?.(false);
       }}
     >
+      {/* 幅を測る前（0）でも、長方形の幅は負にしない（コンソールのエラー、2026-11-24） */}
       <svg width={w} height={H + SUN_H} role="img" aria-label={`${metric.label}の時間ごとのグラフ`}>
         {/* Feel levels behind the lines. */}
         {metricId === "feel" &&
@@ -955,7 +1036,7 @@ function HourChart({
             if (to <= lo || from >= hi) return null;
             const top = yOf(Math.min(hi, to));
             const bottom = yOf(Math.max(lo, from));
-            return <rect key={i} x={left} width={plotW} y={top} height={Math.max(0, bottom - top)} fill={color} opacity={0.14} />;
+            return <rect key={i} x={left} width={Math.max(0, plotW)} y={top} height={Math.max(0, bottom - top)} fill={color} opacity={0.14} />;
           })}
         {metricId === "feel" &&
           guides?.map((v, i) =>
@@ -970,7 +1051,7 @@ function HourChart({
           if (!fc(h)) return null;
           return (
             <g key={`fc-${h}`}>
-              <rect x={xOf(h - 1)} width={xOf(h) - xOf(h - 1)} y={PAD.top} height={H - PAD.top - PAD.bottom} fill="url(#fc-hours)" className="chart-forecast" />
+              <rect x={xOf(h - 1)} width={Math.max(0, xOf(h) - xOf(h - 1))} y={PAD.top} height={H - PAD.top - PAD.bottom} fill="url(#fc-hours)" className="chart-forecast" />
               {(h === 1 || !fc(h - 1)) && (
                 <text x={xOf(h - 1) + 4} y={PAD.top + 12} className="chart-forecast-label">
                   予報
@@ -994,8 +1075,8 @@ function HourChart({
                 </linearGradient>
               ))}
             </defs>
-            <rect x={xOf(0)} width={xOf(24) - xOf(0)} y={stripTop} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-zenith)`} />
-            <rect x={xOf(0)} width={xOf(24) - xOf(0)} y={(stripTop + stripBottom) / 2} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-horizon)`} />
+            <rect x={xOf(0)} width={Math.max(0, xOf(24) - xOf(0))} y={stripTop} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-zenith)`} />
+            <rect x={xOf(0)} width={Math.max(0, xOf(24) - xOf(0))} y={(stripTop + stripBottom) / 2} height={(stripBottom - stripTop) / 2} fill={`url(#${skyId}-horizon)`} />
           </>
         )}
         {/* Over the sky, the sun's line (the primary ink) rides on a dark edge (#173: on a clear noon sky white alone
@@ -1046,7 +1127,7 @@ function HourChart({
           </g>
         )}
         {metric.chart === "bar" ? (
-          <rect x={xOf(hour - 1)} width={step} y={PAD.top} height={H - PAD.top - PAD.bottom} className="day-cursor-bar" />
+          <rect x={xOf(hour - 1)} width={Math.max(0, step)} y={PAD.top} height={H - PAD.top - PAD.bottom} className="day-cursor-bar" />
         ) : (
           <GuideLines
             x={xOf(hour)}
@@ -1080,6 +1161,15 @@ function HourChart({
               .map(([k, pts, look]) => (
                 <g key={k}>{line(pts!, look)}</g>
               ))}
+            {/* 気象庁の予報：白抜きの菱形と値（線の色、形で「予報の点」と分かる）。 */}
+            {(jma ?? []).map((p) => (
+              <g key={`jma${p.hour}`} className="chart-jma">
+                <path d={DIAMOND(4.5)} transform={`translate(${xOf(p.hour)} ${yOf(p.v)})`} style={{ stroke: color }} />
+                <text x={Math.min(xOf(p.hour), xOf(24) - 6)} y={yOf(p.v) - 8} textAnchor="middle" style={{ fill: color }} className="chart-jma-label">
+                  {p.v}
+                </text>
+              </g>
+            ))}
             {[main, ...(second ? [second] : [])].map((s, k) => {
               const p = s[hour - 1];
               const c = (k ? d.other : d.main) ? LINE.dimmed : color;
@@ -1141,6 +1231,28 @@ function HourChart({
               />
             </span>
           ))}
+        </div>
+      )}
+      {windDirs && (
+        <div className={windDirs.other ? "band-wind two" : "band-wind"} role="img" aria-label="1時間ごとの風向（矢印は風の吹いていく向き、丸は静穏。上が対象日、下が比較日）">
+          <span className="band-wx-name main" style={{ width: left - 13 }}>風向</span>
+          {(windDirs.other ? [windDirs.main, windDirs.other] : [windDirs.main]).map((dirs, row) =>
+            dirs.map((d, i) =>
+              d == null ? null : (
+                <span key={`${row}-${i}`} className={row ? "band-wind-cell other" : "band-wind-cell"} style={{ left: xOf(i + 1) }}>
+                  {d === "calm" ? (
+                    <svg viewBox="-5 -5 10 10" aria-hidden>
+                      <circle r={2.5} />
+                    </svg>
+                  ) : (
+                    <svg viewBox="-5 -5 10 10" aria-hidden style={{ transform: `rotate(${d + 180}deg)` }}>
+                      <path d="M0 4 L0 -3.2 M-2.4 -0.8 L0 -3.6 L2.4 -0.8" />
+                    </svg>
+                  )}
+                </span>
+              ),
+            ),
+          )}
         </div>
       )}
     </div>
