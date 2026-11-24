@@ -211,3 +211,13 @@
 .rw-v { display: inline-block; min-width: 2.2em; text-align: right; font-variant-numeric: tabular-nums; color: var(--data-rain); }
 .rw-v.chg, .rw-wind.chg > span { font-weight: var(--weight-bold); color: var(--ink-primary); }
 .rw-src { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+
+/* この日の予報の変化（2026-11-24、ChangeList）：予報の移り変わりのいちばん上 */
+.fc-changes { display: grid; gap: var(--space-1); padding: var(--space-3); border-radius: var(--radius-md); background: var(--surface-inset); }
+.fc-changes-head { margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-3); font-size: var(--size-sm); }
+.fc-changes-head small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.fc-changes-none { margin: 0; font-size: var(--size-sm); color: var(--ink-secondary); }
+.fc-change.btn { display: grid; justify-items: start; gap: 0; min-height: var(--tap-min); padding: var(--space-2) var(--space-1); border: none; background: transparent; text-align: left; color: var(--ink-primary); font-weight: var(--weight-regular); border-top: var(--stroke-hair) solid var(--line-soft); border-radius: 0; }
+.fc-change-what { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); font-size: var(--size-sm); white-space: normal; }
+.fc-change.rainOn .fc-change-what b, .fc-change.popUp .fc-change-what b { color: var(--data-rain); }
+.fc-change-detail { font-size: var(--size-xs); color: var(--ink-secondary); white-space: normal; }

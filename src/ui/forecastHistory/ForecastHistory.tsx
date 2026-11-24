@@ -20,6 +20,8 @@ import { Sources } from "./Sources";
 import { IssueWeekSheet } from "./IssueWeek";
 import { pickIssue, usePickedIssue } from "../../data/forecastPick";
 import { historyCache, useForecastHistory } from "../../data/historyCache";
+import { shownChanges } from "../../../shared/forecastChanges";
+import { ChangeList } from "./ChangeList";
 import "./forecastHistory.css";
 
 /** 今の日本時間（発表の時刻と同じ書き方、"2026-11-17T23:40:00+09:00"）。 */
@@ -53,6 +55,8 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
   // 回は「今」までの分を並べる（最後に記録のある発表まで、ではない）：記録の無い回も「記録なし」として出す（R5-1）。
   const all = useMemo(() => (res && "r" in res && res.r.supported ? new Model(res.r).slots(date, jstNow()) : []), [res, date]);
   const slots = useMemo(() => oneSource(all), [all]);
+  // この日の予報の変化（2026-11-24）：同じ種類の発表どうしで、雨の有無・降水確率・最高と最低（shared/forecastChanges.ts）。
+  const changes = useMemo(() => shownChanges(all), [all]);
 
   // 実績：その日と前の日（朝 0〜9時の最低の 0時の値）。
   const dayView = store?.getDay(station, date);
@@ -85,6 +89,7 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
 
   return (
     <div className="fh">
+      <ChangeList changes={changes} onPick={setSel} />
       {focusSlot && (
         <SplitHeader s={focusSlot} slots={slots} day={date} a={a} aPrev={aPrev} dayIcon={dayRow && dayRow.type !== "forecast" ? <DayWeatherIcon row={dayRow} station={station} size={32} /> : null} />
       )}

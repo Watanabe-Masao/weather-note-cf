@@ -17,7 +17,7 @@ import { SECTORS, windSummary } from "../../shared/windDirection";
 import { nowValues, summaryLines } from "../daySummaryLines";
 import type { WeatherRow } from "../../shared/types";
 import type { FeelSettings } from "../../shared/feel";
-import { Fragment, type ReactNode, useContext, useMemo, useState } from "react";
+import { Fragment, type ReactNode, useContext, useMemo, useRef, useState } from "react";
 import { clockOf, dayEdges, dayParts, hoursIn } from "../../shared/dayParts";
 import { hoursWeather } from "../../shared/dayWeather";
 import { provisionalNote } from "../../shared/provisionalNote";
@@ -43,6 +43,9 @@ import { RainNowBoard } from "./rainNow/RainNowBoard";
 import { RainNowCard } from "./rainNow/RainNowCard";
 import { ForecastHistoryPanel } from "./forecastHistory/ForecastHistory";
 import { RainWindHistory } from "./forecastHistory/RainWindHistory";
+import { useForecastHistory } from "../data/historyCache";
+import { headlineChange, shownChanges } from "../../shared/forecastChanges";
+import { ForecastHistory as HistoryModel } from "../../shared/forecastHistoryModel";
 import { TodaySplit } from "./TodaySplit";
 
 interface Props {
@@ -141,6 +144,14 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
     past: date < today,
   });
   const latest = date === today ? (store?.getLatest(station) ?? null) : null;
+  // 予報の変化のいちばん大事な1つ（まとめの見出しの下、2026-11-24 見本の①）。押すと根拠と記録の「この日の予報の変化」へ。
+  const history = useForecastHistory(station, date, group === "summary");
+  const headline = useMemo(() => {
+    if (!history.r?.supported) return null;
+    const now = `${new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
+    return headlineChange(shownChanges(new HistoryModel(history.r).slots(date, now)));
+  }, [history.r, date]);
+  const basisRef = useRef<HTMLDivElement>(null);
 
   if (group === "summary")
     return (
@@ -192,6 +203,24 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
           </div>
         )}
 
+        {headline && (
+          <Button
+            kind="quiet"
+            className={`dd-change ${headline.kind}`}
+            onClick={() => {
+              setBasisOpen(true);
+              requestAnimationFrame(() => basisRef.current?.scrollIntoView({ block: "start", behavior: "smooth" }));
+            }}
+          >
+            <span>
+              {headline.when}
+              <b>{headline.what}</b>
+            </span>
+            <small>{headline.detail}</small>
+            <Glyph name="next" />
+          </Button>
+        )}
+
         {/* 仲間ごとに1行。押すとその仲間の画面へ。今日の雨の行には雨雲レーダー。 */}
         <div className="dd-sum" role="list" aria-label="項目ごとのまとめ">
           {lines.map((l) => (
@@ -212,7 +241,7 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
         {rainOpen && <RainNowBoard station={station} onClose={() => setRainOpen(false)} />}
 
         {/* まとめの根拠と記録：天気図・予報の移り変わり・その日の要約（2026-11-24 渡辺さん、項目ごとに見直し）。 */}
-        <div className="dd-sec dd-basis-sec">
+        <div className="dd-sec dd-basis-sec" ref={basisRef}>
           <Fold open={basisOpen} onToggle={() => setBasisOpen(!basisOpen)} openLabel="根拠と記録（予報の移り変わり・天気図・その日の要約）" closeLabel="根拠と記録を閉じる">
             <h4 className="dd-sub">この日の予報の移り変わり</h4>
             <ForecastHistoryPanel store={store} station={station} date={date} chart={(issued) => <WxChart date={date} today={today} issued={issued} />} />
