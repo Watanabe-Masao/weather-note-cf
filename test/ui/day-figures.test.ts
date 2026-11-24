@@ -70,6 +70,13 @@ describe("3. 今日の「このあと」は日の値にそろう", () => {
     expect(restWord(w)).toContain("最高はこのあと 16℃ の見込み");
     expect(restWord(w)).not.toContain("15.5");
   });
+  it("夜の冷え込みは明日の朝の最低（表の明日と同じ書き方）で言う。雨・風の仲間は雨のことだけ（2026-11-24 渡辺さん C）", () => {
+    const w = withDay(s, dayHighLow(jma));
+    expect(restWord(w, "temp", "5")).toBe("最高はこのあと 16℃ の見込み。明日の朝は 5℃ まで下がりそう。");
+    expect(restWord(w, "temp", null)).not.toMatch(/下がりそう|9\.2/);
+    expect(restWord(w, "rainwind", "5")).toMatch(/^このあと雨 .*mm の予報。$|^$/);
+    expect(restWord(w, "rainwind", "5")).not.toContain("最高");
+  });
   it("もう過ぎていれば時間の値のまま（観測は事実）", () => {
     const w = withDay(s, { max: 11, min: 11.05 });
     expect(w.fc.max).toEqual(s.fc.max);
@@ -86,7 +93,8 @@ describe("4. 日の値を出す画面は、みな同じ関数を通る", () => {
   // 表・1日の見出しと札・比較のまとめ・日のまとめ・今日の「ここまで／このあと」。
   const USERS: Record<string, RegExp[]> = {
     "CompareBoard.tsx": [/dayText\(/],
-    "DayDetail.tsx": [/dayHighLow\(row\)/, /dayFigure\(row, "max"/, /dayFigure\(row, "min"/, /dayText\(row, x\.key/, /dayText\(row, s\.key/],
+    // 1日の画面は日の数字を出さない（表だけ、2026-11-24）。今日の「このあと」と明日の朝の最低だけ、同じ関数から。
+    "DayDetail.tsx": [/dayHighLow\(row\)/, /dayFigure\(nextRow, "min"/],
     "CompareSummary.tsx": [/dayFigure\(/],
     "DaySummaryCard.tsx": [/dayText\(/],
     "TodaySplit.tsx": [/withDay\(raw, day\)/],
@@ -95,6 +103,9 @@ describe("4. 日の値を出す画面は、みな同じ関数を通る", () => {
     it(f, () => {
       for (const re of res) expect(src(f)).toMatch(re);
     });
+  it("1日の画面は日の数字を表と別に並べない（見出しの最高・最低、項目の札8つは無い、2026-11-24）", () => {
+    expect(src("DayDetail.tsx")).not.toMatch(/dd-temps|dd-pick|dd-value/);
+  });
   it("1日の見出しは時間ごとから計算し直さない（splitToday を使わない）", () => {
     expect(src("DayDetail.tsx")).not.toMatch(/splitToday/);
   });

@@ -1232,23 +1232,32 @@ with sync_playwright() as p:
         pg.locator(".app-head .seg button", has_text="1日").click(); calm()
         check("SD1 1日：比較の表と下のシートが消え、1日の画面が出る", pg.locator(".side-compare").count() == 0 and pg.locator(".day-detail").count() == 1 and pg.locator("aside.sheet").count() == 0)
         settle(lambda: pg.locator(".dd-part").count() == 5)
-        # 同じ日の同じ値は、どこに出しても同じ数字（2026-11-24 渡辺さん「揃えてください」「テストで仕様として固める」）：
-        # 表の今日の列・見出し・気温の札・「このあと」（日の最高・最低がまだ来ていないとき）。
-        settle(lambda: pg.locator(".dd-temps").count() == 1 and "—" not in txt(".dd-temps"), 10)
-        same = pg.evaluate("""() => {
-          const t = (root, sel) => ((root && root.querySelector(sel)) || {}).textContent?.trim() ?? null;
-          const col = document.querySelector('.side-target .strip-col.is-center');
-          const temp = [...document.querySelectorAll('.dd-value')].find(e => (e.querySelector('.dd-value-name') || {}).textContent?.startsWith('気温'));
-          const lines = temp ? [...temp.querySelectorAll('.dd-value-line > span')].map(e => e.textContent.trim()) : [];
-          return { table: [t(col, '.cell-value.tone-hot'), t(col, '.cell-value.tone-cold')],
-                   hero: [t(document, '.dd-temps .tone-hot'), t(document, '.dd-temps .tone-cold')], tile: lines.slice(0, 2) };
-        }""")
-        check("SD1b 今日の最高・最低：表・見出し・気温の札が同じ数字", same["table"][0] and same["hero"] == same["table"] and same["tile"] == same["table"], str(same))
+        # 数字は上の表だけ（2026-11-24 渡辺さん「1日画面の情報量」「他の画面と被っている」）：見出しに最高・最低を出さず、
+        # 項目の札8つもやめた（項目は下の帯で選ぶ）。今日の「このあと」と言葉は表と同じ値から（test/ui/day-figures.test.ts）。
+        settle(lambda: pg.locator(".dd-hero .dd-kind").count() == 1, 10)
+        check("SD1b 1日：数字は表だけ（見出しに最高・最低なし、項目の札なし）、グラフは1本", pg.locator(".dd-temps").count() == 0 and pg.locator(".dd-value").count() == 0 and pg.locator(".ts-curve").count() == 0 and pg.locator(".day-detail .hour-face").count() == 1)
         check("SD2 時間帯は5つ", pg.locator(".dd-part").count() == 5, pg.locator(".dd-part").count())
         pg.locator(".dd-part").nth(2).click(); calm()
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
-        # 項目の選び（値つき）は 24時間の見出しのすぐ下（2026-11-18）。肌感は見出しの下の1行で、押すと肌感マップ。
-        check("SD4 グラフの項目：8つが24時間のグラフのすぐ上、肌感は上の1行", pg.locator(".hour-face .dd-pick .dd-value").count() == 8 and pg.locator(".dd-feel-line").count() == 1, pg.locator(".dd-value").count())
+        # 下は帯で選んだ仲間のものだけ（2026-11-24）。気温：グラフ・時間帯の気温・肌感の1行（押すと肌感マップ）。
+        check("SD4 気温の仲間：時間帯の気温・肌感の1行、日の出の行は無い", pg.get_attribute(".day-detail", "data-group") == "temp" and "°" in txt(".dd-part") and pg.locator(".dd-feel-line").count() == 1 and pg.locator(".dd-sun").count() == 0)
+        group = lambda first: pg.locator(f".item-bar .ib-cat[data-items^='{first}']").click() if pg.locator(f".item-bar .ib-cat[data-items^='{first}']").count() else None
+        seen = {}
+        for first, name in (("rain", "雨・風"), ("radiation", "空・光"), ("humidity", "大気")):
+            group(first); calm()
+            if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day-{first}.png")
+            seen[name] = (pg.get_attribute(".day-detail", "data-group"), pg.locator(".dd-part").count(), "%" in (txt(".dd-parts") if pg.locator(".dd-parts").count() else ""),
+                          pg.locator(".dd-sun").count(), pg.locator(".dd-feel-line").count(), pg.locator(".day-detail .hour-face").count())
+        group("temp"); calm()
+        check("SD4m 仲間ごと：雨・風は時間帯の降水確率、空・光は日の出の行、大気はグラフだけ（肌感は気温だけ）",
+              seen["雨・風"][0] == "rainwind" and seen["雨・風"][1] == 5 and seen["雨・風"][2] and seen["雨・風"][4] == 0
+              and seen["空・光"][0] == "sky" and seen["空・光"][3] == 1 and seen["空・光"][1] == 0
+              and seen["大気"][0] == "air" and seen["大気"][1] == 0 and seen["大気"][3] == 0 and seen["大気"][5] == 1, str(seen))
+        # 根拠と記録はふだん畳んである（2026-11-24）。押すと開く。
+        fbb = pg.locator(".dd-basis-sec > .fold > .fold-btn")
+        closed = fbb.count() == 1 and fbb.get_attribute("aria-expanded") == "false"
+        fbb.click(); calm()
+        check("SD4n 根拠と記録：ふだん畳まれていて、押すと開く", closed and fbb.get_attribute("aria-expanded") == "true")
         if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day.png"); pg.locator(".day-detail .dd-sec").last.screenshot(path=f"{shots}-basis.png")
         lr = pg.locator(".day-detail .legend-row")
         if lr.count():
@@ -1330,15 +1339,18 @@ with sync_playwright() as p:
         src.locator(".info-btn").click(); calm()
         st = small_text(); check("SD4c 11px より小さい文字がない（1日モード・天気図）", not st, str(st))
         rotate_ok("SD4r", "1日モード")
-        # 項目を切り替えても、項目の選び（とその上）は動かない（2026-11-18 渡辺さん「切り替えで画面がぶれるのが嫌い」）。
-        tops = []
-        for i in range(pg.locator(".dd-pick .dd-value").count()):
-            pg.locator(".dd-pick .dd-value").nth(i).click(); calm()
-            tops.append(pg.evaluate("Math.round(document.querySelector('.dd-pick').getBoundingClientRect().top - document.querySelector('.day-detail').getBoundingClientRect().top)"))
-            tops.append(pg.evaluate("Math.round(document.querySelector('.hour-face .readout-card').getBoundingClientRect().top - document.querySelector('.day-detail').getBoundingClientRect().top)"))
-        pick_tops, ro_tops = tops[0::2], tops[1::2]
-        check("SD4j 項目を切り替えても項目の選びと読み取りの枠の位置は変わらない", max(pick_tops) - min(pick_tops) <= 1 and max(ro_tops) - min(ro_tops) <= 1, (pick_tops, ro_tops))
-        pg.locator(".dd-pick .dd-value").first.click(); calm()
+        # 仲間の中で項目を切り替えても、グラフの読み取りの枠は動かない（2026-11-18 渡辺さん「切り替えで画面がぶれるのが嫌い」）。
+        ro_tops = []
+        for first in ("rain", "humidity"):
+            group(first); calm()
+            items = pg.locator(".item-bar .ib-open .chip.item")
+            tops = []
+            for i in range(items.count()):
+                items.nth(i).click(); calm()
+                tops.append(pg.evaluate("Math.round(document.querySelector('.day-detail .hour-face .readout-card').getBoundingClientRect().top - document.querySelector('.day-detail').getBoundingClientRect().top)"))
+            ro_tops.append(tops)
+        group("temp"); calm()
+        check("SD4j 仲間の中で項目を切り替えても、読み取りの枠の位置は変わらない", all(len(t) >= 2 and max(t) - min(t) <= 1 for t in ro_tops), ro_tops)
         # 開いて閉じたら、開く前の位置に戻る（2026-11-18 渡辺さん「戻るときは戻る前の位置が基本」）：1日モードの下の方から開く物。
         back = []
         for name, opener in (("その日の要約", lambda: pg.locator(".dd-links .chip", has_text="その日の要約").first), ("肌感マップ", lambda: pg.locator(".dd-feel-line").first)):
@@ -1351,8 +1363,8 @@ with sync_playwright() as p:
             pg.keyboard.press("Escape"); calm()
             back.append((name, y0, pg.evaluate("scrollY")))
         check("SD4k 1日モードから開いた物を閉じると、開く前の位置に戻る", back and all(abs(a - b) < 4 for _, a, b in back), back)
-        pg.locator(".dd-value", has_text="降水").first.click(); calm()
-        check("SD5 値を押すとその項目に（上のタブも）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
+        group("rain"); calm()
+        check("SD5 帯で雨・風を押すと降水に（項目を選ぶのは帯だけ）", pg.locator('.metrics [aria-selected="true"]').inner_text().strip() == "降水")
         if shots: pg.screenshot(path=f"{shots}-single.png", full_page=True)
         # 暫定の説明 (2026-11-18)：昨日（暫定）にすると、出どころ・待っているもの・確定の見込みが出る。予報の今日には出ない。
         # 出どころは ⓘ で開く（2026-11-18）：予報の日は ⓘ だけ、開くと出どころ（信頼度の意味まで）。暫定の説明は出ない。
@@ -1382,6 +1394,10 @@ with sync_playwright() as p:
         shots = os.environ.get("WN_SHOT")
         # 雨の見込みは今日の 1日モードにある（2026-11-18）：札の言葉と「直近の雨雲レーダー」。過去の日には出ない。
         pg.locator(".app-head .seg button", has_text="1日").click(); calm()
+        # 雨の見込みは雨・風の仲間に（2026-11-24）。気温の仲間には出ない。
+        no_rain_in_temp = pg.locator(".rn-card").count() == 0
+        pg.locator(".item-bar .ib-cat[data-items^='rain']").click(); calm()
+        check("RN0a 雨の見込みは雨・風の仲間だけ（気温の仲間には出ない）", no_rain_in_temp)
         settle(lambda: pg.locator(".rn-card .rn-say-item").count() == 2 and "読み込み中" not in txt(".rn-card"), 15)
         check("RN0 今日の 1日モードに雨の見込み（1時間・15時間の2枚と「直近の雨雲レーダー」）", pg.locator(".rn-card .rn-say-item").count() == 2 and pg.locator(".rn-card button", has_text="直近の雨雲レーダー").count() == 1, txt(".rn-card")[:120])
         if shots: pg.screenshot(path=f"{shots}-rain-card.png", clip={**pg.locator(".day-detail").bounding_box(), "height": 520})
@@ -1414,6 +1430,7 @@ with sync_playwright() as p:
         check("RN9 取れ方（確認用）：一覧3つとこまの数", pg.locator(".rn-diag tbody tr").count() == 3 and "こまのうち" in txt(".rn-diag-body"), txt(".rn-diag-body")[:200])
         if shots: pg.screenshot(path=f"{shots}-rain-hourly.png", full_page=True)
         esc()
+        pg.locator(".item-bar .ib-cat[data-items^='temp']").click(); calm()
         pg.locator(".app-head .seg button", has_text="比較").click(); calm()
     step("RN", rn)
 

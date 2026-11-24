@@ -31,7 +31,7 @@ const ALLOWED: Record<string, number> = {
   "ui/DateNav.tsx": 3,
   // カレンダー：…、年の概要・月の概要の1行（文字のリンク、点線の下線。11/22）。
   "ui/CalendarModal.tsx": 5,
-  "ui/DayDetail.tsx": 5,
+  "ui/DayDetail.tsx": 4,
   // 月のこよみ：カレンダーの日のマス（マスそのものを押す、カレンダーと同じ）。
   "ui/MoonSheet.tsx": 1,
   // 満月の呼び名：一覧の行（行そのものを押して開く、予報の一覧の行と同じ）。

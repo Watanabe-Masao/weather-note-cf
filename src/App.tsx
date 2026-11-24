@@ -460,7 +460,6 @@ export function App(_: { theme?: string } = {}) {
               date={view.target}
               today={today}
               metric={view.metric}
-              onMetric={(id) => set("metric", id)}
               onOpenFeel={() => setFeelMap(true)}
               onToggleSun={() => set("sun", !view.sun)}
             />
