@@ -1374,6 +1374,19 @@ with sync_playwright() as p:
             ch.scroll_into_view_if_needed(); ch.click(); calm()
             hour = re.search(r"(\d+)時", when)
             check("SD4q 変化の行を押すと、その発表が上の枠に", bool(hour) and f"{hour.group(1)}時" in txt(".fh-split"), (when, txt(".fh-split")[:60]))
+        # 時点に印（2026-11-24）：「前日 14時」で、その時刻までのいちばん新しい発表（前日11時）に印、後の発表は薄く。「やめる」で戻る。
+        pg.locator(".fh-point .chip", has_text="前日 14時").first.scroll_into_view_if_needed()
+        pg.locator(".fh-point .chip", has_text="前日 14時").first.click(); calm()
+        pt = pg.evaluate("""() => ({ say: (document.querySelector('.fh-point-say') || {}).textContent || '', point: [...document.querySelectorAll('.fh-drow.point .fh-drow-t b')].map(e => e.textContent),
+          after: document.querySelectorAll('.fh-drow.after').length, split: (document.querySelector('.fh-split') || {}).textContent || '' })""")
+        if shots:
+            pg.evaluate("document.querySelector('.item-bar').style.visibility='hidden'")
+            pg.locator(".fh-point").scroll_into_view_if_needed(); time.sleep(0.6); pg.screenshot(path=f"{shots}-point.png")
+            pg.evaluate("document.querySelector('.item-bar').style.visibility=''")
+        pg.locator(".fh-point .chip", has_text="やめる").click(); calm()
+        check("SD4s 時点に印：前日14時の時点の最新は前日11時の発表（印1つ・後の発表は薄く・上の枠もその発表）、やめると印は消える",
+              "前日 14時の時点" in pt["say"] and "11時の発表" in pt["say"] and pt["point"] == ["11時"] and pt["after"] >= 1 and "11時" in pt["split"]
+              and pg.locator(".fh-drow.point, .fh-drow.after").count() == 0, str(pt)[:200])
         rotate_ok("SD4r", "1日モード")
         # 仲間の中で項目を切り替えても、グラフの読み取りの枠は動かない（2026-11-18 渡辺さん「切り替えで画面がぶれるのが嫌い」）。
         ro_tops = []

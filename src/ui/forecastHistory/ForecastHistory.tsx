@@ -22,6 +22,8 @@ import { pickIssue, usePickedIssue } from "../../data/forecastPick";
 import { historyCache, useForecastHistory } from "../../data/historyCache";
 import { shownChanges } from "../../../shared/forecastChanges";
 import { ChangeList } from "./ChangeList";
+import { PointPicker } from "./PointPicker";
+import { latestAt } from "../../../shared/forecastPoint";
 import "./forecastHistory.css";
 
 /** 今の日本時間（発表の時刻と同じ書き方、"2026-11-17T23:40:00+09:00"）。 */
@@ -57,6 +59,14 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
   const slots = useMemo(() => oneSource(all), [all]);
   // この日の予報の変化（2026-11-24）：同じ種類の発表どうしで、雨の有無・降水確率・最高と最低（shared/forecastChanges.ts）。
   const changes = useMemo(() => shownChanges(all), [all]);
+  // 時点に印（2026-11-24）：選んだ時刻までのいちばん新しい発表を選び（上の枠・グラフ・天気図もその発表に）、後の発表は薄く。
+  const [point, setPoint] = useState<string | null>(null);
+  const pointLatest = useMemo(() => (point ? latestAt(slots, point) : null), [point, slots]);
+  const onPoint = (iso: string | null) => {
+    setPoint(iso);
+    const l = iso ? latestAt(slots, iso) : null;
+    if (l) setSel(l.key);
+  };
 
   // 実績：その日と前の日（朝 0〜9時の最低の 0時の値）。
   const dayView = store?.getDay(station, date);
@@ -90,6 +100,7 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
   return (
     <div className="fh">
       <ChangeList changes={changes} onPick={setSel} />
+      <PointPicker day={date} point={point} latest={pointLatest} onPoint={onPoint} />
       {focusSlot && (
         <SplitHeader s={focusSlot} slots={slots} day={date} a={a} aPrev={aPrev} dayIcon={dayRow && dayRow.type !== "forecast" ? <DayWeatherIcon row={dayRow} station={station} size={32} /> : null} />
       )}
@@ -114,7 +125,7 @@ export function ForecastHistoryPanel({ store, station, date, chart }: { store: W
           変わった発表だけ
         </Chip>
       </div>
-      <DayRows slots={slots} all={all} day={date} selected={focusKey} onSelect={setSel} onOpen={setWeekKey} onlyChanged={onlyChanged} />
+      <DayRows slots={slots} all={all} day={date} selected={focusKey} onSelect={setSel} onOpen={setWeekKey} onlyChanged={onlyChanged} point={point ? { until: point, key: pointLatest?.key ?? null } : null} />
       {(() => {
         const w = slots.find((s) => s.key === weekKey);
         return w?.shown ? <IssueWeekSheet station={station} issue={w.shown} day={date} onClose={() => setWeekKey(null)} /> : null;

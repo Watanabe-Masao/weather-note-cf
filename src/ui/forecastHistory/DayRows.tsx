@@ -16,12 +16,15 @@ function Row({
   selected,
   onSelect,
   onOpen,
+  mark = null,
 }: {
   s: Slot;
   prev: Slot | null;
   selected: boolean;
   onSelect: (k: string) => void;
   onOpen?: (k: string) => void;
+  /** 時点に印：「この時点の最新」（point）か、その時点ではまだ出ていない（after）。 */
+  mark?: "point" | "after" | null;
 }) {
   const v = s.values;
   const ok = s.state === "ok" && !!v;
@@ -32,7 +35,7 @@ function Row({
   const pops = v?.pop6 ?? [];
   return (
     <button
-      className={`fh-drow${selected ? " on" : ""}${ok ? "" : " gap"}${compared && !ch.length ? " quiet" : ""}`}
+      className={`fh-drow${selected ? " on" : ""}${ok ? "" : " gap"}${compared && !ch.length ? " quiet" : ""}${mark ? ` ${mark}` : ""}`}
       onClick={() => {
         onSelect(s.key);
         // 発表のある行は、その発表の週間天気予報をシートで開く（11/19）
@@ -44,6 +47,7 @@ function Row({
       <span className="fh-drow-t">
         <b>{hourOf(s.at)}時</b>
         <span className={`fh-kchip ${s.kind}`}>{KIND_SHORT[s.kind]}</span>
+        {mark === "point" && <span className="fh-point-mark">この時点の最新</span>}
       </span>
       {ok ? (
         <>
@@ -140,6 +144,7 @@ export function DayRows({
   onOpen,
   onlyChanged = false,
   all,
+  point = null,
 }: {
   slots: Slot[];
   /** 比べる相手を探す元（1つの時刻に1つにする前の全部の回）。無ければ slots。 */
@@ -150,6 +155,8 @@ export function DayRows({
   /** 行を押したとき、その発表の週間天気予報を開く（11/19）。 */
   onOpen?: (k: string) => void;
   onlyChanged?: boolean;
+  /** 時点に印（2026-11-24）：until より後の発表は薄く、key の発表に「この時点の最新」。 */
+  point?: { until: string; key: string | null } | null;
 }) {
   // 前の同じ種類の発表（値のあるもの）。表に出ていない種類の回も比べる相手にはなる（model と同じ）。
   const pool = all ?? slots;
@@ -193,6 +200,7 @@ export function DayRows({
                 selected={selected === s.key}
                 onSelect={onSelect}
                 onOpen={onOpen}
+                mark={point ? (s.key === point.key ? "point" : Date.parse(s.at) > Date.parse(point.until) ? "after" : null) : null}
               />
             ))}
           </section>
