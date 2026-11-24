@@ -10,7 +10,7 @@
 // Nothing here is computed anew: the values, hours, parts and words are the ones the comparison
 // screens already use (chartMetrics, dayDetail, dayParts, dayComment).
 
-import { isJmaForecastDay, jmaValue, OM_BIAS_NOTE, rangeSource, SOURCE_TEXT, sourceTag, valueSource } from "../sourceTag";
+import { dayFigure, dayHighLow, dayText, isJmaForecastDay, jmaValue, OM_BIAS_NOTE, rangeSource, SOURCE_TEXT, sourceTag, valueSource } from "../sourceTag";
 import { JmaForecastLink, OpenMeteoCredit } from "./SourceCredit";
 import { SECTORS, windSummary } from "../../shared/windDirection";
 import { Fragment, type ReactNode, useContext, useMemo, useState } from "react";
@@ -37,7 +37,7 @@ import { WxChart } from "./WxChart";
 import { RainNowBoard } from "./rainNow/RainNowBoard";
 import { RainNowCard } from "./rainNow/RainNowCard";
 import { ForecastHistoryPanel } from "./forecastHistory/ForecastHistory";
-import { splitToday, TodaySplit } from "./TodaySplit";
+import { TodaySplit } from "./TodaySplit";
 
 interface Props {
   store: WeatherStore | null;
@@ -50,7 +50,6 @@ interface Props {
   onToggleSun: () => void;
 }
 
-const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
 export function DayDetail({ store, station, date, today, metric, onMetric, onOpenFeel, onToggleSun }: Props) {
   const feel = useContext(FeelContext);
@@ -63,10 +62,9 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
   const typhoon = ty === "none" || ty === "unknown" ? null : ty;
   const comment = useMemo(() => dayComment({ row, other: null, otherName: null, hours: rows, typhoon }), [row, rows, typhoon]);
   const conf = confidenceOfRow(row);
-  // 今日：過ぎた時間は観測、これからは予報。1日の最高・最低は両方を合わせた見込み（2026-11-22）。
-  const split = date === today ? splitToday(rows) : null;
-  const max = split?.max?.v ?? num(row?.max);
-  const min = split?.min?.v ?? num(row?.min);
+  // 今日：過ぎた時間は観測、これからは予報。「ここまで／このあと」は時間の値で分ける（TodaySplit）。
+  // 見出しの最高・最低は表と同じ日の行の値（2026-11-24 渡辺さん「揃えてください」：時間ごとから計算し直すと気象庁の値と食い違う）。
+  const { max, min } = dayHighLow(row);
   // 暫定の日：いまの値の出どころ・待っているもの・確定の見込み（shared/provisionalNote.ts）
   // ふだんは「暫定 ⓘ」だけ。ⓘ で開く（ほかの説明と同じ InfoNote の形、2026-11-18 渡辺さん）。
   const prov = day?.state === "ready" ? provisionalNote(row, date, today, day.kind === "fixed") : null;
@@ -117,7 +115,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
     if (!picked || !row) return "";
     const series = tableSeries(picked, row.type !== "forecast");
     const h = picked.needsHours ? rows : null;
-    const shown = series.map((s) => ({ s, text: formatValue(s.value(row, h, feel, station), s.unit ?? picked.unit) }));
+    const shown = series.map((s) => ({ s, text: dayText(row, s.key, formatValue(s.value(row, h, feel, station), s.unit ?? picked.unit)) }));
     const main = shown.filter((x) => !x.s.minor).slice(0, 2);
     const rest = shown
       .filter((x) => !main.includes(x) && x.text && x.text !== "—")
@@ -135,7 +133,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
           const main = series
             .filter((x) => !x.minor)
             .slice(0, 2)
-            .map((x) => ({ s: x, text: row ? formatValue(x.value(row, h, feel, station), x.unit ?? m.unit) : "" }));
+            .map((x) => ({ s: x, text: row ? dayText(row, x.key, formatValue(x.value(row, h, feel, station), x.unit ?? m.unit)) : "" }));
           return (
             <button
               key={m.id}
@@ -186,14 +184,14 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
       <div className="dd-hero">
         <span className="dd-pic">{row ? <DayWeatherIcon row={row} station={station} size={52} /> : <span className="skeleton icon" />}</span>
         <span className="dd-temps">
-          <span className="tone-hot">{max == null ? "—" : !split && jmaValue(row, "max") ? String(max) : max.toFixed(1)}</span>
+          <span className="tone-hot">{dayFigure(row, "max", max)}</span>
           <span className="dd-slash">/</span>
-          <span className="tone-cold">{min == null ? "—" : !split && jmaValue(row, "min") ? String(min) : min.toFixed(1)}</span>
+          <span className="tone-cold">{dayFigure(row, "min", min)}</span>
           <small>℃</small>
         </span>
         <span className="dd-kind">
-          {split ? "観測＋予報" : kindLabel(store, station, date)}
-          {conf && !split && <Conf value={conf} />}
+          {kindLabel(store, station, date)}
+          {conf && <Conf value={conf} />}
           {row && (
             <button className="info-btn" onClick={() => setProvOpen(!provOpen)} aria-expanded={provOpen} aria-label={provOpen ? "出どころの説明を閉じる" : "出どころの説明を開く"}>
               ⓘ
@@ -203,7 +201,7 @@ export function DayDetail({ store, station, date, today, metric, onMetric, onOpe
         {/* 肌感は見出しの右に（空いていた所、2026-11-18 渡辺さん）。押すと肌感マップ（グラフの項目ではないので、項目の選びからは外した）。 */}
         <FeelLine rows={rows} station={station} onOpen={onOpenFeel} />
       </div>
-      {date === today && <TodaySplit rows={rows} station={station} />}
+      {date === today && <TodaySplit rows={rows} station={station} day={{ max, min }} />}
       {comment.length > 0 && <p className="dd-say">{comment.join("")}</p>}
       {!prov && provOpen && row && (
         <div className="dd-prov plain">

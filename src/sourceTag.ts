@@ -102,6 +102,26 @@ export function jmaValue(row: WeatherRow | null | undefined, key: string): boole
 /** 気象庁の値の書き方：整数のまま（「20.0」を「20」に）。 */
 export const jmaText = (text: string) => text.replace(/\.0(?=\D*$)/, "");
 
+/**
+ * 日の値の書き方は、どの画面でも同じ（2026-11-24 渡辺さん「揃えてください」「テストで仕様として固める」）：
+ * 表・1日の見出し・項目の札・比較のまとめ・日のまとめは、同じ日の同じ項目なら同じ数字を出す。
+ * 気象庁の予報の値は整数のまま（「16.0」でなく「16」）、ほかは formatValue の桁。
+ */
+export const dayText = (row: WeatherRow | null | undefined, key: string, text: string) => (jmaValue(row, key) ? jmaText(text) : text);
+
+/** dayText の数から：v を digits 桁で書き、気象庁の値なら整数のまま。 */
+export const dayFigure = (row: WeatherRow | null | undefined, key: string, v: number | null | undefined, digits = 1) =>
+  v == null || !Number.isFinite(v) ? "—" : dayText(row, key, v.toFixed(digits));
+
+/**
+ * その日の最高・最低（日の行の値。どの画面もここから：2026-11-24）。今日も同じで、1時間ごとの観測と予報から
+ * 計算し直さない（そうすると表の気象庁の値と食い違う）。時間ごとの線と「ここまで／このあと」は時間の値のまま。
+ */
+export function dayHighLow(row: WeatherRow | null | undefined): { max: number | null; min: number | null } {
+  const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+  return { max: n(row?.max), min: n(row?.min) };
+}
+
 /** 寒暖差の出典：最高・最低が両方気象庁なら「気象庁の値から Weather Note が計算」。 */
 export function rangeSource(row: WeatherRow | null | undefined): string | null {
   const s = sourcesOf(row);

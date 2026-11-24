@@ -11,7 +11,7 @@ import { dayTone, weekdayOf } from "../../shared/holidays";
 import { diffDays, matchDate, needsRewindow, stripWindow } from "../compare";
 import type { WeatherStore } from "../data/store";
 import { tableSeries } from "../chartMetrics";
-import { jmaText, jmaValue, OM_BIAS_NOTE, omValue, SOURCE_TAGS, SOURCE_TEXT, sourceTag } from "../sourceTag";
+import { dayText, OM_BIAS_NOTE, omValue, SOURCE_TAGS, SOURCE_TEXT, sourceTag } from "../sourceTag";
 import { formatValue, type Metric } from "../metrics";
 import type { ViewState } from "../state";
 import type { CalendarSide } from "./CalendarModal";
@@ -149,7 +149,7 @@ function Column({
             ? formatValue(s.value(day?.row, metric.needsHours ? (store?.getHours(station, date).rows ?? null) : null, feel, station), s.unit ?? metric.unit)
             : "";
         // 気象庁の予報の値は整数のまま（小数を付けると、無い桁を言うことになる）。
-        const text = jmaValue(day?.row, s.key) ? jmaText(raw) : raw;
+        const text = dayText(day?.row, s.key, raw);
         return (
         <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}${longValue(text) ? " long" : ""}${state === "ready" && omValue(day?.row, s.key) ? " om" : ""}`}>
           {state === "ready" ? (

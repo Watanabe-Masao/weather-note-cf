@@ -1232,6 +1232,18 @@ with sync_playwright() as p:
         pg.locator(".app-head .seg button", has_text="1日").click(); calm()
         check("SD1 1日：比較の表と下のシートが消え、1日の画面が出る", pg.locator(".side-compare").count() == 0 and pg.locator(".day-detail").count() == 1 and pg.locator("aside.sheet").count() == 0)
         settle(lambda: pg.locator(".dd-part").count() == 5)
+        # 同じ日の同じ値は、どこに出しても同じ数字（2026-11-24 渡辺さん「揃えてください」「テストで仕様として固める」）：
+        # 表の今日の列・見出し・気温の札・「このあと」（日の最高・最低がまだ来ていないとき）。
+        settle(lambda: pg.locator(".dd-temps").count() == 1 and "—" not in txt(".dd-temps"), 10)
+        same = pg.evaluate("""() => {
+          const t = (root, sel) => ((root && root.querySelector(sel)) || {}).textContent?.trim() ?? null;
+          const col = document.querySelector('.side-target .strip-col.is-center');
+          const temp = [...document.querySelectorAll('.dd-value')].find(e => (e.querySelector('.dd-value-name') || {}).textContent?.startsWith('気温'));
+          const lines = temp ? [...temp.querySelectorAll('.dd-value-line > span')].map(e => e.textContent.trim()) : [];
+          return { table: [t(col, '.cell-value.tone-hot'), t(col, '.cell-value.tone-cold')],
+                   hero: [t(document, '.dd-temps .tone-hot'), t(document, '.dd-temps .tone-cold')], tile: lines.slice(0, 2) };
+        }""")
+        check("SD1b 今日の最高・最低：表・見出し・気温の札が同じ数字", same["table"][0] and same["hero"] == same["table"] and same["tile"] == same["table"], str(same))
         check("SD2 時間帯は5つ", pg.locator(".dd-part").count() == 5, pg.locator(".dd-part").count())
         pg.locator(".dd-part").nth(2).click(); calm()
         check("SD3 時間帯を押すと1時間ごと", pg.locator(".dd-hours tbody tr").count() >= 1, pg.locator(".dd-hours tbody tr").count())
@@ -1835,6 +1847,15 @@ with sync_playwright() as p:
           const sun = cs ? [...cs.querySelectorAll('.cs-sun .cs-val')].map(e => e.getClientRects().length === 1 && e.scrollWidth <= e.clientWidth + 1 && Math.round(e.getBoundingClientRect().height) < 26) : [];
           return { col, a, b, units, sun, straight };
         }""")
+        # 同じ日の同じ値は、どこに出しても同じ数字（2026-11-24 渡辺さん「揃えてください」「テストで仕様として固める」）。
+        same = pg.evaluate("""() => {
+          const t = (root, sel) => ((root && root.querySelector(sel)) || {}).textContent?.trim() ?? null;
+          const col = document.querySelector('.side-target .strip-col.is-center');
+          const rows = [...document.querySelectorAll('.compare-summary .cs-row:not(.cs-sun)')];
+          return { table: [t(col, '.cell-value.tone-hot'), t(col, '.cell-value.tone-cold')], cs: rows.slice(0, 2).map(r => t(r, '.cs-a .cs-num')) };
+        }""")
+        if same["cs"] and all(same["cs"]):
+            check("GR6 比較のまとめの最高・最低は、表の同じ日と同じ数字（気象庁の値は整数のまま）", same["cs"] == same["table"], str(same))
         check("GR1 表の列で小数点が縦にそろう（右そろえ）", len(r["col"]) >= 3 and max(r["col"]) - min(r["col"]) <= 1, str(r["col"]))
         if r["a"]:
             check("GR2 比較の要約の両側で小数点が縦にそろう", max(r["a"]) - min(r["a"]) <= 1 and max(r["b"]) - min(r["b"]) <= 1, f'{r["a"]} {r["b"]}')
