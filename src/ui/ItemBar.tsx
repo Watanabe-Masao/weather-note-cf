@@ -13,11 +13,36 @@ export const ITEM_GROUPS: { id: string; label: string; items: string[] }[] = [
   { id: "air", label: "大気", items: ["humidity", "visibility", "pressure"] },
 ];
 
-export function ItemBar({ metric, onPick, barRef }: { metric: string; onPick: (id: string) => void; barRef: Ref<HTMLElement> }) {
+export function ItemBar({
+  metric,
+  onPick,
+  barRef,
+  summary,
+}: {
+  metric: string;
+  onPick: (id: string) => void;
+  barRef: Ref<HTMLElement>;
+  /** 1日だけ：先頭の「まとめ」（2026-11-24 渡辺さん）。on のあいだは、どの仲間も開かない。 */
+  summary?: { on: boolean; onPick: () => void };
+}) {
   const label = (id: string) => METRICS.find((m) => m.id === id)?.label ?? id;
-  const active = ITEM_GROUPS.find((g) => g.items.includes(metric)) ?? ITEM_GROUPS[0];
+  const active = summary?.on ? null : (ITEM_GROUPS.find((g) => g.items.includes(metric)) ?? ITEM_GROUPS[0]);
   return (
     <nav className="metrics item-bar" aria-label="グラフの項目" ref={barRef}>
+      {summary &&
+        (summary.on ? (
+          <div className="ib-open" role="tablist" aria-label="まとめ">
+            <button role="tab" aria-selected data-item="summary" className="chip item on" onClick={summary.onPick}>
+              <ItemIcon id="summary" />
+              <span>まとめ</span>
+            </button>
+          </div>
+        ) : (
+          <button className="ib-cat ib-sum" data-items="summary" aria-label="まとめ（その日の項目を1行ずつ）" onClick={summary.onPick}>
+            <ItemIcon id="summary" />
+            <span>まとめ</span>
+          </button>
+        ))}
       {ITEM_GROUPS.map((g) =>
         g === active ? (
           <div key={g.id} className={g.items.length > 1 ? "ib-open multi" : "ib-open"} role="tablist" aria-label={g.label}>

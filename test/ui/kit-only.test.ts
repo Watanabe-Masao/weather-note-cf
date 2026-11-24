@@ -48,7 +48,8 @@ const ALLOWED: Record<string, number> = {
   "ui/BandMap.tsx": 2,
   "App.tsx": 3,
   // 項目の帯：仲間の名前と項目のタブ（絵の下に名前の縦組み、role="tab"。Chip の横組み・aria-pressed とは別の部品。11/22）。
-  "ui/ItemBar.tsx": 2,
+  // 1日の「まとめ」（帯の先頭、開いた形と閉じた形、2026-11-24）：仲間の札と同じ作り。
+  "ui/ItemBar.tsx": 4,
   // 年の概要：目立った日の日付（押すとその月の概要。表の頭の日付と同じ点線のリンク、11/22）。
   "ui/YearReview.tsx": 1,
   "account/AdminSheet.tsx": 12,

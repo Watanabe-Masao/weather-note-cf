@@ -77,6 +77,8 @@ export const CloseIcon = () => (
 /** Each item's picture beside its sheet title (気温の日別 …), in the quiet ink: colour stays with the data. */
 const ITEM: Record<string, string> = {
   temp: "M14 4v10.54a4 4 0 1 1-4 0V4a2 2 0 0 1 4 0Z",
+  // まとめ（1日の帯の先頭）：行の並び
+  summary: "M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01",
   rain: "M12 13v7a2 2 0 0 0 4 0M12 2v2M20.992 13a1 1 0 0 0 .97-1.274 10.284 10.284 0 0 0-19.923 0A1 1 0 0 0 3 13z",
   radiation: "M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0zM12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41",
   light: "M5 22h14M5 2h14M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2",

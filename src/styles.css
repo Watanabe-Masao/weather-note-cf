@@ -5567,6 +5567,21 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .dd-kind { color: var(--ink-secondary); font-size: var(--size-sm); display: inline-flex; gap: var(--space-2); align-items: center; }
 .dd-say { margin: 0; color: var(--ink-primary); font-size: var(--size-base); line-height: 1.6; }
 .dd-note { margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.5; }
+/* 1日のまとめ（2026-11-24）：仲間ごとに1行。押すとその仲間の画面。今日の雨の行には雨雲レーダー。 */
+.dd-sum { display: grid; margin-top: var(--space-2); border-radius: var(--radius-lg); background: var(--surface-inset); padding: 0 var(--space-2); }
+.dd-sum-row { display: flex; align-items: center; gap: var(--space-2); border-top: var(--stroke-hair) solid var(--line-soft); }
+.dd-sum-row:first-child { border-top: none; }
+.dd-sum-line.btn { flex: 1 1 auto; min-width: 0; min-height: var(--tap-min); display: grid; grid-template-columns: 4em minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-2); text-align: left; border: none; background: transparent; color: var(--ink-primary); font-weight: var(--weight-regular); justify-content: stretch; }
+.dd-sum-label { font-size: var(--size-xs); color: var(--ink-tertiary); white-space: nowrap; }
+.dd-sum-text { font-size: var(--size-sm); line-height: 1.5; white-space: normal; }
+/* いまの値（今日、その仲間の項目だけ） */
+.dd-now { padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--surface-inset); }
+.dd-now-head { margin: 0 0 var(--space-1); font-size: var(--size-sm); color: var(--ink-secondary); font-weight: var(--weight-bold); }
+.dd-now-head small { margin-left: var(--space-2); font-weight: var(--weight-regular); color: var(--ink-tertiary); font-size: var(--size-xs); }
+.dd-now-vals { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); }
+.dd-now-val { display: inline-flex; align-items: baseline; gap: var(--space-1); }
+.dd-now-val small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.dd-now-val b { font-size: var(--size-xl); font-variant-numeric: tabular-nums; }
 /* 暫定の説明（shared/provisionalNote.ts）：暫定の色は枠線だけ（Badge と同じ） */
 .dd-prov { display: grid; gap: var(--space-1); padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); box-shadow: inset 0 0 0 var(--stroke-hair) var(--status-provisional); font-size: var(--size-sm); color: var(--ink-secondary); }
 .dd-prov.plain { box-shadow: inset 0 0 0 var(--stroke-hair) var(--line-strong); }
