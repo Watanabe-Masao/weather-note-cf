@@ -1853,6 +1853,12 @@ with sync_playwright() as p:
         pg.evaluate("window.scrollTo(0, 0)")
         # The day's hours: its sheet opens with the comparison summary at the top.
         pg.locator(".side-target .strip-col.is-center .cell-stack").first.dispatch_event("click"); calm()  # under the sheet, perhaps
+        if os.environ.get("WN_SHOT"):
+            settle(lambda: pg.locator(".compare-summary").count() == 1, 10)
+            for first in ("temp", "rain", "radiation", "humidity"):
+                if pg.locator(f".item-bar .ib-cat[data-items^='{first}']").count(): pg.locator(f".item-bar .ib-cat[data-items^='{first}']").click(); calm()
+                pg.screenshot(path=f"{os.environ['WN_SHOT']}-hours-{first}.png", full_page=True)
+            pg.locator(".item-bar .ib-cat[data-items^='temp']").click(); calm()
         r = pg.evaluate("""() => {
           const right = (e) => Math.round(e.getBoundingClientRect().right);
           const col = [...document.querySelectorAll('.side-target .strip-col.is-center .cell-value')].filter(e => /\\d/.test(e.textContent)).map(right);
