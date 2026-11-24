@@ -40,6 +40,13 @@ export interface SummaryInput {
    * 降り始めを先に読めるように（2026-11-24 渡辺さん）。今日でなければ null。
    */
   now?: { temp: number | null; rain: number | null; at: string | null } | null;
+  /**
+   * 今日か（今日の雨の行を使う）。今の観測がまだ無くても今日は今日（2026-11-24 渡辺さんの共有したレビュー：観測だけ
+   * 取れていないと、1日の分の言い方になっていた）。
+   */
+  today?: boolean;
+  /** 今日だけ：今の時（0〜23、日本時間）。「このあと」の時間を決める。 */
+  hourNow?: number;
   /** 1時間ごとの値の様子：読み込み中・そろった・取れなかった・無い（雨なしと言ってよいかの判断に使う）。 */
   hoursState?: "loading" | "ready" | "error" | "none";
 }
@@ -61,7 +68,7 @@ const DAY_HOURS = 24;
  * docs/thread-rules.md「ゼロ・該当なし・変化なしは…確認できた場合に」）。読み込み中・取れなかった・一部だけは、そう言う。
  */
 function rainLine(x: SummaryInput): string {
-  if (x.now) return todayRainLine(x);
+  if (x.today) return todayRainLine(x);
   const hours = x.hours ?? [];
   const known = hours.filter((r) => num(r.rain) != null);
   const wet = known.filter((r) => (num(r.rain) ?? 0) >= 0.5);
@@ -80,25 +87,62 @@ function rainLine(x: SummaryInput): string {
   return x.past ? "雨は降らなかった" : "雨の見込みはありません";
 }
 
+/** 取得できた範囲だけで数えたとき（欠けた時間があるとき）に添える言葉（2026-11-24 渡辺さんの共有したレビュー）。 */
+const PART = "取得できた範囲";
+
+/** 今の時（0〜23、日本時間）：渡されなければ観測の時刻から、それも無ければ観測の済んだ時間の最後から。 */
+function hourNowOf(x: SummaryInput): number {
+  if (x.hourNow != null) return x.hourNow;
+  const at = x.now?.at?.match(/^(\d{1,2}):/);
+  if (at) return Number(at[1]);
+  const done = (x.hours ?? []).filter((r) => r.type !== "forecast").map((r) => r.n);
+  return done.length ? Math.max(...done) : 0;
+}
+
 /**
  * 今日の雨の行：降り始めを先に（2026-11-24 渡辺さん）。観測と予報を読み分ける：
  *   - 今降っている（この1時間の観測が 0.5mm 以上）→「雨を観測（8:50時点）」、このあとの予報を添える
  *   - まだ降っていない → このあとの1時間ごとの予報で最初に 0.5mm 以上の時刻「9時ごろから雨の見込み」
  * 量と時間は「このあと」の予報の分だと書く（1日の分と混ぜない）。そろっていないときは雨なしと言わない。
+ *
+ * 「このあと」は今の時台から 24時までの時間（観測の済んだ時間を除く）。その時間ごとに、予報の雨が分かるか・欠けたかを見る
+ * （2026-11-24 渡辺さんの共有したレビュー）：
+ *   - 最初に雨の見込みがある時間より前に欠けた時間があれば、降り始めとは言わない（「9時台に雨の見込み。降り始めは不明」）
+ *   - 欠けた時間があれば、時間の数と量に「取得できた範囲」と添える
+ *   - このあとの予報が1時間も分からなければ、読み込み中・取れなかった・無い を言う（「0時間分」とは言わない）
+ *   - 予報がまだ届いていないのと、今日の時間が終わったのとを分ける（後者は 24時を過ぎたときだけで、今日の画面には無い）
  */
 function todayRainLine(x: SummaryInput): string {
   const hours = x.hours ?? [];
-  const ahead = hours.filter((r) => r.type === "forecast");
-  const known = ahead.filter((r) => num(r.rain) != null);
-  const wet = known.filter((r) => (num(r.rain) ?? 0) >= 0.5);
-  const sum = wet.reduce((a, r) => a + (num(r.rain) ?? 0), 0);
-  const rest = wet.length ? `このあと ${wet.length}時間・${sum.toFixed(1)}mm の見込み` : null;
+  const hourNow = hourNowOf(x);
+  const at = new Map(hours.map((r) => [r.n, r]));
+  // このあとの時間（n は 1〜24 の「その時間の終わり」：n = 9 は 8時台）。観測の済んだ時間は除く。
+  const slots: { n: number; rain: number | null }[] = [];
+  for (let n = hourNow + 1; n <= DAY_HOURS; n++) {
+    const r = at.get(n);
+    if (r && r.type !== "forecast") continue;
+    slots.push({ n, rain: r ? num(r.rain) : null });
+  }
+  const known = slots.filter((s) => s.rain != null);
+  const missing = known.length < slots.length;
+  const wet = known.filter((s) => (s.rain ?? 0) >= 0.5);
+  const sum = wet.reduce((a, s) => a + (s.rain ?? 0), 0);
+  const rest = wet.length ? `このあと ${wet.length}時間・${sum.toFixed(1)}mm の見込み${missing ? `、${PART}` : ""}` : null;
   const raining = (x.now?.rain ?? 0) >= 0.5;
-  if (raining) return [`雨を観測（${x.now?.at ?? "いま"}時点）`, rest].filter(Boolean).join("。");
-  if (wet.length) return `${wet[0].n - 1}時ごろから雨の見込み（${rest}）`;
-  if (!hours.length) return x.hoursState === "loading" ? "読み込み中…" : x.hoursState === "error" ? "雨のデータを取れませんでした" : "雨のデータがありません";
-  if (!ahead.length) return "このあとの予報はありません（今日はもう予報の時間が無い）";
-  if (known.length < ahead.length) return `このあと ${known.length}時間分だけ分かっています（その中では雨なし）`;
+  const seen = raining ? `雨を観測（${x.now?.at ?? "いま"}時点）` : null;
+  if (!slots.length) return seen ?? "今日の残りの時間はありません";
+  if (!known.length) {
+    const why =
+      x.hoursState === "loading" ? "このあとの雨の予報を読み込み中…" : x.hoursState === "error" ? "このあとの雨の予報を取れませんでした" : "このあとの雨の予報データがありません";
+    return [seen, why].filter(Boolean).join("。");
+  }
+  if (raining) return [seen, rest ?? (missing ? `このあと ${known.length}時間分だけ分かっています（その中では雨なし）` : "このあとの雨の見込みはありません")].join("。");
+  if (wet.length) {
+    const first = wet[0];
+    const sure = slots.filter((s) => s.n < first.n).every((s) => s.rain != null);
+    return sure ? `${first.n - 1}時ごろから雨の見込み（${rest}）` : `${first.n - 1}時台に雨の見込み。降り始めは不明（${rest}）`;
+  }
+  if (missing) return `このあと ${known.length}時間分だけ分かっています（その中では雨なし）`;
   return "このあと雨の見込みはありません";
 }
 
@@ -108,7 +152,8 @@ function windLine(x: SummaryInput): string {
   const w = hours.length ? windSummary(hours) : null;
   const dir = w && w.mode != null ? `${SECTORS[w.mode]}の風` : w && w.calm && !w.n ? "風はほとんどない" : null;
   const day = hours.filter((r) => r.n >= 6 && r.n <= 18).map((r) => num(r.wind)).filter((v): v is number => v != null);
-  const range = day.length ? `日中は ${Math.round(Math.min(...day))}〜${Math.round(Math.max(...day))} m/s` : null;
+  // 日中の 13時間（n 6〜18）が欠けていれば、取得できた範囲と添える（雨の行と同じ決まり、2026-11-24）。
+  const range = day.length ? `日中は ${Math.round(Math.min(...day))}〜${Math.round(Math.max(...day))} m/s${day.length < 13 ? `（${PART}）` : ""}` : null;
   const parts = [dir, range].filter(Boolean);
   return parts.length ? parts.join("、") : "—";
 }
@@ -124,7 +169,9 @@ function skyLine(x: SummaryInput): string {
 function airLine(x: SummaryInput): string {
   const hum = num(x.row?.humidity);
   const vis = hourlyExtreme(x.hours, "visibility", "min");
-  const parts = [hum != null ? `湿度 平均 ${Math.round(hum)}%` : null, vis != null ? `見通しの最小 ${vis.toFixed(1)}km` : null].filter(Boolean);
+  // 最小は欠けた時間にあったかもしれないので、24時間そろっていなければ取得できた範囲と添える。
+  const visKnown = (x.hours ?? []).filter((r) => num(r.visibility) != null).length;
+  const parts = [hum != null ? `湿度 平均 ${Math.round(hum)}%` : null, vis != null ? `見通しの最小 ${vis.toFixed(1)}km${visKnown < DAY_HOURS ? `（${PART}）` : ""}` : null].filter(Boolean);
   return parts.length ? parts.join("・") : "—";
 }
 

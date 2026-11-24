@@ -411,6 +411,16 @@ export class WeatherStore {
     return date >= this.today ? !this.fresh.has(`forecast:${station}`) : !this.fresh.has(`hour:${station}:${date}`);
   }
 
+  /**
+   * 今日から先の1時間ごとの予報（/api/forecast）の様子：このセッションで届いた・取りに行っている途中・失敗してやり直し待ち
+   * （2026-11-24 渡辺さんの共有したレビュー：朝に観測だけ先に届くと、今日の時間はそろって見えるが、このあとの予報はまだ）。
+   */
+  forecastState(station: string): "ready" | "loading" | "error" {
+    const key = `forecast:${station}`;
+    if (this.fresh.has(key)) return "ready";
+    return this.blocked.has(key) ? "error" : "loading";
+  }
+
   getLatest(station: string): WeatherRow | null {
     return this.latest.get(station) ?? null;
   }
