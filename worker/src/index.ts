@@ -27,7 +27,7 @@ import { saveAmedas } from "./amedasArchive";
 import { AIR_FIRST_DAY, saveAirQuality } from "./airQuality";
 import { STATION_PLACES } from "../../shared/stationPlaces";
 import { AIR_FORECAST_DAYS, readAir, saveAirForecast } from "./airForecast";
-import { saveSoramame } from "./soramame";
+import { readMeasured, saveSoramame } from "./soramame";
 import { collectLongRange } from "./longRangeArchive";
 import { health, markStart, timed } from "./health";
 import { claimHealthWatch, watchHealth } from "./healthWatch";
@@ -179,6 +179,20 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
       return cachedFor(url.origin, `${CACHE_VERSION}/air/${station.blockNo}/${day}`, AIR_TTL, waitUntil, async () => ({
         supported: true,
         ...(await readAir(db, station.blockNo, day, today)),
+      }));
+    }
+    case "/api/air-measured": {
+      // 大気汚染の実測（soramame.ts）：介良局の1時間値（速報値）とふだん。2026-11-25 渡辺さん：商用利用でないので、
+      // そのまま使ってよい（それまでは管理者だけ）。出典「環境省 そらまめくん。データの著作権は環境省・高知市など」を画面に添える。
+      // 速報値は1時間ごとに取り直すので、端では10分だけ共有する。
+      const station = findStation(q.get("station"));
+      const day = q.get("date");
+      if (!isDay(day) || day > today) throw new BadRequest("日付を確認してください。");
+      const place = STATION_PLACES[station.blockNo];
+      if (!db || !place) return jsonResponse({ v: 1, station: station.blockNo, date: day, supported: false });
+      return cachedFor(url.origin, `${CACHE_VERSION}/air-measured/${station.blockNo}/${day}`, AIR_TTL, waitUntil, async () => ({
+        supported: true,
+        ...(await readMeasured(db, place.soramame.station, place.soramame.name, day, today)),
       }));
     }
     case "/api/forecast-history": {

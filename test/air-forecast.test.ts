@@ -144,3 +144,19 @@ describe("空気質の読み出し（/api/air）", () => {
     expect((await readAir(db, "47893", "2026-11-20", "2026-11-25")).hours).toEqual([]);
   });
 });
+
+describe("空気質のふだん（手前30日の終わった日の値）", () => {
+  it("uses the 30 days before the day, or before today for today and later", async () => {
+    const { camsUsual } = await import("../worker/src/airForecast");
+    const db = d1();
+    await ensureAirSchema(db);
+    const put = db.raw.prepare("INSERT INTO air_quality_hourly (station, valid_at, pm2_5, pm10, dust, aod, source, fetched_at) VALUES (?, ?, ?, NULL, NULL, NULL, ?, ?)");
+    for (let d = 15; d <= 24; d++) for (let h = 0; h < 24; h++) put.run("47893", `2026-11-${d}T${String(h).padStart(2, "0")}:00:00+09:00`, d, "open-meteo-cams", "x");
+    const u = await camsUsual(db, "47893", "2026-11-27", "2026-11-25");
+    expect(u).toMatchObject({ from: "2026-10-26", to: "2026-11-24" });
+    expect(u.items.pm2_5).toMatchObject({ n: 240 });
+    expect(u.items.pm10).toBeNull();
+    // 過ぎた日：その日の手前まで（11/20 は 15〜19 の5日分で足りない）
+    expect((await camsUsual(db, "47893", "2026-11-20", "2026-11-25")).items.pm2_5).toBeNull();
+  });
+});

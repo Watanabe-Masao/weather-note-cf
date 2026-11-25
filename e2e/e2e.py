@@ -191,10 +191,13 @@ def api(path, q):
         # 空気質（11/25）：CAMS のモデルの値。今日（固定の 11/10）から先は予測、前の日は終わった日の値。
         d = q.get("date", "")
         hours = [{"h": h, "pm2_5": round(9 + 6 * _math.sin((h - 6) / 24 * 2 * _math.pi), 1), "pm10": 14, "dust": (15 if h == 13 else 3), "aod": 0.1} for h in range(24)]
-        return {"supported": True, "v": 1, "station": q.get("station"), "date": d, "kind": "forecast" if d >= "2026-11-10" else "past", "hours": hours, "fetchedAt": "2026-11-10T02:30:00Z", "source": "Open-Meteo（CAMS）"}
-    if path == "/api/admin/air-measured":
+        # ふだん（手前30日の分位、11/25）：PM2.5 は 13時が「多い」くらい、AOD は比べられない（手前が足りない）
+        usual = {"from": "2026-10-11", "to": "2026-11-09", "items": {"pm2_5": {"n": 720, "q": [4, 12, 14, 16]}, "pm10": {"n": 720, "q": [5, 14, 18, 22]}, "dust": {"n": 720, "q": [1, 4, 8, 12]}, "aod": None}}
+        return {"supported": True, "v": 1, "station": q.get("station"), "date": d, "kind": "forecast" if d >= "2026-11-10" else "past", "hours": hours, "fetchedAt": "2026-11-10T02:30:00Z", "usual": usual, "source": "Open-Meteo（CAMS）"}
+    if path == "/api/air-measured":
         d = q.get("date", "")
-        return {"v": 1, "station": "39201350", "name": "高知市 介良局", "date": d, "hours": [{"hour": k, "pm2_5": 8 + k, "ox": 0.02, "spm": 0.01, "no2": 0.004, "so2": None, "wd": "N", "ws": 1.2, "fetchedAt": "2026-11-10T02:30:00Z"} for k in range(1, 10)], "checkedAt": "2026-11-10T02:30:00Z", "source": "環境省 大気汚染物質広域監視システム（そらまめくん）"}
+        usual = {"from": "2026-10-11", "to": "2026-11-09", "items": {"pm2_5": {"n": 700, "q": [5, 12, 15, 18]}, "ox": {"n": 700, "q": [0.01, 0.03, 0.04, 0.05]}, "spm": {"n": 700, "q": [0.005, 0.015, 0.02, 0.03]}, "no2": {"n": 700, "q": [0.002, 0.006, 0.009, 0.012]}, "so2": {"n": 700, "q": [0.001, 0.001, 0.002, 0.003]}}}
+        return {"supported": True, "usual": usual, "v": 1, "station": "39201350", "name": "高知市 介良局", "date": d, "hours": [{"hour": k, "pm2_5": 8 + k, "ox": 0.02, "spm": 0.01, "no2": 0.004, "so2": None, "wd": "N", "ws": 1.2, "fetchedAt": "2026-11-10T02:30:00Z"} for k in range(1, 10)], "checkedAt": "2026-11-10T02:30:00Z", "source": "環境省 大気汚染物質広域監視システム（そらまめくん）"}
     if path == "/api/forecast-official":
         # 予報の出典（2026-11-23）: made-up — 今日・明日は府県天気予報の 11時、2〜6日先は週間天気予報の 11時。7日先から
         # は無い（画面は Open-Meteo の「補完」）。
@@ -1491,7 +1494,7 @@ with sync_playwright() as p:
         cols.nth(idx).locator(".cell-kind").tap()
         settle(lambda: center_date() == before and off() < 2, 5)
         # 空気（11/25「項目を分けませんか」）：帯の仲間「空気」＝空気の質（1日だけ）と視程。大気は湿度・気圧。まとめに「空気」の行
-        # （見通しの最小と、PM2.5・黄砂は CAMS と書く）。押すと空気の質の画面。実測（そらまめくん）は管理者だけ。
+        # （見通しの最小と、PM2.5・黄砂は CAMS と書く）。押すと空気の質の画面。実測（そらまめくん）はだれにでも（11/25）。
         pg.locator('[data-items="summary"]:visible, [data-item="summary"]:visible').first.click(); calm()
         air_line = pg.locator(".dd-sum .dd-sum-row", has_text="空気").first
         settle(lambda: "PM2.5" in air_line.inner_text(), 5)
@@ -1501,9 +1504,19 @@ with sync_playwright() as p:
         settle(lambda: pg.locator(".aq .aq-chart").count() > 0, 5)
         aq = pg.locator(".aq").first.inner_text() if pg.locator(".aq").count() else ""
         chips = pg.evaluate("[...document.querySelectorAll('.item-bar .ib-open [data-item]')].map(e => e.dataset.item)")
-        check("AQ2 まとめの空気の行から空気の質の画面（いま・24時間・環境省の基準・出典）、帯は空気の仲間（空気の質・視程）が開き、実測は管理者だけ", chips == ["airq", "visibility"] and pg.locator('[data-item="airq"][aria-selected="true"]').count() == 1 and pg.locator(".aq .aq-chart path").count() >= 2 and "環境基準" in aq and "Open-Meteo" in aq and ("管理者だけ" in aq) == LOGGED_IN and pg.locator(".hour-face").count() == 0, (chips, aq[:120]))
+        check("AQ2 まとめの空気の行から空気の質の画面（いま・24時間・環境省の基準・出典）、帯は空気の仲間（空気の質・視程）が開き、実測はだれにでも", chips == ["airq", "visibility"] and pg.locator('[data-item="airq"][aria-selected="true"]').count() == 1 and pg.locator(".aq .aq-chart path").count() >= 2 and "環境基準" in aq and "Open-Meteo" in aq and "実測 PM2.5" in aq and "そらまめくん" in aq and "管理者だけ" not in aq and pg.locator(".hour-face").count() == 0, (chips, aq[:120]))
         # 取得の時刻は日付つき（モデルの計算の時刻ではない）、基準は「70 を超える」（11/25 レビュー）
         check("AQ2b 取得の時刻は「11/10 11:30 に取得」、注意喚起の目安は 70 を超えるとき", "11/10 11:30 に取得" in aq and "70 µg/m³ を超える" in aq, aq[-200:])
+        # 全項目の内訳（ヒートマップ、11/25）：CAMS 4行・実測 5行 × 24マス、時刻を選ぶと下の表、比べられない項目は斜線
+        pg.locator(".aq-more").first.click(); calm()
+        settle(lambda: pg.locator(".ahm-sheet .ahm-row").count() > 0, 5)
+        hrows = pg.evaluate("[...document.querySelectorAll('.ahm-sheet .ahm-row')].map(r => [r.dataset.key, r.children.length])")
+        pg.locator(".ahm-sheet .ahm-cells").first.click(position={"x": 2, "y": 4}); calm()
+        rd = pg.locator(".ahm-read").first.inner_text()
+        hot = pg.locator(".ahm-sheet .ahm-row[data-key='pm2_5'] .ahm-c.l3, .ahm-sheet .ahm-row[data-key='pm2_5'] .ahm-c.l4").count()
+        nu = pg.locator(".ahm-sheet .ahm-row[data-key='aod'] .ahm-c.nu").count()
+        check("AQ6 内訳はヒートマップ（CAMS 4行・実測 5行 × 24時）、列を押すとその時刻の値、ふだんと比べた段、比べられない項目は斜線", [k for k, _ in hrows] == ["pm2_5", "pm10", "dust", "aod", "pm2_5", "ox", "spm", "no2", "so2"] and all(n == 24 for _, n in hrows) and rd.startswith("0時") and "実測 オキシダント" in rd and hot > 0 and nu == 24 and "Weather Note の集計" in pg.locator(".ahm-sheet").inner_text(), (hrows[:3], rd[:80], hot, nu))
+        pg.locator(".ahm-sheet .icon-btn.close").first.click(); calm()
         pg.locator('.item-bar [data-item="visibility"]').first.click(); calm()
         check("AQ3 視程はふつうの項目の画面（空気の質は出さない）", pg.locator(".aq").count() == 0 and pg.locator(".day-detail .hour-face").count() == 1, pg.locator(".aq").count())
         pg.locator('.item-bar .ib-cat[data-items^="humidity"]').first.click(); calm()

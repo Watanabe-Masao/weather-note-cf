@@ -1,5 +1,5 @@
-// 空気質（2026-11-25 渡辺さん「大気質の UI」）：/api/air（CAMS のモデルの値、だれでも）と /api/admin/air-measured
-// （そらまめくんの実測、管理者だけ）を取り置く。
+// 空気質（2026-11-25 渡辺さん「大気質の UI」）：/api/air（CAMS のモデルの値）と /api/air-measured（そらまめくんの実測。
+// 11/25 渡辺さん：商用利用でないのでそのまま使ってよい → だれにでも）を取り置く。
 //
 // 取り直し：今日と先の日は、最後に頼んでから 10分（LIVE_EVERY）たっていれば、開くとき・アプリに戻ったとき・開いている
 // 間の1分ごとの見回りで（予測はサーバーで1時間ごとに新しくなる）。過ぎた日は1回だけ（実測は速報値が直ることがあるが、
@@ -9,7 +9,6 @@
 import { useEffect, useSyncExternalStore } from "react";
 import type { AirResponse, MeasuredResponse } from "../../shared/airQuality";
 import { addDays, jstToday } from "../../shared/dates";
-import { api } from "../account/account";
 import { LIVE_EVERY } from "./store";
 
 export type AirData = AirResponse & { supported: true };
@@ -117,7 +116,12 @@ export const airCache = new LiveCache<AirData>(
   (r) => r.kind === "past",
 );
 
-export const measuredCache = new LiveCache<MeasuredResponse>((station, date) => api<MeasuredResponse>(`/api/admin/air-measured?station=${encodeURIComponent(station)}&date=${date}`));
+export const measuredCache = new LiveCache<MeasuredResponse>(async (station, date) => {
+  const r = await fetch(`/api/air-measured?station=${encodeURIComponent(station)}&date=${date}`);
+  if (!r.ok) throw new Error(String(r.status));
+  const j = (await r.json()) as MeasuredResponse & { supported?: boolean };
+  return j.supported === false ? null : j;
+});
 
 const EMPTY: Loaded<never> = { r: null, loading: false, failed: false };
 
@@ -147,5 +151,5 @@ export const airInRange = (date: string, today: string) => date >= AIR_FIRST && 
 /** その日の空気質（CAMS のモデルの値）。持っていない日は読まない。 */
 export const useAir = (station: string, date: string, on = true) => useLive(airCache, station, date, on && airInRange(date, jstToday()));
 
-/** その日の実測（管理者だけ。`on` は管理者のときだけ true にする）。 */
+/** その日の実測（今日まで）。 */
 export const useMeasured = (station: string, date: string, on: boolean) => useLive(measuredCache, station, date, on);

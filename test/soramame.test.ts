@@ -63,17 +63,35 @@ describe("そらまめくん：保存と記録", () => {
   });
 });
 
-describe("そらまめくん：管理者の画面用の読み出し（11/25）", () => {
+describe("そらまめくん：画面用の読み出し（11/25、だれにでも）", () => {
   it("returns the day's hours with when each was written, and the last good check", async () => {
     const { readMeasured } = await import("../worker/src/soramame");
     const db = d1();
     await saveSoramame(db, NOW, async () => ok([row("2026/11/21", "01", "14"), row("2026/11/21", "02", "9"), row("2026/11/20", "24", "7")]));
-    const r = await readMeasured(db, "39201350", "高知市 介良局", "2026-11-21");
+    const r = await readMeasured(db, "39201350", "高知市 介良局", "2026-11-21", "2026-11-21");
     expect(r).toMatchObject({ station: "39201350", name: "高知市 介良局", date: "2026-11-21", checkedAt: new Date(NOW).toISOString() });
     expect(r.hours.map((h) => [h.hour, h.pm2_5])).toEqual([
       [1, 14],
       [2, 9],
     ]);
     expect(r.hours[0].fetchedAt).toBe(new Date(NOW).toISOString());
+    // 手前の時間が7日分に届かないので、ふだんとは比べない
+    expect(r.usual).toMatchObject({ from: "2026-10-22", to: "2026-11-20", items: { pm2_5: null, ox: null } });
+  });
+  it("the usual: the 30 days before the day (before today for today), by quantiles", async () => {
+    const { readMeasured } = await import("../worker/src/soramame");
+    const { ensureSoramameSchema } = await import("../worker/src/soramame");
+    const db = d1();
+    await ensureSoramameSchema(db);
+    const put = db.raw.prepare("INSERT INTO soramame_hourly (station, date, hour, pm2_5, ox, spm, no2, so2, wd, ws, fetched_at) VALUES (?, ?, ?, ?, NULL, NULL, NULL, 0.001, NULL, NULL, ?)");
+    // 11/1〜11/20 の20日 × 24時間：PM2.5 は 0〜479、SO2 はずっと 0.001
+    for (let d = 1; d <= 20; d++) for (let h = 1; h <= 24; h++) put.run("39201350", `2026-11-${String(d).padStart(2, "0")}`, h, (d - 1) * 24 + h - 1, "x");
+    put.run("39201350", "2026-11-21", 1, 9999, "x"); // 見る日の分は入れない
+    const r = await readMeasured(db, "39201350", "高知市 介良局", "2026-11-21", "2026-11-21");
+    // 479 × 10%・75%・90%・98%（線形補間）
+    expect(r.usual!.items.pm2_5!.n).toBe(480);
+    expect(r.usual!.items.pm2_5!.q.map((x) => Math.round(x * 100) / 100)).toEqual([47.9, 359.25, 431.1, 469.42]);
+    expect(r.usual!.items.so2).toEqual({ n: 480, q: [0.001, 0.001, 0.001, 0.001] });
+    expect(r.usual!.items.ox).toBeNull();
   });
 });
