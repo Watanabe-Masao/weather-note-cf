@@ -15,6 +15,7 @@ import { STATION_PLACES } from "../../shared/stationPlaces";
 import type { Db } from "./accounts";
 import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
+import type { MeasuredResponse } from "../../shared/airQuality";
 
 export const SORAMAME_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS soramame_hourly (
@@ -149,31 +150,6 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
   await db.prepare("INSERT OR REPLACE INTO soramame_fetch_log (at, ok, saved, range, error) VALUES (?, ?, ?, ?, ?)").bind(at, error ? 0 : 1, saved, range, error).run();
   await db.prepare("DELETE FROM soramame_fetch_log WHERE at < ?").bind(new Date(now - LOG_DAYS * 86_400_000).toISOString()).run();
   return { saved, ok: !error };
-}
-
-export interface MeasuredHour {
-  /** その1時間の終わりの時（1〜24。1 は 0〜1時の値）。 */
-  hour: number;
-  pm2_5: number | null;
-  ox: number | null;
-  spm: number | null;
-  no2: number | null;
-  so2: number | null;
-  wd: string | null;
-  ws: number | null;
-  /** その時間の値を最後に書いた時刻（ISO）。 */
-  fetchedAt: string;
-}
-
-export interface MeasuredResponse {
-  v: 1;
-  station: string;
-  name: string;
-  date: string;
-  hours: MeasuredHour[];
-  /** いちばん新しい取得の時刻（ISO、無ければ null）。 */
-  checkedAt: string | null;
-  source: "環境省 大気汚染物質広域監視システム（そらまめくん）";
 }
 
 /** 管理者の画面用：その日の介良局の1時間値（速報値）。 */

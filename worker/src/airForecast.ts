@@ -14,6 +14,7 @@ import type { Db } from "./accounts";
 import { ensureAirSchema } from "./airQuality";
 import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
+import type { AirResponse } from "../../shared/airQuality";
 
 export const AIR_FORECAST_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS air_quality_forecast (
@@ -95,27 +96,6 @@ export async function saveAirForecast(db: Db, now = Date.now(), get: Fetcher = d
   await db.prepare("INSERT OR REPLACE INTO air_forecast_fetch_log (at, ok, saved, error) VALUES (?, ?, ?, ?)").bind(at, error ? 0 : 1, saved, error).run();
   await db.prepare("DELETE FROM air_forecast_fetch_log WHERE at < ?").bind(new Date(now - LOG_DAYS * 86_400_000).toISOString()).run();
   return { saved, ok: !error };
-}
-
-export interface AirHour {
-  /** 時刻（0〜23、その時ちょうどの値）。 */
-  h: number;
-  pm2_5: number | null;
-  pm10: number | null;
-  dust: number | null;
-  aod: number | null;
-}
-
-export interface AirResponse {
-  v: 1;
-  station: string;
-  date: string;
-  /** "past"：終わった日の値（airQuality.ts）。"forecast"：今日と先の日の、いちばん新しい予測。 */
-  kind: "past" | "forecast";
-  hours: AirHour[];
-  /** 値を取った時刻（ISO、無ければ null）。 */
-  fetchedAt: string | null;
-  source: "Open-Meteo（CAMS）";
 }
 
 /** 画面用：その日の1時間ごとのモデルの値。今日と先の日は予測、過ぎた日は終わった日の値。 */
