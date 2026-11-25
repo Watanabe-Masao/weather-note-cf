@@ -66,6 +66,10 @@ describe("週の点検", () => {
     expect(r.series.find((s) => s.id === "wxchart")).toMatchObject({ missing: 0, gapCount: 0 });
     const so = r.series.find((s) => s.id === "soramame")!;
     expect(so).toMatchObject({ missing: 1, gapCount: 1, have: 47, fresh: true });
+    // 提供元の空欄（「出ていない」の印）は抜けに数えない（11/25）。
+    db.raw.prepare("INSERT INTO data_absent (source, item, found_at) VALUES ('air:soramame:39201350', '2026-11-20T05:00:00+09:00', 'f')").run();
+    const again = (await runWeeklyAudit(db, bucket(files), NOW)).series.find((s) => s.id === "soramame")!;
+    expect(again).toMatchObject({ missing: 0, gapCount: 0 });
     const fc = r.series.find((s) => s.id === "forecast")!;
     expect(fc).toMatchObject({ part: "VPFD51 390000", missing: null, gapCount: 1, fresh: false });
     // 表がまだ無い系列は飛ばす（失敗にしない）。空の表は系列が出ない。
