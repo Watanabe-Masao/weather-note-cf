@@ -46,11 +46,11 @@ describe("そらまめくん：保存と記録", () => {
     ]);
     // 6時間ごとの回：検索の API（直近2か月）と、直近7日の CSV。
     expect(seen).toEqual([expect.stringContaining("Start_YM=202610&End_YM=202611"), "https://soramame.env.go.jp/data/sokutei/NoudoTime/39201350/7day.csv"]);
-    // 1時間たたないうちは取らない。
+    // 15分たたないうちは取らない（11/25：1時間に1回だと最大で約2時間遅れたので 15分に）。
     expect(await saveSoramame(db, NOW + 600_000, get)).toMatchObject({ skipped: true });
-    // 1時間ごとには直近7日の CSV だけ（6時間ごとの回の数え方には入らない）。
-    await saveSoramame(db, NOW + 3_600_000, get);
-    await saveSoramame(db, NOW + 2 * 3_600_000, get);
+    // 15分ごとには直近7日の CSV だけ（6時間ごとの回の数え方には入らない）。
+    await saveSoramame(db, NOW + 15 * 60_000, get);
+    await saveSoramame(db, NOW + 30 * 60_000, get);
     expect(seen.slice(2)).toEqual([expect.stringContaining("7day.csv"), expect.stringContaining("7day.csv")]);
     expect(db.raw.prepare("SELECT range FROM soramame_fetch_log ORDER BY at DESC LIMIT 1").get()).toEqual({ range: "7day" });
     // 6時間たてば、古い側（直近の次の回）。

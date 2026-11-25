@@ -363,7 +363,7 @@ export default {
         .catch((e) => console.error("weather-note: weekly audit", e)),
     );
     // 空気質（Open-Meteo の CAMS、airQuality.ts）：1時間に1回まで、終わった日の1時間ごとの値を D1 に。
-    // 空気質の予測（airForecast.ts、11/25）：1時間に1回まで、今日から5日分を置き換える。そらまめくんは今月を1時間ごと。
+    // 空気質の予測（airForecast.ts、11/25）：1時間に1回まで、今日から5日分を置き換える。そらまめくんは直近7日の CSV を15分ごと。
     ctx.waitUntil(
       stage("air quality", (d) => saveAirQuality(d))()
         .then(stage("air forecast", (d) => saveAirForecast(d)))
