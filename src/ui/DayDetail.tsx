@@ -49,7 +49,7 @@ import { headlineChange, shownChanges } from "../../shared/forecastChanges";
 import { ForecastHistory as HistoryModel } from "../../shared/forecastHistoryModel";
 import { TodaySplit } from "./TodaySplit";
 import { AirQualityCard } from "./AirQualityCard";
-import { useAir } from "../data/air";
+import { airInRange, useAir } from "../data/air";
 import { airSummaryText } from "../airSummary";
 
 interface Props {
@@ -60,14 +60,18 @@ interface Props {
   metric: MetricId;
   /** まとめ（帯の先頭）を見ているか。 */
   summary: boolean;
+  /** 空気（帯の後ろ、PM2.5・黄砂）を見ているか（11/25）。 */
+  airq: boolean;
   /** まとめの行を押した：その仲間の項目へ。 */
   onPickItem: (id: MetricId) => void;
+  /** まとめの空気の行を押した：空気の画面へ。 */
+  onPickAirq: () => void;
   onOpenFeel: () => void;
   onToggleSun: () => void;
 }
 
 
-export function DayDetail({ store, station, date, today, metric, summary, onPickItem, onOpenFeel, onToggleSun }: Props) {
+export function DayDetail({ store, station, date, today, metric, summary, airq, onPickItem, onPickAirq, onOpenFeel, onToggleSun }: Props) {
   const openSummary = useContext(DaySummaryContext);
   const day = store?.getDay(station, date);
   const row = day?.state === "ready" ? (day.row ?? null) : null;
@@ -121,7 +125,7 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
       : [["出どころ", tag ? SOURCE_TEXT[tag] : "—"]];
 
   // 帯で選んだ仲間（src/ui/ItemBar.tsx）。まとめ（summary）は帯の先頭、1日を開いたときはいつもここから（2026-11-24）。
-  const group = summary ? "summary" : (ITEM_GROUPS.find((g) => g.items.includes(metric))?.id ?? "temp");
+  const group = summary ? "summary" : airq ? "airq" : (ITEM_GROUPS.find((g) => g.items.includes(metric))?.id ?? "temp");
   // 根拠と記録の開け閉め：仲間（とその日）ごと。ほかの仲間や日に移ると畳んだところから（中身が違うので）。
   const [basisFor, setBasisFor] = useState<string | null>(null);
   const basisOpen = basisFor === `${group}/${date}`;
@@ -140,10 +144,12 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
   const feelSettings = useContext(FeelContext);
   const sunTimes = useMemo(() => shownSun(date, station), [date, station]);
   const latest = date === today ? (store?.getLatest(station) ?? null) : null;
-  // 空気質（11/25）：まとめの大気の行に PM2.5 の日平均と黄砂の最大（CAMS）。大気の画面は AirQualityCard が読む。
+  // 空気（11/25）：まとめの空気の行に PM2.5 の日平均と黄砂の最大（CAMS）。持っていない日は行を出さない。読み込み中・
+  // 取れなかった・無いは、そう言う（無いことを「少ない」とは言わない）。空気の画面は AirQualityCard が読む。
   const air = useAir(station, date, group === "summary");
+  const airText = !airInRange(date, today) || air.unsupported ? null : air.r ? (airSummaryText(air.r) ?? "PM2.5・黄砂のデータはありません") : air.failed ? "PM2.5・黄砂を取れませんでした" : "PM2.5・黄砂は読み込み中…";
   const lines = summaryLines({
-    air: airSummaryText(air.r),
+    air: airText,
     row,
     hours: rows,
     feelWord: dayFeelWord(rows, station, feelSettings),
@@ -248,7 +254,7 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
         <div className="dd-sum" role="list" aria-label="項目ごとのまとめ">
           {lines.map((l) => (
             <div key={l.label} className="dd-sum-row" role="listitem">
-              <Button kind="quiet" className="dd-sum-line" onClick={() => onPickItem(ITEM_GROUPS.find((g) => g.id === l.group)!.items[l.label === "風" ? 1 : 0] as MetricId)} aria-label={`${l.label}：${l.text}。押すと${l.label}の画面`}>
+              <Button kind="quiet" className="dd-sum-line" onClick={() => (l.group === "airq" ? onPickAirq() : onPickItem(ITEM_GROUPS.find((g) => g.id === l.group)!.items[l.label === "風" ? 1 : 0] as MetricId))} aria-label={`${l.label}：${l.text}。押すと${l.label}の画面`}>
                 <span className="dd-sum-label">{l.label}</span>
                 <span className="dd-sum-text">{l.text}</span>
                 <Glyph name="next" />
@@ -280,6 +286,16 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
       </section>
     );
 
+  // 空気（帯の後ろ、11/25「項目を分けませんか」）：空気の質のカードだけ（湿度・視程・気圧の画面とは分ける）。
+  if (airq)
+    return (
+      <section className="day-detail" aria-label="1日の空気の質" data-group={group}>
+        <div className="dd-sec">
+          <AirQualityCard station={station} date={date} today={today} />
+        </div>
+      </section>
+    );
+
   return (
     <section className="day-detail" aria-label="1日の詳しい様子" data-group={group}>
       {/* いまの値：その仲間の項目だけ（今日、2026-11-24 渡辺さん「今の気温や湿度は個別の項目別として切り出す」）。 */}
@@ -300,12 +316,6 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
         {(group === "temp" || group === "rainwind") && <Parts store={store} station={station} date={date} show={group === "temp" ? "temp" : "prob"} />}
         {group === "temp" && <FeelLine rows={rows} station={station} onOpen={onOpenFeel} />}
       </div>
-
-      {group === "air" && (
-        <div className="dd-sec">
-          <AirQualityCard station={station} date={date} today={today} />
-        </div>
-      )}
 
       {/* 根拠と記録は、その項目に関係するものだけ（2026-11-24）：気温は自分の記録（肌感）、雨・風は降水確率と風の予報の移り変わり。
           天気・最高・最低の移り変わりと天気図はまとめに。空・光・大気は気象庁の予報に無い項目なので置かない。 */}

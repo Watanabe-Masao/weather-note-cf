@@ -19,12 +19,14 @@ describe("空気質：まとめの1文", () => {
     expect(airSummaryText(null)).toBeNull();
     expect(airSummaryText({ kind: "forecast", hours: day(() => null, () => null) })).toBeNull();
   });
-  it("まとめの大気の行の後ろに足す（無ければ今まで通り）", () => {
+  it("まとめの「空気」の行に、見通しのあとへ足す（大気の行には入れない）。持っていない日は見通しだけ", () => {
     const base = { row: { date: "2026-11-25", type: "forecast", humidity: 62 } as never, hours: null, feelWord: null, nextMin: null, sun: { rise: "6:45", set: "17:05" }, past: false };
-    const air = (l: ReturnType<typeof summaryLines>) => l.find((x) => x.label === "大気")!.text;
-    expect(air(summaryLines({ ...base, air: "PM2.5 日平均 13・黄砂 最大 15 µg/m³（CAMS の予測）" }))).toBe("湿度 平均 62%。PM2.5 日平均 13・黄砂 最大 15 µg/m³（CAMS の予測）");
-    expect(air(summaryLines({ ...base, air: null }))).toBe("湿度 平均 62%");
-    expect(air(summaryLines({ ...base, row: null, air: null }))).toBe("—");
+    const l = summaryLines({ ...base, air: "PM2.5 日平均 13・黄砂 最大 15 µg/m³（CAMS の予測）" });
+    expect(l.find((x) => x.label === "大気")!.text).toBe("湿度 平均 62%");
+    expect(l.at(-1)).toEqual({ group: "airq", label: "空気", text: "PM2.5 日平均 13・黄砂 最大 15 µg/m³（CAMS の予測）" });
+    const vis = Array.from({ length: 24 }, (_, i) => ({ date: "2026-11-25", n: i + 1, type: "forecast", visibility: 20 - i / 10 }) as never);
+    expect(summaryLines({ ...base, hours: vis, air: "PM2.5 日平均 13 µg/m³（CAMS の予測）" }).at(-1)!.text).toBe("見通しの最小 17.7km。PM2.5 日平均 13 µg/m³（CAMS の予測）");
+    expect(summaryLines({ ...base, air: null }).at(-1)!.text).toBe("—");
   });
 });
 
