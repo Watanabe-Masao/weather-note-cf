@@ -23,6 +23,11 @@ export interface TextUnit {
   charInterval?: number;
   /** 浮かぶ秒。 */
   fadeIn: number;
+  /**
+   * この単位を出す前に、それまでに出したこのページの字を消す（段階的に言葉を減らす。コールドムーンの終幕 C 案の見本）。
+   * fadeOut 秒で消し、gap 秒おいてから、この単位の pauseBefore へ。
+   */
+  clearBefore?: { fadeOut: number; gap: number };
 }
 
 export interface PageDirection {
@@ -69,6 +74,9 @@ export interface CharTime {
   at: number;
   /** 浮かぶ秒。 */
   fade: number;
+  /** ページの途中で消えはじめる秒（clearBefore のとき）と、消える秒。 */
+  out?: number;
+  outFade?: number;
 }
 
 export interface PageTimes {
@@ -96,6 +104,15 @@ export function pageTimes(d: PageDirection, lead: number, last = false, tail = 0
   const textStart = t;
   let full = t;
   for (const u of d.units) {
+    if (u.clearBefore && chars.length) {
+      // それまでの字が読み終わってから消す（読む時間は readHold の半分を目安に、文節の読みのあと）。
+      t += Math.max(0, full - t) + d.readHold * 0.6;
+      for (const c of chars) if (c.out === undefined) {
+        c.out = t;
+        c.outFade = u.clearBefore.fadeOut;
+      }
+      t += u.clearBefore.fadeOut + u.clearBefore.gap;
+    }
     t += u.pauseBefore;
     const cs = [...u.text];
     if (u.mode === "char") {

@@ -301,13 +301,14 @@ function fitDirected(el: HTMLElement): void {
   box.style.removeProperty("--size-story");
   delete box.dataset.small;
   const apply = () => {
-    const h = box.clientHeight;
     const cs = getComputedStyle(caps[0]);
     const fs = parseFloat(cs.fontSize);
     const ls = parseFloat(cs.letterSpacing) || 0;
-    // 一列に入る字数（句読点の詰めや約物の差を見て少し余裕）。
-    const n = Math.max(4, Math.floor(h / ((fs + ls) * 1.06)));
-    box.querySelectorAll<HTMLElement>(".ms-soft").forEach((b) => b.classList.toggle("on", Number(b.dataset.len) > n));
+    // 一列に入る字数（句読点の詰めや約物の差を見て少し余裕）。列の高さはページの字幕ごと（場面の設定で高さが違うことがある）。
+    caps.forEach((c) => {
+      const n = Math.max(4, Math.floor(c.clientHeight / ((fs + ls) * 1.06)));
+      c.querySelectorAll<HTMLElement>(".ms-soft").forEach((b) => b.classList.toggle("on", Number(b.dataset.len) > n));
+    });
     // 縦書きの列は左へ並ぶ。いちばん幅の広いページが字幕の幅に収まるか（隠れているページも幅は測れる）。
     return Math.max(...caps.map((c) => c.scrollWidth)) <= box.clientWidth + 1;
   };
@@ -990,6 +991,11 @@ export function MoonStory({
                 if (!ct) return;
                 const a0 = sb(i, ct.at);
                 world.fromTo(c, { opacity: 0 }, { opacity: 1, duration: Math.max(0.002, sb(i, ct.at + ct.fade) - a0), ease: "sine.out" }, a0);
+                // ページの途中で消える字（段階的に言葉を減らす）。
+                if (ct.out !== undefined) {
+                  const o0 = sb(i, ct.out);
+                  world.to(c, { opacity: 0, duration: Math.max(0.002, sb(i, ct.out + (ct.outFade ?? 0.8)) - o0), ease: "sine.inOut" }, o0);
+                }
               });
               // 消える：最後のページは区間の中（読む時間のあと）、ほかは止まる所を過ぎてから（次の区間の頭、fadeOut 秒）。
               const f0 = last ? sb(i, T.fadeStart) : i + BEAT_REST + 0.004;
@@ -1748,6 +1754,10 @@ export function MoonStory({
                   key={i}
                   className="ms-cap"
                   data-i={i}
+                  // 場面ごとの字幕の設定（StoryScene.captions）：字の色の調子・字の後ろの局所的な沈め・字幕の領域。描くのは共通の部品。
+                  data-tone={scene?.captions?.[i]?.tone}
+                  data-area={scene?.captions?.[i]?.area}
+                  style={scene?.captions?.[i]?.backdrop ? ({ ["--cap-backdrop" as string]: String(scene.captions[i].backdrop) } as React.CSSProperties) : undefined}
                   // いちばん長い行の字数（縦書きの列に収まる字の大きさを選ぶ。fitCaps）。
                   data-n={Math.max(...tateNum(t).split("\n").map((l) => [...l.replace(/\//g, "")].length))}
                 >

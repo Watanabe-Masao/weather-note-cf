@@ -428,6 +428,14 @@ export function ColdWorld(): ReactElement {
         </g>
         <Distance />
         <SnowField />
+        {/* 見本（CM-R02、マージしない）：1ページの「木のかげが、ながく のびます。」のための、幹の長い影（低い日）。 */}
+        <defs>
+          <linearGradient id="cw-longshadow-g" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="#7d8fbb" stopOpacity={0.75} />
+            <stop offset="1" stopColor="#7d8fbb" stopOpacity={0} />
+          </linearGradient>
+        </defs>
+        <path className="cw-longshadow" d={`M${BIRCH.x - 26} ${BIRCH.base} L${BIRCH.x + 26} ${BIRCH.base} L520 ${BIRCH.base + 60} L470 ${BIRCH.base + 82} Z`} fill="url(#cw-longshadow-g)" opacity={0} />
         <MainBirch />
         {/* 穴の中で丸くなるコガラ（5・8ページは目を閉じ、6ページは開く）。穴の口の形に切る。 */}
         <g clipPath="url(#cw-hole)">
@@ -560,6 +568,11 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   };
   // 1 雪の森：少し寄った所から、森全体へ。
   tl.fromTo(".cw-camera", { ...cam(200, 520, 1.3), svgOrigin: "200 430" }, { ...cam(200, 480, 1.1), duration: 0.75, ease: "power2.inOut" }, 0);
+  // 見本（CM-R02）：「ながく」の合図があるときだけ、幹の影が雪の上へ長くのびる（夕暮れで消える）。
+  const longAt = cueAt[0]?.[0];
+  if (longAt != null && Number.isFinite(longAt))
+    tl.fromTo(".cw-longshadow", { opacity: 0, scaleX: 0.3, svgOrigin: `${BIRCH.x} ${BIRCH.base}` }, { opacity: 0.85, scaleX: 1, duration: 0.35, ease: "sine.out" }, Math.max(0.05, longAt - 0.1))
+      .to(".cw-longshadow", { opacity: 0, duration: 0.3 }, 3.05);
   // 2 「ちょん、」「ちょん。」：雪の枝に寄り、コガラが出て、言葉の字が出るのに合わせて二回跳ねて枝の上へ。
   const hop = [cue(1, 0, 1.08), cue(1, 1, 1.2)];
   move(1, cam(225, 545, 1.6))

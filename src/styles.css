@@ -5975,3 +5975,13 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 
 /* 見本（マージしない、CM-R03）：?coldVeil=1 で、字の後ろの沈め（veil）を濃く広く（明るい昼・夜明けの雪の上の字）。 */
 html.cold-veil .ms-shade .ms-caps-veil { width: 100%; height: 76svh; background: radial-gradient(ellipse 60% 50% at 72% 36%, var(--bk-night-1), transparent 100%); opacity: 0.92; }
+
+/* 場面ごとの字幕の設定（StoryScene.captions、CM-R03 見本）。描くのは共通の .ms-cap。 */
+.ms-caps[data-directed] .ms-cap[data-area="tall"] { height: 128%; right: calc(var(--space-3) * -1); }
+.ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"] { isolation: isolate; }
+.ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"]::before { content: ""; position: absolute; inset: calc(var(--space-7) * -1) calc(var(--space-6) * -1); z-index: -1; background: radial-gradient(closest-side, color-mix(in srgb, var(--bk-night-1) 78%, transparent), transparent); opacity: var(--cap-backdrop); border-radius: 50%; filter: blur(var(--space-4)); }
+.ms-caps[data-directed] .ms-cap[data-tone="dark"] { color: var(--bk-night-1); text-shadow: 0 0 var(--space-2) color-mix(in srgb, var(--bk-paper-0) 80%, transparent), 0 0 var(--space-5) color-mix(in srgb, var(--bk-paper-0) 55%, transparent); }
+.ms-caps[data-directed] .ms-cap[data-tone="dark"]::before { background: radial-gradient(closest-side, color-mix(in srgb, var(--bk-paper-0) 70%, transparent), transparent); }
+html.cold-shadow .ms-caps[data-directed] .ms-cap:not([data-tone="dark"]) { text-shadow: 0 0 var(--space-1) color-mix(in srgb, var(--bk-night-1) 85%, transparent), 0 var(--space-1) var(--space-3) color-mix(in srgb, var(--bk-night-1) 55%, transparent); }
+.ms-caps[data-directed] .ms-cap[data-area="sky"] { right: calc(var(--space-5) * -1); line-height: 1.75; }
+@media (max-width: 374px) { .ms-caps[data-directed] .ms-cap[data-area="sky"] { right: calc(var(--space-2) * -1); } }
