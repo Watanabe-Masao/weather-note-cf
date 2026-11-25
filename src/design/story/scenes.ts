@@ -3,9 +3,11 @@
 // 2026-11-20：まずビーバームーン（見本）。渡辺さんの OK のあと、ほかの 12 の満月とブルームーンを足す。
 import type { ReactElement } from "react";
 import { storyAsset } from "./storyAssets";
+import { beaverDirection } from "./beaverDirection";
+import type { BookDirection } from "./direction";
 import {
   BEAVER_BEATS,
-  BEAVER_LINE_AT,
+  BEAVER_CUES,
   BEAVER_SKY,
   BeaverCoverArt,
   BeaverPaperArt,
@@ -54,6 +56,17 @@ export type StoryScene = {
    */
   frameAfterText?: boolean;
   /**
+   * 文の出し方と時間を秒で決める本（第2次品質改善、11/26 確定。ビーバームーン）：本文（ページごとの行、組版の印つき）と
+   * 結末の作品名から、一冊の演出を作る。あれば、ページの時間・字の出る時刻・消える時刻・額縁は、これから決める
+   * （lineAt・linePause・rest は使わない）。無い場面（コールドムーン）は今までの計算のまま。
+   */
+  direction?: (pages: string[][], title?: string) => BookDirection;
+  /**
+   * 絵が先のページ（秒で決める本だけ、0 から）：そのページの「絵が先に見える時間」の頭の拍を、build の cueAt に
+   * 100＋ページの番号で渡す（月の出・初雪のように、文より先に絵が動きはじめるページ）。
+   */
+  pictureFirst?: number[];
+  /**
    * 字の後ろを少しだけ沈める（11/23：コールドムーンは白いシラカバの幹が字の後ろに来て読みにくかった）。字の列の後ろの
    * 影（.ms-caps-veil）を少し濃く広く、字のまわりのにじみ（text-shadow）を一段足す。濃くはせず、背景から字をわずかに分ける。
    */
@@ -90,7 +103,10 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     closedArt: storyAsset("beaver", "emboss-medal"),
     PaperArt: BeaverPaperArt,
     build: buildBeaverScene,
-    lineAt: BEAVER_LINE_AT,
+    cues: BEAVER_CUES,
+    direction: beaverDirection,
+    // 6 ページ（月の出）と 8 ページ（初雪）は絵が先（BeaverWorld の s6・flake）。
+    pictureFirst: [5, 7],
   },
   // 11/22 PR-2（実装計画 v0.2）：場面の寄り・引きと主役の出入り。11/23 PR-3：言葉との同期（lineAt）と夜明けの空（bookSky）。
   コールドムーン: {

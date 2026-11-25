@@ -9,6 +9,7 @@
 //   4. 知識：名前の由来・自然との関係（紙のページ）。次の満月の物語へ（一年を巡る13の物語）と、この年の一覧へ。
 // 文は毎年使える部分だけ（shared/fullMoonNames.ts）、その年だけのことは計算から。絵と動きは文化的なイメージで、実際の
 // 月の色や見え方とは別（ページの終わりに断る）。GSAP と ScrollTrigger は、このページを開いたときだけ読み込む。
+import { type BookDirection, type PageTimes, pageTimes as directedTimes, plainText } from "../design/story/direction";
 import {
   type CSSProperties,
   Fragment,
@@ -63,7 +64,7 @@ import { onSkyVars } from "../design/tokens";
 import { EventMomentCard, EventNightCard } from "./EventInfo";
 import { STARS } from "./eventBits";
 import { factTags } from "./FullMoonSheet";
-import { type Pager, storyPager } from "./storyPager";
+import { glideFrac, type Pager, storyPager } from "./storyPager";
 import { CloseIcon } from "./icons";
 import { Button, Glyph, IconButton } from "./kit";
 
@@ -229,6 +230,36 @@ export function progressToBeat(w: number[], p: number): number {
 }
 
 /**
+ * 文の出し方と時間を秒で決める本（第2次品質改善、11/26 確定。場面が direction を持つ本＝ビーバームーン）。ページ i の区間は、
+ * 一つ前の止まる所（i−1＋BEAT_REST）から、そのページの止まる所（i＋BEAT_REST）まで（最初のページは場面の頭から）。
+ * 自動で運ぶときの速さの形（DIR_GLIDE：初めに加速、終わりに減速、間は一定）を storyPager と同じ式（glideFrac）で写すので、
+ * 区間の中の秒がそのまま拍になる（自動で読むとき、字は決めた秒どおりに出る）。重みはどのコマも 1（指で送る量もそろう）。
+ */
+const DIR_GLIDE = { a: 0.4, b: 0.8 };
+interface Directed extends BookDirection {
+  times: PageTimes[];
+  secs: number[];
+}
+export function directedPlan(book: BookDirection): Directed {
+  const { pages, title, frame } = book;
+  const n = pages.length;
+  const times = pages.map((d, i) => {
+    const lead = i ? pages[i - 1].fadeOut + pages[i - 1].picture : 0;
+    const last = i === n - 1;
+    // 最後のページは、文が消えたあと（作品名・）額縁・絵だけまで同じ区間に入れる。
+    const tail = last ? (title ? title.gap + title.fadeIn + title.hold + title.fadeOut : 0) + frame + d.picture : 0;
+    return directedTimes(d, lead, last, tail);
+  });
+  return { ...book, times, secs: times.map((t) => t.total) };
+}
+/** ページ i の区間の頭から t 秒の、場面の拍。 */
+function segBeat(D: Directed, i: number, t: number): number {
+  const start = i ? i - 1 + BEAT_REST : 0;
+  const f = glideFrac(t, D.secs[i] ?? 1, i ? DIR_GLIDE.a : 0, DIR_GLIDE.b);
+  return start + f * (i + BEAT_REST - start);
+}
+
+/**
  * 物語の区切り（スクロールの px、小さい順）：表紙・見開き・場面の一コマずつ（文が読める所）・場面の終わり（一枚の絵）・
  * 締めくくり・今夜の情報の頭。下のドットは場面のコマ（firstBeat から一つずつ）。
  */
@@ -237,6 +268,7 @@ export function progressToBeat(w: number[], p: number): number {
  * 1字＋字間 0.14em に、句読点の詰めの差を見て少し余裕（1.2）。lg → md → sm の順に試し、収まらなければ sm のまま。
  */
 export function fitCaps(el: HTMLElement): void {
+  if (el.querySelector(".ms-cap .ms-soft, .ms-caps[data-directed]")) return fitDirected(el);
   el.querySelectorAll<HTMLElement>(".ms-cap").forEach((c) => {
     const n = Number(c.dataset.n) || 0;
     const h = c.clientHeight;
@@ -248,6 +280,48 @@ export function fitCaps(el: HTMLElement): void {
       if (k && k !== "fit-sm") c.classList.remove(k);
     }
   });
+}
+
+/**
+ * 秒で決める本の、背の低い画面の文字組み（第2次品質改善、11/25 23:24 渡辺さん承認の順）。どのページも同じ規則で：
+ *   1. 行が列（字幕の高さ）に収まらないときだけ、意味のまとまりで折る（本文の "/"、.ms-soft.on）。
+ *   2. それでもどれかのページの列が字幕の幅（60%）からはみ出すなら、字幕の領域を広げる（.fit-area：右の余白を詰めて横へ。
+ *      列は下へ伸ばさない。絵の主役は画面の中ほどから下）。
+ *   3. それでもはみ出すなら、列の間を詰める（.fit-tight）。
+ *   4. それでもはみ出すなら、作品全体で同じ大きさに縮める（--size-story、0.5px ずつ。19px 未満は data-small に残して報告）。
+ * 作品名（E4）は折らず、縮めるのは本文だけ。
+ */
+function fitDirected(el: HTMLElement): void {
+  const box = el.querySelector<HTMLElement>(".ms-caps");
+  if (!box) return;
+  const caps = [...box.querySelectorAll<HTMLElement>(".ms-cap:not(.ms-cap-title)")];
+  if (!caps.length) return;
+  box.classList.remove("fit-area", "fit-tight");
+  box.style.removeProperty("--size-story");
+  delete box.dataset.small;
+  const apply = () => {
+    const h = box.clientHeight;
+    const cs = getComputedStyle(caps[0]);
+    const fs = parseFloat(cs.fontSize);
+    const ls = parseFloat(cs.letterSpacing) || 0;
+    // 一列に入る字数（句読点の詰めや約物の差を見て少し余裕）。
+    const n = Math.max(4, Math.floor(h / ((fs + ls) * 1.06)));
+    box.querySelectorAll<HTMLElement>(".ms-soft").forEach((b) => b.classList.toggle("on", Number(b.dataset.len) > n));
+    // 縦書きの列は左へ並ぶ。いちばん幅の広いページが字幕の幅に収まるか（隠れているページも幅は測れる）。
+    return Math.max(...caps.map((c) => c.scrollWidth)) <= box.clientWidth + 1;
+  };
+  if (apply()) return;
+  box.classList.add("fit-area");
+  if (apply()) return;
+  box.classList.add("fit-tight");
+  if (apply()) return;
+  let fs = parseFloat(getComputedStyle(caps[0]).fontSize);
+  while (fs > 15) {
+    fs -= 0.5;
+    box.style.setProperty("--size-story", `${fs}px`);
+    if (fs < 19) box.dataset.small = String(fs);
+    if (apply()) return;
+  }
 }
 
 function storyStops(
@@ -277,7 +351,8 @@ function storyStops(
     if (b) px.push(b.offsetTop + b.offsetHeight - vh);
     px.push(w.offsetTop);
     firstBeat = px.length;
-    el.querySelectorAll<HTMLElement>(".ms-cap").forEach((c) => px.push(c.getBoundingClientRect().top - top - band));
+    // ページの文の頭ごと（結末の作品名 .ms-cap-title は、最後のページの文に続けて読むので区切りを置かない）。
+    el.querySelectorAll<HTMLElement>(".ms-cap[data-i]").forEach((c) => px.push(c.getBoundingClientRect().top - top - band));
     px.push(end);
     return { px: px.map((p) => Math.round(Math.min(end, Math.max(0, p)))), firstBeat, secs };
   }
@@ -322,7 +397,29 @@ const jst = (ms: number) => {
 };
 
 /** 一字ずつ浮かぶ文（読み上げは文のまま、字の箱は読み上げない）。 */
-function Letters({ text }: { text: string }) {
+function Letters({ text, plain = false }: { text: string; plain?: boolean }) {
+  // 演出を秒で決める本（第2次品質改善）：字の番号は組版の印を除いた字で数える。改行は列を改めるだけ、"/" は背の低い画面
+  // だけで折る印（.ms-soft、ふだんは出さない）。どちらも字の箱（.ms-ch）にしない。
+  if (plain)
+    return (
+      <>
+        <span className="ms-sr">{plainText(text)}</span>
+        <span aria-hidden>
+          {[...text].map((c, i) =>
+            c === "\n" ? (
+              <br key={i} />
+            ) : c === "/" ? (
+              // 折る印の行の字数（その行が列に収まらないときだけ折る、fitDirected）。
+              <br key={i} className="ms-soft" data-len={[...plainText(text.split("\n")[[...text.slice(0, i)].filter((x) => x === "\n").length] ?? "")].length} />
+            ) : (
+              <span key={i} className="ms-ch">
+                {c}
+              </span>
+            ),
+          )}
+        </span>
+      </>
+    );
   return (
     <>
       <span className="ms-sr">{text}</span>
@@ -406,10 +503,18 @@ export function MoonStory({
   // 行の前の間（場面が持つとき、絵本の形のページだけ）。
   const pauses = story?.book ? lines.map((_, i) => scene?.linePause?.[i]) : [];
   const linesKey = lines.join("\n") + rests.join(",") + JSON.stringify(pauses);
+  // 文の出し方と時間を秒で決める本（場面が direction を持つとき）。無ければ null（今までの計算）。
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- 文の中身が同じなら同じ
+  const directed = useMemo(() => {
+    if (!story?.book || !scene?.direction) return null;
+    // 字の箱（.ms-ch）と合図は tateNum を通した文で数えるので、演出にも同じ文を渡す（数字が入っても字の番号がずれない）。
+    const d = scene.direction(story.book.pages.map((p) => p.lines.map((l) => tateNum(l))), story.book.titleEnd);
+    return d.pages.length === lines.length ? directedPlan(d) : null;
+  }, [linesKey]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 文の中身が同じなら同じ重み（配列は毎回作られる）
-  const weights = useMemo(() => beatWeights(lines, rests, !!story?.book, pauses), [linesKey]);
+  const weights = useMemo(() => (directed ? lines.map(() => 1) : beatWeights(lines, rests, !!story?.book, pauses)), [linesKey, directed]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 同上
-  const beatSecs = useMemo(() => beatSeconds(lines, rests, !!story?.book, pauses), [linesKey]);
+  const beatSecs = useMemo(() => (directed ? directed.secs : beatSeconds(lines, rests, !!story?.book, pauses)), [linesKey, directed]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 同上
   const readings = useMemo(() => lines.map((t) => readingTimes(tateNum(t))), [linesKey]);
   const World = scene?.World;
@@ -835,7 +940,25 @@ export function MoonStory({
           const capAt = (i: number) => i + REVEAL_START - (i === 0 ? 0.04 : scene.linePause?.[i] ? 0 : CAP_LEAD);
           // 言葉の合図（11/23）：合図の言葉の最初の字が出る拍を、字幕と同じ計算で出して場面に渡す。
           const cueAt: Record<number, number[]> = {};
-          for (const [p, words] of Object.entries(scene.cues ?? {})) {
+          if (directed) {
+            // 秒で決める本：合図の言葉の最初の字が浮かびはじめる拍。105・107 は 5・7 ページの「絵が先」の頭。
+            for (const [p, words] of Object.entries(scene.cues ?? {})) {
+              const i = Number(p);
+              if (i >= lines.length) continue;
+              const text = plainText(tateNum(lines[i]));
+              let from = 0;
+              cueAt[i] = words.map((w) => {
+                const k = text.indexOf(w, from);
+                if (k < 0) return Number.NaN;
+                from = k + w.length;
+                const c = directed.times[i].chars[[...text.slice(0, k)].length];
+                return c ? segBeat(directed, i, c.at) : Number.NaN;
+              });
+            }
+            for (const i of scene.pictureFirst ?? [])
+              if (i < lines.length) cueAt[100 + i] = [segBeat(directed, i, directed.times[i].textStart - directed.pages[i].intro)];
+          }
+          for (const [p, words] of directed ? [] : Object.entries(scene.cues ?? {})) {
             const i = Number(p);
             const t = pageTimes(i);
             if (!t || i >= lines.length) continue;
@@ -849,13 +972,61 @@ export function MoonStory({
             });
           }
           const loop = scene.build(gsap as never, el, world as never, true, cueAt);
+          if (directed) {
+            const D = directed;
+            const sb = (i: number, t: number) => segBeat(D, i, t);
+            const te = D.title;
+            const lastI = lines.length - 1;
+            lines.forEach((_, i) => {
+              const cap = `.ms-cap[data-i="${i}"]`;
+              const T = D.times[i];
+              const d = D.pages[i];
+              const last = i === lastI;
+              world.set(cap, { opacity: 1 }, Math.max(0, sb(i, T.textStart) - 0.002));
+              // 一字ずつ（演出の単位ごとの時刻と浮かぶ秒）。
+              el.querySelectorAll(`${cap} .ms-ch`).forEach((c, k) => {
+                const ct = T.chars[k];
+                if (!ct) return;
+                const a0 = sb(i, ct.at);
+                world.fromTo(c, { opacity: 0 }, { opacity: 1, duration: Math.max(0.002, sb(i, ct.at + ct.fade) - a0), ease: "sine.out" }, a0);
+              });
+              // 消える：最後のページは区間の中（読む時間のあと）、ほかは止まる所を過ぎてから（次の区間の頭、fadeOut 秒）。
+              const f0 = last ? sb(i, T.fadeStart) : i + BEAT_REST + 0.004;
+              const f1 = last ? sb(i, T.fadeStart + d.fadeOut) : segBeat(D, i + 1, d.fadeOut);
+              world
+                .to(cap, { opacity: 0, y: last ? 0 : -8, duration: Math.max(0.002, f1 - f0), ease: last ? "sine.inOut" : "power1.in" }, f0)
+                .set(cap, { y: 0 }, f1 + 0.002);
+            });
+            const T = D.times[lastI];
+            let gone = T.fadeStart + D.pages[lastI].fadeOut;
+            if (te) {
+              // 作品名（E4）：文が消えきって、文字の無い風景（gap）のあと、一文まるごと浮かべて、残して、消す。
+              const t0 = gone + te.gap;
+              const t1 = t0 + te.fadeIn + te.hold;
+              world
+                .fromTo(".ms-cap-title", { opacity: 0 }, { opacity: 1, duration: sb(lastI, t0 + te.fadeIn) - sb(lastI, t0), ease: "sine.inOut" }, sb(lastI, t0))
+                .to(".ms-cap-title", { opacity: 0, duration: sb(lastI, t1 + te.fadeOut) - sb(lastI, t1), ease: "sine.inOut" }, sb(lastI, t1));
+              gone = t1 + te.fadeOut;
+            }
+            // 額縁は文（と作品名）が消えきってから D.frame 秒で（11/25 渡辺さん「文字の消去完了後に額装を開始」）。そのあと
+            // 止まる所まで絵だけ。
+            const fa = sb(lastI, gone + 0.05);
+            world.fromTo(
+              ".ms-world-frame",
+              { opacity: 0, scale: 1.06 },
+              { opacity: 1, scale: 1, duration: Math.max(0.002, sb(lastI, gone + 0.05 + D.frame) - fa), ease: "sine.inOut" },
+              fa,
+            );
+          } else {
           lines.forEach((_, i) => {
             const cap = `.ms-cap[data-i="${i}"]`;
             const secs = beatSecs[i] ?? SEC_PER_BEAT;
             const times = pageTimes(i);
             // 最後のページ（9）は、文だけが先に消え、止まる所では絵だけが rest の秒残る（絵コンテ「文が消えて絵が残る」）。
             const lastBook = !!story?.book && i === lines.length - 1;
-            const fadeAt = lastBook ? REVEAL_START + ((readings[i]?.total ?? 0) + pauseSum(scene.linePause?.[i]) + LAST_TAIL) / secs : CAP_OUT;
+            const fadeAt = lastBook
+              ? REVEAL_START + ((readings[i]?.total ?? 0) + pauseSum(scene.linePause?.[i]) + LAST_TAIL) / secs
+              : CAP_OUT;
             const at = capAt(i);
             world
               .set(cap, { opacity: 1 }, at)
@@ -893,16 +1064,20 @@ export function MoonStory({
           });
           // 一枚の絵の枠：場面が持つときは、最後のページの文が消えてから止まる所まで（文を読む間は出さない）。
           const lastI = lines.length - 1;
+          const lastSecs = beatSecs[lastI] ?? SEC_PER_BEAT;
           const textGone = story?.book
-            ? lastI + REVEAL_START + ((readings[lastI]?.total ?? 0) + pauseSum(scene.linePause?.[lastI]) + LAST_TAIL) / (beatSecs[lastI] ?? SEC_PER_BEAT) + 0.06
+            ? lastI + REVEAL_START + ((readings[lastI]?.total ?? 0) + pauseSum(scene.linePause?.[lastI]) + LAST_TAIL) / lastSecs + 0.06
             : scene.beats - 0.75;
-          const frameAt = scene.frameAfterText ? Math.min(scene.beats - 1 + BEAT_REST - 0.04, textGone) : scene.beats - 0.75;
+          // 額縁は文が消えてから（コールドムーン）。
+          const afterText = !!scene.frameAfterText;
+          const frameAt = afterText ? Math.min(scene.beats - 1 + BEAT_REST - 0.04, textGone) : scene.beats - 0.75;
           world.fromTo(
             ".ms-world-frame",
             { opacity: 0, scale: 1.06 },
-            { opacity: 1, scale: 1, duration: scene.frameAfterText ? Math.max(0.04, scene.beats - 1 + BEAT_REST - frameAt) : 0.5 },
+            { opacity: 1, scale: 1, duration: afterText ? Math.max(0.04, scene.beats - 1 + BEAT_REST - frameAt) : 0.5 },
             frameAt,
           );
+          }
 
           world.set({}, {}, scene.beats);
           gsap.fromTo(
@@ -1237,12 +1412,20 @@ export function MoonStory({
           firstBeat = m.firstBeat;
           beatAt.current = firstBeat;
           secs = m.secs;
+          // 演出を秒で決める本：見開きから1ページ目へは、場面の頭から先をちょうど1ページ目の区間の秒で運ぶ。
+          if (directed && firstBeat > 0) {
+            const wt = el.querySelector<HTMLElement>(".ms-world")?.offsetTop ?? 0;
+            const a = m.px[firstBeat - 1];
+            const b = m.px[firstBeat];
+            if (b - wt > 4) secs[firstBeat] = (directed.secs[0] * (b - a)) / (b - wt);
+          }
           stopCount = m.px.length;
           return m.px;
         },
         reduced: () =>
           window.matchMedia("(prefers-reduced-motion: reduce)").matches,
         seconds: (i) => secs[i],
+        profile: (i) => (directed && firstBeat >= 0 && i >= firstBeat && i < firstBeat + lines.length ? DIR_GLIDE : undefined),
         // 本編（場面）の頭より前は区切りへ運ばない。場面の無い満月は、本の後ろ（文の章）から。
         freeBefore: () =>
           (el.querySelector<HTMLElement>(".ms-world")?.offsetTop ?? 0) - 1,
@@ -1260,7 +1443,10 @@ export function MoonStory({
               if (i >= stopCount - 1) setAuto(false);
               else {
                 const lastBeat = firstBeat >= 0 && i === firstBeat + dots.length - 1;
-                autoTimer.current = window.setTimeout(() => autoOn.current && pager.current?.step(1), (lastBeat ? AUTO_HOLD_LAST : AUTO_HOLD) * 1000);
+                // 秒で決める本のページ（読む時間・絵だけの時間は区間の中にある）だけ、止まったらすぐ次へ。表紙・見開きは今まで
+                // どおり（11/26 コードの独立確認）。
+                const inPages = firstBeat >= 0 && i >= firstBeat && i < firstBeat + dots.length;
+                autoTimer.current = window.setTimeout(() => autoOn.current && pager.current?.step(1), (inPages && directed ? 0.05 : lastBeat ? AUTO_HOLD_LAST : AUTO_HOLD) * 1000);
               }
             }
           }
@@ -1541,18 +1727,23 @@ export function MoonStory({
               <GoldFrame w={400} h={860} inset={10} bevel={false} />
             </span>
             <span className="ms-caps-veil" aria-hidden />
-            <div className="ms-caps">
+            <div className="ms-caps" data-directed={directed ? "" : undefined}>
               {lines.map((t, i) => (
                 <p
                   key={i}
                   className="ms-cap"
                   data-i={i}
                   // いちばん長い行の字数（縦書きの列に収まる字の大きさを選ぶ。fitCaps）。
-                  data-n={Math.max(...tateNum(t).split("\n").map((l) => [...l].length))}
+                  data-n={Math.max(...tateNum(t).split("\n").map((l) => [...l.replace(/\//g, "")].length))}
                 >
-                  <Letters text={tateNum(t)} />
+                  <Letters text={tateNum(t)} plain={!!directed} />
                 </p>
               ))}
+              {directed?.title && story?.book?.titleEnd && (
+                <p className="ms-cap ms-cap-title" data-n={[...story.book.titleEnd].length}>
+                  {story.book.titleEnd}
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -1631,7 +1822,7 @@ export function MoonStory({
                   {pg.lines.map((l, k) => (
                     <span key={k}>
                       {k > 0 && <br />}
-                      {l}
+                      {l.replace(/\//g, "")}
                     </span>
                   ))}
                 </p>

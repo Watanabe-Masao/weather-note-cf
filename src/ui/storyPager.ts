@@ -30,7 +30,27 @@ type Opts = {
    * （11/21 レビュー：見開きから1ページ目へ、本の中を朗読の速さで運んでいたので、文が出るまで約10秒かかっていた）。
    */
   waypoint?: () => number | undefined;
+  /**
+   * 区切り i へ一つ進むときの加速・減速の秒（第2次品質改善、秒で決める本）。渡すと、その区切りへは長さに関わらず決まった秒で
+   * 加速・減速し、間は一定の速さで運ぶ（演出の秒を拍へ写す側が glideFrac で同じ形を使う）。
+   */
+  profile?: (i: number) => { a: number; b: number } | undefined;
 };
+
+/**
+ * 止まった所から運ぶときの、t 秒で進む割合（0〜1）。初め a 秒で加速、終わり b 秒で減速（storyPager の glideFrom と同じ形）。
+ */
+export function glideFrac(t: number, T: number, a: number, b: number): number {
+  if (T <= 0) return 1;
+  const tt = Math.max(0, Math.min(T, t));
+  const vc = 1 / (T - a / 2 - (2 * b) / 3);
+  const xa = (vc * a) / 2;
+  const xb = xa + vc * (T - a - b);
+  if (tt < a) return (vc * tt * tt) / (2 * a);
+  if (tt < T - b) return xa + vc * (tt - a);
+  const u = Math.min(b, tt - (T - b));
+  return Math.min(1, xb + ((vc * b) / 3) * (1 - Math.pow(1 - u / b, 3)));
+}
 
 const MAX_STEP = 3;
 /** 指を離した速さから「届く距離」を見積もる（iOS のスクロールの減速と同じ考え：距離 ≒ 速さ × 0.5 秒）。 */
@@ -103,7 +123,10 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     if (!o.reduced?.() && w !== undefined && x0 < w - 4 && to > w + 4 && o.seconds) {
       const T2 = travelSeconds(w, to);
       const D2 = to - w;
-      const vc2 = D2 / Math.max(0.5, T2 - 0.5 - (2 * Math.min(1.1, T2 * 0.35)) / 3);
+      const pf = o.profile?.(stops.indexOf(to));
+      const vc2 = pf
+        ? D2 / Math.max(0.5, T2 - (2 * pf.b) / 3)
+        : D2 / Math.max(0.5, T2 - 0.5 - (2 * Math.min(1.1, T2 * 0.35)) / 3);
       const D1 = w - x0;
       const T1 = byDistance(D1);
       const s0 = Math.max(0, v0) * T1;
@@ -122,7 +145,7 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
         if (k >= 1) {
           el.scrollTop = w;
           raf = 0;
-          glideFrom(w, to, vc2);
+          glideFrom(w, to, vc2, true);
           return;
         }
         const y = pos1(k);
@@ -135,7 +158,7 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     }
     glideFrom(x0, to, v0);
   };
-  const glideFrom = (x0: number, to: number, v0: number) => {
+  const glideFrom = (x0: number, to: number, v0: number, carry = false) => {
     const D = to - x0;
     if (Math.abs(D) < 0.5) {
       el.scrollTop = to;
@@ -143,9 +166,13 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
       return;
     }
     const T = o.reduced?.() ? 0.45 : travelSeconds(x0, to);
-    const a = Math.min(0.5, T * 0.2);
-    const b = Math.min(1.1, T * 0.35);
+    const next = stops.find((s) => s > x0 + 2);
+    const pf = !o.reduced?.() && to === next && to > x0 ? o.profile?.(stops.indexOf(to)) : undefined;
     const toward = Math.sign(v0) === Math.sign(D);
+    // 決まった形（profile）：止まった所からは a 秒で加速、節目から速さを引き継ぐとき（carry）だけ加速なし。
+    // 指で払ったときは、払った速さから a 秒で一定の速さへ（11/26 コードの独立確認）。
+    const a = pf ? (carry ? 0 : Math.min(pf.a, T * 0.3)) : Math.min(0.5, T * 0.2);
+    const b = pf ? Math.min(pf.b, T * 0.4) : Math.min(1.1, T * 0.35);
     const vs = toward ? Math.sign(D) * Math.min(Math.abs(v0), (2 * Math.abs(D)) / T) : 0;
     const vc = (D - (vs * a) / 2) / (T - a / 2 - (2 * b) / 3);
     const xa = x0 + ((vs + vc) * a) / 2;
