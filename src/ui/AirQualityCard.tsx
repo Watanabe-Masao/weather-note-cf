@@ -20,6 +20,9 @@ import type { WeatherRow } from "../../shared/types";
 import { AirBreakdownSheet } from "./AirBreakdownSheet";
 import { Button, InfoNote } from "./kit";
 
+/** 気象庁の黄砂情報（黄砂解析予測図）。黄砂がふだんより多い日だけ、ひとことの下に出す（11/25 渡辺さん）。 */
+export const JMA_KOSA_PAGE = "https://www.data.jma.go.jp/env/kosa/fcst/";
+
 const W = 340;
 const LEFT = 30;
 const RIGHT = 8;
@@ -55,13 +58,14 @@ interface Vis {
 const visOf = (rows: WeatherRow[] | null | undefined): Vis[] =>
   (rows ?? []).filter((r) => typeof r.visibility === "number" && Number.isFinite(r.visibility)).map((r) => ({ x: r.n, v: Math.min(20, r.visibility as number), actual: r.type === "actual" }));
 
-function Panels({ hours, measured, vis, nowH, sel, onSel }: { hours: AirHour[]; measured: MeasuredHour[]; vis: Vis[]; nowH: number | null; sel: number | null; onSel: (h: number) => void }) {
+function Panels({ hours, measured, vis, usual, nowH, sel, onSel }: { hours: AirHour[]; measured: MeasuredHour[]; vis: Vis[]; usual: { pm: number | null; dust: number | null }; nowH: number | null; sel: number | null; onSel: (h: number) => void }) {
   const box = useRef<SVGSVGElement>(null);
   const x = (h: number) => LEFT + ((W - LEFT - RIGHT) * h) / 24;
   const pmVals = [...hours.map((h) => h.pm2_5), ...measured.map((m) => m.pm2_5)].filter((v): v is number => v != null);
   const dustVals = hours.map((h) => h.dust).filter((v): v is number => v != null);
-  const pmTop = nice(Math.max(0, ...pmVals), 20);
-  const dustTop = nice(Math.max(0, ...dustVals), 10);
+  // ふだんの目安（CAMS のふだんの 90% の値、Weather Note の集計）の線が枠に入るように、上端に含める。
+  const pmTop = nice(Math.max(0, ...pmVals, usual.pm ?? 0), 20);
+  const dustTop = nice(Math.max(0, ...dustVals, usual.dust ?? 0), 10);
   const tops = { pm: HEAD, dust: HEAD + PANEL.pm + GAP, vis: HEAD + PANEL.pm + GAP + PANEL.dust + GAP };
   const H = tops.vis + PANEL.vis + AXIS;
   const y = (panel: keyof typeof PANEL, v: number, top: number) => tops[panel] + PANEL[panel] * (1 - v / top);
@@ -95,6 +99,15 @@ function Panels({ hours, measured, vis, nowH, sel, onSel }: { hours: AirHour[]; 
         </text>
       </g>
     ));
+  const guide = (panel: "pm" | "dust", v: number | null, top: number) =>
+    v == null ? null : (
+      <g>
+        <line x1={LEFT} x2={W - RIGHT} y1={y(panel, v, top)} y2={y(panel, v, top)} className="aq-usual" />
+        <text x={W - RIGHT} y={y(panel, v, top) - 3} className="aq-usual-l">
+          ふだんの目安 {Math.round(v)}
+        </text>
+      </g>
+    );
   const visA = vis.filter((p) => p.actual);
   const visF = vis.filter((p) => !p.actual);
   return (
@@ -120,6 +133,8 @@ function Panels({ hours, measured, vis, nowH, sel, onSel }: { hours: AirHour[]; 
       {label("pm", "PM2.5 µg/m³")}
       {label("dust", "黄砂 µg/m³")}
       {label("vis", "視程 km")}
+      {guide("pm", usual.pm, pmTop)}
+      {guide("dust", usual.dust, dustTop)}
       <path d={path(series("pm2_5"), "pm", pmTop)} className="aq-line pm" />
       {measured
         .filter((m) => m.pm2_5 != null)
@@ -201,6 +216,8 @@ export function AirQualityCard({ station, date, today, hours, latest }: { statio
           more={
             <>
               Weather Note の判定です。PM2.5・黄砂は、その項目のふだん（この地点の手前30日の1時間値）の 90% を超える時間を「ふだんより多い」としています。
+              「ふだんの目安」はその 90% の値で、Weather Note の集計です（環境省の基準ではありません）。黄砂には環境省・気象庁の µg/m³ の基準がありません。
+              PM2.5 の環境省の環境基準は 1日平均 35 µg/m³ 以下で、1時間ごとの値とは比べません。
               PM2.5 は介良局の実測があれば実測で、無ければ CAMS で見ます。視程は、気象庁が黄砂の観測で使う見通しの区分で 5km 未満の時間です（観測だけ）。
             </>
           }
@@ -217,6 +234,11 @@ export function AirQualityCard({ station, date, today, hours, latest }: { statio
           )}
           <small className="aq-judge">Weather Note の判定</small>
         </InfoNote>
+        {verdict.facts.some((f) => f.key === "dust") && (
+          <a href={JMA_KOSA_PAGE} target="_blank" rel="noreferrer" className="aq-kosa-link">
+            気象庁の黄砂解析予測図 ↗
+          </a>
+        )}
         <div className="aq-vals">
           {isToday ? (
             <>
@@ -250,13 +272,19 @@ export function AirQualityCard({ station, date, today, hours, latest }: { statio
             </>
           )}
         </p>
-        <Panels hours={ch} measured={mh} vis={vis} nowH={nowH} sel={sh} onSel={(h) => setSelFor({ date, h })} />
+        <Panels hours={ch} measured={mh} vis={vis} usual={{ pm: r?.usual?.items?.pm2_5?.q[2] ?? null, dust: r?.usual?.items?.dust?.q[2] ?? null }} nowH={nowH} sel={sh} onSel={(h) => setSelFor({ date, h })} />
         <p className="aq-legend">
           <span className="aq-key pm" />
           <span className="aq-key dust" />
           PM2.5・黄砂（{r?.kind === "past" ? "CAMS" : "CAMS の予測"}）
           <span className="aq-key dot" />
           PM2.5 の実測（介良局）
+          {r?.usual?.items && (
+            <>
+              <span className="aq-key usual" />
+              ふだんの目安（CAMS のふだんの 90%）
+            </>
+          )}
           <span className="aq-key vis" />
           視程（観測）
           {vis.some((p) => !p.actual) && (

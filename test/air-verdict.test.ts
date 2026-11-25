@@ -16,13 +16,13 @@ describe("空気のひとこと", () => {
   });
   it("dust above 90% of the usual, from CAMS", () => {
     const v = airVerdict({ hours: hours((h) => ({ dust: h >= 13 && h <= 15 ? 8 : 1 })), usual }, null, null);
-    expect(v.facts).toEqual([{ key: "dust", text: "黄砂がふだんより多い（13〜15時）", who: "CAMS" }]);
+    expect(v.facts).toEqual([{ key: "dust", text: "黄砂がふだんより多い（13〜15時）", who: "CAMS・ふだんの目安 5 µg/m³" }]);
   });
   it("PM2.5 from the measured hours when there are some, else CAMS", () => {
     const m: MeasuredHour[] = [9, 10].map((hour) => ({ hour, pm2_5: 20, ox: null, spm: null, no2: null, so2: null, wd: null, ws: null, fetchedAt: "x" }));
     const v = airVerdict({ hours: hours((h) => ({ pm2_5: h === 3 ? 30 : 8 })), usual }, { hours: m, usual }, null);
-    expect(v.facts).toEqual([{ key: "pm", text: "PM2.5 がふだんより多い（8〜9時台）", who: "介良局の実測" }]);
-    expect(airVerdict({ hours: hours((h) => ({ pm2_5: h === 3 ? 30 : 8 })), usual }, null, null).facts[0]).toMatchObject({ text: "PM2.5 がふだんより多い（3時）", who: "CAMS" });
+    expect(v.facts).toEqual([{ key: "pm", text: "PM2.5 がふだんより多い（8〜9時台）", who: "介良局の実測・ふだんの目安 14 µg/m³" }]);
+    expect(airVerdict({ hours: hours((h) => ({ pm2_5: h === 3 ? 30 : 8 })), usual }, null, null).facts[0]).toMatchObject({ text: "PM2.5 がふだんより多い（3時）", who: "CAMS・ふだんの目安 14 µg/m³" });
   });
   it("visibility under 5 km, observed hours only", () => {
     expect(airVerdict(null, null, vis((n) => (n === 10 || n === 11 ? 3 : 20))).facts).toEqual([{ key: "vis", text: "見通しが 5km 未満（10〜11時）", who: "気象台の観測" }]);
