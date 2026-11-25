@@ -23,7 +23,7 @@ import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
 import type { MeasuredResponse } from "../../shared/airQuality";
 import { addDays } from "../../shared/dates";
-import { USUAL_DAYS, usualItem } from "../../shared/airUsual";
+import { USUAL_DAYS, dayUsual, groupByDay, usualItem } from "../../shared/airUsual";
 
 export const SORAMAME_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS soramame_hourly (
@@ -323,9 +323,9 @@ export async function readMeasured(db: Db, station: string, name: string, date: 
   const from = addDays(end, -USUAL_DAYS);
   const back = (
     await db
-      .prepare("SELECT pm2_5, ox, spm, no2, so2 FROM soramame_hourly WHERE station = ? AND date >= ? AND date < ?")
+      .prepare("SELECT date, pm2_5, ox, spm, no2, so2 FROM soramame_hourly WHERE station = ? AND date >= ? AND date < ?")
       .bind(station, from, end)
-      .all<{ pm2_5: number | null; ox: number | null; spm: number | null; no2: number | null; so2: number | null }>()
+      .all<{ date: string; pm2_5: number | null; ox: number | null; spm: number | null; no2: number | null; so2: number | null }>()
   ).results;
   const col = (k: "pm2_5" | "ox" | "spm" | "no2" | "so2") => back.map((r) => r[k]).filter((v): v is number => v != null);
   return {
@@ -336,7 +336,13 @@ export async function readMeasured(db: Db, station: string, name: string, date: 
     hours: rows.map((r) => ({ hour: r.hour, pm2_5: r.pm2_5, ox: r.ox, spm: r.spm, no2: r.no2, so2: r.so2, wd: r.wd, ws: r.ws, fetchedAt: r.fetched_at })),
     checkedAt: checked?.at ?? null,
     newestOut: out?.newest ?? null,
-    usual: { from, to: addDays(end, -1), items: { pm2_5: usualItem(col("pm2_5")), ox: usualItem(col("ox")), spm: usualItem(col("spm")), no2: usualItem(col("no2")), so2: usualItem(col("so2")) } },
+    usual: {
+      from,
+      to: addDays(end, -1),
+      items: { pm2_5: usualItem(col("pm2_5")), ox: usualItem(col("ox")), spm: usualItem(col("spm")), no2: usualItem(col("no2")), so2: usualItem(col("so2")) },
+      // 1日の値のふだん（日平均、11/25）。そらまめの「時」は 1〜24（24時は翌日 0時に終わる1時間）でも、その日の値として数える。
+      days: { pm2_5: dayUsual(groupByDay(back, (r) => r.date, (r) => r.pm2_5), "mean") },
+    },
     source: "環境省 大気汚染物質広域監視システム（そらまめくん）",
   };
 }

@@ -192,7 +192,9 @@ def api(path, q):
         d = q.get("date", "")
         hours = [{"h": h, "pm2_5": round(9 + 6 * _math.sin((h - 6) / 24 * 2 * _math.pi), 1), "pm10": 14, "dust": (15 if h == 13 else 3), "aod": 0.1} for h in range(24)]
         # ふだん（手前30日の分位、11/25）：PM2.5 は 13時が「多い」くらい、AOD は比べられない（手前が足りない）
-        usual = {"from": "2026-10-11", "to": "2026-11-09", "items": {"pm2_5": {"n": 720, "q": [4, 12, 14, 16]}, "pm10": {"n": 720, "q": [5, 14, 18, 22]}, "dust": {"n": 720, "q": [1, 4, 8, 12]}, "aod": None}}
+        usual = {"from": "2026-10-11", "to": "2026-11-09", "items": {"pm2_5": {"n": 720, "q": [4, 12, 14, 16]}, "pm10": {"n": 720, "q": [5, 14, 18, 22]}, "dust": {"n": 720, "q": [1, 4, 8, 12]}, "aod": None},
+                 # 1日の値のふだん（11/25）：日平均 PM2.5 の 90% は 12、日最大の黄砂の 90% は 10（この日の黄砂の最大 15 は多い日）
+                 "days": {"pm2_5": {"n": 30, "p90": 12}, "dust": {"n": 30, "p90": 10}}}
         return {"supported": True, "v": 1, "station": q.get("station"), "date": d, "kind": "forecast" if d >= "2026-11-10" else "past", "hours": hours, "fetchedAt": "2026-11-10T02:30:00Z", "usual": usual, "source": "Open-Meteo（CAMS）"}
     if path == "/api/air-days":
         # 比較の空気（11/25）：日ごとのまとめ。2023年より前は無い。前日は黄砂が多い日。
@@ -1535,7 +1537,7 @@ with sync_playwright() as p:
         chips = pg.evaluate("[...document.querySelectorAll('.item-bar .ib-open [data-item]')].map(e => e.dataset.item)")
         check("AQ2 まとめの空気の行から「空気」の画面（ひとこと・値・PM2.5・黄砂・視程の3段）、帯の空気は1つの項目、実測はだれにでも", chips == ["visibility"] and pg.locator('[data-item="visibility"][aria-selected="true"]').count() == 1 and pg.locator(".aq .aq-chart path.aq-line").count() >= 3 and "実測 PM2.5" in aq and "管理者だけ" not in aq and pg.locator(".day-detail .hour-face").count() == 0, (chips, aq[:120]))
         # ひとこと（Weather Note の判定）：ふだんより多い時間だけ。説明と出典・基準は ⓘ に畳む（11/25「ⓘ で不要な情報は削る」）
-        check("AQ3 ひとことは Weather Note の判定（黄砂がふだんより多い 13時、CAMS）、黄砂の多い日は気象庁の黄砂解析予測図へ、出典と基準は畳んである", "黄砂がふだんより多い（13時）" in aq and pg.locator(".aq a.aq-kosa-link[href^='https://www.data.jma.go.jp/env/kosa/']").count() == 1 and "Weather Note の判定" in aq and "Open-Meteo" not in aq and "環境基準" not in aq, aq[:160])
+        check("AQ3 ひとことは Weather Note の判定（1日の値で黄砂がふだんより多い日、多いのは 13時、CAMS）、黄砂の多い日は気象庁の黄砂解析予測図へ、出典と基準は畳んである", "黄砂がふだんより多い日（多いのは 13時）" in aq and pg.locator(".aq a.aq-kosa-link[href^='https://www.data.jma.go.jp/env/kosa/']").count() == 1 and "Weather Note の判定" in aq and "Open-Meteo" not in aq and "環境基準" not in aq, aq[:160])
         if os.environ.get("WN_AQSHOT"): pg.locator(".aq-top").first.screenshot(path=os.environ["WN_AQSHOT"] + "-verdict.png")
         check("AQ3b グラフの目安の点線は出どころごと（黄砂は「CAMS の目安 8」、PM2.5 は CAMS と介良局を別の線に）", pg.locator(".aq .aq-chart line.aq-usual").count() >= 3 and "CAMS の目安 8" in pg.locator(".aq .aq-chart").first.text_content() and "介良局の目安" in pg.locator(".aq .aq-chart").first.text_content(), pg.locator(".aq .aq-chart").first.text_content()[:160])
         if os.environ.get("WN_AQSHOT"): pg.locator(".aq-chartbox").first.screenshot(path=os.environ["WN_AQSHOT"] + "-chart.png")

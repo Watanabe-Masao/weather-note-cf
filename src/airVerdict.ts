@@ -1,6 +1,9 @@
 // 空気のひとこと（2026-11-25 渡辺さん「空気の質と視程を統合」「分かりやすいか」）：その日の空気で、ふだんと違うところだけを1文に。
 // Weather Note の判定（design-system 4.0a）。材料ごとに誰の値かを添える。
 //
+// - 2026-11-25（渡辺さん OK、research/air-usual の結果）：黄砂・PM2.5 は「ふだんより多い日」かを1日の値で決める（PM2.5 は日平均、
+//   黄砂は日最大を、手前30日の1日の値の 90% と比べる）。1時間でも 90% を超えたら、だと2日に1日ほど出ていた（1日の値なら約1割）。
+//   多い日だけ、1時間の目安（手前30日の1時間値の 90%）を超えた時間を添える。以下は 11/25 までの書き方（参考）：
 // - 黄砂・PM2.5：その項目のふだん（手前30日の1時間値、shared/airUsual.ts）の 90% を超える時間（段 3 以上＝「多い」）を拾う。
 //   PM2.5 は介良局の実測があれば実測で（その1時間の平均、「h時台」）、無ければ CAMS で。黄砂は CAMS だけ（高知に黄砂の実測は無い）。
 //   11/25 の外部レビュー：実測で比べるのは、介良局のふだんがあるときだけ。実測の無い時間（まだ出ていない後の時間など）は CAMS で見て、
@@ -9,11 +12,10 @@
 // - 何も無いときに「ふだんと大きな違いはありません」と言うのは、PM2.5（実測か CAMS のどちらかで比べられた時間）と黄砂（CAMS）が
 //   それぞれ 20時間以上あるときだけ（データがそろわないのに「違いは無い」と言わない、thread-rules）。そうでなければ「比べる値がそろっていません」。
 import type { AirHour, MeasuredHour } from "../shared/airQuality";
-import { type Usual, type UsualItem, usualLevel } from "../shared/airUsual";
+import { dayValue, type Usual, type UsualItem, usualLevel } from "../shared/airUsual";
 import type { WeatherRow } from "../shared/types";
 
 const MANY = 3;
-const ENOUGH_HOURS = 20;
 
 /** 続いた時を「13〜16時」のようにまとめる（1時間だけなら「13時」）。suffix は「時」か「時台」。 */
 export function hourSpans(hours: number[], suffix = "時"): string {
@@ -37,7 +39,7 @@ export const dustHighHours = (hours: AirHour[], usual?: Usual): number[] => hour
 export const usualLine = (u: UsualItem | null | undefined): string => (u ? String(Math.round(u.q[2])) : "—");
 
 export interface AirFact {
-  key: "dust" | "pm" | "pmCams" | "vis";
+  key: "dust" | "pm" | "vis";
   text: string;
   /** 誰の値か。 */
   who: string;
@@ -53,29 +55,49 @@ export interface AirVerdict {
 export function airVerdict(cams: { hours: AirHour[]; usual?: Usual } | null, measured: { hours: MeasuredHour[]; usual?: Usual } | null, visRows: WeatherRow[] | null): AirVerdict {
   const facts: AirFact[] = [];
   const ch = cams?.hours ?? [];
-  const cu = cams?.usual?.items;
-  const dustHi = dustHighHours(ch, cams?.usual);
-  if (dustHi.length) facts.push({ key: "dust", text: `黄砂がふだんより多い（${hourSpans(dustHi)}）`, who: `CAMS・ふだんの目安 ${usualLine(cu?.dust)} µg/m³` });
+  const cd = cams?.usual?.days;
+  const r0 = (v: number) => String(Math.round(v));
+  const many = (hs: number[], suffix = "時") => (hs.length ? `（多いのは ${hourSpans(hs, suffix)}）` : "");
+  // 黄砂（CAMS）：その日の最大を、手前30日の日最大の 90% と比べる。多い日だけ、1時間の目安を超えた時間を添える。
+  const dustDay = dayValue(ch.map((h) => h.dust), "max");
+  const dustOk = dustDay != null && !!cd?.dust;
+  if (dustOk && dustDay > cd!.dust!.p90)
+    facts.push({ key: "dust", text: `黄砂がふだんより多い日${many(dustHighHours(ch, cams?.usual))}`, who: `CAMS・日最大 ${r0(dustDay)} µg/m³（ふだんの目安 ${r0(cd!.dust!.p90)}）` });
+  // PM2.5：介良局の実測が 20時間以上あり、介良局の1日のふだんがあれば、実測の日平均で。そうでなければ CAMS の日平均で。
   const mh = measured?.hours ?? [];
-  const mu = measured?.usual?.items;
-  // 実測は、介良局のふだんがあるときだけ比べる（ふだんが無ければ、実測があっても CAMS で見る）。実測の h 時台は CAMS の h 時と同じ1時間。
-  const measPm = mu?.pm2_5 ? mh.filter((h) => h.pm2_5 != null) : [];
-  const measured_ = new Set(measPm.map((h) => h.hour - 1));
-  const hiM = measPm.filter((h) => (usualLevel(h.pm2_5, mu?.pm2_5) ?? 0) >= MANY).map((h) => h.hour - 1);
-  if (hiM.length) facts.push({ key: "pm", text: `PM2.5 がふだんより多い（${hourSpans(hiM, "時台")}）`, who: `介良局の実測・ふだんの目安 ${usualLine(mu?.pm2_5)} µg/m³` });
-  const camsPm = cu?.pm2_5 ? ch.filter((h) => h.pm2_5 != null && !measured_.has(h.h)) : [];
-  const hiC = camsPm.filter((h) => (usualLevel(h.pm2_5, cu?.pm2_5) ?? 0) >= MANY).map((h) => h.h);
-  if (hiC.length)
-    facts.push({
-      key: measPm.length ? "pmCams" : "pm",
-      text: `PM2.5 がふだんより多い（${hourSpans(hiC)}）`,
-      who: `${measPm.length ? "CAMS（実測の無い時間）" : "CAMS"}・ふだんの目安 ${usualLine(cu?.pm2_5)} µg/m³`,
-    });
+  const md = measured?.usual?.days?.pm2_5;
+  const mu = measured?.usual?.items?.pm2_5;
+  const measDay = dayValue(mh.map((h) => h.pm2_5), "mean");
+  let pmOk = false;
+  if (measDay != null && md) {
+    pmOk = true;
+    if (measDay > md.p90) {
+      const hi = mh.filter((h) => (usualLevel(h.pm2_5, mu) ?? 0) >= MANY).map((h) => h.hour - 1);
+      facts.push({ key: "pm", text: `PM2.5 がふだんより多い日${many(hi, "時台")}`, who: `介良局の実測・日平均 ${r0(measDay)} µg/m³（ふだんの目安 ${r0(md.p90)}）` });
+    }
+  } else {
+    const camsDay = dayValue(ch.map((h) => h.pm2_5), "mean");
+    if (camsDay != null && cd?.pm2_5) {
+      pmOk = true;
+      if (camsDay > cd.pm2_5.p90) {
+        const hi = ch.filter((h) => (usualLevel(h.pm2_5, cams?.usual?.items?.pm2_5) ?? 0) >= MANY).map((h) => h.h);
+        const last = latestMeasuredHour(mh);
+        facts.push({
+          key: "pm",
+          text: `PM2.5 がふだんより多い日${many(hi)}`,
+          who: `${last != null ? `CAMS（介良局の実測は ${last}時台まで）` : "CAMS"}・日平均 ${r0(camsDay)} µg/m³（ふだんの目安 ${r0(cd.pm2_5.p90)}）`,
+        });
+      }
+    }
+  }
   const low = (visRows ?? []).filter((r) => r.type === "actual" && typeof r.visibility === "number" && r.visibility < 5 && r.n >= 0 && r.n < 24).map((r) => r.n);
   if (low.length) facts.push({ key: "vis", text: `見通しが 5km 未満（${hourSpans(low)}）`, who: "気象台の観測" });
   if (facts.length) return { facts, quiet: null };
-  const pmHours = measPm.length + camsPm.length;
-  const dustHours = cu?.dust ? ch.filter((h) => h.dust != null).length : 0;
-  const enough = pmHours >= ENOUGH_HOURS && dustHours >= ENOUGH_HOURS;
-  return { facts, quiet: enough ? "ふだんと大きな違いはありません" : "ふだんと比べる値がそろっていません" };
+  return { facts, quiet: pmOk && dustOk ? "ふだんと大きな違いはありません" : "ふだんと比べる値がそろっていません" };
 }
+
+/** 介良局の実測の、値のある最後の「時台」（無ければ null）。 */
+const latestMeasuredHour = (mh: MeasuredHour[]) => {
+  const hs = mh.filter((h) => h.pm2_5 != null).map((h) => h.hour - 1);
+  return hs.length ? Math.max(...hs) : null;
+};

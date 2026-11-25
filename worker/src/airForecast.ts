@@ -20,7 +20,7 @@ import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
 import type { AirDay, AirDaysResponse, AirResponse } from "../../shared/airQuality";
 import { ensureSoramameSchema } from "./soramame";
-import { USUAL_DAYS, type Usual, usualItem } from "../../shared/airUsual";
+import { USUAL_DAYS, type Usual, usualItem, dayUsual, groupByDay } from "../../shared/airUsual";
 
 export const AIR_FORECAST_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS air_quality_forecast (
@@ -153,12 +153,19 @@ export async function camsUsual(db: Db, station: string, date: string, today: st
   const from = addDays(end, -USUAL_DAYS);
   const rows = (
     await db
-      .prepare("SELECT pm2_5, pm10, dust, aod FROM air_quality_hourly WHERE station = ? AND valid_at >= ? AND valid_at < ?")
+      .prepare("SELECT valid_at, pm2_5, pm10, dust, aod FROM air_quality_hourly WHERE station = ? AND valid_at >= ? AND valid_at < ?")
       .bind(station, `${from}T00:00:00+09:00`, `${end}T00:00:00+09:00`)
-      .all<{ pm2_5: number | null; pm10: number | null; dust: number | null; aod: number | null }>()
+      .all<{ valid_at: string; pm2_5: number | null; pm10: number | null; dust: number | null; aod: number | null }>()
   ).results;
   const col = (k: "pm2_5" | "pm10" | "dust" | "aod") => rows.map((r) => r[k]).filter((v): v is number => v != null);
-  return { from, to: addDays(end, -1), items: { pm2_5: usualItem(col("pm2_5")), pm10: usualItem(col("pm10")), dust: usualItem(col("dust")), aod: usualItem(col("aod")) } };
+  // 日本時間の日（valid_at は +09:00 つき）。
+  const day = (r: { valid_at: string }) => r.valid_at.slice(0, 10);
+  return {
+    from,
+    to: addDays(end, -1),
+    items: { pm2_5: usualItem(col("pm2_5")), pm10: usualItem(col("pm10")), dust: usualItem(col("dust")), aod: usualItem(col("aod")) },
+    days: { pm2_5: dayUsual(groupByDay(rows, day, (r) => r.pm2_5), "mean"), dust: dayUsual(groupByDay(rows, day, (r) => r.dust), "max") },
+  };
 }
 
 /** 比較で一度に読む日の数の上限。 */
