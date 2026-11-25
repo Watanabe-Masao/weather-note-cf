@@ -1537,7 +1537,7 @@ with sync_playwright() as p:
         # ひとこと（Weather Note の判定）：ふだんより多い時間だけ。説明と出典・基準は ⓘ に畳む（11/25「ⓘ で不要な情報は削る」）
         check("AQ3 ひとことは Weather Note の判定（黄砂がふだんより多い 13時、CAMS）、黄砂の多い日は気象庁の黄砂解析予測図へ、出典と基準は畳んである", "黄砂がふだんより多い（13時）" in aq and pg.locator(".aq a.aq-kosa-link[href^='https://www.data.jma.go.jp/env/kosa/']").count() == 1 and "Weather Note の判定" in aq and "Open-Meteo" not in aq and "環境基準" not in aq, aq[:160])
         if os.environ.get("WN_AQSHOT"): pg.locator(".aq-top").first.screenshot(path=os.environ["WN_AQSHOT"] + "-verdict.png")
-        check("AQ3b グラフに黄砂の「ふだんの目安 8」の点線（Weather Note の集計、ふだんの 90%）", pg.locator(".aq .aq-chart line.aq-usual").count() >= 1 and "ふだんの目安 8" in pg.locator(".aq .aq-chart").first.text_content(), pg.locator(".aq .aq-chart").first.text_content()[:120])
+        check("AQ3b グラフの目安の点線は出どころごと（黄砂は「CAMS の目安 8」、PM2.5 は CAMS と介良局を別の線に）", pg.locator(".aq .aq-chart line.aq-usual").count() >= 3 and "CAMS の目安 8" in pg.locator(".aq .aq-chart").first.text_content() and "介良局の目安" in pg.locator(".aq .aq-chart").first.text_content(), pg.locator(".aq .aq-chart").first.text_content()[:160])
         if os.environ.get("WN_AQSHOT"): pg.locator(".aq-chartbox").first.screenshot(path=os.environ["WN_AQSHOT"] + "-chart.png")
         pg.locator(".aq-src .info-btn").first.click(); calm()
         aq = pg.locator(".aq").first.inner_text()
