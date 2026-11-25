@@ -252,6 +252,8 @@ const TABLES: [string, string | null][] = [
   ["amedas_fetch_log", "at"],
   ["air_quality_hourly", "fetched_at"],
   ["air_quality_fetch_log", "at"],
+  ["air_quality_forecast", "fetched_at"],
+  ["air_forecast_fetch_log", "at"],
   ["soramame_hourly", "fetched_at"],
   ["soramame_fetch_log", "at"],
   ["longrange_telegrams", "fetched_at"],
