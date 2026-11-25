@@ -5965,3 +5965,13 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 /* 結末の作品名（E4）：本文と同じ書体・太さ・色で、約 12% 大きく、字間を少し広げる。一文まるごと浮かぶ（字ごとには出さない）。 */
 .ms-cap.ms-cap-title { font-size: calc(var(--size-lg) * 1.12); letter-spacing: 0.18em; }
 .moon-story.ty-t1c .ms-cap.ms-cap-title { font-size: clamp(21.3px, 6.33vw, 24.6px); letter-spacing: 0.12em; }
+
+/* 見本（第2次の段階2、マージしない）：背の低い画面の文字組み（11/25 23:24 承認の順）。
+   1 意味のまとまりの改行（.ms-soft、行が列に収まらないときだけ .on）→ 2 字幕の領域（.fit-area：右の余白を詰めて幅を広げる。
+   高さは上のボタンと下のドットの間の 48svh のまま）→ 3 列の間（.fit-tight）→ 4 作品全体で同じ大きさに縮める（--cap-size、19px 未満は報告）。 */
+.ms-cap .ms-soft { display: none; }
+.ms-cap .ms-soft.on { display: inline; }
+/* 2 の領域：絵の主役（月・ビーバー）は画面の中ほどから下にいるので、列を下へは伸ばさず、右の余白を詰めて横へ広げる。 */
+.ms-caps.fit-area { right: var(--space-5); width: calc(100% - var(--space-5) * 2); }
+.moon-story.ty-t1c .ms-caps.fit-tight .ms-cap:not(.ms-cap-title) { line-height: 1.7; }
+.moon-story.ty-t1c .ms-caps[style*="--cap-size"] .ms-cap:not(.ms-cap-title) { font-size: var(--cap-size); }

@@ -2,9 +2,11 @@
 // 「文学性を高める7つの工夫」の全9ページ）に差し替え、9ページだけ A・B・C の結末にする。付けなければ今のまま。
 // 余白は外部レビューの試験値（1・1.5・1・1・2・3・2.5・2.5・4）。行の出る時刻は、振り返り・月・光の道・見上げる動きに合わせ直す。
 import type { FullMoonNameInfo } from "../../shared/fullMoonNames";
-import { BEAVER_LINE_AT } from "../design/story/BeaverWorld";
+import { BEAVER_CUES, BEAVER_LINE_AT } from "../design/story/BeaverWorld";
 import { STORY_SCENES } from "../design/story/scenes";
 import { LAST_TAIL } from "./MoonStory";
+import { beaverDirection } from "../design/story/beaverDirection";
+import type { PageDirection } from "../design/story/direction";
 
 type Page = { lines: string[]; rest?: number };
 const BASE: Page[] = [
@@ -36,7 +38,12 @@ const ORIGINAL_RESTS = [1, 1, 1, 1, 1.5, 2.5, 1.5, 1.5, 3];
 export function beaverEnding<T extends FullMoonNameInfo | null>(story: T): T {
   const v = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("beaverEnd");
   if (!story?.book || story.name !== "ビーバームーン") return story;
-  if (v === "E1" || v === "E2" || v === "E3" || v === "E4") return stage1(story, v);
+  if (v === "E1" || v === "E2" || v === "E3" || v === "E4") {
+    const r = stage1(story, v);
+    // 段階2（?stage=2）：本文に、背の低い画面だけで折る印を入れる。
+    if (new URLSearchParams(location.search).get("stage") !== "2" || !r?.book) return r;
+    return { ...r, book: { ...r.book, pages: r.book.pages.map((p) => ({ ...p, lines: p.lines.map(soft) })) } };
+  }
   if (!v || !END[v]) return story;
   // 5ページ：「住みかをちらり。」を振り返る所（コマの 0.46）で、「もう、いっぽん。」を前を向き直した所（0.6）で。
   BEAVER_LINE_AT[4] = [0, 0, 0.46, 0.6];
@@ -74,4 +81,46 @@ function stage1<T extends FullMoonNameInfo | null>(story: T, v: "E1" | "E2" | "E
     return { ...story, book: { ...book, pages: [...pages, last], titleEnd: te } } as T;
   }
   return { ...story, book: { ...book, pages: [...pages, end] } } as T;
+}
+
+/**
+ * 背の低い画面だけで折る所（意味のまとまり、11/25 23:24 承認の1番）。"/" は組版の印で、時間には関わらない。
+ * 列に収まらない行だけが、ここで折れる（MoonStory の fitDirected）。
+ */
+const SOFT: Record<string, string> = {
+  "木の葉が、川に落ちていきます。": "木の葉が、/川に落ちていきます。",
+  "森は、もうすぐ冬を迎えます。": "森は、/もうすぐ冬を迎えます。",
+  "枝をくわえて泳いでいます。": "枝をくわえて/泳いでいます。",
+  "いっぽん。また、いっぽん。": "いっぽん。/また、いっぽん。",
+  "さっきまでのすきまが、": "さっきまでの/すきまが、",
+  "ひとつ、なくなりました。": "ひとつ、/なくなりました。",
+  "星がまたたきました。": "星が/またたきました。",
+  "ビーバーは、住みかをちらり。": "ビーバーは、/住みかをちらり。",
+  "川の上に長くのびていきます。": "川の上に/長くのびていきます。",
+  "ほのかに明るくなりました。": "ほのかに/明るくなりました。",
+  "ビーバーが、顔をあげました。": "ビーバーが、/顔をあげました。",
+  "月の光を横切って、": "月の光を/横切って、",
+  "さいごの、いっぽん。": "さいごの、/いっぽん。",
+  "そっと、枝を置きました。": "そっと、/枝を置きました。",
+  "白い雪が舞い降ります。": "白い雪が/舞い降ります。",
+  "水の輪が、広がっていきます。": "水の輪が、/広がっていきます。",
+};
+const soft = (l: string) => SOFT[l] ?? l;
+
+/**
+ * 第2次の段階2（11/25 23:24 渡辺さん承認）：?stage=2 で、ビーバームーンの文の出し方と時間を秒で決める（演出の単位・
+ * 読む時間・文節の間・消える時間・絵だけの時間を分ける）。段階1の本文（推敲案・5ページ B・結末）のときだけ。
+ */
+export function storyDirection(story: FullMoonNameInfo | null): PageDirection[] | null {
+  if (typeof location === "undefined" || !story?.book || story.name !== "ビーバームーン") return null;
+  const q = new URLSearchParams(location.search);
+  if (q.get("stage") !== "2" || !/^E[1-4]$/.test(q.get("beaverEnd") ?? "")) return null;
+  // 絵の動きを言葉に合わせる合図（BEAVER_CUES）は、秒で決める本のときだけ渡す。
+  const sc = STORY_SCENES["ビーバームーン"];
+  if (sc) sc.cues = BEAVER_CUES;
+  const dir = beaverDirection(story.book.pages.map((p) => p.lines));
+  const te = story.book.titleEnd;
+  // 結末の作品名がある本（E4）：最後のページの文は作品名の前に textFade 秒でゆっくり消す。
+  if (te) dir[dir.length - 1] = { ...dir[dir.length - 1], readHold: te.readHold, fadeOut: te.textFade };
+  return dir;
 }
