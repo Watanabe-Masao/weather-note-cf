@@ -402,6 +402,27 @@ const jst = (ms: number) => {
 function Letters({ text, plain = false }: { text: string; plain?: boolean }) {
   // 演出を秒で決める本（第2次品質改善）：字の番号は組版の印を除いた字で数える。改行は列を改めるだけ、"/" は背の低い画面
   // だけで折る印（.ms-soft、ふだんは出さない）。どちらも字の箱（.ms-ch）にしない。
+  if (plain && text.includes("\n\n")) {
+    // 節に分けたページ（空の行で区切る）：節ごとに同じ字幕の起点（右上）から出す（11/26 レビュー「消えた文章の場所を空けたまま
+    // にしない」）。字の番号は節をまたいで通しで数える。
+    const secs = text.split(/\n\n+/);
+    return (
+      <>
+        <span className="ms-sr">{plainText(secs.join("\n"))}</span>
+        {secs.map((sec, k) => (
+          <span key={k} className="ms-sec" aria-hidden data-title={/^[^\n]*ムーン。$/.test(sec.trim()) ? "" : undefined}>
+            {[...sec].map((c, i) =>
+              c === "\n" ? <br key={i} /> : c === "/" ? <br key={i} className="ms-soft" data-len={[...plainText(sec.split("\n")[[...sec.slice(0, i)].filter((x) => x === "\n").length] ?? "")].length} /> : (
+                <span key={i} className="ms-ch">
+                  {c}
+                </span>
+              ),
+            )}
+          </span>
+        ))}
+      </>
+    );
+  }
   if (plain)
     return (
       <>
@@ -1004,6 +1025,16 @@ export function MoonStory({
                 .to(cap, { opacity: 0, y: last ? 0 : -8, duration: Math.max(0.002, f1 - f0), ease: last ? "sine.inOut" : "power1.in" }, f0)
                 .set(cap, { y: 0 }, f1 + 0.002);
             });
+            // 字幕の後ろの沈め（.ms-caps-veil）は、濃い字のページ（captions の tone "dark"）では消す（明るい空の上の藍の字を
+            // 沈めると、かえって読みにくい）。前のページの文が消えてから切り替える。
+            const veil = el.querySelector<HTMLElement>(".ms-caps-veil");
+            if (veil && scene.captions && Object.values(scene.captions).some((c) => c.tone === "dark")) {
+              const base = parseFloat(getComputedStyle(veil).opacity) || 0;
+              lines.forEach((_, i) => {
+                const lead = i ? D.pages[i - 1].fadeOut : 0;
+                world.to(veil, { opacity: scene.captions?.[i]?.tone === "dark" ? 0 : base, duration: Math.max(0.002, sb(i, lead + 0.5) - sb(i, lead)) }, sb(i, lead));
+              });
+            }
             const T = D.times[lastI];
             let gone = T.fadeStart + D.pages[lastI].fadeOut;
             if (te) {

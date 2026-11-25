@@ -2,7 +2,9 @@
 //   ?cold2=1          秒で決める本（試作の演出、coldDirection）と、ビーバームーンと同じ文字組み（19〜22px・500・0.08em・1.9）
 //   &coldText=R|W     本文：R＝こちらの推敲候補（1・3・5・6P）、W＝レビューの追加案（1・3・6P、5P は R）。無ければ今の本文
 //   &coldCap=PQBDS    字幕：P＝領域（列を長く、幹を避けて右へ）、Q＝幹の右の空に収める（右の余白・列の間を詰める）、B＝字の後ろだけ局所的に沈める、D＝昼・朝は濃い藍の字、S＝影を少し強く
-//   &coldEnd=A|B|C    終幕：A いまの4行、B 名前を独立、C 段階的に言葉を減らす
+//   &coldEnd=A|B|C|C2 終幕：A いまの4行、B 名前を独立、C 段階的に言葉を減らす、C2 意味のまとまり（節）ごとに同じ起点から
+//   &coldSplit=1      1〜3P を意味のまとまり（節）ごとに時間で分ける
+//   &coldCompose=1    小さな画面（374px 以下）だけ、絵を少し大きくして右を起点に（幹が左へ寄る）
 //   &coldVeil=1       字幕の後ろ全体の沈めを濃く（前回の比べる案）
 // 本文の "/" は、列に収まらない画面だけで折る所（意味のまとまり）。
 import type { FullMoonNameInfo } from "../../shared/fullMoonNames";
@@ -39,15 +41,25 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   const cap = q.get("coldCap") ?? "";
   if (cap.includes("S")) document.documentElement.classList.add("cold-shadow");
   const text = q.get("coldText");
-  const end = (q.get("coldEnd") ?? "A") as "A" | "B" | "C";
-  COLD_END.v = end === "B" || end === "C" ? end : "A";
+  const end = q.get("coldEnd") ?? "A";
+  COLD_END.v = end === "B" || end === "C" || end === "C2" ? end : "A";
+  if (q.get("coldCompose") === "1") document.documentElement.classList.add("cold-compose");
+  const split = q.get("coldSplit") === "1";
   const pages = NOW.map((p, i) => {
     if (text === "R") return [P1R, p, P3R, p, P5R, P6R][i] ?? p;
     if (text === "W") return [P1W, p, P3W, p, P5R, P6W][i] ?? p;
     return p;
   });
-  // 終幕 B：9P は3行、名前は独立して浮かぶ（titleEnd）。
+  // 終幕 B：9P は3行、名前は独立して浮かぶ（titleEnd）。C2：3つの節（空の行で区切る）。
   if (COLD_END.v === "B") pages[8] = pages[8].slice(0, 3);
+  if (COLD_END.v === "C2") pages[8] = [pages[8][0], pages[8][1], "", pages[8][2], "", pages[8][3]];
+  // 時間で分ける（?coldSplit=1、1〜3P）：意味のまとまりごとの節にして、同じ起点から出す。
+  if (split) {
+    const at = (i: number, k: number) => [...pages[i].slice(0, k), "", ...pages[i].slice(k)];
+    pages[0] = at(0, 1); // 森の情景 ／ 低い日と影
+    pages[1] = at(1, 2); // 小さなコガラ ／ 帽子と頬
+    pages[2] = at(2, text === "W" ? 2 : 1); // W：一つ目 ／ もう一つ、R：反復 ／ 隠す
+  }
   const sc = STORY_SCENES["コールドムーン"];
   if (sc) {
     sc.direction = coldDirection;

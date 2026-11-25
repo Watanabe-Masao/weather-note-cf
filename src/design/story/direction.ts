@@ -27,7 +27,7 @@ export interface TextUnit {
    * この単位を出す前に、それまでに出したこのページの字を消す（段階的に言葉を減らす。コールドムーンの終幕 C 案の見本）。
    * fadeOut 秒で消し、gap 秒おいてから、この単位の pauseBefore へ。
    */
-  clearBefore?: { fadeOut: number; gap: number };
+  clearBefore?: { fadeOut: number; gap: number; hold?: number };
 }
 
 export interface PageDirection {
@@ -105,8 +105,8 @@ export function pageTimes(d: PageDirection, lead: number, last = false, tail = 0
   let full = t;
   for (const u of d.units) {
     if (u.clearBefore && chars.length) {
-      // それまでの字が読み終わってから消す（読む時間は readHold の半分を目安に、文節の読みのあと）。
-      t += Math.max(0, full - t) + d.readHold * 0.6;
+      // それまでの字が出そろってから、hold 秒（無ければ readHold の 6 割）読んで消す。
+      t = Math.max(t, full) + (u.clearBefore.hold ?? d.readHold * 0.6);
       for (const c of chars) if (c.out === undefined) {
         c.out = t;
         c.outFade = u.clearBefore.fadeOut;
@@ -154,9 +154,21 @@ export function pageTimes(d: PageDirection, lead: number, last = false, tail = 0
 export function unitsOf(
   page: string,
   rule: (line: string, index: number) => Omit<TextUnit, "text">,
+  sectionClear: { fadeOut: number; gap: number; hold?: number } = { fadeOut: 0.6, gap: 0.8 },
 ): TextUnit[] {
-  return page
-    .split("\n")
-    .map((l, i) => ({ text: plainText(l), ...rule(plainText(l), i) }))
-    .filter((u) => u.text.length > 0);
+  // 空の行は「節」の区切り（意味のまとまりごとに時間で分ける）。次の節の最初の行は、前の節を消してから出す。
+  const out: TextUnit[] = [];
+  let brk = false;
+  page.split("\n").forEach((l, i) => {
+    const text = plainText(l);
+    if (!text) {
+      brk = out.length > 0;
+      return;
+    }
+    const u: TextUnit = { text, ...rule(text, i) };
+    if (brk && !u.clearBefore) u.clearBefore = sectionClear;
+    brk = false;
+    out.push(u);
+  });
+  return out;
 }

@@ -18,7 +18,7 @@ const PAGE: Pick<PageDirection, "intro" | "readHold" | "fadeOut" | "picture">[] 
 const ONOMATOPOEIA = /^(ちょん|ひとつぶ|フィーチー)/;
 
 /** 終幕の案（見本の切り替え）：A いまの4行、B 名前を独立、C 段階的に言葉を減らす。 */
-export const COLD_END = { v: "A" as "A" | "B" | "C" };
+export const COLD_END = { v: "A" as "A" | "B" | "C" | "C2" };
 
 function rule(page: number) {
   return (line: string, index: number): Omit<TextUnit, "text"> => {
@@ -30,6 +30,11 @@ function rule(page: number) {
     // 8 ページ：一行ずつ、行の間をいちばん長く。
     if (page === 7) return { mode: "line", pauseBefore: index ? 1.6 : 0, fadeIn: 0.9 };
     // 9 ページ
+    if (page === 8 && COLD_END.v === "C2") {
+      // C2（11/26 レビュー）：節ごとに出して消す。第1節 → 消去 0.6・間 0.8 → 第2節 → 消去 0.6・風景だけ 1.2 → 作品名。
+      if (/^西の空/.test(line)) return { mode: "phrase", pauseBefore: 0, fadeIn: 0.5, clearBefore: { fadeOut: 0.6, gap: 0.8, hold: 2.3 } };
+      if (/^コールドムーン。$/.test(line)) return { mode: "line", pauseBefore: 0, fadeIn: 1.0, clearBefore: { fadeOut: 0.6, gap: 1.2, hold: 2.8 } };
+    }
     if (page === 8) {
       if (/^コールドムーン。$/.test(line))
         return COLD_END.v === "C"
@@ -43,7 +48,11 @@ function rule(page: number) {
 
 export function coldDirection(pages: string[][], title?: string): BookDirection {
   return {
-    pages: pages.map((lines, i) => ({ ...PAGE[Math.min(i, PAGE.length - 1)], units: unitsOf(lines.join("\n"), rule(i)) })),
+    pages: pages.map((lines, i) => {
+      const d = { ...PAGE[Math.min(i, PAGE.length - 1)], units: unitsOf(lines.join("\n"), rule(i)) };
+      // C2 の作品名：2.5 秒残して 0.8 秒で消す（そのあと額縁）。
+      return i === 8 && COLD_END.v === "C2" ? { ...d, readHold: 2.5, fadeOut: 0.8 } : d;
+    }),
     title: title ? { gap: 1.4, fadeIn: 1.0, hold: 2.5, fadeOut: 1.0 } : undefined,
     frame: 1.2,
   };

@@ -431,11 +431,11 @@ export function ColdWorld(): ReactElement {
         {/* 見本（CM-R02、マージしない）：1ページの「木のかげが、ながく のびます。」のための、幹の長い影（低い日）。 */}
         <defs>
           <linearGradient id="cw-longshadow-g" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#7d8fbb" stopOpacity={0.75} />
+            <stop offset="0" stopColor="#6d80b0" stopOpacity={0.85} />
             <stop offset="1" stopColor="#7d8fbb" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <path className="cw-longshadow" d={`M${BIRCH.x - 26} ${BIRCH.base} L${BIRCH.x + 26} ${BIRCH.base} L520 ${BIRCH.base + 60} L470 ${BIRCH.base + 82} Z`} fill="url(#cw-longshadow-g)" opacity={0} />
+        <path className="cw-longshadow" d={`M${BIRCH.x - 26} ${BIRCH.base} L${BIRCH.x + 26} ${BIRCH.base} L620 ${BIRCH.base + 44} L600 ${BIRCH.base + 92} Z`} fill="url(#cw-longshadow-g)" opacity={0} />
         <MainBirch />
         {/* 穴の中で丸くなるコガラ（5・8ページは目を閉じ、6ページは開く）。穴の口の形に切る。 */}
         <g clipPath="url(#cw-hole)">
