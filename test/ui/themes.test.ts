@@ -74,6 +74,8 @@ describe.each(THEME_NAMES)("%s", (name) => {
       "wind",
       "pressure",
       "feel",
+      "pm25",
+      "dust",
     ] as const;
     expect(
       ok(

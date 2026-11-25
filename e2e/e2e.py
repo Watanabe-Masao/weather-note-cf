@@ -6,6 +6,7 @@
 import re
 import time
 import json, re, sys, datetime, random, threading, http.server, functools, os, traceback
+import math as _math
 from playwright.sync_api import sync_playwright
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -186,6 +187,14 @@ def api(path, q):
             if d < TODAY: rows.append(row(d))
             d += datetime.timedelta(days=1)
         return {"station": "47893", "month": q["month"], "rows": rows, "fixed": True, "source": None, "fetchedAt": ""}
+    if path == "/api/air":
+        # 空気質（11/25）：CAMS のモデルの値。今日（固定の 11/10）から先は予測、前の日は終わった日の値。
+        d = q.get("date", "")
+        hours = [{"h": h, "pm2_5": round(9 + 6 * _math.sin((h - 6) / 24 * 2 * _math.pi), 1), "pm10": 14, "dust": (15 if h == 13 else 3), "aod": 0.1} for h in range(24)]
+        return {"supported": True, "v": 1, "station": q.get("station"), "date": d, "kind": "forecast" if d >= "2026-11-10" else "past", "hours": hours, "fetchedAt": "2026-11-10T02:30:00Z", "source": "Open-Meteo（CAMS）"}
+    if path == "/api/admin/air-measured":
+        d = q.get("date", "")
+        return {"v": 1, "station": "39201350", "name": "高知市 介良局", "date": d, "hours": [{"hour": k, "pm2_5": 8 + k, "ox": 0.02, "spm": 0.01, "no2": 0.004, "so2": None, "wd": "N", "ws": 1.2, "fetchedAt": "2026-11-10T02:30:00Z"} for k in range(1, 10)], "checkedAt": "2026-11-10T02:30:00Z", "source": "環境省 大気汚染物質広域監視システム（そらまめくん）"}
     if path == "/api/forecast-official":
         # 予報の出典（2026-11-23）: made-up — 今日・明日は府県天気予報の 11時、2〜6日先は週間天気予報の 11時。7日先から
         # は無い（画面は Open-Meteo の「補完」）。
@@ -1244,11 +1253,11 @@ with sync_playwright() as p:
         check("SD1 1日：比較の表と下のシートが消え、1日の画面が出る", pg.locator(".side-compare").count() == 0 and pg.locator(".day-detail").count() == 1 and pg.locator("aside.sheet").count() == 0)
         # 1日を開いたときはいつも「まとめ」から（2026-11-24 渡辺さん）：見出し（天気・一言・出どころ）と、仲間ごとに1行。
         # 数字は上の表だけ（見出しに最高・最低なし、項目の札なし）。行を押すとその仲間の画面。
-        settle(lambda: pg.locator(".dd-hero .dd-kind").count() == 1 and pg.locator(".dd-sum-row").count() == 5, 10)
+        settle(lambda: pg.locator(".dd-hero .dd-kind").count() == 1 and pg.locator(".dd-sum-row").count() == 6, 10)
         if shots: pg.locator(".day-detail").screenshot(path=f"{shots}-day-summary.png")
-        check("SD1c 1日はまとめから：帯の先頭の「まとめ」が選ばれ、5行（気温・雨・風・空・光・大気）、グラフは無い",
+        check("SD1c 1日はまとめから：帯の先頭の「まとめ」が選ばれ、6行（気温・雨・風・空・光・大気・空気）、グラフは無い",
               pg.get_attribute(".day-detail", "data-group") == "summary" and pg.locator(".item-bar [data-item='summary'][aria-selected='true']").count() == 1
-              and [t.strip() for t in pg.locator(".dd-sum-label").all_inner_texts()] == ["気温", "雨", "風", "空・光", "大気"] and pg.locator(".day-detail .hour-face").count() == 0,
+              and [t.strip() for t in pg.locator(".dd-sum-label").all_inner_texts()] == ["気温", "雨", "風", "空・光", "大気", "空気"] and pg.locator(".day-detail .hour-face").count() == 0,
               str(pg.locator(".dd-sum-label").all_inner_texts()))
         pg.locator(".dd-sum-line").first.click(); calm()
         settle(lambda: pg.locator(".dd-part").count() == 5)
@@ -1481,6 +1490,23 @@ with sync_playwright() as p:
         check("SD8 表の日をタップすると、その日が選ばれて真ん中へ（戻らない）", ok and center_date() == want and off() < 2 and want != before, (before, want, center_date(), off()))
         cols.nth(idx).locator(".cell-kind").tap()
         settle(lambda: center_date() == before and off() < 2, 5)
+        # 空気（11/25「項目を分けませんか」）：帯の仲間「空気」＝空気の質（1日だけ）と視程。大気は湿度・気圧。まとめに「空気」の行
+        # （見通しの最小と、PM2.5・黄砂は CAMS と書く）。押すと空気の質の画面。実測（そらまめくん）は管理者だけ。
+        pg.locator('[data-items="summary"]:visible, [data-item="summary"]:visible').first.click(); calm()
+        air_line = pg.locator(".dd-sum .dd-sum-row", has_text="空気").first
+        settle(lambda: "PM2.5" in air_line.inner_text(), 5)
+        air_only = pg.locator(".dd-sum .dd-sum-row", has_text="大気").first.inner_text()
+        check("AQ1 まとめに「空気」の行（見通しの最小・PM2.5 の日平均・黄砂の最大、CAMS の予測）、大気の行は湿度・気圧だけ", "PM2.5 日平均" in air_line.inner_text() and "CAMS の予測" in air_line.inner_text() and "PM2.5" not in air_only and "見通し" not in air_only, (air_line.inner_text(), air_only))
+        air_line.locator("button").first.click(); calm()
+        settle(lambda: pg.locator(".aq .aq-chart").count() > 0, 5)
+        aq = pg.locator(".aq").first.inner_text() if pg.locator(".aq").count() else ""
+        chips = pg.evaluate("[...document.querySelectorAll('.item-bar .ib-open [data-item]')].map(e => e.dataset.item)")
+        check("AQ2 まとめの空気の行から空気の質の画面（いま・24時間・環境省の基準・出典）、帯は空気の仲間（空気の質・視程）が開き、実測は管理者だけ", chips == ["airq", "visibility"] and pg.locator('[data-item="airq"][aria-selected="true"]').count() == 1 and pg.locator(".aq .aq-chart path").count() >= 2 and "環境基準" in aq and "Open-Meteo" in aq and ("管理者だけ" in aq) == LOGGED_IN and pg.locator(".hour-face").count() == 0, (chips, aq[:120]))
+        pg.locator('.item-bar [data-item="visibility"]').first.click(); calm()
+        check("AQ3 視程はふつうの項目の画面（空気の質は出さない）", pg.locator(".aq").count() == 0 and pg.locator(".day-detail .hour-face").count() == 1, pg.locator(".aq").count())
+        pg.locator('.item-bar .ib-cat[data-items^="humidity"]').first.click(); calm()
+        chips = pg.evaluate("[...document.querySelectorAll('.item-bar .ib-open [data-item]')].map(e => e.dataset.item)")
+        check("AQ4 大気の仲間は湿度・気圧、開いても帯がはみ出さない", chips == ["humidity", "pressure"] and pg.evaluate("(() => { const b = document.querySelector('.item-bar'); return b.scrollWidth <= b.clientWidth + 1 })()"), chips)
         pg.locator(".metrics button", has_text="気温").click(); calm()
         pg.locator(".app-head .seg button", has_text="比較").click(); calm()
         check("SD6 比較に戻すと比較の表が戻る", pg.locator(".side-compare").count() == 1 and pg.locator(".day-detail").count() == 0)
@@ -1961,14 +1987,14 @@ with sync_playwright() as p:
         settle(lambda: pg.locator(".compare-summary.compact").count() == 1, 10)
         labels = lambda: pg.evaluate("[...document.querySelectorAll('.compare-summary.compact .cs-label')].map(e => e.firstChild.textContent.trim())")
         by = {}
-        for first in ("temp", "radiation", "rain", "humidity"):
+        for first in ("temp", "radiation", "rain", "humidity", "visibility"):
             cat = pg.locator(f".item-bar .ib-cat[data-items^='{first}']")
             if cat.count(): cat.click(); calm()
             by[first] = (labels(), pg.locator(".compare-summary .cs-beta").count())
         pg.locator(".item-bar .ib-cat[data-items^='temp']").click(); calm()
-        check("GR7 比較のまとめ：選んだ仲間の項目だけ（気温：最高・最低・平均、空・光：日射・日照・日の出、雨・風：降水・風速・主な風向、大気：湿度・視程最小・気圧）、肌感 β は気温だけ",
+        check("GR7 比較のまとめ：選んだ仲間の項目だけ（気温：最高・最低・平均、空・光：日射・日照・日の出、雨・風：降水・風速・主な風向、大気：湿度・気圧、空気：視程最小）、肌感 β は気温だけ",
               by["temp"][0] == ["最高", "最低", "平均"] and by["radiation"][0] == ["日射", "日照", "日の出"] and by["rain"][0] == ["降水", "風速", "主な風向"]
-              and by["humidity"][0] == ["湿度", "視程最小", "気圧最高", "気圧最低"] and by["radiation"][1] == 0 and by["rain"][1] == 0 and by["humidity"][1] == 0, str(by))
+              and by["humidity"][0] == ["湿度", "気圧最高", "気圧最低"] and by["visibility"][0] == ["視程最小"] and by["radiation"][1] == 0 and by["rain"][1] == 0 and by["humidity"][1] == 0, str(by))
         pg.locator(".compare-summary .cs-more").click(); calm()
         check("GR8 「ほかの項目も見る」で全部の項目（気温の仲間のあとに、ほかの仲間）", len(labels()) == 13 and labels()[:3] == ["最高", "最低", "平均"], str(labels()))
         r = pg.evaluate("""() => {

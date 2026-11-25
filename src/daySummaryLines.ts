@@ -6,12 +6,13 @@
 //   雨：1時間ごとの雨（0.5mm 以上の時間の数・いちばん多い時刻）と日の雨の量
 //   風：主な風向（windSummary）と日中（6〜18時）の風速の幅
 //   空・光：日照の時間と日の出・日の入り（計算の値、src/data/sun.ts）
-//   大気：湿度の平均と見通し（視程）の最小
+//   大気：湿度の平均と気圧の幅
+//   空気：見通し（視程）の最小と PM2.5・黄砂（CAMS、11/25）
 import { hourlyExtreme } from "./chartMetrics";
 import { SECTORS, sectorOf, windOf, windSummary } from "../shared/windDirection";
 import type { WeatherRow } from "../shared/types";
 
-export type SummaryGroup = "temp" | "rainwind" | "sky" | "air";
+export type SummaryGroup = "temp" | "rainwind" | "sky" | "air" | "airq";
 
 export interface SummaryLine {
   group: SummaryGroup;
@@ -47,6 +48,11 @@ export interface SummaryInput {
   today?: boolean;
   /** 今日だけ：今の時（0〜23、日本時間）。「このあと」の時間を決める。 */
   hourNow?: number;
+  /**
+   * 空気の行の PM2.5・黄砂の文（11/25「項目を分けませんか」。airSummary.ts airSummaryText、または読み込み中・取れなかった・
+   * 無い）。空気質を持っていない日（2023 年より前・5日より先）は null で、見通しだけ。
+   */
+  air?: string | null;
   /** 1時間ごとの値の様子：読み込み中・そろった・取れなかった・無い（雨なしと言ってよいかの判断に使う）。 */
   hoursState?: "loading" | "ready" | "error" | "none";
 }
@@ -165,17 +171,29 @@ function skyLine(x: SummaryInput): string {
   return [light, `日の出 ${x.sun.rise}・日の入り ${x.sun.set}`].filter(Boolean).join("。");
 }
 
-/** 大気の行：湿度の平均と、見通しの最小。 */
+/** 大気の行：湿度の平均と、気圧の幅（11/25 から見通しは空気の行）。 */
 function airLine(x: SummaryInput): string {
   const hum = num(x.row?.humidity);
-  const vis = hourlyExtreme(x.hours, "visibility", "min");
-  // 最小は欠けた時間にあったかもしれないので、24時間そろっていなければ取得できた範囲と添える。
-  const visKnown = (x.hours ?? []).filter((r) => num(r.visibility) != null).length;
-  const parts = [hum != null ? `湿度 平均 ${Math.round(hum)}%` : null, vis != null ? `見通しの最小 ${vis.toFixed(1)}km${visKnown < DAY_HOURS ? `（${PART}）` : ""}` : null].filter(Boolean);
+  const pLo = hourlyExtreme(x.hours, "pressure", "min");
+  const pHi = hourlyExtreme(x.hours, "pressure", "max");
+  const pKnown = (x.hours ?? []).filter((r) => num(r.pressure) != null).length;
+  const parts = [hum != null ? `湿度 平均 ${Math.round(hum)}%` : null, pLo != null && pHi != null ? `気圧 ${Math.round(pLo) === Math.round(pHi) ? Math.round(pLo) : `${Math.round(pLo)}〜${Math.round(pHi)}`} hPa${pKnown < DAY_HOURS ? `（${PART}）` : ""}` : null].filter(Boolean);
   return parts.length ? parts.join("・") : "—";
 }
 
-/** まとめの5行（気温・雨・風・空・光・大気）。雨と風は帯では同じ仲間（雨・風）。 */
+/**
+ * 空気の行（11/25 渡辺さん「項目を分けませんか」）：見通しの最小と、PM2.5・黄砂（CAMS、airSummary.ts の1文、または
+ * 読み込み中・取れなかった・無い）。空気の質を持っていない日は見通しだけ。
+ */
+function airqLine(x: SummaryInput): string {
+  const vis = hourlyExtreme(x.hours, "visibility", "min");
+  // 最小は欠けた時間にあったかもしれないので、24時間そろっていなければ取得できた範囲と添える。
+  const visKnown = (x.hours ?? []).filter((r) => num(r.visibility) != null).length;
+  const parts = [vis != null ? `見通しの最小 ${vis.toFixed(1)}km${visKnown < DAY_HOURS ? `（${PART}）` : ""}` : null, x.air ?? null].filter(Boolean);
+  return parts.length ? parts.join("。") : "—";
+}
+
+/** まとめの6行（気温・雨・風・空・光・大気・空気）。雨と風は帯では同じ仲間（雨・風）。 */
 export function summaryLines(x: SummaryInput): SummaryLine[] {
   return [
     { group: "temp", label: "気温", text: tempLine(x) },
@@ -183,6 +201,7 @@ export function summaryLines(x: SummaryInput): SummaryLine[] {
     { group: "rainwind", label: "風", text: windLine(x) },
     { group: "sky", label: "空・光", text: skyLine(x) },
     { group: "air", label: "大気", text: airLine(x) },
+    { group: "airq", label: "空気", text: airqLine(x) },
   ];
 }
 
@@ -200,8 +219,8 @@ const NOW_ITEMS: Record<string, { key: string; label: string; unit: string; digi
   air: [
     { key: "humidity", label: "湿度", unit: "%", digits: 0, tone: "humidity" },
     { key: "pressure", label: "気圧", unit: "hPa", digits: 1, tone: "pressure" },
-    { key: "visibility", label: "視程", unit: "km", digits: 1, tone: "visibility" },
   ],
+  airq: [{ key: "visibility", label: "視程", unit: "km", digits: 1, tone: "visibility" }],
 };
 
 export function nowValues(latest: WeatherRow, group: string) {

@@ -7,12 +7,15 @@
 // 値は文字で来る。空・"-"・空白は値なし（測っていない・欠測・調整中）。
 //
 // 6時間に1回まで：今月と先月を取り直し（速報値の直しも入る）、そのあと古い側へ3か月ずつ、1年前まで。
+// その間は1時間に1回、今月だけを取る（2026-11-25 渡辺さん：速報値は1時間ごとなので、画面の「いま」の実測に合わせる。
+// 何時の値が何分ごろに出るかは公開されていないので、行の fetched_at（初めて入った時刻）で測る）。
 // 出典：環境省 大気汚染物質広域監視システム（そらまめくん）。データの著作権は環境省・高知市など。
 
 import { STATION_PLACES } from "../../shared/stationPlaces";
 import type { Db } from "./accounts";
 import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
+import type { MeasuredResponse } from "../../shared/airQuality";
 
 export const SORAMAME_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS soramame_hourly (
@@ -39,6 +42,8 @@ export const SORAMAME_SCHEMA = [
 ];
 
 const EVERY_MS = 6 * 3_600_000;
+/** 今月だけを取る間隔。 */
+const NOW_EVERY_MS = 3_600_000;
 const LOG_DAYS = 400;
 /** さかのぼる月の数（API は今月から1年）。 */
 const BACK_MONTHS = 11;
@@ -84,13 +89,19 @@ const num = (v: unknown): number | null => {
   return Number.isFinite(n) ? n : null;
 };
 
-/** 6時間に1回まで、決まった月の範囲を取って残す。 */
+/**
+ * 6時間に1回まで決まった月の範囲（直近2か月の取り直し、または古い側）を、その間は1時間に1回まで今月だけを取って残す。
+ * 今月だけの回は記録の範囲が「今月..今月」なので、6時間ごとの回の数え方（交互）には入れない。
+ */
 export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defaultFetch): Promise<{ saved: number; ok: boolean; skipped?: boolean }> {
   await ensureSoramameSchema(db);
-  const last = await db.prepare("SELECT at, range FROM soramame_fetch_log ORDER BY at DESC LIMIT 1").first<{ at: string; range: string | null }>();
-  if (last?.at && Date.parse(last.at) > now - EVERY_MS + 60_000) return { saved: 0, ok: true, skipped: true };
-  const at = new Date(now).toISOString();
   const thisMonth = new Date(now + 9 * 3_600_000).toISOString().slice(0, 7);
+  const nowOnly = `${thisMonth}..${thisMonth}`;
+  const latest = await db.prepare("SELECT at FROM soramame_fetch_log ORDER BY at DESC LIMIT 1").first<{ at: string }>();
+  if (latest?.at && Date.parse(latest.at) > now - NOW_EVERY_MS + 60_000) return { saved: 0, ok: true, skipped: true };
+  const last = await db.prepare("SELECT at, range FROM soramame_fetch_log WHERE range IS NULL OR range != ? ORDER BY at DESC LIMIT 1").bind(nowOnly).first<{ at: string; range: string | null }>();
+  const full = !last?.at || Date.parse(last.at) <= now - EVERY_MS + 60_000;
+  const at = new Date(now).toISOString();
   let saved = 0;
   let error: string | null = null;
   let range: string | null = null;
@@ -98,7 +109,7 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
     const s = place.soramame;
     const have = await db.prepare("SELECT MIN(substr(date, 1, 7)) AS oldest FROM soramame_hourly WHERE station = ?").bind(s.station).first<{ oldest: string | null }>();
     const lastWasRecent = !!last?.range?.endsWith(thisMonth);
-    const want = nextMonths(thisMonth, have?.oldest ?? null, lastWasRecent);
+    const want = full ? nextMonths(thisMonth, have?.oldest ?? null, lastWasRecent) : { from: thisMonth, to: thisMonth };
     range = `${want.from}..${want.to}`;
     try {
       const r = await get(soramameUrl(s.pref, s.station, want.from, want.to));
@@ -139,4 +150,25 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
   await db.prepare("INSERT OR REPLACE INTO soramame_fetch_log (at, ok, saved, range, error) VALUES (?, ?, ?, ?, ?)").bind(at, error ? 0 : 1, saved, range, error).run();
   await db.prepare("DELETE FROM soramame_fetch_log WHERE at < ?").bind(new Date(now - LOG_DAYS * 86_400_000).toISOString()).run();
   return { saved, ok: !error };
+}
+
+/** 管理者の画面用：その日の介良局の1時間値（速報値）。 */
+export async function readMeasured(db: Db, station: string, name: string, date: string): Promise<MeasuredResponse> {
+  await ensureSoramameSchema(db);
+  const rows = (
+    await db
+      .prepare("SELECT hour, pm2_5, ox, spm, no2, so2, wd, ws, fetched_at FROM soramame_hourly WHERE station = ? AND date = ? ORDER BY hour")
+      .bind(station, date)
+      .all<{ hour: number; pm2_5: number | null; ox: number | null; spm: number | null; no2: number | null; so2: number | null; wd: string | null; ws: number | null; fetched_at: string }>()
+  ).results;
+  const checked = await db.prepare("SELECT MAX(at) AS at FROM soramame_fetch_log WHERE ok = 1").first<{ at: string | null }>();
+  return {
+    v: 1,
+    station,
+    name,
+    date,
+    hours: rows.map((r) => ({ hour: r.hour, pm2_5: r.pm2_5, ox: r.ox, spm: r.spm, no2: r.no2, so2: r.so2, wd: r.wd, ws: r.ws, fetchedAt: r.fetched_at })),
+    checkedAt: checked?.at ?? null,
+    source: "環境省 大気汚染物質広域監視システム（そらまめくん）",
+  };
 }

@@ -124,6 +124,8 @@ p {
 .tone-humidity { color: var(--data-humidity); }
 .tone-humidityLow { color: var(--data-humidity-low); }
 .tone-visibility { color: var(--data-visibility); }
+.tone-pm25 { color: var(--data-pm25); }
+.tone-dust { color: var(--data-dust); }
 .tone-wind { color: var(--data-wind); }
 .tone-gust { color: var(--data-gust); }
 .tone-pressure { color: var(--data-pressure); }
@@ -939,7 +941,8 @@ img.event-pic { object-fit: contain; }
 /* 閉じた仲間：中の項目の数だけ小さな点 */
 .ib-dots { display: flex; gap: var(--space-1); height: var(--space-1); }
 .ib-dots i { width: var(--space-1); height: var(--space-1); border-radius: 50%; background: currentColor; }
-.metrics .chip { flex: 1 1 0; min-width: 52px; min-height: 44px; padding: 0 var(--space-2); }
+/* 11/25：帯の仲間が5つ（＋まとめ）になったので、開いた仲間の項目は 48px から（押せる範囲 44px 以上、幅 360 で1行に収まる）。 */
+.metrics .chip { flex: 1 1 0; min-width: 48px; min-height: 44px; padding: 0 var(--space-2); }
 .metrics .chip.on {
   color: var(--surface-base);
   background: var(--accent-base);
@@ -5813,3 +5816,28 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
   height: 100%;
   background: var(--accent-base);
 }
+
+/* 空気の質（2026-11-25、AirQualityCard）：大気の仲間の画面の下に1枚。値の札は「いま」と同じ形（.dd-now）。 */
+.aq { display: grid; gap: var(--space-3); }
+.aq-note { margin: 0; font-size: var(--size-sm); color: var(--ink-tertiary); }
+.aq-measured-line { margin: var(--space-2) 0 0; font-size: var(--size-sm); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
+.aq-measured-line small { flex-basis: 100%; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.aq-admin { font-size: var(--size-xs); padding: 0 var(--space-2); border-radius: var(--radius-sm); border: var(--stroke-hair) solid var(--line-soft); color: var(--ink-secondary); }
+.aq-chartbox { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-inset); }
+.aq-title { margin: 0 0 var(--space-2); font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }
+.aq-chart { width: 100%; height: auto; display: block; }
+.aq-grid { stroke: var(--chart-grid); stroke-width: var(--stroke-hair); }
+.aq-yl, .aq-xl, .aq-nowl { font-size: var(--size-xs); fill: var(--ink-tertiary); }
+.aq-yl { text-anchor: end; }
+.aq-xl { text-anchor: middle; }
+.aq-now { stroke: var(--ink-secondary); stroke-width: var(--stroke-hair); stroke-dasharray: var(--stroke-hair) var(--stroke-hair); }
+.aq-measured { fill: var(--ink-primary); }
+.aq-legend { margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-secondary); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
+.aq-key { display: inline-block; width: var(--space-6); height: 0; border-top: var(--stroke-select) solid; }
+.aq-key.pm { border-color: var(--data-pm25); }
+.aq-key.dust { border-color: var(--data-dust); }
+.aq-key.dot { width: var(--space-2); height: var(--space-2); border: 0; border-radius: 50%; background: var(--ink-primary); }
+.aq-read { font-size: var(--size-sm); line-height: 1.6; }
+.aq-read p { margin: 0 0 var(--space-2); }
+.aq-small { font-size: var(--size-xs); color: var(--ink-secondary); }
+.aq-src { font-size: var(--size-xs); color: var(--ink-tertiary); display: grid; gap: var(--space-1); }

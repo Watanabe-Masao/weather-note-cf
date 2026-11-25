@@ -11,13 +11,14 @@ const base = { row: row({ rain: 19, sun: 0.4, humidity: 73.2, max: 16, min: 10 }
 const text = (lines: ReturnType<typeof summaryLines>, label: string) => lines.find((l) => l.label === label)!.text;
 
 describe("まとめの行", () => {
-  it("5行（気温・雨・風・空・光・大気）、押すと行く仲間つき", () => {
+  it("6行（気温・雨・風・空・光・大気・空気）、押すと行く仲間つき（11/25 空気は大気から分けた）", () => {
     expect(summaryLines(base).map((l) => [l.label, l.group])).toEqual([
       ["気温", "temp"],
       ["雨", "rainwind"],
       ["風", "rainwind"],
       ["空・光", "sky"],
       ["大気", "air"],
+      ["空気", "airq"],
     ]);
   });
   it("数字は表（天気・最高・最低）に無いものだけ：気温の行は肌感と明日の朝の最低", () => {
@@ -30,11 +31,14 @@ describe("まとめの行", () => {
     expect(text(summaryLines({ ...base, hours: hours.map((h) => ({ ...h, rain: 0 })), row: row({}) }), "雨")).toBe("雨の見込みはありません");
     expect(text(summaryLines({ ...base, past: true, hours: hours.map((h) => ({ ...h, rain: 0 })), row: row({ rain: 0 }) }), "雨")).toBe("雨は降らなかった");
   });
-  it("風：主な風向と日中の風速の幅、空・光：日照と日の出入り、大気：湿度と見通し", () => {
+  it("風：主な風向と日中の風速の幅、空・光：日照と日の出入り、大気：湿度（と気圧の幅）、空気：見通し", () => {
     const l = summaryLines(base);
     expect(text(l, "風")).toBe("北西の風、日中は 2〜4 m/s");
     expect(text(l, "空・光")).toBe("日差しはほとんどなし。日の出 6:45・日の入り 16:59");
-    expect(text(l, "大気")).toBe("湿度 平均 73%・見通しの最小 1.1km");
+    expect(text(l, "大気")).toBe("湿度 平均 73%");
+    expect(text(l, "空気")).toBe("見通しの最小 1.1km");
+    const withP = summaryLines({ ...base, hours: hours.map((h, i) => ({ ...h, pressure: 1010 + i / 2 })) });
+    expect(text(withP, "大気")).toBe("湿度 平均 73%・気圧 1010〜1022 hPa");
   });
 });
 
@@ -123,6 +127,6 @@ describe("風の幅・見通しの最小も、欠けた時間があれば「取�
     const part = hours.map((h) => (h.n === 12 ? { ...h, wind: null, visibility: null } : h));
     const l = summaryLines({ ...base, hours: part });
     expect(text(l, "風")).toBe("北西の風、日中は 2〜4 m/s（取得できた範囲）");
-    expect(text(l, "大気")).toBe("湿度 平均 73%・見通しの最小 1.1km（取得できた範囲）");
+    expect(text(l, "空気")).toBe("見通しの最小 1.1km（取得できた範囲）");
   });
 });
