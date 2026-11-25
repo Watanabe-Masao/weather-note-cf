@@ -5861,6 +5861,8 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .aq-key.dot { width: var(--space-2); height: var(--space-2); border: 0; border-radius: 50%; background: var(--ink-primary); }
 .aq-src p { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .aq-src-line { display: block; margin-bottom: var(--space-1); }
+/* 内訳のシートの出典（InfoNote ではない div）：1行ずつ（11/25 実機で行がつながっていた） */
+.ahm > .aq-src { display: grid; gap: var(--space-1); font-size: var(--size-xs); color: var(--ink-tertiary); }
 .aq-more { margin-top: var(--space-2); }
 /* 比較の空気（11/25、AirCompare）：日別は3段、時間帯は2段。対象の日は実線・塗り、比べる日は破線・白抜き */
 .ac { display: grid; gap: var(--space-2); }
