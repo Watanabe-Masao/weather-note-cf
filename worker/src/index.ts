@@ -299,7 +299,7 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
       const day = q.get("date");
       if (!isDay(day) || day < FIRST_DAY || day > addDays(today, FORECAST_DAYS)) throw new BadRequest("日付を確認してください。");
       // Sunrise and sunset are calculated, so past days never change.
-      return cachedJson(url.origin, `sun/${station.blockNo}/${day}`, waitUntil, async () => ({
+      return cachedJson(url.origin, `${CACHE_VERSION}/sun/${station.blockNo}/${day}`, waitUntil, async () => ({
         body: await fetchSunTimes(station, day, today),
         fixed: day < today,
       }));
