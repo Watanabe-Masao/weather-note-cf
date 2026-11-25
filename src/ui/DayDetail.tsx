@@ -48,6 +48,9 @@ import { pickIssue } from "../data/forecastPick";
 import { headlineChange, shownChanges } from "../../shared/forecastChanges";
 import { ForecastHistory as HistoryModel } from "../../shared/forecastHistoryModel";
 import { TodaySplit } from "./TodaySplit";
+import { AirQualityCard } from "./AirQualityCard";
+import { useAir } from "../data/air";
+import { airSummaryText } from "../airSummary";
 
 interface Props {
   store: WeatherStore | null;
@@ -137,7 +140,10 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
   const feelSettings = useContext(FeelContext);
   const sunTimes = useMemo(() => shownSun(date, station), [date, station]);
   const latest = date === today ? (store?.getLatest(station) ?? null) : null;
+  // 空気質（11/25）：まとめの大気の行に PM2.5 の日平均と黄砂の最大（CAMS）。大気の画面は AirQualityCard が読む。
+  const air = useAir(station, date, group === "summary");
   const lines = summaryLines({
+    air: airSummaryText(air.r),
     row,
     hours: rows,
     feelWord: dayFeelWord(rows, station, feelSettings),
@@ -294,6 +300,12 @@ export function DayDetail({ store, station, date, today, metric, summary, onPick
         {(group === "temp" || group === "rainwind") && <Parts store={store} station={station} date={date} show={group === "temp" ? "temp" : "prob"} />}
         {group === "temp" && <FeelLine rows={rows} station={station} onOpen={onOpenFeel} />}
       </div>
+
+      {group === "air" && (
+        <div className="dd-sec">
+          <AirQualityCard station={station} date={date} today={today} />
+        </div>
+      )}
 
       {/* 根拠と記録は、その項目に関係するものだけ（2026-11-24）：気温は自分の記録（肌感）、雨・風は降水確率と風の予報の移り変わり。
           天気・最高・最低の移り変わりと天気図はまとめに。空・光・大気は気象庁の予報に無い項目なので置かない。 */}

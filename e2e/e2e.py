@@ -6,6 +6,7 @@
 import re
 import time
 import json, re, sys, datetime, random, threading, http.server, functools, os, traceback
+import math as _math
 from playwright.sync_api import sync_playwright
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -186,6 +187,14 @@ def api(path, q):
             if d < TODAY: rows.append(row(d))
             d += datetime.timedelta(days=1)
         return {"station": "47893", "month": q["month"], "rows": rows, "fixed": True, "source": None, "fetchedAt": ""}
+    if path == "/api/air":
+        # 空気質（11/25）：CAMS のモデルの値。今日（固定の 11/10）から先は予測、前の日は終わった日の値。
+        d = q.get("date", "")
+        hours = [{"h": h, "pm2_5": round(9 + 6 * _math.sin((h - 6) / 24 * 2 * _math.pi), 1), "pm10": 14, "dust": (15 if h == 13 else 3), "aod": 0.1} for h in range(24)]
+        return {"supported": True, "v": 1, "station": q.get("station"), "date": d, "kind": "forecast" if d >= "2026-11-10" else "past", "hours": hours, "fetchedAt": "2026-11-10T02:30:00Z", "source": "Open-Meteo（CAMS）"}
+    if path == "/api/admin/air-measured":
+        d = q.get("date", "")
+        return {"v": 1, "station": "39201350", "name": "高知市 介良局", "date": d, "hours": [{"hour": k, "pm2_5": 8 + k, "ox": 0.02, "spm": 0.01, "no2": 0.004, "so2": None, "wd": "N", "ws": 1.2, "fetchedAt": "2026-11-10T02:30:00Z"} for k in range(1, 10)], "checkedAt": "2026-11-10T02:30:00Z", "source": "環境省 大気汚染物質広域監視システム（そらまめくん）"}
     if path == "/api/forecast-official":
         # 予報の出典（2026-11-23）: made-up — 今日・明日は府県天気予報の 11時、2〜6日先は週間天気予報の 11時。7日先から
         # は無い（画面は Open-Meteo の「補完」）。
@@ -1481,6 +1490,16 @@ with sync_playwright() as p:
         check("SD8 表の日をタップすると、その日が選ばれて真ん中へ（戻らない）", ok and center_date() == want and off() < 2 and want != before, (before, want, center_date(), off()))
         cols.nth(idx).locator(".cell-kind").tap()
         settle(lambda: center_date() == before and off() < 2, 5)
+        # 空気質（11/25）：まとめの大気の行に PM2.5 の日平均と黄砂の最大（CAMS と書く）、大気の画面の下に「空気の質」。
+        # 実測（そらまめくん）は管理者だけ：ログインしていないこの画面には出ない。
+        pg.locator('[data-items="summary"]:visible, [data-item="summary"]:visible').first.click(); calm()
+        air_line = pg.locator(".dd-sum .dd-sum-row", has_text="大気").first
+        settle(lambda: "PM2.5" in air_line.inner_text(), 5)
+        check("AQ1 まとめの大気の行に PM2.5 の日平均と黄砂の最大（CAMS の予測と書く）", "PM2.5 日平均" in air_line.inner_text() and "CAMS の予測" in air_line.inner_text(), air_line.inner_text())
+        pg.locator('[data-items="humidity visibility pressure"]:visible, [data-item="humidity"]:visible').first.click(); calm()
+        settle(lambda: pg.locator(".aq .aq-chart").count() > 0, 5)
+        aq = pg.locator(".aq").first.inner_text() if pg.locator(".aq").count() else ""
+        check("AQ2 大気の画面に空気の質（いま・24時間・環境省の基準・出典）、実測は管理者でないと出ない", pg.locator(".aq .aq-chart path").count() >= 2 and "環境基準" in aq and "CAMS" in aq and "Open-Meteo" in aq and ("管理者だけ" in aq) == LOGGED_IN, aq[:200])
         pg.locator(".metrics button", has_text="気温").click(); calm()
         pg.locator(".app-head .seg button", has_text="比較").click(); calm()
         check("SD6 比較に戻すと比較の表が戻る", pg.locator(".side-compare").count() == 1 and pg.locator(".day-detail").count() == 0)
