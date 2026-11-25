@@ -4,6 +4,9 @@
 //   - 24時間のグラフ（今の時に縦の点線）：PM2.5 と黄砂（どちらもその日の値なので実線、色で分ける。破線は比べる日の決まり）、実測は点。
 //   - 読み方：PM2.5 の日平均と環境省の基準、黄砂のいちばん多い時刻、気象庁の黄砂情報は見通しで伝えること。
 //   - 出典：予測・実測・基準を分けて書く（design-system 4.0a）。
+//   - 欠け（11/25 レビュー）：今の時の値が無ければ —（日平均で埋めない）。グラフは値の無い時間で線を切る。取得の時刻は
+//     「M/D H:MM に取得」（モデルの計算の時刻ではない）。2時間以上たった・前の取得の値を含む・終わった日の値を待つ間の予測は
+//     そのことを添える（2時間は約1時間ごとの取得から置いた目安）。
 import { airAt, airDay, camsWord, dustReading, latestMeasured, measuredMean, pmReading } from "../airSummary";
 import { useAccount } from "../account/account";
 import { airInRange, useAir, useMeasured } from "../data/air";
@@ -19,6 +22,12 @@ const BOTTOM = 22;
 const TICKS = [0, 6, 12, 18, 23];
 
 const hm = (iso: string | null) => (iso ? new Date(Date.parse(iso) + 9 * 3_600_000).toISOString().slice(11, 16) : null);
+const mdhm = (iso: string) => {
+  const t = new Date(Date.parse(iso) + 9 * 3_600_000);
+  return `${t.getUTCMonth() + 1}/${t.getUTCDate()} ${t.getUTCHours()}:${String(t.getUTCMinutes()).padStart(2, "0")}`;
+};
+/** 取得からこれ以上たっていれば、そのことを添える（約1時間ごとの取得から置いた目安）。 */
+const OLD_MS = 2 * 3_600_000;
 
 function AirChart({ hours, measured, nowH }: { hours: AirHour[]; measured: MeasuredHour[]; nowH: number | null }) {
   const vals = [...hours.flatMap((x) => [x.pm2_5, x.dust]), ...measured.map((x) => x.pm2_5)].filter((v): v is number => v != null);
@@ -28,8 +37,11 @@ function AirChart({ hours, measured, nowH }: { hours: AirHour[]; measured: Measu
   const path = (key: "pm2_5" | "dust") => {
     let d = "";
     let pen = false;
+    let prev = -2;
     for (const p of hours) {
       const v = p[key];
+      if (p.h !== prev + 1) pen = false; // 時間ごと抜けているところでも線を切る
+      prev = p.h;
       if (v == null) {
         pen = false;
         continue;
@@ -111,22 +123,28 @@ export function AirQualityCard({ station, date, today }: { station: string; date
   const lastM = latestMeasured(mh);
   const meanM = measuredMean(mh);
   const pm = pmReading(d, r.kind);
+  // 値の新しさ：古い取得・前の取得の値を含む・終わった日の値を待つ間の予測
+  const fresh = [
+    r.kind === "forecast" && date < today ? "終わった日の値がまだ届いていないので、保存しておいた予測を出しています" : null,
+    r.fetchedAt && r.kind === "forecast" && Date.now() - Date.parse(r.fetchedAt) >= OLD_MS ? "取得から2時間以上たっています" : null,
+    r.olderHours ? `${r.olderHours}時間分は、前に取得した値のままです` : null,
+  ].filter((t): t is string => t != null);
   const dust = dustReading(d, r.kind);
   return (
     <section className="aq" aria-label="空気の質">
       <div className="dd-now" role="group" aria-label="空気の質の値">
         <p className="dd-now-head">
-          空気の質<small>{camsWord(r.kind)}（モデル、約45km の格子）{at ? `・${at.h}時` : "・日平均と最大"}</small>
+          空気の質<small>{camsWord(r.kind)}（モデル、約45km の格子）{nowH != null ? `・${nowH}時` : "・日平均と最大"}</small>
         </p>
         <div className="dd-now-vals">
           <span className="dd-now-val">
-            <small>PM2.5{at ? "" : " 日平均"}</small>
-            <b className="tone-pm25">{at?.pm2_5 != null ? Math.round(at.pm2_5) : d.pmMean != null ? Math.round(d.pmMean) : "—"}</b>
+            <small>PM2.5{nowH != null ? "" : d.pmHours < 24 ? ` ${d.pmHours}時間の平均` : " 日平均"}</small>
+            <b className="tone-pm25">{nowH != null ? (at?.pm2_5 != null ? Math.round(at.pm2_5) : "—") : d.pmMean != null ? Math.round(d.pmMean) : "—"}</b>
             <small>µg/m³</small>
           </span>
           <span className="dd-now-val">
-            <small>黄砂{at ? "" : " 最大"}</small>
-            <b className="tone-dust">{at?.dust != null ? Math.round(at.dust) : d.dustMax ? Math.round(d.dustMax.v) : "—"}</b>
+            <small>黄砂{nowH != null ? "" : " 最大"}</small>
+            <b className="tone-dust">{nowH != null ? (at?.dust != null ? Math.round(at.dust) : "—") : d.dustMax ? Math.round(d.dustMax.v) : "—"}</b>
             <small>µg/m³</small>
           </span>
         </div>
@@ -178,7 +196,7 @@ export function AirQualityCard({ station, date, today }: { station: string; date
             <b>PM2.5</b>：{pm}
           </p>
         )}
-        <p className="aq-small">環境省の環境基準は 1日平均 35 µg/m³ 以下、注意喚起の目安（暫定的な指針）は 1日平均 70 µg/m³ 以上。CAMS は約45km の格子の値で、高知市の中の場所による違いは表せません。</p>
+        <p className="aq-small">環境省の環境基準は 1日平均 35 µg/m³ 以下、注意喚起の目安（暫定的な指針）は 1日平均 70 µg/m³ を超えるとき。CAMS は約45km の格子の値で、高知市の中の場所による違いは表せません。</p>
         {dust && (
           <p>
             <b>黄砂</b>：{dust}。
@@ -189,8 +207,13 @@ export function AirQualityCard({ station, date, today }: { station: string; date
 
       <div className="aq-src">
         <span>
-          {r.kind === "forecast" ? "予測" : "モデルの値"}：Copernicus Atmosphere Monitoring Service（CAMS）、Open-Meteo.com（CC BY 4.0）{r.fetchedAt ? `・${hm(r.fetchedAt)} に取得` : ""}
+          {r.kind === "forecast" ? "予測" : "モデルの値"}：Copernicus Atmosphere Monitoring Service（CAMS）、Open-Meteo.com（CC BY 4.0）{r.fetchedAt ? `・${mdhm(r.fetchedAt)} に取得` : ""}
         </span>
+        {fresh.map((t) => (
+          <span key={t} className="aq-stale">
+            {t}
+          </span>
+        ))}
         {admin && <span>実測：環境省 大気汚染物質広域監視システム（そらまめくん）。データの著作権は環境省・高知市など</span>}
         <span>基準：環境省</span>
       </div>

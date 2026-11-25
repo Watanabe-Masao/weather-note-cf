@@ -14,11 +14,13 @@ export interface AirResponse {
   v: 1;
   station: string;
   date: string;
-  /** "past"：終わった日の値（airQuality.ts）。"forecast"：今日と先の日の、いちばん新しい予測。 */
+  /** "past"：終わった日の値（airQuality.ts）。"forecast"：今日と先の日の、いちばん新しい予測（終わった日の値がまだ無い昨日も）。 */
   kind: "past" | "forecast";
   hours: AirHour[];
-  /** 値を取った時刻（ISO、無ければ null）。 */
+  /** 値を取った時刻（その日の行のうちいちばん新しい取得、ISO、無ければ null）。モデルの計算の時刻ではない。 */
   fetchedAt: string | null;
+  /** fetchedAt より前の取得の値のままの時間の数（新しい応答で欠けた時間は前の値を残すため）。 */
+  olderHours?: number;
   source: "Open-Meteo（CAMS）";
 }
 

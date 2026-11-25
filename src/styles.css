@@ -5841,3 +5841,4 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .aq-read p { margin: 0 0 var(--space-2); }
 .aq-small { font-size: var(--size-xs); color: var(--ink-secondary); }
 .aq-src { font-size: var(--size-xs); color: var(--ink-tertiary); display: grid; gap: var(--space-1); }
+.aq-src .aq-stale { color: var(--ink-secondary); } /* 値の新しさの注意は出典より一段はっきり */

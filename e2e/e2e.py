@@ -1502,6 +1502,8 @@ with sync_playwright() as p:
         aq = pg.locator(".aq").first.inner_text() if pg.locator(".aq").count() else ""
         chips = pg.evaluate("[...document.querySelectorAll('.item-bar .ib-open [data-item]')].map(e => e.dataset.item)")
         check("AQ2 まとめの空気の行から空気の質の画面（いま・24時間・環境省の基準・出典）、帯は空気の仲間（空気の質・視程）が開き、実測は管理者だけ", chips == ["airq", "visibility"] and pg.locator('[data-item="airq"][aria-selected="true"]').count() == 1 and pg.locator(".aq .aq-chart path").count() >= 2 and "環境基準" in aq and "Open-Meteo" in aq and ("管理者だけ" in aq) == LOGGED_IN and pg.locator(".hour-face").count() == 0, (chips, aq[:120]))
+        # 取得の時刻は日付つき（モデルの計算の時刻ではない）、基準は「70 を超える」（11/25 レビュー）
+        check("AQ2b 取得の時刻は「11/10 11:30 に取得」、注意喚起の目安は 70 を超えるとき", "11/10 11:30 に取得" in aq and "70 µg/m³ を超える" in aq, aq[-200:])
         pg.locator('.item-bar [data-item="visibility"]').first.click(); calm()
         check("AQ3 視程はふつうの項目の画面（空気の質は出さない）", pg.locator(".aq").count() == 0 and pg.locator(".day-detail .hour-face").count() == 1, pg.locator(".aq").count())
         pg.locator('.item-bar .ib-cat[data-items^="humidity"]').first.click(); calm()
