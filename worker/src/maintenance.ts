@@ -132,6 +132,13 @@ export async function dupCheck(db: Db, now: number, adminId: string): Promise<Du
   }
   const over = [...per].filter(([, n]) => n > 9);
   out.push({ name: "雨雲・解析雨量（1つの時刻に9枚より多い、3日分）", n: over.length, examples: over.slice(0, 3).map(([g, n]) => `${g.split("/").slice(1).join("/")}（${n}枚）`) });
+  // 空気のデータ（11/25）：主キー（地点＋時刻）で同じ行は2つ入らない。同じ時刻を別の書き方で持っていないか（そらまめくんの時は
+  // その1時間の終わり 1〜24、CAMS の時刻は日本時間の「+09:00」）を確かめる。表がまだ無ければ0。
+  const odd = async (q: string) => (await rows<{ k: string }>(db, q).catch((e) => (/no such table/i.test(String(e)) ? [] : Promise.reject(e)))).map((x) => x.k);
+  const soraOdd = await odd("SELECT date || ' ' || hour AS k FROM soramame_hourly WHERE hour < 1 OR hour > 24 LIMIT 20");
+  out.push({ name: "大気汚染の実測（時が 1〜24 でない行）", n: soraOdd.length, examples: soraOdd.slice(0, 3) });
+  const camsOdd = await odd("SELECT valid_at AS k FROM air_quality_hourly WHERE valid_at NOT LIKE '%:00:00+09:00' UNION ALL SELECT valid_at AS k FROM air_quality_forecast WHERE valid_at NOT LIKE '%:00:00+09:00' LIMIT 20");
+  out.push({ name: "空気質（時刻の書き方が違う行）", n: camsOdd.length, examples: camsOdd.slice(0, 3) });
   const rep = await rows<{ at: string; n: number }>(db, "SELECT at, COUNT(*) AS n FROM reports WHERE deleted = 0 GROUP BY user_id, at, body HAVING COUNT(*) > 1 ORDER BY at DESC LIMIT 20");
   out.push({ name: "肌感の記録（同じ人・時刻・中身が2件以上）", n: rep.length, examples: rep.slice(0, 3).map((x) => `${short(x.at)}（${x.n}件）`) });
   await ensureRefetchSchema(db);

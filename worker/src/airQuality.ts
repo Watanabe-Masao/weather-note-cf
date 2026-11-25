@@ -80,6 +80,25 @@ export function nextRange(oldest: string | null, newest: string | null, yesterda
 const maxDay = (a: string, b: string) => (a > b ? a : b);
 const minDay = (a: string, b: string) => (a < b ? a : b);
 
+/** 欠けた日を見る長さ（毎時の見張りの欠けの発見と同じ14日）。 */
+export const REFILL_DAYS = 14;
+
+/** 手前 REFILL_DAYS 日（保存を始めた日より前は見ない）で、PM2.5 の1時間値が24に足りない日の範囲（無ければ null）。 */
+export async function shortDays(db: Db, station: string, oldest: string, yesterday: string): Promise<{ from: string; to: string } | null> {
+  const start = maxDay(oldest, addDays(yesterday, -(REFILL_DAYS - 1)));
+  const n = new Map(
+    (
+      await db
+        .prepare("SELECT substr(valid_at, 1, 10) AS d, COUNT(pm2_5) AS n FROM air_quality_hourly WHERE station = ? AND valid_at >= ? AND valid_at < ? GROUP BY d")
+        .bind(station, `${start}T00:00:00+09:00`, `${addDays(yesterday, 1)}T00:00:00+09:00`)
+        .all<{ d: string; n: number }>()
+    ).results.map((r) => [r.d, r.n]),
+  );
+  const short: string[] = [];
+  for (let d = start; d <= yesterday; d = addDays(d, 1)) if ((n.get(d) ?? 0) < 24) short.push(d);
+  return short.length ? { from: short[0], to: short[short.length - 1] } : null;
+}
+
 /** 1時間に1回まで、決まった範囲を取って残す。取れた時間の数を返す。 */
 export async function saveAirQuality(db: Db, now = Date.now(), get: Fetcher = defaultFetch): Promise<{ saved: number; ok: boolean; skipped?: boolean }> {
   await ensureAirSchema(db);
@@ -95,7 +114,12 @@ export async function saveAirQuality(db: Db, now = Date.now(), get: Fetcher = de
       .prepare("SELECT MIN(substr(valid_at, 1, 10)) AS oldest, MAX(substr(valid_at, 1, 10)) AS newest FROM air_quality_hourly WHERE station = ?")
       .bind(station)
       .first<{ oldest: string | null; newest: string | null }>();
-    const want = nextRange(have?.oldest ?? null, have?.newest ?? null, yesterday);
+    // 欠けた日の取り直し（11/25 レビュー・ルールの見直し）：手前 REFILL_DAYS 日のうち、新しい側が済んでいるのに PM2.5 の
+    // 1時間値が24に足りない日があれば、先にその範囲を取り直す（1時間だけ入った日を「済んだ」として進まない）。
+    // 提供元にもその時間の値が無いときに毎時取り直し続けないよう、同じ範囲は24時間に1回まで。
+    const refill = have?.newest && have.newest >= yesterday ? await shortDays(db, station, have.oldest!, yesterday) : null;
+    const tried = refill ? await db.prepare("SELECT COUNT(*) AS n FROM air_quality_fetch_log WHERE range = ? AND at >= ?").bind(`${refill.from}..${refill.to}`, new Date(now - 24 * 3_600_000).toISOString()).first<{ n: number }>() : null;
+    const want = refill && !tried?.n ? refill : nextRange(have?.oldest ?? null, have?.newest ?? null, yesterday);
     if (!want) continue;
     range = `${want.from}..${want.to}`;
     try {
@@ -120,7 +144,8 @@ export async function saveAirQuality(db: Db, now = Date.now(), get: Fetcher = de
       // 値が一つも無い範囲（古い側で提供の始まりより前など）は、次に同じ範囲を取り直さないよう印を残す。
       if (!stmts.length)
         await db
-          .prepare("INSERT OR REPLACE INTO air_quality_hourly (station, valid_at, pm2_5, pm10, dust, aod, source, fetched_at) VALUES (?, ?, NULL, NULL, NULL, NULL, ?, ?)")
+          // 印は、その時刻に値があれば書かない（取り直しの範囲で値を消さない）。
+          .prepare("INSERT OR IGNORE INTO air_quality_hourly (station, valid_at, pm2_5, pm10, dust, aod, source, fetched_at) VALUES (?, ?, NULL, NULL, NULL, NULL, ?, ?)")
           .bind(station, `${want.from}T00:00:00+09:00`, SOURCE, at)
           .run();
     } catch (e) {

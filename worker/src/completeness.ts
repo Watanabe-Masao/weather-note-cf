@@ -18,6 +18,7 @@ import type { Db } from "./accounts";
 import { FORECAST_GRACE_MS, FORECAST_SCHEDULE, FORECAST_WATCH_OFFICE } from "./forecastWatch";
 import { doneOnce } from "./once";
 import { migrate } from "./migrate";
+import { auditAir } from "./airAudit";
 
 export const AUDIT_DAYS = 14;
 const H = 3_600_000;
@@ -267,6 +268,14 @@ export async function readCompleteness(db: Db, now: number) {
   };
   const forecast = await safe(() => auditForecasts(db, now), {} as Record<string, SeriesAudit>);
   const radar = await safe(() => auditRadar(db, now), {} as Record<string, SeriesAudit>);
+  // 空気のデータ（11/25、airAudit.ts）：CAMS の終わった日・そらまめくん・予測。pending は新しい順に6つまで。
+  const airRaw = await safe(() => auditAir(db, now), null);
+  // 空気のデータがまだ1時間も無い（保存を始める前・表が無い）ときは null。
+  const air = airRaw && (airRaw.cams.expected || airRaw.soramame.expected || airRaw.soramame.newest || airRaw.forecast.kept) ? {
+    cams: { ...airRaw.cams, pending: airRaw.cams.pending.slice(-6).reverse(), pendingCount: airRaw.cams.pending.length, absentCount: airRaw.cams.absent.length },
+    soramame: { ...airRaw.soramame, pending: airRaw.soramame.pending.slice(-6).reverse(), pendingCount: airRaw.soramame.pending.length, absent: airRaw.soramame.absent.slice(-6).reverse(), absentCount: airRaw.soramame.absent.length },
+    forecast: { expected: airRaw.forecast.expected, kept: airRaw.forecast.kept, pendingCount: airRaw.forecast.pending.length },
+  } : null;
   const lostLastDay = await safe(
     async () => (await db.prepare("SELECT source, COUNT(*) AS n FROM data_gaps WHERE found_at >= ? GROUP BY source").bind(new Date(now - 24 * H).toISOString()).all<{ source: string; n: number }>()).results,
     [],
@@ -279,6 +288,7 @@ export async function readCompleteness(db: Db, now: number) {
   return {
     forecast: Object.fromEntries(Object.entries(forecast).map(([k, v]) => [k, short(v)])),
     radar: Object.fromEntries(Object.entries(radar).map(([k, v]) => [k, short(v)])),
+    air,
     lostLastDay,
     lostAll,
     recoveredAll,

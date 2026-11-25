@@ -141,6 +141,13 @@ export async function digestExtra(db: Db, now: number, cf?: CloudflareRuns, driv
       const gaps = [a.pendingCount ? `まだ取り戻せる ${a.pendingCount}（${a.pending.slice(0, 3).map(at).join("・")}）` : "", a.lostCount ? `取り戻せない ${a.lostCount}` : ""].filter(Boolean).join("・");
       out.push(`・${NAME[k] ?? k}の定時の発表：${a.expected}回中${a.kept}回${a.watermark ? `（続けて確かめられた位置 ${at(a.watermark)}）` : ""}${gaps ? `。欠け：${gaps}` : ""}${a.absentCount ? `。気象庁が出していない回 ${a.absentCount}（${a.absent.slice(0, 3).map(at).join("・")}）` : ""}`);
     }
+    // 空気のデータ（11/25、airAudit.ts）：予測のそろい、CAMS の終わった日の欠け、そらまめくんの最新と欠け・出ていない時間。
+    if (c.air) {
+      const a = c.air;
+      out.push(`・空気質の予測：今日から4日先まで ${a.forecast.expected}時間中 ${a.forecast.kept}時間`);
+      out.push(`・空気質（CAMS、終わった日）：手前14日 ${a.cams.expected}時間中 ${a.cams.kept}時間${a.cams.pendingCount ? `。欠け ${a.cams.pendingCount}（${a.cams.pending.slice(0, 3).map(at).join("・")}、自動で取り直す）` : ""}`);
+      out.push(`・大気汚染の実測（そらまめくん）：最新 ${a.soramame.newest ? at(a.soramame.newest) : "なし"}・手前14日 ${a.soramame.expected}時間中 ${a.soramame.kept}時間${a.soramame.pendingCount ? `。欠け ${a.soramame.pendingCount}（${a.soramame.pending.slice(0, 3).map(at).join("・")}）` : ""}${a.soramame.absentCount ? `。提供元が出していない ${a.soramame.absentCount}` : ""}`);
+    }
     const absentAll = c.absentAll.reduce((n, l) => n + l.n, 0);
     if (absentAll) out.push(`・気象庁が出していない回（これまで、欠けではない）：${c.absentAll.map((l) => `${l.source.replace(/^(forecast|radar):/, "")} ${l.n}`).map((x) => x.replace(/^(\w+)/, (m) => NAME[m] ?? m)).join("・")}`);
     const recoveredAll = (c.recoveredAll ?? []).reduce((n, l) => n + l.n, 0);

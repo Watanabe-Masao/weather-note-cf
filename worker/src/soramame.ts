@@ -16,6 +16,8 @@
 import { STATION_PLACES } from "../../shared/stationPlaces";
 import type { Db } from "./accounts";
 import { migrate } from "./migrate";
+import { soramameEnd } from "./airAudit";
+import { ensureCompletenessSchema } from "./completeness";
 import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
 import type { MeasuredResponse } from "../../shared/airQuality";
@@ -49,6 +51,8 @@ export const SORAMAME_SCHEMA = [
 const EVERY_MS = 6 * 3_600_000;
 /** 今月だけを取る間隔。 */
 const NOW_EVERY_MS = 3_600_000;
+/** 空欄の時間を「提供元が出していない」とするまでの時間（速報値が後から入ることがあるので、遅れの見張りより長く）。 */
+const ABSENT_AFTER_H = 6;
 /** 1時間ごとの回（直近7日の CSV だけ）の記録の範囲。 */
 const RECENT = "7day";
 const LOG_DAYS = 400;
@@ -253,6 +257,14 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
       dropped += p.dropped;
       const dates = p.hours.map((h) => h.date).sort();
       if (dates.length) await write(s.station, dates[0], dates[dates.length - 1], p.hours);
+      // 提供元が空欄で出した時間（測定局の欠測・調整）：その1時間の終わりから ABSENT_AFTER_H 時間たっても空欄なら、
+      // 「出ていない」として data_absent に1度だけ残す（欠けの発見で欠けとしない。後で値が入れば、そちらが優先）。
+      const blank = p.hours.filter((x) => x.pm2_5 == null && x.ox == null && x.spm == null && x.no2 == null && x.so2 == null && x.ws == null && !x.wd);
+      const old = blank.map((x) => soramameEnd(x.date, x.hour)).filter((t) => Date.parse(t) <= now - ABSENT_AFTER_H * 3_600_000);
+      if (old.length) {
+        await ensureCompletenessSchema(db);
+        await db.batch(old.map((t) => db.prepare("INSERT OR IGNORE INTO data_absent (source, item, found_at) VALUES (?, ?, ?)").bind(`air:soramame:${s.station}`, t, at)));
+      }
     } catch (e) {
       error = String(e instanceof Error ? e.message : e).slice(0, 300);
     }
