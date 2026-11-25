@@ -5960,3 +5960,8 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 /* 見本（BM-R03、マージしない）：文字組み T1・T2。T1 22px・字間 0.08em・行間 1.9、T2 24px・字間 0.10em・行間 1.9。影は弱く（1px・3px）。 */
 .moon-story.ty-t1 .ms-cap, .moon-story.ty-t1 .ms-cap.fit-md { font-size: 22px; letter-spacing: 0.08em; line-height: 1.9; text-shadow: 0 1px 3px rgb(10 20 25 / 55%), 0 0 8px rgb(10 20 25 / 25%); }
 .moon-story.ty-t2 .ms-cap, .moon-story.ty-t2 .ms-cap.fit-md { font-size: 24px; letter-spacing: 0.10em; line-height: 1.9; text-shadow: 0 1px 3px rgb(10 20 25 / 55%), 0 0 8px rgb(10 20 25 / 25%); }
+/* 第2次（11/25 承認）：T1 を幅に合わせて 19〜22px（clamp）。同じ端末ではページごとに縮めない（fit-md・fit-sm も同じ大きさ）。 */
+.moon-story.ty-t1c .ms-cap, .moon-story.ty-t1c .ms-cap.fit-md, .moon-story.ty-t1c .ms-cap.fit-sm { font-size: clamp(19px, 5.65vw, 22px); font-weight: 500; letter-spacing: 0.08em; line-height: 1.9; text-shadow: 0 1px 3px rgb(10 20 25 / 55%), 0 0 8px rgb(10 20 25 / 25%); }
+/* 結末の作品名（E4）：本文と同じ書体・太さ・色で、約 12% 大きく、字間を少し広げる。一文まるごと浮かぶ（字ごとには出さない）。 */
+.ms-cap.ms-cap-title { font-size: calc(var(--size-lg) * 1.12); letter-spacing: 0.18em; }
+.moon-story.ty-t1c .ms-cap.ms-cap-title { font-size: clamp(21.3px, 6.33vw, 24.6px); letter-spacing: 0.12em; }

@@ -856,7 +856,10 @@ export function MoonStory({
             const times = pageTimes(i);
             // 最後のページ（9）は、文だけが先に消え、止まる所では絵だけが rest の秒残る（絵コンテ「文が消えて絵が残る」）。
             const lastBook = !!story?.book && i === lines.length - 1;
-            const fadeAt = lastBook ? REVEAL_START + ((readings[i]?.total ?? 0) + pauseSum(scene.linePause?.[i]) + LAST_TAIL) / secs : CAP_OUT;
+            const te = lastBook ? story?.book?.titleEnd : undefined;
+            const fadeAt = lastBook
+              ? REVEAL_START + ((readings[i]?.total ?? 0) + pauseSum(scene.linePause?.[i]) + (te ? te.readHold : LAST_TAIL)) / secs
+              : CAP_OUT;
             const at = capAt(i);
             world
               .set(cap, { opacity: 1 }, at)
@@ -885,23 +888,37 @@ export function MoonStory({
                 {
                   opacity: 0,
                   y: lastBook ? 0 : -12,
-                  duration: lastBook ? 0.06 : CAP_OUT_DUR,
+                  duration: lastBook ? (te ? te.textFade / secs : 0.06) : CAP_OUT_DUR,
                   ease: "power1.in",
                 },
                 i + fadeAt,
               )
               .set(cap, { y: 0 }, i + 1);
+            // 結末の作品名（E4）：文が消えきって、文字の無い風景（gap）のあと、一文まるごと浮かべて、残して、消す。
+            if (te) {
+              const t0 = i + fadeAt + (te.textFade + te.gap) / secs;
+              world
+                .fromTo(".ms-cap-title", { opacity: 0 }, { opacity: 1, duration: te.fadeIn / secs, ease: "sine.inOut" }, t0)
+                .to(".ms-cap-title", { opacity: 0, duration: te.fadeOut / secs, ease: "sine.inOut" }, t0 + (te.fadeIn + te.hold) / secs);
+            }
           });
           // 一枚の絵の枠：場面が持つときは、最後のページの文が消えてから止まる所まで（文を読む間は出さない）。
           const lastI = lines.length - 1;
+          const teEnd = story?.book?.titleEnd;
+          const lastSecs = beatSecs[lastI] ?? SEC_PER_BEAT;
           const textGone = story?.book
-            ? lastI + REVEAL_START + ((readings[lastI]?.total ?? 0) + pauseSum(scene.linePause?.[lastI]) + LAST_TAIL) / (beatSecs[lastI] ?? SEC_PER_BEAT) + 0.06
+            ? teEnd
+              ? // 作品名が消えきってから額縁（E4）
+                lastI + REVEAL_START + ((readings[lastI]?.total ?? 0) + pauseSum(scene.linePause?.[lastI]) + teEnd.readHold + teEnd.textFade + teEnd.gap + teEnd.fadeIn + teEnd.hold + teEnd.fadeOut) / lastSecs
+              : lastI + REVEAL_START + ((readings[lastI]?.total ?? 0) + pauseSum(scene.linePause?.[lastI]) + LAST_TAIL) / lastSecs + 0.06
             : scene.beats - 0.75;
-          const frameAt = scene.frameAfterText ? Math.min(scene.beats - 1 + BEAT_REST - 0.04, textGone) : scene.beats - 0.75;
+          // 額縁は文が消えてから（コールドムーン）。結末の作品名がある本（E4）も、作品名が消えきってから（11/25 渡辺さん）。
+          const afterText = scene.frameAfterText || !!teEnd;
+          const frameAt = afterText ? Math.min(scene.beats - 1 + BEAT_REST - 0.04, textGone) : scene.beats - 0.75;
           world.fromTo(
             ".ms-world-frame",
             { opacity: 0, scale: 1.06 },
-            { opacity: 1, scale: 1, duration: scene.frameAfterText ? Math.max(0.04, scene.beats - 1 + BEAT_REST - frameAt) : 0.5 },
+            { opacity: 1, scale: 1, duration: afterText ? Math.max(0.04, Math.min(teEnd ? 1.2 / lastSecs : 1, scene.beats - 1 + BEAT_REST - frameAt)) : 0.5 },
             frameAt,
           );
 
@@ -1554,6 +1571,11 @@ export function MoonStory({
                   <Letters text={tateNum(t)} />
                 </p>
               ))}
+              {story?.book?.titleEnd && (
+                <p className="ms-cap ms-cap-title" aria-hidden data-n={[...story.book.titleEnd.text].length}>
+                  {story.book.titleEnd.text}
+                </p>
+              )}
             </div>
             <button
               type="button"

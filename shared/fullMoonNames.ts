@@ -42,6 +42,11 @@ export interface StoryBook {
    * 読み終えてから次へ進むまでの余白（秒、絵だけを見せる時間）。
    */
   pages: { lines: string[]; rest?: number }[];
+  /**
+   * 結末の作品名（E4、11/25 渡辺さん）：最後のページの文を読み終えて、ゆっくり消し、文字の無い風景をはさんでから、
+   * 作品名だけを一文まるごと静かに浮かべる。作品名が消えきってから額縁。秒はどれも初期候補。
+   */
+  titleEnd?: { text: string; readHold: number; textFade: number; gap: number; fadeIn: number; hold: number; fadeOut: number; picture: number };
   /** 物語のあとがき（名前の由来と文化的な背景）。 */
   afterword: { title: string; paragraphs: string[] };
   /** 自然と科学（物語の背景の事実）。heading の無い節は段落だけ。 */
