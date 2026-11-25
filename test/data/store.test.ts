@@ -340,6 +340,27 @@ describe("storage", () => {
     expect((await store.report()).lostSince).toBe(120);
   });
 
+  it("opens a real version-2 database: drops the old days and hours (no visibility), keeps meta, and fetches the hours again (11/25 review)", async () => {
+    const { openDB } = await import("idb");
+    const old = await openDB("weather-note", DATA_VERSION - 1, {
+      upgrade(db) {
+        for (const n of ["days", "hours", "meta"]) db.createObjectStore(n, { keyPath: "key" });
+      },
+    });
+    // 前年同日の確定した時別：版2の形（視程が無い）。
+    await old.put("hours", { key: `${KOCHI}/2025-06-15`, rows: [{ date: "2025-06-15", n: 1, type: "actual", provider: "JMA", raw: {}, quality: {}, temp: 20 }], kind: "fixed" });
+    await old.put("meta", { key: "since", value: 123 });
+    old.close();
+    const storage = await openStorage();
+    expect(await storage.getHours([`${KOCHI}/2025-06-15`])).toEqual([]);
+    expect(await storage.getMeta("since")).toBe(123);
+    const { store, api } = makeStore(storage);
+    store.wantHours(KOCHI, ["2025-06-15"]);
+    await store.idle();
+    expect(api.calls.some((c) => c.startsWith("/api/hourly") && c.includes("2025-06-15"))).toBe(true);
+    expect((await storage.getHours([`${KOCHI}/2025-06-15`])).length).toBe(1);
+  });
+
   it("does not call a data-version change a loss", async () => {
     const storage = await openStorage();
     const { store, local } = makeStore(storage);
