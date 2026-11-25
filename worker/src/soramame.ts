@@ -7,7 +7,8 @@
 // 値は文字で来る。空・"-"・空白は値なし（測っていない・欠測・調整中）。
 //
 // 6時間に1回まで：検索の API（data_search）で今月と先月を取り直し（速報値の直しも入る）、そのあと古い側へ3か月ずつ、1年前まで。
-// 毎回（1時間に1回まで）：直近7日の CSV（data/sokutei/NoudoTime/<局>/7day.csv、サイトの「測定データ表示」と同じ）。
+// 1年前まで取り終えたら、古い側の回は1年前から3か月ずつ取り直して回る（11/25、空欄に「出ていない」の印をつける）。
+// 毎回（15分に1回まで）：直近7日の CSV（data/sokutei/NoudoTime/<局>/7day.csv、サイトの「測定データ表示」と同じ）。
 // 11/25：検索の API は前日の夜までしか返さず、今日の分が入らなかった（渡辺さんの実機で、サイトの一覧には今日の 14時まで出ていた）。
 // CSV は今日の分も約1時間遅れで出るので、画面の「いま」の実測はこちらから。何時の値が何分ごろに出るかは、行の fetched_at
 // （初めて入った時刻）と、取得の記録の newest（値の出ていた最後の時）で測る。
@@ -50,10 +51,12 @@ export const SORAMAME_SCHEMA = [
 
 const EVERY_MS = 6 * 3_600_000;
 /** 今月だけを取る間隔。 */
-const NOW_EVERY_MS = 3_600_000;
+// 11/25：1時間に1回だと、値が出る少し前に取った回のあと次まで待ち、最大で約2時間遅れた（渡辺さんの実機で、サイトは 17時・画面は 15時台）。
+// CSV は小さいので 15分に1回（6時間ごとの検索の API は変えない）。
+const NOW_EVERY_MS = 15 * 60_000;
 /** 空欄の時間を「提供元が出していない」とするまでの時間（速報値が後から入ることがあるので、遅れの見張りより長く）。 */
 const ABSENT_AFTER_H = 6;
-/** 1時間ごとの回（直近7日の CSV だけ）の記録の範囲。 */
+/** 15分ごとの回（直近7日の CSV だけ）の記録の範囲。 */
 const RECENT = "7day";
 const LOG_DAYS = 400;
 /** さかのぼる月の数（API は今月から1年）。 */
@@ -86,10 +89,18 @@ export const soramameUrl = (pref: string, station: string, from: string, to: str
   `&REQUEST_DATA=${[...Object.values(ITEMS), "WD"].join(",")}`;
 
 /** 次に取る月の範囲：直近の2か月を取り直す回と、古い側へ3か月の回を交互に（古い側が済めば直近だけ）。 */
-export function nextMonths(thisMonth: string, oldest: string | null, lastWasRecent: boolean): { from: string; to: string } {
+export function nextMonths(thisMonth: string, oldest: string | null, lastWasRecent: boolean, lastOldTo: string | null = null): { from: string; to: string } {
   const recent = { from: addMonths(thisMonth, -1), to: thisMonth };
   const limit = addMonths(thisMonth, -BACK_MONTHS);
-  if (!oldest || lastWasRecent === false || oldest <= limit) return recent;
+  if (!oldest || lastWasRecent === false) return recent;
+  if (oldest <= limit) {
+    // 1年前まで取り終えたら、古い側の回は1年前から3か月ずつ取り直して回る（11/25：速報値の直しと、提供元の空欄に
+    // 「出ていない」の印をつけるため。それまでは取り終えた月を二度と取らず、昔の空欄が週の点検で抜けに数えられていた）。
+    const last = addMonths(thisMonth, -2);
+    const from = lastOldTo && lastOldTo >= limit && lastOldTo < last ? addMonths(lastOldTo, 1) : limit;
+    const to = addMonths(from, 2) > last ? last : addMonths(from, 2);
+    return { from, to };
+  }
   const to = addMonths(oldest, -1);
   const from = addMonths(to, -2) < limit ? limit : addMonths(to, -2);
   return { from, to };
@@ -166,9 +177,9 @@ async function textOf(r: { text(): Promise<string>; arrayBuffer?: () => Promise<
 const SECTORS_JA = ["北", "北北東", "北東", "東北東", "東", "東南東", "南東", "南南東", "南", "南南西", "南西", "西南西", "西", "西北西", "北西", "北北西"];
 
 /**
- * 6時間に1回まで、検索の API で決まった月の範囲（直近2か月の取り直し、または古い側）を取る。そして毎回（1時間に1回まで）、
+ * 6時間に1回まで、検索の API で決まった月の範囲（直近2か月の取り直し、または古い側）を取る。そして毎回（15分に1回まで）、
  * 直近7日の CSV を取る（11/25：検索の API は前日の夜までしか返さず、今日の分はサイトの一覧と同じ CSV から取る。渡辺さんの実機で確かめた）。
- * 1時間ごとの回は記録の範囲を「7day」とし、6時間ごとの回の数え方（交互）には入れない（以前の「今月..今月」も同じ扱い）。
+ * 15分ごとの回は記録の範囲を「7day」とし、6時間ごとの回の数え方（交互）には入れない（以前の「今月..今月」も同じ扱い）。
  */
 export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defaultFetch): Promise<{ saved: number; ok: boolean; skipped?: boolean }> {
   await ensureSoramameSchema(db);
@@ -220,12 +231,31 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
     saved += stmts.length;
   };
 
+  /**
+   * 提供元が空欄で出した時間（測定局の欠測・調整）：その1時間の終わりから ABSENT_AFTER_H 時間たっても空欄なら、
+   * 「出ていない」として data_absent に1度だけ残す（欠けの発見・週の点検で欠けとしない。後で値が入れば、そちらが優先）。
+   */
+  const markAbsent = async (station: string, hours: Hour[]) => {
+    const blank = hours.filter((x) => x.pm2_5 == null && x.ox == null && x.spm == null && x.no2 == null && x.so2 == null && x.ws == null && !x.wd);
+    const old = blank.map((x) => soramameEnd(x.date, x.hour)).filter((t) => Date.parse(t) <= now - ABSENT_AFTER_H * 3_600_000);
+    if (!old.length) return;
+    await ensureCompletenessSchema(db);
+    // 1年分の空欄でも重くならないよう 200 行ずつ。
+    for (let i = 0; i < old.length; i += 200)
+      await db.batch(old.slice(i, i + 200).map((t) => db.prepare("INSERT OR IGNORE INTO data_absent (source, item, found_at) VALUES (?, ?, ?)").bind(`air:soramame:${station}`, t, at)));
+  };
+
   for (const place of Object.values(STATION_PLACES)) {
     const s = place.soramame;
     if (full) {
       const have = await db.prepare("SELECT MIN(substr(date, 1, 7)) AS oldest FROM soramame_hourly WHERE station = ?").bind(s.station).first<{ oldest: string | null }>();
       const lastWasRecent = !!last?.range?.endsWith(thisMonth);
-      const want = nextMonths(thisMonth, have?.oldest ?? null, lastWasRecent);
+      // 古い側の最後の回（直近2か月の回ではないもの）の終わりの月。1年前まで取り終えたあとの取り直しの続きに使う。
+      const lastOld = await db
+        .prepare("SELECT range FROM soramame_fetch_log WHERE range LIKE '____-__..____-__' AND range NOT LIKE ? ORDER BY at DESC LIMIT 1")
+        .bind(`%..${thisMonth}`)
+        .first<{ range: string }>();
+      const want = nextMonths(thisMonth, have?.oldest ?? null, lastWasRecent, lastOld?.range.slice(9) ?? null);
       range = `${want.from}..${want.to}`;
       try {
         const r = await get(soramameUrl(s.pref, s.station, want.from, want.to));
@@ -244,6 +274,8 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
           hours.push({ date: x.SKT_DATE.replaceAll("/", "-"), hour: Number(x.SKT_TIME), ...v, wd: /^[NESW]{1,3}$|^CALM$/i.test(wd) ? wd : null });
         }
         await write(s.station, `${want.from}-01`, `${want.to}-31`, hours);
+        // 検索の API で取った月の空欄も（11/25：直近7日より前の空欄に印が無く、週の点検で抜けに数えていた）。
+        await markAbsent(s.station, hours);
       } catch (e) {
         error = String(e instanceof Error ? e.message : e).slice(0, 300);
       }
@@ -257,14 +289,7 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
       dropped += p.dropped;
       const dates = p.hours.map((h) => h.date).sort();
       if (dates.length) await write(s.station, dates[0], dates[dates.length - 1], p.hours);
-      // 提供元が空欄で出した時間（測定局の欠測・調整）：その1時間の終わりから ABSENT_AFTER_H 時間たっても空欄なら、
-      // 「出ていない」として data_absent に1度だけ残す（欠けの発見で欠けとしない。後で値が入れば、そちらが優先）。
-      const blank = p.hours.filter((x) => x.pm2_5 == null && x.ox == null && x.spm == null && x.no2 == null && x.so2 == null && x.ws == null && !x.wd);
-      const old = blank.map((x) => soramameEnd(x.date, x.hour)).filter((t) => Date.parse(t) <= now - ABSENT_AFTER_H * 3_600_000);
-      if (old.length) {
-        await ensureCompletenessSchema(db);
-        await db.batch(old.map((t) => db.prepare("INSERT OR IGNORE INTO data_absent (source, item, found_at) VALUES (?, ?, ?)").bind(`air:soramame:${s.station}`, t, at)));
-      }
+      await markAbsent(s.station, p.hours);
     } catch (e) {
       error = String(e instanceof Error ? e.message : e).slice(0, 300);
     }
