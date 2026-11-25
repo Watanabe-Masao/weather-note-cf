@@ -26,7 +26,7 @@ import { saveRadar } from "./radarArchive";
 import { saveAmedas } from "./amedasArchive";
 import { AIR_FIRST_DAY, saveAirQuality } from "./airQuality";
 import { STATION_PLACES } from "../../shared/stationPlaces";
-import { AIR_FORECAST_DAYS, readAir, saveAirForecast } from "./airForecast";
+import { AIR_DAYS_MAX, AIR_FORECAST_DAYS, readAir, readAirDays, saveAirForecast } from "./airForecast";
 import { readMeasured, saveSoramame } from "./soramame";
 import { collectLongRange } from "./longRangeArchive";
 import { health, markStart, timed } from "./health";
@@ -179,6 +179,19 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
       return cachedFor(url.origin, `${CACHE_VERSION}/air/${station.blockNo}/${day}`, AIR_TTL, waitUntil, async () => ({
         supported: true,
         ...(await readAir(db, station.blockNo, day, today)),
+      }));
+    }
+    case "/api/air-days": {
+      // 比較の空気（11/25、airForecast.ts readAirDays）：from〜to の1日ごとの PM2.5 の平均・黄砂の最大（CAMS）と介良局の実測の平均。
+      const station = findStation(q.get("station"));
+      const from = q.get("from");
+      const to = q.get("to");
+      if (!isDay(from) || !isDay(to) || from > to || to > addDays(today, AIR_FORECAST_DAYS - 1) || addDays(from, AIR_DAYS_MAX - 1) < to) throw new BadRequest("日付を確認してください。");
+      const place = STATION_PLACES[station.blockNo];
+      if (!db || !place) return jsonResponse({ v: 1, station: station.blockNo, from, to, supported: false });
+      return cachedFor(url.origin, `${CACHE_VERSION}/air-days/${station.blockNo}/${from}/${to}`, AIR_TTL, waitUntil, async () => ({
+        supported: true,
+        ...(await readAirDays(db, station.blockNo, place.soramame?.station ?? null, from, to, today)),
       }));
     }
     case "/api/air-measured": {

@@ -60,8 +60,7 @@ interface Props {
   metric: MetricId;
   /** まとめ（帯の先頭）を見ているか。 */
   summary: boolean;
-  /** 空気（帯の後ろ、PM2.5・黄砂）を見ているか（11/25）。 */
-  airq: boolean;
+
   /** まとめの行を押した：その仲間の項目へ。 */
   onPickItem: (id: MetricId) => void;
   /** まとめの空気の行を押した：空気の画面へ。 */
@@ -71,7 +70,7 @@ interface Props {
 }
 
 
-export function DayDetail({ store, station, date, today, metric, summary, airq, onPickItem, onPickAirq, onOpenFeel, onToggleSun }: Props) {
+export function DayDetail({ store, station, date, today, metric, summary, onPickItem, onPickAirq, onOpenFeel, onToggleSun }: Props) {
   const openSummary = useContext(DaySummaryContext);
   const day = store?.getDay(station, date);
   const row = day?.state === "ready" ? (day.row ?? null) : null;
@@ -125,7 +124,7 @@ export function DayDetail({ store, station, date, today, metric, summary, airq, 
       : [["出どころ", tag ? SOURCE_TEXT[tag] : "—"]];
 
   // 帯で選んだ仲間（src/ui/ItemBar.tsx）。まとめ（summary）は帯の先頭、1日を開いたときはいつもここから（2026-11-24）。
-  const group = summary ? "summary" : airq ? "airq" : (ITEM_GROUPS.find((g) => g.items.includes(metric))?.id ?? "temp");
+  const group = summary ? "summary" : (ITEM_GROUPS.find((g) => g.items.includes(metric))?.id ?? "temp");
   // 根拠と記録の開け閉め：仲間（とその日）ごと。ほかの仲間や日に移ると畳んだところから（中身が違うので）。
   const [basisFor, setBasisFor] = useState<string | null>(null);
   const basisOpen = basisFor === `${group}/${date}`;
@@ -286,12 +285,12 @@ export function DayDetail({ store, station, date, today, metric, summary, airq, 
       </section>
     );
 
-  // 空気（帯の後ろ、11/25「項目を分けませんか」）：空気の質のカードだけ（湿度・視程・気圧の画面とは分ける）。
-  if (airq)
+  // 空気（帯の後ろ、11/25「項目を分けませんか」→「いっそのこと統合」）：PM2.5・黄砂・視程を1つの画面に（AirQualityCard）。
+  if (group === "airq")
     return (
-      <section className="day-detail" aria-label="1日の空気の質" data-group={group}>
+      <section className="day-detail" aria-label="1日の空気" data-group={group}>
         <div className="dd-sec">
-          <AirQualityCard station={station} date={date} today={today} />
+          <AirQualityCard station={station} date={date} today={today} hours={rows} latest={latest} />
         </div>
       </section>
     );

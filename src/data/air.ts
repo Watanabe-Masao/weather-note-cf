@@ -7,7 +7,7 @@
 // 日付が変わって「今日」が「昨日」になった日は、すぐに1回取り直す（11/25 レビュー：予測のまま残らないように）。
 // そのあとも、まだ終わった日の値に替わっていなければ（settled が false）、今日と同じ間隔で取り直す。
 import { useEffect, useSyncExternalStore } from "react";
-import type { AirResponse, MeasuredResponse } from "../../shared/airQuality";
+import type { AirDay, AirDaysResponse, AirResponse, MeasuredResponse } from "../../shared/airQuality";
 import { addDays, jstToday } from "../../shared/dates";
 import { LIVE_EVERY } from "./store";
 
@@ -153,3 +153,109 @@ export const useAir = (station: string, date: string, on = true) => useLive(airC
 
 /** その日の実測（今日まで）。 */
 export const useMeasured = (station: string, date: string, on: boolean) => useLive(measuredCache, station, date, on);
+
+/**
+ * 比較の空気（11/25）：日ごとのまとめ（/api/air-days）。見る日々を近いものどうしの範囲にまとめて1回ずつ読み、日ごとに取り置く。
+ * 今日と先の日・まだ予測のままの過ぎた日は、10分（LIVE_EVERY）たてば読み直す。終わった日の値は1回だけ。
+ */
+type DayEntry = { day: AirDay | null; at: number };
+const dayCache = new Map<string, DayEntry>();
+const dayInflight = new Map<string, Promise<void>>();
+/** 読めなかった日・読んでいる日（地点/日付）。 */
+const dayFailed = new Set<string>();
+const dayLoading = new Set<string>();
+const dayListeners = new Set<() => void>();
+let dayVersion = 0;
+const dayBump = () => {
+  dayVersion++;
+  for (const fn of dayListeners) fn();
+};
+
+/** 日付を、間が gap 日より空かないまとまりに分ける（並べ替え済み）。 */
+export function dayRanges(dates: string[], gap = 7, max = 45): { from: string; to: string }[] {
+  const ds = [...new Set(dates)].sort();
+  const out: { from: string; to: string }[] = [];
+  for (const d of ds) {
+    const last = out[out.length - 1];
+    if (last && d <= addDays(last.to, gap) && addDays(last.from, max - 1) >= d) last.to = d;
+    else out.push({ from: d, to: d });
+  }
+  return out;
+}
+
+function dayStale(station: string, date: string, today: string, now: number): boolean {
+  const e = dayCache.get(`${station}/${date}`);
+  if (!e) return true;
+  const settled = date < today && e.day?.kind === "past";
+  return !settled && now - e.at >= LIVE_EVERY;
+}
+
+async function loadDays(station: string, from: string, to: string) {
+  const key = `${station}/${from}/${to}`;
+  const running = dayInflight.get(key);
+  if (running) return running;
+  const each = (fn: (k: string) => void) => {
+    for (let d = from; d <= to; d = addDays(d, 1)) fn(`${station}/${d}`);
+  };
+  each((k) => dayLoading.add(k));
+  const p = (async () => {
+    try {
+      const r = await fetch(`/api/air-days?station=${encodeURIComponent(station)}&from=${from}&to=${to}`);
+      if (!r.ok) throw new Error(String(r.status));
+      const j = (await r.json()) as AirDaysResponse & { supported?: boolean };
+      const at = Date.now();
+      if (j.supported === false) for (let d = from; d <= to; d = addDays(d, 1)) dayCache.set(`${station}/${d}`, { day: null, at });
+      else for (const d of j.days) dayCache.set(`${station}/${d.date}`, { day: d, at });
+      each((k) => dayFailed.delete(k));
+    } catch {
+      each((k) => dayFailed.add(k));
+    }
+  })().finally(() => {
+    each((k) => dayLoading.delete(k));
+    dayInflight.delete(key);
+    dayBump();
+  });
+  dayInflight.set(key, p);
+  dayBump();
+  return p;
+}
+
+export interface AirDays {
+  /** 日ごとのまとめ（まだ読んでいない日は undefined、地点に空気質が無ければ null）。 */
+  get: (date: string) => AirDay | null | undefined;
+  loading: boolean;
+  failed: boolean;
+}
+
+/** 見る日々の空気のまとめ。持っていない日（2023年より前・6日先から）は読まない。 */
+export function useAirDays(station: string, dates: (string | null)[], on = true): AirDays {
+  useSyncExternalStore(
+    (fn) => {
+      dayListeners.add(fn);
+      return () => {
+        dayListeners.delete(fn);
+      };
+    },
+    () => dayVersion,
+  );
+  const today = jstToday();
+  const wanted = dates.filter((d): d is string => !!d && airInRange(d, today));
+  const key = wanted.join(",");
+  useEffect(() => {
+    if (!on || !wanted.length) return;
+    const go = () => {
+      const t = jstToday();
+      const now = Date.now();
+      for (const r of dayRanges(wanted.filter((d) => dayStale(station, d, t, now)))) void loadDays(station, r.from, r.to);
+    };
+    go();
+    const iv = setInterval(go, 60_000);
+    return () => clearInterval(iv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [station, key, on]);
+  return {
+    get: (d) => dayCache.get(`${station}/${d}`)?.day,
+    loading: wanted.some((d) => dayLoading.has(`${station}/${d}`)),
+    failed: wanted.some((d) => dayFailed.has(`${station}/${d}`)),
+  };
+}

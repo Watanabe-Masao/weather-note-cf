@@ -37,6 +37,7 @@ import {
 import { StatusBar } from "./ui/StatusBar";
 import { Button, CheckGlyph, IconButton, Segmented } from "./ui/kit";
 import { DayDetail } from "./ui/DayDetail";
+import { AirCompareDays } from "./ui/AirCompare";
 import { type Detent, GraphSheet, sheetHeights } from "./ui/GraphSheet";
 import { MonthReview } from "./ui/MonthReview";
 import { Settings } from "./ui/Settings";
@@ -124,11 +125,10 @@ export function App(_: { theme?: string } = {}) {
   const [full, setFull] = useState(false);
   // 1日の「まとめ」（帯の先頭、2026-11-24 渡辺さん）：1日を開いたときはいつもまとめから。覚えない。
   // 1日の帯の「まとめ」と「空気」（どちらも項目の仲間ではない、1日だけの画面）。null は項目の画面。
-  const [dayPanel, setDayPanel] = useState<"summary" | "airq" | null>("summary");
+  const [dayPanel, setDayPanel] = useState<"summary" | null>("summary");
   const daySummary = dayPanel === "summary";
   const setDaySummary = (on: boolean) => setDayPanel(on ? "summary" : null);
   const inSummary = view.single && daySummary;
-  const inAirq = view.single && dayPanel === "airq";
   const [settings, setSettings] = useState(false);
   // 記録: from the header at any time, or from a notification (?report=1&n=<when it was due>).
   const [reportFrom, setReportFrom] = useState<{ notifiedAt?: number } | null>(null);
@@ -419,7 +419,7 @@ export function App(_: { theme?: string } = {}) {
               compareDate={compareDate}
               compareGap={gap}
               // まとめ・空気では、表は天気・最高・最低（気温の行）。
-              metric={inSummary || inAirq ? metricById("temp") : metric}
+              metric={inSummary ? metricById("temp") : metric}
               single={view.single}
               moveTarget={moveTarget}
               moveCompare={moveCompare}
@@ -474,8 +474,10 @@ export function App(_: { theme?: string } = {}) {
               today={today}
               metric={view.metric}
               summary={inSummary}
-              airq={inAirq}
-              onPickAirq={() => setDayPanel("airq")}
+              onPickAirq={() => {
+                setDaySummary(false);
+                set("metric", "visibility");
+              }}
               onPickItem={(id) => {
                 setDaySummary(false);
                 set("metric", id);
@@ -548,6 +550,9 @@ export function App(_: { theme?: string } = {}) {
                 onPickDay={(d) => openDay(d, partner(d), "target")}
                 onShiftDays={(n) => moveTarget(addDays(view.target, n))}
               />
+            ) : shownFace === "chart" && view.metric === "visibility" ? (
+              // 空気（11/25）：PM2.5・黄砂・視程の日別を3段で（AirCompare.tsx）。
+              <AirCompareDays store={store} station={view.station} target={view.target} partner={partner} today={today} onPickDay={(d) => openDay(d, partner(d), "target")} />
             ) : shownFace === "chart" ? (
               <Chart
                 store={store}
@@ -692,7 +697,6 @@ export function App(_: { theme?: string } = {}) {
         }}
         barRef={metricsRef}
         summary={view.single ? { on: daySummary, onPick: () => setDaySummary(true) } : undefined}
-        airq={view.single ? { on: dayPanel === "airq", onPick: () => setDayPanel("airq") } : undefined}
       />
 
       {/* その日の要約 (#176): over whatever it was opened from (the table, the calendar, the hours). */}

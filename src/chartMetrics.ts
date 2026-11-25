@@ -243,6 +243,8 @@ export const CHART_METRICS: ChartMetric[] = [
     // 霞んだ数時間に引っぱられるため）。
     id: "visibility",
     label: "視程",
+    // 帯とシートの名前は「空気」（11/25：PM2.5・黄砂と視程を1つの項目に。表の行は視程のまま）。
+    title: "空気",
     unit: "km",
     chart: "line",
     zero: true,

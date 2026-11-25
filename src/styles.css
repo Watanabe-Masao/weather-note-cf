@@ -5819,29 +5819,70 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 
 /* 空気の質（2026-11-25、AirQualityCard）：大気の仲間の画面の下に1枚。値の札は「いま」と同じ形（.dd-now）。 */
 .aq { display: grid; gap: var(--space-3); }
-.aq-note { margin: 0; font-size: var(--size-sm); color: var(--ink-tertiary); }
-.aq-measured-line { margin: var(--space-2) 0 0; font-size: var(--size-sm); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
-.aq-measured-line small { flex-basis: 100%; font-size: var(--size-xs); color: var(--ink-tertiary); }
+/* 1日の空気（11/25 統合）：ひとこと → 値 → 24時間の3段 → 内訳 → 出典は ⓘ */
+.aq-top { display: grid; gap: var(--space-3); }
+.aq-verdict > p:not(.info-more) { margin: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); font-size: var(--size-base); font-weight: var(--weight-bold); line-height: 1.5; }
+.aq-fact { display: inline-flex; align-items: baseline; gap: var(--space-1); }
+.aq-fact small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
+.aq-fact.quiet { font-weight: var(--weight-regular); }
+.aq-judge { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
+.aq-verdict .info-more, .aq-src .info-more { margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.6; }
+.aq-vals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); }
+.aq-val { display: grid; grid-template-columns: auto auto 1fr; align-items: baseline; column-gap: var(--space-1); }
+.aq-val > small:first-child { grid-column: 1 / -1; font-size: var(--size-xs); color: var(--ink-secondary); }
+.aq-val b { font-size: var(--size-xl); font-variant-numeric: tabular-nums; }
+.aq-val > small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.aq-val em { grid-column: 1 / -1; font-style: normal; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.aq-note { margin: var(--space-2) 0 0; font-size: var(--size-sm); color: var(--ink-tertiary); }
+.aq-stale { margin: var(--space-1) 0 0; font-size: var(--size-xs); color: var(--ink-secondary); }
 .aq-chartbox { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-inset); }
-.aq-title { margin: 0 0 var(--space-2); font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }
-.aq-chart { width: 100%; height: auto; display: block; }
+.aq-read-line { margin: 0 0 var(--space-2); min-height: 1.5em; font-size: var(--size-sm); color: var(--ink-secondary); display: flex; flex-wrap: wrap; gap: 0 var(--space-3); font-variant-numeric: tabular-nums; }
+.aq-read-line b { color: var(--ink-primary); }
+.aq-chart { width: 100%; height: auto; display: block; touch-action: none; cursor: pointer; }
 .aq-grid { stroke: var(--chart-grid); stroke-width: var(--stroke-hair); }
-.aq-yl, .aq-xl, .aq-nowl { font-size: var(--size-xs); fill: var(--ink-tertiary); }
+.aq-yl, .aq-xl, .aq-pl { font-size: var(--size-xs); fill: var(--ink-tertiary); }
 .aq-yl { text-anchor: end; }
 .aq-xl { text-anchor: middle; }
+.aq-line { fill: none; stroke-width: var(--stroke-focus); }
+.aq-line.pm { stroke: var(--data-pm25); }
+.aq-line.dust { stroke: var(--data-dust); }
+.aq-line.vis { stroke: var(--data-visibility); }
+.aq-line.vis.fc { stroke-width: var(--stroke-hair); }
+.aq-visband { fill: var(--line-soft); }
 .aq-now { stroke: var(--ink-secondary); stroke-width: var(--stroke-hair); stroke-dasharray: var(--stroke-hair) var(--stroke-hair); }
+.aq-sel { stroke: var(--ink-primary); stroke-width: var(--stroke-hair); }
 .aq-measured { fill: var(--ink-primary); }
 .aq-legend { margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-secondary); display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); }
 .aq-key { display: inline-block; width: var(--space-6); height: 0; border-top: var(--stroke-select) solid; }
 .aq-key.pm { border-color: var(--data-pm25); }
 .aq-key.dust { border-color: var(--data-dust); }
+.aq-key.vis { border-color: var(--data-visibility); }
+.aq-key.vis.fc { border-top-width: var(--stroke-hair); }
 .aq-key.dot { width: var(--space-2); height: var(--space-2); border: 0; border-radius: 50%; background: var(--ink-primary); }
-.aq-read { font-size: var(--size-sm); line-height: 1.6; }
-.aq-read p { margin: 0 0 var(--space-2); }
-.aq-small { font-size: var(--size-xs); color: var(--ink-secondary); }
-.aq-src { font-size: var(--size-xs); color: var(--ink-tertiary); display: grid; gap: var(--space-1); }
-.aq-src .aq-stale { color: var(--ink-secondary); } /* 値の新しさの注意は出典より一段はっきり */
+.aq-src p { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.aq-src-line { display: block; margin-bottom: var(--space-1); }
 .aq-more { margin-top: var(--space-2); }
+/* 比較の空気（11/25、AirCompare）：日別は3段、時間帯は2段。対象の日は実線・塗り、比べる日は破線・白抜き */
+.ac { display: grid; gap: var(--space-2); }
+.ac-chart { width: 100%; height: auto; display: block; }
+.ac-hatch { pointer-events: none; }
+.ac-hit { fill: transparent; cursor: pointer; }
+.ac-guide { stroke: var(--ink-tertiary); stroke-width: var(--stroke-hair); stroke-dasharray: var(--stroke-select) var(--stroke-focus); }
+.ac-guide-l { font-size: var(--size-xs); fill: var(--ink-tertiary); text-anchor: end; }
+.ac-dot-b { fill: var(--surface-base); stroke-width: var(--stroke-select); }
+.ac-num { font-size: var(--size-xs); fill: var(--ink-primary); text-anchor: middle; font-variant-numeric: tabular-nums; }
+.ac-xl { font-size: var(--size-xs); fill: var(--ink-secondary); text-anchor: middle; }
+.ac-xl.on { fill: var(--ink-primary); font-weight: var(--weight-bold); }
+.ac-xl.saturday { fill: var(--day-saturday); }
+.ac-xl.holiday { fill: var(--day-holiday); }
+.ac-target { fill: var(--accent-wash); }
+.ac-meas-a { fill: var(--ink-primary); }
+.ac-meas-b { fill: var(--surface-base); stroke: var(--ink-primary); stroke-width: var(--stroke-hair); }
+.ac-key { display: inline-block; width: var(--space-6); height: 0; border-top: var(--stroke-select) solid var(--ink-secondary); }
+.ac-key.b { border-top-style: dashed; }
+.ac-key.hatch { height: var(--space-4); border: var(--stroke-hair) solid var(--line-strong); background: repeating-linear-gradient(45deg, var(--line-strong) 0 var(--stroke-hair), transparent var(--stroke-hair) var(--space-2)); }
+.ac-key.meas { width: var(--space-2); height: var(--space-2); border: 0; background: var(--ink-primary); }
+.ac-hint { margin-left: auto; color: var(--ink-tertiary); }
 /* 空気の質の内訳（ヒートマップ、11/25）：縦に項目・横に 0〜23時、色はふだんと比べた5段（data-hot を地に混ぜる） */
 .ahm {
   display: grid; gap: var(--space-3); padding-bottom: var(--space-5);
@@ -5853,6 +5894,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ahm-lead { margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.6; }
 .ahm-legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--size-xs); color: var(--ink-secondary); }
 .ahm-legend span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.ahm-legend .ahm-legend-vis { flex-basis: 100%; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
 .ahm-legend .ahm-c { width: var(--space-4); height: var(--space-4); }
 .ahm-h { margin: var(--space-2) 0 0; font-size: var(--size-sm); font-weight: var(--weight-bold); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
 .ahm-h small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }

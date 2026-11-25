@@ -58,3 +58,13 @@ describe("空気質の取り置き：日付が変わったとき", () => {
     expect(t.asked).toEqual(["2026-11-20"]);
   });
 });
+
+describe("比較の空気：日をまとまりに分ける", () => {
+  it("joins dates no more than a week apart, up to 45 days", async () => {
+    const { dayRanges } = await import("../../src/data/air");
+    expect(dayRanges(["2026-11-25", "2026-11-20", "2026-11-26", "2025-11-25", "2025-11-26"])).toEqual([
+      { from: "2025-11-25", to: "2025-11-26" },
+      { from: "2026-11-20", to: "2026-11-26" },
+    ]);
+  });
+});

@@ -54,3 +54,28 @@ export interface MeasuredResponse {
   usual?: Usual;
   source: "環境省 大気汚染物質広域監視システム（そらまめくん）";
 }
+
+/** 比較の空気（11/25）：1日ごとのまとめ。/api/air-days。値の無い日は数を 0 にして値は null。 */
+export interface AirDay {
+  date: string;
+  /** "past"：終わった日の値。"forecast"：予測（今日と先の日、終わった日の値がまだ無い昨日も）。"none"：CAMS の値が無い日。 */
+  kind: "past" | "forecast" | "none";
+  /** PM2.5（CAMS）の、値のある時間の平均と、その時間の数。 */
+  pmMean: number | null;
+  pmHours: number;
+  /** 黄砂（CAMS）のいちばん多い値と時刻、値のある時間の数。 */
+  dustMax: number | null;
+  dustMaxH: number | null;
+  dustHours: number;
+  /** 介良局の PM2.5 の実測（速報値）の平均と、その時間の数（そらまめくんの地点が無ければ 0）。 */
+  measuredMean: number | null;
+  measuredHours: number;
+}
+
+export interface AirDaysResponse {
+  v: 1;
+  station: string;
+  from: string;
+  to: string;
+  days: AirDay[];
+}
