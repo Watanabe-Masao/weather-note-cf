@@ -23,6 +23,48 @@ export interface Usual {
   from: string;
   to: string;
   items: Record<string, UsualItem | null>;
+  /**
+   * 1日の値のふだん（2026-11-25 渡辺さん OK、research/air-usual の結果）：同じ30日の、1日の値（PM2.5 は日平均、黄砂は日最大）の
+   * 90% の値。ひとことの「ふだんより多い日」はこれと比べる（1時間でも超えたら、だと2日に1日ほど出ていた）。前の答えには無い。
+   */
+  days?: Record<string, DayUsual | null>;
+}
+
+export interface DayUsual {
+  /** 比べた日の数。 */
+  n: number;
+  /** 1日の値の 90% の値。 */
+  p90: number;
+}
+
+/** 1日の値を出すのに要る時間の数（1日の値は、20時間以上ある日だけ）。 */
+export const DAY_MIN_HOURS = 20;
+/** 1日の値のふだんを出すのに要る日の数。 */
+export const DAY_USUAL_MIN = 7;
+
+/** 1日の値：PM2.5 は平均、黄砂は最大。時間が足りなければ null。 */
+export function dayValue(values: (number | null | undefined)[], how: "mean" | "max"): number | null {
+  const v = values.filter((x): x is number => x != null && Number.isFinite(x));
+  if (v.length < DAY_MIN_HOURS) return null;
+  return how === "mean" ? v.reduce((a, b) => a + b, 0) / v.length : Math.max(...v);
+}
+
+/** 日ごとの1時間値（日 → 値）から、1日の値のふだん。日が足りなければ null。 */
+export function dayUsual(byDay: Map<string, (number | null)[]>, how: "mean" | "max"): DayUsual | null {
+  const days = [...byDay.values()].map((v) => dayValue(v, how)).filter((x): x is number => x != null).sort((a, b) => a - b);
+  if (days.length < DAY_USUAL_MIN) return null;
+  return { n: days.length, p90: quantile(days, 0.9) };
+}
+
+/** 行（日と値）を日ごとにまとめる。 */
+export function groupByDay<T>(rows: T[], day: (r: T) => string, value: (r: T) => number | null): Map<string, (number | null)[]> {
+  const m = new Map<string, (number | null)[]>();
+  for (const r of rows) {
+    const d = day(r);
+    if (!m.has(d)) m.set(d, []);
+    m.get(d)!.push(value(r));
+  }
+  return m;
 }
 
 /** 分位（並べた値の線形補間）。 */
