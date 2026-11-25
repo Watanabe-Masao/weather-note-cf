@@ -140,10 +140,14 @@ export const AUDIT_SERIES: Def[] = [
   {
     id: "soramame",
     name: "大気汚染の実測（そらまめくん）",
-    q: "SELECT station AS g, strftime('%Y-%m-%dT%H:%M:%S+09:00', date, '+' || hour || ' hours') AS t FROM soramame_hourly",
+    // 提供元が空欄で出した時間（data_absent の「air:soramame:局」、時刻はその1時間の終わり）は、抜けに数えない（11/25：
+    // 局の点検・欠測で何か月も前の空欄が「抜け 86回」と赤く出ていた）。
+    q:
+      "SELECT station AS g, strftime('%Y-%m-%dT%H:%M:%S+09:00', date, '+' || hour || ' hours') AS t FROM soramame_hourly " +
+      "UNION ALL SELECT substr(source, 14) AS g, item AS t FROM data_absent WHERE source LIKE 'air:soramame:%'",
     step: H,
     freshH: 7 * 24,
-    note: "約1年さかのぼって取れる（局が測っていない時間は元から無い）。",
+    note: "約1年さかのぼって取れる。局が測っていない時間（提供元の空欄）は、出ていない時間として数えない。",
   },
   {
     id: "forecast",

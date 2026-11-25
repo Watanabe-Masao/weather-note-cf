@@ -24,7 +24,12 @@ describe("そらまめくん：取る月", () => {
     expect(nextMonths("2026-11", "2026-10", true)).toEqual({ from: "2026-07", to: "2026-09" });
     expect(nextMonths("2026-11", "2026-07", false)).toEqual({ from: "2026-10", to: "2026-11" });
     expect(nextMonths("2026-11", "2026-01", true)).toEqual({ from: "2025-12", to: "2025-12" });
-    expect(nextMonths("2026-11", "2025-12", true)).toEqual({ from: "2026-10", to: "2026-11" });
+    // 1年前まで取り終えたら：直近2か月の回と交互に、1年前から3か月ずつ取り直して回る（先月より手前まで）。
+    expect(nextMonths("2026-11", "2025-12", true)).toEqual({ from: "2025-12", to: "2026-02" });
+    expect(nextMonths("2026-11", "2025-12", true, "2026-02")).toEqual({ from: "2026-03", to: "2026-05" });
+    expect(nextMonths("2026-11", "2025-12", true, "2026-08")).toEqual({ from: "2026-09", to: "2026-09" });
+    expect(nextMonths("2026-11", "2025-12", true, "2026-09")).toEqual({ from: "2025-12", to: "2026-02" });
+    expect(nextMonths("2026-11", "2025-12", false, "2026-02")).toEqual({ from: "2026-10", to: "2026-11" });
   });
   it("asks for Kaira (39201350) in Kochi (39), the items by name", () => {
     expect(soramameUrl("39", "39201350", "2026-10", "2026-11")).toBe(
@@ -46,11 +51,11 @@ describe("そらまめくん：保存と記録", () => {
     ]);
     // 6時間ごとの回：検索の API（直近2か月）と、直近7日の CSV。
     expect(seen).toEqual([expect.stringContaining("Start_YM=202610&End_YM=202611"), "https://soramame.env.go.jp/data/sokutei/NoudoTime/39201350/7day.csv"]);
-    // 1時間たたないうちは取らない。
+    // 15分たたないうちは取らない（11/25：1時間に1回だと最大で約2時間遅れたので 15分に）。
     expect(await saveSoramame(db, NOW + 600_000, get)).toMatchObject({ skipped: true });
-    // 1時間ごとには直近7日の CSV だけ（6時間ごとの回の数え方には入らない）。
-    await saveSoramame(db, NOW + 3_600_000, get);
-    await saveSoramame(db, NOW + 2 * 3_600_000, get);
+    // 15分ごとには直近7日の CSV だけ（6時間ごとの回の数え方には入らない）。
+    await saveSoramame(db, NOW + 15 * 60_000, get);
+    await saveSoramame(db, NOW + 30 * 60_000, get);
     expect(seen.slice(2)).toEqual([expect.stringContaining("7day.csv"), expect.stringContaining("7day.csv")]);
     expect(db.raw.prepare("SELECT range FROM soramame_fetch_log ORDER BY at DESC LIMIT 1").get()).toEqual({ range: "7day" });
     // 6時間たてば、古い側（直近の次の回）。
@@ -100,6 +105,19 @@ describe("そらまめくん：取得の記録と最初に入った時刻（11/2
     const db = d1();
     await saveSoramame(db, NOW, api([row("2026/11/20", "22", "14")]));
     expect((await readMeasured(db, "39201350", "高知市 介良局", "2026-11-21", "2026-11-21")).newestOut).toBe("2026-11-20 22");
+  });
+});
+
+describe("そらまめくん：提供元の空欄（11/25、週の点検で昔の空欄が抜けに数えられていた）", () => {
+  it("marks the blank hours from the search API as not out, once they are 6 hours old", async () => {
+    const db = d1();
+    const blank = (d: string, h: string) => ({ ...row(d, h, ""), OX: "", SPM: "", NO2: "", WD: "", WS: "" });
+    await saveSoramame(db, NOW, api([row("2026/10/15", "09", "10"), blank("2026/10/15", "10"), blank("2026/10/15", "11"), blank("2026/11/21", "22")]));
+    // 11/21 22時は終わりから6時間たっていない（まだ出るかもしれない）ので印をつけない。
+    expect(db.raw.prepare("SELECT source, item FROM data_absent ORDER BY item").all()).toEqual([
+      { source: "air:soramame:39201350", item: "2026-10-15T10:00:00+09:00" },
+      { source: "air:soramame:39201350", item: "2026-10-15T11:00:00+09:00" },
+    ]);
   });
 });
 
