@@ -243,9 +243,13 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     const to = stops[k];
     const e = o.reduced?.() || to === undefined ? undefined : o.entry?.(k, how);
     if (!e || Math.abs(from() - to) < 2) return false;
+    // 戻る（back）は、その次の区切り（あとがきなど）の近くから戻るときだけ（止まる所を少し越えただけなら、今までどおり戻す）。
+    const after = stops[k + 1];
+    if (how === "back" && (after === undefined || el.scrollTop < after - 2)) return false;
     stop();
-    target = to;
     glideFrom(el.scrollTop, e.px, 0, false, undefined, () => glideFrom(e.px, to, 0, true, e.seconds));
+    // 運んでいる間の行き先は、冒頭ではなく区切り（途中で ↓↑ を押したとき、その区切りから数える）。
+    target = to;
     return true;
   };
   /** x0 から区切り to まで運ぶ秒数：通る区切りの間ごとの秒数（seconds）の和。途中から始めるときは残りの割合で。 */
