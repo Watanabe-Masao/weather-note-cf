@@ -65,6 +65,7 @@ import { EventMomentCard, EventNightCard } from "./EventInfo";
 import { STARS } from "./eventBits";
 import { factTags } from "./FullMoonSheet";
 import { glideFrac, type Pager, storyPager } from "./storyPager";
+import { coldSample } from "./coldSample";
 import { CloseIcon } from "./icons";
 import { Button, Glyph, IconButton } from "./kit";
 
@@ -478,7 +479,7 @@ export function MoonStory({
   const info: FullMoonNameInfo | null = event.name
     ? fullMoonInfo(event.name)
     : null;
-  const story = event.blue ? { ...BLUE_MOON, short: BLUE_MOON.short } : info;
+  const story = event.blue ? { ...BLUE_MOON, short: BLUE_MOON.short } : coldSample(info);
   const title = event.blue ? "ブルームーン" : (event.name ?? "満月");
   const facts = useMemo(
     () =>
