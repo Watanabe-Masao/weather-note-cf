@@ -88,6 +88,8 @@ const DATA_KEYS = [
   "pressureHigh",
   "pressureLow",
   "feel",
+  "pm25",
+  "dust",
 ] as const;
 
 /**
@@ -203,6 +205,9 @@ const THEMES: Record<ThemeName, Palette> = {
       pressureHigh: "#e9c896",
       pressureLow: "#b48a5c",
       feel: "#c9a6f7",
+      // 空気質（11/25）：PM2.5 はばら色、黄砂は砂の色（気圧の茶の仲間だが、空気の質のグラフにしか出ない）。
+      pm25: "#e8a1b8",
+      dust: "#c9a46a",
     },
     day: { saturday: "#86b8ff", holiday: "#ff9a8f" },
     status: {
@@ -288,6 +293,9 @@ const THEMES: Record<ThemeName, Palette> = {
       pressureHigh: "#76592a",
       pressureLow: "#7d5629",
       feel: "#68458c",
+      // 空気質（11/25）：PM2.5 はばら色、黄砂は砂の色（気圧の茶の仲間だが、空気の質のグラフにしか出ない）。
+      pm25: "#8e3a5a",
+      dust: "#7a5a18",
     },
     day: {
       saturday: "#325fa0",
@@ -363,6 +371,9 @@ const THEMES: Record<ThemeName, Palette> = {
       pressureHigh: "#846636",
       pressureLow: "#8b6335",
       feel: "#7955a2",
+      // 空気質（11/25）：PM2.5 はばら色、黄砂は砂の色（気圧の茶の仲間だが、空気の質のグラフにしか出ない）。
+      pm25: "#9c4766",
+      dust: "#7c6834",
     },
     day: {
       saturday: "#3e6cae",

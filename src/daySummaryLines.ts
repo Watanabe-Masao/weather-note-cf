@@ -47,6 +47,8 @@ export interface SummaryInput {
   today?: boolean;
   /** 今日だけ：今の時（0〜23、日本時間）。「このあと」の時間を決める。 */
   hourNow?: number;
+  /** 空気質の1文（airSummary.ts airSummaryText。無ければ null で、大気の行に何も足さない）。 */
+  air?: string | null;
   /** 1時間ごとの値の様子：読み込み中・そろった・取れなかった・無い（雨なしと言ってよいかの判断に使う）。 */
   hoursState?: "loading" | "ready" | "error" | "none";
 }
@@ -165,14 +167,17 @@ function skyLine(x: SummaryInput): string {
   return [light, `日の出 ${x.sun.rise}・日の入り ${x.sun.set}`].filter(Boolean).join("。");
 }
 
-/** 大気の行：湿度の平均と、見通しの最小。 */
+/** 大気の行：湿度の平均と、見通しの最小、空気質（CAMS）の1文。 */
 function airLine(x: SummaryInput): string {
   const hum = num(x.row?.humidity);
   const vis = hourlyExtreme(x.hours, "visibility", "min");
   // 最小は欠けた時間にあったかもしれないので、24時間そろっていなければ取得できた範囲と添える。
   const visKnown = (x.hours ?? []).filter((r) => num(r.visibility) != null).length;
   const parts = [hum != null ? `湿度 平均 ${Math.round(hum)}%` : null, vis != null ? `見通しの最小 ${vis.toFixed(1)}km${visKnown < DAY_HOURS ? `（${PART}）` : ""}` : null].filter(Boolean);
-  return parts.length ? parts.join("・") : "—";
+  // 空気質（11/25）：PM2.5 の日平均と黄砂の最大を、CAMS の値と分かるように添える（無ければ足さない）。
+  const head = parts.length ? parts.join("・") : null;
+  const line = [head, x.air ?? null].filter(Boolean).join("。");
+  return line || "—";
 }
 
 /** まとめの5行（気温・雨・風・空・光・大気）。雨と風は帯では同じ仲間（雨・風）。 */
