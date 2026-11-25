@@ -603,7 +603,7 @@ img.event-pic { object-fit: contain; }
 .ms-shade .ms-cap { text-shadow: 0 0 var(--space-3) var(--bk-night-1), 0 0 var(--space-2) var(--bk-night-1), 0 0 var(--space-1) var(--bk-night-1); }
 /* 物語をとばす（今夜の情報へ）。 */
 .ms-flymoon { position: fixed; left: 0; top: 0; z-index: 1; width: 0; height: 0; border-radius: 50%; opacity: 0; pointer-events: none; background: radial-gradient(circle at 40% 36%, var(--bk-moon-0), var(--bk-moon-1) 70%, var(--bk-moon-2)); box-shadow: 0 0 var(--space-7) var(--bk-moon-1); will-change: transform; }
-.ms-skip { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); left: var(--space-4); z-index: 3; transition: opacity var(--motion-quick) var(--ease-standard); }
+.ms-skip { position: fixed; top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); left: var(--space-4); z-index: 3; display: flex; gap: var(--space-2); transition: opacity var(--motion-quick) var(--ease-standard); }
 .ms-skip.gone { opacity: 0; pointer-events: none; }
 /* 締めくくり：ひと言をもう一度（明朝、余白を大きく）。 */
 .ms-epilogue { padding-top: 26svh; padding-bottom: 10svh; gap: var(--space-5); }

@@ -128,6 +128,9 @@ const SEC_PER_BEAT = 3.2;
  * ゆっくりさで。一枚の絵（枠が入る）、締めくくり（ひと言を読む）、今夜の情報（間の一言が現れて滲んで消え、月がカードへ移る）。
  */
 const AFTER_SEC = { frame: 3.6, epilogue: 5.5, info: 6 } as const;
+/** 自動で読むとき、止まりきってから次へ進むまでの秒（読み終えた文を少し残す）。最後のページは絵だけの時間を長めに。 */
+const AUTO_HOLD = 1.2;
+const AUTO_HOLD_LAST = 3;
 /** 一字ずつの、読みはじめからの時刻（秒）と、読み終わり（秒）。 */
 export function readingTimes(text: string): { at: number[]; total: number } {
   const at: number[] = [];
@@ -557,6 +560,29 @@ export function MoonStory({
   const [ready, setReady] = useState(false);
   // 物語をとばす（今夜の情報へ）：情報が見えたら消す。場面を押すと次の場面へ（スクロールで進むのと同じ）。
   const [skip, setSkip] = useState(true);
+  // 自動で読む（11/25 渡辺さん）：押すと、今の所から1ページずつ朗読の速さで進む。指でさわる・ホイール・キーで止まる。
+  const [auto, setAuto] = useState(false);
+  const autoOn = useRef(false);
+  const autoTimer = useRef(0);
+  useEffect(() => {
+    autoOn.current = auto;
+    window.clearTimeout(autoTimer.current);
+    if (auto) pager.current?.step(1);
+  }, [auto]);
+  useEffect(() => {
+    const el = root.current;
+    if (!el) return;
+    const stopAuto = (e: Event) => {
+      if ((e.target as Element | null)?.closest?.(".ms-auto")) return;
+      if (autoOn.current) setAuto(false);
+    };
+    const evs = ["touchstart", "wheel", "keydown", "pointerdown"] as const;
+    evs.forEach((ev) => el.addEventListener(ev, stopAuto, { passive: true }));
+    return () => {
+      window.clearTimeout(autoTimer.current);
+      evs.forEach((ev) => el.removeEventListener(ev, stopAuto));
+    };
+  }, []);
   useEffect(() => {
     const el = root.current;
     const info = el?.querySelector<HTMLElement>("[data-story-end]");
@@ -1203,6 +1229,7 @@ export function MoonStory({
       // 動きから行き先の区切りを決めて、指を離した速さのまま滑らかに運ぶ。区切りは ScrollTrigger が測り直すたびに取り直す。
       let firstBeat = -1;
       let secs: (number | undefined)[] = [];
+      let stopCount = 0;
       const dots = [...el.querySelectorAll<HTMLElement>(".ms-beat")];
       const pg = storyPager(el, {
         measure: () => {
@@ -1210,6 +1237,7 @@ export function MoonStory({
           firstBeat = m.firstBeat;
           beatAt.current = firstBeat;
           secs = m.secs;
+          stopCount = m.px.length;
           return m.px;
         },
         reduced: () =>
@@ -1223,7 +1251,19 @@ export function MoonStory({
           const w = el.querySelector<HTMLElement>(".ms-world");
           return w && scene ? w.offsetTop : undefined;
         },
-        onIndex: (i) => {
+        onIndex: (i, settled) => {
+          // 自動で読む（11/25 渡辺さん「自動再生ボタンも実装」）：止まりきったら、読み終えた文を少し残してから次へ。
+          // 最後のページは絵だけの時間を長めに。今夜の情報の頭（最後の区切り）に着いたら止める。
+          if (settled) {
+            window.clearTimeout(autoTimer.current);
+            if (autoOn.current) {
+              if (i >= stopCount - 1) setAuto(false);
+              else {
+                const lastBeat = firstBeat >= 0 && i === firstBeat + dots.length - 1;
+                autoTimer.current = window.setTimeout(() => autoOn.current && pager.current?.step(1), (lastBeat ? AUTO_HOLD_LAST : AUTO_HOLD) * 1000);
+              }
+            }
+          }
           const nb = el.querySelector(".ms-beats");
           const cur = i - firstBeat;
           if (nb && cur >= 0 && cur < dots.length)
@@ -1335,6 +1375,13 @@ export function MoonStory({
         <Button size="sm" kind="quiet" onClick={skipStory}>
           物語をとばす
         </Button>
+        {scene && (
+          <span className="ms-auto">
+            <Button size="sm" kind="quiet" onClick={() => setAuto(!auto)} aria-pressed={auto}>
+              {auto ? "止める" : "自動で読む"}
+            </Button>
+          </span>
+        )}
       </div>
       {/* 物語の月を、今夜の情報の月へ引き継ぐ（16:45 のレビュー「同じ月が形を変えて次の画面へ」）。 */}
       {/* 絵本の形（book）の満月は移さない：物語の月は9ページの絵の中に残る（11/21 承認：物語の月は表現、今夜の月は計算）。 */}
