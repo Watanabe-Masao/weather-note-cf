@@ -21,12 +21,13 @@ describe("絵本の形（book）", () => {
       expect(sci).not.toMatch(/\d{4}年|\d{4}\/|\d+時|\d+:\d\d|\d+°|高知/);
     });
     it(`${n.name}：副題は本文の繰り返しの一行（教訓を書かない）`, () => {
-      const lines = b.pages.flatMap((p) => p.lines);
+      const lines = b.pages.flatMap((p) => p.lines).map((l) => l.replace(/\//g, "")); // "/" は組版の印
       expect(lines.some((l) => l.startsWith(n.tale!.tagline))).toBe(true);
     });
-    it(`${n.name}：9ページで、最後のページの最後の行は名前だけ`, () => {
+    it(`${n.name}：9ページで、結末は名前だけ（最後のページの最後の行、または独立した作品名）`, () => {
       expect(b.pages.length).toBe(9);
-      expect(b.pages[8].lines.at(-1)).toBe(`${n.name}。`);
+      // 結末の作品名を独立して出す本（titleEnd）は、それが名前だけ。
+      expect(b.titleEnd ?? b.pages[8].lines.at(-1)).toBe(`${n.name}。`);
     });
   }
   it("コールドムーン：8・9ページは作品テーマのとおり（月を見守り役にしない、夜と戦う言い方をしない）", () => {
@@ -49,18 +50,32 @@ describe("絵本の形（book）", () => {
     expect(b.afterword.paragraphs.join("")).toMatch(/北米[\s\S]*罠/);
     expect(b.science.sections.map((s) => s.text).join("")).toContain("冬眠しません");
   });
-  it("6ページ（月が昇る）は2行で、絵だけの間がいちばん長い組（9ページの最後の一枚が最長）", () => {
-    const p = fullMoonInfo("ビーバームーン")!.book!.pages;
-    expect(p[5].lines.length).toBe(2);
-    expect(p[5].rest).toBe(2.5);
-    expect(p[8].rest).toBe(3);
-    expect(p[6].lines).toContain("あと一本。");
+  it("ビーバームーンの本文は第2次品質改善の確定稿（11/26：5P 候補B、6P C 案、8P D 案、結末 E4）", () => {
+    const b = fullMoonInfo("ビーバームーン")!.book!;
+    // "/" は背の低い画面だけで折る所（組版の印）。文そのものは印を除いて比べる。
+    const pages = b.pages.map((p) => p.lines.map((l) => l.replace(/\//g, "")));
+    expect(pages).toEqual([
+      ["はらり、はらり。", "木の葉が、川に落ちていきます。", "森は、もうすぐ冬を迎えます。"],
+      ["ちゃぷん。", "小さなビーバーが", "枝をくわえて泳いでいます。", "赤い葉が、一枚。"],
+      ["いっぽん。また、いっぽん。", "川をわたって、", "枝をかさねて。", "また、いっぽん。"],
+      ["枝と枝のすきまに、", "泥を、ぺたぺた。", "さっきまでのすきまが、", "ひとつ、なくなりました。"],
+      ["空に、ひとつ、", "星がまたたきました。", "ビーバーは、住みかをちらり。", "もう、いっぽん。"],
+      ["森の向こうから、", "やわらかな光。", "水の上に、光の道。"],
+      ["月の光を横切って、", "さいごの、いっぽん。", "そっと、枝を置きました。"],
+      ["ひらり、ひらり。", "白い雪が舞い降ります。", "ちゃぷん。", "水の輪が、広がります。"],
+      ["赤い葉にも、", "白い雪。"],
+    ]);
+    expect(b.titleEnd).toBe("ビーバームーン。");
+    // 時間は場面の演出（beaverDirection）が持つ。本文の側に rest を書かない（二か所で決めない）。
+    expect(b.pages.every((p) => p.rest === undefined)).toBe(true);
+    // 折る印は、行の中の意味のまとまりの間だけ（行の頭・終わりや、続けて二つは置かない）。
+    for (const l of b.pages.flatMap((p) => p.lines)) expect(l).not.toMatch(/^\/|\/$|\/\//);
   });
   it("物語の文の字は、物語の書体（絞った woff2）にすべて入っている", () => {
     const have = new Set(readFileSync(join(__dirname, "../../public/event/story/fonts/chars.txt"), "utf8"));
     for (const n of books) {
       const b = n.book!;
-      const all = [n.tale!.tagline, ...b.pages.flatMap((p) => p.lines), b.afterword.title, ...b.afterword.paragraphs, b.science.title, ...b.science.sections.flatMap((s) => [s.heading ?? "", s.text]), "物語のあとがき"].join("").replace(/\s/g, "");
+      const all = [n.tale!.tagline, ...b.pages.flatMap((p) => p.lines), b.titleEnd ?? "", b.afterword.title, ...b.afterword.paragraphs, b.science.title, ...b.science.sections.flatMap((s) => [s.heading ?? "", s.text]), "物語のあとがき"].join("").replace(/\s/g, "");
       expect([...new Set(all)].filter((c) => !have.has(c)), n.name).toEqual([]);
     }
   });

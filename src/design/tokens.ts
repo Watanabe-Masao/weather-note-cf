@@ -656,6 +656,15 @@ const size = {
   title: 28,
   display: 34,
 } as const;
+/**
+ * 絵本の字幕（文の出し方と時間を秒で決める本＝ビーバームーン、第2次品質改善 2026-11-25 承認 T1）：画面の幅で 19〜22px。
+ * 同じ端末ではページごとに変えない（作品全体でそろえる）。作品名（結末 E4）は本文より約 12% 大きく。全画面の物語だけで使う。
+ * 背の低い画面で、意味のまとまりの改行・領域・列の間でも収まらないときだけ、物語の画面が --size-story を作品全体で縮める。
+ */
+const storySize = {
+  story: "clamp(19px, 5.65vw, 22px)",
+  storyTitle: "clamp(21.3px, 6.33vw, 24.6px)",
+} as const;
 /** The type scale for text drawn in SVG, where a CSS size would be read in the drawing's own units. */
 export const TYPE_SIZE = size;
 
@@ -785,6 +794,7 @@ export function cssVariables(): Record<string, string> {
   FEEL_EDGES.forEach((c, i) => (out[`--feel-edge-${i}`] = c));
   put("font", font);
   put("size", size, "px");
+  put("size", storySize);
   put("weight", weight);
   put("space", space, "px");
   put("radius", radius, "px");

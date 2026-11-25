@@ -23,12 +23,8 @@ import {
 
 /** 物語の一文の数（場面の数）。 */
 export const BEAVER_BEATS = 9;
-/**
- * 行を出しはじめる所（11/21 絵コンテ v0.3）：6ページ（コマ 5）は、丘の向こうが明るんでから1行目「ふわりと、森の向こうが
- * 明るくなって。」、月の縁が丘の上に出てから2行目「大きな、まんまるのお月さま。」（明るみは 5〜5.25、月は 5.22〜5.72 で昇る）。
- */
-// 5ページ（11/21 承認）：絵が先、文があと。夕暮れの中で止まり、住みかを振り返り、前を向いてから「でも、あと一本だけ。」。
-export const BEAVER_LINE_AT: Record<number, number[]> = { 4: [0, 0, 0.59], 5: [0.12, 0.34] };
+// 行を出しはじめる所（BEAVER_LINE_AT）は、第2次品質改善（11/26）で文の時間を秒で決める演出（beaverDirection）に移した。
+// 絵の動きは言葉の合図（BEAVER_CUES）で文に合わせる。
 
 /** 渡辺さんの素材（src/design/story/storyAssets.ts の beaver）。 */
 const A = (name: string) => storyAsset("beaver", name);
@@ -929,9 +925,10 @@ export function buildBeaverScene(
   root: Element,
   tl: Tween,
   loops = true,
+  cueAt: Record<number, number[]> = {},
 ): Loop | null {
   const q = (s: string) => root.querySelectorAll(s);
-  buildBeats(tl, q);
+  buildBeats(tl, q, cueAt);
   return loops ? startLoops(gsap, root) : null;
 }
 
@@ -1007,7 +1004,42 @@ function startLoops(gsap: Gsap, root: Element): Loop {
 // 各コマの動きは、そのコマの頭から 0.75 までに終える（ページ送りは 0.78 で止まる。11/20 22:06 渡辺さん「止まる所が描画と
 // リンクしていない」）。言葉と合わせる動き（はらり・ちゃぷん・一本ずつ・泥・一番星・月・あと一本・ひとひら）は、その言葉が
 // 出る所（コマの中の 0〜1。読む速さは MoonStory の revealTimes）に置く（11/21 絵コンテ v0.3）。
-function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
+/**
+ * 言葉の合図（第2次品質改善、11/25）：ページ（0 から）→ 動きを合わせる言葉（本文に出る順）。合図が渡されたとき
+ * （演出を秒で決める本）だけ、その言葉の最初の字が出る拍へ動きを寄せる。渡されなければ今までの拍のまま。
+ */
+export const BEAVER_CUES: Record<number, string[]> = {
+  1: ["ちゃぷん"],
+  2: ["いっぽん", "いっぽん", "いっぽん"],
+  3: ["ぺたぺた"],
+  4: ["ひとつ", "ちらり"],
+  // 6 ページ（11/26 C 案）：見上げる動きは本文に言葉が無く、光の道のあとに絵だけで（buildBeats の look）。
+  5: ["森の向こう", "光の道"],
+  6: ["そっと"],
+  7: ["ひらり", "ちゃぷん"],
+};
+
+function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>, cueAt: Record<number, number[]> = {}) {
+  /** 合図の拍（無ければ決めた拍）。 */
+  const cue = (page: number, k: number, fallback: number) => {
+    const v = cueAt[page]?.[k];
+    const pg = page % 100; // 105・107 は 5・7 ページの「絵が先」の頭
+    return v != null && Number.isFinite(v) ? Math.min(pg + 0.95, Math.max(pg - 0.25, v)) : fallback;
+  };
+  /** 動きのまとまりを、合図の言葉の拍へずらす量（anchor はそのまとまりの基準の拍）。 */
+  const sh = (page: number, k: number, anchor: number) => cue(page, k, anchor) - anchor;
+  const s2 = sh(1, 0, 1.08);
+  const s5 = sh(4, 1, 4.49);
+  // 絵が先（6 の月の出・8 の初雪）：合図 105・107 はそのページの「絵が先に見える時間」の頭の拍（MoonStory が渡す）。
+  const s6 = sh(105, 0, 5.0);
+  const s7 = sh(6, 0, 6.42);
+  const s8 = sh(7, 1, 7.72);
+  const flake = cue(107, 0, 7.02);
+  // 見上げる（6ページ）：「顔を」の合図で。本文に無いとき（11/26 レビュー C 案「ビーバーが顔を上げることは絵の動きに委ねる」）は、
+  // 光の道が出てから少しおいて見上げる。動きは文の有無に関わらず残す。
+  const fastSwap = Object.keys(cueAt).length > 0;
+  const has = (page: number, k: number) => Number.isFinite(cueAt[page]?.[k] ?? Number.NaN);
+  const look = has(5, 2) ? cue(5, 2, 5.49) : has(5, 1) ? Math.min(5.7, cue(5, 1, 5.5) + 0.12) : 5.49;
   const leaves = q(".bw-bigleaf");
   const twigs = q(".bw-twig");
   // 1 秋の森：森に寄ったカメラ、葉が落ちる。「はらり、はらり。」で大きな葉が二枚、間をおいて。
@@ -1040,18 +1072,18 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
       1.06,
     )
     // 顔を出す（素材 B-07）：「顔を出しました」「口には一本の枝」を読むあいだ、顔と最初の一本を見せてから泳ぎだす。
-    .fromTo(".bw-peek", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.12, ease: "power2.out" }, 1.08)
-    .to(".bw-peek", { opacity: 0, duration: 0.05 }, 1.56)
-    .fromTo(".bw-swim", { x: 118, y: 662, opacity: 0 }, { opacity: 1, duration: 0.05 }, 1.6)
-    .to(".bw-swim", { x: 160, duration: 0.15, ease: "power1.inOut" }, 1.6);
+    .fromTo(".bw-peek", { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.12, ease: "power2.out" }, 1.08 + s2)
+    .to(".bw-peek", { opacity: 0, duration: 0.05 }, Math.max(1.56, 1.56 + s2))
+    .fromTo(".bw-swim", { x: 118, y: 662, opacity: 0 }, { opacity: 1, duration: 0.05 }, Math.max(1.6, 1.6 + s2))
+    .to(".bw-swim", { x: 160, duration: 0.15, ease: "power1.inOut" }, Math.max(1.6, 1.6 + s2));
   // 3 一本、また一本：住みかへ泳いで枝を置く。言葉の拍で一本ずつ、そのあと枝が組み上がる。泳ぐ姿から住みかの上の姿へ。
   tl.to(".bw-swim", { x: 222, duration: 0.18, ease: "power1.inOut" }, 2)
     .to(".bw-swim", { opacity: 0, duration: 0.08 }, 2.2)
     .to(".bw-sit", { opacity: 1, duration: 0.12 }, 2.22);
   // 一つ目の「いっぽん。」で置くのは最初の一本（2ページでくわえて来た枝）。二つ目からは普通の枝（#416 で行が
   // 「いっぽん。また、いっぽん。」になり、二つ目の「いっぽん。」が少し遅く出るので 2.18）。
-  tl.fromTo(".bw-first", { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, 2.07);
-  [2.18, 2.32].forEach((at, i) =>
+  tl.fromTo(".bw-first", { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, cue(2, 0, 2.07));
+  [cue(2, 1, 2.18), cue(2, 2, 2.32)].forEach((at, i) =>
     tl.fromTo(
       twigs[i + 1],
       { opacity: 0, y: -18 },
@@ -1089,8 +1121,8 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
   )
     // 枝を持つ姿から、前足で泥をぬる姿へ（3ページと違う絵で止まる）。消えきってから出す（二つの姿を重ねない）。
     .to(".bw-sit", { opacity: 0, duration: 0.05 }, 3.02)
-    .to(".bw-mud2", { opacity: 1, duration: 0.06 }, 3.07)
-    .fromTo(".bw-mud", { opacity: 0 }, { opacity: 1, duration: 0.1 }, 3.06)
+    .to(".bw-mud2", { opacity: 1, duration: 0.06 }, Math.max(3.07, cue(3, 0, 3.07) - 0.05))
+    .fromTo(".bw-mud", { opacity: 0 }, { opacity: 1, duration: 0.1 }, cue(3, 0, 3.06))
     .fromTo(
       ".bw-mud-coat",
       { opacity: 0, scaleY: 0, svgOrigin: "0 0" },
@@ -1110,40 +1142,41 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .to(".bw-water-night", { opacity: 0.55, duration: 0.6, ease: "sine.inOut" }, 4.1)
     .to(".bw-autumn", { opacity: 0.6, duration: 0.6 }, 4.1)
     .to(".bw-leaves", { opacity: 0.3, duration: 0.5 }, 4.1)
-    .fromTo(".bw-star1", { opacity: 0 }, { opacity: 1, duration: 0.12, ease: "sine.in" }, 4.24)
+    .fromTo(".bw-star1", { opacity: 0 }, { opacity: 1, duration: 0.12, ease: "sine.in" }, cue(4, 0, 4.24))
     // 立ち止まる（11/21 承認）：泥をぬる姿から、住みかの上で前（川の向こう）を見る姿へ。二つ目の行のあと、動きを止めて
-    // 振り返り、できかけの住みかを見る。一拍おいて前を向き直し、そこで「でも、あと一本だけ。」（BEAVER_LINE_AT の 4）。
+    // 振り返り、できかけの住みかを見る。一拍おいて前を向き直し、そこで「でも、あと一本だけ。」。
     .to(".bw-mud2", { opacity: 0, duration: 0.05 }, 4.02)
     .to(".bw-ahead", { opacity: 1, duration: 0.06 }, 4.07)
-    .to(".bw-ahead", { opacity: 0, duration: 0.02 }, 4.47)
-    .to(".bw-turn", { opacity: 1, duration: 0.02 }, 4.49)
-    .to(".bw-turn", { opacity: 0, duration: 0.02 }, 4.55)
-    .to(".bw-ahead", { opacity: 1, duration: 0.02 }, 4.57);
+    .to(".bw-ahead", { opacity: 0, duration: 0.02 }, 4.47 + s5)
+    .to(".bw-turn", { opacity: 1, duration: 0.02 }, 4.49 + s5)
+    .to(".bw-turn", { opacity: 0, duration: 0.02 }, 4.55 + s5)
+    .to(".bw-ahead", { opacity: 1, duration: 0.02 }, 4.57 + s5);
   // 6 ふわりと明るくなって、まんまるのお月さま：丘の向こうが明るみ、夜になり、月が昇る。カメラが引く。ビーバーは向き直って見上げる。
-  tl.to(".bw-moonrise", { opacity: 1, duration: 0.25, ease: "sine.in" }, 5)
-    .to(".bw-sky-night", { opacity: 1, duration: 0.5, ease: "sine.inOut" }, 5)
-    .to(".bw-water-night", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 5.05)
+  tl.to(".bw-moonrise", { opacity: 1, duration: 0.25, ease: "sine.in" }, 5 + s6)
+    .to(".bw-sky-night", { opacity: 1, duration: 0.5, ease: "sine.inOut" }, 5 + s6)
+    .to(".bw-water-night", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 5.05 + s6)
     .fromTo(
       q(".bw-star"),
       { opacity: 0 },
       { opacity: 0.9, duration: 0.06, stagger: { amount: 0.4, from: "random" } },
-      5.05,
+      5.05 + s6,
     )
-    .to(".bw-moon-show", { opacity: 1, duration: 0.03 }, 5.2)
-    .to(".bw-camera", { scale: 1, x: 0, y: -8, duration: 0.75, ease: "power2.inOut" }, 5)
-    .to(".bw-moon", { attr: { transform: "translate(150 380)" }, duration: 0.5, ease: "power1.out" }, 5.22)
-    .to(".bw-leaves", { opacity: 0, duration: 0.3 }, 5.05)
-    .to(".bw-ahead", { opacity: 0, duration: 0.06 }, 5.42)
-    .to(".bw-look", { opacity: 1, duration: 0.1 }, 5.49)
+    .to(".bw-moon-show", { opacity: 1, duration: 0.03 }, 5.2 + s6)
+    .to(".bw-camera", { scale: 1, x: 0, y: -8, duration: 0.75, ease: "power2.inOut" }, 5 + s6)
+    .to(".bw-moon", { attr: { transform: "translate(150 380)" }, duration: 0.5, ease: "power1.out" }, 5.22 + s6)
+    .to(".bw-leaves", { opacity: 0, duration: 0.3 }, 5.05 + s6)
+    // 秒で決める本（合図あり）は1拍が長いので、姿の入れ替えを短く（11/26：消える→出るの間に姿が薄くなって見えた）。
+    .to(".bw-ahead", { opacity: 0, duration: fastSwap ? 0.02 : 0.06 }, fastSwap ? look - 0.022 : look - 0.07)
+    .to(".bw-look", { opacity: 1, duration: fastSwap ? 0.03 : 0.1 }, look)
     .to(".bw-stars", { opacity: 0.5, duration: 0.3 }, 5.45)
     .to(".bw-autumn", { opacity: 0.4, duration: 0.3 }, 5.45)
     .fromTo(
       ".bw-road",
       { opacity: 0, scaleY: 0.2, svgOrigin: "150 622" },
       { opacity: 1, scaleY: 1, duration: 0.25, ease: "power1.out" },
-      5.5,
+      cue(5, 1, 5.5),
     )
-    .to(".bw-ripples", { opacity: 0.9, duration: 0.2 }, 5.55);
+    .to(".bw-ripples", { opacity: 0.9, duration: 0.2 }, cue(5, 1, 5.5) + 0.05);
   // 7 月明かりの中を泳ぐ、あと一本：見上げる姿から、月の道を横切って泳ぐ姿へ（色は月明かりに沈める）。「あと一本。」で
   // 最後の枝を一本だけ置き、住みかの上で月を見上げる姿に戻る。
   tl.to(".bw-look", { opacity: 0, duration: 0.08 }, 6.02)
@@ -1154,14 +1187,14 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .set(".bw-night-img", { filter: "brightness(0.62) saturate(0.75)" }, 6.02)
     .set(".bw-swim-img", { opacity: 1 }, 6.02)
     // 見上げる姿が消えきってから泳ぐ姿を出す（11/21 レビュー：二つの姿が半透明で重なる瞬間があった）。
-    .to(".bw-swim", { opacity: 1, duration: 0.08 }, 6.1)
-    .to(".bw-swim", { x: 222, duration: 0.3, ease: "power1.inOut" }, 6.12)
-    .fromTo(twigs[3], { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, 6.42)
-    .to(".bw-swim", { opacity: 0, duration: 0.08 }, 6.44)
+    .to(".bw-swim", { opacity: 1, duration: 0.08 }, 6.1 + s7)
+    .to(".bw-swim", { x: 222, duration: 0.3, ease: "power1.inOut" }, 6.12 + s7)
+    .fromTo(twigs[3], { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, 6.42 + s7)
+    .to(".bw-swim", { opacity: 0, duration: 0.08 }, 6.44 + s7)
     // 最後の一本を置いたら、見上げる姿ではなく、その一本を見下ろす姿で止まる（素材 B-05。6ページと違う絵）。
-    .to(".bw-down", { opacity: 1, duration: 0.1 }, 6.5)
+    .to(".bw-down", { opacity: 1, duration: 0.1 }, 6.5 + s7)
     // 最後の一本を置いたあとの静けさ（3ページと同じ水の輪。8ページの頭で消す）。
-    .to(".bw-calm", { opacity: 0.8, duration: 0.15, ease: "sine.inOut" }, 6.55)
+    .to(".bw-calm", { opacity: 0.8, duration: 0.15, ease: "sine.inOut" }, 6.55 + s7)
     .to(".bw-calm", { opacity: 0, duration: 0.1 }, 7.0)
     .to(".bw-fog", { opacity: 1, duration: 0.4 }, 6.2)
     // 秋から冬へ（11/21 承認）：7ページは紅葉を残し、読み終えたあとの間から8ページの頭にかけて、上の紅葉の枝と
@@ -1169,24 +1202,24 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>) {
     .to(".bw-maple", { opacity: 0, duration: 0.6, ease: "sine.inOut" }, 6.75)
     .to(".bw-autumn", { opacity: 0, duration: 0.65, ease: "sine.inOut" }, 6.75);
   // 8 雪がひとひら、静かな住みかへ：一片の雪のあとに雪が降りはじめ、ビーバーは尾を上げて潜り、住みかに雪が積もる。
-  tl.fromTo(".bw-flake1", { opacity: 0, y: 0 }, { opacity: 0.95, y: 560, duration: 0.36, ease: "none" }, 7.02)
-    .to(".bw-flake1", { opacity: 0, duration: 0.05 }, 7.38)
-    .to(".bw-snow", { opacity: 1, duration: 0.3 }, 7.3)
+  tl.fromTo(".bw-flake1", { opacity: 0, y: 0 }, { opacity: 0.95, y: 560, duration: 0.36, ease: "none" }, flake)
+    .to(".bw-flake1", { opacity: 0, duration: 0.05 }, flake + 0.36)
+    .to(".bw-snow", { opacity: 1, duration: 0.3 }, flake + 0.28)
     .to(".bw-moon-air", { autoAlpha: 0.32, duration: 0.2, ease: "sine.in" }, 7.55)
     // 住みかへ帰る（11/21 承認）：住みかの上の姿が消え、住みかの前の水面を進み、頭を下げて尾が少し残り、水に消える。
     // 波の輪が姿の消えたあとに残る。8ページの静けさを保つため、大きくは動かさない。
     // 住みかの上の姿が消えきってから泳ぐ姿を出す（二つの姿が半透明で重ならないように。7ページと同じ）。
-    .to(".bw-down", { opacity: 0, duration: 0.08 }, 7.34)
-    .fromTo(".bw-home", { opacity: 0, x: 150 }, { opacity: 1, x: 162, duration: 0.06 }, 7.43)
-    .to(".bw-home", { x: 214, duration: 0.12, ease: "sine.inOut" }, 7.46)
-    .to(".bw-home", { opacity: 0, duration: 0.04 }, 7.58)
-    .fromTo(".bw-dive", { opacity: 0, y: 0 }, { opacity: 1, duration: 0.04 }, 7.58)
-    .to(".bw-dive", { y: 16, opacity: 0, duration: 0.14, ease: "power1.in" }, 7.68)
+    .to(".bw-down", { opacity: 0, duration: 0.08 }, 7.34 + s8)
+    .fromTo(".bw-home", { opacity: 0, x: 150 }, { opacity: 1, x: 162, duration: 0.06 }, 7.43 + s8)
+    .to(".bw-home", { x: 214, duration: 0.12, ease: "sine.inOut" }, 7.46 + s8)
+    .to(".bw-home", { opacity: 0, duration: 0.04 }, 7.58 + s8)
+    .fromTo(".bw-dive", { opacity: 0, y: 0 }, { opacity: 1, duration: 0.04 }, 7.58 + s8)
+    .to(".bw-dive", { y: 16, opacity: 0, duration: 0.14, ease: "power1.in" }, 7.68 + s8)
     .fromTo(
       ".bw-dive-ring",
       { opacity: 0.85, scale: 0.6, svgOrigin: "231 661" },
       { opacity: 0, scale: 1.7, duration: 0.26, ease: "sine.out" },
-      7.72,
+      7.72 + s8,
     )
     .to(q(".bw-twig"), { opacity: 0, duration: 0.2 }, 7.45)
     .to(".bw-first", { opacity: 0, duration: 0.2 }, 7.45)

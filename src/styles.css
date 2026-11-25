@@ -595,6 +595,21 @@ img.event-pic { object-fit: contain; }
    行頭の句点を避ける決まりのまま折り返す。 */
 .ms-cap.fit-md { font-size: var(--size-md); }
 .ms-cap.fit-sm { font-size: var(--size-sm); }
+/* 文の出し方と時間を秒で決める本（ビーバームーン、第2次品質改善 11/26 確定）の字幕（11/25 承認 T1）：しっぽり明朝 500、
+   19〜22px（--size-story、画面の幅で。作品全体でそろえ、ページごとに縮めない）、字間 0.08em、行間 1.9。影は弱く、字を
+   背景から少しだけ分ける。作品名（結末 E4）は同じ書体・太さ・色で約 12% 大きく、字間を少し広く。 */
+.ms-caps[data-directed] .ms-cap { font-size: var(--size-story); font-weight: var(--weight-medium); letter-spacing: 0.08em; line-height: 1.9; text-shadow: 0 var(--space-1) var(--space-3) color-mix(in srgb, var(--bk-night-1) 55%, transparent), 0 0 var(--space-4) color-mix(in srgb, var(--bk-night-1) 25%, transparent); }
+.ms-caps[data-directed] .ms-cap.ms-cap-title { font-size: var(--size-story-title); letter-spacing: 0.12em; }
+/* 背の低い画面（11/25 23:24 承認の順、MoonStory の fitDirected）：1 意味のまとまりの改行（本文の "/"、行が列に収まらない
+   ときだけ .on）→ 2 字幕の領域（.fit-area：列を下へは伸ばさず、右の余白を詰めて横へ。絵の主役は画面の中ほどから下）→
+   3 列の間（.fit-tight）→ 4 作品全体で同じ大きさに縮める（--size-story を字幕の箱で上書き）。 */
+.ms-cap .ms-soft { display: none; }
+.ms-cap .ms-soft.on { display: inline; }
+.ms-caps[data-directed].fit-area { right: var(--space-5); width: calc(100% - var(--space-5) * 2); }
+.ms-caps[data-directed].fit-tight .ms-cap:not(.ms-cap-title) { line-height: 1.7; }
+/* いちばん幅の狭い画面（320px 前後）：字幕を右の余白へ少し寄せる（11/26 独立レビュー：320×568 の8ページで、月と字の
+   最小のすき間が 2〜3px。右の余白 30px → 20px で 13px。ほかのページも月から遠ざかるだけ。375px 以上は変えない）。 */
+@media (max-width: 374px) { .ms-caps[data-directed] { right: var(--space-8); } }
 .ms-ch { display: inline; }
 /* 文の後ろの薄い夜（16:27 のレビュー「文章が背景に埋もれている」）：空が明るい夕暮れでも読める。 */
 .ms-caps-veil { position: absolute; top: 0; right: 0; width: 80%; height: 64svh; background: radial-gradient(ellipse at 78% 34%, var(--bk-night-1), transparent 68%); opacity: 0.6; pointer-events: none; }
