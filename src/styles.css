@@ -3725,6 +3725,7 @@ button.label-feel,
 .line-legend .avg-window,
 .month-fold,
 .typhoon-link,
+.aq-kosa-link,
 .admin-exports summary,
 .chip,
 .notify-days button,
@@ -3751,6 +3752,7 @@ button.label-feel::after,
 .line-legend .avg-window::after,
 .month-fold::after,
 .typhoon-link::after,
+.aq-kosa-link::after,
 .day-sun-button::after,
 .admin-exports summary::before,
 .chip::after,
@@ -4677,7 +4679,7 @@ select.chip.sm {
 .basis-cusum path { fill: none; stroke: var(--accent-base); stroke-width: var(--stroke-focus); }
 .basis-pit { width: 100%; max-width: 320px; height: 64px; }
 .basis-pit rect { fill: var(--accent-base); opacity: 0.75; }
-.basis-pit-even { stroke: var(--ink-secondary); stroke-dasharray: 3 3; }
+.basis-pit-even { stroke: var(--ink-secondary); stroke-dasharray: calc(var(--stroke-hair) * 3) calc(var(--stroke-hair) * 3); }
 .basis-table td.warn, .basis-table tr.warn td { color: var(--status-warning); }
 .beta-fc.inline { display: inline; margin-left: var(--space-3); }
 .basis-table { width: 100%; border-collapse: collapse; font-size: var(--size-sm); font-variant-numeric: tabular-nums; }
@@ -4935,7 +4937,7 @@ select.chip.sm {
 /* 太陽 (SunSheet, #151): the day's sun against the horizon and the three twilights. */
 .sun-chart { width: 100%; height: auto; display: block; touch-action: pan-y; cursor: ew-resize; }
 .sun-horizon { stroke: var(--ink-secondary); stroke-width: 1.2; }
-.sun-depth { stroke: var(--ink-tertiary); stroke-opacity: 0.45; stroke-dasharray: 3 3; }
+.sun-depth { stroke: var(--ink-tertiary); stroke-opacity: 0.45; stroke-dasharray: calc(var(--stroke-hair) * 3) calc(var(--stroke-hair) * 3); }
 /* The size is set on the text (SunSheet.tsx): xs on screen, whatever width the drawing is shown at. */
 .sun-tick { fill: var(--ink-tertiary); font-family: var(--font-numeric); }
 .sun-curve { fill: none; stroke: var(--ink-tertiary); stroke-width: var(--stroke-focus); stroke-linecap: round; }
@@ -5825,6 +5827,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .aq-fact { display: inline-flex; align-items: baseline; gap: var(--space-1); }
 .aq-fact small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
 .aq-fact.quiet { font-weight: var(--weight-regular); }
+.aq-kosa-link { align-self: flex-start; font-size: var(--size-sm); color: var(--accent-base); text-decoration: none; }
 .aq-judge { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
 .aq-verdict .info-more, .aq-src .info-more { margin: var(--space-2) 0 0; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.6; }
 .aq-vals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3) var(--space-4); }
@@ -5849,6 +5852,8 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .aq-line.vis { stroke: var(--data-visibility); }
 .aq-line.vis.fc { stroke-width: var(--stroke-hair); }
 .aq-visband { fill: var(--line-soft); }
+.aq-usual { stroke: var(--ink-secondary); stroke-width: var(--stroke-hair); stroke-dasharray: calc(var(--stroke-hair) * 3) calc(var(--stroke-hair) * 3); }
+.aq-usual-l { font-size: var(--size-xs); fill: var(--ink-secondary); text-anchor: end; }
 .aq-now { stroke: var(--ink-secondary); stroke-width: var(--stroke-hair); stroke-dasharray: var(--stroke-hair) var(--stroke-hair); }
 .aq-sel { stroke: var(--ink-primary); stroke-width: var(--stroke-hair); }
 .aq-measured { fill: var(--ink-primary); }
@@ -5858,6 +5863,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .aq-key.dust { border-color: var(--data-dust); }
 .aq-key.vis { border-color: var(--data-visibility); }
 .aq-key.vis.fc { border-top-width: var(--stroke-hair); }
+.aq-key.usual { border-top: var(--stroke-hair) dashed var(--ink-secondary); }
 .aq-key.dot { width: var(--space-2); height: var(--space-2); border: 0; border-radius: 50%; background: var(--ink-primary); }
 .aq-src p { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
 .aq-src-line { display: block; margin-bottom: var(--space-1); }
