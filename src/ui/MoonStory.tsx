@@ -1427,6 +1427,20 @@ export function MoonStory({
           window.matchMedia("(prefers-reduced-motion: reduce)").matches,
         seconds: (i) => secs[i],
         profile: (i) => (directed && firstBeat >= 0 && i >= firstBeat && i < firstBeat + lines.length ? DIR_GLIDE : undefined),
+        // ページの冒頭から（11/26 渡辺さん「ドットでページを選択した場合は、そのページの冒頭から読める」「9ページを再読 → 結末の
+        // 文章から」）：秒で決める本では、ドットで選んだページへは、前のページの文が消えて絵だけになった所（区間の頭から lead 秒）
+        // へ運び、そこからそのページの区間の残りを朗読の速さで。最後のページへ一つ戻るとき（あとがきから再読）も同じ。
+        // 冒頭から先の運び方は、自動で読むときの形（加速を終えた一定の速さ→減速）と同じなので、字は決めた秒どおりに出る。
+        entry: (i, how) => {
+          if (!directed || firstBeat < 0) return undefined;
+          const p = i - firstBeat;
+          if (p < 0 || p >= lines.length || (how === "back" && p !== lines.length - 1)) return undefined;
+          const w = el.querySelector<HTMLElement>(".ms-world");
+          if (!w) return undefined;
+          const lead = p ? directed.pages[p - 1].fadeOut + directed.pages[p - 1].picture : 0;
+          const px = w.offsetTop + beatToProgress(weights, segBeat(directed, p, lead)) * (w.offsetHeight - el.clientHeight);
+          return { px: Math.round(px), seconds: (directed.secs[p] ?? 0) - lead };
+        },
         // 本編（場面）の頭より前は区切りへ運ばない。場面の無い満月は、本の後ろ（文の章）から。
         freeBefore: () =>
           (el.querySelector<HTMLElement>(".ms-world")?.offsetTop ?? 0) - 1,
