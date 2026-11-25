@@ -1517,14 +1517,18 @@ with sync_playwright() as p:
         air_line = pg.locator(".dd-sum .dd-sum-row", has_text="空気").first
         settle(lambda: "PM2.5" in air_line.inner_text(), 5)
         air_only = pg.locator(".dd-sum .dd-sum-row", has_text="大気").first.inner_text()
-        check("AQ1 まとめに「空気」の行（見通しの最小・PM2.5 の日平均・黄砂の最大、CAMS の予測）、大気の行は湿度・気圧だけ", "PM2.5 日平均" in air_line.inner_text() and "CAMS の予測" in air_line.inner_text() and "PM2.5" not in air_only and "見通し" not in air_only, (air_line.inner_text(), air_only))
+        check("AQ1 まとめに「空気」の行（見通しの最小・PM2.5 の日平均・黄砂の最大とふだんより多い時、CAMS の予測）、大気の行は湿度・気圧だけ", "PM2.5 日平均" in air_line.inner_text() and "ふだんの目安 8、超えたのは 13時" in air_line.inner_text() and "環境基準は 35 以下" in air_line.inner_text() and "CAMS の予測" in air_line.inner_text() and "PM2.5" not in air_only and "見通し" not in air_only, (air_line.inner_text(), air_only))
+        if os.environ.get("WN_AQSHOT"): (air_line.scroll_into_view_if_needed(), pg.evaluate("document.querySelector('.item-bar').style.visibility='hidden'"), air_line.screenshot(path=os.environ["WN_AQSHOT"] + "-summary.png"), pg.evaluate("document.querySelector('.item-bar').style.visibility=''"))
         air_line.locator("button").first.click(); calm()
         settle(lambda: pg.locator(".aq .aq-chart").count() > 0, 5)
         aq = pg.locator(".aq").first.inner_text() if pg.locator(".aq").count() else ""
         chips = pg.evaluate("[...document.querySelectorAll('.item-bar .ib-open [data-item]')].map(e => e.dataset.item)")
         check("AQ2 まとめの空気の行から「空気」の画面（ひとこと・値・PM2.5・黄砂・視程の3段）、帯の空気は1つの項目、実測はだれにでも", chips == ["visibility"] and pg.locator('[data-item="visibility"][aria-selected="true"]').count() == 1 and pg.locator(".aq .aq-chart path.aq-line").count() >= 3 and "実測 PM2.5" in aq and "管理者だけ" not in aq and pg.locator(".day-detail .hour-face").count() == 0, (chips, aq[:120]))
         # ひとこと（Weather Note の判定）：ふだんより多い時間だけ。説明と出典・基準は ⓘ に畳む（11/25「ⓘ で不要な情報は削る」）
-        check("AQ3 ひとことは Weather Note の判定（黄砂がふだんより多い 13時、CAMS）、出典と基準は畳んである", "黄砂がふだんより多い（13時）" in aq and "Weather Note の判定" in aq and "Open-Meteo" not in aq and "環境基準" not in aq, aq[:160])
+        check("AQ3 ひとことは Weather Note の判定（黄砂がふだんより多い 13時、CAMS）、黄砂の多い日は気象庁の黄砂解析予測図へ、出典と基準は畳んである", "黄砂がふだんより多い（13時）" in aq and pg.locator(".aq a.aq-kosa-link[href^='https://www.data.jma.go.jp/env/kosa/']").count() == 1 and "Weather Note の判定" in aq and "Open-Meteo" not in aq and "環境基準" not in aq, aq[:160])
+        if os.environ.get("WN_AQSHOT"): pg.locator(".aq-top").first.screenshot(path=os.environ["WN_AQSHOT"] + "-verdict.png")
+        check("AQ3b グラフに黄砂の「ふだんの目安 8」の点線（Weather Note の集計、ふだんの 90%）", pg.locator(".aq .aq-chart line.aq-usual").count() >= 1 and "ふだんの目安 8" in pg.locator(".aq .aq-chart").first.text_content(), pg.locator(".aq .aq-chart").first.text_content()[:120])
+        if os.environ.get("WN_AQSHOT"): pg.locator(".aq-chartbox").first.screenshot(path=os.environ["WN_AQSHOT"] + "-chart.png")
         pg.locator(".aq-src .info-btn").first.click(); calm()
         aq = pg.locator(".aq").first.inner_text()
         # 取得の時刻は日付つき（モデルの計算の時刻ではない）、基準は「70 を超える」（11/25 レビュー）

@@ -7,7 +7,7 @@
 // - 何も無いときに「ふだんと大きな違いはありません」と言うのは、CAMS の時間が 20時間以上あり、PM2.5 と黄砂のふだんがあるときだけ
 //   （データがそろわないのに「違いは無い」と言わない、thread-rules）。そうでなければ「比べる値がそろっていません」。
 import type { AirHour, MeasuredHour } from "../shared/airQuality";
-import { type Usual, usualLevel } from "../shared/airUsual";
+import { type Usual, type UsualItem, usualLevel } from "../shared/airUsual";
 import type { WeatherRow } from "../shared/types";
 
 const MANY = 3;
@@ -24,6 +24,15 @@ export function hourSpans(hours: number[], suffix = "時"): string {
   }
   return spans.map(([a, b]) => (a === b ? `${a}${suffix}` : `${a}〜${b}${suffix}`)).join("・");
 }
+
+/** 黄砂がふだんより多い（ふだんの 90% を超える＝段 3 以上）時。ふだんが無ければ空。まとめの空気の行（airSummary.ts）も使う。 */
+export const dustHighHours = (hours: AirHour[], usual?: Usual): number[] => hours.filter((h) => (usualLevel(h.dust, usual?.items?.dust) ?? 0) >= MANY).map((h) => h.h);
+
+/**
+ * 「ふだんより多い」の境目（ふだんの 90% の値、Weather Note の集計）を数字で（11/25 渡辺さん「基準値が欲しい」）。
+ * 環境省の基準ではないので「ふだんの目安」と書く（design-system 4.0a）。
+ */
+export const usualLine = (u: UsualItem | null | undefined): string => (u ? String(Math.round(u.q[2])) : "—");
 
 export interface AirFact {
   key: "dust" | "pm" | "vis";
@@ -43,17 +52,17 @@ export function airVerdict(cams: { hours: AirHour[]; usual?: Usual } | null, mea
   const facts: AirFact[] = [];
   const ch = cams?.hours ?? [];
   const cu = cams?.usual?.items;
-  const dustHi = ch.filter((h) => (usualLevel(h.dust, cu?.dust) ?? 0) >= MANY).map((h) => h.h);
-  if (dustHi.length) facts.push({ key: "dust", text: `黄砂がふだんより多い（${hourSpans(dustHi)}）`, who: "CAMS" });
+  const dustHi = dustHighHours(ch, cams?.usual);
+  if (dustHi.length) facts.push({ key: "dust", text: `黄砂がふだんより多い（${hourSpans(dustHi)}）`, who: `CAMS・ふだんの目安 ${usualLine(cu?.dust)} µg/m³` });
   const mh = measured?.hours ?? [];
   const mu = measured?.usual?.items;
   const measPm = mh.filter((h) => h.pm2_5 != null);
   if (measPm.length) {
     const hi = measPm.filter((h) => (usualLevel(h.pm2_5, mu?.pm2_5) ?? 0) >= MANY).map((h) => h.hour - 1);
-    if (hi.length) facts.push({ key: "pm", text: `PM2.5 がふだんより多い（${hourSpans(hi, "時台")}）`, who: "介良局の実測" });
+    if (hi.length) facts.push({ key: "pm", text: `PM2.5 がふだんより多い（${hourSpans(hi, "時台")}）`, who: `介良局の実測・ふだんの目安 ${usualLine(mu?.pm2_5)} µg/m³` });
   } else {
     const hi = ch.filter((h) => (usualLevel(h.pm2_5, cu?.pm2_5) ?? 0) >= MANY).map((h) => h.h);
-    if (hi.length) facts.push({ key: "pm", text: `PM2.5 がふだんより多い（${hourSpans(hi)}）`, who: "CAMS" });
+    if (hi.length) facts.push({ key: "pm", text: `PM2.5 がふだんより多い（${hourSpans(hi)}）`, who: `CAMS・ふだんの目安 ${usualLine(cu?.pm2_5)} µg/m³` });
   }
   const low = (visRows ?? []).filter((r) => r.type === "actual" && typeof r.visibility === "number" && r.visibility < 5 && r.n >= 0 && r.n < 24).map((r) => r.n);
   if (low.length) facts.push({ key: "vis", text: `見通しが 5km 未満（${hourSpans(low)}）`, who: "気象台の観測" });

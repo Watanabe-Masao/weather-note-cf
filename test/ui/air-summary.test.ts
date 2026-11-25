@@ -10,11 +10,18 @@ const day = (pm: (h: number) => number | null, dust: (h: number) => number | nul
 
 describe("空気質：まとめの1文", () => {
   it("PM2.5 の日平均と黄砂の最大、CAMS の予測かモデルの値か", () => {
-    expect(airSummaryText({ kind: "forecast", hours: day(() => 12.6) })).toBe("PM2.5 日平均 13・黄砂 最大 23 µg/m³（CAMS の予測）");
-    expect(airSummaryText({ kind: "past", hours: day(() => 8) })).toBe("PM2.5 日平均 8・黄砂 最大 23 µg/m³（CAMS のモデルの値）");
+    expect(airSummaryText({ kind: "forecast", hours: day(() => 12.6) })).toBe("PM2.5 日平均 13 µg/m³（環境基準は 35 以下）・黄砂 最大 23 µg/m³。CAMS の予測");
+    expect(airSummaryText({ kind: "past", hours: day(() => 8) })).toBe("PM2.5 日平均 8 µg/m³（環境基準は 35 以下）・黄砂 最大 23 µg/m³。CAMS のモデルの値");
+  });
+  it("基準値を添える（11/25）：黄砂は環境省の基準が無いので、ふだんの目安（ふだんの 90% の値）と超えた時", () => {
+    const usual = { from: "2026-10-26", to: "2026-11-24", items: { pm2_5: null, dust: { n: 720, q: [1, 4, 8, 12] as [number, number, number, number] } } };
+    expect(airSummaryText({ kind: "forecast", hours: day(() => 12.6, (h) => (h >= 15 && h <= 17 ? 20 : 3)), usual })).toBe(
+      "PM2.5 日平均 13 µg/m³（環境基準は 35 以下）・黄砂 最大 20 µg/m³（ふだんの目安 8、超えたのは 15〜17時）。CAMS の予測",
+    );
+    expect(airSummaryText({ kind: "forecast", hours: day(() => 12.6, () => 3), usual })).toBe("PM2.5 日平均 13 µg/m³（環境基準は 35 以下）・黄砂 最大 3 µg/m³（ふだんの目安 8）。CAMS の予測");
   });
   it("時間がそろっていなければ「取得できた範囲」、値が無ければ null（少ないとは言わない）", () => {
-    expect(airSummaryText({ kind: "forecast", hours: day(() => 10).slice(0, 12) })).toBe("PM2.5 平均 10・黄砂 最大 11 µg/m³（CAMS の予測、取得できた範囲）");
+    expect(airSummaryText({ kind: "forecast", hours: day(() => 10).slice(0, 12) })).toBe("PM2.5 平均 10 µg/m³・黄砂 最大 11 µg/m³。CAMS の予測、取得できた範囲");
     expect(airSummaryText({ kind: "forecast", hours: [] })).toBeNull();
     expect(airSummaryText(null)).toBeNull();
     expect(airSummaryText({ kind: "forecast", hours: day(() => null, () => null) })).toBeNull();

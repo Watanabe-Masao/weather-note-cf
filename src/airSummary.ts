@@ -7,6 +7,8 @@
 // PM2.5 の時間がそろっていない日は「日平均」と言わず「取得できた N時間の平均」と書き、基準の内側・外側も言わない
 // （基準は参考として並べるだけ。11/25 レビュー）。
 import type { AirHour, MeasuredHour } from "../shared/airQuality";
+import type { Usual } from "../shared/airUsual";
+import { dustHighHours, hourSpans, usualLine } from "./airVerdict";
 
 /** 1日の時間の数。 */
 const DAY_HOURS = 24;
@@ -47,12 +49,19 @@ const part = (n: number) => (n < DAY_HOURS ? "、取得できた範囲" : "");
  * まとめの大気の行に足す1文（値が1時間も無い・読み込み中なら null：無いことを「少ない」とは言わない）。
  * 例：「PM2.5 日平均 13・黄砂 最大 15 µg/m³（CAMS の予測）」
  */
-export function airSummaryText(r: { kind: "past" | "forecast"; hours: AirHour[] } | null): string | null {
+export function airSummaryText(r: { kind: "past" | "forecast"; hours: AirHour[]; usual?: Usual } | null): string | null {
   if (!r || !r.hours.length) return null;
   const d = airDay(r.hours);
-  const parts = [d.pmMean != null ? `PM2.5 ${d.pmHours < DAY_HOURS ? "平均" : "日平均"} ${Math.round(d.pmMean)}` : null, d.dustMax ? `黄砂 最大 ${Math.round(d.dustMax.v)}` : null].filter(Boolean);
+  // 基準値も添える（11/25 渡辺さん「ふだんより多いだけではなく基準値が欲しい」）。PM2.5 は環境省の環境基準（日平均 35 以下）を、
+  // 24時間そろった日平均にだけ（1時間ごと・途中の平均とは比べない）。黄砂には環境省・気象庁の µg/m³ の基準が無いので、
+  // 「ふだんより多い」の境目（ふだんの 90% の値、Weather Note の集計）を「ふだんの目安」として、超えた時と並べる。
+  const pm = d.pmMean != null ? `PM2.5 ${d.pmHours < DAY_HOURS ? "平均" : "日平均"} ${Math.round(d.pmMean)} µg/m³${d.pmHours < DAY_HOURS ? "" : `（環境基準は ${PM25_STANDARD} 以下）`}` : null;
+  const hi = dustHighHours(r.hours, r.usual);
+  const du = r.usual?.items?.dust;
+  const dust = d.dustMax ? `黄砂 最大 ${Math.round(d.dustMax.v)} µg/m³${du ? `（ふだんの目安 ${usualLine(du)}${hi.length ? `、超えたのは ${hourSpans(hi)}` : ""}）` : ""}` : null;
+  const parts = [pm, dust].filter(Boolean);
   if (!parts.length) return null;
-  return `${parts.join("・")} µg/m³（${camsWord(r.kind)}${part(Math.min(d.pmHours || DAY_HOURS, d.dustHours || DAY_HOURS))}）`;
+  return `${parts.join("・")}。${camsWord(r.kind)}${part(Math.min(d.pmHours || DAY_HOURS, d.dustHours || DAY_HOURS))}`;
 }
 
 /** その時刻の値（無ければ null）。 */
