@@ -5842,3 +5842,28 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .aq-small { font-size: var(--size-xs); color: var(--ink-secondary); }
 .aq-src { font-size: var(--size-xs); color: var(--ink-tertiary); display: grid; gap: var(--space-1); }
 .aq-src .aq-stale { color: var(--ink-secondary); } /* 値の新しさの注意は出典より一段はっきり */
+.aq-more { margin-top: var(--space-2); }
+/* 空気の質の内訳（シート、11/25）：項目ごとに 名前と値・24時間の線・平均と最大・何の値か・基準 */
+.abd { display: grid; gap: var(--space-5); padding-bottom: var(--space-5); }
+.abd-h { margin: 0 0 var(--space-2); font-size: var(--size-md); font-weight: var(--weight-bold); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
+.abd-h small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
+.abd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.abd-row { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-inset); display: grid; gap: var(--space-1); }
+.abd-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
+.abd-name { font-size: var(--size-sm); font-weight: var(--weight-bold); }
+.abd-val { display: inline-flex; align-items: baseline; gap: var(--space-1); }
+.abd-val small { font-size: var(--size-xs); color: var(--ink-tertiary); }
+.abd-val b { font-size: var(--size-lg); font-variant-numeric: tabular-nums; }
+.abd-spark { width: 100%; height: var(--space-8); display: block; }
+.abd-line { stroke-width: var(--stroke-focus); }
+.abd-line.plain { stroke: var(--ink-secondary); }
+.abd-line.pm25 { stroke: var(--data-pm25); }
+.abd-line.dust { stroke: var(--data-dust); }
+.abd-dot.plain { fill: var(--ink-secondary); }
+.abd-dot.pm25 { fill: var(--data-pm25); }
+.abd-dot.dust { fill: var(--data-dust); }
+.abd-sub { margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
+.abd-about { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.abd-sparkbox { display: grid; }
+.abd-top { display: block; text-align: right; font-size: var(--size-xs); color: var(--ink-tertiary); }
+.abd-std { margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.6; }

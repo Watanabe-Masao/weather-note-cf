@@ -12,6 +12,9 @@ import { useAccount } from "../account/account";
 import { airInRange, useAir, useMeasured } from "../data/air";
 import { DATA, lineLook } from "../design/tokens";
 import type { AirHour, MeasuredHour } from "../../shared/airQuality";
+import { useState } from "react";
+import { AirBreakdownSheet } from "./AirBreakdownSheet";
+import { Button } from "./kit";
 
 const W = 340;
 const H = 150;
@@ -93,6 +96,7 @@ export function AirQualityCard({ station, date, today }: { station: string; date
   const admin = useAccount().me?.role === "admin";
   const air = useAir(station, date);
   const measured = useMeasured(station, date, admin && date <= today);
+  const [detail, setDetail] = useState(false);
   if (air.unsupported) return null;
   if (!airInRange(date, today))
     return (
@@ -188,7 +192,11 @@ export function AirQualityCard({ station, date, today }: { station: string; date
             </>
           )}
         </p>
+        <Button size="sm" className="aq-more" onClick={() => setDetail(true)}>
+          全項目の内訳（PM10・AOD{admin ? "・実測の全項目" : ""}）
+        </Button>
       </div>
+      {detail && <AirBreakdownSheet air={r} measured={admin ? measured.r : null} date={date} today={today} admin={admin} onClose={() => setDetail(false)} />}
 
       <div className="aq-read">
         {pm && (
