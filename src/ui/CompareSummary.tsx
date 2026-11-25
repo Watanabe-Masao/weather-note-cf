@@ -27,6 +27,7 @@ import type { MetricId } from "../metrics";
 import { useSwipeDays } from "./useSwipeDays";
 import { TyphoonTag } from "./TyphoonTag";
 import { DayWeatherIcon } from "./WeatherIcon";
+import { useAirDays } from "../data/air";
 import { ITEM_GROUPS } from "./ItemBar";
 import { SECTORS, windSummary } from "../../shared/windDirection";
 import { BetaContext } from "../beta/settings";
@@ -176,6 +177,9 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const [reporting, setReporting] = useState(false);
   // ほかの仲間の項目（ふだん畳む、2026-11-24）。
   const [more, setMore] = useState(false);
+  // 空気（11/25）：PM2.5 の平均・黄砂の最大（CAMS）・介良局の実測の平均。空気の仲間のとき・ほかの項目を開いたときだけ読む。
+  const airDays = useAirDays(station, [target, other], metric === "visibility" || more);
+  const airOf = (d: string | null) => (d ? (airDays.get(d) ?? null) : null);
   const [basis, setBasis] = useState(false);
   const [saved, setSaved] = useState(false);
   useEffect(() => {
@@ -207,6 +211,10 @@ export function CompareSummary({ store, station, target, other, today, metric, o
     r("sun", "light", "日照", UNIT.hours, num(a?.sun), num(b?.sun), "sun"),
     r("humidity", "humidity", "湿度", UNIT.percent, num(a?.humidity), num(b?.humidity), "humidity"),
     r("wind", "wind", "風速", UNIT.wind, num(a?.wind), num(b?.wind), "wind"),
+    // 空気（11/25）：日の平均・最大（CAMS）と実測の平均。整数で（PM2.5・黄砂は µg/m³ の整数で読む）。
+    { ...r("pmMean", "visibility", "PM2.5 平均", "µg/m³", airOf(target)?.pmMean ?? null, airOf(other)?.pmMean ?? null, "pm25"), digits: 0 },
+    { ...r("dustMax", "visibility", "黄砂 最大", "µg/m³", airOf(target)?.dustMax ?? null, airOf(other)?.dustMax ?? null, "dust"), digits: 0 },
+    { ...r("measuredPm", "visibility", "実測 PM2.5", "µg/m³", airOf(target)?.measuredMean ?? null, airOf(other)?.measuredMean ?? null), digits: 0 },
     // 視程は表と同じ最小（chartMetrics の視程、1時間の値のいちばん小さいもの）。
     r("visibilityMin", "visibility", "視程最小", "km", hourlyExtreme(hoursOf(target), "visibility", "min"), hourlyExtreme(hoursOf(other), "visibility", "min"), "visibility"),
     r("pMax", "pressure", "気圧最高", UNIT.pressure, hourlyExtreme(hoursOf(target), "pressure", "max"), hourlyExtreme(hoursOf(other), "pressure", "max"), "pressureHigh"),

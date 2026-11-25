@@ -194,6 +194,18 @@ def api(path, q):
         # ふだん（手前30日の分位、11/25）：PM2.5 は 13時が「多い」くらい、AOD は比べられない（手前が足りない）
         usual = {"from": "2026-10-11", "to": "2026-11-09", "items": {"pm2_5": {"n": 720, "q": [4, 12, 14, 16]}, "pm10": {"n": 720, "q": [5, 14, 18, 22]}, "dust": {"n": 720, "q": [1, 4, 8, 12]}, "aod": None}}
         return {"supported": True, "v": 1, "station": q.get("station"), "date": d, "kind": "forecast" if d >= "2026-11-10" else "past", "hours": hours, "fetchedAt": "2026-11-10T02:30:00Z", "usual": usual, "source": "Open-Meteo（CAMS）"}
+    if path == "/api/air-days":
+        # 比較の空気（11/25）：日ごとのまとめ。2023年より前は無い。前日は黄砂が多い日。
+        a = datetime.date.fromisoformat(q["from"]); b = datetime.date.fromisoformat(q["to"]); out = []
+        while a <= b:
+            ds = a.isoformat()
+            k = "none" if ds < "2023-01-01" else ("forecast" if a >= TODAY else "past")
+            y = a == TODAY - datetime.timedelta(days=1)
+            out.append({"date": ds, "kind": k, "pmMean": None if k == "none" else 9 + (a.day % 5) + (8 if y else 0), "pmHours": 0 if k == "none" else 24,
+                        "dustMax": None if k == "none" else (38 if y else 2 + a.day % 3), "dustMaxH": None if k == "none" else 11, "dustHours": 0 if k == "none" else 24,
+                        "measuredMean": (11 + a.day % 4) if (k == "past") else None, "measuredHours": 24 if k == "past" else 0})
+            a += datetime.timedelta(days=1)
+        return {"supported": True, "v": 1, "station": q.get("station"), "from": q["from"], "to": q["to"], "days": out}
     if path == "/api/air-measured":
         d = q.get("date", "")
         usual = {"from": "2026-10-11", "to": "2026-11-09", "items": {"pm2_5": {"n": 700, "q": [5, 12, 15, 18]}, "ox": {"n": 700, "q": [0.01, 0.03, 0.04, 0.05]}, "spm": {"n": 700, "q": [0.005, 0.015, 0.02, 0.03]}, "no2": {"n": 700, "q": [0.002, 0.006, 0.009, 0.012]}, "so2": {"n": 700, "q": [0.001, 0.001, 0.002, 0.003]}}}
@@ -243,6 +255,8 @@ def api(path, q):
                     rows.append({"date": d.isoformat(), "n": n, "type": ("forecast" if (d > TODAY or (d == TODAY and n > 12)) else "actual"), "provider": "JMA", "temp": t,
                                  "humidity": 80 - (t - base["min"]) * 2, "pressure": round(base["pressure"] + 3 * math.sin(n / 4), 1), "wind": 1.5 + (n % 5) * 0.4,
                                  "sun": round(max(0, min(1, 1.1 * math.sin(math.pi * (n - 6) / 12))), 1) if 6 < n < 18 else 0, "rain": 1.5 if n in (20, 21) else 0, "radiation": round(max(0, 2.2 * math.sin(math.pi * (n - 6) / 12)), 2) if 6 < n < 18 else None,
+                                 # 視程（km、11/25）：ふだん 20、前日の 9〜11時だけ黄砂のように下がる
+                                 "visibility": ({9: 6.0, 10: 3.5, 11: 4.2}.get(n, 20.0) if d == TODAY - datetime.timedelta(days=1) else 20.0),
                                  "raw": {}, "quality": {}, "unpublished": []})
                 days.append({"date": d.isoformat(), "rows": rows, "fixed": True})
             d += datetime.timedelta(days=1)
@@ -562,12 +576,16 @@ with sync_playwright() as p:
 
     # B. every item chip
     def bb():
-        for i, label in enumerate(["気温", "降水", "日差し", "日照", "湿度", "視程", "風速", "気圧"]):
+        for i, label in enumerate(["気温", "降水", "日差し", "日照", "湿度", "空気", "風速", "気圧"]):
             pick_item(i); calm()
             check(f"B{i+1} {label}: チップがオン", "on" in item_chip(i).get_attribute("class"))
             check(f"B{i+1} {label}: シート見出し", title().startswith(label), title())
-            check(f"B{i+1} {label}: 読み取りカード", pg.locator(".sheet .readout-card").count() == 1)
-            check(f"B{i+1} {label}: 凡例がグラフの下", pg.locator(".sheet .line-legend").count() >= 1)
+            if label == "空気":
+                # 空気（11/25）：PM2.5・黄砂・視程の日別を3段で（AirCompare）。読み取りは表と時間帯で。
+                check(f"B{i+1} {label}: 3段の日別（PM2.5・黄砂・視程）と凡例", pg.locator(".sheet .ac-chart").count() == 1 and pg.locator(".sheet .ac .aq-legend").count() == 1, pg.locator(".sheet .ac-chart").count())
+            else:
+                check(f"B{i+1} {label}: 読み取りカード", pg.locator(".sheet .readout-card").count() == 1)
+                check(f"B{i+1} {label}: 凡例がグラフの下", pg.locator(".sheet .line-legend").count() >= 1)
             layout_ok(f"B{i+1}b", f"{label}の日別")
         pick_item(0); calm()
     step("B", bb)
@@ -617,9 +635,9 @@ with sync_playwright() as p:
         pg.locator(".chart-hit").nth(7).click(force=True); calm()
         check("D1 日をタップで時間帯", title().endswith("の時間帯"), title())
         check("D2 戻るボタン", pg.locator(".back-btn").count() == 1)
-        for i, label in enumerate(["気温", "降水", "日差し", "日照と明るさ", "湿度", "視程", "風速", "気圧"]):
+        for i, label in enumerate(["気温", "降水", "日差し", "日照と明るさ", "湿度", "空気", "風速", "気圧"]):
             pick_item(i); calm()
-            check(f"D3 時間帯 {label}", title() == f"{label}の時間帯" and pg.locator(".day-chart > svg").count() == 1, title())
+            check(f"D3 時間帯 {label}", title() == f"{label}の時間帯" and pg.locator(".day-chart > svg").count() == 1 and (label != "空気" or pg.locator(".sheet .ac-hours .ac-chart").count() == 1), title())
         pick_item(0); calm()
         pg.click(".back-btn"); calm()
         check("D4 ‹日別で戻る", title() == "気温の日別", title())
@@ -1493,8 +1511,8 @@ with sync_playwright() as p:
         check("SD8 表の日をタップすると、その日が選ばれて真ん中へ（戻らない）", ok and center_date() == want and off() < 2 and want != before, (before, want, center_date(), off()))
         cols.nth(idx).locator(".cell-kind").tap()
         settle(lambda: center_date() == before and off() < 2, 5)
-        # 空気（11/25「項目を分けませんか」）：帯の仲間「空気」＝空気の質（1日だけ）と視程。大気は湿度・気圧。まとめに「空気」の行
-        # （見通しの最小と、PM2.5・黄砂は CAMS と書く）。押すと空気の質の画面。実測（そらまめくん）はだれにでも（11/25）。
+        # 空気（11/25「項目を分けませんか」→「いっそのこと統合」）：帯の「空気」は1つの項目（PM2.5・黄砂・視程）。大気は湿度・気圧。
+        # まとめに「空気」の行（見通しの最小と、PM2.5・黄砂は CAMS と書く）。押すと空気の画面。実測（そらまめくん）はだれにでも。
         pg.locator('[data-items="summary"]:visible, [data-item="summary"]:visible').first.click(); calm()
         air_line = pg.locator(".dd-sum .dd-sum-row", has_text="空気").first
         settle(lambda: "PM2.5" in air_line.inner_text(), 5)
@@ -1504,9 +1522,15 @@ with sync_playwright() as p:
         settle(lambda: pg.locator(".aq .aq-chart").count() > 0, 5)
         aq = pg.locator(".aq").first.inner_text() if pg.locator(".aq").count() else ""
         chips = pg.evaluate("[...document.querySelectorAll('.item-bar .ib-open [data-item]')].map(e => e.dataset.item)")
-        check("AQ2 まとめの空気の行から空気の質の画面（いま・24時間・環境省の基準・出典）、帯は空気の仲間（空気の質・視程）が開き、実測はだれにでも", chips == ["airq", "visibility"] and pg.locator('[data-item="airq"][aria-selected="true"]').count() == 1 and pg.locator(".aq .aq-chart path").count() >= 2 and "環境基準" in aq and "Open-Meteo" in aq and "実測 PM2.5" in aq and "そらまめくん" in aq and "管理者だけ" not in aq and pg.locator(".hour-face").count() == 0, (chips, aq[:120]))
+        check("AQ2 まとめの空気の行から「空気」の画面（ひとこと・値・PM2.5・黄砂・視程の3段）、帯の空気は1つの項目、実測はだれにでも", chips == ["visibility"] and pg.locator('[data-item="visibility"][aria-selected="true"]').count() == 1 and pg.locator(".aq .aq-chart path.aq-line").count() >= 3 and "実測 PM2.5" in aq and "管理者だけ" not in aq and pg.locator(".day-detail .hour-face").count() == 0, (chips, aq[:120]))
+        # ひとこと（Weather Note の判定）：ふだんより多い時間だけ。説明と出典・基準は ⓘ に畳む（11/25「ⓘ で不要な情報は削る」）
+        check("AQ3 ひとことは Weather Note の判定（黄砂がふだんより多い 13時、CAMS）、出典と基準は畳んである", "黄砂がふだんより多い（13時）" in aq and "Weather Note の判定" in aq and "Open-Meteo" not in aq and "環境基準" not in aq, aq[:160])
+        pg.locator(".aq-src .info-btn").first.click(); calm()
+        aq = pg.locator(".aq").first.inner_text()
         # 取得の時刻は日付つき（モデルの計算の時刻ではない）、基準は「70 を超える」（11/25 レビュー）
-        check("AQ2b 取得の時刻は「11/10 11:30 に取得」、注意喚起の目安は 70 を超えるとき", "11/10 11:30 に取得" in aq and "70 µg/m³ を超える" in aq, aq[-200:])
+        check("AQ2b ⓘ を開くと出典と基準：取得の時刻は「11/10 11:30 に取得」、注意喚起の目安は 70 を超えるとき、そらまめくん", "11/10 11:30 に取得" in aq and "70 µg/m³ を超える" in aq and "そらまめくん" in aq and "Open-Meteo" in aq, aq[-200:])
+        pg.locator(".aq .aq-chart").first.click(position={"x": 200, "y": 40}); calm()
+        check("AQ5 グラフを押すとその時刻の値（PM2.5・黄砂・実測・視程）", pg.locator(".aq-read-line b").count() == 1 and "視程" in pg.locator(".aq-read-line").inner_text() and pg.locator(".aq-chart .aq-sel").count() == 1, pg.locator(".aq-read-line").inner_text())
         # 全項目の内訳（ヒートマップ、11/25）：CAMS 4行・実測 5行 × 24マス、時刻を選ぶと下の表、比べられない項目は斜線
         pg.locator(".aq-more").first.click(); calm()
         settle(lambda: pg.locator(".ahm-sheet .ahm-row").count() > 0, 5)
@@ -1517,8 +1541,6 @@ with sync_playwright() as p:
         nu = pg.locator(".ahm-sheet .ahm-row[data-key='aod'] .ahm-c.nu").count()
         check("AQ6 内訳はヒートマップ（CAMS 4行・実測 5行 × 24時）、列を押すとその時刻の値、ふだんと比べた段、比べられない項目は斜線", [k for k, _ in hrows] == ["pm2_5", "pm10", "dust", "aod", "pm2_5", "ox", "spm", "no2", "so2"] and all(n == 24 for _, n in hrows) and rd.startswith("0時") and "実測 オキシダント" in rd and hot > 0 and nu == 24 and "Weather Note の集計" in pg.locator(".ahm-sheet").inner_text(), (hrows[:3], rd[:80], hot, nu))
         pg.locator(".ahm-sheet .icon-btn.close").first.click(); calm()
-        pg.locator('.item-bar [data-item="visibility"]').first.click(); calm()
-        check("AQ3 視程はふつうの項目の画面（空気の質は出さない）", pg.locator(".aq").count() == 0 and pg.locator(".day-detail .hour-face").count() == 1, pg.locator(".aq").count())
         pg.locator('.item-bar .ib-cat[data-items^="humidity"]').first.click(); calm()
         chips = pg.evaluate("[...document.querySelectorAll('.item-bar .ib-open [data-item]')].map(e => e.dataset.item)")
         check("AQ4 大気の仲間は湿度・気圧、開いても帯がはみ出さない", chips == ["humidity", "pressure"] and pg.evaluate("(() => { const b = document.querySelector('.item-bar'); return b.scrollWidth <= b.clientWidth + 1 })()"), chips)
@@ -2007,11 +2029,11 @@ with sync_playwright() as p:
             if cat.count(): cat.click(); calm()
             by[first] = (labels(), pg.locator(".compare-summary .cs-beta").count())
         pg.locator(".item-bar .ib-cat[data-items^='temp']").click(); calm()
-        check("GR7 比較のまとめ：選んだ仲間の項目だけ（気温：最高・最低・平均、空・光：日射・日照・日の出、雨・風：降水・風速・主な風向、大気：湿度・気圧、空気：視程最小）、肌感 β は気温だけ",
+        check("GR7 比較のまとめ：選んだ仲間の項目だけ（気温：最高・最低・平均、空・光：日射・日照・日の出、雨・風：降水・風速・主な風向、大気：湿度・気圧、空気：PM2.5・黄砂・実測・視程最小）、肌感 β は気温だけ",
               by["temp"][0] == ["最高", "最低", "平均"] and by["radiation"][0] == ["日射", "日照", "日の出"] and by["rain"][0] == ["降水", "風速", "主な風向"]
-              and by["humidity"][0] == ["湿度", "気圧最高", "気圧最低"] and by["visibility"][0] == ["視程最小"] and by["radiation"][1] == 0 and by["rain"][1] == 0 and by["humidity"][1] == 0, str(by))
+              and by["humidity"][0] == ["湿度", "気圧最高", "気圧最低"] and by["visibility"][0] == ["PM2.5 平均", "黄砂 最大", "実測 PM2.5", "視程最小"] and by["radiation"][1] == 0 and by["rain"][1] == 0 and by["humidity"][1] == 0, str(by))
         pg.locator(".compare-summary .cs-more").click(); calm()
-        check("GR8 「ほかの項目も見る」で全部の項目（気温の仲間のあとに、ほかの仲間）", len(labels()) == 13 and labels()[:3] == ["最高", "最低", "平均"], str(labels()))
+        check("GR8 「ほかの項目も見る」で全部の項目（気温の仲間のあとに、ほかの仲間）", len(labels()) == 16 and labels()[:3] == ["最高", "最低", "平均"], str(labels()))
         r = pg.evaluate("""() => {
           const right = (e) => Math.round(e.getBoundingClientRect().right);
           const col = [...document.querySelectorAll('.side-target .strip-col.is-center .cell-value')].filter(e => /\\d/.test(e.textContent)).map(right);

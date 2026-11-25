@@ -18,7 +18,8 @@ import type { Db } from "./accounts";
 import { ensureAirSchema } from "./airQuality";
 import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
-import type { AirResponse } from "../../shared/airQuality";
+import type { AirDay, AirDaysResponse, AirResponse } from "../../shared/airQuality";
+import { ensureSoramameSchema } from "./soramame";
 import { USUAL_DAYS, type Usual, usualItem } from "../../shared/airUsual";
 
 export const AIR_FORECAST_SCHEMA = [
@@ -158,4 +159,63 @@ export async function camsUsual(db: Db, station: string, date: string, today: st
   ).results;
   const col = (k: "pm2_5" | "pm10" | "dust" | "aod") => rows.map((r) => r[k]).filter((v): v is number => v != null);
   return { from, to: addDays(end, -1), items: { pm2_5: usualItem(col("pm2_5")), pm10: usualItem(col("pm10")), dust: usualItem(col("dust")), aod: usualItem(col("aod")) } };
+}
+
+/** 比較で一度に読む日の数の上限。 */
+export const AIR_DAYS_MAX = 45;
+
+/**
+ * 比較の空気（11/25）：from〜to の1日ごとのまとめ（PM2.5 の平均・黄砂の最大・介良局の実測の平均）。
+ * 過ぎた日は終わった日の値、今日と先の日は予測。終わった日の値がまだ無い日（日付が変わった直後の昨日）は残した予測。
+ */
+export async function readAirDays(db: Db, station: string, measuredStation: string | null, from: string, to: string, today: string): Promise<AirDaysResponse> {
+  await ensureAirSchema(db);
+  await ensureAirForecastSchema(db);
+  type R = { d: string; h: number; pm2_5: number | null; dust: number | null };
+  const q = (table: string) =>
+    db
+      .prepare(`SELECT substr(valid_at, 1, 10) AS d, CAST(substr(valid_at, 12, 2) AS INTEGER) AS h, pm2_5, dust FROM ${table} WHERE station = ? AND valid_at >= ? AND valid_at < ?`)
+      .bind(station, `${from}T00:00:00+09:00`, `${addDays(to, 1)}T00:00:00+09:00`)
+      .all<R>();
+  const past = (await q("air_quality_hourly")).results;
+  const fc = (await q("air_quality_forecast")).results;
+  const meas = new Map<string, number[]>();
+  if (measuredStation) {
+    await ensureSoramameSchema(db);
+    const m = await db
+      .prepare("SELECT date, pm2_5 FROM soramame_hourly WHERE station = ? AND date >= ? AND date <= ? AND pm2_5 IS NOT NULL")
+      .bind(measuredStation, from, to)
+      .all<{ date: string; pm2_5: number }>();
+    for (const r of m.results) meas.set(r.date, [...(meas.get(r.date) ?? []), r.pm2_5]);
+  }
+  const byDay = (rows: R[]) => {
+    const out = new Map<string, R[]>();
+    for (const r of rows) if (r.pm2_5 != null || r.dust != null) out.set(r.d, [...(out.get(r.d) ?? []), r]);
+    return out;
+  };
+  const p = byDay(past);
+  const f = byDay(fc);
+  const days: AirDay[] = [];
+  for (let d = from; d <= to; d = addDays(d, 1)) {
+    let kind: AirDay["kind"] = "none";
+    let rows: R[] = [];
+    if (d < today && p.get(d)?.length) [kind, rows] = ["past", p.get(d)!];
+    else if (f.get(d)?.length) [kind, rows] = ["forecast", f.get(d)!];
+    const pm = rows.map((r) => r.pm2_5).filter((v): v is number => v != null);
+    const dust = rows.filter((r) => r.dust != null);
+    const top = dust.reduce<R | null>((a, r) => (a == null || r.dust! > a.dust! ? r : a), null);
+    const mv = meas.get(d) ?? [];
+    days.push({
+      date: d,
+      kind,
+      pmMean: pm.length ? pm.reduce((a, v) => a + v, 0) / pm.length : null,
+      pmHours: pm.length,
+      dustMax: top ? top.dust : null,
+      dustMaxH: top ? top.h : null,
+      dustHours: dust.length,
+      measuredMean: mv.length ? mv.reduce((a, v) => a + v, 0) / mv.length : null,
+      measuredHours: mv.length,
+    });
+  }
+  return { v: 1, station, from, to, days };
 }

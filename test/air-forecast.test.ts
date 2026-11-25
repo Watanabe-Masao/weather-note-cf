@@ -160,3 +160,30 @@ describe("空気質のふだん（手前30日の終わった日の値）", () =>
     expect((await camsUsual(db, "47893", "2026-11-20", "2026-11-25")).items.pm2_5).toBeNull();
   });
 });
+
+describe("比較の空気（/api/air-days）", () => {
+  it("one summary per day: the finished days, the forecast, none; with the measured mean", async () => {
+    const { readAirDays } = await import("../worker/src/airForecast");
+    const { ensureSoramameSchema } = await import("../worker/src/soramame");
+    const db = d1();
+    await saveAirForecast(db, NOW, async () => ok(body("2026-11-25", 5)));
+    await ensureAirSchema(db);
+    const put = db.raw.prepare("INSERT INTO air_quality_hourly (station, valid_at, pm2_5, pm10, dust, aod, source, fetched_at) VALUES (?, ?, ?, NULL, ?, NULL, ?, ?)");
+    for (let h = 0; h < 24; h++) put.run("47893", `2026-11-23T${String(h).padStart(2, "0")}:00:00+09:00`, 10 + (h % 2), h === 15 ? 30 : 2, "open-meteo-cams", "x");
+    await ensureSoramameSchema(db);
+    const m = db.raw.prepare("INSERT INTO soramame_hourly (station, date, hour, pm2_5, ox, spm, no2, so2, wd, ws, fetched_at) VALUES (?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?)");
+    m.run("39201350", "2026-11-23", 1, 8, "x");
+    m.run("39201350", "2026-11-23", 2, 12, "x");
+    const r = await readAirDays(db, "47893", "39201350", "2026-11-22", "2026-11-26", "2026-11-25");
+    expect(r.days.map((d) => [d.date, d.kind])).toEqual([
+      ["2026-11-22", "none"],
+      ["2026-11-23", "past"],
+      ["2026-11-24", "none"],
+      ["2026-11-25", "forecast"],
+      ["2026-11-26", "forecast"],
+    ]);
+    expect(r.days[1]).toMatchObject({ pmMean: 10.5, pmHours: 24, dustMax: 30, dustMaxH: 15, measuredMean: 10, measuredHours: 2 });
+    expect(r.days[0]).toMatchObject({ pmMean: null, pmHours: 0, dustMax: null, measuredMean: null, measuredHours: 0 });
+    expect(r.days[3]).toMatchObject({ pmMean: 8, pmHours: 24 });
+  });
+});

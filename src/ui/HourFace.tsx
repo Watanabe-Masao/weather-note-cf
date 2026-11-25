@@ -11,6 +11,7 @@ import type { CalendarSide } from "./CalendarModal";
 import { CompareSummary } from "./CompareSummary";
 import { HourCompare } from "./HourCompare";
 import { VisibilityBars } from "./VisibilityBars";
+import { AirCompareHours } from "./AirCompare";
 import { WindRose } from "./WindRose";
 import { Segmented, SectionHead } from "./kit";
 
@@ -64,6 +65,8 @@ export function HourFace({ store, station, target, compareDate, metric, today, h
         </span>
       </SectionHead>
       {top}
+      {/* 空気（11/25）：比較では PM2.5・黄砂の24時間を視程の上に（1日の空気は AirQualityCard）。 */}
+      {id === "visibility" && summary && <AirCompareHours station={station} target={target} other={compareDate} today={today} />}
       <HourCompare store={store} station={station} date={target} other={compareDate} metricId={id} today={today} height={height} />
       {id === "visibility" && <VisibilityBars store={store} station={station} date={target} other={compareDate} />}
       {id === "wind" && <WindRose store={store} station={station} date={target} other={compareDate} />}
