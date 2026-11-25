@@ -1,6 +1,7 @@
 // What the table and the comparison graph can show: one value (or two) per day, for the
 // target days and their partner days. One chip row chooses it for both.
 
+import { minHoursFor } from "../shared/availability";
 import { daytimeFeel, type FeelSettings, MJ_PER_HOUR_TO_W, radiationOf } from "../shared/feel";
 import type { WeatherRow } from "../shared/types";
 import type { DataColor } from "./design/tokens";
@@ -108,7 +109,7 @@ export const EXTREME_MIN_HOURS = 20;
  */
 export function hourlyExtreme(hours: WeatherRow[] | null, key: string, pick: "max" | "min"): number | null {
   const values = (hours ?? []).map((h) => num(h[key])).filter((v): v is number => v != null);
-  if (values.length < EXTREME_MIN_HOURS) return null;
+  if (values.length < minHoursFor(key, hours?.[0]?.date, EXTREME_MIN_HOURS)) return null;
   return Math.round((pick === "max" ? Math.max(...values) : Math.min(...values)) * 10) / 10;
 }
 
@@ -119,7 +120,7 @@ export function hourlyExtreme(hours: WeatherRow[] | null, key: string, pick: "ma
  */
 export function hourlyMedian(hours: WeatherRow[] | null, key: string): number | null {
   const values = (hours ?? []).map((h) => num(h[key])).filter((v): v is number => v != null).sort((a, b) => a - b);
-  if (values.length < EXTREME_MIN_HOURS) return null;
+  if (values.length < minHoursFor(key, hours?.[0]?.date, EXTREME_MIN_HOURS)) return null;
   const m = values.length / 2;
   const v = values.length % 2 ? values[Math.floor(m)] : (values[m - 1] + values[m]) / 2;
   return Math.round(v * 10) / 10;
