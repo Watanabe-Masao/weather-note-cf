@@ -97,3 +97,58 @@ export const ItemIcon = ({ id, long = false }: { id: string; long?: boolean }) =
       </Line>
     </span>
   ) : null;
+
+/**
+ * 値が無いときの理由のアイコン（2026-11-25 渡辺さん、shared/availability.ts の NoValueWhy）。Lucide の
+ * calendar-off（対象外）・archive-x（取れません）・cookie（欠測：かじって欠けた形）・hourglass（まだ）・
+ * refresh-cw（取得失敗）・chart-pie（一部だけ）。
+ */
+export const NoValueIcon = ({ why, size = 16 }: { why: "outside" | "gone" | "absent" | "pending" | "failed" | "partial"; size?: number }) => (
+  <Line size={size}>
+    {why === "outside" && (
+      <>
+        <path d="M16 2v3" />
+        <path d="m2 2 20 20" />
+        <path d="M21 9h-5.5" />
+        <path d="M3 9h6" />
+        <path d="M3.586 3.586A2 2 0 003 5v14a2 2 0 002 2h14a2 2 0 001.414-.586" />
+        <path d="M8.656 3H19a2 2 0 012 2v10.344" />
+      </>
+    )}
+    {why === "gone" && (
+      <>
+        <path d="M3 3h18a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+        <path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+        <path d="m9.5 17 5-5" />
+        <path d="m9.5 12 5 5" />
+      </>
+    )}
+    {why === "absent" && (
+      <>
+        <path d="M11.496 2c.324-.016.558.292.529.615a4 4 0 004.235 4.368.713.713 0 01.758.757 4 4 0 004.366 4.237c.323-.03.63.204.614.527a10 10 0 01-2.915 6.566A1 1 0 114.93 4.918 10 10 0 0111.496 2" />
+        <path d="M11 17h.01M12 12h.01M16 16h.01M16 3h.01M21 4h.01M21 8h.01M7 14h.01M9 8h.01" />
+      </>
+    )}
+    {why === "pending" && (
+      <>
+        <path d="M5 22h14M5 2h14" />
+        <path d="M17 22v-4.172a2 2 0 0 0-.586-1.414L12 12l-4.414 4.414A2 2 0 0 0 7 17.828V22" />
+        <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2" />
+      </>
+    )}
+    {why === "failed" && (
+      <>
+        <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+        <path d="M21 3v5h-5" />
+        <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+        <path d="M8 16H3v5" />
+      </>
+    )}
+    {why === "partial" && (
+      <>
+        <path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z" />
+        <path d="M21.21 15.89A10 10 0 1 1 8 2.83" />
+      </>
+    )}
+  </Line>
+);

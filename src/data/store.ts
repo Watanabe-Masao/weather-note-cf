@@ -14,7 +14,7 @@
 //      screen they are asked again when they are LIVE_EVERY old (refreshLive), so an app left open
 //      or brought back from the background does not keep showing the afternoon as forecast.
 
-import { addDays, daysBetween, FIRST_DAY, jstToday, monthOf } from "../../shared/dates";
+import { addDays, daysBetween, FIRST_DAY, jstToday, lastDayOfMonth, monthOf } from "../../shared/dates";
 import { type Correction, CORRECTIONS, correctionRev } from "../../shared/corrections";
 import { inRevalidation, isFixedDay, isFixedHourlyDay } from "../../shared/fixed";
 import type { DailyMonthResponse, HourlyResponse, WeatherRow } from "../../shared/types";
@@ -678,7 +678,11 @@ export class WeatherStore {
       priority,
       days,
       run: async (ctx) => {
-        const data = await this.fetchJson<DailyMonthResponse>(`/api/daily?station=${station}&month=${month}`);
+        // 版（v）と訂正の版（r）を URL に入れる（2026-11-25 レビュー）：確定した月はブラウザが1年そのまま使う（immutable）ので、
+        // 行の形や訂正が変わったら URL を変えないと、ブラウザが古い答えを使い続ける。
+        const data = await this.fetchJson<DailyMonthResponse>(
+          `/api/daily?station=${station}&month=${month}&v=${DATA_VERSION}&r=${correctionRev(station, `${month}-01`, lastDayOfMonth(month), this.corrections)}`,
+        );
         const byDate = new Map(data.rows.map((r) => [r.date, r]));
         const records: DayRecord[] = [];
         for (const k of days) {

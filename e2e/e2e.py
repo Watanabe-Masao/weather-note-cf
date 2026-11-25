@@ -786,6 +786,16 @@ with sync_playwright() as p:
             calm()
         check("FS1 失敗がステータスに出る", pg.locator(".status-bar.error").count() == 1)
         st = small_text(); check("FS1b 11px より小さい文字がない（状態の行）", not st, str(st))
+        # 値が無いときの印（2026-11-25）：時別が取れない日の視程は「取得失敗」のアイコン（赤）。ⓘ に印の意味。
+        pick_item(5); calm()
+        whys = pg.evaluate("[...document.querySelectorAll('.strip-col .no-value')].map(e => e.dataset.why)")
+        check("NV1 視程の値が無いマスは理由のアイコン（文字の — ではない）、理由は6つのどれか", len(whys) >= 1 and pg.locator(".strip-col .cell-failed").count() == 0 and set(whys) <= {"outside", "gone", "absent", "pending", "failed", "partial"}, str(whys))
+        pg.locator('.info-btn[aria-label*="値の出どころの説明"]').first.click(); calm()
+        legend = txt(".no-value-legend") if pg.locator(".no-value-legend").count() else ""
+        check("NV2 ⓘ に印の意味（対象外・欠測・まだ・取得失敗・比べられない）", all(w in legend for w in ["対象外", "欠測", "まだ", "取得失敗", "比べられない"]), legend[:120])
+        if os.environ.get("WN_NVSHOT"): (pg.locator(".side-target").first.screenshot(path=os.environ["WN_NVSHOT"]), pg.evaluate("document.querySelector('aside.sheet').style.visibility='hidden'"), pg.locator(".no-value-legend").first.screenshot(path=os.environ["WN_NVSHOT"] + "-legend.png"), pg.evaluate("document.querySelector('aside.sheet').style.visibility=''"))
+        pg.locator('.info-btn[aria-label*="値の出どころの説明"]').first.click(); calm()
+        pick_item(0); calm()
         pg.locator(".status-detail").click(); calm()
         items = pg.locator(".failure-item").count()
         body = txt(".failure-sheet") if pg.locator(".failure-sheet").count() else ""
