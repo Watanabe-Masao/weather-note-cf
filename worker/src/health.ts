@@ -475,6 +475,7 @@ export async function health(db: Db, now = Date.now(), env: UsageEnv & ArchiveEn
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM longrange_fetch_log"))?.n ? { longRangeLastOk: await lastOk("longrange_fetch_log") } : {}),
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM amedas_fetch_log"))?.n ? { amedasLastOk: await lastOk("amedas_fetch_log") } : {}),
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM air_quality_fetch_log"))?.n ? { airLastOk: await lastOk("air_quality_fetch_log") } : {}),
+      ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM air_forecast_fetch_log"))?.n ? { airForecastLastOk: await lastOk("air_forecast_fetch_log") } : {}),
       ...((await one<{ n: number }>(db, "SELECT COUNT(*) AS n FROM soramame_fetch_log"))?.n ? { soramameLastOk: await lastOk("soramame_fetch_log") } : {}),
       // 週の点検（weeklyAudit.ts、#370）：最後に終わった時刻。表がまだ無ければ判断しない。
       ...(await weeklyAt(db)),

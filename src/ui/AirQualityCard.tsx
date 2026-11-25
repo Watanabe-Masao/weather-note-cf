@@ -11,8 +11,9 @@
 //   5. 基準と出典：1行にして、ⓘ で開く。
 // CAMS の値が無い日（2023年より前・6日先から）でも、視程は出す。
 import { type PointerEvent, type ReactNode, useRef, useState } from "react";
-import { airDay, latestMeasured, measuredMean } from "../airSummary";
+import { airDay, latestMeasured, measuredMean, measuredMissing } from "../airSummary";
 import { airVerdict } from "../airVerdict";
+import { hourlyExtreme } from "../chartMetrics";
 import { airInRange, useAir, useMeasured } from "../data/air";
 import type { AirHour, MeasuredHour } from "../../shared/airQuality";
 import type { WeatherRow } from "../../shared/types";
@@ -172,9 +173,13 @@ export function AirQualityCard({ station, date, today, hours, latest }: { statio
   const visAt = (h: number) => vis.find((p) => p.x === h) ?? null;
   const measAt = (h: number) => mh.find((m) => m.hour - 1 === h && m.pm2_5 != null) ?? null;
   const lastM = latestMeasured(mh);
+  // 実測が無いとき：読み込み中・取れなかった・まだ出ていない（速報値は遅れて出る）・無い を分けて言う（11/25 ルールの見直し）。
+  const measuredWho = measured.r == null ? (measured.failed ? "介良局・読み込めませんでした" : "介良局・読み込み中") : `介良局・${measuredMissing(date, measured.r.newestOut)}`;
   const meanM = measuredMean(mh);
-  const visObs = vis.filter((p) => p.actual);
-  const visMin = visObs.length ? Math.min(...visObs.map((p) => p.v)) : null;
+  // 視程の最小は表・比較の「視程最小」と同じ値（chartMetrics の hourlyExtreme：1時間ごとの値のいちばん小さいもの、
+  // 時間が足りなければ —）。同じ日の同じ値は、どこに出しても同じ数字（2026-11-24 の決まり）。
+  const visMin = hourlyExtreme(hours ?? null, "visibility", "min");
+  const visWho = vis.length && vis.every((p) => p.actual) ? "気象台" : vis.some((p) => p.actual) ? "気象台・予報を含む" : vis.length ? "予報（Open-Meteo）" : "値なし";
   const latestVis = isToday && latest && typeof latest.visibility === "number" ? Math.min(20, latest.visibility) : null;
   const camsWho = r ? (r.kind === "forecast" ? "CAMS の予測" : "CAMS") : "";
   const status = !inRange ? "PM2.5・黄砂（CAMS）は、2023年1月から今日の5日先までです。" : air.r == null ? (air.failed ? "PM2.5・黄砂を読み込めませんでした。" : "PM2.5・黄砂を読み込み中…") : !ch.length ? "この日の PM2.5・黄砂（CAMS）はありません。" : null;
@@ -218,14 +223,14 @@ export function AirQualityCard({ station, date, today, hours, latest }: { statio
               <Val label="PM2.5" value={r0(at(nowH!)?.pm2_5)} unit="µg/m³" tone="pm25" who={r ? `${camsWho}・${nowH}時` : "—"} />
               <Val label="黄砂" value={r0(at(nowH!)?.dust)} unit="µg/m³" tone="dust" who={r ? `${camsWho}・${nowH}時` : "—"} />
               <Val label="視程" value={r1(latestVis)} unit="km" tone="visibility" who={latestVis != null && typeof latest?.observedAt === "string" ? `気象台・${latest.observedAt}` : "気象台"} />
-              {date <= today && <Val label="実測 PM2.5" value={r0(lastM?.pm2_5)} unit="µg/m³" who={lastM ? `介良局・${lastM.hour - 1}時台` : measured.loading ? "読み込み中" : "介良局・まだ無し"} />}
+              {date <= today && <Val label="実測 PM2.5" value={r0(lastM?.pm2_5)} unit="µg/m³" who={lastM ? `介良局・${lastM.hour - 1}時台` : measuredWho} />}
             </>
           ) : (
             <>
               <Val label={d.pmHours && d.pmHours < 24 ? `PM2.5 ${d.pmHours}時間の平均` : "PM2.5 日平均"} value={r0(d.pmMean)} unit="µg/m³" tone="pm25" who={camsWho || "—"} />
               <Val label="黄砂 最大" value={r0(d.dustMax?.v)} unit="µg/m³" tone="dust" who={d.dustMax ? `${camsWho}・${d.dustMax.h}時` : camsWho || "—"} />
-              <Val label="視程 最小" value={r1(visMin)} unit="km" tone="visibility" who={visObs.length ? "気象台" : "観測なし"} />
-              {date <= today && <Val label={meanM && meanM.n < 24 ? `実測 PM2.5 ${meanM.n}時間の平均` : "実測 PM2.5 日平均"} value={r0(meanM?.mean)} unit="µg/m³" who="介良局" />}
+              <Val label="視程 最小" value={r1(visMin)} unit="km" tone="visibility" who={visWho} />
+              {date <= today && <Val label={meanM && meanM.n < 24 ? `実測 PM2.5 ${meanM.n}時間の平均` : "実測 PM2.5 日平均"} value={r0(meanM?.mean)} unit="µg/m³" who={meanM ? "介良局" : measuredWho} />}
             </>
           )}
         </div>

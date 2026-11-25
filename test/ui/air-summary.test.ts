@@ -54,3 +54,13 @@ describe("空気質：画面の読み方", () => {
     expect(measuredMean([m(1, null)])).toBeNull();
   });
 });
+
+describe("実測の無い日の言い方（まだ出ていない／途中／無い）", () => {
+  it("tells not out yet from none", async () => {
+    const { measuredMissing } = await import("../../src/airSummary");
+    expect(measuredMissing("2026-11-25", "2026-11-24 22")).toBe("まだ出ていません（介良局の速報値は 11/24 21時台まで）");
+    expect(measuredMissing("2026-11-25", "2026-11-25 03")).toBe("この日はまだ途中です（11/25 2時台まで）");
+    expect(measuredMissing("2026-11-20", "2026-11-24 22")).toBe("この日の実測はありません");
+    expect(measuredMissing("2026-11-20", null)).toBe("この日の実測はありません");
+  });
+});

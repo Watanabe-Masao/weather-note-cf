@@ -19,7 +19,7 @@ export const RUNBOOK: RunbookEntry[] = [
   { code: "R-02", title: "台風の電文が取れない・読めない", severity: "S1", keys: ["typhoonStale", "alert:collector", "alert:json", "alert:mismatch", "alert:problems"] },
   { code: "R-03", title: "雨雲レーダー・解析雨量が保存できない", severity: "S1", keys: ["radarStale"] },
   { code: "R-04", title: "警報・注意報の電文が保存できない", severity: "S1", keys: ["warningStale"] },
-  { code: "R-05", title: "天気図・長い先の予報・アメダスの観測・空気質が保存できない", severity: "S2", keys: ["chartsStale", "longRangeStale", "amedasStale", "airStale", "soramameStale"] },
+  { code: "R-05", title: "天気図・長い先の予報・アメダスの観測・空気質が保存できない", severity: "S2", keys: ["chartsStale", "longRangeStale", "amedasStale", "airStale", "airForecastStale", "soramameStale"] },
   { code: "R-06", title: "定時処理が抜ける・失敗する・遅い", severity: "S2", keys: ["cronRuns", "cronFailed", "cronSlow"] },
   { code: "R-07", title: "アカウントの処理（同期・通知・管理）の失敗", severity: "S2", keys: ["accountErrors"] },
   { code: "R-08", title: "電文が読めない・たまる", severity: "S2", keys: ["unparsed", "parseFailed"] },

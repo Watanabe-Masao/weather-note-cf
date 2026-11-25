@@ -49,6 +49,7 @@ export interface HealthView {
     longRangeLastOk?: string | null;
     amedasLastOk?: string | null;
     airLastOk?: string | null;
+    airForecastLastOk?: string | null;
     soramameLastOk?: string | null;
     /** 週の点検が最後に終わった時刻（worker/src/weeklyAudit.ts）。表が無いときは無い。 */
     weeklyAuditAt?: string | null;
@@ -129,6 +130,12 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
     }
     // 空気質は 2023-01 からいつでも取り直せるので、止まっても注意だけ（2日）。
     if (s.airLastOk !== undefined && ago(s.airLastOk) > 48) note("airStale", `空気質の保存が最後にうまくいったのは ${hours(ago(s.airLastOk))}（後から取り直せる）。`);
+    // 空気質の予測（11/25、airForecast.ts）：1時間ごとに取る。画面の今日と先の日はこの値なので、3時間で注意、1日で異常
+    // （予報の履歴は持たないので、止まった間の予測は取り直せない。画面は取得の時刻と「2時間以上たっています」を出す）。
+    if (s.airForecastLastOk !== undefined) {
+      if (ago(s.airForecastLastOk) > 24) problem("airForecastStale", `空気質の予測（CAMS）を最後に取れたのは ${hours(ago(s.airForecastLastOk))}（1時間ごとのはず、画面の今日と先の日が古いまま）。`);
+      else if (ago(s.airForecastLastOk) > 3) note("airForecastStale", `空気質の予測（CAMS）を最後に取れたのは ${hours(ago(s.airForecastLastOk))}（1時間ごとのはず）。`);
+    }
     // 大気汚染の実測は1年さかのぼって取れる：2日で注意、2週間で異常（取り直せる残りが減っていく）。
     if (s.soramameLastOk !== undefined) {
       if (ago(s.soramameLastOk) > 14 * 24) problem("soramameStale", `大気汚染の実測（そらまめくん）の保存が最後にうまくいったのは ${hours(ago(s.soramameLastOk))}（1年を過ぎた分は取り直せない）。`);
