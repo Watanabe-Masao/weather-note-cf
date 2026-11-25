@@ -5853,6 +5853,7 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ahm-lead { margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.6; }
 .ahm-legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--size-xs); color: var(--ink-secondary); }
 .ahm-legend span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.ahm-legend .ahm-legend-vis { flex-basis: 100%; flex-wrap: wrap; gap: var(--space-1) var(--space-3); }
 .ahm-legend .ahm-c { width: var(--space-4); height: var(--space-4); }
 .ahm-h { margin: var(--space-2) 0 0; font-size: var(--size-sm); font-weight: var(--weight-bold); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
 .ahm-h small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }

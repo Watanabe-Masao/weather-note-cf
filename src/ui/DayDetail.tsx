@@ -291,7 +291,7 @@ export function DayDetail({ store, station, date, today, metric, summary, airq, 
     return (
       <section className="day-detail" aria-label="1日の空気の質" data-group={group}>
         <div className="dd-sec">
-          <AirQualityCard station={station} date={date} today={today} />
+          <AirQualityCard station={station} date={date} today={today} hours={rows} />
         </div>
       </section>
     );

@@ -16,6 +16,7 @@ import type { AirHour, MeasuredHour } from "../../shared/airQuality";
 import { useState } from "react";
 import { AirBreakdownSheet } from "./AirBreakdownSheet";
 import { Button } from "./kit";
+import type { WeatherRow } from "../../shared/types";
 
 const W = 340;
 const H = 150;
@@ -93,7 +94,7 @@ function AirChart({ hours, measured, nowH }: { hours: AirHour[]; measured: Measu
   );
 }
 
-export function AirQualityCard({ station, date, today }: { station: string; date: string; today: string }) {
+export function AirQualityCard({ station, date, today, hours }: { station: string; date: string; today: string; hours?: WeatherRow[] | null }) {
   const air = useAir(station, date);
   const measured = useMeasured(station, date, date <= today);
   const [detail, setDetail] = useState(false);
@@ -195,7 +196,7 @@ export function AirQualityCard({ station, date, today }: { station: string; date
           全項目の内訳（ヒートマップ）
         </Button>
       </div>
-      {detail && <AirBreakdownSheet air={r} measured={date <= today ? measured.r : null} date={date} today={today} onClose={() => setDetail(false)} />}
+      {detail && <AirBreakdownSheet air={r} measured={date <= today ? measured.r : null} hours={hours} date={date} today={today} onClose={() => setDetail(false)} />}
 
       <div className="aq-read">
         {pm && (

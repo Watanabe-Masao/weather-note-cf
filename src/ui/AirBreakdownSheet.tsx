@@ -4,7 +4,8 @@
 //   - 基準（環境省）と用語は「基準と用語」に畳む。
 //   - 実測（そらまめくん 介良局の速報値）は今日までの日だけ。11/25 渡辺さん：商用利用でないのでそのまま使ってよい。
 import { type PointerEvent, useRef, useState } from "react";
-import { camsRows, fmt, type HeatRow, lastHour, measuredRows, notes } from "../airBreakdown";
+import { camsRows, fmt, type HeatRow, lastHour, measuredRows, notes, VIS_WORDS, visibilityRow, visLevel } from "../airBreakdown";
+import type { WeatherRow } from "../../shared/types";
 import { camsWord } from "../airSummary";
 import type { AirResponse, MeasuredResponse } from "../../shared/airQuality";
 import { USUAL_WORDS, usualLevel } from "../../shared/airUsual";
@@ -14,6 +15,9 @@ import { ModalSheet } from "./ModalSheet";
 const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
 const lvClass = (lv: number | null) => (lv == null ? "nu" : lv < 0 ? "na" : `l${lv}`);
 const lvWord = (lv: number | null) => (lv == null ? "比べられない" : lv < 0 ? "値なし" : USUAL_WORDS[lv]);
+/** 行の色の段：ふだんと比べた5段か、視程は気象庁の見通しの区分。 */
+const levelOf = (r: HeatRow, v: number | null) => (r.scale === "vis" ? visLevel(v) : usualLevel(v, r.usual));
+const wordOf = (r: HeatRow, lv: number | null) => (r.scale === "vis" ? (lv != null && lv > 0 ? VIS_WORDS[lv] : "値なし") : lvWord(lv));
 
 function Rows({ rows, sel, onPick }: { rows: HeatRow[]; sel: number; onPick: (h: number) => void }) {
   const box = useRef<HTMLDivElement>(null);
@@ -44,7 +48,7 @@ function Rows({ rows, sel, onPick }: { rows: HeatRow[]; sel: number; onPick: (h:
         {rows.map((r) => (
           <div key={r.key} className="ahm-row" data-key={r.key}>
             {r.values.map((v, h) => (
-              <i key={h} className={`ahm-c ${lvClass(usualLevel(v, r.usual))}${h === sel ? " sel" : ""}`} />
+              <i key={h} className={`ahm-c ${lvClass(levelOf(r, v))}${h === sel ? " sel" : ""}`} />
             ))}
           </div>
         ))}
@@ -53,12 +57,29 @@ function Rows({ rows, sel, onPick }: { rows: HeatRow[]; sel: number; onPick: (h:
   );
 }
 
-export function AirBreakdownSheet({ air, measured, date, today, onClose }: { air: AirResponse; measured: MeasuredResponse | null; date: string; today: string; onClose: () => void }) {
+export function AirBreakdownSheet({
+  air,
+  measured,
+  hours,
+  date,
+  today,
+  onClose,
+}: {
+  air: AirResponse;
+  measured: MeasuredResponse | null;
+  /** その日の1時間ごとの値（視程の実測を拾う）。 */
+  hours?: WeatherRow[] | null;
+  date: string;
+  today: string;
+  onClose: () => void;
+}) {
   const isToday = date === today;
   const nowH = isToday ? new Date(Date.now() + 9 * 3_600_000).getUTCHours() : null;
   const cams = camsRows(air.hours, air.usual?.items);
   const meas = measured ? measuredRows(measured.hours, measured.usual?.items) : null;
   const hasMeas = !!meas && measured!.hours.length > 0;
+  const vis = date <= today ? visibilityRow(hours) : null;
+  const measShown = [...(hasMeas ? meas! : []), ...(vis ? [vis] : [])];
   const [sel, setSel] = useState(() => nowH ?? 12);
   const [open, setOpen] = useState(false);
   const last = meas ? lastHour(meas) : null;
@@ -66,7 +87,7 @@ export function AirBreakdownSheet({ air, measured, date, today, onClose }: { air
   const anyNu = [...cams, ...(hasMeas ? meas! : [])].some((r) => !r.usual);
   const row = (r: HeatRow, who: string) => {
     const v = r.values[sel];
-    const lv = usualLevel(v, r.usual);
+    const lv = levelOf(r, v);
     return (
       <li key={`${who}${r.key}`}>
         <span>
@@ -75,7 +96,7 @@ export function AirBreakdownSheet({ air, measured, date, today, onClose }: { air
         </span>
         <b>{v == null ? "—" : fmt(v, r.digits)}</b>
         <small>{r.unit}</small>
-        <em className={`ahm-badge ${lvClass(lv)}`}>{lvWord(lv)}</em>
+        <em className={`ahm-badge ${lvClass(lv)}`}>{wordOf(r, lv)}</em>
       </li>
     );
   };
@@ -97,6 +118,17 @@ export function AirBreakdownSheet({ air, measured, date, today, onClose }: { air
             <i className="ahm-c na" />
             値なし
           </span>
+          {vis && (
+            <span className="ahm-legend-vis">
+              視程の行は気象庁の黄砂の見通しの区分：
+              {[1, 2, 3, 4].map((i) => (
+                <span key={i}>
+                  <i className={`ahm-c l${i}`} />
+                  {VIS_WORDS[i]}
+                </span>
+              ))}
+            </span>
+          )}
           {anyNu && (
             <span>
               <i className="ahm-c nu" />
@@ -110,13 +142,17 @@ export function AirBreakdownSheet({ air, measured, date, today, onClose }: { air
           <small>モデル、約45km の格子</small>
         </h3>
         <Rows rows={cams} sel={sel} onPick={setSel} />
-        {meas && (
+        {(meas || vis) && (
           <>
             <h3 className="ahm-h">
-              実測：{measured!.name}
-              <small>そらまめくん・速報値{last != null ? `・${last}時台まで` : ""}</small>
+              実測
+              <small>
+                {meas ? `${measured!.name}（そらまめくん・速報値${last != null ? `・${last}時台まで` : ""}）` : ""}
+                {vis ? `${meas ? "、" : ""}視程は高知の気象台（気象庁）` : ""}
+              </small>
             </h3>
-            {hasMeas ? <Rows rows={meas} sel={sel} onPick={setSel} /> : <p className="aq-note">この日の実測はまだありません。</p>}
+            {measShown.length ? <Rows rows={measShown} sel={sel} onPick={setSel} /> : null}
+            {meas && !hasMeas && <p className="aq-note">介良局の実測は、この日はまだありません。</p>}
           </>
         )}
         <div className="ahm-block ahm-axis" aria-hidden="true">
@@ -141,7 +177,7 @@ export function AirBreakdownSheet({ air, measured, date, today, onClose }: { air
           </p>
           <ul>
             {cams.map((r) => row(r, ""))}
-            {hasMeas && meas!.map((r) => row(r, "実測 "))}
+            {measShown.map((r) => row(r, "実測 "))}
           </ul>
         </div>
 
@@ -166,6 +202,7 @@ export function AirBreakdownSheet({ air, measured, date, today, onClose }: { air
         <div className="aq-src">
           <span>{air.kind === "forecast" ? "予測" : "モデルの値"}：Copernicus Atmosphere Monitoring Service（CAMS）、Open-Meteo.com（CC BY 4.0）</span>
           {meas && <span>実測：環境省 大気汚染物質広域監視システム（そらまめくん）。データの著作権は環境省・高知市など</span>}
+          {vis && <span>視程：気象庁（高知の気象台の観測）。区分は気象庁の黄砂観測実況図の見通しの区分</span>}
           <span>ふだんとの比べ：Weather Note の集計（手前30日の1時間値の 10%・75%・90%・98% で5段）</span>
           <span>基準：環境省「大気汚染に係る環境基準」「微小粒子状物質による大気の汚染に係る環境基準」、大気汚染防止法（光化学オキシダントの注意報）</span>
         </div>

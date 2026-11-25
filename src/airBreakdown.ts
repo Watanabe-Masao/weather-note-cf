@@ -12,6 +12,7 @@
 // 出典：環境省「大気汚染に係る環境基準」（https://www.env.go.jp/kijun/taiki.html）、「微小粒子状物質による大気の汚染に係る環境基準」。
 import type { AirHour, MeasuredHour } from "../shared/airQuality";
 import type { UsualItem } from "../shared/airUsual";
+import type { WeatherRow } from "../shared/types";
 
 const DAY = 24;
 const finite = (v: number | null | undefined): v is number => typeof v === "number" && Number.isFinite(v);
@@ -25,6 +26,30 @@ export interface HeatRow {
   /** 時（0〜23）ごとの値。実測はその1時間の平均で、時はその1時間の始まり（「h時台」）。 */
   values: (number | null)[];
   usual: UsualItem | null;
+  /** 色の決め方：ふだんと比べた5段（usual）か、気象庁の黄砂の見通しの区分（vis、視程の行だけ）。 */
+  scale?: "usual" | "vis";
+}
+
+/**
+ * 視程の行（2026-11-25 渡辺さん「時間帯の実測値は」→ 黄砂の手がかりとして視程を並べる）：高知の気象台の視程（気象庁の観測、
+ * 1時間ごとの正時の値）。色は気象庁の黄砂観測実況図の見通しの区分（10km 以上／5〜10／2〜5／2km 未満）で、ふだんとは比べない。
+ * 予報の時間（type が forecast）は入れない（実測の段なので）。時の n（1〜24）はその時ちょうどの値なので、列 n に置く（24 は翌日の 0時で入れない）。
+ */
+export const VIS_WORDS = ["", "10km 以上", "5〜10km", "2〜5km", "2km 未満"] as const;
+export function visLevel(v: number | null | undefined): number {
+  if (v == null || !Number.isFinite(v)) return -1;
+  return v >= 10 ? 1 : v >= 5 ? 2 : v >= 2 ? 3 : 4;
+}
+export function visibilityRow(hours: WeatherRow[] | null | undefined): HeatRow | null {
+  const values: (number | null)[] = Array(DAY).fill(null);
+  let any = false;
+  for (const r of hours ?? []) {
+    const v = r.visibility;
+    if (r.type !== "actual" || typeof v !== "number" || !Number.isFinite(v) || r.n < 0 || r.n >= DAY) continue;
+    values[r.n] = v;
+    any = true;
+  }
+  return any ? { key: "visibility", name: "視程", unit: "km", digits: 1, values, usual: null, scale: "vis" } : null;
 }
 
 export const fmt = (v: number, digits: number) => (digits ? v.toFixed(digits) : String(Math.round(v)));
