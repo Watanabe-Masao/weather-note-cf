@@ -81,7 +81,13 @@ export function AirQualityCard({ station, date, today }: { station: string; date
   const admin = useAccount().me?.role === "admin";
   const air = useAir(station, date);
   const measured = useMeasured(station, date, admin && date <= today);
-  if (air.unsupported || !airInRange(date, today)) return null;
+  if (air.unsupported) return null;
+  if (!airInRange(date, today))
+    return (
+      <section className="aq" aria-label="空気の質">
+        <p className="aq-note">この日の空気の質はありません（CAMS の値は 2023年1月から、予測は今日から5日分）。</p>
+      </section>
+    );
   const r = air.r;
   const isToday = date === today;
   const nowH = isToday ? new Date(Date.now() + 9 * 3_600_000).getUTCHours() : null;

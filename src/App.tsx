@@ -123,8 +123,12 @@ export function App(_: { theme?: string } = {}) {
   const [detent, setDetent] = useState<Detent>("mid");
   const [full, setFull] = useState(false);
   // 1日の「まとめ」（帯の先頭、2026-11-24 渡辺さん）：1日を開いたときはいつもまとめから。覚えない。
-  const [daySummary, setDaySummary] = useState(true);
+  // 1日の帯の「まとめ」と「空気」（どちらも項目の仲間ではない、1日だけの画面）。null は項目の画面。
+  const [dayPanel, setDayPanel] = useState<"summary" | "airq" | null>("summary");
+  const daySummary = dayPanel === "summary";
+  const setDaySummary = (on: boolean) => setDayPanel(on ? "summary" : null);
   const inSummary = view.single && daySummary;
+  const inAirq = view.single && dayPanel === "airq";
   const [settings, setSettings] = useState(false);
   // 記録: from the header at any time, or from a notification (?report=1&n=<when it was due>).
   const [reportFrom, setReportFrom] = useState<{ notifiedAt?: number } | null>(null);
@@ -414,8 +418,8 @@ export function App(_: { theme?: string } = {}) {
               bounds={bounds}
               compareDate={compareDate}
               compareGap={gap}
-              // まとめでは、表は天気・最高・最低（気温の行）。
-              metric={inSummary ? metricById("temp") : metric}
+              // まとめ・空気では、表は天気・最高・最低（気温の行）。
+              metric={inSummary || inAirq ? metricById("temp") : metric}
               single={view.single}
               moveTarget={moveTarget}
               moveCompare={moveCompare}
@@ -470,6 +474,8 @@ export function App(_: { theme?: string } = {}) {
               today={today}
               metric={view.metric}
               summary={inSummary}
+              airq={inAirq}
+              onPickAirq={() => setDayPanel("airq")}
               onPickItem={(id) => {
                 setDaySummary(false);
                 set("metric", id);
@@ -686,6 +692,7 @@ export function App(_: { theme?: string } = {}) {
         }}
         barRef={metricsRef}
         summary={view.single ? { on: daySummary, onPick: () => setDaySummary(true) } : undefined}
+        airq={view.single ? { on: dayPanel === "airq", onPick: () => setDayPanel("airq") } : undefined}
       />
 
       {/* その日の要約 (#176): over whatever it was opened from (the table, the calendar, the hours). */}

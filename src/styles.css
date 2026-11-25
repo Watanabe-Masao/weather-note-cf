@@ -941,7 +941,8 @@ img.event-pic { object-fit: contain; }
 /* 閉じた仲間：中の項目の数だけ小さな点 */
 .ib-dots { display: flex; gap: var(--space-1); height: var(--space-1); }
 .ib-dots i { width: var(--space-1); height: var(--space-1); border-radius: 50%; background: currentColor; }
-.metrics .chip { flex: 1 1 0; min-width: 52px; min-height: 44px; padding: 0 var(--space-2); }
+/* 11/25：帯の仲間が5つ（＋まとめ）になったので、開いた仲間の項目は 48px から（押せる範囲 44px 以上、幅 360 で1行に収まる）。 */
+.metrics .chip { flex: 1 1 0; min-width: 48px; min-height: 44px; padding: 0 var(--space-2); }
 .metrics .chip.on {
   color: var(--surface-base);
   background: var(--accent-base);
