@@ -1038,6 +1038,11 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>, cueAt: Rec
   const s7 = sh(6, 0, 6.42);
   const s8 = sh(7, 1, 7.72);
   const flake = cue(107, 0, 7.02);
+  // 見上げる（6ページ）：「顔を」の合図で。本文に無いとき（11/26 レビュー C 案「ビーバーが顔を上げることは絵の動きに委ねる」）は、
+  // 光の道が出てから少しおいて見上げる。動きは文の有無に関わらず残す。
+  const fastSwap = Object.keys(cueAt).length > 0;
+  const has = (page: number, k: number) => Number.isFinite(cueAt[page]?.[k] ?? Number.NaN);
+  const look = has(5, 2) ? cue(5, 2, 5.49) : has(5, 1) ? Math.min(5.7, cue(5, 1, 5.5) + 0.12) : 5.49;
   const leaves = q(".bw-bigleaf");
   const twigs = q(".bw-twig");
   // 1 秋の森：森に寄ったカメラ、葉が落ちる。「はらり、はらり。」で大きな葉が二枚、間をおいて。
@@ -1163,8 +1168,9 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>, cueAt: Rec
     .to(".bw-camera", { scale: 1, x: 0, y: -8, duration: 0.75, ease: "power2.inOut" }, 5 + s6)
     .to(".bw-moon", { attr: { transform: "translate(150 380)" }, duration: 0.5, ease: "power1.out" }, 5.22 + s6)
     .to(".bw-leaves", { opacity: 0, duration: 0.3 }, 5.05 + s6)
-    .to(".bw-ahead", { opacity: 0, duration: 0.06 }, cue(5, 2, 5.49) - 0.07)
-    .to(".bw-look", { opacity: 1, duration: 0.1 }, cue(5, 2, 5.49))
+    // 秒で決める本（合図あり）は1拍が長いので、姿の入れ替えを短く（11/26：消える→出るの間に姿が薄くなって見えた）。
+    .to(".bw-ahead", { opacity: 0, duration: fastSwap ? 0.02 : 0.06 }, fastSwap ? look - 0.022 : look - 0.07)
+    .to(".bw-look", { opacity: 1, duration: fastSwap ? 0.03 : 0.1 }, look)
     .to(".bw-stars", { opacity: 0.5, duration: 0.3 }, 5.45)
     .to(".bw-autumn", { opacity: 0.4, duration: 0.3 }, 5.45)
     .fromTo(

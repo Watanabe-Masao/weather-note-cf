@@ -27,6 +27,19 @@ const END: Record<string, Page> = {
   E2: { lines: ["赤い葉にも、", "白い雪。", "ビーバームーン。"], rest: 3 },
   E3: { lines: ["ビーバームーン。"], rest: 3 },
 };
+/**
+ * 11/26 独立レビュー（小型画面で月と文字が重なる 6・8 ページ）：本文の比べる案。作品全体で共通（端末ごとに変えない）。
+ * 6ページ ?p6=C（レビューの第一候補：顔を上げるのは絵に委ねる）。8ページ ?p8=R（レビュー案）・H（水の輪が、ひとつ）・
+ * D（雪の行は今のまま、最後の行を短く）。付けなければ今の推敲案。
+ */
+const P6: Record<string, string[]> = {
+  C: ["森の向こうから、", "やわらかな光。", "水の上に、光の道。"],
+};
+const P8: Record<string, string[]> = {
+  R: ["ひらり、ひらり。", "白い雪。", "ちゃぷん。", "水の輪が、ゆっくり広がります。"],
+  H: ["ひらり、ひらり。", "白い雪が舞い降ります。", "ちゃぷん。", "水の輪が、ひとつ。"],
+  D: ["ひらり、ひらり。", "白い雪が舞い降ります。", "ちゃぷん。", "水の輪が、広がります。"],
+};
 /** 第2次の5ページ（挿絵は変えず、文を直す）：A 空の色、B ひとつの星。 */
 const P5: Record<string, string[]> = {
   A: ["空が、少しずつ", "夜の色に染まっていきます。", "ビーバーは、住みかをちらり。", "もう、いっぽん。"],
@@ -64,7 +77,13 @@ export function typeSample(): string {
 function stage1<T extends FullMoonNameInfo | null>(story: T, v: "E1" | "E2" | "E3" | "E4"): T {
   const p5 = new URLSearchParams(location.search).get("p5") === "A" ? "A" : "B";
   const book = story!.book!;
-  const pages = BASE.map((pg, i) => ({ lines: i === 4 ? P5[p5] : pg.lines, rest: ORIGINAL_RESTS[i] }));
+  const q = new URLSearchParams(location.search);
+  const p6 = P6[q.get("p6") ?? ""];
+  const p8 = P8[q.get("p8") ?? ""];
+  const pages = BASE.map((pg, i) => ({
+    lines: i === 4 ? P5[p5] : i === 5 && p6 ? p6 : i === 7 && p8 ? p8 : pg.lines,
+    rest: ORIGINAL_RESTS[i],
+  }));
   const end = v === "E1" ? { lines: book.pages[8].lines, rest: ORIGINAL_RESTS[8] } : { ...END[v], rest: ORIGINAL_RESTS[8] };
   // 5ページ：B は一番星が灯る所（コマの 0.24）に「空に、ひとつ、」。「住みかをちらり。」は振り返る所（0.46）、「もう、いっぽん。」は前を向き直した所（0.6）。
   BEAVER_LINE_AT[4] = p5 === "B" ? [0.16, 0.16, 0.46, 0.6] : [0, 0, 0.46, 0.6];
@@ -104,6 +123,8 @@ const SOFT: Record<string, string> = {
   "そっと、枝を置きました。": "そっと、/枝を置きました。",
   "白い雪が舞い降ります。": "白い雪が/舞い降ります。",
   "水の輪が、広がっていきます。": "水の輪が、/広がっていきます。",
+  "水の輪が、ゆっくり広がります。": "水の輪が、/ゆっくり広がります。",
+  "森の向こうから、": "森の向こうから、",
 };
 const soft = (l: string) => SOFT[l] ?? l;
 
