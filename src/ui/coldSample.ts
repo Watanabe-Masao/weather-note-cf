@@ -34,6 +34,7 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   if (typeof location === "undefined" || !story?.book || story.name !== "コールドムーン") return story;
   const q = new URLSearchParams(location.search);
   if (q.get("cold2") !== "1") return story;
+  if (q.get("coldVeil") === "1") document.documentElement.classList.add("cold-veil");
   const sc = STORY_SCENES["コールドムーン"];
   if (sc) {
     sc.direction = coldDirection;
