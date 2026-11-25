@@ -58,13 +58,13 @@ interface Vis {
 const visOf = (rows: WeatherRow[] | null | undefined): Vis[] =>
   (rows ?? []).filter((r) => typeof r.visibility === "number" && Number.isFinite(r.visibility)).map((r) => ({ x: r.n, v: Math.min(20, r.visibility as number), actual: r.type === "actual" }));
 
-function Panels({ hours, measured, vis, usual, nowH, sel, onSel }: { hours: AirHour[]; measured: MeasuredHour[]; vis: Vis[]; usual: { pm: number | null; dust: number | null }; nowH: number | null; sel: number | null; onSel: (h: number) => void }) {
+function Panels({ hours, measured, vis, usual, nowH, sel, onSel }: { hours: AirHour[]; measured: MeasuredHour[]; vis: Vis[]; usual: { pm: number | null; dust: number | null; pmMeasured: number | null }; nowH: number | null; sel: number | null; onSel: (h: number) => void }) {
   const box = useRef<SVGSVGElement>(null);
   const x = (h: number) => LEFT + ((W - LEFT - RIGHT) * h) / 24;
   const pmVals = [...hours.map((h) => h.pm2_5), ...measured.map((m) => m.pm2_5)].filter((v): v is number => v != null);
   const dustVals = hours.map((h) => h.dust).filter((v): v is number => v != null);
   // ふだんの目安（CAMS のふだんの 90% の値、Weather Note の集計）の線が枠に入るように、上端に含める。
-  const pmTop = nice(Math.max(0, ...pmVals, usual.pm ?? 0), 20);
+  const pmTop = nice(Math.max(0, ...pmVals, usual.pm ?? 0, usual.pmMeasured ?? 0), 20);
   const dustTop = nice(Math.max(0, ...dustVals, usual.dust ?? 0), 10);
   const tops = { pm: HEAD, dust: HEAD + PANEL.pm + GAP, vis: HEAD + PANEL.pm + GAP + PANEL.dust + GAP };
   const H = tops.vis + PANEL.vis + AXIS;
@@ -99,12 +99,13 @@ function Panels({ hours, measured, vis, usual, nowH, sel, onSel }: { hours: AirH
         </text>
       </g>
     ));
-  const guide = (panel: "pm" | "dust", v: number | null, top: number) =>
+  // 目安の線は出どころごと（11/25 外部レビュー：PM2.5 の線は CAMS なのに、実測の点も同じ線で読めた）。CAMS は右に、介良局は左に名前。
+  const guide = (panel: "pm" | "dust", v: number | null, top: number, who: string, left = false) =>
     v == null ? null : (
       <g>
-        <line x1={LEFT} x2={W - RIGHT} y1={y(panel, v, top)} y2={y(panel, v, top)} className="aq-usual" />
-        <text x={W - RIGHT} y={y(panel, v, top) - 3} className="aq-usual-l">
-          ふだんの目安 {Math.round(v)}
+        <line x1={LEFT} x2={W - RIGHT} y1={y(panel, v, top)} y2={y(panel, v, top)} className={left ? "aq-usual measured" : "aq-usual"} />
+        <text x={left ? LEFT + 2 : W - RIGHT} y={y(panel, v, top) - 3} className={left ? "aq-usual-l start" : "aq-usual-l"}>
+          {who}の目安 {Math.round(v)}
         </text>
       </g>
     );
@@ -133,8 +134,9 @@ function Panels({ hours, measured, vis, usual, nowH, sel, onSel }: { hours: AirH
       {label("pm", "PM2.5 µg/m³")}
       {label("dust", "黄砂 µg/m³")}
       {label("vis", "視程 km")}
-      {guide("pm", usual.pm, pmTop)}
-      {guide("dust", usual.dust, dustTop)}
+      {guide("pm", usual.pm, pmTop, "CAMS ")}
+      {measured.some((m) => m.pm2_5 != null) && guide("pm", usual.pmMeasured, pmTop, "介良局", true)}
+      {guide("dust", usual.dust, dustTop, "CAMS ")}
       <path d={path(series("pm2_5"), "pm", pmTop)} className="aq-line pm" />
       {measured
         .filter((m) => m.pm2_5 != null)
@@ -272,7 +274,7 @@ export function AirQualityCard({ station, date, today, hours, latest }: { statio
             </>
           )}
         </p>
-        <Panels hours={ch} measured={mh} vis={vis} usual={{ pm: r?.usual?.items?.pm2_5?.q[2] ?? null, dust: r?.usual?.items?.dust?.q[2] ?? null }} nowH={nowH} sel={sh} onSel={(h) => setSelFor({ date, h })} />
+        <Panels hours={ch} measured={mh} vis={vis} usual={{ pm: r?.usual?.items?.pm2_5?.q[2] ?? null, dust: r?.usual?.items?.dust?.q[2] ?? null, pmMeasured: measured.r?.usual?.items?.pm2_5?.q[2] ?? null }} nowH={nowH} sel={sh} onSel={(h) => setSelFor({ date, h })} />
         <p className="aq-legend">
           <span className="aq-key pm" />
           <span className="aq-key dust" />
@@ -282,7 +284,7 @@ export function AirQualityCard({ station, date, today, hours, latest }: { statio
           {r?.usual?.items && (
             <>
               <span className="aq-key usual" />
-              ふだんの目安（CAMS のふだんの 90%）
+              ふだんの目安（それぞれの出どころのふだんの 90%）
             </>
           )}
           <span className="aq-key vis" />

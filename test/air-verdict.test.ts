@@ -21,8 +21,26 @@ describe("空気のひとこと", () => {
   it("PM2.5 from the measured hours when there are some, else CAMS", () => {
     const m: MeasuredHour[] = [9, 10].map((hour) => ({ hour, pm2_5: 20, ox: null, spm: null, no2: null, so2: null, wd: null, ws: null, fetchedAt: "x" }));
     const v = airVerdict({ hours: hours((h) => ({ pm2_5: h === 3 ? 30 : 8 })), usual }, { hours: m, usual }, null);
-    expect(v.facts).toEqual([{ key: "pm", text: "PM2.5 がふだんより多い（8〜9時台）", who: "介良局の実測・ふだんの目安 14 µg/m³" }]);
+    // 実測のある時間は実測で、実測の無い時間（3時）は CAMS で、どちらの値かを分けて書く（11/25 外部レビュー）。
+    expect(v.facts).toEqual([
+      { key: "pm", text: "PM2.5 がふだんより多い（8〜9時台）", who: "介良局の実測・ふだんの目安 14 µg/m³" },
+      { key: "pmCams", text: "PM2.5 がふだんより多い（3時）", who: "CAMS（実測の無い時間）・ふだんの目安 14 µg/m³" },
+    ]);
     expect(airVerdict({ hours: hours((h) => ({ pm2_5: h === 3 ? 30 : 8 })), usual }, null, null).facts[0]).toMatchObject({ text: "PM2.5 がふだんより多い（3時）", who: "CAMS・ふだんの目安 14 µg/m³" });
+  });
+  it("measured hours without Kaira's usual are not judged by them: CAMS is (11/25 review)", () => {
+    const m: MeasuredHour[] = [9, 10].map((hour) => ({ hour, pm2_5: 20, ox: null, spm: null, no2: null, so2: null, wd: null, ws: null, fetchedAt: "x" }));
+    const v = airVerdict({ hours: hours(() => ({})), usual }, { hours: m }, null);
+    expect(v.facts).toEqual([]);
+    expect(v.quiet).toBe("ふだんと大きな違いはありません");
+  });
+  it("says nothing differs only when PM2.5 and dust were each compared for 20 hours (11/25 review)", () => {
+    // CAMS の PM2.5 のふだんが無く、実測（ふだんあり）が 10時間だけ：PM2.5 を比べられたのは 10時間なので言わない。
+    const m: MeasuredHour[] = Array.from({ length: 10 }, (_, i) => ({ hour: i + 1, pm2_5: 5, ox: null, spm: null, no2: null, so2: null, wd: null, ws: null, fetchedAt: "x" }));
+    const noCamsPm = { ...usual, items: { dust: usual.items.dust } };
+    expect(airVerdict({ hours: hours(() => ({})), usual: noCamsPm }, { hours: m, usual }, null).quiet).toBe("ふだんと比べる値がそろっていません");
+    // 実測 10時間＋残りを CAMS で比べれば 24時間：言える。
+    expect(airVerdict({ hours: hours(() => ({})), usual }, { hours: m, usual }, null).quiet).toBe("ふだんと大きな違いはありません");
   });
   it("visibility under 5 km, observed hours only", () => {
     expect(airVerdict(null, null, vis((n) => (n === 10 || n === 11 ? 3 : 20))).facts).toEqual([{ key: "vis", text: "見通しが 5km 未満（10〜11時）", who: "気象台の観測" }]);
