@@ -9,6 +9,7 @@
 //   4. 知識：名前の由来・自然との関係（紙のページ）。次の満月の物語へ（一年を巡る13の物語）と、この年の一覧へ。
 // 文は毎年使える部分だけ（shared/fullMoonNames.ts）、その年だけのことは計算から。絵と動きは文化的なイメージで、実際の
 // 月の色や見え方とは別（ページの終わりに断る）。GSAP と ScrollTrigger は、このページを開いたときだけ読み込む。
+import { beaverEnding } from "./beaverEndingSample";
 import {
   type CSSProperties,
   Fragment,
@@ -378,7 +379,7 @@ export function MoonStory({
   const info: FullMoonNameInfo | null = event.name
     ? fullMoonInfo(event.name)
     : null;
-  const story = event.blue ? { ...BLUE_MOON, short: BLUE_MOON.short } : info;
+  const story = event.blue ? { ...BLUE_MOON, short: BLUE_MOON.short } : beaverEnding(info);
   const title = event.blue ? "ブルームーン" : (event.name ?? "満月");
   const facts = useMemo(
     () =>
