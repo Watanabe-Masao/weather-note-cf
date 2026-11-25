@@ -1,108 +1,21 @@
 // 予報の移り変わりの取り置き（2026-11-24 渡辺さん「予報履歴が古いまま残る」）：src/data/historyCache.ts。
+// 2026-11-25 の見本：TanStack Query に置き換えたので、決まりは「いつ古くなるか」（historyStaleTime）で確かめる。
 import { describe, expect, it } from "vitest";
-import { HistoryCache } from "../../src/data/historyCache";
+import { historyStaleTime } from "../../src/data/historyCache";
 import { LIVE_EVERY } from "../../src/data/store";
-import type { ForecastHistoryResponse } from "../../shared/forecastHistory";
 
 const TODAY = "2026-11-24";
-function setup(fail = () => false, today = () => TODAY) {
-  let now = Date.parse("2026-11-24T00:00:00Z"); // 9時
-  let n = 0;
-  const calls: string[] = [];
-  const cache = new HistoryCache(
-    async (station, date) => {
-      calls.push(`${station}/${date}`);
-      if (fail()) throw new Error("503");
-      return { v: ++n } as unknown as ForecastHistoryResponse;
-    },
-    () => now,
-    today,
-  );
-  return { cache, calls, later: (ms: number) => (now += ms), version: () => (cache.get("47893", TODAY).r as unknown as { v: number } | null)?.v };
-}
 
 describe("予報の移り変わりの取り直し", () => {
-  it("今日の分は、10分たってから開き直すと取り直す（朝に開いて夕方に戻ると夕方の発表）", async () => {
-    const { cache, calls, later, version } = setup();
-    await cache.ensure("47893", TODAY);
-    expect(version()).toBe(1);
-    later(LIVE_EVERY - 1);
-    await cache.ensure("47893", TODAY);
-    expect(calls.length).toBe(1);
-    later(8 * 3_600_000);
-    await cache.ensure("47893", TODAY);
-    expect(calls.length).toBe(2);
-    expect(version()).toBe(2);
+  it("今日と先の日は、10分で古くなる", () => {
+    expect(historyStaleTime(TODAY, Date.parse("2026-11-24T00:00:00Z"), TODAY)).toBe(LIVE_EVERY);
+    expect(historyStaleTime("2026-11-26", 0, TODAY)).toBe(LIVE_EVERY);
   });
-
-  it("過ぎた日は取り直さない（発表はもう増えない）", async () => {
-    const { cache, calls, later } = setup();
-    await cache.ensure("47893", "2026-11-20");
-    later(24 * 3_600_000);
-    await cache.ensure("47893", "2026-11-20");
-    expect(calls.length).toBe(1);
+  it("過ぎた日は、その日が終わったあとに取れた分なら古くならない", () => {
+    expect(historyStaleTime("2026-11-20", Date.parse("2026-11-21T00:00:00+09:00"), TODAY)).toBe(Infinity);
   });
-
-  it("予報の移り変わりと時間帯のグラフが同時に頼んでも、取得は1回", async () => {
-    const { cache, calls } = setup();
-    await Promise.all([cache.ensure("47893", TODAY), cache.load("47893", TODAY)]);
-    expect(calls.length).toBe(1);
-  });
-
-  it("取り直しに失敗しても、前に取れた分とその時刻を出したまま", async () => {
-    let bad = false;
-    const { cache, later, version } = setup(() => bad);
-    await cache.ensure("47893", TODAY);
-    const at = cache.get("47893", TODAY).at;
-    bad = true;
-    later(LIVE_EVERY);
-    await cache.ensure("47893", TODAY);
-    expect(version()).toBe(1);
-    expect(cache.get("47893", TODAY)).toMatchObject({ at, failed: true, loading: false });
-  });
-
-  it("初めの取得が失敗したら、次に開いたときにもう一度", async () => {
-    let bad = true;
-    const { cache, calls } = setup(() => bad);
-    await cache.ensure("47893", "2026-11-20");
-    expect(cache.get("47893", "2026-11-20")).toMatchObject({ r: null, failed: true });
-    bad = false;
-    await cache.ensure("47893", "2026-11-20");
-    expect(calls.length).toBe(2);
-    expect(cache.get("47893", "2026-11-20").failed).toBe(false);
-  });
-});
-
-describe("日付をまたいだら（2026-11-24 渡辺さんの共有したレビュー）", () => {
-  it("今日のうちに取れた分は、翌日に開いたとき1回だけ取り直す。そのあとは取り直さない", async () => {
-    let day = TODAY;
-    const { cache, calls, later } = setup(() => false, () => day);
-    await cache.ensure("47893", TODAY); // 9時
-    later(14 * 3_600_000); // 23時に閉じて、翌日 7時に開く
-    day = "2026-11-25";
-    later(8 * 3_600_000);
-    await cache.ensure("47893", TODAY);
-    expect(calls.length).toBe(2);
-    later(24 * 3_600_000);
-    await cache.ensure("47893", TODAY);
-    expect(calls.length).toBe(2);
-  });
-  it("翌日の取り直しに失敗したら、10分たって次に開いたときにもう一度", async () => {
-    let day = TODAY;
-    let bad = false;
-    const { cache, calls, later } = setup(() => bad, () => day);
-    await cache.ensure("47893", TODAY);
-    day = "2026-11-25";
-    later(22 * 3_600_000);
-    bad = true;
-    await cache.ensure("47893", TODAY);
-    expect(cache.get("47893", TODAY).failed).toBe(true);
-    await cache.ensure("47893", TODAY); // すぐは頼まない
-    expect(calls.length).toBe(2);
-    bad = false;
-    later(LIVE_EVERY);
-    await cache.ensure("47893", TODAY);
-    expect(calls.length).toBe(3);
-    expect(cache.get("47893", TODAY).failed).toBe(false);
+  it("その日が終わる前に取れた分は、日付が変わったら古い（夕方の発表が抜けたまま残らない）", () => {
+    expect(historyStaleTime("2026-11-23", Date.parse("2026-11-23T17:00:00+09:00"), TODAY)).toBe(0);
+    expect(historyStaleTime("2026-11-23", 0, TODAY)).toBe(0);
   });
 });
