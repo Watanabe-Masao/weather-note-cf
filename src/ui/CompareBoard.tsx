@@ -2,6 +2,8 @@
 // Linked: both strips render the same run of target days (the comparison cell is that day's partner)
 // and scroll as one. Independent: each strip has its own run of days.
 
+import { comparable, whyMissing } from "../../shared/availability";
+import { Incomparable, NoValue, NoValueLegend } from "./NoValue";
 import { Conf, confidenceOfRow, InfoButton } from "./kit";
 import { summaryAttr, useDaySummaryPress } from "./daySummaryPress";
 import { signedDiff } from "../design/format";
@@ -74,6 +76,19 @@ function useWindow(center: string, min: string, max: string) {
  * A number for the grid (#151): right-aligned in its column (every row of a column has the same
  * decimals, so the points line up); "—" (no value) sits in the middle of the column instead.
  */
+/** 表の行（系列）が読む行の項目。1日の値を時別から出す系列は、その時別の項目。 */
+const SERIES_FIELD: Record<string, string> = {
+  visibilityMin: "visibility",
+  visibilityMax: "visibility",
+  visibilityMedian: "visibility",
+  pressureMax: "pressure",
+  pressureMin: "pressure",
+  brightHours: "sun",
+};
+export const seriesField = (key: string) => SERIES_FIELD[key] ?? key;
+/** 行の項目ではなく、計算で出す系列（無いときは理由を付けず、今までどおり空ける）。 */
+const COMPUTED = new Set(["range", "feel", "baseline", "usualLight"]);
+
 function GridNum({ text }: { text: string }) {
   return !text || text === "—" ? <span className="grid-none">{text}</span> : <>{text}</>;
 }
@@ -152,12 +167,27 @@ function Column({
             : "";
         // 気象庁の予報の値は整数のまま（小数を付けると、無い桁を言うことになる）。
         const text = dayText(day?.row, s.key, raw);
+        // 値が無いときの理由（2026-11-25）：対象外・欠測・まだ・取得失敗 をアイコンで（意味は ⓘ）。
+        const hv = metric.needsHours ? store?.getHours(station, date) : undefined;
+        const why =
+          state === "ready" && (!text || text === "—") && !COMPUTED.has(s.key) && !(s.forecastOnly && day?.row?.type !== "forecast")
+            ? whyMissing({
+                field: seriesField(s.key),
+                date,
+                state,
+                hoursState: hv?.state,
+                rows: metric.needsHours ? (hv?.rows ?? []) : [day?.row],
+                forecast: day?.row?.type === "forecast",
+              })
+            : null;
         return (
         <span key={s.key} className={`cell-value tone-${s.tone}${s.minor ? " minor" : ""}${longValue(text) ? " long" : ""}${state === "ready" && omValue(day?.row, s.key) ? " om" : ""}`}>
-          {state === "ready" ? (
+          {why ? (
+            <NoValue why={why} />
+          ) : state === "ready" ? (
             <GridNum text={text} />
           ) : state === "error" ? (
-            <span className="cell-failed">—</span>
+            <NoValue why="failed" />
           ) : state === "empty" ? (
             <span className="skeleton" />
           ) : null}
@@ -171,9 +201,11 @@ function Column({
           const a = against ? s.value(store?.getDay(station, against).row, hoursOf(against), feel, station) : null;
           const b = s.value(day?.row, hoursOf(date), feel, station);
           const text = signedDiff(a, b, unit) || "—";
+          // 観測の方法が違う日どうし（2020-02-03 までの目視の視程など）は、差を出さずに「比べられない」（11/25 渡辺さん）。
+          const apart = a != null && b != null && !comparable(seriesField(s.key), against, date);
           return (
             <span key={"diff-" + s.key} className={`cell-value cell-diff${longValue(text) ? " long" : ""}`}>
-              <GridNum text={text} />
+              {apart ? <Incomparable /> : <GridNum text={text} />}
             </span>
           );
         })}
@@ -271,6 +303,8 @@ function SourceLegend({ station }: { station: string }) {
           <dd>府県・週間の日に、その値だけ Open-Meteo（気象庁の予報に無い値：平均・雨の量 など）</dd>
         </div>
       </dl>
+      <p className="no-value-head">値が無いときの印</p>
+      <NoValueLegend shown={["outside", "absent", "pending", "failed"]} incomparable />
       <p>
         補完・点線の値：<OpenMeteoCredit />。気象庁の予報：<JmaForecastLink />。寒暖差は最高−最低を Weather Note が計算。{OM_BIAS_NOTE[station] ? `補完の日の目安：${OM_BIAS_NOTE[station]}。` : ""}日を押すと、値ごとにどの発表の値かが見られます（1日の画面の ⓘ）。
       </p>
