@@ -153,8 +153,8 @@ describe("acceptance criteria (spec 2.7)", () => {
     back.store.setView(KOCHI, ["2025-06-15"], -1);
     await back.store.idle();
     expect(back.api.calls.slice(0, 2)).toEqual([
-      `/api/daily?station=${KOCHI}&month=2025-06`,
-      `/api/daily?station=${KOCHI}&month=2025-05`,
+      `/api/daily?station=${KOCHI}&month=2025-06&v=${DATA_VERSION}&r=0`,
+      `/api/daily?station=${KOCHI}&month=2025-05&v=${DATA_VERSION}&r=0`,
     ]);
 
     globalThis.indexedDB = new IDBFactory();
@@ -162,8 +162,8 @@ describe("acceptance criteria (spec 2.7)", () => {
     forward.store.setView(KOCHI, ["2025-06-28"], 1);
     await forward.store.idle();
     expect(forward.api.calls.slice(0, 2)).toEqual([
-      `/api/daily?station=${KOCHI}&month=2025-06`,
-      `/api/daily?station=${KOCHI}&month=2025-07`,
+      `/api/daily?station=${KOCHI}&month=2025-06&v=${DATA_VERSION}&r=0`,
+      `/api/daily?station=${KOCHI}&month=2025-07&v=${DATA_VERSION}&r=0`,
     ]);
   });
 
@@ -290,7 +290,7 @@ describe("requests are declared, not accumulated", () => {
     store.wantHours(KOCHI, [], 0, "sheet"); // closing the sheet must not cancel the table's request
     await store.idle();
     const hourly = api.calls.findIndex((c) => c.startsWith("/api/hourly"));
-    expect(hourly).toBeGreaterThan(api.calls.indexOf(`/api/daily?station=${KOCHI}&month=2025-06`));
+    expect(hourly).toBeGreaterThan(api.calls.indexOf(`/api/daily?station=${KOCHI}&month=2025-06&v=${DATA_VERSION}&r=0`));
     expect(store.getHours(KOCHI, "2025-06-15").state).toBe("ready");
   });
 
@@ -568,7 +568,8 @@ describe("正本管理 in the store", () => {
     });
     store.setView(KOCHI, ["2025-06-15"]);
     await store.idle();
-    expect(api.calls).toContain(`/api/daily?station=${KOCHI}&month=2025-06`);
+    // 訂正の版が URL に入る（r=1）：ブラウザが1年持つ確定の答えでも、訂正があれば別の URL として取り直す（2026-11-25 レビュー）。
+    expect(api.calls).toContain(`/api/daily?station=${KOCHI}&month=2025-06&v=${DATA_VERSION}&r=1`);
     expect(api.calls.some((c) => c.includes("month=2025-05"))).toBe(false); // outside the listed period
     expect(store.getDay(KOCHI, "2025-06-11").row).not.toBeNull();
   });

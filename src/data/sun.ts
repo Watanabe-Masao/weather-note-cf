@@ -1,6 +1,7 @@
 // Sunrise and sunset for the day detail. They are calculated values that never change,
 // so one request per station and day is kept for the whole session (the edge caches past days).
 
+import { DATA_SHAPE } from "../../shared/versions";
 import { addDays, FIRST_DAY, FORECAST_DAYS } from "../../shared/dates";
 import { clockOf, dayEdges, type Where } from "../../shared/dayParts";
 import { altitudeCrossing, DEFAULT_LAT_LON, solarAltitude, solarNoon, stationLatLon } from "../../shared/sunTimes";
@@ -20,12 +21,13 @@ export function cachedSun(station: string, date: string): SunTimes | null | unde
   return known.get(`${station}/${date}`);
 }
 
+// v：版。確定した日はブラウザが1年そのまま使うので、答えの形が変わったら URL を変える（2026-11-25 レビュー）。
 export function loadSun(station: string, date: string): Promise<SunTimes | null> {
   const key = `${station}/${date}`;
   if (known.has(key)) return Promise.resolve(known.get(key)!);
   let p = pending.get(key);
   if (!p) {
-    p = fetch(`/api/sun?station=${station}&date=${date}`, { signal: AbortSignal.timeout(30_000) })
+    p = fetch(`/api/sun?station=${station}&date=${date}&v=${DATA_SHAPE}`, { signal: AbortSignal.timeout(30_000) })
       .then((r) => (r.ok ? (r.json() as Promise<SunTimes>) : null))
       .then((s) => (s ? { sunrise: s.sunrise ?? null, sunset: s.sunset ?? null } : null))
       .catch(() => null)
