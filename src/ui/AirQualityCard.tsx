@@ -1,6 +1,8 @@
 // 空気の質（2026-11-25 渡辺さん「大気質の UI」、見本の OK）：大気の仲間の画面の下に1枚。
 //   - いま（今日）：PM2.5 と黄砂の、今の時の CAMS の予測。過ぎた日・先の日はその日の日平均と最大。
-//   - 実測（管理者だけ）：そらまめくんの介良局の PM2.5（速報値）。条件が「個人利用」なので、ほかの人には出さない。
+//   - 実測：そらまめくんの介良局の PM2.5（速報値）。今日までの日だけ。11/25 渡辺さん：商用利用でないのでそのまま使ってよい
+//     （それまでは管理者だけ）。
+//   - 全項目の内訳（ヒートマップ、AirBreakdownSheet）を開くボタン。
 //   - 24時間のグラフ（今の時に縦の点線）：PM2.5 と黄砂（どちらもその日の値なので実線、色で分ける。破線は比べる日の決まり）、実測は点。
 //   - 読み方：PM2.5 の日平均と環境省の基準、黄砂のいちばん多い時刻、気象庁の黄砂情報は見通しで伝えること。
 //   - 出典：予測・実測・基準を分けて書く（design-system 4.0a）。
@@ -8,7 +10,6 @@
 //     「M/D H:MM に取得」（モデルの計算の時刻ではない）。2時間以上たった・前の取得の値を含む・終わった日の値を待つ間の予測は
 //     そのことを添える（2時間は約1時間ごとの取得から置いた目安）。
 import { airAt, airDay, camsWord, dustReading, latestMeasured, measuredMean, pmReading } from "../airSummary";
-import { useAccount } from "../account/account";
 import { airInRange, useAir, useMeasured } from "../data/air";
 import { DATA, lineLook } from "../design/tokens";
 import type { AirHour, MeasuredHour } from "../../shared/airQuality";
@@ -93,9 +94,8 @@ function AirChart({ hours, measured, nowH }: { hours: AirHour[]; measured: Measu
 }
 
 export function AirQualityCard({ station, date, today }: { station: string; date: string; today: string }) {
-  const admin = useAccount().me?.role === "admin";
   const air = useAir(station, date);
-  const measured = useMeasured(station, date, admin && date <= today);
+  const measured = useMeasured(station, date, date <= today);
   const [detail, setDetail] = useState(false);
   if (air.unsupported) return null;
   if (!airInRange(date, today))
@@ -152,9 +152,8 @@ export function AirQualityCard({ station, date, today }: { station: string; date
             <small>µg/m³</small>
           </span>
         </div>
-        {admin && (
+        {date <= today && (
           <p className="aq-measured-line">
-            <span className="aq-admin">管理者だけ</span>
             {measured.r == null ? (
               <span>{measured.failed ? "実測を読み込めませんでした" : measured.loading ? "実測を読み込み中…" : "実測はありません"}</span>
             ) : isToday && lastM ? (
@@ -179,24 +178,24 @@ export function AirQualityCard({ station, date, today }: { station: string; date
 
       <div className="aq-chartbox">
         <p className="aq-title">PM2.5 と黄砂（24時間、µg/m³）</p>
-        <AirChart hours={r.hours} measured={admin ? mh : []} nowH={nowH} />
+        <AirChart hours={r.hours} measured={mh} nowH={nowH} />
         <p className="aq-legend">
           <span className="aq-key pm" />
           PM2.5（{r.kind === "forecast" ? "予測" : "モデル"}）
           <span className="aq-key dust" />
           黄砂（{r.kind === "forecast" ? "予測" : "モデル"}）
-          {admin && (
+          {mh.length > 0 && (
             <>
               <span className="aq-key dot" />
-              PM2.5 の実測（管理者だけ）
+              PM2.5 の実測（介良局）
             </>
           )}
         </p>
         <Button size="sm" className="aq-more" onClick={() => setDetail(true)}>
-          全項目の内訳（PM10・AOD{admin ? "・実測の全項目" : ""}）
+          全項目の内訳（ヒートマップ）
         </Button>
       </div>
-      {detail && <AirBreakdownSheet air={r} measured={admin ? measured.r : null} date={date} today={today} admin={admin} onClose={() => setDetail(false)} />}
+      {detail && <AirBreakdownSheet air={r} measured={date <= today ? measured.r : null} date={date} today={today} onClose={() => setDetail(false)} />}
 
       <div className="aq-read">
         {pm && (
@@ -222,7 +221,7 @@ export function AirQualityCard({ station, date, today }: { station: string; date
             {t}
           </span>
         ))}
-        {admin && <span>実測：環境省 大気汚染物質広域監視システム（そらまめくん）。データの著作権は環境省・高知市など</span>}
+        {date <= today && <span>実測：環境省 大気汚染物質広域監視システム（そらまめくん）。データの著作権は環境省・高知市など</span>}
         <span>基準：環境省</span>
       </div>
     </section>

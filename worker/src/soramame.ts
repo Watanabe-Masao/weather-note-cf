@@ -16,6 +16,8 @@ import type { Db } from "./accounts";
 import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
 import type { MeasuredResponse } from "../../shared/airQuality";
+import { addDays } from "../../shared/dates";
+import { USUAL_DAYS, usualItem } from "../../shared/airUsual";
 
 export const SORAMAME_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS soramame_hourly (
@@ -152,8 +154,11 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
   return { saved, ok: !error };
 }
 
-/** 管理者の画面用：その日の介良局の1時間値（速報値）。 */
-export async function readMeasured(db: Db, station: string, name: string, date: string): Promise<MeasuredResponse> {
+/**
+ * 画面用：その日の介良局の1時間値（速報値）と、ふだん（手前30日、今日と先の日は昨日までの30日。shared/airUsual.ts）。
+ * 2026-11-25 渡辺さん：商用利用でないので、そのまま使ってよい（だれにでも出す）。
+ */
+export async function readMeasured(db: Db, station: string, name: string, date: string, today: string): Promise<MeasuredResponse> {
   await ensureSoramameSchema(db);
   const rows = (
     await db
@@ -162,6 +167,15 @@ export async function readMeasured(db: Db, station: string, name: string, date: 
       .all<{ hour: number; pm2_5: number | null; ox: number | null; spm: number | null; no2: number | null; so2: number | null; wd: string | null; ws: number | null; fetched_at: string }>()
   ).results;
   const checked = await db.prepare("SELECT MAX(at) AS at FROM soramame_fetch_log WHERE ok = 1").first<{ at: string | null }>();
+  const end = date < today ? date : today;
+  const from = addDays(end, -USUAL_DAYS);
+  const back = (
+    await db
+      .prepare("SELECT pm2_5, ox, spm, no2, so2 FROM soramame_hourly WHERE station = ? AND date >= ? AND date < ?")
+      .bind(station, from, end)
+      .all<{ pm2_5: number | null; ox: number | null; spm: number | null; no2: number | null; so2: number | null }>()
+  ).results;
+  const col = (k: "pm2_5" | "ox" | "spm" | "no2" | "so2") => back.map((r) => r[k]).filter((v): v is number => v != null);
   return {
     v: 1,
     station,
@@ -169,6 +183,7 @@ export async function readMeasured(db: Db, station: string, name: string, date: 
     date,
     hours: rows.map((r) => ({ hour: r.hour, pm2_5: r.pm2_5, ox: r.ox, spm: r.spm, no2: r.no2, so2: r.so2, wd: r.wd, ws: r.ws, fetchedAt: r.fetched_at })),
     checkedAt: checked?.at ?? null,
+    usual: { from, to: addDays(end, -1), items: { pm2_5: usualItem(col("pm2_5")), ox: usualItem(col("ox")), spm: usualItem(col("spm")), no2: usualItem(col("no2")), so2: usualItem(col("so2")) } },
     source: "環境省 大気汚染物質広域監視システム（そらまめくん）",
   };
 }

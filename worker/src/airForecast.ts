@@ -19,6 +19,7 @@ import { ensureAirSchema } from "./airQuality";
 import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
 import type { AirResponse } from "../../shared/airQuality";
+import { USUAL_DAYS, type Usual, usualItem } from "../../shared/airUsual";
 
 export const AIR_FORECAST_SCHEMA = [
   `CREATE TABLE IF NOT EXISTS air_quality_forecast (
@@ -139,6 +140,22 @@ export async function readAir(db: Db, station: string, date: string, today: stri
     hours: rows.map((r) => ({ h: Number(r.valid_at.slice(11, 13)), pm2_5: r.pm2_5, pm10: r.pm10, dust: r.dust, aod: r.aod })),
     fetchedAt,
     olderHours: rows.filter((r) => r.fetched_at < fetchedAt!).length,
+    usual: await camsUsual(db, station, date, today),
     source: "Open-Meteo（CAMS）",
   };
+}
+
+/** ふだん（shared/airUsual.ts）：見る日の手前30日（今日と先の日は昨日までの30日）の、終わった日の1時間値。 */
+export async function camsUsual(db: Db, station: string, date: string, today: string): Promise<Usual> {
+  await ensureAirSchema(db);
+  const end = date < today ? date : today; // この日の 0時より前
+  const from = addDays(end, -USUAL_DAYS);
+  const rows = (
+    await db
+      .prepare("SELECT pm2_5, pm10, dust, aod FROM air_quality_hourly WHERE station = ? AND valid_at >= ? AND valid_at < ?")
+      .bind(station, `${from}T00:00:00+09:00`, `${end}T00:00:00+09:00`)
+      .all<{ pm2_5: number | null; pm10: number | null; dust: number | null; aod: number | null }>()
+  ).results;
+  const col = (k: "pm2_5" | "pm10" | "dust" | "aod") => rows.map((r) => r[k]).filter((v): v is number => v != null);
+  return { from, to: addDays(end, -1), items: { pm2_5: usualItem(col("pm2_5")), pm10: usualItem(col("pm10")), dust: usualItem(col("dust")), aod: usualItem(col("aod")) } };
 }

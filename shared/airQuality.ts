@@ -1,5 +1,7 @@
-// 空気質の画面とサーバーで共有する形（2026-11-25）。/api/air（CAMS のモデルの値）と /api/admin/air-measured
-// （そらまめくんの実測、管理者だけ）。
+import type { Usual } from "./airUsual";
+
+// 空気質の画面とサーバーで共有する形（2026-11-25）。/api/air（CAMS のモデルの値）と /api/air-measured
+// （そらまめくんの実測。11/25 渡辺さん：商用利用でないのでそのまま使ってよい → だれにでも）。
 
 export interface AirHour {
   /** 時刻（0〜23、その時ちょうどの値）。 */
@@ -21,6 +23,8 @@ export interface AirResponse {
   fetchedAt: string | null;
   /** fetchedAt より前の取得の値のままの時間の数（新しい応答で欠けた時間は前の値を残すため）。 */
   olderHours?: number;
+  /** ふだん（手前30日の分位、Weather Note の集計）。 */
+  usual?: Usual;
   source: "Open-Meteo（CAMS）";
 }
 
@@ -46,5 +50,7 @@ export interface MeasuredResponse {
   hours: MeasuredHour[];
   /** いちばん新しい取得の時刻（ISO、無ければ null）。 */
   checkedAt: string | null;
+  /** ふだん（手前30日の分位、Weather Note の集計）。 */
+  usual?: Usual;
   source: "環境省 大気汚染物質広域監視システム（そらまめくん）";
 }

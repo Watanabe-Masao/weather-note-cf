@@ -1,134 +1,172 @@
-// 空気の質の内訳（2026-11-25 渡辺さん「内訳の詳細画面」→ 空気の質の全項目）：空気の質の画面の「全項目の内訳」から開くシート。
-//   - CAMS（モデルの値、だれでも）：PM2.5・PM10・黄砂・AOD。
-//   - 実測（そらまめくん 介良局の速報値、管理者だけ）：PM2.5・光化学オキシダント・SPM・NO2・SO2・風。
-//   - 項目ごとに：今（今日）か日平均・最大、24時間の小さな線（値の無い時間で切る）、何の値か、基準と読み（airBreakdown.ts）。
-//   - 誰の値かは見出しで分け、基準（環境省）は項目の下に（design-system 4.0a）。
-import { type BreakdownItem, camsItems, fmt, lastWind, measuredItems, stats } from "../airBreakdown";
+// 空気の質の内訳（2026-11-25 渡辺さん「内訳の詳細画面」→ ヒートマップ、色はふだんと比べて。airBreakdown.ts）。
+//   - 縦に項目（CAMS 4つ・実測 5つ）、横に 0〜23時。マスの色はふだん（手前30日）と比べた5段。値の無い時間は空ける。
+//   - 時刻を選ぶ（マスの列を押す・なぞる、または下のつまみ）と、その時刻の全項目の値と段が下の表に出る。
+//   - 基準（環境省）と用語は「基準と用語」に畳む。
+//   - 実測（そらまめくん 介良局の速報値）は今日までの日だけ。11/25 渡辺さん：商用利用でないのでそのまま使ってよい。
+import { type PointerEvent, useRef, useState } from "react";
+import { camsRows, fmt, type HeatRow, lastHour, measuredRows, notes } from "../airBreakdown";
 import { camsWord } from "../airSummary";
 import type { AirResponse, MeasuredResponse } from "../../shared/airQuality";
+import { USUAL_WORDS, usualLevel } from "../../shared/airUsual";
+import { Button, Slider } from "./kit";
 import { ModalSheet } from "./ModalSheet";
 
-const W = 300;
-const H = 40;
-const PAD = 3;
+const md = (d: string) => `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))}`;
+const lvClass = (lv: number | null) => (lv == null ? "nu" : lv < 0 ? "na" : `l${lv}`);
+const lvWord = (lv: number | null) => (lv == null ? "比べられない" : lv < 0 ? "値なし" : USUAL_WORDS[lv]);
 
-function Spark({ item, nowH, tone }: { item: BreakdownItem; nowH: number | null; tone: string }) {
-  const s = stats(item.points);
-  const top = Math.max(s.max?.v ?? 0, item.scaleTop ?? 0) || 1;
-  const x = (h: number) => PAD + ((W - 2 * PAD) * h) / 23;
-  const y = (v: number) => H - PAD - ((H - 2 * PAD) * v) / top;
-  let d = "";
-  let prev = -2;
-  for (const p of item.points) {
-    d += `${p.x === prev + 1 ? "L" : "M"}${x(p.x).toFixed(1)},${y(p.v).toFixed(1)}`;
-    prev = p.x;
-  }
+function Rows({ rows, sel, onPick }: { rows: HeatRow[]; sel: number; onPick: (h: number) => void }) {
+  const box = useRef<HTMLDivElement>(null);
+  const pick = (e: PointerEvent) => {
+    const r = box.current?.getBoundingClientRect();
+    if (!r) return;
+    onPick(Math.max(0, Math.min(23, Math.floor(((e.clientX - r.left) / r.width) * 24))));
+  };
   return (
-    <div className="abd-sparkbox">
-    <span className="abd-top">
-      上端 {fmt(top, item.digits)}
-      {item.scaleTop && top === item.scaleTop ? "（基準の値）" : ""}
-    </span>
-    <svg viewBox={`0 0 ${W} ${H}`} className="abd-spark" preserveAspectRatio="none" aria-hidden="true">
-      <line x1={PAD} x2={W - PAD} y1={H - PAD} y2={H - PAD} className="aq-grid" />
-      {nowH != null && <line x1={x(nowH)} x2={x(nowH)} y1={0} y2={H} className="aq-now" />}
-      <path d={d} fill="none" className={`abd-line ${tone}`} vectorEffect="non-scaling-stroke" />
-      {item.points.length === 1 && <circle cx={x(item.points[0].x)} cy={y(item.points[0].v)} r={2} className={`abd-dot ${tone}`} />}
-    </svg>
+    <div className="ahm-block">
+      <div className="ahm-names" aria-hidden="true">
+        {rows.map((r) => (
+          <span key={r.key}>{r.name}</span>
+        ))}
+      </div>
+      <div
+        ref={box}
+        className="ahm-cells"
+        data-no-sheet-drag
+        aria-hidden="true"
+        onPointerDown={(e) => {
+          e.stopPropagation();
+          (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
+          pick(e);
+        }}
+        onPointerMove={(e) => e.buttons && pick(e)}
+      >
+        {rows.map((r) => (
+          <div key={r.key} className="ahm-row" data-key={r.key}>
+            {r.values.map((v, h) => (
+              <i key={h} className={`ahm-c ${lvClass(usualLevel(v, r.usual))}${h === sel ? " sel" : ""}`} />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
-function Row({ item, nowH, latest, extra }: { item: BreakdownItem; nowH: number | null; latest: "now" | "last" | "day"; extra?: string }) {
-  const s = stats(item.points);
-  const unit = item.unit ? ` ${item.unit}` : "";
-  const nowP = latest === "now" ? (item.points.find((p) => p.x === nowH) ?? null) : latest === "last" ? s.last : null;
-  const head =
-    latest === "now" ? (nowP ? fmt(nowP.v, item.digits) : "—") : latest === "last" ? (nowP ? fmt(nowP.v, item.digits) : "—") : s.mean != null ? fmt(s.mean, item.digits) : "—";
-  const headLabel = latest === "now" ? `${nowH}時` : latest === "last" ? (nowP ? `${nowP.x}時台` : "いちばん新しい値") : s.n < 24 ? `${s.n}時間の平均` : "日平均";
-  const tone = item.key === "pm25" ? "pm25" : item.key === "dust" ? "dust" : "plain";
-  return (
-    <li className="abd-row" data-key={item.key}>
-      <div className="abd-head">
-        <span className="abd-name">{item.name}</span>
-        <span className="abd-val">
-          <small>{headLabel}</small>
-          <b className={tone === "plain" ? undefined : `tone-${tone}`}>{head}</b>
-          <small>{item.unit}</small>
-        </span>
-      </div>
-      <Spark item={item} nowH={nowH} tone={tone} />
-      <p className="abd-sub">
-        {s.n
-          ? `${s.n < 24 ? `取得できた ${s.n}時間の平均` : "日平均"} ${fmt(s.mean!, item.digits)}${unit}・最大 ${fmt(s.max!.v, item.digits)}${unit}（${s.max!.x}時${item.span ? "台" : ""}）`
-          : "この日の値はありません"}
-        {extra ? `・${extra}` : ""}
-      </p>
-      <p className="abd-about">{item.about}</p>
-      {item.standard && <p className="abd-std">{item.standard}</p>}
-    </li>
-  );
-}
-
-export function AirBreakdownSheet({
-  air,
-  measured,
-  date,
-  today,
-  admin,
-  onClose,
-}: {
-  air: AirResponse;
-  measured: MeasuredResponse | null;
-  date: string;
-  today: string;
-  admin: boolean;
-  onClose: () => void;
-}) {
+export function AirBreakdownSheet({ air, measured, date, today, onClose }: { air: AirResponse; measured: MeasuredResponse | null; date: string; today: string; onClose: () => void }) {
   const isToday = date === today;
   const nowH = isToday ? new Date(Date.now() + 9 * 3_600_000).getUTCHours() : null;
-  const cams = camsItems(air.hours);
-  const mh = measured?.hours ?? [];
-  const wind = lastWind(mh);
-  const [m, d] = date.slice(5).split("-").map(Number);
+  const cams = camsRows(air.hours, air.usual?.items);
+  const meas = measured ? measuredRows(measured.hours, measured.usual?.items) : null;
+  const hasMeas = !!meas && measured!.hours.length > 0;
+  const [sel, setSel] = useState(() => nowH ?? 12);
+  const [open, setOpen] = useState(false);
+  const last = meas ? lastHour(meas) : null;
+  const usual = air.usual ?? measured?.usual;
+  const anyNu = [...cams, ...(hasMeas ? meas! : [])].some((r) => !r.usual);
+  const row = (r: HeatRow, who: string) => {
+    const v = r.values[sel];
+    const lv = usualLevel(v, r.usual);
+    return (
+      <li key={`${who}${r.key}`}>
+        <span>
+          {who}
+          {r.name}
+        </span>
+        <b>{v == null ? "—" : fmt(v, r.digits)}</b>
+        <small>{r.unit}</small>
+        <em className={`ahm-badge ${lvClass(lv)}`}>{lvWord(lv)}</em>
+      </li>
+    );
+  };
   return (
-    <ModalSheet title={`空気の質の内訳・${m}/${d}`} onClose={onClose} className="abd-sheet">
-      <div className="abd">
-        <section aria-labelledby="abd-cams">
-          <h3 id="abd-cams" className="abd-h">
-            {camsWord(air.kind)}
-            <small>モデル、約45km の格子・だれでも</small>
-          </h3>
-          <ul className="abd-list">
-            {cams.map((it) => (
-              <Row key={it.key} item={it} nowH={nowH} latest={isToday ? "now" : "day"} />
-            ))}
-          </ul>
-        </section>
+    <ModalSheet title={`空気の質の内訳・${md(date)}`} onClose={onClose} className="ahm-sheet">
+      <div className="ahm">
+        <p className="ahm-lead">
+          色は、その項目の<b>ふだん</b>
+          {usual ? `（この地点の ${md(usual.from)}〜${md(usual.to)} の1時間値）` : "（この地点の手前30日の1時間値）"}と比べた多さです。Weather Note の集計で、環境省の基準とは別です。列を押すと、その時刻の値が下に出ます。
+        </p>
+        <div className="ahm-legend">
+          {USUAL_WORDS.map((w, i) => (
+            <span key={w}>
+              <i className={`ahm-c l${i}`} />
+              {w}
+            </span>
+          ))}
+          <span>
+            <i className="ahm-c na" />
+            値なし
+          </span>
+          {anyNu && (
+            <span>
+              <i className="ahm-c nu" />
+              比べられない（手前のデータが7日分に届かない）
+            </span>
+          )}
+        </div>
 
-        {admin && (
-          <section aria-labelledby="abd-meas">
-            <h3 id="abd-meas" className="abd-h">
-              実測：{measured?.name ?? "高知市 介良局"}
-              <small>
-                <span className="aq-admin">管理者だけ</span> そらまめくん・速報値
-              </small>
+        <h3 className="ahm-h">
+          {camsWord(air.kind)}
+          <small>モデル、約45km の格子</small>
+        </h3>
+        <Rows rows={cams} sel={sel} onPick={setSel} />
+        {meas && (
+          <>
+            <h3 className="ahm-h">
+              実測：{measured!.name}
+              <small>そらまめくん・速報値{last != null ? `・${last}時台まで` : ""}</small>
             </h3>
-            {mh.length ? (
-              <ul className="abd-list">
-                {measuredItems(mh).map((it) => (
-                  <Row key={it.key} item={it} nowH={nowH} latest={isToday ? "last" : "day"} extra={it.key === "ws" && wind ? `風向 ${wind.word}（${wind.hour - 1}時台）` : undefined} />
-                ))}
-              </ul>
-            ) : (
-              <p className="aq-note">{measured ? "この日の実測はありません。" : "実測を読み込み中…"}</p>
-            )}
-          </section>
+            {hasMeas ? <Rows rows={meas} sel={sel} onPick={setSel} /> : <p className="aq-note">この日の実測はまだありません。</p>}
+          </>
+        )}
+        <div className="ahm-block ahm-axis" aria-hidden="true">
+          <span />
+          <span className="ahm-ticks">
+            {[0, 6, 12, 18].map((h) => (
+              <b key={h} style={{ left: `${((h + 0.5) / 24) * 100}%` }}>
+                {h}
+              </b>
+            ))}
+          </span>
+        </div>
+        <div className="ahm-block">
+          <span className="ahm-names">時刻</span>
+          <Slider className="ahm-slider" min={0} max={23} step={1} ticks={nowH != null ? [nowH] : undefined} thumbs={[{ value: sel, label: "時刻", valueText: `${sel}時`, onChange: setSel }]} />
+        </div>
+
+        <div className="ahm-read" aria-live="polite">
+          <p>
+            {sel}時{hasMeas ? `（実測は ${sel}時台の平均）` : ""}
+            {nowH === sel ? "・今" : ""}
+          </p>
+          <ul>
+            {cams.map((r) => row(r, ""))}
+            {hasMeas && meas!.map((r) => row(r, "実測 "))}
+          </ul>
+        </div>
+
+        <Button size="sm" kind="quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
+          {open ? "基準と用語を閉じる" : "基準と用語（環境省の基準・何の値か）"}
+        </Button>
+        {open && (
+          <dl className="ahm-notes">
+            {notes(cams, hasMeas ? meas : null).map((n) => (
+              <div key={n.name}>
+                <dt>{n.name}</dt>
+                <dd>
+                  {n.about}
+                  <br />
+                  {n.standard}
+                </dd>
+              </div>
+            ))}
+          </dl>
         )}
 
         <div className="aq-src">
-          <span>モデルの値：Copernicus Atmosphere Monitoring Service（CAMS）、Open-Meteo.com（CC BY 4.0）</span>
-          {admin && <span>実測：環境省 大気汚染物質広域監視システム（そらまめくん）。データの著作権は環境省・高知市など</span>}
+          <span>{air.kind === "forecast" ? "予測" : "モデルの値"}：Copernicus Atmosphere Monitoring Service（CAMS）、Open-Meteo.com（CC BY 4.0）</span>
+          {meas && <span>実測：環境省 大気汚染物質広域監視システム（そらまめくん）。データの著作権は環境省・高知市など</span>}
+          <span>ふだんとの比べ：Weather Note の集計（手前30日の1時間値の 10%・75%・90%・98% で5段）</span>
           <span>基準：環境省「大気汚染に係る環境基準」「微小粒子状物質による大気の汚染に係る環境基準」、大気汚染防止法（光化学オキシダントの注意報）</span>
         </div>
       </div>

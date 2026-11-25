@@ -5822,7 +5822,6 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .aq-note { margin: 0; font-size: var(--size-sm); color: var(--ink-tertiary); }
 .aq-measured-line { margin: var(--space-2) 0 0; font-size: var(--size-sm); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
 .aq-measured-line small { flex-basis: 100%; font-size: var(--size-xs); color: var(--ink-tertiary); }
-.aq-admin { font-size: var(--size-xs); padding: 0 var(--space-2); border-radius: var(--radius-sm); border: var(--stroke-hair) solid var(--line-soft); color: var(--ink-secondary); }
 .aq-chartbox { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-inset); }
 .aq-title { margin: 0 0 var(--space-2); font-size: var(--size-sm); font-weight: var(--weight-bold); color: var(--ink-secondary); }
 .aq-chart { width: 100%; height: auto; display: block; }
@@ -5843,27 +5842,52 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .aq-src { font-size: var(--size-xs); color: var(--ink-tertiary); display: grid; gap: var(--space-1); }
 .aq-src .aq-stale { color: var(--ink-secondary); } /* 値の新しさの注意は出典より一段はっきり */
 .aq-more { margin-top: var(--space-2); }
-/* 空気の質の内訳（シート、11/25）：項目ごとに 名前と値・24時間の線・平均と最大・何の値か・基準 */
-.abd { display: grid; gap: var(--space-5); padding-bottom: var(--space-5); }
-.abd-h { margin: 0 0 var(--space-2); font-size: var(--size-md); font-weight: var(--weight-bold); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
-.abd-h small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
-.abd-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
-.abd-row { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-inset); display: grid; gap: var(--space-1); }
-.abd-head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-2); }
-.abd-name { font-size: var(--size-sm); font-weight: var(--weight-bold); }
-.abd-val { display: inline-flex; align-items: baseline; gap: var(--space-1); }
-.abd-val small { font-size: var(--size-xs); color: var(--ink-tertiary); }
-.abd-val b { font-size: var(--size-lg); font-variant-numeric: tabular-nums; }
-.abd-spark { width: 100%; height: var(--space-8); display: block; }
-.abd-line { stroke-width: var(--stroke-focus); }
-.abd-line.plain { stroke: var(--ink-secondary); }
-.abd-line.pm25 { stroke: var(--data-pm25); }
-.abd-line.dust { stroke: var(--data-dust); }
-.abd-dot.plain { fill: var(--ink-secondary); }
-.abd-dot.pm25 { fill: var(--data-pm25); }
-.abd-dot.dust { fill: var(--data-dust); }
-.abd-sub { margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); font-variant-numeric: tabular-nums; }
-.abd-about { margin: 0; font-size: var(--size-xs); color: var(--ink-tertiary); }
-.abd-sparkbox { display: grid; }
-.abd-top { display: block; text-align: right; font-size: var(--size-xs); color: var(--ink-tertiary); }
-.abd-std { margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.6; }
+/* 空気の質の内訳（ヒートマップ、11/25）：縦に項目・横に 0〜23時、色はふだんと比べた5段（data-hot を地に混ぜる） */
+.ahm {
+  display: grid; gap: var(--space-3); padding-bottom: var(--space-5);
+  /* 段の色（ふだん → とても多い）：data-hot を地に混ぜる割合だけを決める（マスと表の札で同じ） */
+  --ahm-l1: color-mix(in srgb, var(--data-hot) 14%, var(--surface-raised));
+  --ahm-l2: color-mix(in srgb, var(--data-hot) 38%, var(--surface-raised));
+  --ahm-l3: color-mix(in srgb, var(--data-hot) 68%, var(--surface-raised));
+}
+.ahm-lead { margin: 0; font-size: var(--size-xs); color: var(--ink-secondary); line-height: 1.6; }
+.ahm-legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--size-xs); color: var(--ink-secondary); }
+.ahm-legend span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.ahm-legend .ahm-c { width: var(--space-4); height: var(--space-4); }
+.ahm-h { margin: var(--space-2) 0 0; font-size: var(--size-sm); font-weight: var(--weight-bold); display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-2); }
+.ahm-h small { font-size: var(--size-xs); font-weight: var(--weight-regular); color: var(--ink-tertiary); }
+.ahm-block { display: grid; grid-template-columns: 5.5em minmax(0, 1fr); align-items: center; }
+.ahm-names { display: grid; grid-auto-rows: var(--space-8); align-items: center; font-size: var(--size-xs); }
+.ahm-cells { display: grid; grid-auto-rows: var(--space-8); touch-action: none; cursor: pointer; }
+.ahm-row { display: grid; grid-template-columns: repeat(24, minmax(0, 1fr)); gap: var(--stroke-hair); padding-block: var(--stroke-hair); }
+.ahm-c { display: inline-block; border-radius: var(--radius-tick); box-shadow: 0 0 0 var(--stroke-hair) var(--line-soft) inset; }
+.ahm-row .ahm-c { height: 100%; }
+.ahm-c.l0 { background: var(--surface-inset); }
+.ahm-c.l1 { background: var(--ahm-l1); }
+.ahm-c.l2 { background: var(--ahm-l2); }
+.ahm-c.l3 { background: var(--ahm-l3); }
+.ahm-c.l4 { background: var(--data-hot); }
+.ahm-c.na { background: transparent; box-shadow: none; }
+.ahm-c.nu { background: repeating-linear-gradient(45deg, var(--line-strong) 0 var(--stroke-hair), transparent var(--stroke-hair) var(--space-1)); }
+.ahm-c.sel { box-shadow: 0 0 0 var(--stroke-focus) var(--ink-primary) inset; }
+.ahm-axis { height: var(--space-4); }
+.ahm-axis .ahm-ticks { grid-column: 2; }
+.ahm-ticks { position: relative; height: var(--space-4); font-size: var(--size-xs); color: var(--ink-tertiary); }
+.ahm-ticks b { position: absolute; transform: translateX(-50%); font-weight: var(--weight-regular); }
+.ahm-ticks .ahm-nowt { top: var(--space-4); color: var(--ink-secondary); }
+.ahm-read { padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface-inset); }
+.ahm-read p { margin: 0 0 var(--space-2); font-size: var(--size-sm); font-weight: var(--weight-bold); }
+.ahm-read ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.ahm-read li { display: grid; grid-template-columns: minmax(0, 1fr) auto 3.6em 6.6em; align-items: baseline; gap: var(--space-2); font-size: var(--size-xs); }
+.ahm-read b { font-size: var(--size-base); text-align: right; font-variant-numeric: tabular-nums; }
+.ahm-read small { color: var(--ink-tertiary); }
+.ahm-badge { font-style: normal; text-align: center; border-radius: var(--radius-sm); padding-inline: var(--space-1); }
+.ahm-badge.l0 { background: var(--surface-raised); }
+.ahm-badge.l1 { background: var(--ahm-l1); }
+.ahm-badge.l2 { background: var(--ahm-l2); }
+.ahm-badge.l3 { background: var(--ahm-l3); color: var(--ink-on-accent); }
+.ahm-badge.l4 { background: var(--data-hot); color: var(--ink-on-accent); }
+.ahm-badge.na, .ahm-badge.nu { color: var(--ink-tertiary); }
+.ahm-notes { margin: 0; display: grid; gap: var(--space-2); font-size: var(--size-xs); line-height: 1.6; }
+.ahm-notes dt { font-weight: var(--weight-bold); }
+.ahm-notes dd { margin: 0; color: var(--ink-secondary); }
