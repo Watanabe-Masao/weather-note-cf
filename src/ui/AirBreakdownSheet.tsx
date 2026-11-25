@@ -83,7 +83,9 @@ export function AirBreakdownSheet({
   const [sel, setSel] = useState(() => nowH ?? 12);
   const [open, setOpen] = useState(false);
   const last = meas ? lastHour(meas) : null;
-  const usual = air.usual ?? measured?.usual;
+  // ふだんは出どころごとに別（CAMS の格子と介良局）。期間も分けて書く（11/25 外部レビュー：CAMS の期間だけを書いていた）。
+  const usualC = air.usual ?? null;
+  const usualM = hasMeas ? (measured?.usual ?? null) : null;
   const anyNu = [...cams, ...(hasMeas ? meas! : [])].some((r) => !r.usual);
   const row = (r: HeatRow, who: string) => {
     const v = r.values[sel];
@@ -95,7 +97,11 @@ export function AirBreakdownSheet({
           {r.name}
         </span>
         <b>{v == null ? "—" : fmt(v, r.digits)}</b>
-        <small>{r.unit}</small>
+        {/* 単位と、その行の「多い」の目安（ふだんの 90%）と、ふだんを作った時間の数（11/25 外部レビュー） */}
+        <small>
+          {r.unit}
+          {r.usual ? `・目安 ${fmt(r.usual.q[2], r.digits)}（${r.usual.n}時間から）` : ""}
+        </small>
         <em className={`ahm-badge ${lvClass(lv)}`}>{wordOf(r, lv)}</em>
       </li>
     );
@@ -105,7 +111,10 @@ export function AirBreakdownSheet({
       <div className="ahm">
         <p className="ahm-lead">
           色は、その項目の<b>ふだん</b>
-          {usual ? `（この地点の ${md(usual.from)}〜${md(usual.to)} の1時間値）` : "（この地点の手前30日の1時間値）"}と比べた多さです。Weather Note の集計で、環境省の基準とは別です。列を押すと、その時刻の値が下に出ます。
+          {usualC || usualM
+            ? `（${[usualC ? `CAMS は ${md(usualC.from)}〜${md(usualC.to)}` : null, usualM ? `介良局は ${md(usualM.from)}〜${md(usualM.to)}` : null].filter(Boolean).join("、")} の1時間値。出どころごとに別）`
+            : "（手前30日の1時間値。出どころごとに別）"}
+          と比べた多さです。Weather Note の集計で、環境省の基準とは別です。列を押すと、その時刻の値が下に出ます。
         </p>
         <div className="ahm-legend">
           {USUAL_WORDS.map((w, i) => (

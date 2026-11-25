@@ -5854,6 +5854,8 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .aq-visband { fill: var(--line-soft); }
 .aq-usual { stroke: var(--ink-secondary); stroke-width: var(--stroke-hair); stroke-dasharray: calc(var(--stroke-hair) * 3) calc(var(--stroke-hair) * 3); }
 .aq-usual-l { font-size: var(--size-xs); fill: var(--ink-secondary); text-anchor: end; }
+.aq-usual-l.start { text-anchor: start; }
+.aq-usual.measured { stroke: var(--ink-primary); stroke-dasharray: var(--stroke-hair) calc(var(--stroke-hair) * 3); }
 .aq-now { stroke: var(--ink-secondary); stroke-width: var(--stroke-hair); stroke-dasharray: var(--stroke-hair) var(--stroke-hair); }
 .aq-sel { stroke: var(--ink-primary); stroke-width: var(--stroke-hair); }
 .aq-measured { fill: var(--ink-primary); }
