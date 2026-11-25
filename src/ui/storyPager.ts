@@ -35,6 +35,12 @@ type Opts = {
    * 加速・減速し、間は一定の速さで運ぶ（演出の秒を拍へ写す側が glideFrac で同じ形を使う）。
    */
   profile?: (i: number) => { a: number; b: number } | undefined;
+  /**
+   * ページの冒頭（11/26 渡辺さん「ページを選択した場合は、そのページの冒頭から読めることを原則」）：区切り i へ、ドットで
+   * 選んで（dot）・一つ戻って（back）着くとき、止まる所へ直接ではなく、まずそのページの冒頭（px）へ運び、そこから区切りまでを
+   * seconds 秒で（朗読の速さで）運ぶ。返さなければ、今までどおり直接。
+   */
+  entry?: (i: number, how: "dot" | "back") => { px: number; seconds: number } | undefined;
 };
 
 /**
@@ -115,6 +121,8 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
   //   3. おわり b 秒で、なめらかに減速して止まる（速さ vc·(1 − u/b)²、止まる直前ほどゆっくり）。行き過ぎない。
   //   v0 は行き先の向きの成分だけ、平均の速さの 2 倍まで（それより速いと vc が小さくなりすぎるため）。
   const glide = (to: number, v0 = 0) => {
+    // 戻る向き（キー・払う・ボタン、どれでも）で、冒頭から読むページ（entry の back）に着くときは冒頭を通る。
+    if (to < el.scrollTop - 2 && viaEntry(stops.indexOf(to), "back")) return;
     stop();
     const x0 = el.scrollTop;
     // 節目をまたいで前へ一つ進むとき：節目までは短く、節目から先は朗読の速さ（節目で速さが途切れないよう、節目での
@@ -158,14 +166,15 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     }
     glideFrom(x0, to, v0);
   };
-  const glideFrom = (x0: number, to: number, v0: number, carry = false) => {
+  const glideFrom = (x0: number, to: number, v0: number, carry = false, seconds?: number, then?: () => void) => {
     const D = to - x0;
     if (Math.abs(D) < 0.5) {
       el.scrollTop = to;
-      report(to, true);
+      if (then) then();
+      else report(to, true);
       return;
     }
-    const T = o.reduced?.() ? 0.45 : travelSeconds(x0, to);
+    const T = o.reduced?.() ? 0.45 : (seconds ?? travelSeconds(x0, to));
     const next = stops.find((s) => s > x0 + 2);
     const pf = !o.reduced?.() && to === next && to > x0 ? o.profile?.(stops.indexOf(to)) : undefined;
     const toward = Math.sign(v0) === Math.sign(D);
@@ -193,7 +202,8 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
         el.scrollTop = to;
         raf = 0;
         target = null;
-        report(to, true);
+        if (then) then();
+        else report(to, true);
         return;
       }
       const y = pos(k * T);
@@ -228,6 +238,20 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     raf = requestAnimationFrame(tick);
   };
 
+  /** ページの冒頭を通って区切り k へ（entry）。運んだら true。冒頭までは距離から決めた短い時間、冒頭からは決めた秒で。 */
+  const viaEntry = (k: number, how: "dot" | "back") => {
+    const to = stops[k];
+    const e = o.reduced?.() || to === undefined ? undefined : o.entry?.(k, how);
+    if (!e || Math.abs(from() - to) < 2) return false;
+    // 戻る（back）は、その次の区切り（あとがきなど）の近くから戻るときだけ（止まる所を少し越えただけなら、今までどおり戻す）。
+    const after = stops[k + 1];
+    if (how === "back" && (after === undefined || el.scrollTop < after - 2)) return false;
+    stop();
+    glideFrom(el.scrollTop, e.px, 0, false, undefined, () => glideFrom(e.px, to, 0, true, e.seconds));
+    // 運んでいる間の行き先は、冒頭ではなく区切り（途中で ↓↑ を押したとき、その区切りから数える）。
+    target = to;
+    return true;
+  };
   /** x0 から区切り to まで運ぶ秒数：通る区切りの間ごとの秒数（seconds）の和。途中から始めるときは残りの割合で。 */
   const byDistance = (d: number) =>
     Math.min(1.8, Math.max(1.1, 0.9 + Math.abs(d) / 2500));
@@ -462,7 +486,10 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
 
   return {
     refresh: onResize,
-    goTo: (i) => glide(stops[Math.max(0, Math.min(stops.length - 1, i))] ?? 0),
+    goTo: (i) => {
+      const k = Math.max(0, Math.min(stops.length - 1, i));
+      if (!viaEntry(k, "dot")) glide(stops[k] ?? 0);
+    },
     step: (dir) => glide(stepFrom(from(), dir)),
     glide,
     destroy: () => {
