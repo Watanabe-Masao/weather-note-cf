@@ -14,6 +14,7 @@
     "e2e": "vite build && python3 e2e/e2e.py"
   },
   "dependencies": {
+    "@tanstack/react-query": "5.62.0",
     "astronomy-engine": "2.1.19",
     "gsap": "3.14.2",
     "idb": "^8.0.4",
