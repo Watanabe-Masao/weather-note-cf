@@ -1,0 +1,55 @@
+# 使い終わったブランチを消すボタン（2026-11-25 渡辺さん「スマホから一気に処理する方法」）。
+# Actions → 「使い終わったブランチを消す」→ Run workflow。はじめは「試すだけ」（消さずに数だけ出す）で押し、
+# 数が合っていたら「試すだけ」を外してもう一度押す。済んだらこのファイルと .github/branch-cleanup/ は消す PR を出す。
+#
+# 守り：
+#   - 消すのは .github/branch-cleanup/delete.txt にあるものだけ。
+#   - keep.txt にあるもの・main・開いている PR のブランチは、delete.txt にあっても消さない。
+#   - ログには数と消さなかった理由だけを出す。
+name: 使い終わったブランチを消す
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "試すだけ（消さずに数だけ出す）"
+        type: boolean
+        default: true
+permissions:
+  contents: write
+  pull-requests: read
+concurrency: delete-old-branches
+jobs:
+  delete:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/branch-cleanup
+      - name: 消す
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          DRY: ${{ inputs.dry_run }}
+        run: |
+          set -u
+          grep -v '^#' .github/branch-cleanup/keep.txt | sed '/^$/d' | sort -u > keep
+          grep -v '^#' .github/branch-cleanup/delete.txt | sed '/^$/d' | sort -u > want
+          gh api --paginate "repos/$REPO/branches?per_page=100" --jq '.[].name' | sort -u > exist
+          gh api --paginate "repos/$REPO/pulls?state=open&per_page=100" --jq '.[].head.ref' | sort -u > openpr
+          deleted=0; gone=0; kept=0; failed=0
+          while IFS= read -r b; do
+            if [ "$b" = "main" ] || grep -qxF "$b" keep; then kept=$((kept+1)); echo "残す（keep）: $b"; continue; fi
+            if grep -qxF "$b" openpr; then kept=$((kept+1)); echo "残す（開いている PR）: $b"; continue; fi
+            if ! grep -qxF "$b" exist; then gone=$((gone+1)); continue; fi
+            if [ "$DRY" = "true" ]; then deleted=$((deleted+1)); continue; fi
+            enc=$(printf '%s' "$b" | jq -sRr @uri)
+            if gh api -X DELETE "repos/$REPO/git/refs/heads/$enc" >/dev/null 2>&1; then deleted=$((deleted+1)); else failed=$((failed+1)); echo "消せなかった: $b"; fi
+          done < want
+          left=$(gh api --paginate "repos/$REPO/branches?per_page=100" --jq '.[].name' | wc -l)
+          if [ "$DRY" = "true" ]; then echo "試すだけ：消す予定 ${deleted}本・もう無い ${gone}本・残す ${kept}本"; else echo "消した ${deleted}本・もう無い ${gone}本・残した ${kept}本・消せなかった ${failed}本・いまのブランチ ${left}本"; fi
+          {
+            echo "## 使い終わったブランチを消す"
+            if [ "$DRY" = "true" ]; then echo "試すだけ：消す予定 **${deleted}本**、もう無い ${gone}本、残す ${kept}本"; else echo "消した **${deleted}本**、もう無い ${gone}本、残した ${kept}本、消せなかった ${failed}本。いまのブランチ ${left}本"; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          [ "$failed" -eq 0 ]
