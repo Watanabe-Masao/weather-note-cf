@@ -1,0 +1,33 @@
+name: research-air-usual
+
+# 空気の「ふだん」の比べ方（research/air-usual/r01.ts、2026-11-25 外部レビュー）。手で動かすだけ。高知の CAMS 全球
+# （Open-Meteo）の PM2.5・黄砂を 2023-01 から3か月ずつ読み、直近30日と同じ季節の過去の年で「多い」と出る日の割合を比べる。
+# 結果はこの回の成果物とまとめだけ（コミットしない）。
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "最初の評価日（YYYY-MM-DD）"
+        default: "2024-01-01"
+      to:
+        description: "最後の評価日（YYYY-MM-DD）"
+        default: "2026-11-24"
+
+jobs:
+  r01:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx --yes tsx@4.19.2 research/air-usual/r01.ts --from "${{ inputs.from }}" --to "${{ inputs.to }}" --out research/air-usual/out
+      - run: cat research/air-usual/out/r01-report.md >> "$GITHUB_STEP_SUMMARY"
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: air-usual-r01-${{ inputs.from }}-${{ inputs.to }}
+          path: research/air-usual/out
