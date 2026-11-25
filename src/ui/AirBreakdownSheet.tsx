@@ -6,7 +6,7 @@
 import { type PointerEvent, useRef, useState } from "react";
 import { camsRows, fmt, type HeatRow, lastHour, measuredRows, notes, VIS_WORDS, visibilityRow, visLevel } from "../airBreakdown";
 import type { WeatherRow } from "../../shared/types";
-import { camsWord } from "../airSummary";
+import { camsWord, measuredMissing } from "../airSummary";
 import type { AirResponse, MeasuredResponse } from "../../shared/airQuality";
 import { USUAL_WORDS, usualLevel } from "../../shared/airUsual";
 import { Button, Slider } from "./kit";
@@ -152,7 +152,7 @@ export function AirBreakdownSheet({
               </small>
             </h3>
             {measShown.length ? <Rows rows={measShown} sel={sel} onPick={setSel} /> : null}
-            {meas && !hasMeas && <p className="aq-note">介良局の実測は、この日はまだありません。</p>}
+            {meas && !hasMeas && <p className="aq-note">介良局の実測：{measuredMissing(date, measured!.newestOut)}</p>}
           </>
         )}
         <div className="ahm-block ahm-axis" aria-hidden="true">

@@ -13,6 +13,7 @@
 
 import { STATION_PLACES } from "../../shared/stationPlaces";
 import type { Db } from "./accounts";
+import { migrate } from "./migrate";
 import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
 import type { MeasuredResponse } from "../../shared/airQuality";
@@ -58,6 +59,9 @@ const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts�
 export function ensureSoramameSchema(db: Db): Promise<void> {
   return doneOnce(done, db, async () => {
     for (const q of SORAMAME_SCHEMA) await db.prepare(q).run();
+    // 版1（11/25 ルールの見直し）：取得の記録に、API が返した行の数・値のある最後の時間・形が合わずに捨てた行の数。
+    // 「API が返さなかった」と「こちらが捨てた」を後から見分ける（速報値がどれだけ遅れて出るかを測る）。
+    await migrate(db, "soramame", [["ALTER TABLE soramame_fetch_log ADD COLUMN returned INTEGER", "ALTER TABLE soramame_fetch_log ADD COLUMN newest TEXT", "ALTER TABLE soramame_fetch_log ADD COLUMN dropped INTEGER"]]);
   });
 }
 
@@ -107,6 +111,9 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
   let saved = 0;
   let error: string | null = null;
   let range: string | null = null;
+  let returned = 0;
+  let dropped = 0;
+  let newest: string | null = null;
   for (const place of Object.values(STATION_PLACES)) {
     const s = place.soramame;
     const have = await db.prepare("SELECT MIN(substr(date, 1, 7)) AS oldest FROM soramame_hourly WHERE station = ?").bind(s.station).first<{ oldest: string | null }>();
@@ -118,6 +125,7 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
       if (!r.ok) throw new Error(`soramame ${range}: HTTP ${r.status}`);
       const rows = JSON.parse(await r.text()) as Record<string, string>[];
       if (!Array.isArray(rows)) throw new Error(`soramame ${range}: not a list`);
+      returned += rows.length;
       // いま持っている値と同じ時間は書かない（直近2か月を取り直すたびに、変わっていない約1,400行を書き直していた）。
       const kept = new Map(
         (
@@ -129,16 +137,25 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
       );
       const stmts = [];
       for (const x of rows) {
-        if (x.SKT_CD !== s.station || !/^\d{4}\/\d{2}\/\d{2}$/.test(x.SKT_DATE ?? "")) continue;
+        if (x.SKT_CD !== s.station || !/^\d{4}\/\d{2}\/\d{2}$/.test(x.SKT_DATE ?? "")) {
+          dropped++;
+          continue;
+        }
         const v = Object.fromEntries(Object.entries(ITEMS).map(([k, name]) => [k, num(x[name])]));
         const wd = (x.WD ?? "").trim();
         if (Object.values(v).every((y) => y == null) && !/^[NESW]{1,3}$|^CALM$/i.test(wd)) continue; // まだ出ていない時間
         const date = x.SKT_DATE.replaceAll("/", "-");
         const hour = Number(x.SKT_TIME);
+        const stamp = `${date} ${String(hour).padStart(2, "0")}`;
+        if (!newest || stamp > newest) newest = stamp;
         if (kept.get(`${date} ${hour}`) === JSON.stringify([v.pm2_5, v.ox, v.spm, v.no2, v.so2, wd || null, v.ws])) continue;
         stmts.push(
           db
-            .prepare("INSERT OR REPLACE INTO soramame_hourly (station, date, hour, pm2_5, ox, spm, no2, so2, wd, ws, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+            // fetched_at は初めて入った時刻のまま（速報値の直しでは値だけを書き換える。何時の値が何分後に出るかを測るため）。
+            .prepare(
+              "INSERT INTO soramame_hourly (station, date, hour, pm2_5, ox, spm, no2, so2, wd, ws, fetched_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) " +
+                "ON CONFLICT (station, date, hour) DO UPDATE SET pm2_5 = excluded.pm2_5, ox = excluded.ox, spm = excluded.spm, no2 = excluded.no2, so2 = excluded.so2, wd = excluded.wd, ws = excluded.ws",
+            )
             .bind(s.station, date, hour, v.pm2_5, v.ox, v.spm, v.no2, v.so2, wd || null, v.ws, at),
         );
       }
@@ -149,7 +166,10 @@ export async function saveSoramame(db: Db, now = Date.now(), get: Fetcher = defa
       error = String(e instanceof Error ? e.message : e).slice(0, 300);
     }
   }
-  await db.prepare("INSERT OR REPLACE INTO soramame_fetch_log (at, ok, saved, range, error) VALUES (?, ?, ?, ?, ?)").bind(at, error ? 0 : 1, saved, range, error).run();
+  await db
+    .prepare("INSERT OR REPLACE INTO soramame_fetch_log (at, ok, saved, range, error, returned, newest, dropped) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+    .bind(at, error ? 0 : 1, saved, range, error, returned, newest, dropped)
+    .run();
   await db.prepare("DELETE FROM soramame_fetch_log WHERE at < ?").bind(new Date(now - LOG_DAYS * 86_400_000).toISOString()).run();
   return { saved, ok: !error };
 }
@@ -166,7 +186,7 @@ export async function readMeasured(db: Db, station: string, name: string, date: 
       .bind(station, date)
       .all<{ hour: number; pm2_5: number | null; ox: number | null; spm: number | null; no2: number | null; so2: number | null; wd: string | null; ws: number | null; fetched_at: string }>()
   ).results;
-  const checked = await db.prepare("SELECT MAX(at) AS at FROM soramame_fetch_log WHERE ok = 1").first<{ at: string | null }>();
+  const checked = await db.prepare("SELECT at, newest FROM soramame_fetch_log WHERE ok = 1 ORDER BY at DESC LIMIT 1").first<{ at: string | null; newest: string | null }>();
   const end = date < today ? date : today;
   const from = addDays(end, -USUAL_DAYS);
   const back = (
@@ -183,6 +203,7 @@ export async function readMeasured(db: Db, station: string, name: string, date: 
     date,
     hours: rows.map((r) => ({ hour: r.hour, pm2_5: r.pm2_5, ox: r.ox, spm: r.spm, no2: r.no2, so2: r.so2, wd: r.wd, ws: r.ws, fetchedAt: r.fetched_at })),
     checkedAt: checked?.at ?? null,
+    newestOut: checked?.newest ?? null,
     usual: { from, to: addDays(end, -1), items: { pm2_5: usualItem(col("pm2_5")), ox: usualItem(col("ox")), spm: usualItem(col("spm")), no2: usualItem(col("no2")), so2: usualItem(col("so2")) } },
     source: "環境省 大気汚染物質広域監視システム（そらまめくん）",
   };

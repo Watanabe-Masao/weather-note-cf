@@ -63,6 +63,28 @@ describe("そらまめくん：保存と記録", () => {
   });
 });
 
+describe("そらまめくん：取得の記録と最初に入った時刻（11/25 ルールの見直し）", () => {
+  it("logs how many rows came back, the newest hour with a value, and the rows dropped for their form", async () => {
+    const db = d1();
+    await saveSoramame(db, NOW, async () =>
+      ok([row("2026/11/21", "01", "14"), row("2026/11/21", "22", "9"), { ...row("2026/11/21", "23", ""), OX: "", SPM: "", NO2: "", WD: "", WS: "" }, { ...row("2026-11-21", "05", "9") }]),
+    );
+    expect(db.raw.prepare("SELECT returned, newest, dropped FROM soramame_fetch_log").get()).toEqual({ returned: 4, newest: "2026-11-21 22", dropped: 1 });
+  });
+  it("keeps when an hour first came in when the value is corrected later", async () => {
+    const db = d1();
+    await saveSoramame(db, NOW, async () => ok([row("2026/11/21", "01", "14")]));
+    await saveSoramame(db, NOW + 3_600_000, async () => ok([row("2026/11/21", "01", "15")]));
+    expect(db.raw.prepare("SELECT pm2_5, fetched_at FROM soramame_hourly").get()).toEqual({ pm2_5: 15, fetched_at: new Date(NOW).toISOString() });
+  });
+  it("tells the screen the newest hour out, from the last good fetch", async () => {
+    const { readMeasured } = await import("../worker/src/soramame");
+    const db = d1();
+    await saveSoramame(db, NOW, async () => ok([row("2026/11/20", "22", "14")]));
+    expect((await readMeasured(db, "39201350", "高知市 介良局", "2026-11-21", "2026-11-21")).newestOut).toBe("2026-11-20 22");
+  });
+});
+
 describe("そらまめくん：画面用の読み出し（11/25、だれにでも）", () => {
   it("returns the day's hours with when each was written, and the last good check", async () => {
     const { readMeasured } = await import("../worker/src/soramame");

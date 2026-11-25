@@ -85,3 +85,19 @@ export function measuredMean(hours: MeasuredHour[]): { mean: number; n: number }
   const v = hours.map((x) => x.pm2_5).filter(finite);
   return v.length ? { mean: v.reduce((a, x) => a + x, 0) / v.length, n: v.length } : null;
 }
+
+/** "YYYY-MM-DD HH"（HH はその1時間の終わり）を「11/24 21時台」に。 */
+export function outLabel(newest: string): string {
+  const [d, h] = newest.split(" ");
+  return `${Number(d.slice(5, 7))}/${Number(d.slice(8, 10))} ${Number(h) - 1}時台`;
+}
+
+/**
+ * 実測の無い日の言い方（11/25 ルールの見直し：「まだ出ていない」と「無い」を分ける）。速報値は遅れて出るので、
+ * いちばん新しい取得で出ていた最後の時がその日より前なら「まだ出ていない」、そうでなければ「無い」。
+ */
+export function measuredMissing(date: string, newestOut: string | null | undefined): string {
+  if (newestOut && newestOut.slice(0, 10) < date) return `まだ出ていません（介良局の速報値は ${outLabel(newestOut)}まで）`;
+  if (newestOut && newestOut.slice(0, 10) === date) return `この日はまだ途中です（${outLabel(newestOut)}まで）`;
+  return "この日の実測はありません";
+}

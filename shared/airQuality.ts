@@ -50,6 +50,11 @@ export interface MeasuredResponse {
   hours: MeasuredHour[];
   /** いちばん新しい取得の時刻（ISO、無ければ null）。 */
   checkedAt: string | null;
+  /**
+   * いちばん新しい取得で、値の出ていた最後の時（"YYYY-MM-DD HH"、HH はその1時間の終わり 1〜24）。速報値は遅れて出るので、
+   * 今日の値がまだ無いときに「どこまで出ているか」を言うのに使う（11/25）。
+   */
+  newestOut?: string | null;
   /** ふだん（手前30日の分位、Weather Note の集計）。 */
   usual?: Usual;
   source: "環境省 大気汚染物質広域監視システム（そらまめくん）";

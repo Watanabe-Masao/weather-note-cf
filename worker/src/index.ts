@@ -54,6 +54,9 @@ const TYPHOON_TTL = 30 * 60;
 const HISTORY_TTL = 10 * 60;
 // 空気質（/api/air）：予測は1時間ごとに取り直すので、端では10分だけ共有する。
 const AIR_TTL = 10 * 60;
+// 終わった日の空気質（一昨日まで：終わった日の値が入り、もう変わらない）は、端で1日共有する（11/25 ルールの見直し。
+// 気象庁の確定した日と同じ考え方で、変わらないものは取りに行かない）。昨日は終わった日の値を待つ間があるので10分のまま。
+const AIR_PAST_TTL = 24 * 60 * 60;
 /** 今（JST、"+09:00"）：発表の時刻と同じ書き方。 */
 const jstNowIso = () => `${new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
 
@@ -176,7 +179,7 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
       const day = q.get("date");
       if (!isDay(day) || day < AIR_FIRST_DAY || day > addDays(today, AIR_FORECAST_DAYS - 1)) throw new BadRequest("日付を確認してください。");
       if (!db || !STATION_PLACES[station.blockNo]) return jsonResponse({ v: 1, station: station.blockNo, date: day, supported: false });
-      return cachedFor(url.origin, `${CACHE_VERSION}/air/${station.blockNo}/${day}`, AIR_TTL, waitUntil, async () => ({
+      return cachedFor(url.origin, `${CACHE_VERSION}/air/${station.blockNo}/${day}`, day < addDays(today, -1) ? AIR_PAST_TTL : AIR_TTL, waitUntil, async () => ({
         supported: true,
         ...(await readAir(db, station.blockNo, day, today)),
       }));
@@ -189,7 +192,7 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
       if (!isDay(from) || !isDay(to) || from > to || to > addDays(today, AIR_FORECAST_DAYS - 1) || addDays(from, AIR_DAYS_MAX - 1) < to) throw new BadRequest("日付を確認してください。");
       const place = STATION_PLACES[station.blockNo];
       if (!db || !place) return jsonResponse({ v: 1, station: station.blockNo, from, to, supported: false });
-      return cachedFor(url.origin, `${CACHE_VERSION}/air-days/${station.blockNo}/${from}/${to}`, AIR_TTL, waitUntil, async () => ({
+      return cachedFor(url.origin, `${CACHE_VERSION}/air-days/${station.blockNo}/${from}/${to}`, to < addDays(today, -1) ? AIR_PAST_TTL : AIR_TTL, waitUntil, async () => ({
         supported: true,
         ...(await readAirDays(db, station.blockNo, place.soramame?.station ?? null, from, to, today)),
       }));
