@@ -9,6 +9,10 @@ import { d1 } from "./d1";
 const NOW = Date.parse("2026-11-21T13:40:00Z");
 const row = (date: string, hour: string, pm: string) => ({ SKT_CD: "39201350", SKT_DATE: date, SKT_TIME: hour, PM2_5: pm, OX: "0.019", SPM: "0.019", NO2: "0.004", SO2: "", WD: "N", WS: "1.1" });
 const ok = (rows: unknown[]) => ({ ok: true, status: 200, text: async () => JSON.stringify(rows) });
+const HEAD = "年,月,日,時,SO2,NO,NO2,NOX,CO,OX,NMHC,CH4,THC,SPM,PM2.5,SP,WD,WS,TEMP,HUM";
+const csv = (lines: string[] = []) => ({ ok: true, status: 200, text: async () => [HEAD, ...lines].join("\r\n") });
+/** 検索の API には rows、直近7日の CSV には lines を返す。 */
+const api = (rows: unknown[], lines: string[] = []) => async (url: string) => (url.includes("/7day.csv") ? csv(lines) : ok(rows));
 
 describe("そらまめくん：取る月", () => {
   it("adds months across years", () => {
@@ -33,28 +37,44 @@ describe("そらまめくん：保存と記録", () => {
   it("saves each hour (a missing value is null, an hour not out yet is not kept); this month every hour, the rest every 6 hours", async () => {
     const db = d1();
     const seen: string[] = [];
-    const get = async (url: string) => {
-      seen.push(url);
-      return ok([row("2026/11/21", "01", "14"), row("2026/11/21", "02", "-"), { ...row("2026/11/21", "23", ""), OX: "", SPM: " ", NO2: "", WD: "", WS: "" }, { ...row("2026/11/21", "03", "9"), SKT_CD: "39201360" }]);
-    };
+    const search = [row("2026/11/21", "01", "14"), row("2026/11/21", "02", "-"), { ...row("2026/11/21", "23", ""), OX: "", SPM: " ", NO2: "", WD: "", WS: "" }, { ...row("2026/11/21", "03", "9"), SKT_CD: "39201360" }];
+    const get = async (url: string) => (seen.push(url), api(search)(url));
     expect(await saveSoramame(db, NOW, get)).toEqual({ saved: 2, ok: true });
     expect(db.raw.prepare("SELECT date, hour, pm2_5, ox, so2, wd, ws FROM soramame_hourly ORDER BY hour").all()).toEqual([
       { date: "2026-11-21", hour: 1, pm2_5: 14, ox: 0.019, so2: null, wd: "N", ws: 1.1 },
       { date: "2026-11-21", hour: 2, pm2_5: null, ox: 0.019, so2: null, wd: "N", ws: 1.1 },
     ]);
+    // 6時間ごとの回：検索の API（直近2か月）と、直近7日の CSV。
+    expect(seen).toEqual([expect.stringContaining("Start_YM=202610&End_YM=202611"), "https://soramame.env.go.jp/data/sokutei/NoudoTime/39201350/7day.csv"]);
     // 1時間たたないうちは取らない。
     expect(await saveSoramame(db, NOW + 600_000, get)).toMatchObject({ skipped: true });
-    // 1時間ごとには今月だけ（6時間ごとの回の数え方には入らない）。
+    // 1時間ごとには直近7日の CSV だけ（6時間ごとの回の数え方には入らない）。
     await saveSoramame(db, NOW + 3_600_000, get);
-    expect(seen[1]).toContain("Start_YM=202611&End_YM=202611");
     await saveSoramame(db, NOW + 2 * 3_600_000, get);
-    expect(seen[2]).toContain("Start_YM=202611&End_YM=202611");
+    expect(seen.slice(2)).toEqual([expect.stringContaining("7day.csv"), expect.stringContaining("7day.csv")]);
+    expect(db.raw.prepare("SELECT range FROM soramame_fetch_log ORDER BY at DESC LIMIT 1").get()).toEqual({ range: "7day" });
     // 6時間たてば、古い側（直近の次の回）。
     await saveSoramame(db, NOW + 6 * 3_600_000, get);
-    expect(seen[3]).toContain("Start_YM=202608&End_YM=202610");
+    expect(seen[4]).toContain("Start_YM=202608&End_YM=202610");
     // 次の直近の取り直し（12時間後）：同じ値の時間は書き直さず、直った値だけ書く。
-    const fixed = async () => ok([row("2026/11/21", "01", "14"), row("2026/11/21", "02", "12")]);
-    expect(await saveSoramame(db, NOW + 12 * 3_600_000, fixed)).toEqual({ saved: 1, ok: true });
+    expect(await saveSoramame(db, NOW + 12 * 3_600_000, api([row("2026/11/21", "01", "14"), row("2026/11/21", "02", "12")]))).toEqual({ saved: 1, ok: true });
+  });
+  it("reads the 7-day CSV: today's hours, the Japanese wind word, blanks as no value; keeps the wind when the CSV has none", async () => {
+    const db = d1();
+    const lines = ["2026,11,21,01,0,0,0.007,0.007,  ,0.03,  ,  ,  ,0,4,  ,南南東,0.6,  ,  ", "2026,11,21,22,0,0.001,0.004,0.005,  ,  ,  ,  ,  ,0.014,  ,  ,静穏,0.2,  ,  ", "2026,11,21,23,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  ,  "];
+    expect(await saveSoramame(db, NOW, api([], lines))).toEqual({ saved: 2, ok: true });
+    expect(db.raw.prepare("SELECT date, hour, pm2_5, ox, spm, no2, so2, wd, ws FROM soramame_hourly ORDER BY hour").all()).toEqual([
+      { date: "2026-11-21", hour: 1, pm2_5: 4, ox: 0.03, spm: 0, no2: 0.007, so2: 0, wd: "SSE", ws: 0.6 },
+      { date: "2026-11-21", hour: 22, pm2_5: null, ox: null, spm: 0.014, no2: 0.004, so2: 0, wd: "CALM", ws: 0.2 },
+    ]);
+    expect(db.raw.prepare("SELECT returned, newest, dropped FROM soramame_fetch_log").get()).toEqual({ returned: 3, newest: "2026-11-21 22", dropped: 0 });
+    // 文字が化けて風向が読めない CSV でも、前に入った風向は消さない
+    await saveSoramame(db, NOW + 3_600_000, api([], ["2026,11,21,01,0,0,0.007,0.007,  ,0.03,  ,  ,  ,0,5,  ,???,0.6,  ,  "]));
+    expect(db.raw.prepare("SELECT pm2_5, wd FROM soramame_hourly WHERE hour = 1").get()).toEqual({ pm2_5: 5, wd: "SSE" });
+  });
+  it("refuses a CSV of another form", async () => {
+    const { parseRecentCsv } = await import("../worker/src/soramame");
+    expect(() => parseRecentCsv("a,b,c\n1,2,3")).toThrow(/unexpected header/);
   });
   it("logs a failure", async () => {
     const db = d1();
@@ -66,21 +86,19 @@ describe("そらまめくん：保存と記録", () => {
 describe("そらまめくん：取得の記録と最初に入った時刻（11/25 ルールの見直し）", () => {
   it("logs how many rows came back, the newest hour with a value, and the rows dropped for their form", async () => {
     const db = d1();
-    await saveSoramame(db, NOW, async () =>
-      ok([row("2026/11/21", "01", "14"), row("2026/11/21", "22", "9"), { ...row("2026/11/21", "23", ""), OX: "", SPM: "", NO2: "", WD: "", WS: "" }, { ...row("2026-11-21", "05", "9") }]),
-    );
+    await saveSoramame(db, NOW, api([row("2026/11/21", "01", "14"), row("2026/11/21", "22", "9"), { ...row("2026/11/21", "23", ""), OX: "", SPM: "", NO2: "", WD: "", WS: "" }, { ...row("2026-11-21", "05", "9") }]));
     expect(db.raw.prepare("SELECT returned, newest, dropped FROM soramame_fetch_log").get()).toEqual({ returned: 4, newest: "2026-11-21 22", dropped: 1 });
   });
   it("keeps when an hour first came in when the value is corrected later", async () => {
     const db = d1();
-    await saveSoramame(db, NOW, async () => ok([row("2026/11/21", "01", "14")]));
-    await saveSoramame(db, NOW + 3_600_000, async () => ok([row("2026/11/21", "01", "15")]));
+    await saveSoramame(db, NOW, api([row("2026/11/21", "01", "14")]));
+    await saveSoramame(db, NOW + 6 * 3_600_000, api([row("2026/11/21", "01", "15")]));
     expect(db.raw.prepare("SELECT pm2_5, fetched_at FROM soramame_hourly").get()).toEqual({ pm2_5: 15, fetched_at: new Date(NOW).toISOString() });
   });
   it("tells the screen the newest hour out, from the last good fetch", async () => {
     const { readMeasured } = await import("../worker/src/soramame");
     const db = d1();
-    await saveSoramame(db, NOW, async () => ok([row("2026/11/20", "22", "14")]));
+    await saveSoramame(db, NOW, api([row("2026/11/20", "22", "14")]));
     expect((await readMeasured(db, "39201350", "高知市 介良局", "2026-11-21", "2026-11-21")).newestOut).toBe("2026-11-20 22");
   });
 });
@@ -89,7 +107,7 @@ describe("そらまめくん：画面用の読み出し（11/25、だれにで�
   it("returns the day's hours with when each was written, and the last good check", async () => {
     const { readMeasured } = await import("../worker/src/soramame");
     const db = d1();
-    await saveSoramame(db, NOW, async () => ok([row("2026/11/21", "01", "14"), row("2026/11/21", "02", "9"), row("2026/11/20", "24", "7")]));
+    await saveSoramame(db, NOW, api([row("2026/11/21", "01", "14"), row("2026/11/21", "02", "9"), row("2026/11/20", "24", "7")]));
     const r = await readMeasured(db, "39201350", "高知市 介良局", "2026-11-21", "2026-11-21");
     expect(r).toMatchObject({ station: "39201350", name: "高知市 介良局", date: "2026-11-21", checkedAt: new Date(NOW).toISOString() });
     expect(r.hours.map((h) => [h.hour, h.pm2_5])).toEqual([
