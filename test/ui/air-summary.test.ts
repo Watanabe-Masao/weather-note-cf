@@ -14,7 +14,7 @@ describe("空気質：まとめの1文", () => {
     expect(airSummaryText({ kind: "past", hours: day(() => 8) })).toBe("PM2.5 日平均 8・黄砂 最大 23 µg/m³（CAMS のモデルの値）");
   });
   it("時間がそろっていなければ「取得できた範囲」、値が無ければ null（少ないとは言わない）", () => {
-    expect(airSummaryText({ kind: "forecast", hours: day(() => 10).slice(0, 12) })).toBe("PM2.5 日平均 10・黄砂 最大 11 µg/m³（CAMS の予測、取得できた範囲）");
+    expect(airSummaryText({ kind: "forecast", hours: day(() => 10).slice(0, 12) })).toBe("PM2.5 平均 10・黄砂 最大 11 µg/m³（CAMS の予測、取得できた範囲）");
     expect(airSummaryText({ kind: "forecast", hours: [] })).toBeNull();
     expect(airSummaryText(null)).toBeNull();
     expect(airSummaryText({ kind: "forecast", hours: day(() => null, () => null) })).toBeNull();
@@ -34,8 +34,14 @@ describe("空気質：画面の読み方", () => {
   it("PM2.5 は日平均と環境省の基準を並べる（1時間ごとの値とは比べない）", () => {
     expect(pmReading(airDay(day(() => 13)), "forecast")).toBe("CAMS の予測で日平均 13 µg/m³ くらい。環境省の環境基準（日平均 35 以下）の内側です。");
     expect(pmReading(airDay(day(() => 40)), "past")).toBe("CAMS のモデルの値で日平均 40 µg/m³。環境省の環境基準（日平均 35 以下）を超える値です。");
-    expect(pmReading(airDay(day(() => 75)), "forecast")).toContain("注意喚起の目安（日平均 70 以上）に届く値");
-    expect(pmReading(airDay(day(() => 13).slice(0, 6)), "forecast")).toBe("CAMS の予測で日平均 13 µg/m³ くらい（取得できた範囲）。環境省の環境基準（日平均 35 以下）の内側です。");
+    expect(pmReading(airDay(day(() => 75)), "forecast")).toContain("注意喚起の目安（日平均 70 を超える）に当たる値");
+    // ちょうど 70 は「超える」に当たらない
+    expect(pmReading(airDay(day(() => 70)), "past")).toContain("環境基準（日平均 35 以下）を超える値");
+    // 1日そろっていなければ日平均と言わず、基準の内側・外側も言わない
+    expect(pmReading(airDay(day(() => 13).slice(0, 6)), "forecast")).toBe(
+      "CAMS の予測で、取得できた 6時間の平均 13 µg/m³ くらい。1日分そろっていないので日平均ではなく、環境省の基準（日平均 35 以下）は参考です。",
+    );
+    expect(pmReading(airDay(day(() => 50).slice(0, 23)), "past")).not.toMatch(/超える|内側/);
     expect(pmReading(airDay(day(() => null)), "forecast")).toBeNull();
   });
   it("黄砂はいちばん多い時刻と値だけ", () => {

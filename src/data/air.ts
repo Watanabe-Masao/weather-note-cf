@@ -4,6 +4,8 @@
 // 取り直し：今日と先の日は、最後に頼んでから 10分（LIVE_EVERY）たっていれば、開くとき・アプリに戻ったとき・開いている
 // 間の1分ごとの見回りで（予測はサーバーで1時間ごとに新しくなる）。過ぎた日は1回だけ（実測は速報値が直ることがあるが、
 // 次に開いたときで足りる）。取り直している間も、失敗しても、最後に取れた分を出したまま。
+// 日付が変わって「今日」が「昨日」になった日は、すぐに1回取り直す（11/25 レビュー：予測のまま残らないように）。
+// そのあとも、まだ終わった日の値に替わっていなければ（settled が false）、今日と同じ間隔で取り直す。
 import { useEffect, useSyncExternalStore } from "react";
 import type { AirResponse, MeasuredResponse } from "../../shared/airQuality";
 import { addDays, jstToday } from "../../shared/dates";
@@ -25,6 +27,8 @@ export interface Loaded<T> {
 
 interface Entry<T> extends Loaded<T> {
   asked: number;
+  /** 頼んだときの「今日」。 */
+  askedDay: string;
 }
 
 /** 取り置き（地点と日ごと）。テストでは取得と時計を差し替える。 */
@@ -38,6 +42,8 @@ export class LiveCache<T> {
     private fetcher: (station: string, date: string) => Promise<T | null>,
     private now: () => number = Date.now,
     private today: () => string = jstToday,
+    /** 過ぎた日の値として落ち着いたか（false なら過ぎた日でも取り直す）。 */
+    private settled: (r: T) => boolean = () => true,
   ) {}
 
   private key = (station: string, date: string) => `${station}/${date}`;
@@ -52,7 +58,9 @@ export class LiveCache<T> {
     if (!e) return true;
     if (e.loading || e.unsupported) return false;
     if (!e.r) return this.now() - e.asked >= LIVE_EVERY || !e.failed;
-    return date >= this.today() && this.now() - e.asked >= LIVE_EVERY;
+    const today = this.today();
+    if (date < today && e.askedDay <= date) return true; // 頼んだ後に日付が変わって過ぎた日になった
+    return (date >= today || !this.settled(e.r)) && this.now() - e.asked >= LIVE_EVERY;
   }
 
   ensure(station: string, date: string): Promise<void> {
@@ -61,7 +69,7 @@ export class LiveCache<T> {
     if (running) return running;
     if (!this.stale(station, date)) return Promise.resolve();
     const prev = this.entries.get(k);
-    const e: Entry<T> = { r: prev?.r ?? null, loading: true, failed: false, asked: this.now() };
+    const e: Entry<T> = { r: prev?.r ?? null, loading: true, failed: false, asked: this.now(), askedDay: this.today() };
     this.entries.set(k, e);
     this.bump();
     const p = this.fetcher(station, date).then(
@@ -96,12 +104,18 @@ export class LiveCache<T> {
   }
 }
 
-export const airCache = new LiveCache<AirData>(async (station, date) => {
-  const r = await fetch(`/api/air?station=${encodeURIComponent(station)}&date=${date}`);
-  if (!r.ok) throw new Error(String(r.status));
-  const j = (await r.json()) as AirData | { supported: false };
-  return j.supported ? (j as AirData) : null;
-});
+export const airCache = new LiveCache<AirData>(
+  async (station, date) => {
+    const r = await fetch(`/api/air?station=${encodeURIComponent(station)}&date=${date}`);
+    if (!r.ok) throw new Error(String(r.status));
+    const j = (await r.json()) as AirData | { supported: false };
+    return j.supported ? (j as AirData) : null;
+  },
+  Date.now,
+  jstToday,
+  // 過ぎた日なのに予測のまま（終わった日の値がまだ届いていない）なら、届くまで取り直す
+  (r) => r.kind === "past",
+);
 
 export const measuredCache = new LiveCache<MeasuredResponse>((station, date) => api<MeasuredResponse>(`/api/admin/air-measured?station=${encodeURIComponent(station)}&date=${date}`));
 

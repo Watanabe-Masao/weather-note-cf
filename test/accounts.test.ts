@@ -439,3 +439,17 @@ describe("#45: research data leaving the server", () => {
     expect((await call("/api/admin/analysis", { cookie: fresh })).status).toBe(428);
   });
 });
+
+describe("空気質の実測（/api/admin/air-measured、そらまめくんの条件で管理者だけ）", () => {
+  it("is 401 without a login, 403 for a member, 200 for the administrator", async () => {
+    const q = "/api/admin/air-measured?station=47893&date=2026-11-25";
+    expect((await call(q)).status).toBe(401);
+    const a = await admin();
+    const p = await issue(a.cookie, "tanaka");
+    const t = await login("tanaka", p.password);
+    expect((await call(q, { cookie: t.cookie })).status).toBe(403);
+    const r = await call(q, { cookie: a.cookie });
+    expect(r.status).toBe(200);
+    expect(r.body).toMatchObject({ date: "2026-11-25", hours: [] });
+  });
+});
