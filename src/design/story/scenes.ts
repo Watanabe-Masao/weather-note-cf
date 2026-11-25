@@ -62,6 +62,11 @@ export type StoryScene = {
    */
   direction?: (pages: string[][], title?: string) => BookDirection;
   /**
+   * 絵が先のページ（秒で決める本だけ、0 から）：そのページの「絵が先に見える時間」の頭の拍を、build の cueAt に
+   * 100＋ページの番号で渡す（月の出・初雪のように、文より先に絵が動きはじめるページ）。
+   */
+  pictureFirst?: number[];
+  /**
    * 字の後ろを少しだけ沈める（11/23：コールドムーンは白いシラカバの幹が字の後ろに来て読みにくかった）。字の列の後ろの
    * 影（.ms-caps-veil）を少し濃く広く、字のまわりのにじみ（text-shadow）を一段足す。濃くはせず、背景から字をわずかに分ける。
    */
@@ -100,6 +105,8 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     build: buildBeaverScene,
     cues: BEAVER_CUES,
     direction: beaverDirection,
+    // 6 ページ（月の出）と 8 ページ（初雪）は絵が先（BeaverWorld の s6・flake）。
+    pictureFirst: [5, 7],
   },
   // 11/22 PR-2（実装計画 v0.2）：場面の寄り・引きと主役の出入り。11/23 PR-3：言葉との同期（lineAt）と夜明けの空（bookSky）。
   コールドムーン: {

@@ -507,7 +507,8 @@ export function MoonStory({
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 文の中身が同じなら同じ
   const directed = useMemo(() => {
     if (!story?.book || !scene?.direction) return null;
-    const d = scene.direction(story.book.pages.map((p) => p.lines), story.book.titleEnd);
+    // 字の箱（.ms-ch）と合図は tateNum を通した文で数えるので、演出にも同じ文を渡す（数字が入っても字の番号がずれない）。
+    const d = scene.direction(story.book.pages.map((p) => p.lines.map((l) => tateNum(l))), story.book.titleEnd);
     return d.pages.length === lines.length ? directedPlan(d) : null;
   }, [linesKey]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- 文の中身が同じなら同じ重み（配列は毎回作られる）
@@ -954,7 +955,7 @@ export function MoonStory({
                 return c ? segBeat(directed, i, c.at) : Number.NaN;
               });
             }
-            for (const i of [5, 7])
+            for (const i of scene.pictureFirst ?? [])
               if (i < lines.length) cueAt[100 + i] = [segBeat(directed, i, directed.times[i].textStart - directed.pages[i].intro)];
           }
           for (const [p, words] of directed ? [] : Object.entries(scene.cues ?? {})) {
@@ -1073,7 +1074,7 @@ export function MoonStory({
           world.fromTo(
             ".ms-world-frame",
             { opacity: 0, scale: 1.06 },
-            { opacity: 1, scale: 1, duration: afterText ? Math.max(0.04, Math.min(1, scene.beats - 1 + BEAT_REST - frameAt)) : 0.5 },
+            { opacity: 1, scale: 1, duration: afterText ? Math.max(0.04, scene.beats - 1 + BEAT_REST - frameAt) : 0.5 },
             frameAt,
           );
           }
@@ -1442,7 +1443,10 @@ export function MoonStory({
               if (i >= stopCount - 1) setAuto(false);
               else {
                 const lastBeat = firstBeat >= 0 && i === firstBeat + dots.length - 1;
-                autoTimer.current = window.setTimeout(() => autoOn.current && pager.current?.step(1), (directed ? 0.05 : lastBeat ? AUTO_HOLD_LAST : AUTO_HOLD) * 1000);
+                // 秒で決める本のページ（読む時間・絵だけの時間は区間の中にある）だけ、止まったらすぐ次へ。表紙・見開きは今まで
+                // どおり（11/26 コードの独立確認）。
+                const inPages = firstBeat >= 0 && i >= firstBeat && i < firstBeat + dots.length;
+                autoTimer.current = window.setTimeout(() => autoOn.current && pager.current?.step(1), (inPages && directed ? 0.05 : lastBeat ? AUTO_HOLD_LAST : AUTO_HOLD) * 1000);
               }
             }
           }

@@ -605,11 +605,12 @@ img.event-pic { object-fit: contain; }
    3 列の間（.fit-tight）→ 4 作品全体で同じ大きさに縮める（--size-story を字幕の箱で上書き）。 */
 .ms-cap .ms-soft { display: none; }
 .ms-cap .ms-soft.on { display: inline; }
-.ms-caps[data-directed].fit-area { right: var(--space-5); width: calc(100% - var(--space-5) * 2); }
+/* 位置を変えるのは動きのある形だけ（動きを減らす設定では字幕は流れの中の箱で、right を付けると左へずれる。11/26 コードの独立確認）。 */
+@media (prefers-reduced-motion: no-preference) { .ms-caps[data-directed].fit-area { right: var(--space-5); width: calc(100% - var(--space-5) * 2); } }
 .ms-caps[data-directed].fit-tight .ms-cap:not(.ms-cap-title) { line-height: 1.7; }
 /* いちばん幅の狭い画面（320px 前後）：字幕を右の余白へ少し寄せる（11/26 独立レビュー：320×568 の8ページで、月と字の
    最小のすき間が 2〜3px。右の余白 30px → 20px で 13px。ほかのページも月から遠ざかるだけ。375px 以上は変えない）。 */
-@media (max-width: 374px) { .ms-caps[data-directed] { right: var(--space-8); } }
+@media (prefers-reduced-motion: no-preference) and (max-width: 374px) { .ms-caps[data-directed] { right: var(--space-8); } }
 .ms-ch { display: inline; }
 /* 文の後ろの薄い夜（16:27 のレビュー「文章が背景に埋もれている」）：空が明るい夕暮れでも読める。 */
 .ms-caps-veil { position: absolute; top: 0; right: 0; width: 80%; height: 64svh; background: radial-gradient(ellipse at 78% 34%, var(--bk-night-1), transparent 68%); opacity: 0.6; pointer-events: none; }

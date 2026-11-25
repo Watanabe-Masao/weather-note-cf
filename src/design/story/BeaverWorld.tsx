@@ -1035,11 +1035,11 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>, cueAt: Rec
   const s7 = sh(6, 0, 6.42);
   const s8 = sh(7, 1, 7.72);
   const flake = cue(107, 0, 7.02);
-  // 見上げる（6ページ）：「顔を」の合図で。本文に無いとき（11/26 レビュー C 案「ビーバーが顔を上げることは絵の動きに委ねる」）は、
-  // 光の道が出てから少しおいて見上げる。動きは文の有無に関わらず残す。
+  // 見上げる（6ページ）：本文に言葉は無く（11/26 C 案「ビーバーが顔を上げることは絵の動きに委ねる」）、光の道が出てから
+  // 少しおいて（拍で +0.12、5.7 まで）見上げる。合図が無い本（今までの計算）は 5.49。
   const fastSwap = Object.keys(cueAt).length > 0;
   const has = (page: number, k: number) => Number.isFinite(cueAt[page]?.[k] ?? Number.NaN);
-  const look = has(5, 2) ? cue(5, 2, 5.49) : has(5, 1) ? Math.min(5.7, cue(5, 1, 5.5) + 0.12) : 5.49;
+  const look = has(5, 1) ? Math.min(5.7, cue(5, 1, 5.5) + 0.12) : 5.49;
   const leaves = q(".bw-bigleaf");
   const twigs = q(".bw-twig");
   // 1 秋の森：森に寄ったカメラ、葉が落ちる。「はらり、はらり。」で大きな葉が二枚、間をおいて。
@@ -1077,13 +1077,19 @@ function buildBeats(tl: Tween, q: (s: string) => NodeListOf<Element>, cueAt: Rec
     .fromTo(".bw-swim", { x: 118, y: 662, opacity: 0 }, { opacity: 1, duration: 0.05 }, Math.max(1.6, 1.6 + s2))
     .to(".bw-swim", { x: 160, duration: 0.15, ease: "power1.inOut" }, Math.max(1.6, 1.6 + s2));
   // 3 一本、また一本：住みかへ泳いで枝を置く。言葉の拍で一本ずつ、そのあと枝が組み上がる。泳ぐ姿から住みかの上の姿へ。
-  tl.to(".bw-swim", { x: 222, duration: 0.18, ease: "power1.inOut" }, 2)
-    .to(".bw-swim", { opacity: 0, duration: 0.08 }, 2.2)
-    .to(".bw-sit", { opacity: 1, duration: 0.12 }, 2.22);
+  // 秒で決める本（合図あり）は、3ページの区間の頭（2ページの止まる所の直後）から泳ぎはじめ、住みかの上の姿になってから
+  // 一本目を置く（11/26 コードの独立確認：一本目の「いっぽん。」が拍 1.89 で、泳ぎ着く 2.0〜2.22 より先に置かれていた）。
+  const swim3 = fastSwap ? 1.8 : 2;
+  const sat3 = fastSwap ? swim3 + 0.2 : 2.34;
+  tl.to(".bw-swim", { x: 222, duration: fastSwap ? 0.12 : 0.18, ease: "power1.inOut" }, swim3)
+    .to(".bw-swim", { opacity: 0, duration: fastSwap ? 0.04 : 0.08 }, fastSwap ? swim3 + 0.12 : 2.2)
+    .to(".bw-sit", { opacity: 1, duration: fastSwap ? 0.06 : 0.12 }, fastSwap ? swim3 + 0.14 : 2.22);
   // 一つ目の「いっぽん。」で置くのは最初の一本（2ページでくわえて来た枝）。二つ目からは普通の枝（#416 で行が
   // 「いっぽん。また、いっぽん。」になり、二つ目の「いっぽん。」が少し遅く出るので 2.18）。
-  tl.fromTo(".bw-first", { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, cue(2, 0, 2.07));
-  [cue(2, 1, 2.18), cue(2, 2, 2.32)].forEach((at, i) =>
+  // 一本目は住みかの上の姿が出てから（秒で決める本。今までの本は sat3 が 2.34 で、効かない）。
+  const first3 = fastSwap ? Math.max(cue(2, 0, 2.07), sat3) : cue(2, 0, 2.07);
+  tl.fromTo(".bw-first", { opacity: 0, y: -18 }, { opacity: 1, y: 0, duration: 0.06, ease: "power2.out" }, first3);
+  [Math.max(cue(2, 1, 2.18), first3 + 0.06), Math.max(cue(2, 2, 2.32), first3 + 0.12)].forEach((at, i) =>
     tl.fromTo(
       twigs[i + 1],
       { opacity: 0, y: -18 },
