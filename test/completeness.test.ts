@@ -51,7 +51,7 @@ describe("予報の電文：定時の発表が1回ずつそろっているか", 
   it("保存を始める前の時刻・今から1時間以内の回は数えない。表が無いときは空", async () => {
     const db = await withForecasts(["2026-11-18T05:00:00"]);
     expect((await auditForecasts(db, J("2026-11-18T11:30:00"))).VPFD51).toMatchObject({ expected: 1, kept: 1, pending: [] });
-    expect(await readCompleteness(d1(), J("2026-11-18T11:30:00"))).toEqual({ forecast: {}, radar: {}, lostLastDay: [], lostAll: [], recoveredAll: [], absentAll: [] });
+    expect(await readCompleteness(d1(), J("2026-11-18T11:30:00"))).toEqual({ forecast: {}, radar: {}, air: null, lostLastDay: [], lostAll: [], recoveredAll: [], absentAll: [] });
   });
 });
 

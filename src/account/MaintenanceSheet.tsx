@@ -4,6 +4,7 @@
 // メインのスレッドに貼れる）、②取得の様子（取り直しのボタンは要る段だけ）、③欠け、④エラーの記録（文言つき、コピーできる）、
 // ③b 週の点検（全期間の最新と履歴、R2 の実物）、⑤重なりを確かめる（読むだけ）、⑥表の点検（行数とつながり、読むだけ）、⑦大きさ。何も消さない。サーバーは worker/src/maintenance.ts・refetch.ts。
 
+import { AIR_FEEDS } from "../../shared/airSchedule";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { ModalSheet } from "../ui/ModalSheet";
@@ -12,13 +13,19 @@ import { api } from "./account";
 
 type Stage = { id: string; name: string; reach: string; lastOk: string | null; waiting: number | null; left: number; available: boolean; needed: boolean; why: string[]; last: { at: string; ok: boolean; detail: string } | null };
 type Series = { expected: number; kept: number; pendingCount: number; lostCount: number; absentCount?: number; pending: string[]; lost: string[]; absent?: string[] };
+/** 空気のデータ（worker/src/airAudit.ts、11/25）。pending・absent は新しい順に6つまで。 */
+type AirC = {
+  cams: { expected: number; kept: number; pending: string[]; pendingCount: number; watermark: string | null };
+  soramame: { expected: number; kept: number; pending: string[]; pendingCount: number; absent: string[]; absentCount: number; watermark: string | null; newest: string | null };
+  forecast: { expected: number; kept: number; pendingCount: number };
+};
 type Dup = { name: string; n: number; examples: string[]; note?: string };
 type Summary = {
   at: string;
   failed?: { part: string; message: string }[];
   judged: { problems: { key: string; text: string }[]; notes: { key: string; text: string }[] };
   refetch: { perHour: number; stages: Stage[] };
-  completeness?: { forecast: Record<string, Series>; radar: Record<string, Series>; lostAll: { source: string; n: number }[]; absentAll?: { source: string; n: number }[] };
+  completeness?: { forecast: Record<string, Series>; radar: Record<string, Series>; air?: AirC | null; lostAll: { source: string; n: number }[]; absentAll?: { source: string; n: number }[] };
   errors: { at: string; where: string; message: string }[];
   room: null | { d1Size: { bytes: number; percent: number } | null; d1WritesMonth: { estimate: number; percent: number; rowsLastDay: number }; r2: { bytes: number; percentOfFree: number }; cronRunsLastDay: number; cronMissing: number };
   lastDupCheck: { at: string; result: Dup[] } | null;
@@ -218,6 +225,37 @@ export function MaintenanceBody() {
           <small className="set-help mt-fine">欠けはありません（見ている範囲：最大14日）。</small>
         )}
       </section>
+
+      {/* ③a 空気のデータ（11/25 渡辺さん「提供スケジュールを管理し、チェック・対応・判断ができるように」）：
+          系統ごとに 提供元がいつ出すか・こちらがいつ取るか（shared/airSchedule.ts）と、今の様子（最新・欠け・出ていない）。 */}
+      {s.completeness?.air && (
+        <section className="set-group" aria-labelledby="mt-air">
+          <h3 id="mt-air">空気のデータ（提供スケジュールと今の様子）</h3>
+          <ul className="mt-list">
+            {AIR_FEEDS.map((f) => {
+              const a = s.completeness!.air!;
+              const now =
+                f.id === "forecast"
+                  ? `今日から4日先まで ${a.forecast.expected}時間中 ${a.forecast.kept}時間`
+                  : f.id === "cams"
+                    ? `手前14日 ${a.cams.expected}時間中 ${a.cams.kept}時間${a.cams.watermark ? `（続けて確かめられた位置 ${clock(a.cams.watermark)}）` : ""}`
+                    : `最新 ${a.soramame.newest ? clock(a.soramame.newest) : "なし"}・手前14日 ${a.soramame.expected}時間中 ${a.soramame.kept}時間${a.soramame.absentCount ? `・提供元が出していない ${a.soramame.absentCount}時間` : ""}`;
+              const pend = f.id === "cams" ? a.cams.pending : f.id === "soramame" ? a.soramame.pending : [];
+              return (
+                <li key={f.id}>
+                  <span>
+                    <b>{f.name}</b>：{now}
+                    {pend.length ? `・欠け ${f.id === "cams" ? a.cams.pendingCount : a.soramame.pendingCount}時間（${pend.slice(0, 3).map(clock).join("・")}）` : ""}
+                  </span>
+                  <small className="set-help mt-fine">
+                    提供：{f.publish}。取得：{f.fetch}。遅れの目安：{f.lateH}時間{f.stopH ? `（${f.stopH}時間で異常）` : ""}。取り戻せる：{f.reach}。欠けたら：{f.refill}。手順 {f.runbook}
+                  </small>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* ③b 週の点検（全期間、読むだけ。weeklyAudit.ts） */}
       <section className="set-group" aria-labelledby="mt-weekly">

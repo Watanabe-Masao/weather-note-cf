@@ -56,3 +56,30 @@ describe("空気質：保存と記録", () => {
     expect(db.raw.prepare("SELECT ok, error FROM air_quality_fetch_log ORDER BY at DESC LIMIT 1").get()).toMatchObject({ ok: 0 });
   });
 });
+
+describe("空気質：欠けた日の取り直し（1時間だけ入った日を済んだとしない）", () => {
+  it("refetches a short day first, at most once a day, and the day becomes 24 hours", async () => {
+    const db = d1();
+    // 11/1〜11/20 はそろっている（20日分）
+    await saveAirQuality(db, NOW - 3_600_000 * 2, async () => ok(hours("2026-10-22", 30)));
+    // 11/20 の分を1時間だけ残して消す（取りこぼしの代わり）
+    db.raw.prepare("DELETE FROM air_quality_hourly WHERE valid_at >= '2026-11-20T01:00:00+09:00' AND valid_at < '2026-11-21T00:00:00+09:00'").run();
+    const seen: string[] = [];
+    const get = async (u: string) => (seen.push(u), ok(hours("2026-11-20", 1)));
+    await saveAirQuality(db, NOW, get);
+    expect(seen[0]).toContain("start_date=2026-11-20&end_date=2026-11-20");
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM air_quality_hourly WHERE valid_at LIKE '2026-11-20%'").get()).toEqual({ n: 24 });
+  });
+  it("does not ask the same short range again within a day when the provider has no value either", async () => {
+    const db = d1();
+    await saveAirQuality(db, NOW - 3_600_000 * 2, async () => ok(hours("2026-10-22", 30)));
+    db.raw.prepare("DELETE FROM air_quality_hourly WHERE valid_at = '2026-11-20T05:00:00+09:00'").run();
+    const seen: string[] = [];
+    const get = async (u: string) => (seen.push(u), ok(hours("2026-11-20", 1, true)));
+    await saveAirQuality(db, NOW, get);
+    await saveAirQuality(db, NOW + 3_600_000, get);
+    expect(seen.filter((u) => u.includes("start_date=2026-11-20&end_date=2026-11-20")).length).toBe(1);
+    // 値の無い返事でも、持っている時間の値は消さない
+    expect(db.raw.prepare("SELECT COUNT(pm2_5) AS n FROM air_quality_hourly WHERE valid_at LIKE '2026-11-20%'").get()).toEqual({ n: 23 });
+  });
+});

@@ -13,6 +13,8 @@
 // Plain TypeScript with nothing imported and only types to strip, so Node runs it as it is (the
 // script imports this file by its name, .ts included).
 
+import { airFeed } from "./airSchedule";
+
 export interface Finding {
   /** Stays the same while the same thing is wrong (e.g. "forecastStale", "cronFailed:notify"). */
   key: string;
@@ -60,6 +62,12 @@ export interface HealthView {
     completeness?: {
       forecast: Record<string, { pending: string[]; pendingCount: number; lostCount: number }>;
       lostLastDay: { source: string; n: number }[];
+      /** 空気のデータ（worker/src/airAudit.ts、11/25）。pending は新しい順。 */
+      air?: {
+        cams: { pending: string[]; pendingCount: number };
+        soramame: { pending: string[]; pendingCount: number; newest: string | null };
+        forecast: { expected: number; kept: number };
+      } | null;
     };
     openAlerts: { key: string; since: string }[];
     accountErrorsLastDay: { place: string; n: number }[];
@@ -166,6 +174,22 @@ export function judgeHealth(h: HealthView | null, now: number, importReady: Impo
       const say = (p: { k: string; t: string }) => `${NAME[p.k] ?? p.k}の ${jstClock(p.t)} の発表`;
       if (oldest && ago(oldest.t) > 5 * 24) problem("forecastGap", `予報の電文の欠け：${say(oldest)}など ${pend.length}回が保存されていません（7日を過ぎると取り戻せない）。`);
       else if (oldest && ago(oldest.t) > 3) note("forecastGap", `予報の電文の欠け：${say(oldest)}など ${pend.length}回が保存されていません（まだ取り戻せる）。`);
+      // 空気のデータ（11/25、提供スケジュールは shared/airSchedule.ts）：遅れ・欠け・予測のそろい。
+      const a = c.air;
+      if (a) {
+        const sora = airFeed("soramame");
+        if (a.soramame.newest) {
+          const late = ago(a.soramame.newest);
+          if (sora.stopH != null && late > sora.stopH) problem("soramameLate", `大気汚染の実測（そらまめくん）の最新は ${jstClock(a.soramame.newest)}（ふだん約1時間遅れ。${sora.stopH}時間を過ぎた）。`);
+          else if (late > sora.lateH) note("soramameLate", `大気汚染の実測（そらまめくん）の最新は ${jstClock(a.soramame.newest)}（ふだん約1時間遅れ）。`);
+        }
+        const gaps = [
+          a.cams.pendingCount ? `CAMS の終わった日 ${a.cams.pendingCount}時間（${jstClock(a.cams.pending[0])} など。いつでも取り直せる）` : "",
+          a.soramame.pendingCount ? `そらまめくん ${a.soramame.pendingCount}時間（${jstClock(a.soramame.pending[0])} など。1年までは取り直せる）` : "",
+        ].filter(Boolean);
+        if (gaps.length) note("airGap", `空気のデータの欠け：${gaps.join("・")}。`);
+        if (a.forecast.expected && a.forecast.kept < a.forecast.expected * 0.75) note("airForecastShort", `空気質の予測が、今日から4日先までの ${a.forecast.expected}時間のうち ${a.forecast.kept}時間しかありません。`);
+      }
       const lost = c.lostLastDay.reduce((n, l) => n + l.n, 0);
       if (lost) note("dataLost", `取り戻せない欠けが24時間で ${lost} 件（${c.lostLastDay.map((l) => `${l.source} ${l.n}`).join("・")}）。`);
     }
