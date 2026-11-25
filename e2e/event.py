@@ -115,7 +115,15 @@ with sync_playwright() as p:
               return { after: texts[0], science: texts[1], info: at('.ms-info'), shelf: at('.ms-tonight'), end: at('[data-story-end]'), fly: s.querySelectorAll('.ms-flymoon').length, kicker: (s.querySelector('.ms-paper-kicker') || {}).textContent } }""")
             check("満月の物語（絵本の形）：あとがき → 自然と科学 → 今夜の月 → 本棚、物語の終わりはあとがき、物語の月は移さない",
                   order["after"] >= 0 and order["after"] < order["science"] < order["info"] < order["shelf"] and order["end"] == order["after"] and order["fly"] == 0 and order["kicker"] == "物語のあとがき", order)
-            pg.locator(".moon-story .ms-skip .btn").click()
+            # 自動で読む（11/25 渡辺さん）：押すと1ページずつ進み、さわる（キー）と止まる。
+            auto = pg.locator(".moon-story .ms-auto .btn")
+            a0 = pg.evaluate("document.querySelector('.moon-story').scrollTop")
+            auto.click()
+            pg.wait_for_function(f"document.querySelector('.moon-story').scrollTop > {a0} + 300", timeout=15000)
+            pressed = auto.get_attribute("aria-pressed")
+            pg.locator(".moon-story .ms-world-stage").dispatch_event("pointerdown"); pg.wait_for_timeout(300)
+            check("満月の物語：「自動で読む」で進み、さわると止まる（ボタンは「止める」→「自動で読む」）", pressed == "true" and auto.inner_text() == "自動で読む" and auto.get_attribute("aria-pressed") == "false", (pressed, auto.inner_text()))
+            pg.locator(".moon-story .ms-skip > .btn").click()
             pg.wait_for_function("(() => { const s = document.querySelector('.moon-story'); const e = s.querySelector('[data-story-end]'); return Math.abs(s.scrollTop - e.offsetTop) < 4 })()", timeout=45000)
             pg.evaluate(settle_js)
             top0 = pg.evaluate("document.querySelector('.moon-story').scrollTop")
@@ -159,7 +167,7 @@ with sync_playwright() as p:
         trunk: s.querySelectorAll('svg.cw .cw-trunk').length, caps: s.querySelectorAll('.ms-cap').length, beats: s.querySelectorAll('.ms-beat').length,
         cover: s.querySelectorAll('.bk-cover svg.bca').length, medal: !!s.querySelector('img.ms-endbook-art[src*="/cold/emboss-medal"]'),
         moon: s.querySelectorAll('svg.cw [data-story-moon]').length } }""")
-    pg.locator(".moon-story .ms-skip .btn").click()
+    pg.locator(".moon-story .ms-skip > .btn").click()
     pg.wait_for_function("(() => { const s = document.querySelector('.moon-story'); const e = s.querySelector('[data-story-end]'); return Math.abs(s.scrollTop - e.offsetTop) < 4 })()", timeout=45000)
     after = pg.evaluate("(() => { const s = document.querySelector('.moon-story'); return (s.querySelector('[data-story-end] .ms-paper-kicker') || {}).textContent })()")
     check("コールドムーン：雪の森の場面（9コマ・9ページ・穴のある幹・月は一つ）、表紙の絵と閉じた本の型押し、「物語をとばす」はあとがきへ",
