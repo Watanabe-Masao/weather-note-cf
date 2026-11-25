@@ -32,3 +32,9 @@ export function beaverEnding<T extends FullMoonNameInfo | null>(story: T): T {
   if (v === "C") BEAVER_LINE_AT[8] = [0.5];
   return { ...story, book: { ...story.book, pages: [...BASE, END[v]] } };
 }
+
+/** 見本（BM-R03）：?type=T1・T2 で文字組みを替える（ビーバームーンの物語の字幕だけ）。T0（付けない）は今のまま。 */
+export function typeSample(): string {
+  const v = typeof location === "undefined" ? null : new URLSearchParams(location.search).get("type");
+  return v === "T1" ? "ty-t1" : v === "T2" ? "ty-t2" : "";
+}
