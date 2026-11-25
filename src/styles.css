@@ -1270,6 +1270,7 @@ button.label-feel:active { transform: scale(0.97); }
 }
 .strip-col .cell-value:has(> .grid-none),
 .strip-col .cell-value:has(> .cell-failed),
+.strip-col .cell-value:has(> .no-value),
 .strip-col .cell-value:has(> .skeleton) { text-align: center; padding-right: 0; }
 
 .cell-value.minor {
@@ -4509,6 +4510,18 @@ select.chip.sm {
 .state-overlay.loading {
   background: color-mix(in srgb, var(--surface-base) 40%, transparent);
 }
+
+/* 値が無いときの印（src/ui/NoValue.tsx、2026-11-25）：静かな色のアイコン。取得失敗だけ赤。場所があれば下に名前。 */
+.no-value { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-1); color: var(--ink-disabled); vertical-align: middle; }
+.no-value.why-failed { color: var(--status-error); }
+.no-value-label { font-size: var(--size-xs); line-height: 1; white-space: nowrap; }
+.incomparable-hatch { display: inline-block; width: var(--space-5); height: var(--space-4); border-radius: var(--radius-sm); background: repeating-linear-gradient(45deg, var(--line-strong) 0 var(--stroke-hair), transparent var(--stroke-hair) var(--space-1)); }
+/* 出どころの説明（.source-legend dl）の中でも、この並びが勝つように2重のクラス。 */
+.no-value-legend.no-value-legend { margin: 0; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-2) var(--space-3); font-size: var(--size-sm); align-items: baseline; }
+.no-value-legend.no-value-legend > div { display: contents; }
+.no-value-head { margin: var(--space-3) 0 var(--space-2); font-size: var(--size-sm); color: var(--ink-secondary); }
+.no-value-legend dt { display: flex; align-items: center; gap: var(--space-1); color: var(--ink-primary); white-space: nowrap; }
+.no-value-legend dd { margin: 0; color: var(--ink-secondary); }
 
 /* A table cell that failed: a quiet dash; the status bar holds the one 再試行. */
 .cell-failed {
