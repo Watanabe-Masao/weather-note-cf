@@ -54,6 +54,9 @@ import {
 } from "./notify";
 import { importShiromatzMonth, importSummary } from "./forecastImport";
 import { forecastTypesSummary } from "./forecastTypeWatch";
+import { readMeasured } from "./soramame";
+import { STATION_PLACES } from "../../shared/stationPlaces";
+import { isDay } from "../../shared/dates";
 import { type Bucket, r2Summary } from "./r2Archive";
 import { RefetchRefused, refetchNow, refetchSummary } from "./refetch";
 import { dupCheck, maintenanceSummary, tableAudit } from "./maintenance";
@@ -854,6 +857,15 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       if (path === "/api/admin/forecast-import" && !post) return json(await importSummary(db));
       // 予報が外れやすい型の確かめ（forecastTypeWatch.ts、11/24）：影の運用の記録と、型ごとのこれまで。読むだけ。
       if (path === "/api/admin/forecast-types" && !post) return json(await forecastTypesSummary(db));
+      // 大気汚染の実測（soramame.ts、11/25）：介良局の1時間値（速報値）。そらまめくんの条件が「個人利用」なので、画面では
+      // 管理者だけに出す（渡辺さん）。高知市に確かめたら広げる。
+      if (path === "/api/admin/air-measured" && !post) {
+        const q = new URL(req.url).searchParams;
+        const place = STATION_PLACES[q.get("station") ?? ""];
+        const date = q.get("date") ?? "";
+        if (!place || !isDay(date)) throw new Refused("地点と日付を確認してください。", 400);
+        return json(await readMeasured(db, place.soramame.station, place.soramame.name, date));
+      }
       if (path === "/api/admin/archive" && !post) return json(await r2Summary(db));
       // 今すぐ取り直す（refetch.ts、#299 P1）：段ごとの様子と、1回だけ動かす（1時間に3回まで、記録を残す）。
       if (path === "/api/admin/refetch" && !post) return json(await refetchSummary(db, now, !!env.ARCHIVE));

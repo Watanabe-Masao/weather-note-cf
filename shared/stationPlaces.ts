@@ -12,8 +12,8 @@ export interface StationPlaces {
   longRange: { regionOffice: string };
   /** アメダスの観測点（10分ごとの JSON を R2 に残す、amedasArchive.ts）。 */
   amedas: string;
-  /** 大気汚染の実測（そらまめくん、soramame.ts）：都道府県コードと測定局コード。 */
-  soramame: { pref: string; station: string };
+  /** 大気汚染の実測（そらまめくん、soramame.ts）：都道府県コードと測定局コード、画面に出す局の名前。 */
+  soramame: { pref: string; station: string; name: string };
 }
 
 export const STATION_PLACES: Record<string, StationPlaces> = {
@@ -27,6 +27,6 @@ export const STATION_PLACES: Record<string, StationPlaces> = {
     // アメダスは高知（74182、高知地方気象台）。視程・天気（自動観測）が入る（KC-04）。
     amedas: "74182",
     // 大気汚染の実測は高知市の介良局（39201350、一般局。PM2.5 を測る高知市でただ一つの局。KC-04）。
-    soramame: { pref: "39", station: "39201350" },
+    soramame: { pref: "39", station: "39201350", name: "高知市 介良局" },
   },
 };

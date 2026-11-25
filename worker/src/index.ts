@@ -24,7 +24,9 @@ import { watchForecastArchive } from "./forecastWatch";
 import { copyTelegrams, saveCharts } from "./r2Archive";
 import { saveRadar } from "./radarArchive";
 import { saveAmedas } from "./amedasArchive";
-import { saveAirQuality } from "./airQuality";
+import { AIR_FIRST_DAY, saveAirQuality } from "./airQuality";
+import { STATION_PLACES } from "../../shared/stationPlaces";
+import { AIR_FORECAST_DAYS, readAir, saveAirForecast } from "./airForecast";
 import { saveSoramame } from "./soramame";
 import { collectLongRange } from "./longRangeArchive";
 import { health, markStart, timed } from "./health";
@@ -50,6 +52,8 @@ function publicMessage(e: unknown): string {
 const FORECAST_TTL = 30 * 60; // seconds
 const TYPHOON_TTL = 30 * 60;
 const HISTORY_TTL = 10 * 60;
+// 空気質（/api/air）：予測は1時間ごとに取り直すので、端では10分だけ共有する。
+const AIR_TTL = 10 * 60;
 /** 今（JST、"+09:00"）：発表の時刻と同じ書き方。 */
 const jstNowIso = () => `${new Date(Date.now() + 9 * 3_600_000).toISOString().slice(0, 19)}+09:00`;
 
@@ -164,6 +168,18 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
       // 監視と管理 (health.ts): room left under the plan, what is kept for nothing, and whether it works. A minute at the edge.
       if (!db) return jsonResponse({ v: 1, error: "no database" }, 503);
       return cachedFor(url.origin, `${CACHE_VERSION}/health`, 60, waitUntil, () => health(db, Date.now(), env));
+    }
+    case "/api/air": {
+      // 空気質（2026-11-25、airForecast.ts）：その日の1時間ごとの PM2.5・PM10・黄砂・AOD（CAMS のモデルの値）。今日と先の日は
+      // いちばん新しい予測（1時間ごとに取り直す）、過ぎた日は終わった日の値。地点に空気質の場所が無ければ supported: false。
+      const station = findStation(q.get("station"));
+      const day = q.get("date");
+      if (!isDay(day) || day < AIR_FIRST_DAY || day > addDays(today, AIR_FORECAST_DAYS - 1)) throw new BadRequest("日付を確認してください。");
+      if (!db || !STATION_PLACES[station.blockNo]) return jsonResponse({ v: 1, station: station.blockNo, date: day, supported: false });
+      return cachedFor(url.origin, `${CACHE_VERSION}/air/${station.blockNo}/${day}`, AIR_TTL, waitUntil, async () => ({
+        supported: true,
+        ...(await readAir(db, station.blockNo, day, today)),
+      }));
     }
     case "/api/forecast-history": {
       // 予報の履歴 (#250, R6): one day's issues and values as kept, for 「この日の予報の移り変わり」. Shared for
@@ -317,7 +333,12 @@ export default {
         .catch((e) => console.error("weather-note: weekly audit", e)),
     );
     // 空気質（Open-Meteo の CAMS、airQuality.ts）：1時間に1回まで、終わった日の1時間ごとの値を D1 に。
-    ctx.waitUntil(stage("air quality", (d) => saveAirQuality(d))().then(stage("soramame", (d) => saveSoramame(d))));
+    // 空気質の予測（airForecast.ts、11/25）：1時間に1回まで、今日から5日分を置き換える。そらまめくんは今月を1時間ごと。
+    ctx.waitUntil(
+      stage("air quality", (d) => saveAirQuality(d))()
+        .then(stage("air forecast", (d) => saveAirForecast(d)))
+        .then(stage("soramame", (d) => saveSoramame(d))),
+    );
     // Files kept in R2 (r2Archive.ts), apart from the rest: the rain radar every 30 minutes first (JMA lists
     // only about 3 hours of it, radarArchive.ts), the day's weather charts, and the telegrams copied as files.
     const bucket = env.ARCHIVE;
