@@ -62,6 +62,9 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   if (COLD_OPT.art3) document.documentElement.classList.add("cold-art3");
   // 第3次 段階2（11/26 20:19 承認）：構図。ページごとに視点の距離・主役・余白・視線の向きを変える（?coldComp=1）。文章・時間は同じ。
   COLD_OPT.comp = q.get("coldComp") === "1";
+  // 段階2 追加（11/26 21:41）：3P の接写案（?coldP3=B：くちばし・種・樹皮のすきま、字は左上）と、夜の星（?coldStars=0 で無し、既定は少数の星）。
+  COLD_OPT.p3 = q.get("coldP3") === "B" ? "B" : "A";
+  COLD_OPT.stars = q.get("coldStars") !== "0";
   // 7P の月の明暗だけを戻す強さ（?coldMoon7=0〜1、既定 0.4。0 は 2回目の版）。黄色の彩度は変えない。
   const m7 = Number(q.get("coldMoon7") ?? "0.4");
   COLD_OPT.moon7 = Number.isFinite(m7) ? Math.min(1, Math.max(0, m7)) : 0.4;
@@ -83,6 +86,9 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
     pages[1] = at(1, 2); // 小さなコガラ ／ 帽子と頬
     pages[2] = at(2, text === "W" ? 2 : 1); // W：一つ目 ／ もう一つ、R：反復 ／ 隠す
   }
+  // 第3次：9P の「西の空には、白い月が まだ のこっています。」は、列に収まらない画面で「す。」だけが次の列に残っていた
+  // （11/26 21:41）。言葉は変えず、意味のまとまりの折る所（"/"）を一つ足す：西の空には、／白い月が／まだ のこっています。
+  if (COLD_OPT.art3) pages[8] = pages[8].map((l) => (/^西の空には/.test(l) ? l.replace("白い月が まだ", "白い月が/まだ") : l));
   // 8P を一行ずつの節に（?cold8Split=1）。言葉は変えない。
   if (COLD_OPT.split8) pages[7] = [pages[7][0], "", pages[7][1], "", pages[7][2]];
   const sc = STORY_SCENES["コールドムーン"];
@@ -111,6 +117,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
     if (cap.includes("D")) caps[8] = { ...caps[8], drop: COLD_OPT.comp ? 12 : 8 };
     // 第3次：4P は地平線に残照を残す（明るくなる）ので、字の後ろだけを局所的に沈める（絵全体は暗くしない）。
     if (COLD_OPT.art3) caps[3] = { ...caps[3], backdrop: 1 };
+    // 3P の接写案：字は左上（コガラの頭の上の空き）。
+    if (COLD_OPT.comp && COLD_OPT.p3 === "B") caps[2] = { ...caps[2], area: "left" as const };
     sc.captions = caps;
   // ?coldSleep=1：9P の夜明けを、8P の文が消えて絵だけの時間のあとに（合図 108 ＝ 9P の「絵が先」の頭）。
   if (COLD_OPT.sleep) sc.pictureFirst = [8];

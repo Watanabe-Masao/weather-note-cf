@@ -72,7 +72,7 @@ export type StoryScene = {
    *   backdrop 字の後ろだけを局所的に沈める強さ（0〜1。景色全体は暗くしない）。
    *   area     字幕の領域（"tall"＝列を長くして列の数を減らす、"sky"＝右の余白を詰め列の間を少し狭くして、幹の右の空に収める）。
    */
-  captions?: Record<number, { tone?: "dark"; backdrop?: number; area?: "tall" | "sky"; drop?: number }>;
+  captions?: Record<number, { tone?: "dark"; backdrop?: number; area?: "tall" | "sky" | "left"; drop?: number }>;
   /** 見本：動きを減らす設定で、そのページの文の前に置く止まった絵（物語の中心の絵だけ。11/26 15:31 レビュー）。 */
   stills?: Record<number, { src: string; alt: string }>;
   /**

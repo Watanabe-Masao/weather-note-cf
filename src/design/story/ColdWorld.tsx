@@ -107,6 +107,30 @@ const TRUNK_D = [
   `M${LIMB.l - 11} ${LIMB.y + 20} L${LIMB.l - 7 - 72} -300 L${LIMB.l + 7 - 72} -300 L${LIMB.l + 11} ${LIMB.y + 20} Z`,
   `M${LIMB.r - 13} ${LIMB.y + 20} L${LIMB.r - 8 + 33} -300 L${LIMB.r + 8 + 33} -300 L${LIMB.r + 13} ${LIMB.y + 20} Z`,
 ].join(" ");
+/** 第3次 段階2：上へのびる二本の枝（TRUNK_D の2本目・3本目）に貼る樹皮の絵の置き方（根元の中心・傾き・幅・長さ）と切り抜き。 */
+const LIMBS = [
+  { b: [LIMB.l, LIMB.y + 40], t: [LIMB.l - 72, -300], clip: `M${LIMB.l - 11} ${LIMB.y + 20} L${LIMB.l - 7 - 72} -300 L${LIMB.l + 7 - 72} -300 L${LIMB.l + 11} ${LIMB.y + 20} Z` },
+  { b: [LIMB.r, LIMB.y + 40], t: [LIMB.r + 33, -300], clip: `M${LIMB.r - 13} ${LIMB.y + 20} L${LIMB.r - 8 + 33} -300 L${LIMB.r + 8 + 33} -300 L${LIMB.r + 13} ${LIMB.y + 20} Z` },
+].map(({ b, t, clip }) => {
+  const dx = t[0] - b[0], dy = t[1] - b[1];
+  const len = Math.hypot(dx, dy);
+  const w = 34;
+  return { bx: b[0], by: b[1], deg: (Math.atan2(dx, -dy) * 180) / Math.PI, w, h: Math.max(len + 30, (w * 4088) / 346), clip };
+});
+/** 第3次 段階2：控えめな星（明るい星 b は少し）。月の通り道（6P の昇る所・7P の高い所）のまわりは空ける。 */
+const STARS3 = (() => {
+  const r = rand(313);
+  const away = (x: number, y: number) =>
+    Math.hypot(x - 110, y - 420) > 150 && Math.hypot(x - 128, y - 230) > 130 && Math.hypot(x - 194, y + 26) > 130;
+  const out: { x: number; y: number; r: number; o: number; b: boolean }[] = [];
+  while (out.length < 34) {
+    const x = -360 + r() * 1120, y = -440 + r() * 900;
+    if (!away(x, y)) continue;
+    const b = out.length < 7;
+    out.push({ x: Math.round(x), y: Math.round(y), r: b ? 1.1 + r() * 0.5 : 0.45 + r() * 0.5, o: b ? 0.9 : 0.45 + r() * 0.35, b });
+  }
+  return out;
+})();
 /** 木の穴（キツツキの古い穴）。描き込んだ幹（c05）の穴の口に合わせる。 */
 const HOLE = { x: BIRCH.x + 2, y: 548, rx: 13, ry: 14 };
 /** 第3次：穴の縁の霜（角度・縁からの距離・半径・月の側か）。上の縁に寄せ、間隔も大きさもそろえない。 */
@@ -223,6 +247,14 @@ function MainBirch(): ReactElement {
           </g>
         );
       })}
+      {/* 第3次 段階2（11/26 21:41「枝の上部が直線的で、樹皮の質感が突然なくなる」）：上へのびる二本の枝にも描き込んだ樹皮を
+          （c05b の幹を縦につないだ絵を、枝の向きに傾けて、枝の形で切る）。二股の絵の上の端は、この樹皮へぼけてつながる。 */}
+      {COLD_OPT.art3 &&
+        LIMBS.map((l, i) => (
+          <g key={i} clipPath={`url(#cw-limb-clip${i})`}>
+            <image href={A("limb")} x={-l.w / 2} y={-l.h} width={l.w} height={l.h} transform={`translate(${l.bx.toFixed(2)} ${l.by.toFixed(2)}) rotate(${l.deg.toFixed(2)})`} preserveAspectRatio="none" />
+          </g>
+        ))}
       {/* 雪の枝（切り口は幹の絵の後ろ） */}
       <image className="cw-sway" href={A("bough")} x={BOUGH.x} y={BOUGH.y} width={BOUGH.w} height={BOUGH.h} />
       {/* 描き込んだ幹：穴のない幹（夜明けは光を受けた幹に入れ替える）、二股、穴のあたり */}
@@ -235,8 +267,44 @@ function MainBirch(): ReactElement {
   );
 }
 
+/** 第3次 段階2（11/26 21:41「雪原の水平な色の帯を、緩やかな起伏と連続した陰影へ」）：雪原の起伏の稜（上の縁）。
+ * 帯を全幅の水平線にしない（高さと長さを変え、端は下がって地面に溶ける）。面は上が明るく、下へ透けて下地の連続した陰影へ。 */
+const DRIFTS_BACK = [
+  "M-300 676 C -220 668 -150 666 -70 672 C 0 677 50 669 120 666 C 180 663 230 670 270 676 C 330 684 380 674 450 670 C 540 665 620 672 700 668",
+  "M-300 724 C -230 716 -170 712 -110 717 C -50 722 -10 728 40 724 C 90 720 120 712 160 712",
+  "M250 728 C 300 718 350 713 410 716 C 480 720 520 726 580 722 C 630 719 670 716 700 717",
+];
+const DRIFTS_FRONT = [
+  "M-300 770 C -220 760 -140 756 -60 762 C 0 767 60 772 130 766 C 200 760 250 752 330 756 C 420 761 520 770 700 762",
+  "M-300 828 C -200 818 -100 816 0 822 C 100 828 180 820 260 816 C 360 811 480 818 700 812",
+];
+const driftFill = (d: string, depth: number) => `${d} L 700 ${depth} L -300 ${depth} Z`;
+
+function SnowField3({ front }: { front?: boolean }): ReactElement {
+  if (front)
+    return (
+      <g>
+        {DRIFTS_FRONT.map((d, i) => (
+          <path key={i} d={driftFill(d, 1300)} fill="url(#cw-drift-g)" />
+        ))}
+        {/* いちばん手前の雪と枯れ草（下の端と左右の端を雪へぼかした版。引いた構図でも切り口を見せない）。倒木の下に薄い接触影。 */}
+        <ellipse cx={NEAR.x + NEAR.w * 0.72} cy={NEAR.y + NEAR.h * 0.86} rx={NEAR.w * 0.2} ry={7} fill="url(#cw-contact-g)" opacity={0.6} />
+        <image href={A("near-c3")} x={NEAR.x} y={NEAR.y} width={NEAR.w} height={NEAR.h} />
+      </g>
+    );
+  return (
+    <g>
+      <path d="M-300 640 C -100 628 60 642 200 636 C 340 630 480 640 700 632 L 700 1300 L -300 1300 Z" fill="url(#cw-snowbase-g)" />
+      {DRIFTS_BACK.map((d, i) => (
+        <path key={i} d={driftFill(d, i === 0 ? 760 : 800)} fill="url(#cw-drift-g)" />
+      ))}
+    </g>
+  );
+}
+
 /** 雪原と手前の雪の盛り上がり、枯れ草（平たい面）。 */
 function SnowField({ front }: { front?: boolean }): ReactElement {
+  if (COLD_OPT.art3) return <SnowField3 front={front} />;
   if (front)
     return (
       <g>
@@ -489,6 +557,43 @@ export function ColdWorld(): ReactElement {
         <filter id="cw-black" colorInterpolationFilters="sRGB">
           <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" />
         </filter>
+        {LIMBS.map((l, i) => (
+          <clipPath key={i} id={`cw-limb-clip${i}`}>
+            <path d={l.clip} />
+          </clipPath>
+        ))}
+        {/* 雪原の下地：地平線から手前へ、連続した明るさの変化（色の帯にしない）。起伏の面：上の稜が明るく、下へ透ける。 */}
+        <linearGradient id="cw-snowbase-g" gradientUnits="userSpaceOnUse" x1={0} y1={630} x2={0} y2={900}>
+          <stop offset="0" stopColor={C.snow[2]} />
+          <stop offset="0.2" stopColor="#d8e0ef" />
+          <stop offset="0.5" stopColor="#e9eef7" />
+          <stop offset="1" stopColor={C.snow[0]} />
+        </linearGradient>
+        <linearGradient id="cw-drift-g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f6f8fc" stopOpacity={0.95} />
+          <stop offset="0.12" stopColor="#eef2f8" stopOpacity={0.75} />
+          <stop offset="0.45" stopColor="#e4eaf4" stopOpacity={0.3} />
+          <stop offset="1" stopColor="#e4eaf4" stopOpacity={0} />
+        </linearGradient>
+        {/* 起伏の稜の月明かり：稜のすぐ下がいちばん明るく、面の下へ消える（線にしない）。手前の起伏は面が大きいので早く消す。 */}
+        <linearGradient id="cw-crestlit-g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#e3ebff" stopOpacity={0.65} />
+          <stop offset="0.1" stopColor="#d6e1fb" stopOpacity={0.3} />
+          <stop offset="0.3" stopColor="#d6e1fb" stopOpacity={0} />
+        </linearGradient>
+        <linearGradient id="cw-crestlit-g2" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#e3ebff" stopOpacity={0.6} />
+          <stop offset="0.04" stopColor="#d6e1fb" stopOpacity={0.25} />
+          <stop offset="0.12" stopColor="#d6e1fb" stopOpacity={0} />
+        </linearGradient>
+        <linearGradient id="cw-crest-x" gradientUnits="userSpaceOnUse" x1={-200} y1={0} x2={500} y2={0}>
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="0.6" stopColor="#808080" />
+          <stop offset="1" stopColor="#1a1a1a" />
+        </linearGradient>
+        <mask id="cw-crest-mask" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
+          <rect x={-700} y={600} width={1800} height={700} fill="url(#cw-crest-x)" />
+        </mask>
         <clipPath id="cw-ridge-clip">
           <path d={RIDGE_D} />
         </clipPath>
@@ -614,6 +719,22 @@ export function ColdWorld(): ReactElement {
             <rect className="cw-dawnglow" x={-700} y={360} width={1800} height={220} fill="url(#cw-dawnglow-g)" opacity={0} />
           </>
         )}
+        {/* 第3次 段階2（11/26 21:41「星は描く。ただし非常に控えめに」）：満月の夜なので少数だけ。空に固定（降る雪とは別の層、動かない）。
+            明るい星（4P の夕暮れから）と、暗い星（5P から）。月の通り道のまわりには置かない。 */}
+        {COLD_OPT.art3 && COLD_OPT.stars && (
+          <>
+            <g className="cw-stars3-b" opacity={0}>
+              {STARS3.filter((x) => x.b).map((x, i) => (
+                <circle key={i} cx={x.x} cy={x.y} r={x.r} fill="#f4f6ff" opacity={x.o} />
+              ))}
+            </g>
+            <g className="cw-stars3-d" opacity={0}>
+              {STARS3.filter((x) => !x.b).map((x, i) => (
+                <circle key={i} cx={x.x} cy={x.y} r={x.r} fill="#e8edff" opacity={x.o} />
+              ))}
+            </g>
+          </>
+        )}
         <g className="cw-stars" opacity={0}>
           {stars}
         </g>
@@ -649,8 +770,8 @@ export function ColdWorld(): ReactElement {
         {COLD_OPT.art3 && (
           <g>
             {/* 3回目（11/26 20:19「低く、左右非対称に、周囲の雪原へ溶け込ませる」）：左は短く、右（陰の側）へ長くなだらかに。縁は薄い雪を一枚外に重ねてぼかす。 */}
-            <path d={`M${BIRCH.x - 52} 703 C ${BIRCH.x - 40} 700 ${BIRCH.x - 30} 692 ${BIRCH.x - 18} 690 C ${BIRCH.x - 8} 688 ${BIRCH.x + 4} 687 ${BIRCH.x + 14} 689 C ${BIRCH.x + 26} 691 ${BIRCH.x + 34} 695 ${BIRCH.x + 52} 698 C ${BIRCH.x + 72} 701 ${BIRCH.x + 96} 702 ${BIRCH.x + 120} 704 L ${BIRCH.x - 52} 706 Z`} fill={C.snow[0]} opacity={0.55} transform="translate(0 -1.6)" />
-            <path d={`M${BIRCH.x - 44} 704 C ${BIRCH.x - 34} 701 ${BIRCH.x - 27} 694 ${BIRCH.x - 17} 691.5 C ${BIRCH.x - 6} 689 ${BIRCH.x + 3} 688.5 ${BIRCH.x + 13} 690.5 C ${BIRCH.x + 22} 692 ${BIRCH.x + 31} 695.5 ${BIRCH.x + 46} 698.5 C ${BIRCH.x + 66} 701.5 ${BIRCH.x + 88} 702.5 ${BIRCH.x + 112} 705 L ${BIRCH.x - 44} 706 Z`} fill={C.snow[0]} />
+            <path d={`M${BIRCH.x - 52} 703 C ${BIRCH.x - 40} 700 ${BIRCH.x - 30} 692 ${BIRCH.x - 18} 690 C ${BIRCH.x - 8} 688 ${BIRCH.x + 4} 687 ${BIRCH.x + 14} 689 C ${BIRCH.x + 26} 691 ${BIRCH.x + 34} 695 ${BIRCH.x + 52} 698 C ${BIRCH.x + 72} 701 ${BIRCH.x + 96} 702 ${BIRCH.x + 120} 704 L ${BIRCH.x - 52} 712 Z`} fill="url(#cw-drift-g)" opacity={0.7} transform="translate(0 -1.6)" />
+            <path d={`M${BIRCH.x - 44} 704 C ${BIRCH.x - 34} 701 ${BIRCH.x - 27} 694 ${BIRCH.x - 17} 691.5 C ${BIRCH.x - 6} 689 ${BIRCH.x + 3} 688.5 ${BIRCH.x + 13} 690.5 C ${BIRCH.x + 22} 692 ${BIRCH.x + 31} 695.5 ${BIRCH.x + 46} 698.5 C ${BIRCH.x + 66} 701.5 ${BIRCH.x + 88} 702.5 ${BIRCH.x + 112} 705 L ${BIRCH.x - 44} 712 Z`} fill="url(#cw-drift-g)" />
             <path d={`M${BIRCH.x + 16} 691 C ${BIRCH.x + 24} 693 ${BIRCH.x + 30} 695.5 ${BIRCH.x + 38} 697`} stroke={C.shadow} strokeWidth={1.2} strokeLinecap="round" fill="none" opacity={0.4} />
           </g>
         )}
@@ -701,6 +822,13 @@ export function ColdWorld(): ReactElement {
             <ellipse cx={CLING.x + CLING.w * 0.62} cy={CLING.y + CLING.h * 0.5} rx={CLING.w * 0.26} ry={CLING.h * 0.16} fill="url(#cw-warm-g)" mask="url(#cw-cling-shape)" opacity={0.5} style={{ mixBlendMode: "soft-light" }} />
           )}
         </g>
+        {/* 第3次 段階2（3P 接写案）：種をしまう樹皮の小さなすきま（大きな木の穴ではないことが絵で分かるように、細い裂け目）。 */}
+        {COLD_OPT.art3 && (
+          <g className="cw-crack" opacity={0}>
+            <path d={`M${SEED.at[0] + 2} ${SEED.at[1] - 2.4} C ${SEED.at[0] + 5} ${SEED.at[1] - 1} ${SEED.at[0] + 7} ${SEED.at[1] + 1.2} ${SEED.at[0] + 9} ${SEED.at[1] + 3}`} stroke="#3a2a1f" strokeWidth={1.1} strokeLinecap="round" fill="none" opacity={0.85} />
+            <path d={`M${SEED.at[0] + 2.6} ${SEED.at[1] - 1.6} C ${SEED.at[0] + 5.4} ${SEED.at[1] - 0.2} ${SEED.at[0] + 7.2} ${SEED.at[1] + 1.8} ${SEED.at[0] + 9} ${SEED.at[1] + 3.6}`} stroke="#f6eee4" strokeWidth={0.5} strokeLinecap="round" fill="none" opacity={0.8} />
+          </g>
+        )}
         {/* 「ひとつぶ、またひとつぶ。」：くちばしの所から、種が一つずつ幹のすきまへ消える（2粒だけ）。 */}
         {[1, 2].map((k) => (
           <image key={k} className={`cw-seed${k}`} href={A("seed")} x={SEED.x} y={SEED.y} width={SEED.w} height={SEED.h} opacity={0} />
@@ -720,7 +848,16 @@ export function ColdWorld(): ReactElement {
           <rect className="cw-shade-night" x={-700} y={-400} width={1800} height={2000} fill="#071131" opacity={0} />
         </g>
         {/* 雪の上の月明かり（6〜8ページ。夜明けで消える）。紺に沈めた地上の上に重ねる。 */}
-        <g className="cw-moonlit" opacity={0}>
+        {/* 第3次 段階2（11/26 21:41「スポットライト状ではなく、雪面の起伏による反射」）：雪の起伏の稜が月の側（左）ほど光る。
+            雪面の月明かり（.cw-snowlit）と同じ時に。 */}
+        {COLD_OPT.art3 && (
+          <g className="cw-snowlit" opacity={0} mask="url(#cw-crest-mask)" style={{ mixBlendMode: "screen" }}>
+            {[...DRIFTS_BACK, ...DRIFTS_FRONT].map((d, i) => (
+              <path key={i} d={driftFill(d, i < 3 ? (i === 0 ? 760 : 800) : 1300)} fill={i < 3 ? "url(#cw-crestlit-g)" : "url(#cw-crestlit-g2)"} />
+            ))}
+          </g>
+        )}
+        <g className="cw-moonlit" opacity={0} style={COLD_OPT.art3 ? { display: "none" } : undefined}>
           <ellipse cx={130} cy={716} rx={300} ry={44} fill="url(#cw-moonlit-g)" opacity={0.5} />
           <ellipse cx={HOLE.x - 10} cy={HOLE.y + 10} rx={40} ry={70} fill="url(#cw-moonlit-g)" opacity={0.35} />
         </g>
@@ -913,15 +1050,28 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   // 3 「ひとつぶ、」「またひとつぶ。」：幹につかまるコガラ。言葉に合わせて、種が一つずつ幹のすきまへ消える。
   const seeds = [cue(2, 0, 2.14), cue(2, 1, 2.3)];
   // 段階2：営みの細部。種をしまう幹のすきまとコガラのくちばしに寄る（コガラと幹を左の三分の二に、右は字の余白）。
-  move(2, CP ? cam(206, 608, 2.1) : COLD_OPT.view ? cam(BIRCH.x + 5, 610, 1.6) : cam(BIRCH.x + 5, 600, 1.4))
+  // 段階2 追加：3P の接写案（?coldP3=B）。くちばし・種・樹皮のすきまを中心に（字は左上）。すきまの細い裂け目を見せ、
+  // 2つ目の種は先が少し見えたまま、すきまに残す（しまったことが絵で分かる）。
+  const P3B = CP && COLD_OPT.p3 === "B";
+  if (A3) tl.to(".cw-crack", { opacity: 1, duration: 0.1 }, 2.02).to(".cw-crack", { opacity: 0, duration: 0.1 }, 3.0);
+  move(2, P3B ? cam(176, 590, 4.0) : CP ? cam(206, 608, 2.1) : COLD_OPT.view ? cam(BIRCH.x + 5, 610, 1.6) : cam(BIRCH.x + 5, 600, 1.4))
     .to(".cw-perch", { opacity: 0, duration: 0.04 }, 2.01)
     .to(".cw-seed", { opacity: 1, duration: 0.06 }, Math.max(2.02, seeds[0] - 0.08));
   seeds.forEach((t, k) =>
     tl
       .fromTo(`.cw-seed${k + 1}`, { opacity: 0, x: 0, scale: 1 }, { opacity: 1, duration: 0.02 }, t)
       .to(`.cw-seed${k + 1}`, { x: 5, scale: 0.55, svgOrigin: `${SEED.at[0]} ${SEED.at[1]}`, duration: 0.07, ease: "power1.in" }, t + 0.02)
-      .to(`.cw-seed${k + 1}`, { opacity: 0, duration: 0.03 }, t + 0.07),
+      .to(`.cw-seed${k + 1}`, { opacity: P3B && k === 1 ? 1 : 0, duration: 0.03 }, t + 0.07),
   );
+  if (P3B) tl.to(".cw-seed2", { opacity: 0, duration: 0.05 }, 3.0);
+  // 星（第3次 段階2）：4P 夕暮れに明るい星がわずか → 5P 少し増える → 6P 月から離れた空に控えめに → 7P 少なく → 8P ほとんど無し → 9P 朝に溶ける。
+  if (A3 && COLD_OPT.stars)
+    tl.to(".cw-stars3-b", { opacity: 0.55, duration: 0.5 }, 3.2)
+      .to(".cw-stars3-b", { opacity: 0.85, duration: 0.4 }, 4.05)
+      .to(".cw-stars3-d", { opacity: 0.4, duration: 0.4 }, 4.05)
+      .to(".cw-stars3-d", { opacity: 0.8, duration: 0.4 }, 5.05)
+      .to([".cw-stars3-b", ".cw-stars3-d"], { opacity: 0.45, duration: 0.4 }, 6.05)
+      .to([".cw-stars3-b", ".cw-stars3-d"], { opacity: 0.08, duration: 0.4 }, 7.05);
   // 4 はやい夕暮れ：引いて空を広く。空と雪が青いかげへ。「ひゅう、」で枝が揺れ、雪が流れる。
   const gust = cue(3, 0, 3.46);
   move(3, cam(200, 470, 1.0))
@@ -1044,6 +1194,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
       .to([".cw-bark-moon", ".cw-snowlit"], { opacity: 0, duration: dur(2.0) }, at(0.6))
       .to(".cw-birdshade", { opacity: 0, duration: dur(1.0) }, at(0.6))
       .to(".cw-birdlight2", { autoAlpha: 0, duration: dur(1.0) }, at(0.6))
+      .to([".cw-stars3-b", ".cw-stars3-d"], { opacity: 0, duration: dur(2.4) }, at(0.3))
       .to(".cw-snow", { opacity: 1, duration: dur(2.0) }, at(1.0))
       .to(".cw-moonlit", { opacity: 0, duration: dur(2.0) }, at(0.6))
       .to(".cw-frost", { opacity: 0.4, duration: dur(2.0) }, at(0.8))

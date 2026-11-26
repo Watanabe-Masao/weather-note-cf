@@ -133,6 +133,10 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
     // 第3次 段階1（見本）：背景 C2 の中景。c08-middle の彩度・明暗差・鮮明さを抑えた版（遠くなるほど情報が減る）。
     // 第3次 段階1（見本）：7P の月の明暗だけを戻すための、月の濃淡（灰色、明暗を強めた版。かけ算で重ねる）。
     "moon-relief": { file: "design-src/story/cold/pack/moon-relief.png", width: 512 },
+    // 第3次 段階2（見本）：上へのびる二本の枝の樹皮（c05b の幹を縦に3つ、つなぎ目をぼかして重ねた）。
+    limb: { file: "design-src/story/cold/pack/c05e-limb.png", width: 240, quality: 0.8 },
+    // 第3次 段階2（見本）：いちばん手前の雪と枯れ草の、下の端と左右の端を雪へぼかした版（引いた構図で切り口を見せない）。
+    "near-c3": { file: "design-src/story/cold/pack/c08-near-c3.png", width: 1400, quality: 0.8 },
     "middle-c2": { file: "design-src/story/cold/pack/c08-middle-c2.png", width: 1400, quality: 0.8 },
     near: { file: "design-src/story/cold/pack/c08-near.png", width: 1400, quality: 0.8 },
     branch: { file: "design-src/story/cold/pack/c09-branch.png", width: 1000, quality: 0.8 },
