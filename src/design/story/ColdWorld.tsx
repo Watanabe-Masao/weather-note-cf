@@ -890,8 +890,11 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     const v = cueAt[page]?.[k];
     return Math.min(page + 0.74, Math.max(page, v != null && Number.isFinite(v) ? v : fallback));
   };
-  // 1 雪の森：少し寄った所から、森全体へ。
-  tl.fromTo(".cw-camera", { ...cam(200, 520, 1.3), svgOrigin: "200 430" }, { ...cam(200, 480, 1.1), duration: 0.75, ease: "power2.inOut" }, 0);
+  // 第3次 段階2（?coldComp=1、11/26 20:19「同じ場所を描きながら、異なるものを見せる」）：視点の距離のリズム
+  // 1 遠 → 2 中 → 3 近 → 4 遠 → 5 近 → 6 いちばん遠い → 7 見上げる → 8 いちばん近い → 9 遠（世界へ戻る）。
+  const CP = !!COLD_OPT.comp;
+  // 1 雪の森：少し寄った所から、森全体へ。段階2：世界との出会い。広く引き、シラカバは左の三分の一、地平線は低め、右は空と雪原の余白（字の場所）。
+  tl.fromTo(".cw-camera", { ...cam(200, 520, 1.3), svgOrigin: "200 430" }, { ...(CP ? cam(292, 474, 0.8) : cam(200, 480, 1.1)), duration: 0.75, ease: "power2.inOut" }, 0);
   // 見本（CM-R02、11/26 レビュー「低い冬の日による自然な影、淡い青灰色、柔らかく、原則静止、絵を先に」）：「ながく」の合図が
   // ある本文のときだけ、文より先に、幹の長い影が雪の上に静かに現れる（伸ばさない）。夕暮れで消える。
   const longAt = cueAt[0]?.[0];
@@ -909,7 +912,8 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   );
   // 3 「ひとつぶ、」「またひとつぶ。」：幹につかまるコガラ。言葉に合わせて、種が一つずつ幹のすきまへ消える。
   const seeds = [cue(2, 0, 2.14), cue(2, 1, 2.3)];
-  move(2, COLD_OPT.view ? cam(BIRCH.x + 5, 610, 1.6) : cam(BIRCH.x + 5, 600, 1.4))
+  // 段階2：営みの細部。種をしまう幹のすきまとコガラのくちばしに寄る（コガラと幹を左の三分の二に、右は字の余白）。
+  move(2, CP ? cam(206, 608, 2.1) : COLD_OPT.view ? cam(BIRCH.x + 5, 610, 1.6) : cam(BIRCH.x + 5, 600, 1.4))
     .to(".cw-perch", { opacity: 0, duration: 0.04 }, 2.01)
     .to(".cw-seed", { opacity: 1, duration: 0.06 }, Math.max(2.02, seeds[0] - 0.08));
   seeds.forEach((t, k) =>
@@ -940,7 +944,8 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   // 出現そのものより光の変化」）：少し引いて（0.84 倍）、地平線を画面の下の 4 分の 1 ほどへ。「雪の野原」で雪原がほのかに
   // 明るみ、月は「まあるい」で山の向こうから昇る。
   const P67 = !!COLD_OPT.p67;
-  if (P67) tl.to(".cw-camera", { ...cam(188, 362, 0.84), duration: 0.7, ease: "sine.inOut" }, 5);
+  // 段階2：広い世界と月。いちばん遠くまで引き、地平線を画面の下の三分の一より下に。シラカバは右へ寄せ、月の昇る北東の空を広く。
+  if (P67) tl.to(".cw-camera", { ...(CP ? cam(118, 372, 0.7) : cam(188, 362, 0.84)), duration: 0.7, ease: "sine.inOut" }, 5);
   (P67 ? tl : move(5, cam(200, 480, 1.0)))
     .to(".cw-sky-night", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 5)
     .to(".cw-shade-night", { opacity: 0.8, duration: 0.4, ease: "sine.inOut" }, 5)
@@ -1004,7 +1009,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
       tl.fromTo(".cw-birdshade", { opacity: 0 }, { opacity: 1, duration: Math.max(0.02, peak - lit), ease: "sine.inOut" }, lit)
         .fromTo(".cw-birdlight2", { autoAlpha: 0 }, { autoAlpha: 0.55, duration: Math.max(0.02, peak - lit), ease: "sine.inOut" }, lit);
   }
-  (COLD_OPT.view ? move(7, cam(200, 440, 1.0), 0.2).to(".cw-camera", { ...cam(HOLE.x + (COLD_OPT.cu?.[0] ?? 12), HOLE.y + 30, COLD_OPT.cu?.[1] ?? 2.3), duration: 0.5, ease: "sine.inOut" }, 7.22) : move(7, cam(HOLE.x + 12, HOLE.y + 30, 2.3)))
+  (COLD_OPT.view ? move(7, cam(200, 440, 1.0), 0.2).to(".cw-camera", { ...(CP ? cam(HOLE.x + 22, HOLE.y + 6, 3.6) : cam(HOLE.x + (COLD_OPT.cu?.[0] ?? 12), HOLE.y + 30, COLD_OPT.cu?.[1] ?? 2.3)), duration: 0.5, ease: "sine.inOut" }, 7.22) : move(7, cam(HOLE.x + 12, HOLE.y + 30, 2.3)))
     .to(".cw-moon", { attr: { transform: "translate(-120 300)" }, duration: 0.6 }, 7.05)
     .fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: 0, autoAlpha: A3 ? 0.3 : 0.55, duration: Math.min(0.3, 7.75 - band), ease: "sine.inOut" }, band)
     .to(".cw-frost", { opacity: 0.9, duration: Math.min(0.3, 7.75 - band) }, band);
@@ -1078,5 +1083,6 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     .to(".cw-fly", { opacity: 0, duration: 0.03 }, fly + 0.14);
   // 枝にとまったら少し止まり（「朝の森に、コガラの声。」を止まった絵で読む）、「西の空」の前に西へ向く（11/23 レビュー：
   // 一つの続いた動きにせず、短い静止で余韻を作る）。
-  move(turn, cam(175, 480, 0.96), Math.min(0.1, 8.75 - turn));
+  // 段階2：世界へ戻る。西を向くとき、1P より少し広く引く（コガラは小さく、森と西の白い月が大きく）。
+  move(turn, CP ? cam(185, 470, 0.75) : cam(175, 480, 0.96), Math.min(0.1, 8.75 - turn));
 }

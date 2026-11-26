@@ -60,6 +60,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   // 6P の背景3案（?coldBg=A 現行の平たい面／B 描き込んだ遠景・中景／C 平たい遠景＋描き込んだ中景）。
   COLD_OPT.art3 = q.get("cold3") === "1";
   if (COLD_OPT.art3) document.documentElement.classList.add("cold-art3");
+  // 第3次 段階2（11/26 20:19 承認）：構図。ページごとに視点の距離・主役・余白・視線の向きを変える（?coldComp=1）。文章・時間は同じ。
+  COLD_OPT.comp = q.get("coldComp") === "1";
   // 7P の月の明暗だけを戻す強さ（?coldMoon7=0〜1、既定 0.4。0 は 2回目の版）。黄色の彩度は変えない。
   const m7 = Number(q.get("coldMoon7") ?? "0.4");
   COLD_OPT.moon7 = Number.isFinite(m7) ? Math.min(1, Math.max(0, m7)) : 0.4;
