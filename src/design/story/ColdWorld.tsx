@@ -417,8 +417,13 @@ export function ColdWorld(): ReactElement {
           <stop offset="0.5" stopColor="#dfe8ff" stopOpacity={0.9} />
           <stop offset="1" stopColor="#dfe8ff" stopOpacity={0} />
         </linearGradient>
+        <radialGradient id="cw-band-soft" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0.55" stopColor="#ffffff" />
+          <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
+        </radialGradient>
         <mask id="cw-band-area" maskUnits="userSpaceOnUse" x={HOLE.x - 80} y={HOLE.y - 80} width={160} height={160}>
-          <ellipse cx={HOLE.x} cy={HOLE.y} rx={HOLE.rx + 14} ry={HOLE.ry + 16} fill="#ffffff" />
+          {/* 外の縁はぼかす（11/26：寄った所で、光の帯が通るときに縁のはっきりした丸い光の板に見えていた）。 */}
+          <ellipse cx={HOLE.x} cy={HOLE.y} rx={HOLE.rx + 16} ry={HOLE.ry + 18} fill="url(#cw-band-soft)" />
           <ellipse cx={HOLE.x} cy={HOLE.y} rx={HOLE.rx - 1} ry={HOLE.ry - 1} fill="#000000" />
         </mask>
         <radialGradient id="cw-vignette" cx="0.5" cy="0.45" r="0.75">
