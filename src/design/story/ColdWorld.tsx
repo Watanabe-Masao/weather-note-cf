@@ -370,8 +370,8 @@ export function ColdWorld(): ReactElement {
           <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} filter="url(#cw-white)" />
         </mask>
         {/* 穴の口（穴の中のコガラは口の形に切る）。 */}
-        {/* 試作（?coldSleep=1）：月の光が届いた眠るコガラ（顔の所が明るく、外へやわらかく消える。青白い月の色）。 */}
-        <radialGradient id="cw-birdlight-g" cx="0.5" cy="0.45" r="0.5">
+        {/* 試作（?coldSleep=1）：月の光が届いた眠るコガラ（顔の所が明るく、外へやわらかく消える。青白い月の色。明るい所は月のある左上へ少し寄せる＝光の向きと縁の陰影をそろえる）。 */}
+        <radialGradient id="cw-birdlight-g" cx="0.42" cy="0.4" r="0.55">
           <stop offset="0" stopColor="#ffffff" />
           <stop offset="0.55" stopColor="#ffffff" stopOpacity={0.75} />
           <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
@@ -686,11 +686,17 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   const band = cue(7, 0, 7.42);
   // 見本（11/26 レビュー「8P は遠景から近景へ。急なズームを避ける」）：雪の森を遠くに見たまま「ながい、ながい夜。」を読み、
   // ゆっくり（区間の半分ほどかけて）木の穴の眠るコガラへ寄る。
-  if (COLD_OPT.sleep) tl.to(".cw-hole-sleep", { opacity: 1, duration: 0.3, ease: "sine.inOut" }, 7.4).to(".cw-hole-sleep", { opacity: 0, duration: 0.05 }, 7.97);
-  // 光のマスクの2つ目：光の帯が縁を移りはじめてから、ページの終わりに向けて穴の中のコガラへ届く。9P の前に消す。
+  // 光のマスクの2つ目（11/26 レビュー「光が届く → コガラに気づく → 文章を読み終える → 絵だけを眺める」）：「月の光が、」の節が
+  // 出はじめてから光が穴の中へ届きはじめ、文が消えはじめる（区間の終わり）より約 1 秒前（読み終える頃）に、いちばん明るく（0.85）なる。
+  // 節の頭から文が消えはじめるまで約 4.9 秒（浮かぶ 0.9 ＋読む時間 4.0）なので、その 4.0/4.9 の所。そのあと夜明けまで、その明るさのまま。
   if (COLD_OPT.sleep) {
-    const lit = cue(7, 0, 7.42) + 0.08;
-    tl.fromTo(".cw-birdlight", { opacity: 0 }, { opacity: 0.85, duration: Math.max(0.1, 7.9 - lit), ease: "sine.inOut" }, lit).to(".cw-birdlight", { opacity: 0, duration: 0.05 }, 7.97);
+    // 8P の区間は拍 6.78〜7.78（MoonStory の segBeat、BEAT_REST 0.78）。区間の終わり 7.78 で文が消えはじめる。
+    const end8 = 7.78;
+    const s3 = Math.min(end8 - 0.05, cueAt[7]?.[0] ?? 7.5);
+    const peak = s3 + (end8 - s3) * (4.0 / 4.9);
+    const lit = s3 + (end8 - s3) * (0.3 / 4.9);
+    tl.to(".cw-hole-sleep", { opacity: 1, duration: 0.3, ease: "sine.inOut" }, 7.4)
+      .fromTo(".cw-birdlight", { opacity: 0 }, { opacity: 0.85, duration: Math.max(0.02, peak - lit), ease: "sine.inOut" }, lit);
   }
   (COLD_OPT.view ? move(7, cam(200, 440, 1.0), 0.2).to(".cw-camera", { ...cam(HOLE.x + (COLD_OPT.cu?.[0] ?? 12), HOLE.y + 30, COLD_OPT.cu?.[1] ?? 2.3), duration: 0.5, ease: "sine.inOut" }, 7.22) : move(7, cam(HOLE.x + 12, HOLE.y + 30, 2.3)))
     .to(".cw-moon", { attr: { transform: "translate(-120 300)" }, duration: 0.6 }, 7.05)
@@ -698,23 +704,29 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     .to(".cw-frost", { opacity: 0.9, duration: Math.min(0.3, 7.75 - band) }, band);
   // 9 コールドムーン：朝の光（木が桃色に照らされる）→「フィーチー」でコガラが穴から出て枝へ →「朝の森」は止まった絵で →
   // 西へ向く（カメラが左へ。月が動いたのでなく見る向きが変わった）→ 白い月 →「西の空」→ 余白 → 名前。月は最後まで消さない。
+  // 見本（?coldSleep=1、11/26 レビュー「文字が完全に消えた後も、3秒程度は眠るコガラを眺められる時間」）：夜明けは、8P の文が
+  // 消えて絵だけの時間（8P の picture）が終わってから（9P の「絵が先」の頭、合図 108）。それまで夜の穴の寄りのまま。
+  const n9 = COLD_OPT.sleep ? Math.max(8, Math.min(8.5, cueAt[108]?.[0] ?? 8)) : 8;
   const fly = cue(8, 0, 8.14);
   const west = cue(8, 2, 8.74);
   const turn = Math.max(fly + 0.17, west - 0.11);
-  move(8, cam(270, 540, 1.3), 0.1)
-    .set(".cw-moon", { attr: { transform: "translate(64 400) scale(0.5)" } }, 8.02)
-    .set(".cw-moon-tint", { opacity: 0.62 }, 8.02)
-    .to(".cw-sky-dawn", { opacity: 1, duration: 0.25, ease: "sine.inOut" }, 8)
-    .to(".cw-sky-night", { opacity: 0, duration: 0.25, ease: "sine.inOut" }, 8.02)
-    .to(".cw-stars", { opacity: 0, duration: 0.25 }, 8.02)
-    .to(".cw-moonlit", { opacity: 0, duration: 0.25 }, 8.02)
-    .to(".cw-band", { autoAlpha: 0, duration: 0.12 }, 8)
-    .to(".cw-frost", { opacity: 0.4, duration: 0.25 }, 8.02)
-    .to(".cw-moon-air", { autoAlpha: 0, duration: 0.25 }, 8.02)
-    .to(".cw-trunk-dawn", { opacity: 1, duration: 0.25, ease: "sine.inOut" }, 8.02)
-    .to(".cw-air", { autoAlpha: 0.5, duration: 0.35, ease: "sine.inOut" }, 8.04)
-    .to(".cw-mist", { autoAlpha: 0.45, duration: 0.4, ease: "sine.inOut" }, 8.08)
-    .to(".cw-shade-night", { opacity: 0.2, duration: 0.3, ease: "sine.inOut" }, 8.02)
+  // 夜明けを遅らせたぶん、空と光の切り替えは「フィーチー」までに終える（拍の長さを縮める）。
+  const dz = COLD_OPT.sleep ? Math.max(0.05, Math.min(1, (fly - n9) / 0.4)) : 1;
+  if (COLD_OPT.sleep) tl.to([".cw-hole-sleep", ".cw-birdlight"], { opacity: 0, duration: 0.04, ease: "sine.inOut" }, n9);
+  move(n9, cam(270, 540, 1.3), 0.1)
+    .set(".cw-moon", { attr: { transform: "translate(64 400) scale(0.5)" } }, n9 + 0.02)
+    .set(".cw-moon-tint", { opacity: 0.62 }, n9 + 0.02)
+    .to(".cw-sky-dawn", { opacity: 1, duration: 0.25 * dz, ease: "sine.inOut" }, n9)
+    .to(".cw-sky-night", { opacity: 0, duration: 0.25 * dz, ease: "sine.inOut" }, n9 + 0.02)
+    .to(".cw-stars", { opacity: 0, duration: 0.25 * dz }, n9 + 0.02)
+    .to(".cw-moonlit", { opacity: 0, duration: 0.25 * dz }, n9 + 0.02)
+    .to(".cw-band", { autoAlpha: 0, duration: 0.12 * dz }, n9)
+    .to(".cw-frost", { opacity: 0.4, duration: 0.25 * dz }, n9 + 0.02)
+    .to(".cw-moon-air", { autoAlpha: 0, duration: 0.25 * dz }, n9 + 0.02)
+    .to(".cw-trunk-dawn", { opacity: 1, duration: 0.25 * dz, ease: "sine.inOut" }, n9 + 0.02)
+    .to(".cw-air", { autoAlpha: 0.5, duration: 0.35 * dz, ease: "sine.inOut" }, n9 + 0.04)
+    .to(".cw-mist", { autoAlpha: 0.45, duration: 0.4 * dz, ease: "sine.inOut" }, n9 + 0.08)
+    .to(".cw-shade-night", { opacity: 0.2, duration: 0.3 * dz, ease: "sine.inOut" }, n9 + 0.02)
     .to(".cw-fluff-closed", { opacity: 0, duration: 0.02 }, fly)
     .to(".cw-fly", { opacity: 1, duration: 0.02 }, fly)
     .to(".cw-fly", { x: -108, duration: 0.12, ease: "sine.inOut" }, fly + 0.01)

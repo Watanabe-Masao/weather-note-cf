@@ -95,6 +95,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
     // 9P（夜明け）：縦に長い画面では、字の出はじめを 8svh 下げる（空の上の暗い青を避ける。11/26）。
     if (cap.includes("D")) caps[8] = { ...caps[8], drop: 8 };
     sc.captions = caps;
+  // ?coldSleep=1：9P の夜明けを、8P の文が消えて絵だけの時間のあとに（合図 108 ＝ 9P の「絵が先」の頭）。
+  if (COLD_OPT.sleep) sc.pictureFirst = [8];
   }
   return {
     ...story,
