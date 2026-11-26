@@ -49,6 +49,8 @@
 
 ## 4. 見直しの仕方（品質の基準）
 
+品質管理の進め方は [moon-story-quality-process.md](moon-story-quality-process.md)（手順書）、合格の基準は [moon-story-quality-standard.md](moon-story-quality-standard.md)（基準書）。作品ごとに issue のテンプレート「満月の物語の品質管理」で issue を作る。この章は、通しの見た目の確かめ方。
+
 `scripts/story-capture.py` の一覧と動画で、次を一つずつ確かめる。ビーバームーンの第3版（#386）が基準。
 
 - 表紙：名前が金の箔押しで読める。絵の山・森・川は場面と同じ平たい描き方で、主役と満月が引き立つ。文字と枠の飾りが重ならない。
