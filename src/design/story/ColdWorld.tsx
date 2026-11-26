@@ -452,15 +452,15 @@ export function ColdWorld(): ReactElement {
           </g>
         </g>
         {/* 試作（?coldSleep=1）：8P の寄りで、穴の口と中で眠るコガラの絵（A-11、11/26 届いた）に溶けるように入れ替える。
-            A-11 の穴の口（画素で中心 674,619、横の半径 194）を、幹の穴（HOLE）に合わせて置く。 */}
+            A-11 の穴の口（画素で中心 675,616、横の半径 203。2枚目の案、11/26 採用）を、幹の穴（HOLE）に合わせて置く。 */}
         {COLD_OPT.sleep && (
           <image
             className="cw-hole-sleep"
             href={A("hole-sleep")}
-            x={HOLE.x - 674 * (HOLE.rx / 194)}
-            y={HOLE.y - 619 * (HOLE.rx / 194)}
-            width={1254 * (HOLE.rx / 194)}
-            height={1254 * (HOLE.rx / 194)}
+            x={HOLE.x - 675 * (HOLE.rx / 203)}
+            y={HOLE.y - 616 * (HOLE.rx / 203)}
+            width={1254 * (HOLE.rx / 203)}
+            height={1254 * (HOLE.rx / 203)}
             opacity={0}
           />
         )}
