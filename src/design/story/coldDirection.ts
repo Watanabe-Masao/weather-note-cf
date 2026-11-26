@@ -20,7 +20,7 @@ const ONOMATOPOEIA = /^(ちょん|ひとつぶ|フィーチー)/;
 /** 終幕の案（見本の切り替え）：A いまの4行、B 名前を独立、C 段階的に言葉を減らす。 */
 export const COLD_END = { v: "A" as "A" | "B" | "C" | "C2" };
 /** 見本の切り替え：view＝ページごとの視点（3P 近景、8P 遠景から近景へ）、dawn＝9P は朝の光を先に長く。 */
-export const COLD_OPT = { view: false, dawn: false };
+export const COLD_OPT: { view: boolean; dawn: boolean; cu?: [number, number]; split8?: boolean } = { view: false, dawn: false };
 
 function rule(page: number) {
   return (line: string, index: number): Omit<TextUnit, "text"> => {
@@ -30,6 +30,8 @@ function rule(page: number) {
     // 5 ページ：「ながい夜の、はじまりです。」の前に、物語の時間が変わる間（レビュー 1.2〜1.8 秒）。
     if (page === 4 && /^ながい夜の/.test(line)) return { mode: "line", pauseBefore: 1.5, fadeIn: 0.8 };
     // 8 ページ：一行ずつ、行の間をいちばん長く。
+    // split8（試作）：一行ずつの節にして、前の行を消してから次の行（字が幹と穴にかからない。11/26）。
+    if (page === 7 && COLD_OPT.split8) return { mode: "line", pauseBefore: 0, fadeIn: 0.9, ...(index ? { clearBefore: { fadeOut: 0.8, gap: 0.8, hold: 2.2 } } : {}) };
     if (page === 7) return { mode: "line", pauseBefore: index ? 1.6 : 0, fadeIn: 0.9 };
     // 9 ページ
     if (page === 8 && COLD_END.v === "C2") {
