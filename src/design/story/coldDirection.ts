@@ -20,6 +20,8 @@ const ONOMATOPOEIA = /^(ちょん|ひとつぶ|フィーチー)/;
 /** 終幕の案（見本の切り替え）：A いまの4行、B 名前を独立、C 段階的に言葉を減らす。 */
 export const COLD_END = { v: "A" as "A" | "B" | "C" | "C2" };
 /** 見本の切り替え：view＝ページごとの視点（3P 近景、8P 遠景から近景へ）、dawn＝9P は朝の光を先に長く。 */
+/** 見本（?coldSleep=1）の 8P→9P の秒：8P の文が消える秒・8P の絵だけの秒・9P の絵が先の秒。 */
+export const SLEEP_TIMES = { fade8: 1.4, picture8: 5.2, intro9: 4.4 };
 export const COLD_OPT: { view: boolean; dawn: boolean; cu?: [number, number]; split8?: boolean; sleep?: boolean } = { view: false, dawn: false };
 
 function rule(page: number) {
@@ -55,7 +57,10 @@ export function coldDirection(pages: string[][], title?: string): BookDirection 
     pages: pages.map((lines, i) => {
       const d = { ...PAGE[Math.min(i, PAGE.length - 1)], units: unitsOf(lines.join("\n"), rule(i)) };
       // C2 の作品名：2.5 秒残して 0.8 秒で消す（そのあと額縁）。
-      const d9 = i === 8 && COLD_OPT.dawn ? { ...d, intro: 3.4 } : d;
+      // sleep：夜明けへの移りを順に（9P の intro 4.4、11/26 14:36）。8P の絵だけの時間は 5.2 秒（文が消えてから夜明けが
+      // 始まるまで約6秒、11/26 14:16 採用）。ColdWorld の SLEEP_TIMES と同じ値。
+      const d8 = i === 7 && COLD_OPT.sleep ? { ...d, picture: SLEEP_TIMES.picture8 } : d;
+      const d9 = i === 8 && COLD_OPT.dawn ? { ...d8, intro: COLD_OPT.sleep ? SLEEP_TIMES.intro9 : 3.4 } : d8;
       return i === 8 && COLD_END.v === "C2" ? { ...d9, readHold: 2.5, fadeOut: 0.8 } : d9;
     }),
     title: title ? { gap: 1.4, fadeIn: 1.0, hold: 2.5, fadeOut: 1.0 } : undefined,
