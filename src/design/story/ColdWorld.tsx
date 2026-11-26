@@ -688,11 +688,11 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   const high = Math.min(6.5, Math.max(6.12, cue(6, 0, 6.3)));
   // 見本（?cold67=1、「7P 高さ：視線を上へ。シラカバの枝を手がかりに、月の高さを。月は拡大しない。常に動かし続けない」）：
   // 区間の前半でゆっくり見上げ（地平線は画面の下の端へ、二股の枝が上へ伸びる）、あとは止まる。月は東から南へ、二股の枝の間（V の中）の高い所へ。文の列が右にあるので、二股（V）を画面の左寄りに置く。
-  if (P67) tl.to(".cw-camera", { ...cam(252, 240, 0.9), duration: 0.5, ease: "sine.inOut" }, 6.02);
+  if (P67) tl.to(".cw-camera", { ...cam(252, 222, 0.9), duration: 0.5, ease: "sine.inOut" }, 6.02);
   (P67 ? tl : move(6, cam(200, 400, 1.0)))
     .to(".cw-moonrise", { opacity: 0, duration: 0.3 }, 6.02)
     .to(".cw-moon", { attr: { transform: P67 ? "translate(128 230)" : "translate(95 290)" }, duration: high - 6.02, ease: "sine.inOut" }, 6.02)
-    .to(".cw-moon", { attr: { transform: P67 ? "translate(196 50)" : "translate(78 150)" }, duration: 6.74 - high, ease: "power2.out" }, high)
+    .to(".cw-moon", { attr: { transform: P67 ? "translate(194 -26)" : "translate(78 150)" }, duration: 6.74 - high, ease: "power2.out" }, high)
     .to(".cw-fluff-open", { opacity: 0, duration: 0.05 }, 6.1)
     .to(".cw-fluff-closed", { opacity: 1, duration: 0.05 }, 6.12);
   // 8 ながい夜：穴の口に寄る。月は西南西へ（円盤は画面の外、光だけ）。「月の光」で光の帯が穴の縁を東から西へ移る（鳥の顔は
