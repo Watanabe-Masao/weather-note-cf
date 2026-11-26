@@ -176,8 +176,9 @@ def timeline(b):
     s = lambda v: None if v is None else round(v / 1000, 2)
     for i in range(len(L[0][1])):
         tin = next((r[0] for r in L if r[1][i] > 0.5), None)
-        tout = next((r[0] for r in L if tin is not None and r[0] > tin and r[1][i] < 0.02), None)
-        print(f"{i + 1}P 字が出はじめる {s(tin)} 秒・消えきる {s(tout)} 秒")
+        tlast = max((r[0] for r in L if r[1][i] > 0.5), default=None)  # 節のあるページは、最後の節が消えきる時刻
+        tout = next((r[0] for r in L if tlast is not None and r[0] > tlast and r[1][i] < 0.02), None)
+        print(f"{i + 1}P 字が出はじめる {s(tin)} 秒・最後の字が消えきる {s(tout)} 秒")
     for j, q in enumerate(ARGS):
         marks = []
         for th in (0.05, 0.5, 0.95):
