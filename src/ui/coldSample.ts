@@ -59,6 +59,10 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   // 第3次 段階1（11/26 17:40 承認）：光を受けた世界で月明かりを描く・霜と降る雪を分ける・色の流れ（?cold3=1）。
   // 6P の背景3案（?coldBg=A 現行の平たい面／B 描き込んだ遠景・中景／C 平たい遠景＋描き込んだ中景）。
   COLD_OPT.art3 = q.get("cold3") === "1";
+  if (COLD_OPT.art3) document.documentElement.classList.add("cold-art3");
+  // 7P の月の明暗だけを戻す強さ（?coldMoon7=0〜1、既定 0.4。0 は 2回目の版）。黄色の彩度は変えない。
+  const m7 = Number(q.get("coldMoon7") ?? "0.4");
+  COLD_OPT.moon7 = Number.isFinite(m7) ? Math.min(1, Math.max(0, m7)) : 0.4;
   const bg = q.get("coldBg");
   // C2（11/26 18:52 レビュー）：C の中景の彩度・明暗差・鮮明さを抑え、遠景の稜線を少し柔らかく（遠くなるほど情報が減る）。
   COLD_OPT.bg = bg === "B" || bg === "C" || bg === "C2" ? bg : "A";

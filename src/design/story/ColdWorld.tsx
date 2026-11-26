@@ -464,9 +464,12 @@ export function ColdWorld(): ReactElement {
         </linearGradient>
         {/* 4P の夕方：日の沈む左が明るく、右（字の列の側）の樹皮は青いかげに。 */}
         <linearGradient id="cw-bark-dusk-g" x1="0" y1="0" x2="1" y2="0">
-          <stop offset="0.2" stopColor="#1b2352" stopOpacity={0} />
-          <stop offset="0.36" stopColor="#1b2352" stopOpacity={0.6} />
-          <stop offset="0.56" stopColor="#1b2352" stopOpacity={0.88} />
+          {/* 円筒の幹：光の面から陰へゆるやかに。右の縁には雪面からの弱い照り返し（陰を少し浅く、青く）。 */}
+          <stop offset="0.14" stopColor="#1b2352" stopOpacity={0} />
+          <stop offset="0.27" stopColor="#1b2352" stopOpacity={0.3} />
+          <stop offset="0.4" stopColor="#1b2352" stopOpacity={0.66} />
+          <stop offset="0.5" stopColor="#1b2352" stopOpacity={0.8} />
+          <stop offset="0.58" stopColor="#2a3a72" stopOpacity={0.58} />
         </linearGradient>
         <linearGradient id="cw-bark-sun-g" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#f2c79a" stopOpacity={0.9} />
@@ -618,6 +621,12 @@ export function ColdWorld(): ReactElement {
         <ellipse className="cw-moonrise" cx={110} cy={520} rx={170} ry={90} fill="url(#cw-moon-glow)" opacity={0} />
         <g className="cw-moon-show" opacity={0}>
           <StoryMoon p="cw" at="translate(110 600)" img={storyAsset("cold", "moon")} tint="#eef2fb" />
+          {/* 第3次 3回目：7P の月の明暗だけを戻す層（灰色の濃淡をかけ算。黄色の彩度は変えない）。同じ .cw-moon として一緒に動く。 */}
+          {COLD_OPT.art3 && (
+            <g className="cw-moon" transform="translate(110 600)">
+              <image className="cw-moon-relief" href={A("moon-relief")} x={-62 * 1.06} y={-62 * 1.06} width={62 * 2.12} height={62 * 2.12} clipPath="url(#cw-moon-clip)" preserveAspectRatio="xMidYMid slice" opacity={0} style={{ mixBlendMode: "multiply" }} />
+            </g>
+          )}
         </g>
         <Distance />
         <SnowField />
@@ -634,13 +643,15 @@ export function ColdWorld(): ReactElement {
         </filter>
         <path className="cw-longshadow" d={`M${BIRCH.x - 24} ${BIRCH.base} L${BIRCH.x + 24} ${BIRCH.base} L640 ${BIRCH.base + 46} L600 ${BIRCH.base + 92} Z`} fill="url(#cw-longshadow-g)" filter="url(#cw-longshadow-soft)" opacity={0} />
         {/* 第3次 2回目：幹の根元の接触影（雪のくぼみ）。幹の後ろ、雪の上。 */}
-        {COLD_OPT.art3 && <ellipse cx={BIRCH.x + 6} cy={BIRCH.base + 3} rx={58} ry={9} fill="url(#cw-contact-g)" />}
+        {COLD_OPT.art3 && <ellipse cx={BIRCH.x + 5} cy={BIRCH.base + 1} rx={38} ry={5.5} fill="url(#cw-contact-g)" />}
         <MainBirch />
         {/* 第3次 2回目（11/26 18:52「木が雪の中に立っている感覚」）：根元の手前に雪を少し重ねる（幹の下の切り口を隠す。世界の座標なので、カメラが動いても接地はそのまま）。 */}
         {COLD_OPT.art3 && (
           <g>
-            <path d={`M${BIRCH.x - 70} 705 C ${BIRCH.x - 46} 701 ${BIRCH.x - 36} 687 ${BIRCH.x - 14} 684 C ${BIRCH.x + 8} 681 ${BIRCH.x + 30} 688 ${BIRCH.x + 40} 695 C ${BIRCH.x + 52} 701 ${BIRCH.x + 64} 703 ${BIRCH.x + 80} 705 L ${BIRCH.x - 70} 705 Z`} fill={C.snow[0]} />
-            <path d={`M${BIRCH.x + 12} 685 C ${BIRCH.x + 28} 688 ${BIRCH.x + 38} 694 ${BIRCH.x + 52} 699`} stroke={C.shadow} strokeWidth={1.6} strokeLinecap="round" fill="none" opacity={0.5} />
+            {/* 3回目（11/26 20:19「低く、左右非対称に、周囲の雪原へ溶け込ませる」）：左は短く、右（陰の側）へ長くなだらかに。縁は薄い雪を一枚外に重ねてぼかす。 */}
+            <path d={`M${BIRCH.x - 52} 703 C ${BIRCH.x - 40} 700 ${BIRCH.x - 30} 692 ${BIRCH.x - 18} 690 C ${BIRCH.x - 8} 688 ${BIRCH.x + 4} 687 ${BIRCH.x + 14} 689 C ${BIRCH.x + 26} 691 ${BIRCH.x + 34} 695 ${BIRCH.x + 52} 698 C ${BIRCH.x + 72} 701 ${BIRCH.x + 96} 702 ${BIRCH.x + 120} 704 L ${BIRCH.x - 52} 706 Z`} fill={C.snow[0]} opacity={0.55} transform="translate(0 -1.6)" />
+            <path d={`M${BIRCH.x - 44} 704 C ${BIRCH.x - 34} 701 ${BIRCH.x - 27} 694 ${BIRCH.x - 17} 691.5 C ${BIRCH.x - 6} 689 ${BIRCH.x + 3} 688.5 ${BIRCH.x + 13} 690.5 C ${BIRCH.x + 22} 692 ${BIRCH.x + 31} 695.5 ${BIRCH.x + 46} 698.5 C ${BIRCH.x + 66} 701.5 ${BIRCH.x + 88} 702.5 ${BIRCH.x + 112} 705 L ${BIRCH.x - 44} 706 Z`} fill={C.snow[0]} />
+            <path d={`M${BIRCH.x + 16} 691 C ${BIRCH.x + 24} 693 ${BIRCH.x + 30} 695.5 ${BIRCH.x + 38} 697`} stroke={C.shadow} strokeWidth={1.2} strokeLinecap="round" fill="none" opacity={0.4} />
           </g>
         )}
         {/* 穴の中で丸くなるコガラ（5・8ページは目を閉じ、6ページは開く）。穴の口の形に切る。 */}
@@ -719,10 +730,21 @@ export function ColdWorld(): ReactElement {
         </g>
         <g className="cw-frost" opacity={0}>
           {COLD_OPT.art3
-            ? // 第3次：霜は穴の縁の上側に不規則に付いて動かない（輪に並べない）。月の側（左上）は明るく、かげの側は暗く。穴の内側には置かない。
-              FROST3.map(([a, d, rad, lit], i) => (
-                <circle key={i} cx={HOLE.x + Math.cos(a) * (HOLE.rx + d)} cy={HOLE.y + Math.sin(a) * (HOLE.ry + d)} r={rad} fill={lit ? "#eef4ff" : "#8f9bb8"} opacity={lit ? 0.9 : 0.55} />
-              ))
+            ? // 第3次：霜は穴の縁の上側に付いて動かない。3回目（11/26 20:19）：丸い粒を一つずつ置かず、樹皮の凹凸に付いた小さな不規則な集まり
+              // （縁に沿って細長い欠片が2〜4個）。月の側（左上）は明るく、かげの側は暗く。穴の内側には置かない。
+              FROST3.map(([a, d, rad, lit], i) => {
+                const r = rand(200 + i);
+                const cx = HOLE.x + Math.cos(a) * (HOLE.rx + d);
+                const cy = HOLE.y + Math.sin(a) * (HOLE.ry + d);
+                const deg = (a * 180) / Math.PI + 90; // 縁に沿う向き
+                return (
+                  <g key={i} transform={`translate(${cx.toFixed(2)} ${cy.toFixed(2)}) rotate(${deg.toFixed(1)})`} fill={lit ? "#e8eefb" : "#8f9bb8"} opacity={lit ? 0.8 : 0.5}>
+                    {Array.from({ length: 2 + (i % 3) }, (_, k) => (
+                      <ellipse key={k} cx={(r() - 0.5) * 2.4} cy={(r() - 0.5) * 0.9} rx={rad * (0.6 + r() * 0.9)} ry={rad * (0.25 + r() * 0.3)} />
+                    ))}
+                  </g>
+                );
+              })
             : Array.from({ length: 14 }, (_, i) => {
                 const a = (i / 14) * Math.PI * 2;
                 return <circle key={i} cx={HOLE.x + Math.cos(a) * (HOLE.rx + 4)} cy={HOLE.y + Math.sin(a) * (HOLE.ry + 4)} r={0.5 + (i % 3) * 0.3} fill="#eef4ff" />;
@@ -938,6 +960,8 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   if (A3)
     tl.set(".cw-moon-tint", { attr: { fill: "#f4eddc" }, opacity: 0.3 }, 5)
       .to(".cw-moon-tint", { opacity: 0.45, duration: 0.6, ease: "sine.inOut" }, 6.05)
+      .to(".cw-moon-relief", { opacity: COLD_OPT.moon7 ?? 0.4, duration: 0.6, ease: "sine.inOut" }, 6.05)
+      .to(".cw-moon-relief", { opacity: 0, duration: 0.3 }, 7.4)
       .set(".cw-moon-tint", { attr: { fill: "#eef2fb" } }, 7.7);
   if (A3)
     tl.to(".cw-snowlit", { opacity: 0.22, duration: 0.25, ease: "sine.inOut" }, lit)

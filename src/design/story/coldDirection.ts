@@ -22,7 +22,7 @@ export const COLD_END = { v: "A" as "A" | "B" | "C" | "C2" };
 /** 見本の切り替え：view＝ページごとの視点（3P 近景、8P 遠景から近景へ）、dawn＝9P は朝の光を先に長く。 */
 /** 見本（?coldSleep=1）の 8P→9P の秒：8P の文が消える秒・8P の絵だけの秒・9P の絵が先の秒。 */
 export const SLEEP_TIMES = { fade8: 1.4, picture8: 5.2, intro9: 4.4 };
-export const COLD_OPT: { view: boolean; dawn: boolean; cu?: [number, number]; split8?: boolean; sleep?: boolean; p67?: boolean; art3?: boolean; bg?: "A" | "B" | "C" | "C2" } = { view: false, dawn: false };
+export const COLD_OPT: { view: boolean; dawn: boolean; cu?: [number, number]; split8?: boolean; sleep?: boolean; p67?: boolean; art3?: boolean; moon7?: number; bg?: "A" | "B" | "C" | "C2" } = { view: false, dawn: false };
 
 function rule(page: number) {
   return (line: string, index: number): Omit<TextUnit, "text"> => {
