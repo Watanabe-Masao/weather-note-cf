@@ -66,6 +66,8 @@ const SKY = {
   dusk: ["#26366e", "#46518e", "#8d78a3", "#d6a497"],
   /** 夜（6〜8ページ）：ビーバームーンの夜と同じ色。 */
   night: ["#060d26", "#0c1a42", "#16295a", "#223a6e"],
+  /** 第3次（?cold3=1）の夕方：4P はまだ夕方（上は青紫でも少し明るく、下は残照）。5P は夜の色を重ねて深い藍へ。 */
+  dusk3: ["#34467e", "#56609c", "#9b86ad", "#e2ae96"],
   /** 夜明け（9ページ）。 */
   dawn: ["#2f4a86", "#7891c4", "#dcb8b0", "#f2d3b6"],
 };
@@ -80,6 +82,8 @@ const C = {
   birchMark: "#3a3f52",
   snow: ["#f4f6fb", "#dfe6f2", "#c8d3e8"] as const,
   shadow: "#b6c3de",
+  /** 第3次 C2：稜線の内側の縁を寄せる色（空と山の間）。 */
+  ridgeSoft: "#b3bfdf",
   bark: "#f3e9e4",
 };
 
@@ -141,6 +145,13 @@ const BOUGH = (() => {
 })();
 /** 枝のコガラ（c01、1536×1024。足が枝に触れる点は画像の (965, 975)）。足は雪の枝の上の雪（画像の x≈900、上の縁 y≈545）。 */
 const PERCH = { w: 76, foot: [965, 975] as const, at: [BOUGH.x + 900 * (BOUGH.w / 1536), BOUGH.y + 547 * (BOUGH.w / 1536)] as const };
+/** 枝のコガラの絵の置き場所（世界の座標）。 */
+const PERCH_IMG = {
+  x: PERCH.at[0] - (PERCH.w * PERCH.foot[0]) / 1536,
+  y: PERCH.at[1] - ((PERCH.w * 1024) / 1536) * (PERCH.foot[1] / 1024),
+  w: PERCH.w,
+  h: (PERCH.w * 1024) / 1536,
+};
 /** 幹にしがみついて種をくわえるコガラ（c03c、1024×1536、幹なし）：つめ（画像の x≈940）を幹の左の縁に、下の足（y≈1000）を枝の下に。 */
 const CLING = (() => {
   const s = 0.07;
@@ -250,6 +261,8 @@ function SnowField({ front }: { front?: boolean }): ReactElement {
 /** 第3次の背景3案（?coldBg）：描き込んだ遠景（c08-far）・中景（c08-middle）の置き場所（世界の座標）。 */
 const BG_FAR = { x: -110, y: 452, w: 620, h: (620 * 724) / 2172 };
 const BG_MID = { x: -110, y: 496, w: 620, h: (620 * 724) / 2172 };
+const RIDGE_D = "M-300 560 L -200 500 L -120 540 L -20 470 L 60 520 L 130 462 L 210 516 L 290 474 L 370 522 L 450 482 L 540 530 L 700 500 L 700 660 L -300 660 Z";
+const HILL_D = "M-300 600 C -120 572 40 590 200 578 C 360 566 480 584 700 574 L 700 660 L -300 660 Z";
 
 function Distance(): ReactElement {
   // B：描き込んだ遠景と中景（平たい面は使わない）。
@@ -265,13 +278,21 @@ function Distance(): ReactElement {
   const birches = Array.from({ length: 9 }, (_, i) => farBirch(-20 + i * 52 + r() * 18, 646, 70 + r() * 40, `fb${i}`, r));
   return (
     <g>
-      <path d="M-300 560 L -200 500 L -120 540 L -20 470 L 60 520 L 130 462 L 210 516 L 290 474 L 370 522 L 450 482 L 540 530 L 700 500 L 700 660 L -300 660 Z" fill={C.ridge} />
+      <path d={RIDGE_D} fill={C.ridge} />
       {/* 尾根の雪 */}
       <path d="M-20 470 L 10 492 L -8 490 L -30 478 Z M130 462 L 162 486 L 140 484 L 118 472 Z M290 474 L 318 496 L 298 494 L 278 484 Z" fill={C.ridgeSnow} />
-      <path d="M-300 600 C -120 572 40 590 200 578 C 360 566 480 584 700 574 L 700 660 L -300 660 Z" fill={C.hill} />
-      {COLD_OPT.bg === "C" ? (
-        // C：遠景（山の稜線・丘）は平たい面のまま、中景の林は描き込んだ絵に。
-        <image href={A("middle")} x={BG_MID.x} y={BG_MID.y} width={BG_MID.w} height={BG_MID.h} />
+      <path d={HILL_D} fill={C.hill} />
+      {COLD_OPT.bg === "C2" && (
+        // C2：遠景は形と色で描く（平たい面のまま）。稜線の内側の縁だけ、空の色へ少し寄せて輪郭と明暗の境界を柔らかく。
+        <g clipPath="url(#cw-ridge-clip)" fill="none" stroke={C.ridgeSoft}>
+          <path d={RIDGE_D} strokeWidth={9} opacity={0.22} />
+          <path d={RIDGE_D} strokeWidth={4} opacity={0.3} />
+          <path d={HILL_D} strokeWidth={6} opacity={0.18} />
+        </g>
+      )}
+      {COLD_OPT.bg === "C" || COLD_OPT.bg === "C2" ? (
+        // C：遠景（山の稜線・丘）は平たい面のまま、中景の林は描き込んだ絵に。C2 は中景の彩度・明暗差・鮮明さを抑えた版。
+        <image href={A(COLD_OPT.bg === "C2" ? "middle-c2" : "middle")} x={BG_MID.x} y={BG_MID.y} width={BG_MID.w} height={BG_MID.h} />
       ) : (
         <>
           <g>{farPines}</g>
@@ -397,7 +418,7 @@ export function ColdWorld(): ReactElement {
     <svg className="cw" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice" aria-hidden>
       <defs>
         <Sky id="cw-sky-day" c={SKY.day} />
-        <Sky id="cw-sky-dusk" c={SKY.dusk} />
+        <Sky id="cw-sky-dusk" c={COLD_OPT.art3 ? SKY.dusk3 : SKY.dusk} />
         <Sky id="cw-sky-night" c={SKY.night} />
         <Sky id="cw-sky-dawn" c={SKY.dawn} />
         <MoonDefs p="cw" />
@@ -410,7 +431,7 @@ export function ColdWorld(): ReactElement {
           <path d={TRUNK_D} fill="#ffffff" />
           {/* 第3次の背景 B・C：描き込んだ林は稜線より上へ伸びるので、その形も地上として沈める。 */}
           {COLD_OPT.bg === "B" && <image href={A("far")} x={BG_FAR.x} y={BG_FAR.y} width={BG_FAR.w} height={BG_FAR.h} filter="url(#cw-white)" />}
-          {(COLD_OPT.bg === "B" || COLD_OPT.bg === "C") && <image href={A("middle")} x={BG_MID.x} y={BG_MID.y} width={BG_MID.w} height={BG_MID.h} filter="url(#cw-white)" />}
+          {(COLD_OPT.bg === "B" || COLD_OPT.bg === "C" || COLD_OPT.bg === "C2") && <image href={A(COLD_OPT.bg === "C2" ? "middle-c2" : "middle")} x={BG_MID.x} y={BG_MID.y} width={BG_MID.w} height={BG_MID.h} filter="url(#cw-white)" />}
           <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} filter="url(#cw-white)" />
           <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} filter="url(#cw-white)" />
           <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} filter="url(#cw-white)" />
@@ -441,10 +462,16 @@ export function ColdWorld(): ReactElement {
           <stop offset="0.45" stopColor="#c6d3ef" stopOpacity={0.35} />
           <stop offset="0.75" stopColor="#c6d3ef" stopOpacity={0} />
         </linearGradient>
+        {/* 4P の夕方：日の沈む左が明るく、右（字の列の側）の樹皮は青いかげに。 */}
+        <linearGradient id="cw-bark-dusk-g" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0.2" stopColor="#1b2352" stopOpacity={0} />
+          <stop offset="0.36" stopColor="#1b2352" stopOpacity={0.6} />
+          <stop offset="0.56" stopColor="#1b2352" stopOpacity={0.88} />
+        </linearGradient>
         <linearGradient id="cw-bark-sun-g" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#f2c79a" stopOpacity={0.9} />
-          <stop offset="0.5" stopColor="#f2c79a" stopOpacity={0.25} />
-          <stop offset="0.8" stopColor="#f2c79a" stopOpacity={0} />
+          <stop offset="0.28" stopColor="#f2c79a" stopOpacity={0.25} />
+          <stop offset="0.5" stopColor="#f2c79a" stopOpacity={0} />
         </linearGradient>
         <linearGradient id="cw-snowlit-g" x1="0" y1="0" x2="1" y2="0.35">
           <stop offset="0" stopColor="#dde7fa" stopOpacity={0.9} />
@@ -459,6 +486,71 @@ export function ColdWorld(): ReactElement {
         <filter id="cw-black" colorInterpolationFilters="sRGB">
           <feColorMatrix type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 1 0" />
         </filter>
+        <clipPath id="cw-ridge-clip">
+          <path d={RIDGE_D} />
+        </clipPath>
+        {/* 第3次 2回目（11/26 18:52 レビュー「世界は冷たいが、そこに生きる命は温かい」）：暖色は命と光を受ける所だけ。
+            コガラの胸と頬（低い日の側）、種、種をしまう樹皮の一部分。鳥の形で切る。 */}
+        <radialGradient id="cw-warm-g" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#f6c28c" stopOpacity={0.9} />
+          <stop offset="0.6" stopColor="#f1b47e" stopOpacity={0.35} />
+          <stop offset="1" stopColor="#f1b47e" stopOpacity={0} />
+        </radialGradient>
+        <mask id="cw-perch-shape" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
+          <image href={A("perch")} x={PERCH_IMG.x} y={PERCH_IMG.y} width={PERCH_IMG.w} height={PERCH_IMG.h} filter="url(#cw-white)" />
+        </mask>
+        <mask id="cw-cling-shape" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
+          <image href={A("cling")} x={CLING.x} y={CLING.y} width={CLING.w} height={CLING.h} filter="url(#cw-white)" />
+        </mask>
+        {/* 4P の残照（地平線の近くだけ、昼の光の名残）と、9P の夜明けの薄桃（空の下・雪面・幹の光を受ける側）。 */}
+        <linearGradient id="cw-afterglow-g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f0b89a" stopOpacity={0} />
+          <stop offset="0.7" stopColor="#f0b89a" stopOpacity={0.55} />
+          <stop offset="1" stopColor="#f6cfae" stopOpacity={0.9} />
+        </linearGradient>
+        {/* 残照は日の沈む南西（左）に強く、字の列のある右では弱く（字の読みやすさ。絵全体は暗くしない）。 */}
+        <linearGradient id="cw-afterglow-x" gradientUnits="userSpaceOnUse" x1={40} y1={0} x2={320} y2={0}>
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="0.6" stopColor="#999999" />
+          <stop offset="1" stopColor="#2a2a2a" />
+        </linearGradient>
+        <mask id="cw-afterglow-mask" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
+          <rect x={-700} y={300} width={1800} height={400} fill="url(#cw-afterglow-x)" />
+        </mask>
+        <linearGradient id="cw-dawnglow-g" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#f3cfcf" stopOpacity={0} />
+          <stop offset="0.65" stopColor="#f3cfcf" stopOpacity={0.45} />
+          <stop offset="1" stopColor="#f7dcd2" stopOpacity={0.8} />
+        </linearGradient>
+        <linearGradient id="cw-snowpink-g" x1="1" y1="0" x2="0" y2="0.3">
+          <stop offset="0" stopColor="#f4d2cf" stopOpacity={0.9} />
+          <stop offset="0.7" stopColor="#efd4d6" stopOpacity={0.4} />
+          <stop offset="1" stopColor="#efd4d6" stopOpacity={0.1} />
+        </linearGradient>
+        <linearGradient id="cw-bark-dawn-g" x1="1" y1="0" x2="0" y2="0">
+          <stop offset="0" stopColor="#f5c3bb" stopOpacity={0.9} />
+          <stop offset="0.35" stopColor="#f5c3bb" stopOpacity={0.3} />
+          <stop offset="0.6" stopColor="#f5c3bb" stopOpacity={0} />
+        </linearGradient>
+        {/* 根元の接地：幹の根元の薄い接触影（雪のくぼみ）。 */}
+        <radialGradient id="cw-contact-g" cx="0.5" cy="0.5" r="0.5">
+          <stop offset="0" stopColor="#7d8db8" stopOpacity={0.75} />
+          <stop offset="0.6" stopColor="#8e9cc4" stopOpacity={0.3} />
+          <stop offset="1" stopColor="#8e9cc4" stopOpacity={0} />
+        </radialGradient>
+        {/* 8P の寝顔（2回目）：月の側（左上）の頬と胸の上に光を集め、右下の羽毛はわずかに陰に。穴の縁の暗さは残す。 */}
+        <radialGradient id="cw-birdlight-g3" cx="0.38" cy="0.4" r="0.42">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="0.5" stopColor="#ffffff" stopOpacity={0.6} />
+          <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
+        </radialGradient>
+        <mask id="cw-birdlight-mask3" maskUnits="userSpaceOnUse" x={HOLE.x - 40} y={HOLE.y - 40} width={80} height={80}>
+          <ellipse cx={HOLE.x} cy={HOLE.y} rx={HOLE.rx * 1.05} ry={HOLE.ry * 1.05} fill="url(#cw-birdlight-g3)" />
+        </mask>
+        <radialGradient id="cw-birdshade-g" cx="0.72" cy="0.74" r="0.5">
+          <stop offset="0" stopColor="#0b1534" stopOpacity={0.32} />
+          <stop offset="1" stopColor="#0b1534" stopOpacity={0} />
+        </radialGradient>
         <clipPath id="cw-hole">
           <ellipse cx={HOLE.x} cy={HOLE.y} rx={HOLE.rx} ry={HOLE.ry} />
         </clipPath>
@@ -513,6 +605,12 @@ export function ColdWorld(): ReactElement {
         {sky("dusk")}
         {sky("night")}
         {sky("dawn")}
+        {COLD_OPT.art3 && (
+          <>
+            <rect className="cw-afterglow" x={-700} y={380} width={1800} height={200} fill="url(#cw-afterglow-g)" mask="url(#cw-afterglow-mask)" opacity={0} />
+            <rect className="cw-dawnglow" x={-700} y={360} width={1800} height={220} fill="url(#cw-dawnglow-g)" opacity={0} />
+          </>
+        )}
         <g className="cw-stars" opacity={0}>
           {stars}
         </g>
@@ -535,7 +633,16 @@ export function ColdWorld(): ReactElement {
           <feGaussianBlur stdDeviation="2.5" />
         </filter>
         <path className="cw-longshadow" d={`M${BIRCH.x - 24} ${BIRCH.base} L${BIRCH.x + 24} ${BIRCH.base} L640 ${BIRCH.base + 46} L600 ${BIRCH.base + 92} Z`} fill="url(#cw-longshadow-g)" filter="url(#cw-longshadow-soft)" opacity={0} />
+        {/* 第3次 2回目：幹の根元の接触影（雪のくぼみ）。幹の後ろ、雪の上。 */}
+        {COLD_OPT.art3 && <ellipse cx={BIRCH.x + 6} cy={BIRCH.base + 3} rx={58} ry={9} fill="url(#cw-contact-g)" />}
         <MainBirch />
+        {/* 第3次 2回目（11/26 18:52「木が雪の中に立っている感覚」）：根元の手前に雪を少し重ねる（幹の下の切り口を隠す。世界の座標なので、カメラが動いても接地はそのまま）。 */}
+        {COLD_OPT.art3 && (
+          <g>
+            <path d={`M${BIRCH.x - 70} 705 C ${BIRCH.x - 46} 701 ${BIRCH.x - 36} 687 ${BIRCH.x - 14} 684 C ${BIRCH.x + 8} 681 ${BIRCH.x + 30} 688 ${BIRCH.x + 40} 695 C ${BIRCH.x + 52} 701 ${BIRCH.x + 64} 703 ${BIRCH.x + 80} 705 L ${BIRCH.x - 70} 705 Z`} fill={C.snow[0]} />
+            <path d={`M${BIRCH.x + 12} 685 C ${BIRCH.x + 28} 688 ${BIRCH.x + 38} 694 ${BIRCH.x + 52} 699`} stroke={C.shadow} strokeWidth={1.6} strokeLinecap="round" fill="none" opacity={0.5} />
+          </g>
+        )}
         {/* 穴の中で丸くなるコガラ（5・8ページは目を閉じ、6ページは開く）。穴の口の形に切る。 */}
         <g clipPath="url(#cw-hole)">
           <g className="cw-fluff-closed cw-breath" opacity={0}>
@@ -568,10 +675,20 @@ export function ColdWorld(): ReactElement {
             width={PERCH.w}
             height={(PERCH.w * 1024) / 1536}
           />
+          {/* 第3次：低い日の当たる胸と頬に、ほんのり暖色（鳥の形で切る。跳ねる絵と同じ .cw-hop で一緒に動く）。 */}
+          {COLD_OPT.art3 && (
+            <g className="cw-hop">
+              <ellipse cx={PERCH_IMG.x + PERCH_IMG.w * 0.73} cy={PERCH_IMG.y + PERCH_IMG.h * 0.5} rx={PERCH_IMG.w * 0.16} ry={PERCH_IMG.h * 0.3} fill="url(#cw-warm-g)" mask="url(#cw-perch-shape)" opacity={0.5} style={{ mixBlendMode: "soft-light" }} />
+              <ellipse cx={PERCH_IMG.x + PERCH_IMG.w * 0.64} cy={PERCH_IMG.y + PERCH_IMG.h * 0.27} rx={PERCH_IMG.w * 0.08} ry={PERCH_IMG.h * 0.1} fill="url(#cw-warm-g)" mask="url(#cw-perch-shape)" opacity={0.4} style={{ mixBlendMode: "soft-light" }} />
+            </g>
+          )}
         </g>
         {/* 幹のすきまに種をかくすコガラ（3ページ、c03c）：幹の左の縁につかまる。 */}
         <g className="cw-seed cw-breath" opacity={0}>
           <image href={A("cling")} x={CLING.x} y={CLING.y} width={CLING.w} height={CLING.h} />
+          {COLD_OPT.art3 && (
+            <ellipse cx={CLING.x + CLING.w * 0.62} cy={CLING.y + CLING.h * 0.5} rx={CLING.w * 0.26} ry={CLING.h * 0.16} fill="url(#cw-warm-g)" mask="url(#cw-cling-shape)" opacity={0.5} style={{ mixBlendMode: "soft-light" }} />
+          )}
         </g>
         {/* 「ひとつぶ、またひとつぶ。」：くちばしの所から、種が一つずつ幹のすきまへ消える（2粒だけ）。 */}
         {[1, 2].map((k) => (
@@ -626,6 +743,20 @@ export function ColdWorld(): ReactElement {
                 filter="url(#cw-moonbird)"
               />
             </g>
+            {/* 第3次 2回目：月の側の頬と胸の上にだけ、光をもう一枚（明暗の差を局所的に）。 */}
+            {COLD_OPT.art3 && (
+              <g className="cw-birdlight2" mask="url(#cw-birdlight-mask3)" opacity={0} style={{ visibility: "hidden" }}>
+                <image
+                  href={A("hole-sleep")}
+                  x={HOLE.x - 675 * (HOLE.rx / 203)}
+                  y={HOLE.y - 616 * (HOLE.rx / 203)}
+                  width={1254 * (HOLE.rx / 203)}
+                  height={1254 * (HOLE.rx / 203)}
+                  filter="url(#cw-moonbird)"
+                />
+              </g>
+            )}
+            {COLD_OPT.art3 && <ellipse className="cw-birdshade" cx={HOLE.x} cy={HOLE.y} rx={HOLE.rx} ry={HOLE.ry} fill="url(#cw-birdshade-g)" opacity={0} />}
           </g>
         )}
         {COLD_OPT.art3 && (
@@ -636,7 +767,13 @@ export function ColdWorld(): ReactElement {
             <g mask="url(#cw-trunk-light-mask)">
               <rect className="cw-bark-sun" x={BIRCH.x - 40} y={-320} width={120} height={1020} fill="url(#cw-bark-sun-g)" opacity={0} style={{ mixBlendMode: "overlay" }} />
               <rect className="cw-bark-moon" x={BIRCH.x - 40} y={-320} width={120} height={1020} fill="url(#cw-bark-moon-g)" opacity={0} style={{ mixBlendMode: "screen" }} />
+              <rect className="cw-bark-dusk" x={BIRCH.x - 40} y={-320} width={120} height={1020} fill="url(#cw-bark-dusk-g)" opacity={0} />
+              <rect className="cw-bark-dawn" x={BIRCH.x - 60} y={-320} width={120} height={1020} fill="url(#cw-bark-dawn-g)" opacity={0} style={{ mixBlendMode: "soft-light" }} />
+              {/* 3P：種をしまう樹皮のすきまのまわりだけ、ほんのり暖色。 */}
+              <ellipse className="cw-bark-seedwarm" cx={SEED.at[0] + 8} cy={SEED.at[1]} rx={16} ry={22} fill="url(#cw-warm-g)" opacity={0} style={{ mixBlendMode: "soft-light" }} />
             </g>
+            {/* 9P：雪面に映る朝の薄桃（東＝右ほど）。 */}
+            <rect className="cw-snowpink" x={-300} y={600} width={1000} height={700} fill="url(#cw-snowpink-g)" mask="url(#cw-snowlit-mask)" opacity={0} />
           </>
         )}
         {/* 上の雪の枝（1・2ページの前景）。後半のページには残さない。 */}
@@ -710,11 +847,20 @@ function startLoops(gsap: Gsap, root: Element): Loop {
 function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   // 第3次 段階1（?cold3=1）：光を受けた世界（樹皮・雪面）で光を描き、空中の光の帯ともやを弱める。文・時間・カメラは変えない。
   const A3 = !!COLD_OPT.art3;
+  // 2回目（11/26 18:52）：暖色は命と光を受ける所だけ。1P は低い日に面した樹皮、2P はコガラの胸と頬（鳥に付けた暖色）で
+  // 樹皮の暖色はほぼ引く、3P は種をしまう樹皮のすきまのまわりだけ。背景は冷たいまま。
   if (A3)
     tl.set(".cw-bark-sun", { opacity: 0.6 }, 0)
-      .to(".cw-bark-sun", { opacity: 0, duration: 0.35, ease: "sine.inOut" }, 3.0)
-      // 5P は 4P より深い藍へ（夜への入口）。空に夜の色を少し、地上の沈めを深く。
-      .to(".cw-sky-night", { opacity: 0.4, duration: 0.5, ease: "sine.inOut" }, 4.02)
+      .to(".cw-bark-sun", { opacity: 0.12, duration: 0.3, ease: "sine.inOut" }, 1.0)
+      .to(".cw-bark-sun", { opacity: 0, duration: 0.3, ease: "sine.inOut" }, 2.0)
+      .to(".cw-bark-seedwarm", { opacity: 0.7, duration: 0.3, ease: "sine.inOut" }, 2.02)
+      .to(".cw-bark-seedwarm", { opacity: 0, duration: 0.3, ease: "sine.inOut" }, 3.0)
+      // 4P はまだ夕方：地平線の近くに昼の光の名残（残照）。5P で消えて、深い藍へ（夜への入口）。
+      .to(".cw-afterglow", { opacity: 1, duration: 0.6, ease: "sine.inOut" }, 3.05)
+      .to(".cw-bark-dusk", { opacity: 1, duration: 0.6, ease: "sine.inOut" }, 3.05)
+      .to(".cw-bark-dusk", { opacity: 0, duration: 0.5, ease: "sine.inOut" }, 4.02)
+      .to(".cw-afterglow", { opacity: 0, duration: 0.5, ease: "sine.inOut" }, 4.02)
+      .to(".cw-sky-night", { opacity: 0.5, duration: 0.5, ease: "sine.inOut" }, 4.02)
       .to(".cw-shade-dusk", { opacity: 0.68, duration: 0.5, ease: "sine.inOut" }, 4.02);
   const move = (at: number, c: ReturnType<typeof cam>, duration = 0.75) => tl.to(".cw-camera", { ...c, duration, ease: "power2.inOut" }, at);
   /** 言葉の合図の拍（無いとき＝動きを減らす設定などは、決めた拍）。動きはそのコマの中（頭から 0.75 まで）に収める。 */
@@ -755,7 +901,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   move(3, cam(200, 470, 1.0))
     .to(".cw-seed", { opacity: 0, duration: 0.05 }, 3.0)
     .to(".cw-sky-dusk", { opacity: 1, duration: 0.6, ease: "sine.inOut" }, 3.05)
-    .to(".cw-shade-dusk", { opacity: 0.5, duration: 0.6, ease: "sine.inOut" }, 3.05)
+    .to(".cw-shade-dusk", { opacity: A3 ? 0.36 : 0.5, duration: 0.6, ease: "sine.inOut" }, 3.05)
     .to(".cw-bough", { opacity: 0, duration: 0.4 }, 3.1)
     .to(".cw-air", { autoAlpha: 0.3, duration: 0.6, ease: "sine.inOut" }, 3.1)
     .to(".cw-sway", { keyframes: { rotate: [0, -3, 1.5, -0.8, 0] }, svgOrigin: `${BIRCH.x - BIRCH.w / 2 + 8} 600`, duration: 0.26, ease: "sine.inOut" }, gust)
@@ -788,6 +934,11 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     .to(".cw-fluff-closed", { opacity: 0, duration: 0.05 }, lit - 0.08)
     .to(".cw-fluff-open", { opacity: 1, duration: 0.05 }, lit - 0.06);
   // 第3次：6P は月が昇るにつれて雪面が明るむ（ほのか → 月が出てから）。樹皮の月の側に光。
+  // 2回目：月の色は高さで変える。6P は昇る月＝淡い金（彩度を少し落とす）、7P は高い冬の満月＝象牙に近い淡い金、9P は白。
+  if (A3)
+    tl.set(".cw-moon-tint", { attr: { fill: "#f4eddc" }, opacity: 0.3 }, 5)
+      .to(".cw-moon-tint", { opacity: 0.45, duration: 0.6, ease: "sine.inOut" }, 6.05)
+      .set(".cw-moon-tint", { attr: { fill: "#eef2fb" } }, 7.7);
   if (A3)
     tl.to(".cw-snowlit", { opacity: 0.22, duration: 0.25, ease: "sine.inOut" }, lit)
       .to(".cw-snowlit", { opacity: 0.5, duration: 0.3, ease: "sine.inOut" }, full)
@@ -825,6 +976,9 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     const lit = s3 + (end8 - s3) * (0.3 / 4.9);
     tl.to(".cw-hole-sleep", { opacity: 1, duration: 0.3, ease: "sine.inOut" }, 7.4)
       .fromTo(".cw-birdlight", { autoAlpha: 0 }, { autoAlpha: 0.85, duration: Math.max(0.02, peak - lit), ease: "sine.inOut" }, lit);
+    if (A3)
+      tl.fromTo(".cw-birdshade", { opacity: 0 }, { opacity: 1, duration: Math.max(0.02, peak - lit), ease: "sine.inOut" }, lit)
+        .fromTo(".cw-birdlight2", { autoAlpha: 0 }, { autoAlpha: 0.55, duration: Math.max(0.02, peak - lit), ease: "sine.inOut" }, lit);
   }
   (COLD_OPT.view ? move(7, cam(200, 440, 1.0), 0.2).to(".cw-camera", { ...cam(HOLE.x + (COLD_OPT.cu?.[0] ?? 12), HOLE.y + 30, COLD_OPT.cu?.[1] ?? 2.3), duration: 0.5, ease: "sine.inOut" }, 7.22) : move(7, cam(HOLE.x + 12, HOLE.y + 30, 2.3)))
     .to(".cw-moon", { attr: { transform: "translate(-120 300)" }, duration: 0.6 }, 7.05)
@@ -859,6 +1013,8 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
       .to(".cw-band", { autoAlpha: 0, duration: dur(1.4), ease: "sine.inOut" }, at(0.6))
       .to(".cw-moon-air", { autoAlpha: 0, duration: dur(2.0) }, at(0.6))
       .to([".cw-bark-moon", ".cw-snowlit"], { opacity: 0, duration: dur(2.0) }, at(0.6))
+      .to(".cw-birdshade", { opacity: 0, duration: dur(1.0) }, at(0.6))
+      .to(".cw-birdlight2", { autoAlpha: 0, duration: dur(1.0) }, at(0.6))
       .to(".cw-snow", { opacity: 1, duration: dur(2.0) }, at(1.0))
       .to(".cw-moonlit", { opacity: 0, duration: dur(2.0) }, at(0.6))
       .to(".cw-frost", { opacity: 0.4, duration: dur(2.0) }, at(0.8))
@@ -869,6 +1025,11 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
       .to(".cw-hole-sleep", { autoAlpha: 0, duration: dur(0.8), ease: "sine.inOut" }, at(1.8))
       .set(".cw-moon", { attr: { transform: "translate(64 400) scale(0.5)" } }, at(1.4))
       .set(".cw-moon-tint", { opacity: A3 ? 0.86 : 0.62 }, at(1.4));
+    // 2回目：9P は朝の色を独立させる。空の下・雪面の反射・シラカバの光を受ける側（東）に、ごく淡い桃色。西の白い月と対に。
+    if (A3)
+      tl.to(".cw-dawnglow", { opacity: 1, duration: dur(3.0), ease: "sine.inOut" }, at(0.6))
+        .to(".cw-snowpink", { opacity: 0.32, duration: dur(3.0), ease: "sine.inOut" }, at(0.8))
+        .to(".cw-bark-dawn", { opacity: 0.55, duration: dur(3.0), ease: "sine.inOut" }, at(0.8));
   } else
     move(8, cam(270, 540, 1.3), 0.1)
       .set(".cw-moon", { attr: { transform: "translate(64 400) scale(0.5)" } }, 8.02)

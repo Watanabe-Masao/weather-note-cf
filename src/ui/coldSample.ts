@@ -60,7 +60,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   // 6P の背景3案（?coldBg=A 現行の平たい面／B 描き込んだ遠景・中景／C 平たい遠景＋描き込んだ中景）。
   COLD_OPT.art3 = q.get("cold3") === "1";
   const bg = q.get("coldBg");
-  COLD_OPT.bg = bg === "B" || bg === "C" ? bg : "A";
+  // C2（11/26 18:52 レビュー）：C の中景の彩度・明暗差・鮮明さを抑え、遠景の稜線を少し柔らかく（遠くなるほど情報が減る）。
+  COLD_OPT.bg = bg === "B" || bg === "C" || bg === "C2" ? bg : "A";
   const pages = NOW.map((p, i) => {
     if (text === "R") return [P1R, p, P3R, p, P5R, P6R][i] ?? p;
     if (text === "W") return [P1W, p, P3W, p, P5R, P6W][i] ?? p;
@@ -101,6 +102,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
     if (cap.includes("P")) for (const i of [3, 4, 6, 7]) caps[i] = { ...caps[i], area: "tall" as const };
     // 9P（夜明け）：縦に長い画面では、字の出はじめを 8svh 下げる（空の上の暗い青を避ける。11/26）。
     if (cap.includes("D")) caps[8] = { ...caps[8], drop: 8 };
+    // 第3次：4P は地平線に残照を残す（明るくなる）ので、字の後ろだけを局所的に沈める（絵全体は暗くしない）。
+    if (COLD_OPT.art3) caps[3] = { ...caps[3], backdrop: 1 };
     sc.captions = caps;
   // ?coldSleep=1：9P の夜明けを、8P の文が消えて絵だけの時間のあとに（合図 108 ＝ 9P の「絵が先」の頭）。
   if (COLD_OPT.sleep) sc.pictureFirst = [8];
