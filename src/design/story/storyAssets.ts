@@ -130,10 +130,22 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
     fly: { file: "design-src/story/cold/pack/c11-fly.png", width: 560 },
     far: { file: "design-src/story/cold/pack/c08-far.png", width: 1400, quality: 0.8 },
     middle: { file: "design-src/story/cold/pack/c08-middle.png", width: 1400, quality: 0.8 },
+    // 第3次品質改善（2026-11-27 承認）。7P の月の明暗だけを戻すための、月の濃淡（灰色、明暗を強めた版。かけ算で重ねる）。
+    "moon-relief": { file: "design-src/story/cold/pack/moon-relief.png", width: 512 },
+    // 上へのびる二本の枝の樹皮（c05b の幹を縦に3つ、つなぎ目をぼかして重ねた）。
+    limb: { file: "design-src/story/cold/pack/c05e-limb.png", width: 240, quality: 0.8 },
+    // いちばん手前の雪と枯れ草の、下の端と左右の端を雪へぼかした版（引いた構図で切り口を見せない）。
+    "near-c3": { file: "design-src/story/cold/pack/c08-near-c3.png", width: 1400, quality: 0.8 },
+    // 背景 C2 の中景。c08-middle の彩度・明暗差・鮮明さを抑えた版（遠くなるほど情報が減る）。
+    "middle-c2": { file: "design-src/story/cold/pack/c08-middle-c2.png", width: 1400, quality: 0.8 },
     near: { file: "design-src/story/cold/pack/c08-near.png", width: 1400, quality: 0.8 },
     branch: { file: "design-src/story/cold/pack/c09-branch.png", width: 1000, quality: 0.8 },
     "branch-berry": { file: "design-src/story/cold/pack/c09b-branch-berry.png", width: 520 },
     "emboss-medal": { file: "design-src/story/cold/pack/c10-emboss-medal.png", width: 520 },
+    // A-11（11/26 届いた2枚目の案）：穴の口と、中で眠るコガラ。8P の寄りで幹の穴に溶けるように入れ替える（口の中心 675,616、横の半径 203）。
+    "hole-sleep": { file: "design-src/story/cold/pack/a11-hole-sleep.png", width: 1024 },
+    // 動きを減らす設定の 8P の止まった絵（月の光が届いたあとの寝顔。A-11 に月の光と穴の縁の霜を重ねた 8P の画面から切り出した 720px 角。元は 8P の画面なので、場面を変えたら撮り直す）。
+    "sleep-still": { file: "design-src/story/cold/pack/a11s-sleep-still.png", width: 720 },
   },
 };
 

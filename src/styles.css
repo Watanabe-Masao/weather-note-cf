@@ -815,7 +815,10 @@ img.event-pic { object-fit: contain; }
   /* 横書きで折り返すときは、字の間ではなく、空白か組版の印（"/"、wbr）の所で折る。320 で「す。」だけが次の行に落ちていた
      （11/26）。それでも収まらない長い行だけ、字の間で折る。 */
   .ms-caps .ms-cap { word-break: keep-all; overflow-wrap: anywhere; }
+  /* 物語の中心の絵（場面の stills）を、そのページの文の前に止まった絵で。 */
+  .ms-caps .ms-still { display: block; width: 100%; max-width: 22rem; aspect-ratio: 1; margin: var(--space-3) auto 0; border-radius: var(--radius-md); object-fit: cover; }
 }
+.ms-still { display: none; }
 @keyframes ev-twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.95; } }
 @keyframes ev-shoot { 0% { opacity: 0; transform: translateX(0) rotate(16deg); } 2% { opacity: 1; } 9% { opacity: 0; transform: translateX(260%) rotate(16deg); } 100% { opacity: 0; transform: translateX(260%) rotate(16deg); } }
 @keyframes ev-rise { from { opacity: 0; transform: translateY(var(--space-6)) scale(0.92); } to { opacity: 1; transform: none; } }
@@ -5975,3 +5978,43 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .ahm-notes { margin: 0; display: grid; gap: var(--space-2); font-size: var(--size-xs); line-height: 1.6; }
 .ahm-notes dt { font-weight: var(--weight-bold); }
 .ahm-notes dd { margin: 0; color: var(--ink-secondary); }
+
+/* 場面ごとの字幕の設定（StoryScene.captions。コールドムーン第3次品質改善、2026-11-27 承認）。描くのは共通の .ms-cap。
+   色は本の変数（--bk-cap-n*：夜の地の透け色、--bk-cap-p*：紙の透け色。Book.tsx の bookVars）。絵全体は暗くせず、字のまわりだけ。 */
+/* 字幕の領域（captions.area）は、絵の上に重ねるときだけ（動きを減らす設定では紙の上に並べるので、ずらさない）。 */
+@media (prefers-reduced-motion: no-preference) {
+  .ms-caps[data-directed] .ms-cap[data-area="tall"] { height: 128%; right: calc(var(--space-3) * -1); }
+  .ms-caps[data-directed] .ms-cap[data-area="sky"] { right: calc(var(--space-5) * -1); line-height: 1.75; }
+  /* 字を画面の左上に（絵の主役が右にあるページ）。字幕の箱は右寄せの 60% 幅なので、箱の外の左の余白まで出す。列は上の半分ほど。 */
+  .ms-caps[data-directed] .ms-cap[data-area="left"] { right: auto; left: calc(var(--space-7) - 66.667% + var(--space-9) + var(--space-3)); width: calc(var(--size-story) * 1.9 * 2 + var(--space-2)); height: 82%; }
+}
+@media (prefers-reduced-motion: no-preference) and (max-width: 374px) { .ms-caps[data-directed] .ms-cap[data-area="sky"] { right: calc(var(--space-2) * -1); } }
+/* 字の後ろの局所的な沈め（captions.backdrop、濃さは --cap-backdrop）。沈めは字の下の層、字はその上の層（字幕の中だけの重なり）。 */
+.ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"] { isolation: isolate; }
+.ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"]::before { content: ""; position: absolute; inset: calc(var(--space-7) * -1) calc(var(--space-6) * -1); z-index: 0; background: radial-gradient(closest-side, var(--bk-cap-n2), transparent); opacity: var(--cap-backdrop); border-radius: 50%; filter: blur(var(--space-4)); }
+.ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"] > .ms-ch { position: relative; z-index: 1; }
+.ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"] > .ms-sec { z-index: 1; }
+@media (prefers-reduced-motion: reduce) { .ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"] > .ms-sec { position: relative; } }
+/* 昼・朝の濃い字（captions.tone "dark"）：藍の字に、紙の色の明るいにじみ。句読点は字の面が小さいので、にじみを一段濃く。 */
+@media (prefers-reduced-motion: no-preference) {
+  .ms-caps[data-directed] .ms-cap[data-tone="dark"] { color: var(--bk-night-1); text-shadow: 0 0 var(--space-2) var(--bk-cap-p2), 0 0 var(--space-5) var(--bk-cap-p4); }
+  .ms-caps[data-directed] .ms-cap[data-tone="dark"]::before { background: radial-gradient(closest-side, var(--bk-cap-p3), transparent); }
+  .ms-caps[data-directed] .ms-cap[data-tone="dark"] .ms-ch[data-p] { text-shadow: 0 0 var(--space-1) var(--bk-paper-0), 0 0 var(--space-2) var(--bk-cap-p1), 0 0 var(--space-5) var(--bk-cap-p4); }
+  /* 夜明けの空の上で下げた藍の字（tone "dark" と drop、9P）：まだ青い空の上なので、明るいにじみを少し強く（空全体は暗くしない）。 */
+  .ms-caps[data-directed] .ms-cap[data-tone="dark"][data-drop] { text-shadow: 0 0 var(--space-2) var(--bk-cap-p0), 0 0 var(--space-4) var(--bk-cap-p3), 0 0 var(--space-7) var(--bk-cap-p5); }
+}
+/* 明るい幹に字の列がかかるページ（captions.halo、4P）：細い縁取りの影を濃く、沈めは列の端（句読点のある下の端）まで届く形に。
+   句読点は後ろの明るさをそのまま拾うので、もう一段濃く。 */
+.ms-caps[data-directed] .ms-cap[data-halo] { text-shadow: 0 0 var(--space-1) var(--bk-cap-n0), 0 0 var(--space-2) var(--bk-cap-n4), 0 var(--space-1) var(--space-3) var(--bk-cap-n5); }
+.ms-caps[data-directed] .ms-cap[data-halo]::before { background: radial-gradient(farthest-side, var(--bk-cap-n3), var(--bk-cap-n6) 70%, transparent); }
+.ms-caps[data-directed] .ms-cap[data-halo] .ms-ch[data-p] { text-shadow: 0 0 var(--space-1) var(--bk-night-1), 0 0 var(--space-2) var(--bk-cap-n1), 0 0 var(--space-3) var(--bk-cap-n5); }
+/* 節に分けたページ：節ごとに同じ起点（右上）から。表示中の字は動かさない。動きを減らす設定では、節は順に並べて全部を一度に見せる。 */
+.ms-caps[data-directed] .ms-cap .ms-sec { display: block; }
+@media (prefers-reduced-motion: no-preference) { .ms-caps[data-directed] .ms-cap .ms-sec { position: absolute; top: 0; right: 0; height: 100%; } }
+.ms-caps[data-directed] .ms-cap .ms-sec[data-title] { font-size: var(--size-story-title); letter-spacing: 0.12em; }
+/* 節に分けた結末の作品名を、本文の起点から下げて置く（captions.titleDrop、svh。本文の続きではない、独立した終止として）。 */
+@media (prefers-reduced-motion: no-preference) { .ms-caps[data-directed] .ms-cap[data-title-drop] .ms-sec[data-title] { transform: translateY(var(--title-drop)); } }
+/* 縦に長い画面（高さ 760px 以上）だけ、字の出はじめを下げる（captions.drop、svh）。動きを減らす設定では並べて見せるので使わない。 */
+@media (prefers-reduced-motion: no-preference) and (min-height: 760px) { .ms-caps[data-directed] .ms-cap[data-drop] { top: var(--cap-drop); height: calc(100% - var(--cap-drop)); } }
+/* コールドムーン：小さな画面だけ、絵を少し大きくして右を起点に（幹が左へ寄り、右に文字の余白。どのページも同じ寄せ方）。 */
+@media (max-width: 374px) { .ms-world svg.cw { transform: scale(1.12); transform-origin: 100% 50%; } }

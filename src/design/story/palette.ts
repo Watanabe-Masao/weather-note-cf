@@ -38,6 +38,13 @@ export const BOOK = {
   coldStart: ["#1f2d5c", "#4a5a8c"] as [string, string],
   coldDawn: ["#22336a", "#6b5f8e"] as [string, string],
   coldAfter: ["#2a3c74", "#7d6c98"] as [string, string],
+  /**
+   * 字幕の縁取りと、字の後ろの局所的な沈め（コールドムーン第3次品質改善、2026-11-27 承認）。絵全体は暗くせず、字のまわりだけ。
+   * 夜の地（night[1]）と紙（paper[0]）を、割合を決めて透かした色（濃い順）。capNight は明るい字の影、capPaper は濃い字の
+   * にじみ（昼・朝の藍の字、tone "dark"）。
+   */
+  capNight: ["#050b1ce6", "#050b1cd9", "#050b1cc7", "#050b1cb3", "#050b1c99", "#050b1c8c", "#050b1c59"] as const,
+  capPaper: ["#f6ecd6eb", "#f6ecd6d9", "#f6ecd6cc", "#f6ecd6b3", "#f6ecd68c", "#f6ecd666"] as const,
   /** 読み終わりのしおり（金の細い帯の地）。 */
   bookmark: "#c99a45",
   /** 浮かぶ月（物語の月から今夜の情報の月へ移る）：明るい・中・縁。 */

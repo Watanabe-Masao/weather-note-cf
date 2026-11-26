@@ -47,6 +47,20 @@ export function bookVars(): CSSProperties {
     ["--bk-moon-0" as string]: BOOK.moon[0],
     ["--bk-moon-1" as string]: BOOK.moon[1],
     ["--bk-moon-2" as string]: BOOK.moon[2],
+    // 字幕の縁取りと字の後ろの沈め（--bk-cap-n0〜6 は夜の地、--bk-cap-p0〜5 は紙。数が小さいほど濃い）。
+    ["--bk-cap-n0" as string]: BOOK.capNight[0],
+    ["--bk-cap-n1" as string]: BOOK.capNight[1],
+    ["--bk-cap-n2" as string]: BOOK.capNight[2],
+    ["--bk-cap-n3" as string]: BOOK.capNight[3],
+    ["--bk-cap-n4" as string]: BOOK.capNight[4],
+    ["--bk-cap-n5" as string]: BOOK.capNight[5],
+    ["--bk-cap-n6" as string]: BOOK.capNight[6],
+    ["--bk-cap-p0" as string]: BOOK.capPaper[0],
+    ["--bk-cap-p1" as string]: BOOK.capPaper[1],
+    ["--bk-cap-p2" as string]: BOOK.capPaper[2],
+    ["--bk-cap-p3" as string]: BOOK.capPaper[3],
+    ["--bk-cap-p4" as string]: BOOK.capPaper[4],
+    ["--bk-cap-p5" as string]: BOOK.capPaper[5],
   } as CSSProperties;
 }
 

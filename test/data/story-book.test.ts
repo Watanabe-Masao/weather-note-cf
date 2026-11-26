@@ -31,11 +31,17 @@ describe("絵本の形（book）", () => {
     });
   }
   it("コールドムーン：8・9ページは作品テーマのとおり（月を見守り役にしない、夜と戦う言い方をしない）", () => {
+    // 第3次品質改善（2026-11-27 承認）：8P は一文だけ（眠りと光の移りは絵と字のない時間で）、9P は C 案（4P「まだ…もう」に
+    // 対して「もう、朝。」「まだ、白い月。」）。空の行は節。
     const p = fullMoonInfo("コールドムーン")!.book!.pages;
-    expect(p[7].lines).toEqual(["ながい、ながい夜。", "コガラは、まあるくなって眠ります。", "月の光が、ゆっくり移っていきます。"]);
-    expect(p[8].lines[2]).toBe("西の空には、白い月が まだ のこっています。");
-    expect(p.flatMap((x) => x.lines).join("")).not.toMatch(/それでも|負けず/);
-    expect(p.map((x) => x.rest)).toEqual([1, 1, 1, 1, 1.5, 2.5, 1.5, 2.5, 3]);
+    expect(p[7].lines).toEqual(["ながい、ながい夜。"]);
+    expect(p[8].lines).toEqual(["フィーチー、フィーチー。", "もう、朝。", "", "西の空には、", "まだ、白い月。", "", "コールドムーン。"]);
+    expect(p.flatMap((x) => x.lines).join("")).not.toMatch(/それでも|負けず|見守/);
+    // 時間は場面の演出（coldDirection）が持つ。本文の側に rest を書かない（二か所で決めない）。
+    expect(p.every((x) => x.rest === undefined)).toBe(true);
+    // 折る印は、行の中の意味のまとまりの間だけ。節の区切り（空の行）は続けて二つ置かない。
+    for (const l of p.flatMap((x) => x.lines)) expect(l).not.toMatch(/^\/|\/$|\/\//);
+    for (const x of p) expect(x.lines.join("\n")).not.toMatch(/\n\n\n|^\n|\n$/);
   });
   it("コールドムーン：呼び名の表記は出典の形（ロングナイトムーン）にそろえる", () => {
     const c = fullMoonInfo("コールドムーン")!;

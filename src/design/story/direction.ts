@@ -23,6 +23,13 @@ export interface TextUnit {
   charInterval?: number;
   /** 浮かぶ秒。 */
   fadeIn: number;
+  /** phrase のとき、読点のあとの間（秒、既定 READ.comma）。言葉と言葉の間の沈黙を長くとる所（コールドムーン 8P）。 */
+  phraseGap?: number;
+  /**
+   * この単位を出す前に、それまでに出したこのページの字を消す（段階的に言葉を減らす。コールドムーンの終幕で使う）。
+   * fadeOut 秒で消し、gap 秒おいてから、この単位の pauseBefore へ。
+   */
+  clearBefore?: { fadeOut: number; gap: number; hold?: number };
 }
 
 export interface PageDirection {
@@ -69,6 +76,9 @@ export interface CharTime {
   at: number;
   /** 浮かぶ秒。 */
   fade: number;
+  /** ページの途中で消えはじめる秒（clearBefore のとき）と、消える秒。 */
+  out?: number;
+  outFade?: number;
 }
 
 export interface PageTimes {
@@ -96,6 +106,15 @@ export function pageTimes(d: PageDirection, lead: number, last = false, tail = 0
   const textStart = t;
   let full = t;
   for (const u of d.units) {
+    if (u.clearBefore && chars.length) {
+      // それまでの字が出そろってから、hold 秒（無ければ readHold の 6 割）読んで消す。
+      t = Math.max(t, full) + (u.clearBefore.hold ?? d.readHold * 0.6);
+      for (const c of chars) if (c.out === undefined) {
+        c.out = t;
+        c.outFade = u.clearBefore.fadeOut;
+      }
+      t += u.clearBefore.fadeOut + u.clearBefore.gap;
+    }
     t += u.pauseBefore;
     const cs = [...u.text];
     if (u.mode === "char") {
@@ -112,7 +131,8 @@ export function pageTimes(d: PageDirection, lead: number, last = false, tail = 0
         if (!chunk.length) return;
         chunk.forEach(() => chars.push({ at: t, fade: u.fadeIn }));
         full = Math.max(full, t + u.fadeIn);
-        t += chunk.length * READ.char + pauseAfter(chunk[chunk.length - 1]);
+        const last = chunk[chunk.length - 1];
+        t += chunk.length * READ.char + (u.phraseGap != null && "、，".includes(last) ? u.phraseGap : pauseAfter(last));
         chunk = [];
       };
       cs.forEach((c) => {
@@ -137,9 +157,21 @@ export function pageTimes(d: PageDirection, lead: number, last = false, tail = 0
 export function unitsOf(
   page: string,
   rule: (line: string, index: number) => Omit<TextUnit, "text">,
+  sectionClear: { fadeOut: number; gap: number; hold?: number } = { fadeOut: 0.6, gap: 0.8 },
 ): TextUnit[] {
-  return page
-    .split("\n")
-    .map((l, i) => ({ text: plainText(l), ...rule(plainText(l), i) }))
-    .filter((u) => u.text.length > 0);
+  // 空の行は「節」の区切り（意味のまとまりごとに時間で分ける）。次の節の最初の行は、前の節を消してから出す。
+  const out: TextUnit[] = [];
+  let brk = false;
+  page.split("\n").forEach((l, i) => {
+    const text = plainText(l);
+    if (!text) {
+      brk = out.length > 0;
+      return;
+    }
+    const u: TextUnit = { text, ...rule(text, i) };
+    if (brk && !u.clearBefore) u.clearBefore = sectionClear;
+    brk = false;
+    out.push(u);
+  });
+  return out;
 }

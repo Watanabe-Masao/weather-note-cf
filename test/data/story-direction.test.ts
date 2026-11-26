@@ -20,8 +20,8 @@ describe("秒で決める本（ビーバームーン）", () => {
   it("場面が演出を持ち、ページの数と同じだけ決める", () => {
     expect(STORY_SCENES["ビーバームーン"]?.direction).toBe(beaverDirection);
     expect(dir.pages.length).toBe(9);
-    // コールドムーンは今までの計算のまま（共通の処理を変えても、既存の演出は変えない）。
-    expect(STORY_SCENES["コールドムーン"]?.direction).toBeUndefined();
+    // コールドムーンは自分の演出（coldDirection、story-direction-cold.test.ts）。ビーバームーンの秒は使わない。
+    expect(STORY_SCENES["コールドムーン"]?.direction).not.toBe(beaverDirection);
   });
   it("字の時刻は、組版の印（改行・背の低い画面だけで折る \"/\"）を除いた字の数だけ", () => {
     pages.forEach((lines, i) => expect(plan.times[i].chars.length).toBe([...plainText(lines.join("\n"))].length));

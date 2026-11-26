@@ -253,7 +253,7 @@ export function directedPlan(book: BookDirection): Directed {
   return { ...book, times, secs: times.map((t) => t.total) };
 }
 /** ページ i の区間の頭から t 秒の、場面の拍。 */
-function segBeat(D: Directed, i: number, t: number): number {
+export function segBeat(D: Directed, i: number, t: number): number {
   const start = i ? i - 1 + BEAT_REST : 0;
   const f = glideFrac(t, D.secs[i] ?? 1, i ? DIR_GLIDE.a : 0, DIR_GLIDE.b);
   return start + f * (i + BEAT_REST - start);
@@ -300,13 +300,14 @@ function fitDirected(el: HTMLElement): void {
   box.style.removeProperty("--size-story");
   delete box.dataset.small;
   const apply = () => {
-    const h = box.clientHeight;
     const cs = getComputedStyle(caps[0]);
     const fs = parseFloat(cs.fontSize);
     const ls = parseFloat(cs.letterSpacing) || 0;
-    // 一列に入る字数（句読点の詰めや約物の差を見て少し余裕）。
-    const n = Math.max(4, Math.floor(h / ((fs + ls) * 1.06)));
-    box.querySelectorAll<HTMLElement>(".ms-soft").forEach((b) => b.classList.toggle("on", Number(b.dataset.len) > n));
+    // 一列に入る字数（句読点の詰めや約物の差を見て少し余裕）。列の高さはページの字幕ごと（場面の設定で高さが違うことがある）。
+    caps.forEach((c) => {
+      const n = Math.max(4, Math.floor(c.clientHeight / ((fs + ls) * 1.06)));
+      c.querySelectorAll<HTMLElement>(".ms-soft").forEach((b) => b.classList.toggle("on", Number(b.dataset.len) > n));
+    });
     // 縦書きの列は左へ並ぶ。いちばん幅の広いページが字幕の幅に収まるか（隠れているページも幅は測れる）。
     return Math.max(...caps.map((c) => c.scrollWidth)) <= box.clientWidth + 1;
   };
@@ -400,6 +401,34 @@ const jst = (ms: number) => {
 function Letters({ text, plain = false }: { text: string; plain?: boolean }) {
   // 演出を秒で決める本（第2次品質改善）：字の番号は組版の印を除いた字で数える。改行は列を改めるだけ、"/" は背の低い画面
   // だけで折る印（.ms-soft、ふだんは出さない）。どちらも字の箱（.ms-ch）にしない。
+  if (plain && text.includes("\n\n")) {
+    // 節に分けたページ（空の行で区切る）：節ごとに同じ字幕の起点（右上）から出す（11/26 レビュー「消えた文章の場所を空けたまま
+    // にしない」）。字の番号は節をまたいで通しで数える。
+    const secs = text.split(/\n\n+/);
+    return (
+      <>
+        <span className="ms-sr">{plainText(secs.join("\n"))}</span>
+        {secs.map((sec, k) => (
+          <span key={k} className="ms-sec" aria-hidden data-title={/^[^\n]*ムーン。$/.test(sec.trim()) ? "" : undefined}>
+            {[...sec].map((c, i) =>
+              c === "\n" ? (
+                <br key={i} />
+              ) : c === "/" ? (
+                <Fragment key={i}>
+                  <br className="ms-soft" data-len={[...plainText(sec.split("\n")[[...sec.slice(0, i)].filter((x) => x === "\n").length] ?? "")].length} />
+                  <wbr />
+                </Fragment>
+              ) : (
+                <span key={i} className="ms-ch" data-p={c === "。" || c === "、" ? "" : undefined}>
+                  {c}
+                </span>
+              ),
+            )}
+          </span>
+        ))}
+      </>
+    );
+  }
   if (plain)
     return (
       <>
@@ -416,7 +445,7 @@ function Letters({ text, plain = false }: { text: string; plain?: boolean }) {
                 <wbr />
               </Fragment>
             ) : (
-              <span key={i} className="ms-ch">
+              <span key={i} className="ms-ch" data-p={c === "。" || c === "、" ? "" : undefined}>
                 {c}
               </span>
             ),
@@ -433,7 +462,7 @@ function Letters({ text, plain = false }: { text: string; plain?: boolean }) {
           c === "\n" ? (
             <br key={i} className="ms-ch" />
           ) : (
-            <span key={i} className="ms-ch">
+            <span key={i} className="ms-ch" data-p={c === "。" || c === "、" ? "" : undefined}>
               {c}
             </span>
           ),
@@ -993,6 +1022,11 @@ export function MoonStory({
                 if (!ct) return;
                 const a0 = sb(i, ct.at);
                 world.fromTo(c, { opacity: 0 }, { opacity: 1, duration: Math.max(0.002, sb(i, ct.at + ct.fade) - a0), ease: "sine.out" }, a0);
+                // ページの途中で消える字（段階的に言葉を減らす）。
+                if (ct.out !== undefined) {
+                  const o0 = sb(i, ct.out);
+                  world.to(c, { opacity: 0, duration: Math.max(0.002, sb(i, ct.out + (ct.outFade ?? 0.8)) - o0), ease: "sine.inOut" }, o0);
+                }
               });
               // 消える：最後のページは区間の中（読む時間のあと）、ほかは止まる所を過ぎてから（次の区間の頭、fadeOut 秒）。
               const f0 = last ? sb(i, T.fadeStart) : i + BEAT_REST + 0.004;
@@ -1001,6 +1035,16 @@ export function MoonStory({
                 .to(cap, { opacity: 0, y: last ? 0 : -8, duration: Math.max(0.002, f1 - f0), ease: last ? "sine.inOut" : "power1.in" }, f0)
                 .set(cap, { y: 0 }, f1 + 0.002);
             });
+            // 字幕の後ろの沈め（.ms-caps-veil）は、濃い字のページ（captions の tone "dark"）では消す（明るい空の上の藍の字を
+            // 沈めると、かえって読みにくい）。前のページの文が消えてから切り替える。
+            const veil = el.querySelector<HTMLElement>(".ms-caps-veil");
+            if (veil && scene.captions && Object.values(scene.captions).some((c) => c.tone === "dark")) {
+              const base = parseFloat(getComputedStyle(veil).opacity) || 0;
+              lines.forEach((_, i) => {
+                const lead = i ? D.pages[i - 1].fadeOut : 0;
+                world.to(veil, { opacity: scene.captions?.[i]?.tone === "dark" ? 0 : base, duration: Math.max(0.002, sb(i, lead + 0.5) - sb(i, lead)) }, sb(i, lead));
+              });
+            }
             const T = D.times[lastI];
             let gone = T.fadeStart + D.pages[lastI].fadeOut;
             if (te) {
@@ -1756,15 +1800,35 @@ export function MoonStory({
             <span className="ms-caps-veil" aria-hidden />
             <div className="ms-caps" data-directed={directed ? "" : undefined}>
               {lines.map((t, i) => (
+                <Fragment key={i}>
+                {/* 動きを減らす設定で、物語の中心の絵を止まった絵で見せる（このページの文の前。StoryScene.stills）。 */}
+                {scene?.stills?.[i] && <img className="ms-still" src={scene.stills[i].src} alt={scene.stills[i].alt} />}
                 <p
-                  key={i}
                   className="ms-cap"
                   data-i={i}
+                  // 場面ごとの字幕の設定（StoryScene.captions）：字の色の調子・字の後ろの局所的な沈め・字幕の領域。描くのは共通の部品。
+                  data-tone={scene?.captions?.[i]?.tone}
+                  data-area={scene?.captions?.[i]?.area}
+                  // drop：縦に長い画面だけ、字の出はじめを下げる（svh。空の上の暗い所を避ける、9P 夜明け）。
+                  data-drop={scene?.captions?.[i]?.drop ? "" : undefined}
+                  // halo：明るい幹に字の列がかかるページで、字の縁取りの影と字の後ろの沈めを強める。titleDrop：節に分けた結末の作品名を下げる。
+                  data-halo={scene?.captions?.[i]?.halo ? "" : undefined}
+                  data-title-drop={scene?.captions?.[i]?.titleDrop ? "" : undefined}
+                  style={
+                    scene?.captions?.[i]?.backdrop || scene?.captions?.[i]?.drop || scene?.captions?.[i]?.titleDrop
+                      ? ({
+                          ...(scene.captions[i].backdrop ? { ["--cap-backdrop" as string]: String(scene.captions[i].backdrop) } : {}),
+                          ...(scene.captions[i].drop ? { ["--cap-drop" as string]: `${scene.captions[i].drop}svh` } : {}),
+                          ...(scene.captions[i].titleDrop ? { ["--title-drop" as string]: `${scene.captions[i].titleDrop}svh` } : {}),
+                        } as React.CSSProperties)
+                      : undefined
+                  }
                   // いちばん長い行の字数（縦書きの列に収まる字の大きさを選ぶ。fitCaps）。
                   data-n={Math.max(...tateNum(t).split("\n").map((l) => [...l.replace(/\//g, "")].length))}
                 >
                   <Letters text={tateNum(t)} plain={!!directed} />
                 </p>
+                </Fragment>
               ))}
               {directed?.title && story?.book?.titleEnd && (
                 <p className="ms-cap ms-cap-title" data-n={[...story.book.titleEnd].length}>
