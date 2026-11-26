@@ -11,7 +11,7 @@
 // 本文の "/" は、列に収まらない画面だけで折る所（意味のまとまり）。
 import type { FullMoonNameInfo } from "../../shared/fullMoonNames";
 import { COLD_CUES } from "../design/story/ColdWorld";
-import { COLD_END, COLD_OPT, coldDirection } from "../design/story/coldDirection";
+import { COLD_END, COLD_OPT, coldDirection, SLEEP_TIMES } from "../design/story/coldDirection";
 import { STORY_SCENES } from "../design/story/scenes";
 import { storyAsset } from "../design/story/storyAssets";
 
@@ -66,6 +66,16 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   // 11/26 22:36：3P は接写案（B）を採用。比べるときは ?coldP3=A。
   COLD_OPT.p3 = q.get("coldP3") === "A" ? "A" : "B";
   COLD_OPT.stars = q.get("coldStars") !== "0";
+  // 第3次 段階3（11/26 22:54）：文章・文学性・終幕（?coldText3=1）。9P の案（?coldEnd9=A|B|C、既定 C）、作品名の置き方（?coldTitle=R|L）。
+  COLD_OPT.text3 = q.get("coldText3") === "1";
+  const e9 = q.get("coldEnd9");
+  COLD_OPT.end9 = e9 === "A" || e9 === "B" ? e9 : "C";
+  if (COLD_OPT.text3 && q.get("coldTitle") === "L") document.documentElement.classList.add("cold-title-low");
+  if (COLD_OPT.text3) {
+    // 8P は「ながい、」…「ながい夜。」のあと、文が消えて絵と月の光だけの時間を約 7 秒（11/26 22:54 の目安）。
+    SLEEP_TIMES.fade8 = 0.8;
+    SLEEP_TIMES.picture8 = 7.2;
+  }
   // 7P の月の明暗だけを戻す強さ（?coldMoon7=0〜1、既定 0.4。0 は 2回目の版）。黄色の彩度は変えない。
   const m7 = Number(q.get("coldMoon7") ?? "0.4");
   COLD_OPT.moon7 = Number.isFinite(m7) ? Math.min(1, Math.max(0, m7)) : 0.4;
@@ -90,8 +100,20 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   // 第3次：9P の「西の空には、白い月が まだ のこっています。」は、列に収まらない画面で「す。」だけが次の列に残っていた
   // （11/26 21:41）。言葉は変えず、意味のまとまりの折る所（"/"）を一つ足す：西の空には、／白い月が／まだ のこっています。
   if (COLD_OPT.art3) pages[8] = pages[8].map((l) => (/^西の空には/.test(l) ? l.replace("白い月が まだ", "白い月が/まだ") : l));
+  // 段階3（?coldText3=1）：全9ページの確定候補の文章。3P・4P は現行のまま、6P・8P・9P を推敲（11/26 22:54）。
+  if (COLD_OPT.text3) {
+    pages[5] = ["雪の野原が、", "ほのかに光りはじめます。", "山のむこうから、", "まあるい、冬の月。"];
+    pages[7] = ["ながい、ながい夜。"];
+    const p9: Record<string, string[]> = {
+      C: ["フィーチー、フィーチー。", "もう、朝。", "", "西の空には、", "まだ、白い月。", "", "コールドムーン。"],
+      A: ["フィーチー、フィーチー。", "朝の森に、コガラの声。", "", "西の空には、", "白い月が まだ。", "", "コールドムーン。"],
+      B: ["フィーチー、フィーチー。", "朝の森に、コガラの声。", "", "夜は、もう おしまい。", "西の空には、まだ 白い月。", "", "コールドムーン。"],
+    };
+    pages[8] = p9[COLD_OPT.end9 ?? "C"];
+    COLD_END.v = "C2";
+  }
   // 8P を一行ずつの節に（?cold8Split=1）。言葉は変えない。
-  if (COLD_OPT.split8) pages[7] = [pages[7][0], "", pages[7][1], "", pages[7][2]];
+  if (COLD_OPT.split8 && !COLD_OPT.text3) pages[7] = [pages[7][0], "", pages[7][1], "", pages[7][2]];
   const sc = STORY_SCENES["コールドムーン"];
   if (sc) {
     sc.direction = coldDirection;
@@ -102,6 +124,13 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
       cues[5] = ["雪の野原", "まあるい"];
     }
     if (text === "W") cues[2] = ["ひとつ", "もうひとつ"];
+    if (COLD_OPT.text3) {
+      // 3P：すきまに顔を近づける → 種を運ぶ →「ひとつ。」の句点でしまい終える → 次のすきまへ →「もうひとつ、べつのすきまに。」の句点でしまう。
+      cues[2] = ["すきま", "小さな種", "。", "もうひとつ", "べつの", "。"];
+      cues[5] = ["雪の野原", "ほのか", "山のむこう", "まあるい"];
+      cues[7] = [];
+      cues[8] = ["フィーチー", COLD_OPT.end9 === "C" ? "もう、朝" : "朝の森", COLD_OPT.end9 === "B" ? "夜は" : "西の空", "コールドムーン"];
+    }
     sc.cues = cues;
     const caps: NonNullable<typeof sc.captions> = {};
     for (const i of DAY)

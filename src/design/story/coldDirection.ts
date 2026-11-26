@@ -22,12 +22,27 @@ export const COLD_END = { v: "A" as "A" | "B" | "C" | "C2" };
 /** 見本の切り替え：view＝ページごとの視点（3P 近景、8P 遠景から近景へ）、dawn＝9P は朝の光を先に長く。 */
 /** 見本（?coldSleep=1）の 8P→9P の秒：8P の文が消える秒・8P の絵だけの秒・9P の絵が先の秒。 */
 export const SLEEP_TIMES = { fade8: 1.4, picture8: 5.2, intro9: 4.4 };
-export const COLD_OPT: { view: boolean; dawn: boolean; cu?: [number, number]; split8?: boolean; sleep?: boolean; p67?: boolean; art3?: boolean; comp?: boolean; p3?: "A" | "B"; stars?: boolean; moon7?: number; bg?: "A" | "B" | "C" | "C2" } = { view: false, dawn: false };
+export const COLD_OPT: { view: boolean; dawn: boolean; cu?: [number, number]; split8?: boolean; sleep?: boolean; p67?: boolean; art3?: boolean; text3?: boolean; end9?: "A" | "B" | "C"; comp?: boolean; p3?: "A" | "B"; stars?: boolean; moon7?: number; bg?: "A" | "B" | "C" | "C2" } = { view: false, dawn: false };
 
 function rule(page: number) {
   return (line: string, index: number): Omit<TextUnit, "text"> => {
     const late = page >= 4; // 夜へ向かうほど、間を長く
     const night = page === 5;
+    // 第3次 段階3（?coldText3=1、11/26 22:54 承認）：文章・文学性・終幕。
+    if (COLD_OPT.text3) {
+      // 6P：雪原が明るむ → 1・2行 → 月の縁が山の向こうに出て昇りはじめる間 →「山のむこうから、」→ 昇りきって「まあるい、冬の月。」
+      if (page === 5 && /^山のむこう/.test(line)) return { mode: "phrase", pauseBefore: 1.6, fadeIn: 0.6 };
+      // 8P：「ながい、」→ 沈黙 →「ながい夜。」（読点のあとの間を長く。字のない時間も夜の一部）。
+      if (page === 7) return { mode: "phrase", pauseBefore: 0, fadeIn: 1.0, phraseGap: 2.3 };
+      if (page === 8) {
+        if (ONOMATOPOEIA.test(line)) return { mode: "char", pauseBefore: 0, charInterval: 0.2, fadeIn: 0.25 };
+        // 西の空の節（B は「夜は、もう おしまい。」から）：前の節を読んで消し、西へ視線を移す 1 秒をおいて。
+        if (/^(西の空|夜は、)/.test(line)) return { mode: "phrase", pauseBefore: 0, fadeIn: 0.5, clearBefore: { fadeOut: 0.6, gap: 1.0, hold: 1.5 } };
+        // 作品名：文が消えて、朝の世界を絵だけで 2 秒眺めてから、独立した終止として。
+        if (/^コールドムーン。$/.test(line)) return { mode: "line", pauseBefore: 0, fadeIn: 1.2, clearBefore: { fadeOut: 0.6, gap: 2.0, hold: 2.0 } };
+        return { mode: "phrase", pauseBefore: index > 1 ? 0.4 : 0.5, fadeIn: index > 1 ? 0.5 : 0.6 };
+      }
+    }
     if (ONOMATOPOEIA.test(line)) return { mode: "char", pauseBefore: index ? 0.4 : 0, charInterval: page === 8 ? 0.2 : 0.15, fadeIn: 0.25 };
     // 5 ページ：「ながい夜の、はじまりです。」の前に、物語の時間が変わる間（レビュー 1.2〜1.8 秒）。
     if (page === 4 && /^ながい夜の/.test(line)) return { mode: "line", pauseBefore: 1.5, fadeIn: 0.8 };
@@ -59,11 +74,17 @@ export function coldDirection(pages: string[][], title?: string): BookDirection 
       // C2 の作品名：2.5 秒残して 0.8 秒で消す（そのあと額縁）。
       // sleep：夜明けへの移りを順に（9P の intro 4.4、11/26 14:36）。8P の絵だけの時間は 5.2 秒（文が消えてから夜明けが
       // 始まるまで約6秒、11/26 14:16 採用）。ColdWorld の SLEEP_TIMES と同じ値。
-      const d8 = i === 7 && COLD_OPT.sleep ? { ...d, picture: SLEEP_TIMES.picture8 } : d;
+      // 段階3：8P は顔 2 秒 →「ながい、」…「ながい夜。」→ 4 秒残す → 0.8 秒で消える → 絵と月の光だけ約 7 秒（全体 18 秒ほど）。
+      const d8 =
+        i === 7 && COLD_OPT.sleep
+          ? { ...d, ...(COLD_OPT.text3 ? { intro: 2.0, readHold: 4.0, fadeOut: SLEEP_TIMES.fade8 } : {}), picture: SLEEP_TIMES.picture8 }
+          : d;
       const d9 = i === 8 && COLD_OPT.dawn ? { ...d8, intro: COLD_OPT.sleep ? SLEEP_TIMES.intro9 : 3.4 } : d8;
-      return i === 8 && COLD_END.v === "C2" ? { ...d9, readHold: 2.5, fadeOut: 0.8 } : d9;
+      // 段階3：作品名を 2.5 秒残して 0.7 秒で消す。
+      return i === 8 && COLD_END.v === "C2" ? { ...d9, readHold: 2.5, fadeOut: COLD_OPT.text3 ? 0.7 : 0.8 } : d9;
     }),
     title: title ? { gap: 1.4, fadeIn: 1.0, hold: 2.5, fadeOut: 1.0 } : undefined,
-    frame: 1.2,
+    // 段階3：額縁への移りと余韻を 2 秒。
+    frame: COLD_OPT.text3 ? 2.0 : 1.2,
   };
 }

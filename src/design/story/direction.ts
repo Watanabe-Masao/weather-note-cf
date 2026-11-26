@@ -23,6 +23,8 @@ export interface TextUnit {
   charInterval?: number;
   /** 浮かぶ秒。 */
   fadeIn: number;
+  /** phrase のとき、読点のあとの間（秒、既定 READ.comma）。言葉と言葉の間の沈黙を長くとる所（コールドムーン 8P）。 */
+  phraseGap?: number;
   /**
    * この単位を出す前に、それまでに出したこのページの字を消す（段階的に言葉を減らす。コールドムーンの終幕 C 案の見本）。
    * fadeOut 秒で消し、gap 秒おいてから、この単位の pauseBefore へ。
@@ -129,7 +131,8 @@ export function pageTimes(d: PageDirection, lead: number, last = false, tail = 0
         if (!chunk.length) return;
         chunk.forEach(() => chars.push({ at: t, fade: u.fadeIn }));
         full = Math.max(full, t + u.fadeIn);
-        t += chunk.length * READ.char + pauseAfter(chunk[chunk.length - 1]);
+        const last = chunk[chunk.length - 1];
+        t += chunk.length * READ.char + (u.phraseGap != null && "、，".includes(last) ? u.phraseGap : pauseAfter(last));
         chunk = [];
       };
       cs.forEach((c) => {

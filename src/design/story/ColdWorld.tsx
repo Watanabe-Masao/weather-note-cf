@@ -213,6 +213,8 @@ const SEED = (() => {
   const at = [CLING.x + 900 * 0.07, CLING.y + 355 * 0.07] as const;
   return { x: at[0] - 787 * s, y: at[1] - 517 * s, w: 1536 * s, h: 1024 * s, at };
 })();
+/** 段階3：2つ目の種をしまう「べつのすきま」（1つ目のすきまからのずれ、世界の座標）。 */
+const CRACK2 = [1.5, 7] as const;
 /** 穴から飛び出すコガラ（c11、1536×1024。鳥の真ん中は画像の (885, 577)）：穴の口から、さえずる枝へ。 */
 const FLY = (() => {
   const s = 64 / 1536;
@@ -519,6 +521,7 @@ export function ColdWorld(): ReactElement {
         <Sky id="cw-sky-dusk" c={COLD_OPT.art3 ? SKY.dusk3 : SKY.dusk} />
         <Sky id="cw-sky-night" c={SKY.night} />
         <Sky id="cw-sky-dawn" c={SKY.dawn} />
+        <Sky id="cw-sky-morning" c={["#7f9cd0", "#a9bfe2", "#e4d6d9", "#f2e2d6"]} />
         <MoonDefs p="cw" />
         {/* 夕方・夜に沈める所：地上（山の稜線から下）と、山より上に出る主役の幹（描き込んだ幹の皮のめくれも含む）。 */}
         <filter id="cw-white" x="0" y="0" width="1" height="1">
@@ -754,6 +757,8 @@ export function ColdWorld(): ReactElement {
         {sky("dusk")}
         {sky("night")}
         {sky("dawn")}
+        {/* 段階3 終幕：朝の空がもう一段明るくなる（月を消すのでなく、空が明るんで月の明暗差が相対的に弱まる）。 */}
+        {COLD_OPT.text3 && <rect className="cw-sky-morning" x={-700} y={-400} width={W + 1100} height={H + 860} fill="url(#cw-sky-morning)" opacity={0} />}
         {COLD_OPT.art3 && (
           <>
             <rect className="cw-afterglow" x={-700} y={380} width={1800} height={200} fill="url(#cw-afterglow-g)" mask="url(#cw-afterglow-mask)" opacity={0} />
@@ -874,6 +879,12 @@ export function ColdWorld(): ReactElement {
           <g className="cw-crack" opacity={0}>
             <path d={`M${SEED.at[0] + 2} ${SEED.at[1] - 2.4} C ${SEED.at[0] + 5} ${SEED.at[1] - 1} ${SEED.at[0] + 7} ${SEED.at[1] + 1.2} ${SEED.at[0] + 9} ${SEED.at[1] + 3}`} stroke="#3a2a1f" strokeWidth={1.1} strokeLinecap="round" fill="none" opacity={0.85} />
             <path d={`M${SEED.at[0] + 2.6} ${SEED.at[1] - 1.6} C ${SEED.at[0] + 5.4} ${SEED.at[1] - 0.2} ${SEED.at[0] + 7.2} ${SEED.at[1] + 1.8} ${SEED.at[0] + 9} ${SEED.at[1] + 3.6}`} stroke="#f6eee4" strokeWidth={0.5} strokeLinecap="round" fill="none" opacity={0.8} />
+            {COLD_OPT.text3 && (
+              // 「べつのすきま」：少し下の、もう一つの小さな裂け目。
+              <g transform={`translate(${CRACK2[0] + 0.5} ${CRACK2[1] + 1})`}>
+                <path d={`M${SEED.at[0] + 2} ${SEED.at[1] - 1.6} C ${SEED.at[0] + 4.5} ${SEED.at[1] - 0.6} ${SEED.at[0] + 6.4} ${SEED.at[1] + 0.8} ${SEED.at[0] + 8} ${SEED.at[1] + 2.2}`} stroke="#3a2a1f" strokeWidth={0.9} strokeLinecap="round" fill="none" opacity={0.8} />
+              </g>
+            )}
           </g>
         )}
         {/* 「ひとつぶ、またひとつぶ。」：くちばしの所から、種が一つずつ幹のすきまへ消える（2粒だけ）。 */}
@@ -1104,14 +1115,34 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   move(2, P3B ? cam(176, 590, 4.0) : CP ? cam(206, 608, 2.1) : COLD_OPT.view ? cam(BIRCH.x + 5, 610, 1.6) : cam(BIRCH.x + 5, 600, 1.4))
     .to(".cw-perch", { opacity: 0, duration: 0.04 }, 2.01)
     .to(".cw-seed", { opacity: 1, duration: 0.06 }, Math.max(2.02, seeds[0] - 0.08));
+  const T3 = !!COLD_OPT.text3;
+  if (T3) {
+    // 段階3（11/26 22:54「句点で営みが完結。ただし句点まで止めず、言葉の進行に合わせて動作も進める」）：
+    //  「木の皮のすきまに、」すきまに顔を近づける →「小さな種を、」くちばしが種を運ぶ →「ひとつ。」の句点でしまい終える →
+    //  短い間 → 首を動かして次のすきまへ →「もうひとつ、」2つ目を運び →「べつのすきまに。」の句点でしまう（先が見えたまま残る）。
+    const near = cue(2, 0, 2.06), carry1 = Math.max(near + 0.02, cue(2, 1, 2.2)), tuck1 = Math.max(carry1 + 0.02, cue(2, 2, 2.3));
+    const carry2 = Math.max(tuck1 + 0.04, cue(2, 3, 2.45)), tuck2 = Math.max(carry2 + 0.02, cue(2, 5, 2.6));
+    const o = `${SEED.at[0]} ${SEED.at[1]}`;
+    tl.to(".cw-seed", { x: 1.2, duration: carry1 - near, ease: "sine.inOut" }, near)
+      .fromTo(".cw-seed1", { opacity: 0, x: 0, y: 0, scale: 1 }, { opacity: 1, duration: 0.01 }, carry1)
+      .to(".cw-seed1", { x: 5, scale: 0.55, svgOrigin: o, duration: tuck1 + 0.02 - carry1, ease: "sine.in" }, carry1)
+      .to(".cw-seed1", { opacity: 0, duration: 0.01 }, tuck1 + 0.02)
+      // 首の動き：次のすきまへ（少し下へ）。
+      .to(".cw-seed", { x: 0.6, y: CRACK2[1], duration: Math.max(0.01, carry2 - tuck1 - 0.04), ease: "sine.inOut" }, tuck1 + 0.03)
+      .fromTo(".cw-seed2", { opacity: 0, x: 0, y: CRACK2[1], scale: 1 }, { opacity: 1, duration: 0.01 }, carry2)
+      .to(".cw-seed2", { x: 5 + CRACK2[0], y: CRACK2[1] + 1, scale: 0.55, svgOrigin: o, duration: tuck2 + 0.02 - carry2, ease: "sine.in" }, carry2)
+      .to(".cw-seed", { x: 0, y: 0, duration: 0.05 }, 3.0)
+      .to(".cw-seed2", { opacity: 0, duration: 0.05 }, 3.0);
+  } else
   seeds.forEach((t, k) =>
     tl
       .fromTo(`.cw-seed${k + 1}`, { opacity: 0, x: 0, scale: 1 }, { opacity: 1, duration: 0.02 }, t)
       .to(`.cw-seed${k + 1}`, { x: 5, scale: 0.55, svgOrigin: `${SEED.at[0]} ${SEED.at[1]}`, duration: 0.07, ease: "power1.in" }, t + 0.02)
       .to(`.cw-seed${k + 1}`, { opacity: P3B && k === 1 ? 1 : 0, duration: 0.03 }, t + 0.07),
   );
+  if (P3B && !T3) tl.to(".cw-seed2", { opacity: 0, duration: 0.05 }, 3.0);
   if (P3B)
-    tl.to(".cw-seed2", { opacity: 0, duration: 0.05 }, 3.0)
+    tl
       .to(".cw-hole-calm", { opacity: 1, duration: 0.2 }, 2.0)
       .to(".cw-hole-calm", { opacity: 0, duration: 0.2 }, 3.0);
   // 星（第3次 段階2）：4P 夕暮れに明るい星がわずか → 5P 少し増える → 6P 月から離れた空に控えめに → 7P 少なく → 8P ほとんど無し → 9P 朝に溶ける。
@@ -1139,7 +1170,11 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   // 6 月が昇る：引いて、北東の地平線（山の向こう）の空だけがわずかに明るむ → 月の縁（1行目の前の間）→ 1行目「雪の野原」と
   // 同時に雪原の月明かりが手前へ広がる → 月が昇り、2行目「おおきな」で見えきる。月が出る前に雪原を照らさない。
   const lit = cue(5, 0, 5.26);
-  const full = Math.max(lit + 0.1, cue(5, 1, 5.5));
+  // 段階3：6P は「雪の野原が、／ほのかに光りはじめます。」→ 月の縁が山の向こうに出て昇りはじめる →「山のむこうから、」→
+  // 昇りきって「まあるい、冬の月。」（雪の明るさ → 月の出現 → 最後の言葉、の順）。
+  const T3_6 = !!COLD_OPT.text3;
+  const full = Math.max(lit + 0.1, T3_6 ? cue(5, 3, 5.55) : cue(5, 1, 5.5));
+  const rise0 = T3_6 ? Math.max(lit + 0.04, cue(5, 2, 5.45) - 0.09) : full - 0.1;
   // 見本（?cold67=1、11/26 15:31 レビュー「6P 広がり：地平線を低く、広い雪原と空。月が昇る前に雪原がほのかに明るむ。
   // 出現そのものより光の変化」）：少し引いて（0.84 倍）、地平線を画面の下の 4 分の 1 ほどへ。「雪の野原」で雪原がほのかに
   // 明るみ、月は「まあるい」で山の向こうから昇る。
@@ -1153,8 +1188,8 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     .to(".cw-air", { autoAlpha: 0, duration: 0.3 }, 5)
     .to(".cw-stars", { opacity: 1, duration: 0.4 }, 5.1)
     .to(".cw-moonrise", { opacity: 1, duration: 0.14, ease: "sine.in" }, 5.02)
-    .to(".cw-moon-show", { opacity: 1, duration: 0.03 }, P67 ? full - 0.1 : lit - 0.09)
-    .to(".cw-moon", { attr: { transform: "translate(110 420)" }, duration: P67 ? 0.24 : full - (lit - 0.08), ease: P67 ? "sine.out" : "power1.out" }, P67 ? full - 0.09 : lit - 0.08)
+    .to(".cw-moon-show", { opacity: 1, duration: 0.03 }, P67 ? rise0 : lit - 0.09)
+    .to(".cw-moon", { attr: { transform: "translate(110 420)" }, duration: P67 ? (T3_6 ? full + 0.03 - rise0 : 0.24) : full - (lit - 0.08), ease: P67 ? "sine.out" : "power1.out" }, P67 ? rise0 + 0.01 : lit - 0.08)
     .fromTo(".cw-moonlit", { opacity: 0, scaleY: 0.3, svgOrigin: "130 690" }, { opacity: P67 ? 0.45 : 0.8, scaleY: 1, duration: 0.3, ease: "sine.out" }, lit)
     .to(".cw-moonlit", { opacity: 0.8, duration: P67 ? 0.2 : 0.002 }, P67 ? full : lit + 0.3)
     .to(".cw-moon-air", { autoAlpha: A3 ? 0.16 : 0.45, duration: 0.3, ease: "sine.in" }, P67 ? full : lit + 0.12)
@@ -1201,8 +1236,15 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     // 8P の区間は拍 6.78〜7.78（MoonStory の segBeat、BEAT_REST 0.78）。区間の終わり 7.78 で文が消えはじめる。
     const end8 = 7.78;
     const s3 = Math.min(end8 - 0.05, cueAt[7]?.[0] ?? 7.5);
-    const peak = s3 + (end8 - s3) * (4.0 / 4.9);
-    const lit = s3 + (end8 - s3) * (0.3 / 4.9);
+    // 段階3：言葉は「ながい、ながい夜。」だけ。月の光は、文が消えたあとの絵だけの時間（約 7 秒）にかけて穴の縁を移り、
+    // 夜明けの少し前に寝顔へいちばん明るく届く（光の移りで時間を見せる）。
+    const T8 = !!COLD_OPT.text3;
+    const fly8 = cue(8, 0, 8.14);
+    const span8 = (fly8 - end8) / (SLEEP_TIMES.fade8 + SLEEP_TIMES.picture8 + SLEEP_TIMES.intro9);
+    const dawn8 = fly8 - SLEEP_TIMES.intro9 * span8; // 9P の絵が先の頭（夜明けが始まる）
+    const peak = T8 ? dawn8 - 0.8 * span8 : s3 + (end8 - s3) * (4.0 / 4.9);
+    const lit = T8 ? 7.55 : s3 + (end8 - s3) * (0.3 / 4.9);
+    if (T8) tl.fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: -40, autoAlpha: 0.3, duration: Math.max(0.05, dawn8 - 7.5), ease: "none" }, 7.5);
     tl.to(".cw-hole-sleep", { opacity: 1, duration: 0.3, ease: "sine.inOut" }, 7.4)
       .fromTo(".cw-birdlight", { autoAlpha: 0 }, { autoAlpha: 0.85, duration: Math.max(0.02, peak - lit), ease: "sine.inOut" }, lit);
     if (A3)
@@ -1211,7 +1253,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   }
   (COLD_OPT.view ? move(7, cam(200, 440, 1.0), 0.2).to(".cw-camera", { ...(CP ? cam(HOLE.x + 22, HOLE.y + 6, 3.6) : cam(HOLE.x + (COLD_OPT.cu?.[0] ?? 12), HOLE.y + 30, COLD_OPT.cu?.[1] ?? 2.3)), duration: 0.5, ease: "sine.inOut" }, 7.22) : move(7, cam(HOLE.x + 12, HOLE.y + 30, 2.3)))
     .to(".cw-moon", { attr: { transform: "translate(-120 300)" }, duration: 0.6 }, 7.05)
-    .fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: 0, autoAlpha: A3 ? 0.3 : 0.55, duration: Math.min(0.3, 7.75 - band), ease: "sine.inOut" }, band)
+    .fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: 0, autoAlpha: A3 ? 0.3 : 0.55, duration: COLD_OPT.text3 ? 0.001 : Math.min(0.3, 7.75 - band), ease: "sine.inOut" }, COLD_OPT.text3 ? 7.499 : band)
     .to(".cw-frost", { opacity: 0.9, duration: Math.min(0.3, 7.75 - band) }, band);
   // 第3次：8P は静かに。降る雪を控えめに（眠る姿を飾らない）。樹皮と雪面の月明かりは少し落とす（月は西へ）。
   if (A3) tl.to(".cw-snow", { opacity: 0.55, duration: 0.3 }, 7.05).to(".cw-bark-moon", { opacity: 0.16, duration: 0.3 }, 7.05).to(".cw-snowlit", { opacity: 0.3, duration: 0.3 }, 7.05);
@@ -1286,4 +1328,9 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   // 一つの続いた動きにせず、短い静止で余韻を作る）。
   // 段階2：世界へ戻る。西を向くとき、1P より少し広く引く（コガラは小さく、森と西の白い月が大きく）。
   move(turn, CP ? cam(185, 470, 0.75) : cam(175, 480, 0.96), Math.min(0.1, 8.75 - turn));
+  // 段階3 終幕：本文が消えて朝の世界を眺める間に、空がもう一段明るむ（白い月は残り、空になじむ）。作品名のあとも続く。
+  if (COLD_OPT.text3) {
+    const title = cue(8, 3, 8.6);
+    tl.to(".cw-sky-morning", { opacity: 0.85, duration: Math.max(0.05, 8.74 - (title - 0.14)), ease: "sine.inOut" }, title - 0.14);
+  }
 }
