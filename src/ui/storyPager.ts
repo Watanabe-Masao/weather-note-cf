@@ -86,6 +86,11 @@ export type Pager = {
   step: (dir: 1 | -1) => void;
   /** px の位置へ滑らかに運ぶ。 */
   glide: (to: number, v?: number) => void;
+  /**
+   * 運んでいる途中なら、その場で止める（自動で読むの「止める」、11/26）。止めないと、行き先（今のページの終わり）まで
+   * 運び続け、その途中で「自動で読む」を押すと行き先の次の区切りまで一度に運んで、ページを飛ばしていた。
+   */
+  halt: () => void;
   destroy: () => void;
 };
 
@@ -492,6 +497,11 @@ export function storyPager(el: HTMLElement, o: Opts): Pager {
     },
     step: (dir) => glide(stepFrom(from(), dir)),
     glide,
+    halt: () => {
+      if (!raf && target === null) return;
+      stop();
+      report(el.scrollTop, true);
+    },
     destroy: () => {
       stop();
       el.removeEventListener("touchstart", onStart);
