@@ -308,7 +308,7 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const lineRows0 = chosen.length ? chosen : rows.slice(0, 2);
   // 見本（sample/cs-line-unit、マージしない）：?csLine=1 は単位が最初の行と同じ行だけ、?csLine=2 は値ごとに単位。
   const csLine = new URLSearchParams(location.search).get("csLine");
-  const lineRows = csLine === "1" ? lineRows0.filter((r) => r.unit === lineRows0[0].unit) : lineRows0;
+  const lineRows = csLine === "1" ? lineRows0.filter((r) => r.unit === lineRows0[0].unit).slice(0, 2) : lineRows0;
   const eachUnit = csLine === "2" && lineRows.some((r) => r.unit !== lineRows[0].unit);
   const short = (v: number | null, r: Row) => (v == null ? "—" : v.toFixed(r.digits));
   const line = (pinned: boolean) => (
