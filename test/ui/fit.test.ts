@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { axisWidth, lineLabel, niceTicks, tickLabel } from "../../src/design/format";
+import { axisWidth, lineLabel, lineValues, niceTicks, tickLabel } from "../../src/design/format";
 
 describe("things that must fit", () => {
   it("never gives a 1022.5-style tick at units, but keeps 0.25 and 25", () => {
@@ -20,5 +20,18 @@ describe("things that must fit", () => {
     expect(lineLabel(["気圧最高", "気圧最低"])).toBe("気圧 最高/最低");
     expect(lineLabel(["最高", "最低"])).toBe("最高/最低");
     expect(lineLabel(["風速"])).toBe("風速");
+  });
+
+  it("puts on the one-line summary only values in one unit, two at most (11/26: 視程 km was shown in µg/m³)", () => {
+    const air = [
+      { key: "pmMean", unit: "µg/m³" },
+      { key: "dustMax", unit: "µg/m³" },
+      { key: "measuredPm", unit: "µg/m³" },
+      { key: "visibilityMin", unit: "km" },
+    ];
+    expect(lineValues(air).map((r) => r.key)).toEqual(["pmMean", "dustMax"]);
+    expect(lineValues([{ key: "vis", unit: "km" }, { key: "pm", unit: "µg/m³" }]).map((r) => r.key)).toEqual(["vis"]);
+    expect(lineValues([{ key: "max", unit: "℃" }, { key: "min", unit: "℃" }]).map((r) => r.key)).toEqual(["max", "min"]);
+    expect(lineValues([])).toEqual([]);
   });
 });

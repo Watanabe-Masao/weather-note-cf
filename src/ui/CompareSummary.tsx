@@ -20,7 +20,7 @@ import type { WeatherRow } from "../../shared/types";
 import { dailyRadiation, hourlyExtreme } from "../chartMetrics";
 import type { WeatherStore } from "../data/store";
 import { shownClock, shownSun } from "../data/sun";
-import { lineLabel, num, signedDiff, UNIT, yearMark } from "../design/format";
+import { lineLabel, lineValues, num, signedDiff, UNIT, yearMark } from "../design/format";
 import type { DataColor } from "../design/tokens";
 import { Badge, Button, CheckGlyph, confidenceOfRow, DayLabel, Glyph, SwipeHint } from "./kit";
 import type { MetricId } from "../metrics";
@@ -303,9 +303,9 @@ export function CompareSummary({ store, station, target, other, today, metric, o
   const extra = (id: string) => (id === "sky" ? [sunRow] : id === "rainwind" ? [dirRow] : []);
   const otherGroups = ITEM_GROUPS.filter((g) => g !== group);
 
-  // The line for the chosen item: its row(s) only.
+  // The line for the chosen item: its row(s) only, in one unit and two at most (format.ts lineValues).
   const chosen = rows.filter((r) => r.metric === (metric ?? "temp") && !r.minor);
-  const lineRows = chosen.length ? chosen : rows.slice(0, 2);
+  const lineRows = lineValues(chosen.length ? chosen : rows);
   const short = (v: number | null, r: Row) => (v == null ? "—" : v.toFixed(r.digits));
   const line = (pinned: boolean) => (
     <section
