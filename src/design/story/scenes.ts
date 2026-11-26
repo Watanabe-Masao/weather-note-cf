@@ -5,6 +5,7 @@ import type { ReactElement } from "react";
 import { storyAsset } from "./storyAssets";
 import { beaverDirection } from "./beaverDirection";
 import type { BookDirection } from "./direction";
+import { coldDirection } from "./coldDirection";
 import {
   BEAVER_BEATS,
   BEAVER_CUES,
@@ -15,7 +16,7 @@ import {
   BeaverWorld,
   buildBeaverScene,
 } from "./BeaverWorld";
-import { COLD_BEATS, COLD_CUES, COLD_LINE_PAUSE, COLD_SKY, ColdCoverArt, ColdPaperArt, ColdWindow, ColdWorld, buildColdScene } from "./ColdWorld";
+import { COLD_BEATS, COLD_CUES, COLD_SKY, ColdCoverArt, ColdPaperArt, ColdWindow, ColdWorld, buildColdScene } from "./ColdWorld";
 import { BOOK } from "./palette";
 
 export type StoryScene = {
@@ -58,7 +59,7 @@ export type StoryScene = {
   /**
    * 文の出し方と時間を秒で決める本（第2次品質改善、11/26 確定。ビーバームーン）：本文（ページごとの行、組版の印つき）と
    * 結末の作品名から、一冊の演出を作る。あれば、ページの時間・字の出る時刻・消える時刻・額縁は、これから決める
-   * （lineAt・linePause・rest は使わない）。無い場面（コールドムーン）は今までの計算のまま。
+   * （lineAt・linePause・rest は使わない）。無い場面は今までの計算のまま。
    */
   direction?: (pages: string[][], title?: string) => BookDirection;
   /**
@@ -66,6 +67,19 @@ export type StoryScene = {
    * 100＋ページの番号で渡す（月の出・初雪のように、文より先に絵が動きはじめるページ）。
    */
   pictureFirst?: number[];
+  /**
+   * 場面ごとの字幕の設定（11/26 レビュー「描画機構は共通、場面固有の設定を渡す」）：ページ（0 から）→ 設定。
+   *   tone     字の色の調子（"dark"＝明るい昼・朝の景色の上に濃い藍の字。無ければ白系）。
+   *   backdrop 字の後ろだけを局所的に沈める強さ（0〜1。景色全体は暗くしない）。
+   *   area     字幕の領域（"tall"＝列を長くして列の数を減らす、"sky"＝右の余白を詰め列の間を少し狭くして、幹の右の空に収める、
+   *            "left"＝画面の左上に置く（絵の主役が右にあるページ））。
+   *   drop     縦に長い画面だけ、字の出はじめを下げる（svh。空の上の暗い所を避ける）。
+   *   halo     字の縁取りの影を濃くし、字の後ろの沈めを列の端まで届く形にする（明るい幹に字の列がかかるページ。句読点まで）。
+   *   titleDrop 節に分けた結末の作品名（「…ムーン。」だけの節）を、本文の起点から下げて置く（svh。本文の続きに見せない）。
+   */
+  captions?: Record<number, { tone?: "dark"; backdrop?: number; area?: "tall" | "sky" | "left"; drop?: number; halo?: boolean; titleDrop?: number }>;
+  /** 動きを減らす設定で、そのページの文の前に置く止まった絵（物語の中心の絵だけ）。 */
+  stills?: Record<number, { src: string; alt: string }>;
   /**
    * 字の後ろを少しだけ沈める（11/23：コールドムーンは白いシラカバの幹が字の後ろに来て読みにくかった）。字の列の後ろの
    * 影（.ms-caps-veil）を少し濃く広く、字のまわりのにじみ（text-shadow）を一段足す。濃くはせず、背景から字をわずかに分ける。
@@ -123,8 +137,24 @@ export const STORY_SCENES: Record<string, StoryScene> = {
     closedArt: storyAsset("cold", "emboss-medal"),
     PaperArt: ColdPaperArt,
     build: buildColdScene,
-    linePause: COLD_LINE_PAUSE,
     cues: COLD_CUES,
+    // 文の出し方と時間は秒で決める（第3次品質改善、2026-11-27 承認）。
+    direction: coldDirection,
+    // 9P は夜明けへの移り（絵が先）のあとに「フィーチー」。
+    pictureFirst: [8],
+    // 字幕：昼と朝（1〜3・9P）は幹の右の空に濃い藍の字、3P（接写）は左上。4P は明るい幹に字の列がかかるので縁取りを濃く。
+    // 9P は縦に長い画面で字の出はじめを下げ、作品名は本文から下げて独立させる。
+    captions: {
+      0: { area: "sky", tone: "dark" },
+      1: { area: "sky", tone: "dark" },
+      2: { area: "left", tone: "dark" },
+      3: { backdrop: 1, halo: true },
+      8: { area: "sky", tone: "dark", drop: 12, titleDrop: 14 },
+    },
+    // 動きを減らす設定の 8P：月の光が届いたあとの寝顔を、止まった絵で。
+    stills: {
+      7: { src: storyAsset("cold", "sleep-still"), alt: "シラカバの幹の穴の中で、丸くなって眠るコガラ。月の光が顔をやわらかく照らしている。" },
+    },
     frameAfterText: true,
     capShade: true,
     still: 6.78,
