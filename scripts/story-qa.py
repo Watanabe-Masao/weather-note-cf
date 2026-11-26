@@ -104,7 +104,8 @@ STATE = """() => { const op = (q) => { const e = document.querySelector(q); retu
   const ops = {}; parts.forEach(e => { const k = e.getAttribute('class').split(' ')[0]; if (!(k in ops)) ops[k] = Math.round(+getComputedStyle(e).opacity * 20) / 20 });
   const cams = [...document.querySelectorAll('[class$="-camera"], [class*="-camera "]')].map(e => e.getAttribute('transform') || getComputedStyle(e).transform);
   return { top: Math.round(document.querySelector('.moon-story').scrollTop), caps: caps.join(' '), ops, cams: cams.map(c => (c || '').replace(/(\\d+\\.\\d)\\d+/g, '$1')).join(' '),
-    frame: op('.ms-world-frame'), world: op('.ms-world') } }"""
+    frame: op('.ms-world-frame'), world: (() => { const e = document.querySelector('.ms-world'); if (!e) return 0; const r = e.getBoundingClientRect();
+      return r.bottom > 0 && r.top < innerHeight ? +getComputedStyle(e).opacity : 0 })() } }"""
 
 
 def settled_state(pg):
@@ -131,7 +132,7 @@ def stops(b):
     F = {s["top"]: s for s in fwd}; B = {s["top"]: s for s in back}; common = [t for t in F if t in B]; bad = 0
     for t in common:
         a, c = F[t], B[t]
-        seen = (a["world"] or 0) > 0.05 or (c["world"] or 0) > 0.05  # 場面が見えていない所（本の表紙など）は、絵の部品を比べない
+        seen = (a["world"] or 0) > 0.05 or (c["world"] or 0) > 0.05  # 場面が画面に入っていない所（本の表紙など）は、絵の部品を比べない
         diff = [k for k in ("caps", "frame") if a[k] != c[k]] + ([k for k in ("cams",) if a[k] != c[k]] if seen else []) + [k for k in (set(a["ops"]) | set(c["ops"])) - set(a["loops"]) - set(c["loops"]) if seen and abs((a["ops"].get(k) or 0) - (c["ops"].get(k) or 0)) > 0.1]
         if diff: bad += 1; print("違う", t, diff, "| 行き", a["caps"], "| 帰り", c["caps"])
     print(f"止まる所 {len(common)} か所を行きと帰りで比べた。違う所 {bad} か所。")
