@@ -110,6 +110,13 @@ export function lineLabel(labels: string[]): string {
   return `${labels[0].slice(0, n)} ${labels.map((l) => l.slice(n)).join("/")}`;
 }
 
+/**
+ * The values on the one-line summary: those in the first one's unit, two at most (11/26, 渡辺さん 1案).
+ * The line says its unit once and has room for two values a side, so a value in another unit
+ * (空気の 視程 km beside PM2.5 µg/m³) or a third one stays in the full table.
+ */
+export const lineValues = <T extends { unit: string }>(rows: T[]): T[] => rows.filter((r) => r.unit === rows[0]?.unit).slice(0, 2);
+
 /** "10時間41分" from minutes, rounded to the minute first (never 9時間60分). */
 export function hoursMinutes(min: number): string {
   const m = Math.round(min);
