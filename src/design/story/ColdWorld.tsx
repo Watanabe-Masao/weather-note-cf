@@ -451,6 +451,19 @@ export function ColdWorld(): ReactElement {
             <image href={A("fluff-open")} x={HOLE.x - FLUFF.w / 2} y={HOLE.y - FLUFF.h * 0.36} width={FLUFF.w} height={FLUFF.h} />
           </g>
         </g>
+        {/* 試作（?coldSleep=1）：8P の寄りで、穴の口と中で眠るコガラの絵（A-11、11/26 届いた）に溶けるように入れ替える。
+            A-11 の穴の口（画素で中心 674,619、横の半径 194）を、幹の穴（HOLE）に合わせて置く。 */}
+        {COLD_OPT.sleep && (
+          <image
+            className="cw-hole-sleep"
+            href={A("hole-sleep")}
+            x={HOLE.x - 674 * (HOLE.rx / 194)}
+            y={HOLE.y - 619 * (HOLE.rx / 194)}
+            width={1254 * (HOLE.rx / 194)}
+            height={1254 * (HOLE.rx / 194)}
+            opacity={0}
+          />
+        )}
         {/* 枝にとまるコガラ（2ページ） */}
         <g className="cw-perch cw-breath" opacity={0}>
           <image
@@ -644,6 +657,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   const band = cue(7, 0, 7.42);
   // 見本（11/26 レビュー「8P は遠景から近景へ。急なズームを避ける」）：雪の森を遠くに見たまま「ながい、ながい夜。」を読み、
   // ゆっくり（区間の半分ほどかけて）木の穴の眠るコガラへ寄る。
+  if (COLD_OPT.sleep) tl.to(".cw-hole-sleep", { opacity: 1, duration: 0.3, ease: "sine.inOut" }, 7.4).to(".cw-hole-sleep", { opacity: 0, duration: 0.05 }, 7.97);
   (COLD_OPT.view ? move(7, cam(200, 440, 1.0), 0.2).to(".cw-camera", { ...cam(HOLE.x + (COLD_OPT.cu?.[0] ?? 12), HOLE.y + 30, COLD_OPT.cu?.[1] ?? 2.3), duration: 0.5, ease: "sine.inOut" }, 7.22) : move(7, cam(HOLE.x + 12, HOLE.y + 30, 2.3)))
     .to(".cw-moon", { attr: { transform: "translate(-120 300)" }, duration: 0.6 }, 7.05)
     .fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: 0, autoAlpha: 0.55, duration: Math.min(0.3, 7.75 - band), ease: "sine.inOut" }, band)

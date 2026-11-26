@@ -20,7 +20,7 @@ const ONOMATOPOEIA = /^(ちょん|ひとつぶ|フィーチー)/;
 /** 終幕の案（見本の切り替え）：A いまの4行、B 名前を独立、C 段階的に言葉を減らす。 */
 export const COLD_END = { v: "A" as "A" | "B" | "C" | "C2" };
 /** 見本の切り替え：view＝ページごとの視点（3P 近景、8P 遠景から近景へ）、dawn＝9P は朝の光を先に長く。 */
-export const COLD_OPT: { view: boolean; dawn: boolean; cu?: [number, number]; split8?: boolean } = { view: false, dawn: false };
+export const COLD_OPT: { view: boolean; dawn: boolean; cu?: [number, number]; split8?: boolean; sleep?: boolean } = { view: false, dawn: false };
 
 function rule(page: number) {
   return (line: string, index: number): Omit<TextUnit, "text"> => {

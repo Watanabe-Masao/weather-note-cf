@@ -53,6 +53,7 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   const cu = q.get("coldCU")?.split(",").map(Number);
   COLD_OPT.cu = cu && cu.length === 2 && cu.every(Number.isFinite) ? [cu[0], cu[1]] : undefined;
   COLD_OPT.split8 = q.get("cold8Split") === "1";
+  COLD_OPT.sleep = q.get("coldSleep") === "1"; // 8P の寄りで A-11（穴の口と眠るコガラ）に入れ替える
   const pages = NOW.map((p, i) => {
     if (text === "R") return [P1R, p, P3R, p, P5R, P6R][i] ?? p;
     if (text === "W") return [P1W, p, P3W, p, P5R, P6W][i] ?? p;
