@@ -56,6 +56,11 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   COLD_OPT.split8 = q.get("cold8Split") === "1";
   COLD_OPT.sleep = q.get("coldSleep") === "1";
   COLD_OPT.p67 = q.get("cold67") === "1"; // 6P 広がり（低い地平線）・7P 高さ（見上げる）の試作（11/26 15:31 承認） // 8P の寄りで A-11（穴の口と眠るコガラ）に入れ替える
+  // 第3次 段階1（11/26 17:40 承認）：光を受けた世界で月明かりを描く・霜と降る雪を分ける・色の流れ（?cold3=1）。
+  // 6P の背景3案（?coldBg=A 現行の平たい面／B 描き込んだ遠景・中景／C 平たい遠景＋描き込んだ中景）。
+  COLD_OPT.art3 = q.get("cold3") === "1";
+  const bg = q.get("coldBg");
+  COLD_OPT.bg = bg === "B" || bg === "C" ? bg : "A";
   const pages = NOW.map((p, i) => {
     if (text === "R") return [P1R, p, P3R, p, P5R, P6R][i] ?? p;
     if (text === "W") return [P1W, p, P3W, p, P5R, P6W][i] ?? p;
