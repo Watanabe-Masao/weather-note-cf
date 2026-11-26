@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { fullMoonInfo } from "../../shared/fullMoonNames";
-import { buildColdScene, COLD_CUES } from "../../src/design/story/ColdWorld";
+import { buildColdScene, COLD_CUES, COLD_LEAD } from "../../src/design/story/ColdWorld";
 import { coldDirection, SLEEP_TIMES } from "../../src/design/story/coldDirection";
 import { plainText } from "../../src/design/story/direction";
 import { STORY_SCENES } from "../../src/design/story/scenes";
@@ -148,6 +148,33 @@ describe("コールドムーンの最終の演出（第3次品質改善）", () 
     expect(gone).toBeGreaterThan(titleFull);
     expect(dir.frame).toBeGreaterThan(0);
     expect(t.total).toBeGreaterThanOrEqual(gone + dir.frame);
+  });
+  it("2P・3P：絵は言葉より遅れない（合図の拍を切り上げない。場面はページの区間の頭から動く）", () => {
+    const at = cueAt();
+    expect(COLD_LEAD).toBeCloseTo(1 - BEAT_REST, 9);
+    // どの合図も、場面が受け付ける範囲（ページの区間の頭〜そのコマの中）にある＝切り上げ・切り下げが起きない。
+    for (const [p, beats] of Object.entries(at)) {
+      const i = Number(p);
+      if (i >= 100) continue;
+      for (const b of beats) {
+        expect(b, `${i + 1}P`).toBeGreaterThanOrEqual(i - COLD_LEAD);
+        expect(b, `${i + 1}P`).toBeLessThanOrEqual(i + 0.74);
+      }
+    }
+    // 2P「ちょん、」「ちょん。」：跳ねは字の出る拍に一回ずつ（同じ拍に重ならない）。
+    const hops = steps.filter((x) => x.target === ".cw-hop" && x.vars.keyframes).map((x) => x.at);
+    expect(hops).toEqual([at[1][0], at[1][1]]);
+    expect(hops[1]).toBeGreaterThan(hops[0]);
+    // 2P・3P の寄りは、そのページの文が出はじめるより前に始まる（前のページの構図の上に、次のページの字を出さない）。
+    const cams = steps.filter((x) => x.target === ".cw-camera").map((x) => x.at);
+    for (const i of [1, 2]) {
+      const textAt = segBeat(plan, i, plan.times[i].textStart);
+      const move = cams.filter((c) => c < textAt).at(-1)!;
+      expect(move, `${i + 1}P`).toBeGreaterThan(i - COLD_LEAD - 1e-9);
+    }
+    // 3P「木の皮のすきまに、」：すきまに顔を近づける動きは、その字と同じ拍から。
+    const near = steps.find((x) => x.target === ".cw-seed" && x.method === "to" && x.vars.x !== undefined)!;
+    expect(near.at).toBeCloseTo(at[2][0], 9);
   });
   it("合図の言葉は、どれも本文にあり、出る順に並ぶ（3P の種・6P の月の出・9P の声）", () => {
     const at = cueAt();

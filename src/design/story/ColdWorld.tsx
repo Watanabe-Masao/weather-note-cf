@@ -22,6 +22,8 @@ import {
 
 /** 物語の一文の数（場面の数）。 */
 export const COLD_BEATS = 9;
+/** ページの区間が整数の拍より前に始まる幅（1 − MoonStory の BEAT_REST 0.78。テストで同じ値か確かめる）。 */
+export const COLD_LEAD = 0.22;
 
 /**
  * 言葉の合図：動きを合わせる言葉。物語の画面がその言葉の最初の字が出る拍を計算して、buildColdScene に渡す（cueAt）。
@@ -934,12 +936,18 @@ function startLoops(gsap: Gsap, root: Element): Loop {
 
 /** 各コマの動きは、そのコマの頭から 0.75 までに終える（docs/moon-story.md「動きの決まり」）。 */
 function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
+  // 秒で決める本では、ページ i の区間は前のページの止まる所（i − LEAD）から始まり、2P・3P の文はページの頭（整数の拍）より前に
+  // 出はじめる。2P・3P の場面はその区間の頭から動かし、言葉の合図も区間の頭まで受け付ける（字より絵が遅れないように。PR #524 の
+  // 独立レビュー）。4P から先は、文が出はじめるのがページの頭とほぼ同じなので、今までどおり整数の拍。
+  const LEAD = COLD_LEAD;
+  const P2 = 1 - LEAD + 0.01;
+  const P3 = 2 - LEAD + 0.01;
   // 光は空中の帯やもやではなく、光を受けた世界（樹皮・雪面・羽毛）で描く。暖色は命と光を受ける所だけ：1P は低い日に面した樹皮、
   // 2P はコガラの胸と頬（鳥に付けた暖色）、3P は種をしまう樹皮のすきまのまわり。背景は冷たいまま。
   tl.set(".cw-bark-sun", { opacity: 0.6 }, 0)
-    .to(".cw-bark-sun", { opacity: 0.12, duration: 0.3, ease: "sine.inOut" }, 1.0)
-    .to(".cw-bark-sun", { opacity: 0, duration: 0.3, ease: "sine.inOut" }, 2.0)
-    .to(".cw-bark-seedwarm", { opacity: 0.7, duration: 0.3, ease: "sine.inOut" }, 2.02)
+    .to(".cw-bark-sun", { opacity: 0.12, duration: 0.3, ease: "sine.inOut" }, P2)
+    .to(".cw-bark-sun", { opacity: 0, duration: 0.3, ease: "sine.inOut" }, P3)
+    .to(".cw-bark-seedwarm", { opacity: 0.7, duration: 0.3, ease: "sine.inOut" }, P3 + 0.02)
     .to(".cw-bark-seedwarm", { opacity: 0, duration: 0.3, ease: "sine.inOut" }, 3.0)
     // 4P はまだ夕方：地平線の近くに昼の光の名残（残照）、日の沈む左が明るく右の幹は青いかげ。5P で消えて、深い藍へ（夜への入口）。
     .to(".cw-afterglow", { opacity: 1, duration: 0.6, ease: "sine.inOut" }, 3.05)
@@ -952,7 +960,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   /** 言葉の合図の拍（無いとき＝動きを減らす設定などは、決めた拍）。動きはそのコマの中（頭から 0.75 まで）に収める。 */
   const cue = (page: number, k: number, fallback: number) => {
     const v = cueAt[page]?.[k];
-    return Math.min(page + 0.74, Math.max(page, v != null && Number.isFinite(v) ? v : fallback));
+    return Math.min(page + 0.74, Math.max(page - LEAD, v != null && Number.isFinite(v) ? v : fallback));
   };
   // 視点の距離のリズム（物語の関心がどこへ向かうかで決める）：1 遠 → 2 中 → 3 近 → 4 遠 → 5 近 → 6 いちばん遠い → 7 見上げる →
   // 8 いちばん近い → 9 遠（世界へ戻る）。文の列は右に出るので、主役は左〜中央に置き、右に字の余白を作る（3P は字を左上に）。
@@ -962,9 +970,10 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   tl.fromTo(".cw-longshadow", { opacity: 0 }, { opacity: 0.9, duration: 0.15, ease: "sine.inOut" }, 0.02).to(".cw-longshadow", { opacity: 0, duration: 0.3 }, 3.05);
   // 2 「ちょん、」「ちょん。」：雪の枝に寄り、コガラが出て、言葉の字が出るのに合わせて二回跳ねて枝の上へ。
   const hop = [cue(1, 0, 1.08), cue(1, 1, 1.2)];
-  move(1, cam(225, 545, 1.6))
-    .set(".cw-hop", { x: -18, y: 0 }, 1)
-    .to(".cw-perch", { opacity: 1, duration: 0.03 }, Math.max(1.01, hop[0] - 0.05));
+  hop[1] = Math.max(hop[1], hop[0] + 0.05); // 二回目は一回目の跳ねが終わってから
+  move(P2, cam(225, 545, 1.6))
+    .set(".cw-hop", { x: -18, y: 0 }, P2)
+    .to(".cw-perch", { opacity: 1, duration: 0.03 }, Math.max(P2 + 0.01, hop[0] - 0.05));
   hop.forEach((t, k) =>
     tl
       .to(".cw-hop", { x: k === 0 ? -9 : 0, duration: 0.06, ease: "none" }, t)
@@ -980,11 +989,11 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   const carry2 = Math.max(tuck1 + 0.04, cue(2, 3, 2.45));
   const tuck2 = Math.max(carry2 + 0.02, cue(2, 5, 2.6));
   const o = `${SEED.at[0]} ${SEED.at[1]}`;
-  move(2, cam(176, 590, 4.0))
-    .to(".cw-perch", { opacity: 0, duration: 0.04 }, 2.01)
-    .to(".cw-seed", { opacity: 1, duration: 0.06 }, Math.max(2.02, near - 0.08))
-    .to(".cw-crack", { opacity: 1, duration: 0.1 }, 2.02)
-    .to(".cw-hole-calm", { opacity: 1, duration: 0.2 }, 2.0)
+  move(P3, cam(176, 590, 4.0))
+    .to(".cw-perch", { opacity: 0, duration: 0.04 }, P3 + 0.01)
+    .to(".cw-seed", { opacity: 1, duration: 0.06 }, Math.max(P3 + 0.02, near - 0.08))
+    .to(".cw-crack", { opacity: 1, duration: 0.1 }, P3 + 0.02)
+    .to(".cw-hole-calm", { opacity: 1, duration: 0.2 }, P3)
     .to(".cw-seed", { x: 1.2, duration: carry1 - near, ease: "sine.inOut" }, near)
     .fromTo(".cw-seed1", { opacity: 0, x: 0, y: 0, scale: 1 }, { opacity: 1, duration: 0.01 }, carry1)
     .to(".cw-seed1", { x: 5, scale: 0.55, svgOrigin: o, duration: tuck1 + 0.02 - carry1, ease: "sine.in" }, carry1)
