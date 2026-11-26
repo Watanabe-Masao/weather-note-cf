@@ -305,7 +305,11 @@ export function CompareSummary({ store, station, target, other, today, metric, o
 
   // The line for the chosen item: its row(s) only.
   const chosen = rows.filter((r) => r.metric === (metric ?? "temp") && !r.minor);
-  const lineRows = chosen.length ? chosen : rows.slice(0, 2);
+  const lineRows0 = chosen.length ? chosen : rows.slice(0, 2);
+  // 見本（sample/cs-line-unit、マージしない）：?csLine=1 は単位が最初の行と同じ行だけ、?csLine=2 は値ごとに単位。
+  const csLine = new URLSearchParams(location.search).get("csLine");
+  const lineRows = csLine === "1" ? lineRows0.filter((r) => r.unit === lineRows0[0].unit) : lineRows0;
+  const eachUnit = csLine === "2" && lineRows.some((r) => r.unit !== lineRows[0].unit);
   const short = (v: number | null, r: Row) => (v == null ? "—" : v.toFixed(r.digits));
   const line = (pinned: boolean) => (
     <section
@@ -342,9 +346,10 @@ export function CompareSummary({ store, station, target, other, today, metric, o
           <span key={r.key} className={r.tone ? `tone-${r.tone}` : undefined}>
             {i > 0 && <span className="cs-slash">/</span>}
             {short(r.a, r)}
+            {eachUnit && <small>{r.unit}</small>}
           </span>
         ))}
-        <small>{lineRows[0].unit}</small>
+        {!eachUnit && <small>{lineRows[0].unit}</small>}
       </span>
       <span className="cs-mid cs-line-mid">
         <span className="cs-label">{lineLabel(lineRows.map((r) => r.label))}</span>
@@ -355,9 +360,10 @@ export function CompareSummary({ store, station, target, other, today, metric, o
           <span key={r.key} className={r.tone ? `tone-${r.tone}` : undefined}>
             {i > 0 && <span className="cs-slash">/</span>}
             {short(r.b, r)}
+            {eachUnit && <small>{r.unit}</small>}
           </span>
         ))}
-        <small>{lineRows[0].unit}</small>
+        {!eachUnit && <small>{lineRows[0].unit}</small>}
       </span>
       {!pinned && toggle}
     </section>
