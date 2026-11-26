@@ -1242,9 +1242,18 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
     const fly8 = cue(8, 0, 8.14);
     const span8 = (fly8 - end8) / (SLEEP_TIMES.fade8 + SLEEP_TIMES.picture8 + SLEEP_TIMES.intro9);
     const dawn8 = fly8 - SLEEP_TIMES.intro9 * span8; // 9P の絵が先の頭（夜明けが始まる）
-    const peak = T8 ? dawn8 - 0.8 * span8 : s3 + (end8 - s3) * (4.0 / 4.9);
-    const lit = T8 ? 7.55 : s3 + (end8 - s3) * (0.3 / 4.9);
-    if (T8) tl.fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: -40, autoAlpha: 0.3, duration: Math.max(0.05, dawn8 - 7.5), ease: "none" }, 7.5);
+    // 11/27 00:24「月光の移動と夜明けの明るさを、時間的に少し分ける」：文が消えたあとの約 7 秒を
+    //   0〜2 秒 夜の暗さのまま、穴の縁を月光が移る → 2〜5 秒 寝顔に光が届く（背景はまだ暗い）→ 5〜7 秒 夜明けの光が広がりはじめる。
+    const pic0 = end8 + SLEEP_TIMES.fade8 * span8; // 8P の絵だけの時間の頭
+    const ps = (sec: number) => pic0 + sec * span8;
+    const peak = T8 ? ps(5.0) : s3 + (end8 - s3) * (4.0 / 4.9);
+    const lit = T8 ? ps(1.6) : s3 + (end8 - s3) * (0.3 / 4.9);
+    if (T8)
+      tl.fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: -40, autoAlpha: 0.3, duration: Math.max(0.05, ps(2.2) - 7.5), ease: "sine.inOut" }, 7.5)
+        .to(".cw-band", { autoAlpha: 0.12, duration: Math.max(0.02, 2.4 * span8), ease: "sine.inOut" }, ps(2.4))
+        // 夜明けのはじまり（5 秒から）：空がわずかに白みはじめ、星が消えていく。9P の頭からの夜明けにそのまま続く。
+        .to(".cw-sky-dawn", { opacity: 0.3, duration: Math.max(0.02, (dawn8 - ps(5.0)) * 0.98), ease: "sine.in" }, ps(5.0))
+        .to(".cw-shade-night", { opacity: 0.62, duration: Math.max(0.02, (dawn8 - ps(5.0)) * 0.98), ease: "sine.in" }, ps(5.0));
     tl.to(".cw-hole-sleep", { opacity: 1, duration: 0.3, ease: "sine.inOut" }, 7.4)
       .fromTo(".cw-birdlight", { autoAlpha: 0 }, { autoAlpha: 0.85, duration: Math.max(0.02, peak - lit), ease: "sine.inOut" }, lit);
     if (A3)

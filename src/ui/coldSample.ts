@@ -70,7 +70,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   COLD_OPT.text3 = q.get("coldText3") === "1";
   const e9 = q.get("coldEnd9");
   COLD_OPT.end9 = e9 === "A" || e9 === "B" ? e9 : "C";
-  if (COLD_OPT.text3 && q.get("coldTitle") === "L") document.documentElement.classList.add("cold-title-low");
+  // 11/27 00:24：作品名は本文より少し下げて独立させる案を採用（比べるときは ?coldTitle=R）。
+  if (COLD_OPT.text3 && q.get("coldTitle") !== "R") document.documentElement.classList.add("cold-title-low");
   if (COLD_OPT.text3) {
     // 8P は「ながい、」…「ながい夜。」のあと、文が消えて絵と月の光だけの時間を約 7 秒（11/26 22:54 の目安）。
     SLEEP_TIMES.fade8 = 0.8;
