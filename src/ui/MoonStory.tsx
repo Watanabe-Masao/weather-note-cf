@@ -409,8 +409,12 @@ function Letters({ text, plain = false }: { text: string; plain?: boolean }) {
             c === "\n" ? (
               <br key={i} />
             ) : c === "/" ? (
-              // 折る印の行の字数（その行が列に収まらないときだけ折る、fitDirected）。
-              <br key={i} className="ms-soft" data-len={[...plainText(text.split("\n")[[...text.slice(0, i)].filter((x) => x === "\n").length] ?? "")].length} />
+              // 折る印の行の字数（その行が列に収まらないときだけ折る、fitDirected）。動きを減らす設定の横書きでは、折ってよい所
+              // （wbr）として使う（字の間では折らない、11/26）。
+              <Fragment key={i}>
+                <br className="ms-soft" data-len={[...plainText(text.split("\n")[[...text.slice(0, i)].filter((x) => x === "\n").length] ?? "")].length} />
+                <wbr />
+              </Fragment>
             ) : (
               <span key={i} className="ms-ch">
                 {c}

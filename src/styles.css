@@ -812,6 +812,9 @@ img.event-pic { object-fit: contain; }
   .ms-world-stage .bw, .ms-world-stage .cw { position: relative; display: block; height: 100svh; }
   .ms-caps { position: relative; top: auto; right: auto; width: auto; height: auto; display: grid; gap: var(--space-5); padding: var(--space-7) var(--space-6); background: var(--bk-night-1); }
   .ms-cap { position: relative; height: auto; opacity: 1; writing-mode: horizontal-tb; font-size: var(--size-lg); }
+  /* 横書きで折り返すときは、字の間ではなく、空白か組版の印（"/"、wbr）の所で折る。320 で「す。」だけが次の行に落ちていた
+     （11/26）。それでも収まらない長い行だけ、字の間で折る。 */
+  .ms-caps .ms-cap { word-break: keep-all; overflow-wrap: anywhere; }
 }
 @keyframes ev-twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.95; } }
 @keyframes ev-shoot { 0% { opacity: 0; transform: translateX(0) rotate(16deg); } 2% { opacity: 1; } 9% { opacity: 0; transform: translateX(260%) rotate(16deg); } 100% { opacity: 0; transform: translateX(260%) rotate(16deg); } }
