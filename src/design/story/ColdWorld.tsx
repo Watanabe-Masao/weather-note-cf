@@ -370,6 +370,18 @@ export function ColdWorld(): ReactElement {
           <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} filter="url(#cw-white)" />
         </mask>
         {/* 穴の口（穴の中のコガラは口の形に切る）。 */}
+        {/* 試作（?coldSleep=1）：月の光が届いた眠るコガラ（顔の所が明るく、外へやわらかく消える。青白い月の色）。 */}
+        <radialGradient id="cw-birdlight-g" cx="0.5" cy="0.45" r="0.5">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="0.55" stopColor="#ffffff" stopOpacity={0.75} />
+          <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
+        </radialGradient>
+        <mask id="cw-birdlight-mask" maskUnits="userSpaceOnUse" x={HOLE.x - 40} y={HOLE.y - 40} width={80} height={80}>
+          <ellipse cx={HOLE.x} cy={HOLE.y} rx={HOLE.rx * 1.05} ry={HOLE.ry * 1.05} fill="url(#cw-birdlight-g)" />
+        </mask>
+        <filter id="cw-moonbird" colorInterpolationFilters="sRGB">
+          <feColorMatrix type="matrix" values="0.70 0 0 0 0.02  0 0.76 0 0 0.04  0 0 0.92 0 0.10  0 0 0 1 0" />
+        </filter>
         <clipPath id="cw-hole">
           <ellipse cx={HOLE.x} cy={HOLE.y} rx={HOLE.rx} ry={HOLE.ry} />
         </clipPath>
@@ -512,6 +524,23 @@ export function ColdWorld(): ReactElement {
             return <circle key={i} cx={HOLE.x + Math.cos(a) * (HOLE.rx + 4)} cy={HOLE.y + Math.sin(a) * (HOLE.ry + 4)} r={0.5 + (i % 3) * 0.3} fill="#eef4ff" />;
           })}
         </g>
+        {/* 試作（?coldSleep=1、11/26 渡辺さん「光のマスク」）：光のマスクの2つ目。「月の光が、ゆっくり移っていきます。」の
+            終わりに向けて、月の光が穴の中まで届き、眠るコガラの顔と胸をやわらかく照らす。夜の暗さの上に、暗くしていない
+            A-11 を、青白い月の色にして、顔の所だけ（やわらかい楕円のマスク、穴の口で切る）重ねる。縁は1つ目（光の帯）が照らす。 */}
+        {COLD_OPT.sleep && (
+          <g clipPath="url(#cw-hole)">
+            <g className="cw-birdlight" mask="url(#cw-birdlight-mask)" opacity={0}>
+              <image
+                href={A("hole-sleep")}
+                x={HOLE.x - 675 * (HOLE.rx / 203)}
+                y={HOLE.y - 616 * (HOLE.rx / 203)}
+                width={1254 * (HOLE.rx / 203)}
+                height={1254 * (HOLE.rx / 203)}
+                filter="url(#cw-moonbird)"
+              />
+            </g>
+          </g>
+        )}
         {/* 上の雪の枝（1・2ページの前景）。後半のページには残さない。 */}
         <g className="cw-bough">
           <image href={A("branch")} x={BRANCH.x} y={BRANCH.y} width={BRANCH.w} height={BRANCH.h} />
@@ -658,6 +687,11 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   // 見本（11/26 レビュー「8P は遠景から近景へ。急なズームを避ける」）：雪の森を遠くに見たまま「ながい、ながい夜。」を読み、
   // ゆっくり（区間の半分ほどかけて）木の穴の眠るコガラへ寄る。
   if (COLD_OPT.sleep) tl.to(".cw-hole-sleep", { opacity: 1, duration: 0.3, ease: "sine.inOut" }, 7.4).to(".cw-hole-sleep", { opacity: 0, duration: 0.05 }, 7.97);
+  // 光のマスクの2つ目：光の帯が縁を移りはじめてから、ページの終わりに向けて穴の中のコガラへ届く。9P の前に消す。
+  if (COLD_OPT.sleep) {
+    const lit = cue(7, 0, 7.42) + 0.08;
+    tl.fromTo(".cw-birdlight", { opacity: 0 }, { opacity: 0.85, duration: Math.max(0.1, 7.9 - lit), ease: "sine.inOut" }, lit).to(".cw-birdlight", { opacity: 0, duration: 0.05 }, 7.97);
+  }
   (COLD_OPT.view ? move(7, cam(200, 440, 1.0), 0.2).to(".cw-camera", { ...cam(HOLE.x + (COLD_OPT.cu?.[0] ?? 12), HOLE.y + 30, COLD_OPT.cu?.[1] ?? 2.3), duration: 0.5, ease: "sine.inOut" }, 7.22) : move(7, cam(HOLE.x + 12, HOLE.y + 30, 2.3)))
     .to(".cw-moon", { attr: { transform: "translate(-120 300)" }, duration: 0.6 }, 7.05)
     .fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: 0, autoAlpha: 0.55, duration: Math.min(0.3, 7.75 - band), ease: "sine.inOut" }, band)
