@@ -5985,20 +5985,23 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 @media (prefers-reduced-motion: no-preference) {
   .ms-caps[data-directed] .ms-cap[data-area="tall"] { height: 128%; right: calc(var(--space-3) * -1); }
   .ms-caps[data-directed] .ms-cap[data-area="sky"] { right: calc(var(--space-5) * -1); line-height: 1.75; }
-  /* 字を画面の左上に（絵の主役が右にあるページ）。字幕の箱は右寄せの 60% 幅なので、箱の外の左の余白まで出す。列は上の半分ほど。 */
-  .ms-caps[data-directed] .ms-cap[data-area="left"] { right: auto; left: calc(var(--space-7) - 66.667% + var(--space-9) + var(--space-3)); width: calc(var(--size-story) * 1.9 * 2 + var(--space-2)); height: 82%; }
+}
+/* 字を画面の左上に（絵の主役が右にあるページ）。字幕の箱は右寄せの 60% 幅なので、箱の外の左の余白まで出す。列は上の半分ほど。
+   縦長の画面だけ（横向きの画面では左の計算が画面の外へ出るので、ほかのページと同じ右の領域のまま）。 */
+@media (prefers-reduced-motion: no-preference) and (orientation: portrait) {
+  .ms-caps[data-directed]:not(.fit-area) .ms-cap[data-area="left"] { right: auto; left: calc(var(--space-7) - 66.667% + var(--space-9) + var(--space-3)); width: calc(var(--size-story) * 1.9 * 2 + var(--space-2)); height: 82%; }
 }
 @media (prefers-reduced-motion: no-preference) and (max-width: 374px) { .ms-caps[data-directed] .ms-cap[data-area="sky"] { right: calc(var(--space-2) * -1); } }
 /* 字の後ろの局所的な沈め（captions.backdrop、濃さは --cap-backdrop）。沈めは字の下の層、字はその上の層（字幕の中だけの重なり）。 */
 .ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"] { isolation: isolate; }
 .ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"]::before { content: ""; position: absolute; inset: calc(var(--space-7) * -1) calc(var(--space-6) * -1); z-index: 0; background: radial-gradient(closest-side, var(--bk-cap-n2), transparent); opacity: var(--cap-backdrop); border-radius: 50%; filter: blur(var(--space-4)); }
-.ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"] > .ms-ch { position: relative; z-index: 1; }
+/* 字（.ms-ch）は節の無いページでは読み上げ用でない span の中にあるので、子孫として指す（直下の子だけだと字が沈めの下になる）。 */
+.ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"] .ms-ch { position: relative; z-index: 1; }
 .ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"] > .ms-sec { z-index: 1; }
 @media (prefers-reduced-motion: reduce) { .ms-caps[data-directed] .ms-cap[style*="--cap-backdrop"] > .ms-sec { position: relative; } }
 /* 昼・朝の濃い字（captions.tone "dark"）：藍の字に、紙の色の明るいにじみ。句読点は字の面が小さいので、にじみを一段濃く。 */
 @media (prefers-reduced-motion: no-preference) {
   .ms-caps[data-directed] .ms-cap[data-tone="dark"] { color: var(--bk-night-1); text-shadow: 0 0 var(--space-2) var(--bk-cap-p2), 0 0 var(--space-5) var(--bk-cap-p4); }
-  .ms-caps[data-directed] .ms-cap[data-tone="dark"]::before { background: radial-gradient(closest-side, var(--bk-cap-p3), transparent); }
   .ms-caps[data-directed] .ms-cap[data-tone="dark"] .ms-ch[data-p] { text-shadow: 0 0 var(--space-1) var(--bk-paper-0), 0 0 var(--space-2) var(--bk-cap-p1), 0 0 var(--space-5) var(--bk-cap-p4); }
   /* 夜明けの空の上で下げた藍の字（tone "dark" と drop、9P）：まだ青い空の上なので、明るいにじみを少し強く（空全体は暗くしない）。 */
   .ms-caps[data-directed] .ms-cap[data-tone="dark"][data-drop] { text-shadow: 0 0 var(--space-2) var(--bk-cap-p0), 0 0 var(--space-4) var(--bk-cap-p3), 0 0 var(--space-7) var(--bk-cap-p5); }

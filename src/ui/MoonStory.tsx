@@ -230,7 +230,7 @@ export function progressToBeat(w: number[], p: number): number {
 }
 
 /**
- * 文の出し方と時間を秒で決める本（第2次品質改善、11/26 確定。場面が direction を持つ本＝ビーバームーン）。ページ i の区間は、
+ * 文の出し方と時間を秒で決める本（第2次品質改善、11/26 確定。場面が direction を持つ本＝ビーバームーン・コールドムーン）。ページ i の区間は、
  * 一つ前の止まる所（i−1＋BEAT_REST）から、そのページの止まる所（i＋BEAT_REST）まで（最初のページは場面の頭から）。
  * 自動で運ぶときの速さの形（DIR_GLIDE：初めに加速、終わりに減速、間は一定）を storyPager と同じ式（glideFrac）で写すので、
  * 区間の中の秒がそのまま拍になる（自動で読むとき、字は決めた秒どおりに出る）。重みはどのコマも 1（指で送る量もそろう）。
@@ -304,9 +304,11 @@ function fitDirected(el: HTMLElement): void {
     const fs = parseFloat(cs.fontSize);
     const ls = parseFloat(cs.letterSpacing) || 0;
     // 一列に入る字数（句読点の詰めや約物の差を見て少し余裕）。列の高さはページの字幕ごと（場面の設定で高さが違うことがある）。
+    // 縦書きの列のときだけ折る。動きを減らす設定の横書きでは "/" は折ってよい所（wbr）なので、強制の改行にしない（PR #523）。
     caps.forEach((c) => {
+      const vertical = getComputedStyle(c).writingMode.startsWith("vertical");
       const n = Math.max(4, Math.floor(c.clientHeight / ((fs + ls) * 1.06)));
-      c.querySelectorAll<HTMLElement>(".ms-soft").forEach((b) => b.classList.toggle("on", Number(b.dataset.len) > n));
+      c.querySelectorAll<HTMLElement>(".ms-soft").forEach((b) => b.classList.toggle("on", vertical && Number(b.dataset.len) > n));
     });
     // 縦書きの列は左へ並ぶ。いちばん幅の広いページが字幕の幅に収まるか（隠れているページも幅は測れる）。
     return Math.max(...caps.map((c) => c.scrollWidth)) <= box.clientWidth + 1;
@@ -1116,7 +1118,7 @@ export function MoonStory({
           const textGone = story?.book
             ? lastI + REVEAL_START + ((readings[lastI]?.total ?? 0) + pauseSum(scene.linePause?.[lastI]) + LAST_TAIL) / lastSecs + 0.06
             : scene.beats - 0.75;
-          // 額縁は文が消えてから（コールドムーン）。
+          // 額縁は文が消えてから（場面の frameAfterText。秒で決める本は、上の演出の額縁を使う）。
           const afterText = !!scene.frameAfterText;
           const frameAt = afterText ? Math.min(scene.beats - 1 + BEAT_REST - 0.04, textGone) : scene.beats - 0.75;
           world.fromTo(
