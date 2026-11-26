@@ -123,6 +123,17 @@ with sync_playwright() as p:
             pressed = auto.get_attribute("aria-pressed")
             pg.locator(".moon-story .ms-world-stage").dispatch_event("pointerdown"); pg.wait_for_timeout(300)
             check("満月の物語：「自動で読む」で進み、さわると止まる（ボタンは「止める」→「自動で読む」）", pressed == "true" and auto.inner_text() == "自動で読む" and auto.get_attribute("aria-pressed") == "false", (pressed, auto.inner_text()))
+            # 止める → 自動で読む（11/26）：「止める」はその場で止まり、また押すと止めた所から朗読の速さで続ける（ページの途中で
+            # 止めても、次のページを飛ばさない。前は行き先まで運び続け、再開で次の区切りまで一度に運んでいた）。
+            sc = "document.querySelector('.moon-story').scrollTop"
+            auto.click()
+            pg.wait_for_function("(() => { const c = document.querySelector('.moon-story .ms-cap[data-i=\"1\"]'); return c && +getComputedStyle(c).opacity > 0.9 })()", timeout=45000)
+            pg.wait_for_timeout(1500)
+            auto.click(); p0 = pg.evaluate(sc); pg.wait_for_timeout(700); p1 = pg.evaluate(sc)
+            auto.click(); pg.wait_for_timeout(1200); p2 = pg.evaluate(sc)
+            auto.click(); vh = pg.evaluate("innerHeight")
+            check("満月の物語：「止める」はその場で止まり、また押すと止めた所から朗読の速さで続ける（次のページを飛ばさない）",
+                  abs(p1 - p0) < 2 and 0 < p2 - p1 < vh * 0.4, (p0, p1, p2, vh))
             pg.locator(".moon-story .ms-skip > .btn").click()
             pg.wait_for_function("(() => { const s = document.querySelector('.moon-story'); const e = s.querySelector('[data-story-end]'); return Math.abs(s.scrollTop - e.offsetTop) < 4 })()", timeout=45000)
             pg.evaluate(settle_js)
