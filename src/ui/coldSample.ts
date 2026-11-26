@@ -107,7 +107,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
     if (cap.includes("B")) for (const i of [3, 4, 7]) caps[i] = { ...caps[i], backdrop: 0.5 };
     if (cap.includes("P")) for (const i of [3, 4, 6, 7]) caps[i] = { ...caps[i], area: "tall" as const };
     // 9P（夜明け）：縦に長い画面では、字の出はじめを 8svh 下げる（空の上の暗い青を避ける。11/26）。
-    if (cap.includes("D")) caps[8] = { ...caps[8], drop: 8 };
+    // 段階2（?coldComp=1）：9P は広く引いて空の上の青が広いので、もう少し下げる（12svh）。
+    if (cap.includes("D")) caps[8] = { ...caps[8], drop: COLD_OPT.comp ? 12 : 8 };
     // 第3次：4P は地平線に残照を残す（明るくなる）ので、字の後ろだけを局所的に沈める（絵全体は暗くしない）。
     if (COLD_OPT.art3) caps[3] = { ...caps[3], backdrop: 1 };
     sc.captions = caps;
