@@ -10,10 +10,12 @@
 // Also here: whether the record (shiromatz) has the month to take next (#250, #262), asked the same
 // way by both.
 //
-// Plain TypeScript with nothing imported and only types to strip, so Node runs it as it is (the
-// script imports this file by its name, .ts included).
+// Plain TypeScript with only types to strip, so Node runs it as it is (the script imports this file
+// by its name, .ts included). What it imports is named the same way, .ts included — Node does not
+// guess the extension, and without it the GitHub Actions check stops before it asks anything
+// (11/25, test/health-check-node.test.ts).
 
-import { airFeed } from "./airSchedule";
+import { airFeed } from "./airSchedule.ts";
 
 export interface Finding {
   /** Stays the same while the same thing is wrong (e.g. "forecastStale", "cronFailed:notify"). */
