@@ -812,6 +812,9 @@ img.event-pic { object-fit: contain; }
   .ms-world-stage .bw, .ms-world-stage .cw { position: relative; display: block; height: 100svh; }
   .ms-caps { position: relative; top: auto; right: auto; width: auto; height: auto; display: grid; gap: var(--space-5); padding: var(--space-7) var(--space-6); background: var(--bk-night-1); }
   .ms-cap { position: relative; height: auto; opacity: 1; writing-mode: horizontal-tb; font-size: var(--size-lg); }
+  /* 横書きで折り返すときは、字の間ではなく空白（「白い月が まだ のこっています。」）で折る。320 で「す。」だけが次の行に
+     落ちていた（11/26）。空白の無い長い行は、はみ出しそうなときだけ字の間で折る。 */
+  .ms-caps .ms-cap { word-break: keep-all; overflow-wrap: anywhere; }
   /* 見本（11/26）：物語の中心の絵（場面の stills）を、そのページの文の前に止まった絵で。 */
   .ms-caps .ms-still { display: block; width: 100%; max-width: 22rem; aspect-ratio: 1; margin: var(--space-3) auto 0; border-radius: var(--radius-md); object-fit: cover; }
 }
