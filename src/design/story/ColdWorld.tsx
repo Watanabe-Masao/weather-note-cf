@@ -107,11 +107,37 @@ const TRUNK_D = [
   `M${LIMB.l - 11} ${LIMB.y + 20} L${LIMB.l - 7 - 72} -300 L${LIMB.l + 7 - 72} -300 L${LIMB.l + 11} ${LIMB.y + 20} Z`,
   `M${LIMB.r - 13} ${LIMB.y + 20} L${LIMB.r - 8 + 33} -300 L${LIMB.r + 8 + 33} -300 L${LIMB.r + 13} ${LIMB.y + 20} Z`,
 ].join(" ");
+/** 第3次 段階2 仕上げ（11/26 22:36「枝の先へわずかに細く、輪郭の小さな不規則性、接続部の太さの変化」）：上へのびる枝の形。
+ * 根元は二股の絵の太さ、先へ細く（約 4 割）、外へわずかに反り、輪郭に小さなゆらぎ。 */
+function limbShape(b: readonly [number, number], t: readonly [number, number], wb: number, wt: number, bend: number, seed: number): string {
+  const r = rand(seed);
+  const dx = t[0] - b[0], dy = t[1] - b[1], len = Math.hypot(dx, dy);
+  const nx = -dy / len, ny = dx / len; // 枝に直角
+  const L: string[] = [], R: string[] = [];
+  const N = 14;
+  for (let k = 0; k <= N; k++) {
+    const u = k / N;
+    const c = [b[0] + dx * u + nx * bend * Math.sin(Math.PI * u), b[1] + dy * u + ny * bend * Math.sin(Math.PI * u)];
+    const w = (wb * (1 - u) ** 1.3 + wt * (1 - (1 - u) ** 1.3)) / 2;
+    const jl = k === 0 ? 0 : (r() - 0.5) * 1.4, jr = k === 0 ? 0 : (r() - 0.5) * 1.4;
+    L.push(`${(c[0] - nx * (w + jl)).toFixed(2)} ${(c[1] - ny * (w + jl)).toFixed(2)}`);
+    R.push(`${(c[0] + nx * (w + jr)).toFixed(2)} ${(c[1] + ny * (w + jr)).toFixed(2)}`);
+  }
+  return `M${L.join(" L")} L${R.reverse().join(" L")} Z`;
+}
+const LIMB3 = [
+  limbShape([LIMB.l, LIMB.y + 20], [LIMB.l - 72, -300], 24, 9, -3, 61),
+  limbShape([LIMB.r, LIMB.y + 20], [LIMB.r + 33, -300], 28, 10, 3, 67),
+];
+/** 第3次の幹の形（上へのびる枝を LIMB3 に）。 */
+const TRUNK3_D = [TRUNK_D.split(" M")[0], ...LIMB3].join(" ");
+const trunkD = () => (COLD_OPT.art3 ? TRUNK3_D : TRUNK_D);
 /** 第3次 段階2：上へのびる二本の枝（TRUNK_D の2本目・3本目）に貼る樹皮の絵の置き方（根元の中心・傾き・幅・長さ）と切り抜き。 */
 const LIMBS = [
   { b: [LIMB.l, LIMB.y + 40], t: [LIMB.l - 72, -300], clip: `M${LIMB.l - 11} ${LIMB.y + 20} L${LIMB.l - 7 - 72} -300 L${LIMB.l + 7 - 72} -300 L${LIMB.l + 11} ${LIMB.y + 20} Z` },
   { b: [LIMB.r, LIMB.y + 40], t: [LIMB.r + 33, -300], clip: `M${LIMB.r - 13} ${LIMB.y + 20} L${LIMB.r - 8 + 33} -300 L${LIMB.r + 8 + 33} -300 L${LIMB.r + 13} ${LIMB.y + 20} Z` },
-].map(({ b, t, clip }) => {
+].map(({ b, t }, i) => {
+  const clip = LIMB3[i];
   const dx = t[0] - b[0], dy = t[1] - b[1];
   const len = Math.hypot(dx, dy);
   const w = 34;
@@ -236,7 +262,7 @@ function MainBirch(): ReactElement {
   return (
     <g>
       {/* 幹の形（素材の下地と、画面の外へ伸びる二本の枝） */}
-      <path className="cw-trunk" d={TRUNK_D} fill={C.bark} />
+      <path className="cw-trunk" d={trunkD()} fill={C.bark} />
       {/* 二本の枝の黒い節 */}
       {[-260, -150, -40].map((y, i) => {
         const t = (LIMB.y + 20 - y) / (LIMB.y + 320);
@@ -267,16 +293,20 @@ function MainBirch(): ReactElement {
   );
 }
 
+/** 2回目（11/26 22:36「規則性を少し崩す、稜の明暗に強弱、わずかに斜め、遠景は明暗差を抑える、夜は描かない所を残す」）：
+ * 起伏ごとの強さ（面・稜の月明かり）。 */
+const DRIFT_FILL_O = [0.45, 0.9, 0.7, 1, 0.65];
+const DRIFT_CREST_O = [0.2, 0.85, 0.3, 0.55, 0.12];
 /** 第3次 段階2（11/26 21:41「雪原の水平な色の帯を、緩やかな起伏と連続した陰影へ」）：雪原の起伏の稜（上の縁）。
  * 帯を全幅の水平線にしない（高さと長さを変え、端は下がって地面に溶ける）。面は上が明るく、下へ透けて下地の連続した陰影へ。 */
 const DRIFTS_BACK = [
   "M-300 676 C -220 668 -150 666 -70 672 C 0 677 50 669 120 666 C 180 663 230 670 270 676 C 330 684 380 674 450 670 C 540 665 620 672 700 668",
-  "M-300 724 C -230 716 -170 712 -110 717 C -50 722 -10 728 40 724 C 90 720 120 712 160 712",
-  "M250 728 C 300 718 350 713 410 716 C 480 720 520 726 580 722 C 630 719 670 716 700 717",
+  "M-300 716 C -230 706 -170 700 -110 705 C -50 710 -10 718 40 716 C 90 714 120 705 160 708",
+  "M250 738 C 300 724 350 717 410 719 C 480 722 520 729 580 725 C 630 721 670 713 700 707",
 ];
 const DRIFTS_FRONT = [
-  "M-300 770 C -220 760 -140 756 -60 762 C 0 767 60 772 130 766 C 200 760 250 752 330 756 C 420 761 520 770 700 762",
-  "M-300 828 C -200 818 -100 816 0 822 C 100 828 180 820 260 816 C 360 811 480 818 700 812",
+  "M-300 788 C -220 772 -140 763 -60 767 C 0 770 60 778 130 773 C 200 768 250 756 330 757 C 420 759 520 762 700 744",
+  "M-300 852 C -200 846 -100 836 0 838 C 100 840 180 834 260 825 C 360 814 480 812 700 798",
 ];
 const driftFill = (d: string, depth: number) => `${d} L 700 ${depth} L -300 ${depth} Z`;
 
@@ -285,7 +315,7 @@ function SnowField3({ front }: { front?: boolean }): ReactElement {
     return (
       <g>
         {DRIFTS_FRONT.map((d, i) => (
-          <path key={i} d={driftFill(d, 1300)} fill="url(#cw-drift-g)" />
+          <path key={i} d={driftFill(d, 1300)} fill="url(#cw-drift-g)" opacity={DRIFT_FILL_O[3 + i]} />
         ))}
         {/* いちばん手前の雪と枯れ草（下の端と左右の端を雪へぼかした版。引いた構図でも切り口を見せない）。倒木の下に薄い接触影。 */}
         <ellipse cx={NEAR.x + NEAR.w * 0.72} cy={NEAR.y + NEAR.h * 0.86} rx={NEAR.w * 0.2} ry={7} fill="url(#cw-contact-g)" opacity={0.6} />
@@ -296,7 +326,7 @@ function SnowField3({ front }: { front?: boolean }): ReactElement {
     <g>
       <path d="M-300 640 C -100 628 60 642 200 636 C 340 630 480 640 700 632 L 700 1300 L -300 1300 Z" fill="url(#cw-snowbase-g)" />
       {DRIFTS_BACK.map((d, i) => (
-        <path key={i} d={driftFill(d, i === 0 ? 760 : 800)} fill="url(#cw-drift-g)" />
+        <path key={i} d={driftFill(d, i === 0 ? 760 : 800)} fill="url(#cw-drift-g)" opacity={DRIFT_FILL_O[i]} />
       ))}
     </g>
   );
@@ -470,7 +500,7 @@ export function ColdWorld(): ReactElement {
         r={depth < 0 ? 1 + rr * 1.8 : [0.5 + rr * 0.4, 0.9 + rr * 0.6, 1.8 + rr * 1.0][depth]}
         cx={(r() * W).toFixed(0)}
         cy={-10}
-        fill="#ffffff"
+        fill={COLD_OPT.art3 ? "url(#cw-flake-g)" : "#ffffff"}
         opacity={depth < 0 ? 0.85 : [0.45, 0.7, 0.9][depth]}
       />
     );
@@ -496,7 +526,7 @@ export function ColdWorld(): ReactElement {
         </filter>
         <mask id="cw-land" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
           <path d={land} fill="#ffffff" />
-          <path d={TRUNK_D} fill="#ffffff" />
+          <path d={trunkD()} fill="#ffffff" />
           {/* 第3次の背景 B・C：描き込んだ林は稜線より上へ伸びるので、その形も地上として沈める。 */}
           {COLD_OPT.bg === "B" && <image href={A("far")} x={BG_FAR.x} y={BG_FAR.y} width={BG_FAR.w} height={BG_FAR.h} filter="url(#cw-white)" />}
           {(COLD_OPT.bg === "B" || COLD_OPT.bg === "C" || COLD_OPT.bg === "C2") && <image href={A(COLD_OPT.bg === "C2" ? "middle-c2" : "middle")} x={BG_MID.x} y={BG_MID.y} width={BG_MID.w} height={BG_MID.h} filter="url(#cw-white)" />}
@@ -520,7 +550,7 @@ export function ColdWorld(): ReactElement {
         {/* 第3次（?cold3=1）：光を受けた世界。幹の形の切り抜き、月の側（左）が明るい樹皮、日の側の暖色、月明かりの雪面（幹は抜く）。 */}
         {/* 幹の光は、描き込んだ幹（穴なし・穴・二股）の形と、上へのびる枝の形で切る（二股の所で光が途切れないように）。 */}
         <mask id="cw-trunk-light-mask" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
-          <path d={TRUNK_D} fill="#ffffff" />
+          <path d={trunkD()} fill="#ffffff" />
           <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} filter="url(#cw-white)" />
           <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} filter="url(#cw-white)" />
           <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} filter="url(#cw-white)" />
@@ -551,7 +581,7 @@ export function ColdWorld(): ReactElement {
         </linearGradient>
         <mask id="cw-snowlit-mask" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
           <path d="M-300 640 C -100 628 60 642 200 636 C 340 630 480 640 700 632 L 700 1300 L -300 1300 Z" fill="#ffffff" />
-          <path d={TRUNK_D} fill="#000000" />
+          <path d={trunkD()} fill="#000000" />
           <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} filter="url(#cw-black)" />
         </mask>
         <filter id="cw-black" colorInterpolationFilters="sRGB">
@@ -562,6 +592,17 @@ export function ColdWorld(): ReactElement {
             <path d={l.clip} />
           </clipPath>
         ))}
+        {/* 2回目（11/26 22:36「星は小さく鋭い光、雪は柔らかな白い粒」）：降る雪は縁のやわらかい粒。3P 接写案の穴をやわらげる面。 */}
+        <radialGradient id="cw-flake-g">
+          <stop offset="0" stopColor="#ffffff" />
+          <stop offset="0.55" stopColor="#ffffff" stopOpacity={0.85} />
+          <stop offset="1" stopColor="#ffffff" stopOpacity={0} />
+        </radialGradient>
+        <radialGradient id="cw-hole-calm-g">
+          <stop offset="0" stopColor="#d9c6b2" stopOpacity={0.55} />
+          <stop offset="0.55" stopColor="#efe6dc" stopOpacity={0.35} />
+          <stop offset="1" stopColor="#efe6dc" stopOpacity={0} />
+        </radialGradient>
         {/* 雪原の下地：地平線から手前へ、連続した明るさの変化（色の帯にしない）。起伏の面：上の稜が明るく、下へ透ける。 */}
         <linearGradient id="cw-snowbase-g" gradientUnits="userSpaceOnUse" x1={0} y1={630} x2={0} y2={900}>
           <stop offset="0" stopColor={C.snow[2]} />
@@ -725,12 +766,16 @@ export function ColdWorld(): ReactElement {
           <>
             <g className="cw-stars3-b" opacity={0}>
               {STARS3.filter((x) => x.b).map((x, i) => (
-                <circle key={i} cx={x.x} cy={x.y} r={x.r} fill="#f4f6ff" opacity={x.o} />
+                <g key={i} opacity={x.o} fill="#f4f6ff">
+                  {/* 明るい星：小さな芯と、細く鋭い十字の光（雪の丸い粒と見分けられるように）。 */}
+                  <circle cx={x.x} cy={x.y} r={x.r * 0.55} />
+                  <path d={`M${x.x - x.r * 2.4} ${x.y} L${x.x} ${x.y - 0.22} L${x.x + x.r * 2.4} ${x.y} L${x.x} ${x.y + 0.22} Z M${x.x} ${x.y - x.r * 2.4} L${x.x + 0.22} ${x.y} L${x.x} ${x.y + x.r * 2.4} L${x.x - 0.22} ${x.y} Z`} />
+                </g>
               ))}
             </g>
             <g className="cw-stars3-d" opacity={0}>
               {STARS3.filter((x) => !x.b).map((x, i) => (
-                <circle key={i} cx={x.x} cy={x.y} r={x.r} fill="#e8edff" opacity={x.o} />
+                <circle key={i} cx={x.x} cy={x.y} r={x.r * 0.7} fill="#e8edff" opacity={x.o} />
               ))}
             </g>
           </>
@@ -822,6 +867,8 @@ export function ColdWorld(): ReactElement {
             <ellipse cx={CLING.x + CLING.w * 0.62} cy={CLING.y + CLING.h * 0.5} rx={CLING.w * 0.26} ry={CLING.h * 0.16} fill="url(#cw-warm-g)" mask="url(#cw-cling-shape)" opacity={0.5} style={{ mixBlendMode: "soft-light" }} />
           )}
         </g>
+        {/* 3P 接写案の仕上げ（11/26 22:36「大きな穴の存在感をわずかに抑える」）：穴の暗さと縁の明暗差だけを、樹皮の色でやわらげる。 */}
+        {COLD_OPT.art3 && <ellipse className="cw-hole-calm" cx={HOLE.x} cy={HOLE.y} rx={HOLE.rx * 1.9} ry={HOLE.ry * 1.9} fill="url(#cw-hole-calm-g)" opacity={0} />}
         {/* 第3次 段階2（3P 接写案）：種をしまう樹皮の小さなすきま（大きな木の穴ではないことが絵で分かるように、細い裂け目）。 */}
         {COLD_OPT.art3 && (
           <g className="cw-crack" opacity={0}>
@@ -853,7 +900,7 @@ export function ColdWorld(): ReactElement {
         {COLD_OPT.art3 && (
           <g className="cw-snowlit" opacity={0} mask="url(#cw-crest-mask)" style={{ mixBlendMode: "screen" }}>
             {[...DRIFTS_BACK, ...DRIFTS_FRONT].map((d, i) => (
-              <path key={i} d={driftFill(d, i < 3 ? (i === 0 ? 760 : 800) : 1300)} fill={i < 3 ? "url(#cw-crestlit-g)" : "url(#cw-crestlit-g2)"} />
+              <path key={i} d={driftFill(d, i < 3 ? (i === 0 ? 760 : 800) : 1300)} fill={i < 3 ? "url(#cw-crestlit-g)" : "url(#cw-crestlit-g2)"} opacity={DRIFT_CREST_O[i]} />
             ))}
           </g>
         )}
@@ -1063,7 +1110,10 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
       .to(`.cw-seed${k + 1}`, { x: 5, scale: 0.55, svgOrigin: `${SEED.at[0]} ${SEED.at[1]}`, duration: 0.07, ease: "power1.in" }, t + 0.02)
       .to(`.cw-seed${k + 1}`, { opacity: P3B && k === 1 ? 1 : 0, duration: 0.03 }, t + 0.07),
   );
-  if (P3B) tl.to(".cw-seed2", { opacity: 0, duration: 0.05 }, 3.0);
+  if (P3B)
+    tl.to(".cw-seed2", { opacity: 0, duration: 0.05 }, 3.0)
+      .to(".cw-hole-calm", { opacity: 1, duration: 0.2 }, 2.0)
+      .to(".cw-hole-calm", { opacity: 0, duration: 0.2 }, 3.0);
   // 星（第3次 段階2）：4P 夕暮れに明るい星がわずか → 5P 少し増える → 6P 月から離れた空に控えめに → 7P 少なく → 8P ほとんど無し → 9P 朝に溶ける。
   if (A3 && COLD_OPT.stars)
     tl.to(".cw-stars3-b", { opacity: 0.55, duration: 0.5 }, 3.2)

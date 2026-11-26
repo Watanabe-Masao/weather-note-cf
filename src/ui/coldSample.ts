@@ -63,7 +63,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   // 第3次 段階2（11/26 20:19 承認）：構図。ページごとに視点の距離・主役・余白・視線の向きを変える（?coldComp=1）。文章・時間は同じ。
   COLD_OPT.comp = q.get("coldComp") === "1";
   // 段階2 追加（11/26 21:41）：3P の接写案（?coldP3=B：くちばし・種・樹皮のすきま、字は左上）と、夜の星（?coldStars=0 で無し、既定は少数の星）。
-  COLD_OPT.p3 = q.get("coldP3") === "B" ? "B" : "A";
+  // 11/26 22:36：3P は接写案（B）を採用。比べるときは ?coldP3=A。
+  COLD_OPT.p3 = q.get("coldP3") === "A" ? "A" : "B";
   COLD_OPT.stars = q.get("coldStars") !== "0";
   // 7P の月の明暗だけを戻す強さ（?coldMoon7=0〜1、既定 0.4。0 は 2回目の版）。黄色の彩度は変えない。
   const m7 = Number(q.get("coldMoon7") ?? "0.4");
