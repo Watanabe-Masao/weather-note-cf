@@ -812,7 +812,10 @@ img.event-pic { object-fit: contain; }
   .ms-world-stage .bw, .ms-world-stage .cw { position: relative; display: block; height: 100svh; }
   .ms-caps { position: relative; top: auto; right: auto; width: auto; height: auto; display: grid; gap: var(--space-5); padding: var(--space-7) var(--space-6); background: var(--bk-night-1); }
   .ms-cap { position: relative; height: auto; opacity: 1; writing-mode: horizontal-tb; font-size: var(--size-lg); }
+  /* 見本（11/26）：物語の中心の絵（場面の stills）を、そのページの文の前に止まった絵で。 */
+  .ms-caps .ms-still { display: block; width: 100%; max-width: 22rem; aspect-ratio: 1; margin: var(--space-3) auto 0; border-radius: var(--radius-md); object-fit: cover; }
 }
+.ms-still { display: none; }
 @keyframes ev-twinkle { 0%, 100% { opacity: 0.2; } 50% { opacity: 0.95; } }
 @keyframes ev-shoot { 0% { opacity: 0; transform: translateX(0) rotate(16deg); } 2% { opacity: 1; } 9% { opacity: 0; transform: translateX(260%) rotate(16deg); } 100% { opacity: 0; transform: translateX(260%) rotate(16deg); } }
 @keyframes ev-rise { from { opacity: 0; transform: translateY(var(--space-6)) scale(0.92); } to { opacity: 1; transform: none; } }

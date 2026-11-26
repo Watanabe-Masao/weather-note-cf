@@ -73,6 +73,8 @@ export type StoryScene = {
    *   area     字幕の領域（"tall"＝列を長くして列の数を減らす、"sky"＝右の余白を詰め列の間を少し狭くして、幹の右の空に収める）。
    */
   captions?: Record<number, { tone?: "dark"; backdrop?: number; area?: "tall" | "sky"; drop?: number }>;
+  /** 見本：動きを減らす設定で、そのページの文の前に置く止まった絵（物語の中心の絵だけ。11/26 15:31 レビュー）。 */
+  stills?: Record<number, { src: string; alt: string }>;
   /**
    * 字の後ろを少しだけ沈める（11/23：コールドムーンは白いシラカバの幹が字の後ろに来て読みにくかった）。字の列の後ろの
    * 影（.ms-caps-veil）を少し濃く広く、字のまわりのにじみ（text-shadow）を一段足す。濃くはせず、背景から字をわずかに分ける。

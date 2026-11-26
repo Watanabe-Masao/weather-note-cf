@@ -1790,8 +1790,10 @@ export function MoonStory({
             <span className="ms-caps-veil" aria-hidden />
             <div className="ms-caps" data-directed={directed ? "" : undefined}>
               {lines.map((t, i) => (
+                <Fragment key={i}>
+                {/* 見本（11/26 15:31 レビュー）：動きを減らす設定で、物語の中心の絵を止まった絵で見せる（このページの文の前）。 */}
+                {scene?.stills?.[i] && <img className="ms-still" src={scene.stills[i].src} alt={scene.stills[i].alt} />}
                 <p
-                  key={i}
                   className="ms-cap"
                   data-i={i}
                   // 場面ごとの字幕の設定（StoryScene.captions）：字の色の調子・字の後ろの局所的な沈め・字幕の領域。描くのは共通の部品。
@@ -1812,6 +1814,7 @@ export function MoonStory({
                 >
                   <Letters text={tateNum(t)} plain={!!directed} />
                 </p>
+                </Fragment>
               ))}
               {directed?.title && story?.book?.titleEnd && (
                 <p className="ms-cap ms-cap-title" data-n={[...story.book.titleEnd].length}>

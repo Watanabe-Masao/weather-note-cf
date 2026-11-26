@@ -664,26 +664,35 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   // 同時に雪原の月明かりが手前へ広がる → 月が昇り、2行目「おおきな」で見えきる。月が出る前に雪原を照らさない。
   const lit = cue(5, 0, 5.26);
   const full = Math.max(lit + 0.1, cue(5, 1, 5.5));
-  move(5, cam(200, 480, 1.0))
+  // 見本（?cold67=1、11/26 15:31 レビュー「6P 広がり：地平線を低く、広い雪原と空。月が昇る前に雪原がほのかに明るむ。
+  // 出現そのものより光の変化」）：少し引いて（0.84 倍）、地平線を画面の下の 4 分の 1 ほどへ。「雪の野原」で雪原がほのかに
+  // 明るみ、月は「まあるい」で山の向こうから昇る。
+  const P67 = !!COLD_OPT.p67;
+  if (P67) tl.to(".cw-camera", { ...cam(188, 362, 0.84), duration: 0.7, ease: "sine.inOut" }, 5);
+  (P67 ? tl : move(5, cam(200, 480, 1.0)))
     .to(".cw-sky-night", { opacity: 1, duration: 0.4, ease: "sine.inOut" }, 5)
     .to(".cw-shade-night", { opacity: 0.8, duration: 0.4, ease: "sine.inOut" }, 5)
     .to(".cw-shade-dusk", { opacity: 0, duration: 0.4 }, 5.05)
     .to(".cw-air", { autoAlpha: 0, duration: 0.3 }, 5)
     .to(".cw-stars", { opacity: 1, duration: 0.4 }, 5.1)
     .to(".cw-moonrise", { opacity: 1, duration: 0.14, ease: "sine.in" }, 5.02)
-    .to(".cw-moon-show", { opacity: 1, duration: 0.03 }, lit - 0.09)
-    .to(".cw-moon", { attr: { transform: "translate(110 420)" }, duration: full - (lit - 0.08), ease: "power1.out" }, lit - 0.08)
-    .fromTo(".cw-moonlit", { opacity: 0, scaleY: 0.3, svgOrigin: "130 690" }, { opacity: 0.8, scaleY: 1, duration: 0.3, ease: "sine.out" }, lit)
-    .to(".cw-moon-air", { autoAlpha: 0.45, duration: 0.3, ease: "sine.in" }, lit + 0.12)
+    .to(".cw-moon-show", { opacity: 1, duration: 0.03 }, P67 ? full - 0.1 : lit - 0.09)
+    .to(".cw-moon", { attr: { transform: "translate(110 420)" }, duration: P67 ? 0.24 : full - (lit - 0.08), ease: P67 ? "sine.out" : "power1.out" }, P67 ? full - 0.09 : lit - 0.08)
+    .fromTo(".cw-moonlit", { opacity: 0, scaleY: 0.3, svgOrigin: "130 690" }, { opacity: P67 ? 0.45 : 0.8, scaleY: 1, duration: 0.3, ease: "sine.out" }, lit)
+    .to(".cw-moonlit", { opacity: 0.8, duration: P67 ? 0.2 : 0.002 }, P67 ? full : lit + 0.3)
+    .to(".cw-moon-air", { autoAlpha: 0.45, duration: 0.3, ease: "sine.in" }, P67 ? full : lit + 0.12)
     .to(".cw-fluff-closed", { opacity: 0, duration: 0.05 }, lit - 0.08)
     .to(".cw-fluff-open", { opacity: 1, duration: 0.05 }, lit - 0.06);
   // 7 「高く、もっと高く。」：見上げる（世界が下へ流れ、月は東から南の高い所へ。真上にはしない）。月は「高く」の字に合わせて
   // ぐっと昇る（6ページでも昇るので、7ページは「高く、もっと高く」に動きを集める）。
   const high = Math.min(6.5, Math.max(6.12, cue(6, 0, 6.3)));
-  move(6, cam(200, 400, 1.0))
+  // 見本（?cold67=1、「7P 高さ：視線を上へ。シラカバの枝を手がかりに、月の高さを。月は拡大しない。常に動かし続けない」）：
+  // 区間の前半でゆっくり見上げ（地平線は画面の下の端へ、二股の枝が上へ伸びる）、あとは止まる。月は東から南へ、二股の枝の間（V の中）の高い所へ。文の列が右にあるので、二股（V）を画面の左寄りに置く。
+  if (P67) tl.to(".cw-camera", { ...cam(252, 240, 0.9), duration: 0.5, ease: "sine.inOut" }, 6.02);
+  (P67 ? tl : move(6, cam(200, 400, 1.0)))
     .to(".cw-moonrise", { opacity: 0, duration: 0.3 }, 6.02)
-    .to(".cw-moon", { attr: { transform: "translate(95 290)" }, duration: high - 6.02, ease: "sine.inOut" }, 6.02)
-    .to(".cw-moon", { attr: { transform: "translate(78 150)" }, duration: 6.74 - high, ease: "power2.out" }, high)
+    .to(".cw-moon", { attr: { transform: P67 ? "translate(128 230)" : "translate(95 290)" }, duration: high - 6.02, ease: "sine.inOut" }, 6.02)
+    .to(".cw-moon", { attr: { transform: P67 ? "translate(196 50)" : "translate(78 150)" }, duration: 6.74 - high, ease: "power2.out" }, high)
     .to(".cw-fluff-open", { opacity: 0, duration: 0.05 }, 6.1)
     .to(".cw-fluff-closed", { opacity: 1, duration: 0.05 }, 6.12);
   // 8 ながい夜：穴の口に寄る。月は西南西へ（円盤は画面の外、光だけ）。「月の光」で光の帯が穴の縁を東から西へ移る（鳥の顔は

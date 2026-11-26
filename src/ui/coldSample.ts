@@ -13,6 +13,7 @@ import type { FullMoonNameInfo } from "../../shared/fullMoonNames";
 import { COLD_CUES } from "../design/story/ColdWorld";
 import { COLD_END, COLD_OPT, coldDirection } from "../design/story/coldDirection";
 import { STORY_SCENES } from "../design/story/scenes";
+import { storyAsset } from "../design/story/storyAssets";
 
 const NOW: string[][] = [
   ["森は、まっ白な雪の中。", "お日さまは、ひくい空を", "そっと通っていきます。"],
@@ -53,7 +54,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   const cu = q.get("coldCU")?.split(",").map(Number);
   COLD_OPT.cu = cu && cu.length === 2 && cu.every(Number.isFinite) ? [cu[0], cu[1]] : undefined;
   COLD_OPT.split8 = q.get("cold8Split") === "1";
-  COLD_OPT.sleep = q.get("coldSleep") === "1"; // 8P の寄りで A-11（穴の口と眠るコガラ）に入れ替える
+  COLD_OPT.sleep = q.get("coldSleep") === "1";
+  COLD_OPT.p67 = q.get("cold67") === "1"; // 6P 広がり（低い地平線）・7P 高さ（見上げる）の試作（11/26 15:31 承認） // 8P の寄りで A-11（穴の口と眠るコガラ）に入れ替える
   const pages = NOW.map((p, i) => {
     if (text === "R") return [P1R, p, P3R, p, P5R, P6R][i] ?? p;
     if (text === "W") return [P1W, p, P3W, p, P5R, P6W][i] ?? p;
@@ -97,6 +99,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
     sc.captions = caps;
   // ?coldSleep=1：9P の夜明けを、8P の文が消えて絵だけの時間のあとに（合図 108 ＝ 9P の「絵が先」の頭）。
   if (COLD_OPT.sleep) sc.pictureFirst = [8];
+  // 動きを減らす設定の 8P：月の光が届いたあとの寝顔（いちばん自然な状態）を止まった絵で（11/26 15:31 レビュー）。
+  if (COLD_OPT.sleep) sc.stills = { 7: { src: storyAsset("cold", "sleep-still"), alt: "シラカバの幹の穴の中で、丸くなって眠るコガラ。月の光が顔をやわらかく照らしている。" } };
   }
   return {
     ...story,
