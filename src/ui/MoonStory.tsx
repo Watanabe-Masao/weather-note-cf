@@ -1577,7 +1577,16 @@ export function MoonStory({
         </Button>
         {scene && (
           <span className="ms-auto">
-            <Button size="sm" kind="quiet" onClick={() => setAuto(!auto)} aria-pressed={auto}>
+            <Button
+              size="sm"
+              kind="quiet"
+              onClick={() => {
+                // 止める：その場で止める（行き先まで運び続けない）。また押すと、止めた所から朗読の速さで続ける。
+                if (auto) pager.current?.halt();
+                setAuto(!auto);
+              }}
+              aria-pressed={auto}
+            >
               {auto ? "止める" : "自動で読む"}
             </Button>
           </span>
