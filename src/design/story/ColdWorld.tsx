@@ -11,6 +11,7 @@
 // 夜明けの順）は PR-3。色はここ（デザインの層）にだけ書く。素材は design-src/story/cold/pack/（11/22 検収）。
 import type { ReactElement } from "react";
 import { storyAsset } from "./storyAssets";
+import { COLD_OPT } from "./coldDirection";
 import {
   cssSky,
   MoonDefs,
@@ -431,11 +432,15 @@ export function ColdWorld(): ReactElement {
         {/* 見本（CM-R02、マージしない）：1ページの「木のかげが、ながく のびます。」のための、幹の長い影（低い日）。 */}
         <defs>
           <linearGradient id="cw-longshadow-g" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#6d80b0" stopOpacity={0.85} />
-            <stop offset="1" stopColor="#7d8fbb" stopOpacity={0} />
+            <stop offset="0" stopColor="#6e80b0" stopOpacity={0.95} />
+            <stop offset="0.6" stopColor="#7889b6" stopOpacity={0.55} />
+            <stop offset="1" stopColor="#8293bf" stopOpacity={0} />
           </linearGradient>
         </defs>
-        <path className="cw-longshadow" d={`M${BIRCH.x - 26} ${BIRCH.base} L${BIRCH.x + 26} ${BIRCH.base} L620 ${BIRCH.base + 44} L600 ${BIRCH.base + 92} Z`} fill="url(#cw-longshadow-g)" opacity={0} />
+        <filter id="cw-longshadow-soft" x="-20%" y="-50%" width="140%" height="200%">
+          <feGaussianBlur stdDeviation="2.5" />
+        </filter>
+        <path className="cw-longshadow" d={`M${BIRCH.x - 24} ${BIRCH.base} L${BIRCH.x + 24} ${BIRCH.base} L640 ${BIRCH.base + 46} L600 ${BIRCH.base + 92} Z`} fill="url(#cw-longshadow-g)" filter="url(#cw-longshadow-soft)" opacity={0} />
         <MainBirch />
         {/* 穴の中で丸くなるコガラ（5・8ページは目を閉じ、6ページは開く）。穴の口の形に切る。 */}
         <g clipPath="url(#cw-hole)">
@@ -568,11 +573,11 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   };
   // 1 雪の森：少し寄った所から、森全体へ。
   tl.fromTo(".cw-camera", { ...cam(200, 520, 1.3), svgOrigin: "200 430" }, { ...cam(200, 480, 1.1), duration: 0.75, ease: "power2.inOut" }, 0);
-  // 見本（CM-R02）：「ながく」の合図があるときだけ、幹の影が雪の上へ長くのびる（夕暮れで消える）。
+  // 見本（CM-R02、11/26 レビュー「低い冬の日による自然な影、淡い青灰色、柔らかく、原則静止、絵を先に」）：「ながく」の合図が
+  // ある本文のときだけ、文より先に、幹の長い影が雪の上に静かに現れる（伸ばさない）。夕暮れで消える。
   const longAt = cueAt[0]?.[0];
   if (longAt != null && Number.isFinite(longAt))
-    tl.fromTo(".cw-longshadow", { opacity: 0, scaleX: 0.3, svgOrigin: `${BIRCH.x} ${BIRCH.base}` }, { opacity: 0.85, scaleX: 1, duration: 0.35, ease: "sine.out" }, Math.max(0.05, longAt - 0.1))
-      .to(".cw-longshadow", { opacity: 0, duration: 0.3 }, 3.05);
+    tl.fromTo(".cw-longshadow", { opacity: 0 }, { opacity: 0.9, duration: 0.15, ease: "sine.inOut" }, 0.02).to(".cw-longshadow", { opacity: 0, duration: 0.3 }, 3.05);
   // 2 「ちょん、」「ちょん。」：雪の枝に寄り、コガラが出て、言葉の字が出るのに合わせて二回跳ねて枝の上へ。
   const hop = [cue(1, 0, 1.08), cue(1, 1, 1.2)];
   move(1, cam(225, 545, 1.6))
@@ -585,7 +590,7 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   );
   // 3 「ひとつぶ、」「またひとつぶ。」：幹につかまるコガラ。言葉に合わせて、種が一つずつ幹のすきまへ消える。
   const seeds = [cue(2, 0, 2.14), cue(2, 1, 2.3)];
-  move(2, cam(BIRCH.x + 5, 600, 1.4))
+  move(2, COLD_OPT.view ? cam(BIRCH.x + 5, 610, 1.6) : cam(BIRCH.x + 5, 600, 1.4))
     .to(".cw-perch", { opacity: 0, duration: 0.04 }, 2.01)
     .to(".cw-seed", { opacity: 1, duration: 0.06 }, Math.max(2.02, seeds[0] - 0.08));
   seeds.forEach((t, k) =>
@@ -637,7 +642,9 @@ function buildBeats(tl: Tween, cueAt: Record<number, number[]>) {
   // 8 ながい夜：穴の口に寄る。月は西南西へ（円盤は画面の外、光だけ）。「月の光」で光の帯が穴の縁を東から西へ移る（鳥の顔は
   // 照らさない）。穴の縁に霜が付く。
   const band = cue(7, 0, 7.42);
-  move(7, cam(HOLE.x + 12, HOLE.y + 30, 2.3))
+  // 見本（11/26 レビュー「8P は遠景から近景へ。急なズームを避ける」）：雪の森を遠くに見たまま「ながい、ながい夜。」を読み、
+  // ゆっくり（区間の半分ほどかけて）木の穴の眠るコガラへ寄る。
+  (COLD_OPT.view ? move(7, cam(200, 440, 1.0), 0.2).to(".cw-camera", { ...cam(HOLE.x + 12, HOLE.y + 30, 2.3), duration: 0.5, ease: "sine.inOut" }, 7.22) : move(7, cam(HOLE.x + 12, HOLE.y + 30, 2.3)))
     .to(".cw-moon", { attr: { transform: "translate(-120 300)" }, duration: 0.6 }, 7.05)
     .fromTo(".cw-band", { x: 100, autoAlpha: 0 }, { x: 0, autoAlpha: 0.55, duration: Math.min(0.3, 7.75 - band), ease: "sine.inOut" }, band)
     .to(".cw-frost", { opacity: 0.9, duration: Math.min(0.3, 7.75 - band) }, band);

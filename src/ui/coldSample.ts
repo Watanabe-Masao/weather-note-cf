@@ -6,10 +6,12 @@
 //   &coldSplit=1      1〜3P を意味のまとまり（節）ごとに時間で分ける
 //   &coldCompose=1    小さな画面（374px 以下）だけ、絵を少し大きくして右を起点に（幹が左へ寄る）
 //   &coldVeil=1       字幕の後ろ全体の沈めを濃く（前回の比べる案）
+//   &coldView=1       ページごとの視点（3P を近景に、8P は遠景から木の穴の近景へゆっくり）
+//   &coldDawn=1       9P は朝の光を先に長く（声の前に空が明るむ）
 // 本文の "/" は、列に収まらない画面だけで折る所（意味のまとまり）。
 import type { FullMoonNameInfo } from "../../shared/fullMoonNames";
 import { COLD_CUES } from "../design/story/ColdWorld";
-import { COLD_END, coldDirection } from "../design/story/coldDirection";
+import { COLD_END, COLD_OPT, coldDirection } from "../design/story/coldDirection";
 import { STORY_SCENES } from "../design/story/scenes";
 
 const NOW: string[][] = [
@@ -45,6 +47,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
   COLD_END.v = end === "B" || end === "C" || end === "C2" ? end : "A";
   if (q.get("coldCompose") === "1") document.documentElement.classList.add("cold-compose");
   const split = q.get("coldSplit") === "1";
+  COLD_OPT.view = q.get("coldView") === "1";
+  COLD_OPT.dawn = q.get("coldDawn") === "1";
   const pages = NOW.map((p, i) => {
     if (text === "R") return [P1R, p, P3R, p, P5R, P6R][i] ?? p;
     if (text === "W") return [P1W, p, P3W, p, P5R, P6W][i] ?? p;

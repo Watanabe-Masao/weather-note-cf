@@ -19,6 +19,8 @@ const ONOMATOPOEIA = /^(ちょん|ひとつぶ|フィーチー)/;
 
 /** 終幕の案（見本の切り替え）：A いまの4行、B 名前を独立、C 段階的に言葉を減らす。 */
 export const COLD_END = { v: "A" as "A" | "B" | "C" | "C2" };
+/** 見本の切り替え：view＝ページごとの視点（3P 近景、8P 遠景から近景へ）、dawn＝9P は朝の光を先に長く。 */
+export const COLD_OPT = { view: false, dawn: false };
 
 function rule(page: number) {
   return (line: string, index: number): Omit<TextUnit, "text"> => {
@@ -51,7 +53,8 @@ export function coldDirection(pages: string[][], title?: string): BookDirection 
     pages: pages.map((lines, i) => {
       const d = { ...PAGE[Math.min(i, PAGE.length - 1)], units: unitsOf(lines.join("\n"), rule(i)) };
       // C2 の作品名：2.5 秒残して 0.8 秒で消す（そのあと額縁）。
-      return i === 8 && COLD_END.v === "C2" ? { ...d, readHold: 2.5, fadeOut: 0.8 } : d;
+      const d9 = i === 8 && COLD_OPT.dawn ? { ...d, intro: 3.4 } : d;
+      return i === 8 && COLD_END.v === "C2" ? { ...d9, readHold: 2.5, fadeOut: 0.8 } : d9;
     }),
     title: title ? { gap: 1.4, fadeIn: 1.0, hold: 2.5, fadeOut: 1.0 } : undefined,
     frame: 1.2,
