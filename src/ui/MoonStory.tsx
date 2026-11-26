@@ -1788,7 +1788,16 @@ export function MoonStory({
                   // 場面ごとの字幕の設定（StoryScene.captions）：字の色の調子・字の後ろの局所的な沈め・字幕の領域。描くのは共通の部品。
                   data-tone={scene?.captions?.[i]?.tone}
                   data-area={scene?.captions?.[i]?.area}
-                  style={scene?.captions?.[i]?.backdrop ? ({ ["--cap-backdrop" as string]: String(scene.captions[i].backdrop) } as React.CSSProperties) : undefined}
+                  // drop：縦に長い画面だけ、字の出はじめを下げる（svh。空の上の暗い所を避ける、9P 夜明け）。
+                  data-drop={scene?.captions?.[i]?.drop ? "" : undefined}
+                  style={
+                    scene?.captions?.[i]?.backdrop || scene?.captions?.[i]?.drop
+                      ? ({
+                          ...(scene.captions[i].backdrop ? { ["--cap-backdrop" as string]: String(scene.captions[i].backdrop) } : {}),
+                          ...(scene.captions[i].drop ? { ["--cap-drop" as string]: `${scene.captions[i].drop}svh` } : {}),
+                        } as React.CSSProperties)
+                      : undefined
+                  }
                   // いちばん長い行の字数（縦書きの列に収まる字の大きさを選ぶ。fitCaps）。
                   data-n={Math.max(...tateNum(t).split("\n").map((l) => [...l.replace(/\//g, "")].length))}
                 >

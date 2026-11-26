@@ -5992,5 +5992,8 @@ html.cold-shadow .ms-caps[data-directed] .ms-cap:not([data-tone="dark"]) { text-
 .ms-caps[data-directed] .ms-cap .ms-sec[data-title] { font-size: var(--size-story-title); letter-spacing: 0.12em; }
 /* 小さな画面だけ、絵を少し大きくして右を起点に（幹が左へ寄り、右に文字の余白。どのページも同じ寄せ方）。 */
 @media (max-width: 374px) { html.cold-compose .ms-world svg.cw { transform: scale(1.12); transform-origin: 100% 50%; } }
+/* 縦に長い画面（高さ 760px 以上）だけ、字の出はじめを下げる（captions.drop、svh）。空の上のほうが暗い夜明けの 9P で、
+   藍の字を明るい所に置く。動きを減らす設定では並べて見せるので使わない。 */
+@media (prefers-reduced-motion: no-preference) and (min-height: 760px) { .ms-caps[data-directed] .ms-cap[data-drop] { top: var(--cap-drop); height: calc(100% - var(--cap-drop)); } }
 /* 夜明け（9P、data-i 8）の藍の字は、まだ青い空の上なので、明るいにじみを少し強く（空全体は暗くしない）。 */
 @media (prefers-reduced-motion: no-preference) { .ms-caps[data-directed] .ms-cap[data-i="8"][data-tone="dark"] { text-shadow: 0 0 var(--space-2) color-mix(in srgb, var(--bk-paper-0) 92%, transparent), 0 0 var(--space-4) color-mix(in srgb, var(--bk-paper-0) 70%, transparent), 0 0 var(--space-7) color-mix(in srgb, var(--bk-paper-0) 40%, transparent); } }

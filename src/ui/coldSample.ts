@@ -85,6 +85,8 @@ export function coldSample<T extends FullMoonNameInfo | null>(story: T): T {
     // 夜のページは、字の後ろの沈めを控えめに（月の光を暗くしない）。8P は幹の明るい所にかかる字がある。
     if (cap.includes("B")) for (const i of [3, 4, 7]) caps[i] = { ...caps[i], backdrop: 0.5 };
     if (cap.includes("P")) for (const i of [3, 4, 6, 7]) caps[i] = { ...caps[i], area: "tall" as const };
+    // 9P（夜明け）：縦に長い画面では、字の出はじめを 8svh 下げる（空の上の暗い青を避ける。11/26）。
+    if (cap.includes("D")) caps[8] = { ...caps[8], drop: 8 };
     sc.captions = caps;
   }
   return {
