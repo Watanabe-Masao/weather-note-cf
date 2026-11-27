@@ -1,5 +1,5 @@
 // 空の答え合わせのための予報の履歴（worker/src/skyHistory.ts、#532 の 2・#540、2026-11-27）：
-// 画面と同じ取得（予報は fetchForecast、AOD は空気質の予測の取得）で受け取った値を、受け取り終えた時刻つきで、変わった所だけ追記する。
+// 画面と同じ取得（予報は fetchForecast、AOD は空気質の予測の取得）で受け取った値を、受け取り終えた時刻つきで、値が同じでも回ごとに全部追記する（保存の順によらない）。
 // 前日14時の再現：締め切りちょうどまでに受け取った値に絞ってから、出典の優先順位で選ぶ。直後の値を混ぜない。
 import { describe, expect, it } from "vitest";
 import type { Station } from "../shared/types";
@@ -53,7 +53,7 @@ describe("空の予報の履歴：保存", () => {
     expect(validAtOf("2026-11-26", 24)).toBe("2026-11-27T00:00:00+09:00");
     expect(validAtOf("2026-11-26", 3)).toBe("2026-11-26T03:00:00+09:00");
   });
-  it("画面と同じ予報の取得（信頼度は取らない）。初回は範囲の全部、同じ値の回は足さない、変わった値だけ。1時間に1回まで", async () => {
+  it("画面と同じ予報の取得（信頼度は取らない）。受け取った回ごとに範囲の全部（同じ値でも）。1時間に1回まで", async () => {
     const db = d1();
     const clock = { t: at("10:20:00") };
     const a = server(clock, () => forecastBody());
@@ -61,9 +61,10 @@ describe("空の予報の履歴：保存", () => {
     expect(a.seen).toHaveLength(1);
     expect(a.seen[0]).toContain("cloud_cover");
     expect(await run(db, at("10:30:00"), () => forecastBody())).toMatchObject({ skipped: true });
-    expect(await run(db, at("11:21:00"), () => forecastBody())).toEqual({ appended: 0, ok: true });
-    // 明日 3時の全雲量だけ 62 → 80
-    expect(await run(db, at("12:22:00"), () => forecastBody({ cover: (i) => (i === 27 ? 80 : 62) }))).toEqual({ appended: 1, ok: true });
+    expect(await run(db, at("11:21:00"), () => forecastBody())).toEqual({ appended: 48 * 4, ok: true });
+    // 明日 3時の全雲量だけ 62 → 80（それでも回の全部を残す）
+    expect(await run(db, at("12:22:00"), () => forecastBody({ cover: (i) => (i === 27 ? 80 : 62) }))).toEqual({ appended: 48 * 4, ok: true });
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_history WHERE item = 'cover' AND valid_at = '2026-11-26T03:00:00+09:00'").get()).toEqual({ n: 3 });
     const log = db.raw.prepare("SELECT source, via, ok, req_lat, grid_lat, appended FROM sky_forecast_fetch_log ORDER BY at").all();
     expect(log).toHaveLength(3);
     expect(log[0]).toMatchObject({ source: "open-meteo-forecast", via: "cron", ok: 1, grid_lat: 33.5625, appended: 192 });
@@ -75,7 +76,7 @@ describe("空の予報の履歴：保存", () => {
     await run(db, at("10:20:00"), () => forecastBody({ rain: (i) => (i === 48 ? 2.5 : 0) }));
     expect(db.raw.prepare("SELECT value FROM sky_forecast_history WHERE item = 'rain' AND valid_at = '2026-11-27T00:00:00+09:00'").get()).toEqual({ value: 2.5 });
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_history WHERE item = 'rain' AND value = 0").get()).toEqual({ n: 47 });
-    expect(await run(db, at("11:21:00"), () => forecastBody({ rain: (i) => (i === 48 ? 2.5 : 0), cover: (i) => (i <= 10 ? null : 62) }))).toEqual({ appended: 10, ok: true });
+    expect(await run(db, at("11:21:00"), () => forecastBody({ rain: (i) => (i === 48 ? 2.5 : 0), cover: (i) => (i <= 10 ? null : 62) }))).toEqual({ appended: 48 * 4, ok: true });
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_history WHERE item = 'cover' AND status = 'missing' AND value IS NULL").get()).toEqual({ n: 10 });
     expect(await run(db, at("12:22:00"), () => "", 0, 503)).toEqual({ appended: 0, ok: false });
     expect(db.raw.prepare("SELECT ok, error FROM sky_forecast_fetch_log ORDER BY at DESC LIMIT 1").get()).toEqual({ ok: 0, error: "予報の取得に失敗しました（503）。" });
@@ -107,15 +108,15 @@ describe("空の予報の履歴：前日14時の再現", () => {
     expect(db.raw.prepare("SELECT MAX(fetched_at) AS f FROM sky_forecast_history").get()).toEqual({ f: iso(at("14:00:02")) });
     expect(await skyAsOf(db, "47893", "cover", V, cutoff)).toMatchObject({ value: 40, source: "open-meteo-forecast", fetchedAt: iso(at("12:20:00")), confirmedAt: iso(at("12:20:00")) });
   });
-  it("14時ちょうどに受け取った値は使い、直後の値は混ぜない。旧値の取得時刻は、変わらない回でも書き換えない", async () => {
+  it("14時ちょうどに受け取った値は使い、直後の値は混ぜない。同じ値の回も、その受信時刻で残る", async () => {
     const db = d1();
     await run(db, at("10:20:00"), () => forecastBody({ cover: () => 40 }));
-    await run(db, at("12:20:00"), () => forecastBody({ cover: () => 40 })); // 同じ値（行は足さない）
+    await run(db, at("12:20:00"), () => forecastBody({ cover: () => 40 })); // 同じ値（この回も残す）
     await run(db, at("13:59:58"), () => forecastBody({ cover: () => 55 }), 2000); // 14:00:00 ちょうどに届く
     await run(db, at("15:01:00"), () => forecastBody({ cover: () => 90 }));
     expect(await skyAsOf(db, "47893", "cover", V, cutoff)).toMatchObject({ value: 55, unit: "%", status: "ok", fetchedAt: iso(at("14:00:00")) });
-    // 13時の締め切りなら、10:20 に受け取った値（12:20 に確かめたが、取得時刻は 10:20 のまま）
-    expect(await skyAsOf(db, "47893", "cover", V, iso(at("13:00:00")))).toMatchObject({ value: 40, fetchedAt: iso(at("10:20:00")), confirmedAt: iso(at("12:20:00")) });
+    // 13時の締め切りなら、12:20 に受け取った値（10:20 と同じ値でも、12:20 の回として）
+    expect(await skyAsOf(db, "47893", "cover", V, iso(at("13:00:00")))).toMatchObject({ value: 40, fetchedAt: iso(at("12:20:00")), confirmedAt: iso(at("12:20:00")) });
   });
   it("締め切り前の最後の回が欠測なら missing と、その前に受け取った値・時刻。取れなかった回は確かめた時刻にしない", async () => {
     const db = d1();
@@ -131,6 +132,24 @@ describe("空の予報の履歴：前日14時の再現", () => {
     expect(await skyAsOf(db, "47893", "rain", "2026-11-26T01:00:00+09:00", cutoff)).toMatchObject({ value: 0, status: "ok" });
     expect(await skyAsOf(db, "47893", "rain", "2026-11-28T03:00:00+09:00", dayBeforeCutoff("2026-11-28"))).toMatchObject({ status: "none", source: null, value: null, fetchedAt: null, confirmedAt: null });
     expect(await skyAsOf(db, "47893", "aod", V, cutoff)).toMatchObject({ status: "none" });
+  });
+  it("保存の順が受信の順と入れ替わっても、締め切りの再現は同じ（11/27 渡辺さんのテスト：13:58 に 20%、13:59 に 80%、14:01 に 80%）", async () => {
+    const rec = (hhmm: string, value: number) => ({ station: "47893", source: "open-meteo-forecast" as const, via: "api" as const, receivedAt: iso(at(`${hhmm}:00`)), values: [{ item: "cover" as const, validAt: V, value }] });
+    const receipts = [rec("13:58", 20), rec("13:59", 80), rec("14:01", 80)];
+    const orders = [
+      [0, 1, 2],
+      [2, 1, 0],
+      [0, 2, 1],
+      [2, 0, 1],
+      [1, 2, 0],
+      [1, 0, 2],
+    ];
+    for (const order of orders) {
+      const db = d1();
+      for (const k of order) await recordSkyHistory(db, receipts[k]);
+      expect(await skyAsOf(db, "47893", "cover", V, cutoff), `保存の順 ${order.join("→")}`).toMatchObject({ value: 80, fetchedAt: iso(at("13:59:00")), status: "ok" });
+      expect(await skyAsOf(db, "47893", "cover", V, iso(at("13:58:30")))).toMatchObject({ value: 20, fetchedAt: iso(at("13:58:00")) });
+    }
   });
   it("出典ごとに受け取った時刻で残す（予報と AOD は別の時刻）", async () => {
     const db = d1();
