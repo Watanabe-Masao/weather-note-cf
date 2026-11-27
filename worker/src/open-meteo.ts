@@ -169,7 +169,8 @@ export function normalizeForecast(data: ForecastPayload): { rows: WeatherRow[]; 
   return { rows, hourlyRows };
 }
 
-const coords = (s: Station) => ({
+/** 予報を頼む座標（stations.json の度・分）。空の予報の履歴（skyHistory.ts）も同じ座標で頼む。 */
+export const coords = (s: Station) => ({
   latitude: String(s.lat[0] + s.lat[1] / 60),
   longitude: String(s.lon[0] + s.lon[1] / 60),
 });

@@ -27,6 +27,7 @@ import { saveAmedas } from "./amedasArchive";
 import { AIR_FIRST_DAY, saveAirQuality } from "./airQuality";
 import { STATION_PLACES } from "../../shared/stationPlaces";
 import { AIR_DAYS_MAX, AIR_FORECAST_DAYS, readAir, readAirDays, saveAirForecast } from "./airForecast";
+import { saveSkyHistory } from "./skyHistory";
 import { readMeasured, saveSoramame } from "./soramame";
 import { collectLongRange } from "./longRangeArchive";
 import { health, markStart, timed } from "./health";
@@ -367,6 +368,8 @@ export default {
     ctx.waitUntil(
       stage("air quality", (d) => saveAirQuality(d))()
         .then(stage("air forecast", (d) => saveAirForecast(d)))
+        // 空の答え合わせのための予報の履歴（skyHistory.ts、#532）：1時間に1回まで、今日と明日の天気コード・降水量・全雲量・視程・AOD を、変わった所だけ追記。
+        .then(stage("sky history", (d) => saveSkyHistory(d, stations)))
         .then(stage("soramame", (d) => saveSoramame(d))),
     );
     // Files kept in R2 (r2Archive.ts), apart from the rest: the rain radar every 30 minutes first (JMA lists
