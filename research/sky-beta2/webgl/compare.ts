@@ -292,7 +292,9 @@ async function main() {
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) pano.set(dir(az0 + i * azStep, alt0 + j * altStep), (j * w + i) * 3);
   const hgl = document.createElement("canvas").getContext("webgl2");
   if (!hgl) throw new Error("WebGL 2 が使えない");
-  const hil = new HillaireSky(hgl, 96);
+  // Hillaire の視線あたりの段数（?steps=192 などで変える。−6.8° の東の暗い弧が刻み数で動くかを見る）
+  const steps = Number(new URLSearchParams(location.search).get("steps")) || 96;
+  const hil = new HillaireSky(hgl, steps);
   const results: Result[] = [];
   for (const c of cases.cases) {
     const sun = dir(c.sunAz, c.sunAlt);
@@ -344,7 +346,12 @@ async function main() {
   };
   (window as unknown as { __b2: unknown }).__b2 = {
     info,
-    results: results.map((r) => ({ id: r.c.id, views: Array.from(r.webViews), eScene: r.eScene, hillaire: Array.from(r.hilViews), hillaireTrans: Array.from(r.hilTrans) })),
+    results: results.map((r) => {
+      // 太陽の反対の方位の縦の列（高さ −2〜60°）：Bruneton と Hillaire の G
+      const col = Math.round((((r.c.sunAz + 180) % 360) - az0) / azStep) % w;
+      const prof = (pano: Float32Array) => Array.from({ length: h }, (_, j) => pano[(j * w + col) * 3 + 1]);
+      return { id: r.c.id, views: Array.from(r.webViews), eScene: r.eScene, hillaire: Array.from(r.hilViews), hillaireTrans: Array.from(r.hilTrans), antiBruneton: prof(r.webPano), antiHillaire: prof(r.hilPano) };
+    }),
   };
   $("#info").textContent =
     `描画：${info.renderer}（描き先 ${info.floatTarget ? "32bit" : "16bit"}）・表の読み込み ${info.loadMs} ms・準備 ${info.initMs} ms・` +
