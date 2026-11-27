@@ -143,7 +143,8 @@ export const STORY_ASSETS: Record<string, Record<string, StoryAsset>> = {
     "branch-berry": { file: "design-src/story/cold/pack/c09b-branch-berry.png", width: 520 },
     "emboss-medal": { file: "design-src/story/cold/pack/c10-emboss-medal.png", width: 520 },
     // A-11（11/26 届いた2枚目の案）：穴の口と、中で眠るコガラ。8P の寄りで幹の穴に溶けるように入れ替える（口の中心 675,616、横の半径 203）。
-    "hole-sleep": { file: "design-src/story/cold/pack/a11-hole-sleep.png", width: 1024 },
+    // 外側は口の半径の 1.45 倍から 2.35 倍へ透明にぼかした版（四角い縁が幹の上に見えていた、#525 の iPhone 実機確認。元は a11-hole-sleep.png）。
+    "hole-sleep": { file: "design-src/story/cold/pack/a11-hole-sleep-feather.png", width: 1024 },
     // 動きを減らす設定の 8P の止まった絵（月の光が届いたあとの寝顔。A-11 に月の光と穴の縁の霜を重ねた 8P の画面から切り出した 720px 角。元は 8P の画面なので、場面を変えたら撮り直す）。
     "sleep-still": { file: "design-src/story/cold/pack/a11s-sleep-still.png", width: 720 },
   },

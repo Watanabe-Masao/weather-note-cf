@@ -176,6 +176,11 @@ describe("コールドムーンの最終の演出（第3次品質改善）", () 
     const near = steps.find((x) => x.target === ".cw-seed" && x.method === "to" && x.vars.x !== undefined)!;
     expect(near.at).toBeCloseTo(at[2][0], 9);
   });
+  it("描く負荷：場面の動きは autoAlpha（透明な間は visibility: hidden で描かせない。#525 の iPhone 実機確認）", () => {
+    const fades = steps.filter((x) => "opacity" in x.vars || (x.to && "opacity" in x.to));
+    expect(fades.map((x) => x.target)).toEqual([]);
+    expect(steps.some((x) => "autoAlpha" in x.vars || (x.to && "autoAlpha" in x.to))).toBe(true);
+  });
   it("合図の言葉は、どれも本文にあり、出る順に並ぶ（3P の種・6P の月の出・9P の声）", () => {
     const at = cueAt();
     for (const [p, words] of Object.entries(COLD_CUES)) {
