@@ -406,7 +406,7 @@ async function main() {
       // 太陽の反対の方位の縦の列（高さ −2〜60°）：Bruneton と Hillaire の G
       const col = Math.round((((r.c.sunAz + 180) % 360) - az0) / azStep) % w;
       const prof = (pano: Float32Array) => Array.from({ length: h }, (_, j) => pano[(j * w + col) * 3 + 1]);
-      return { id: r.c.id, views: Array.from(r.webViews), eScene: r.eScene, hillaire: Array.from(r.hilViews), hillaireTrans: Array.from(r.hilTrans), antiBruneton: prof(r.webPano), antiHillaire: prof(r.hilPano), hillaireSpectral: Array.from(r.specViews) };
+      return { id: r.c.id, views: Array.from(r.webViews), eScene: r.eScene, hillaire: Array.from(r.hilViews), hillaireTrans: Array.from(r.hilTrans), antiBruneton: prof(r.webPano), antiHillaire: prof(r.hilPano), hillaireSpectral: Array.from(r.specViews), ...(new URLSearchParams(location.search).has("dump") ? { hillaireSpectralPano: Array.from(r.specPano, (x) => +x.toPrecision(5)), panoSize: [w, h] } : {}) };
     }),
   };
   $("#info").textContent =
