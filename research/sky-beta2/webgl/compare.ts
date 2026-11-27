@@ -35,8 +35,12 @@ function tone(l: number[], e: number): number[] {
 }
 const hex = (c: number[]) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
 
+// 表・帯は base64 の文字（.f16.txt。非公開のページは任意の 2 進のファイルを配らないため）
 async function f16(url: string): Promise<Uint16Array> {
-  return new Uint16Array(await (await fetch(url)).arrayBuffer());
+  const bin = atob(await (await fetch(url + ".txt")).text());
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Uint16Array(bytes.buffer);
 }
 // 半精度 → 数（帯の参照値をこのページで色にするため）
 function halfToFloat(h: number): number {

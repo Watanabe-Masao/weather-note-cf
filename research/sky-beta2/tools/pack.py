@@ -45,4 +45,9 @@ for c in cases["cases"]:
     p = np.fromfile(os.path.join(rad_dir, c["id"] + ".pano.lum.f32"), dtype="<f4")
     np.clip(p, -65504, 65504).astype("<f2").tofile(os.path.join(out, c["id"] + ".pano.f16"))  # 太陽のすぐそばは半精度の上限を超える
 json.dump(ref, open(os.path.join(out, "ref.json"), "w"), ensure_ascii=False, indent=1)
+# 非公開のページ（artifact）は任意の 2 進のファイルを配らないので、半精度の表・帯は base64 の文字（.f16.txt）にもする
+import base64
+for f in os.listdir(out):
+    if f.endswith(".f16"):
+        open(os.path.join(out, f + ".txt"), "w").write(base64.b64encode(open(os.path.join(out, f), "rb").read()).decode())
 print("ok", out)
