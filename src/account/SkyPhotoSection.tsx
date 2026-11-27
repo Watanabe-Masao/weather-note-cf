@@ -9,11 +9,13 @@
 import { useMemo, useState } from "react";
 import { solarAltitude, solarAzimuth } from "../../shared/sunTimes";
 import { Button, Chip } from "../ui/kit";
+import { type Intensity, intensitiesOf, intensityTitle, type Sky, SKIES } from "../../shared/nowWeather";
 import { useAccount } from "./account";
 import { compass16, type PhotoExif, readExif, takenIso } from "./exif";
 
 const KOCHI = { lat: 33.5667, lon: 133.5483 };
-const WEATHERS = ["晴れ", "薄曇り", "曇り", "雨", "西だけ晴れ", "まだら"] as const;
+// 天気は天気の記録（正本、#553）と同じ言葉。写真ならではの様子（西だけ晴れ・まだら）は別に選ぶ。
+const LOOKS = ["西だけ晴れ", "まだら"] as const;
 const DIRS = [
   { label: "西", deg: 270 },
   { label: "南西", deg: 225 },
@@ -42,8 +44,8 @@ function satelliteTimes(iso: string): string[] {
 }
 
 const SAMPLES = [
-  { when: "2026-11-15T16:52:00+09:00", dir: "西", weather: "西だけ晴れ", sat: "7 時刻・28 枚", note: "雲の切れ目から夕陽" },
-  { when: "2026-11-17T16:40:00+09:00", dir: "南西", weather: "雨", sat: "取れなかった（一覧に無い）", note: "" },
+  { when: "2026-11-15T16:52:00+09:00", dir: "西", weather: "曇り・西だけ晴れ", sat: "7 時刻・28 枚", note: "雲の切れ目から夕陽" },
+  { when: "2026-11-17T16:40:00+09:00", dir: "南西", weather: "雨（パラパラ）", sat: "取れなかった（一覧に無い）", note: "" },
 ];
 
 export function SkyPhotoSection() {
@@ -51,7 +53,9 @@ export function SkyPhotoSection() {
   const [picked, setPicked] = useState<Picked | null>(null);
   const [when, setWhen] = useState<string | null>(null);
   const [dir, setDir] = useState<number | null>(null);
-  const [weather, setWeather] = useState<string | null>(null);
+  const [sky, setSky] = useState<Sky | null>(null);
+  const [intensity, setIntensity] = useState<Intensity | null>(null);
+  const [look, setLook] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [shown, setShown] = useState(false);
 
@@ -123,10 +127,27 @@ export function SkyPhotoSection() {
                 {picked.file.type || "不明"}・{(picked.file.size / 1e6).toFixed(1)} MB
               </dd>
             </dl>
-            <p className="set-help">空の様子（見た印象）</p>
-            <div className="chip-row">
-              {WEATHERS.map((w) => (
-                <Chip key={w} on={weather === w} onClick={() => setWeather(weather === w ? null : w)}>
+            <p className="set-help">撮った時の天気（天気の記録にも入ります）</p>
+            <div className="chip-row" role="group" aria-label="撮った時の天気">
+              {SKIES.map((k) => (
+                <Chip key={k.id} on={sky === k.id} onClick={() => { setSky(sky === k.id ? null : k.id); setIntensity(null); }}>
+                  {k.label}
+                </Chip>
+              ))}
+            </div>
+            {intensitiesOf(sky) && (
+              <div className="chip-row" role="group" aria-label={intensityTitle(sky)!}>
+                {intensitiesOf(sky)!.map((k) => (
+                  <Chip key={k.id} on={intensity === k.id} onClick={() => setIntensity(intensity === k.id ? null : k.id)}>
+                    {k.label}
+                  </Chip>
+                ))}
+              </div>
+            )}
+            <p className="set-help">空の様子（あれば）</p>
+            <div className="chip-row" role="group" aria-label="空の様子">
+              {LOOKS.map((w) => (
+                <Chip key={w} on={look === w} onClick={() => setLook(look === w ? null : w)}>
                   {w}
                 </Chip>
               ))}
@@ -147,6 +168,7 @@ export function SkyPhotoSection() {
                     気象庁の衛星画像（ひまわり、日本域）を取りに行きます：{jst(satelliteTimes(when)[0])}〜{jst(satelliteTimes(when).at(-1)!)} の 10 分ごと 7 時刻、赤外とトゥルーカラー、高知と西の 2 枚分（28 枚まで）。
                   </li>
                   <li>気象庁の一覧から消えた時刻は「取れなかった」と記録します（一覧に何時間前まで残るかは、最初の数回で確かめます）。</li>
+                  <li>選んだ天気は、天気の記録（正本）にも 1 件入ります（写真と結んで残します）。</li>
                   <li>その日の観測（高知の日照・日射）と予報の履歴は、あとから答え合わせのときに組み合わせます。</li>
                 </ul>
               </div>

@@ -16,6 +16,9 @@ export interface Me {
   /** 空の写真の研究への協力（11/27〜。前の保存には無いことがある） */
   researchSky?: { granted: boolean; version: number | null; at: number | null };
   skyConsentVersion?: number;
+  /** 今の天気の研究への協力（#553）。古いサーバーの答えには無い。 */
+  researchWeather?: { granted: boolean; version: number | null; at: number | null };
+  weatherConsentVersion?: number;
 }
 
 export interface AccountView {
@@ -105,7 +108,7 @@ export async function logOut(): Promise<void> {
 }
 
 /** 研究への協力の答え。kind：feel＝肌感の研究（前からの答え）、sky＝空の写真の研究。 */
-export async function answerResearch(granted: boolean, kind: "feel" | "sky" = "feel"): Promise<void> {
+export async function answerResearch(granted: boolean, kind: "feel" | "sky" | "weather" = "feel"): Promise<void> {
   const r = await api<{ user: Me }>("/api/me/consent", kind === "feel" ? { granted } : { granted, kind });
   set({ me: r.user });
 }

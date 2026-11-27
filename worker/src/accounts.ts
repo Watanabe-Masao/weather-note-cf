@@ -63,6 +63,9 @@ import { archiveSummary } from "./typhoonArchive";
 import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
 import { alertSummary } from "./typhoonWatch";
 import { doneOnce } from "./once";
+import { migrate } from "./migrate";
+import { isIntensityOf } from "../../shared/nowWeather";
+import { checkSurvey, deleteSurvey, listMine, mirrorFeel, saveSurvey, WEATHER_OBS_MIGRATIONS, WEATHER_OBS_SCHEMA, WeatherObsRefused } from "./weatherObs";
 
 // ---- schema ----------------------------------------------------------------------------------
 
@@ -74,6 +77,12 @@ export const RESEARCH_CONSENT_VERSION = 2; // 2: taking consent back also remove
  * 空の絵の答え合わせの研究に使う。写真の保存はまだ作っていない（取り消したときの写真の扱いは、保存を作るときに決める）。
  */
 export const SKY_CONSENT_VERSION = 1;
+/**
+ * 今の天気の研究への協力（2026-11-28 渡辺さん「今の天気だけをアンケート形式で。これは別で使います」）。kind 'research-weather'。
+ * 1：見た空と雨の強さ・時刻・観測所を、名前と切り離して、予報や観測（アメダス）との答え合わせに使う。記録のシートに
+ * 「今の天気」が出るのは、これに同意した人だけ（肌感の記録の「今の天気」は、同意と関係なく天気の記録に写す。研究に使うのは同意した人の分だけ）。
+ */
+export const WEATHER_CONSENT_VERSION = 1;
 
 const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS schema_version (v INTEGER NOT NULL)",
@@ -228,7 +237,7 @@ export function forResearch(report: Record<string, unknown>): Record<string, unk
 }
 
 const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
-const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA, ...TYPHOON_NOTIFY_SCHEMA, ...RESEARCH_SCHEMA];
+const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA, ...TYPHOON_NOTIFY_SCHEMA, ...RESEARCH_SCHEMA, ...WEATHER_OBS_SCHEMA];
 
 /** An error as one line: its name, message and cause (what the log of a failure needs). */
 export function describe(e: unknown): string {
@@ -248,6 +257,8 @@ export function ensureSchema(db: Db): Promise<void> {
           // Which statement failed, so a failure here can be read in the log (it stops every account request).
           throw new Error(`schema: ${q.replace(/\s+/g, " ").slice(0, 80)} — ${describe(e)}`, { cause: e });
         });
+    // 天気の記録（#553）：表を作ったあと、前からの肌感の記録の「今の天気」を 1 回だけ写す。
+    await migrate(db, "weather_obs", WEATHER_OBS_MIGRATIONS);
     // 重なった要求がそれぞれ作っても1行だけ（読んでから書くと、間に別の要求が入ると2行になる）。
     await db.prepare("INSERT INTO schema_version (v) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM schema_version)").bind(SCHEMA_VERSION).run();
   });
@@ -380,7 +391,7 @@ async function body(req: Request): Promise<Record<string, unknown>> {
 async function deleteAccount(db: Db, who: { id: string; research_id: string }, now: number) {
   await db.batch([
     db.prepare("INSERT INTO research_withdrawals (research_id, at, reason) VALUES (?, ?, 'account-deleted')").bind(who.research_id, now),
-    ...["reports", "sessions", "consents", "push_subscriptions", "notify_settings", "notify_log", "typhoon_notify_settings", "typhoon_notify_log"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(who.id)),
+    ...["reports", "weather_obs", "sessions", "consents", "push_subscriptions", "notify_settings", "notify_log", "typhoon_notify_settings", "typhoon_notify_log"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(who.id)),
     db.prepare("DELETE FROM users WHERE id = ?").bind(who.id),
   ]);
 }
@@ -458,9 +469,13 @@ async function researchConsent(db: Db, userId: string): Promise<{ granted: boole
 }
 
 async function skyConsent(db: Db, userId: string): Promise<{ granted: boolean; version: number | null; at: number | null }> {
+  return consentOf(db, userId, "research-sky");
+}
+
+async function consentOf(db: Db, userId: string, kind: "research-sky" | "research-weather"): Promise<{ granted: boolean; version: number | null; at: number | null }> {
   const c = await db
-    .prepare("SELECT granted, version, at FROM consents WHERE user_id = ? AND kind = 'research-sky' ORDER BY at DESC, rowid DESC LIMIT 1")
-    .bind(userId)
+    .prepare("SELECT granted, version, at FROM consents WHERE user_id = ? AND kind = ? ORDER BY at DESC, rowid DESC LIMIT 1")
+    .bind(userId, kind)
     .first<{ granted: number; version: number; at: number }>();
   return { granted: c?.granted === 1, version: c?.version ?? null, at: c?.at ?? null };
 }
@@ -475,6 +490,8 @@ async function me(db: Db, u: User) {
     consentVersion: RESEARCH_CONSENT_VERSION,
     researchSky: await skyConsent(db, u.id),
     skyConsentVersion: SKY_CONSENT_VERSION,
+    researchWeather: await consentOf(db, u.id, "research-weather"),
+    weatherConsentVersion: WEATHER_CONSENT_VERSION,
   };
 }
 
@@ -508,6 +525,7 @@ interface ReportIn {
   exposure?: unknown;
   windFelt?: unknown;
   sky?: unknown;
+  intensity?: unknown;
 }
 
 const oneOf = (v: unknown, list: readonly string[]) => v === undefined || (typeof v === "string" && list.includes(v));
@@ -522,6 +540,7 @@ export function validReport(r: Record<string, unknown>): boolean {
   if (typeof r.at !== "string" || r.at.length > 40 || !Number.isFinite(Date.parse(r.at))) return false;
   if (r.deleted === true) return true;
   if (!intIn(r.sensation, -3, 3)) return false;
+  if (r.intensity !== undefined && !isIntensityOf(r.sky, r.intensity)) return false;
   if (!oneOf(r.thermalPreference, ["warmer", "same", "cooler"]) || !oneOf(r.drinkPreference, ["warm", "either", "cold"])) return false;
   if (r.preferenceVersion !== undefined && !intIn(r.preferenceVersion, 1, 100)) return false;
   if (r.scaleVersion !== undefined && !intIn(r.scaleVersion, 1, 100)) return false;
@@ -601,6 +620,8 @@ export async function pushReports(db: Db, userId: string, list: ReportIn[], now:
       .bind(userId, r.id, userId, k + 1, r.updatedAt, r.deleted ? 1 : 0, r.at, str(r.station), int(r.sensation), str(r.exposure), str(r.windFelt), str(r.sky), JSON.stringify(r), now),
   );
   statements.push(db.prepare("UPDATE users SET sync_seq = sync_seq + ? WHERE id = ?").bind(fresh.length, userId));
+  // 「今の天気」は天気の記録（正本）にも写す（#553）。同じ batch なので、記録と天気の記録はずれない。
+  statements.push(...mirrorFeel(db, userId, fresh, now));
   await db.batch(statements);
   return fresh.length;
 }
@@ -707,6 +728,11 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         await db.prepare("INSERT INTO consents (user_id, kind, version, granted, at) VALUES (?, 'research-sky', ?, ?, ?)").bind(u.id, SKY_CONSENT_VERSION, b.granted ? 1 : 0, now).run();
         return json({ user: await me(db, u) });
       }
+      // 今の天気の研究（kind "weather"）：これも別の答え。研究用の番号は変えない（書き出しはまだ無い）。
+      if (b.kind === "weather") {
+        await db.prepare("INSERT INTO consents (user_id, kind, version, granted, at) VALUES (?, 'research-weather', ?, ?, ?)").bind(u.id, WEATHER_CONSENT_VERSION, b.granted ? 1 : 0, now).run();
+        return json({ user: await me(db, u) });
+      }
       if (b.kind != null && b.kind !== "feel") throw new Refused("同意の種類が正しくありません。");
       // Taking consent back is also told to the exported copies (#45).
       // The person gets a new research ID: the old one stays withdrawn for good, and consenting
@@ -721,6 +747,25 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         ]);
       else await answer.run();
       return json({ user: await me(db, u) });
+    }
+    // -- 天気の記録（今の天気のアンケート、#553） --
+    if (path === "/api/me/weather") {
+      try {
+        if (post) await saveSurvey(db, u.id, checkSurvey(await body(req), now), now);
+        return json({ list: await listMine(db, u.id) });
+      } catch (e) {
+        if (e instanceof WeatherObsRefused) throw new Refused(e.message, e.message.includes("上限") ? 413 : 400);
+        throw e;
+      }
+    }
+    if (path === "/api/me/weather/delete" && post) {
+      try {
+        await deleteSurvey(db, u.id, (await body(req)).id, now);
+      } catch (e) {
+        if (e instanceof WeatherObsRefused) throw new Refused(e.message);
+        throw e;
+      }
+      return json({ list: await listMine(db, u.id) });
     }
     if (path === "/api/me/delete" && post) {
       // The person deletes their own account (#55), confirmed by the password. An administrator

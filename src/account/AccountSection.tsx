@@ -119,6 +119,11 @@ const STUDIES = [
     label: "空の写真",
     text: "あなたが送る空の写真と、撮影時刻・写した方角・場所（約 1 km に丸めたもの）を、名前と切り離して、空の絵の答え合わせの研究に使います。",
   },
+  {
+    kind: "weather" as const,
+    label: "今の天気",
+    text: "あなたが選んだ今の天気（晴れ・曇り・雨なら強さ）と時刻・観測所を、名前と切り離して、予報や観測との答え合わせの研究に使います。肌感の記録や空の写真で選んだ天気も、ここに入ります。",
+  },
 ];
 
 function Research() {
@@ -126,8 +131,9 @@ function Research() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   if (!me) return null;
-  const state = { feel: me.research, sky: me.researchSky ?? { granted: false, version: null, at: null } };
-  const answer = (kind: "feel" | "sky", v: boolean) => {
+  const none = { granted: false, version: null, at: null };
+  const state = { feel: me.research, sky: me.researchSky ?? none, weather: me.researchWeather ?? none };
+  const answer = (kind: "feel" | "sky" | "weather", v: boolean) => {
     setBusy(kind);
     setError(null);
     answerResearch(v, kind)
