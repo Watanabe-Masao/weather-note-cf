@@ -1713,6 +1713,8 @@ with sync_playwright() as p:
         layout_ok("R7", "記録")
         buttons_ok("R8", "記録", 1)
         # 今の天気（#553）：研究で選んだものだけ出る。雨を選ぶと強さが 4 段出て、選ぶまで記録できない。
+        # 空の写真（11/28 渡辺さん「厳密に」「画面にも出さない」）：空の写真の研究に同意していない人には出ない（ME は肌感と今の天気だけ）。
+        check("R8b 同意していない研究（空の写真）は記録のシートに出ない", pg.locator(".msheet.report-sheet .seg button", has_text="空の写真").count() == 0 and pg.locator("#sp-add").count() == 0)
         pg.locator(".msheet.report-sheet .seg button", has_text="今の天気").first.click(); calm()
         check("R9 今の天気に切り替わる", pg.locator("#ws-now").count() == 1)
         pg.locator(".msheet.report-sheet .chip", has_text="雨").first.click(); calm()

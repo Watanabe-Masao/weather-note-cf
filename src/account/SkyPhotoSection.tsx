@@ -1,5 +1,8 @@
 // 見本：空の写真を上げる（2026-11-27 渡辺さん「1・2・3 が貯められる仕組み」の 3、#537）。記録のシートで「空の写真」を選んだとき
-// （渡辺さん「場所は記録に。記録タブで肌感か写真を選べるように」）。見本のあいだは管理者だけ。
+// （渡辺さん「場所は記録に。記録タブで肌感か写真を選べるように」）。
+// 出るのは「空の写真」の研究に同意した人だけ（11/28 渡辺さん「厳密になので写真の保存は同意した人のみ。そもそも画面にも
+// 出さない」）。同意していない人には、記録のシートにこの画面を出さない（ReportSheet.tsx）。写真を受け取るサーバーの処理も、
+// 同意（kind 'research-sky'）を確かめてから保存する（作るとき）。
 // **見本なので、まだ送らない**（保存先のバケット・受け取り・衛星画像の取得はこのあと）。確かめたいこと：
 //   - iPhone で選んだ写真から、撮影時刻・向き・カメラの設定（EXIF）がどこまで読めるか（読めない所は手で直す）
 //   - 撮った時の太陽の高さ・方位と、写した方角の差が、その場で分かるか
@@ -10,7 +13,6 @@ import { useMemo, useState } from "react";
 import { solarAltitude, solarAzimuth } from "../../shared/sunTimes";
 import { Button, Chip } from "../ui/kit";
 import { type Intensity, intensitiesOf, intensityTitle, type Sky, SKIES } from "../../shared/nowWeather";
-import { useAccount } from "./account";
 import { compass16, type PhotoExif, readExif, takenIso } from "./exif";
 
 const KOCHI = { lat: 33.5667, lon: 133.5483 };
@@ -49,7 +51,6 @@ const SAMPLES = [
 ];
 
 export function SkyPhotoSection() {
-  const { me } = useAccount();
   const [picked, setPicked] = useState<Picked | null>(null);
   const [when, setWhen] = useState<string | null>(null);
   const [dir, setDir] = useState<number | null>(null);
@@ -80,9 +81,7 @@ export function SkyPhotoSection() {
           空の絵の答え合わせに使う写真です。撮れたときに、撮れた時刻で構いません。日の入りの前後の西の空が、いちばん役に立ちます。見本なので、まだ送りません。
         </p>
         <p className="set-help">
-          {me?.research.granted
-            ? "研究への協力に同意しているので、写真と撮影時刻・方角・場所（約 1 km に丸めたもの）を、名前と切り離して研究に使います。"
-            : "研究への協力に同意していないので、写真はあなたの記録としてだけ残し、研究には使いません（設定のアカウントで変えられます）。"}
+          「空の写真」の研究への協力に同意しているので、写真と撮影時刻・方角・場所（約 1 km に丸めたもの）を、名前と切り離して研究に使います。同意を取り消すと、この画面は出なくなります（設定のアカウントで変えられます）。
         </p>
         <label className="sp-file">
           <input type="file" accept="image/*" onChange={(ev) => void pick(ev.target.files?.[0])} />
