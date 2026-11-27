@@ -303,6 +303,8 @@ function SnowField({ front }: { front?: boolean }): ReactElement {
 
 /** 遠景と中景（第3次の背景 C2、11/26 採用）：遠景（山の稜線・丘）は形と色で描く平たい面、中景の林は描き込んだ絵
  * （c08-middle の彩度・明暗差・鮮明さを抑えた c08-middle-c2）。遠くなるほど情報が減る。 */
+/** 白い形だけのマスクは透明度で切る（mask-type: alpha）。色を白に変えるフィルターを毎回かけずにすむ（描く負荷、#525）。 */
+const ALPHA_MASK = { maskType: "alpha" } as const;
 const BG_MID = { x: -110, y: 496, w: 620, h: (620 * 724) / 2172 };
 const RIDGE_D = "M-300 560 L -200 500 L -120 540 L -20 470 L 60 520 L 130 462 L 210 516 L 290 474 L 370 522 L 450 482 L 540 530 L 700 500 L 700 660 L -300 660 Z";
 const HILL_D = "M-300 600 C -120 572 40 590 200 578 C 360 566 480 584 700 574 L 700 660 L -300 660 Z";
@@ -447,14 +449,14 @@ export function ColdWorld(): ReactElement {
         <filter id="cw-white" x="0" y="0" width="1" height="1">
           <feColorMatrix type="matrix" values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 1 0" />
         </filter>
-        <mask id="cw-land" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
+        <mask id="cw-land" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000} style={ALPHA_MASK}>
           <path d={land} fill="#ffffff" />
           <path d={TRUNK3_D} fill="#ffffff" />
           {/* 中景の林は稜線より上へ伸びるので、その形も地上として沈める。 */}
-          <image href={A("middle-c2")} x={BG_MID.x} y={BG_MID.y} width={BG_MID.w} height={BG_MID.h} filter="url(#cw-white)" />
-          <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} filter="url(#cw-white)" />
-          <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} filter="url(#cw-white)" />
-          <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} filter="url(#cw-white)" />
+          <image href={A("middle-c2")} x={BG_MID.x} y={BG_MID.y} width={BG_MID.w} height={BG_MID.h} />
+          <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} />
+          <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} />
+          <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} />
         </mask>
         {/* 穴の口（穴の中のコガラは口の形に切る）。 */}
         {/* 月の光が届いた眠るコガラ（顔の所が明るく、外へやわらかく消える。青白い月の色。明るい所は月のある左上へ少し寄せる＝光の向きと縁の陰影をそろえる）。 */}
@@ -471,11 +473,11 @@ export function ColdWorld(): ReactElement {
         </filter>
         {/* 光を受けた世界（第3次品質改善）。幹の形の切り抜き、月の側（左）が明るい樹皮、日の側の暖色、月明かりの雪面（幹は抜く）。 */}
         {/* 幹の光は、描き込んだ幹（穴なし・穴・二股）の形と、上へのびる枝の形で切る（二股の所で光が途切れないように）。 */}
-        <mask id="cw-trunk-light-mask" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
+        <mask id="cw-trunk-light-mask" maskUnits="userSpaceOnUse" x={BIRCH.x - 60} y={-340} width={180} height={1060} style={ALPHA_MASK}>
           <path d={TRUNK3_D} fill="#ffffff" />
-          <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} filter="url(#cw-white)" />
-          <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} filter="url(#cw-white)" />
-          <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} filter="url(#cw-white)" />
+          <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} />
+          <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} />
+          <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} />
         </mask>
         <linearGradient id="cw-bark-moon-g" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#dfe8fb" stopOpacity={0.95} />
@@ -501,7 +503,7 @@ export function ColdWorld(): ReactElement {
           <stop offset="0.6" stopColor="#c3d0ec" stopOpacity={0.45} />
           <stop offset="1" stopColor="#c3d0ec" stopOpacity={0.15} />
         </linearGradient>
-        <mask id="cw-snowlit-mask" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
+        <mask id="cw-snowlit-mask" maskUnits="userSpaceOnUse" x={-300} y={600} width={1000} height={700}>
           <path d="M-300 640 C -100 628 60 642 200 636 C 340 630 480 640 700 632 L 700 1300 L -300 1300 Z" fill="#ffffff" />
           <path d={TRUNK3_D} fill="#000000" />
           <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} filter="url(#cw-black)" />
@@ -554,7 +556,7 @@ export function ColdWorld(): ReactElement {
           <stop offset="0.6" stopColor="#808080" />
           <stop offset="1" stopColor="#1a1a1a" />
         </linearGradient>
-        <mask id="cw-crest-mask" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
+        <mask id="cw-crest-mask" maskUnits="userSpaceOnUse" x={-700} y={600} width={1800} height={700}>
           <rect x={-700} y={600} width={1800} height={700} fill="url(#cw-crest-x)" />
         </mask>
         <clipPath id="cw-ridge-clip">
@@ -567,11 +569,11 @@ export function ColdWorld(): ReactElement {
           <stop offset="0.6" stopColor="#f1b47e" stopOpacity={0.35} />
           <stop offset="1" stopColor="#f1b47e" stopOpacity={0} />
         </radialGradient>
-        <mask id="cw-perch-shape" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
-          <image href={A("perch")} x={PERCH_IMG.x} y={PERCH_IMG.y} width={PERCH_IMG.w} height={PERCH_IMG.h} filter="url(#cw-white)" />
+        <mask id="cw-perch-shape" maskUnits="userSpaceOnUse" x={PERCH_IMG.x} y={PERCH_IMG.y} width={PERCH_IMG.w} height={PERCH_IMG.h} style={ALPHA_MASK}>
+          <image href={A("perch")} x={PERCH_IMG.x} y={PERCH_IMG.y} width={PERCH_IMG.w} height={PERCH_IMG.h} />
         </mask>
-        <mask id="cw-cling-shape" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
-          <image href={A("cling")} x={CLING.x} y={CLING.y} width={CLING.w} height={CLING.h} filter="url(#cw-white)" />
+        <mask id="cw-cling-shape" maskUnits="userSpaceOnUse" x={CLING.x} y={CLING.y} width={CLING.w} height={CLING.h} style={ALPHA_MASK}>
+          <image href={A("cling")} x={CLING.x} y={CLING.y} width={CLING.w} height={CLING.h} />
         </mask>
         {/* 4P の残照（地平線の近くだけ、昼の光の名残）と、9P の夜明けの薄桃（空の下・雪面・幹の光を受ける側）。 */}
         <linearGradient id="cw-afterglow-g" x1="0" y1="0" x2="0" y2="1">
@@ -585,7 +587,7 @@ export function ColdWorld(): ReactElement {
           <stop offset="0.6" stopColor="#999999" />
           <stop offset="1" stopColor="#2a2a2a" />
         </linearGradient>
-        <mask id="cw-afterglow-mask" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000}>
+        <mask id="cw-afterglow-mask" maskUnits="userSpaceOnUse" x={-700} y={380} width={1800} height={200}>
           <rect x={-700} y={300} width={1800} height={400} fill="url(#cw-afterglow-x)" />
         </mask>
         <linearGradient id="cw-dawnglow-g" x1="0" y1="0" x2="0" y2="1">
