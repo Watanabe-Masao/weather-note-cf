@@ -247,8 +247,7 @@ export class HillaireSky {
     const mp = this.program(MULTI_FS);
     this.mLut = this.renderLut(mp, 32, 32, () => this.bind(mp, "transmittanceLut", this.tLut, 0));
     this.sky = this.program(SKY_FS);
-    const px = new Float32Array(4);
-    gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.FLOAT, px); // 表ができるまで待つ
+    gl.finish(); // 表ができるまで待つ
     this.lutMs = performance.now() - t0;
   }
   private program(fs: string): WebGLProgram {

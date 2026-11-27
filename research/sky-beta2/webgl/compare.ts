@@ -337,7 +337,7 @@ async function main() {
     initMs: Math.round(tInit),
     viewsMs: results.map((r) => +r.viewMs.toFixed(1)),
     panoMs: results.map((r) => +r.panoMs.toFixed(1)),
-    worstRelDiff: +worst.toFixed(4),
+    worstRelDiff: +worst.toPrecision(3),
     exposures: results.map((r) => ({ id: r.c.id, fixed: E_FIXED, scene: +r.eScene.toPrecision(3), hilFixed: E_RAD, hilScene: +r.eHil.toPrecision(3) })),
     hillaire: { lutMs: Math.round(hil.lutMs), panoMs: results.map((r) => +r.hilMs.toFixed(1)), steps: hil.steps },
     userAgent: navigator.userAgent,
@@ -348,7 +348,7 @@ async function main() {
   };
   $("#info").textContent =
     `描画：${info.renderer}（描き先 ${info.floatTarget ? "32bit" : "16bit"}）・表の読み込み ${info.loadMs} ms・準備 ${info.initMs} ms・` +
-    `視線 ${info.viewsMs.join("/")} ms・帯（${w}×${h}）${info.panoMs.join("/")} ms・OpenGL との最大の差 ${(info.worstRelDiff * 100).toFixed(2)}%（輝度 1 cd/m² 超の視線）。Hillaire：表を作る ${info.hillaire.lutMs} ms・帯 ${info.hillaire.panoMs.join("/")} ms（視線あたり ${info.hillaire.steps} 段）`;
+    `視線 ${info.viewsMs.join("/")} ms・帯（${w}×${h}）${info.panoMs.join("/")} ms・OpenGL との最大の差 ${info.worstRelDiff < 1e-4 ? "0.01% 未満" : (info.worstRelDiff * 100).toFixed(2) + "%"}（輝度 1 cd/m² 超の視線）。Hillaire：表を作る ${info.hillaire.lutMs} ms・帯 ${info.hillaire.panoMs.join("/")} ms（視線あたり ${info.hillaire.steps} 段）`;
   drawPanoramas(results, cases);
   drawTable(results, ref);
   log("");
