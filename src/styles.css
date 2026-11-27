@@ -6051,5 +6051,5 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .sp-list small { display: block; color: var(--ink-secondary); }
 /* 研究への協力：研究ごとのチェック（11/27） */
 .consent-check { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-4); align-items: start; min-height: var(--tap-min); }
-.consent-check input { width: 22px; height: 22px; margin: 2px 0 0; }
+.consent-check input { width: 22px; height: 22px; margin: var(--space-1) 0 0; }
 .consent-check small { display: block; }
