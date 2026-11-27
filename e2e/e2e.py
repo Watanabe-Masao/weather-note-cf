@@ -1238,6 +1238,16 @@ with sync_playwright() as p:
         check("J2 設定は下に閉じるボタンなし", pg.locator(".msheet .actions button:has-text('閉じる')").count() == 0)
         # 管理者ページ（11/24）：入口は設定のいちばん下に1つ。中は 運用・予報・確認用・ユーザー の切り替え。
         check("J2b 管理者の項目は設定の中に散らばらない（入口の1つだけ）", pg.locator("#set-research").count() == 0 and pg.locator("#set-event").count() == 0 and pg.locator(".msheet.settings button", has_text="データの保守").count() == 0 and pg.locator(".msheet.settings button", has_text="管理者ページ").count() == 1)
+        # 自分の写真（見本、11/28）：一覧と［消す］。押すと何が消えるかを出し、［やめる］で戻る。
+        mp = pg.locator("#set-my-photos")
+        mp.scroll_into_view_if_needed(); calm()
+        check("J2c 自分の写真の見本：3 枚と［消す］", mp.locator(".sp-item").count() == 3 and mp.locator("button", has_text="消す").count() == 3, mp.inner_text()[:200])
+        mp.locator(".sp-item").nth(1).locator("button", has_text="消す").click(); calm()
+        check("J2d 消す前に、消えるもの（写真・縮小画像・天気の記録）と元に戻せないことを出す", "元に戻せません" in mp.inner_text() and "天気の記録" in mp.inner_text() and mp.locator("button.danger, .btn.danger", has_text="消す").count() == 1, mp.inner_text()[:300])
+        layout_ok("J2f", "自分の写真（消す前の確かめ）")
+        if os.environ.get("WN_PSHOT"): pg.screenshot(path=os.environ["WN_PSHOT"])
+        mp.locator("button", has_text="やめる").click(); calm()
+        check("J2e ［やめる］で消さずに戻る", mp.locator(".sp-item").count() == 3 and mp.locator(".sp-confirm").count() == 0)
         pg.locator(".msheet.settings button", has_text="管理者ページ").click(); calm()
         ap = pg.locator(".admin-page-sheet")
         ap.locator(".seg button", has_text="確認用").click(); calm()

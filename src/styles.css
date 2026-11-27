@@ -6048,6 +6048,11 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .sp-after { margin-top: var(--space-4); padding: var(--space-5) var(--space-6); border-radius: var(--radius-md); background: var(--surface-inset); }
 .sp-after ul { margin: var(--space-4) 0 0; padding-left: 1.2em; }
 .sp-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-4); }
+.sp-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.sp-mini { display: block; width: 56px; height: 56px; border-radius: var(--radius-md); background: var(--surface-inset); }
+.sp-item-text { display: grid; gap: var(--space-2); min-width: 0; }
+.sp-confirm { display: grid; gap: var(--space-2); }
+.sp-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-3); }
 .sp-list small { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); font-size: var(--size-xs); color: var(--ink-secondary); }
 /* 研究への協力：研究ごとのチェック（11/27） */
 .consent-check { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-4); align-items: start; min-height: var(--tap-min); }
