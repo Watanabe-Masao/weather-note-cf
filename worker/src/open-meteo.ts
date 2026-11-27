@@ -68,6 +68,12 @@ const OPTIONAL_HOURLY = {
   visibility: "visibility",
   // 全雲量（%、その正時の瞬時の値。モデルの値）：空の絵（β、#532）の雲の量。行 n（n−1〜n 時）では n 時ちょうどの値。
   cover: "cloud_cover",
+  // 層ごとの雲量（%、瞬時の値。モデルの値。下層＝〜3 km、中層＝3〜8 km、上層＝8 km〜）：空の予報の履歴（skyHistory.ts）に、
+  // 受け取った時点の値として残す（11/27 渡辺さん「1・2・3 を貯める仕組み」。過去の予報の API は前日の予報ではないため、自分で貯める）。
+  // 気象庁のモデルでは、湿度から近似した値（Open-Meteo の説明）。画面ではまだ使わない。
+  coverLow: "cloud_cover_low",
+  coverMid: "cloud_cover_mid",
+  coverHigh: "cloud_cover_high",
 };
 const DAILY_FIELDS = {
   temp: "temperature_2m_mean",
@@ -104,7 +110,7 @@ export function normalizeForecast(data: ForecastPayload): { rows: WeatherRow[]; 
       quality: {},
     };
     fill(row, HOURLY_FIELDS, hourly, i);
-    if (hourly.snowfall || hourly.wind_gusts_10m || hourly.visibility || hourly.cloud_cover) fill(row, OPTIONAL_HOURLY, hourly, i);
+    if (hourly.snowfall || hourly.wind_gusts_10m || hourly.visibility || hourly.cloud_cover || hourly.cloud_cover_low) fill(row, OPTIONAL_HOURLY, hourly, i);
     if (typeof row.visibility === "number") {
       // 画面（グラフ・比べ）は観測にそろえて 20 km で止める。止める前の値（km）は判定用に visibilityFull に残す
       // （澄んだ日どうしの違いは予報にしか無い。2026-11-22 渡辺さん「グラフは20で止めて、内部では判定用に」）。
@@ -239,7 +245,7 @@ export async function fetchForecast(station: Station, opt: ForecastFetchOptions 
   // An unknown variable makes Open-Meteo answer 400: the forecast matters more than the extras.
   if (r.status === 400) {
     source = forecastUrl(station, false);
-    variant = "without-optional"; // 全雲量・視程を外して取り直した（履歴では、その回の値が missing になる理由として残す）
+    variant = "without-optional"; // 全雲量・層ごとの雲量・視程を外して取り直した（履歴では、その回の値が missing になる理由として残す）
     r = await get(source);
   }
   if (!r.ok) throw new SourceError(`予報の取得に失敗しました（${r.status}）。`);

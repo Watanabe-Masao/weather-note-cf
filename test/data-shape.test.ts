@@ -11,7 +11,7 @@ import type { WeatherRow } from "../shared/types";
 import { parseTable } from "../worker/src/jma-tables";
 import { forecastUrl, normalizeForecast } from "../worker/src/open-meteo";
 
-const OPTIONAL_HOURLY_NAMES = ["snowfall", "wind_gusts_10m", "visibility", "cloud_cover"];
+const OPTIONAL_HOURLY_NAMES = ["snowfall", "wind_gusts_10m", "visibility", "cloud_cover", "cloud_cover_low", "cloud_cover_mid", "cloud_cover_high"];
 import { aggregateRecentDay, parseLivePoint } from "../worker/src/amedas";
 import { fixture } from "./fixture";
 
@@ -25,7 +25,7 @@ const SHAPES = JSON.parse(readFileSync(new URL("./data-shape.json", import.meta.
 /** 見本の時別に、任意の系列（forecastUrl が頼む降雪・突風・視程）を足す。 */
 function withOptional(j: { hourly: Record<string, unknown[]> }) {
   const n = (j.hourly.time as unknown[]).length;
-  for (const k of OPTIONAL_HOURLY_NAMES) j.hourly[k] = Array.from({ length: n }, (_, i) => (i % 5 === 0 ? null : k === "visibility" ? 24_140 : k === "cloud_cover" ? 62 : 0.5));
+  for (const k of OPTIONAL_HOURLY_NAMES) j.hourly[k] = Array.from({ length: n }, (_, i) => (i % 5 === 0 ? null : k === "visibility" ? 24_140 : k.startsWith("cloud_cover") ? 62 : 0.5));
   return j as never;
 }
 
