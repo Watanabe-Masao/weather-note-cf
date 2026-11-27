@@ -62,6 +62,9 @@ void InitEgl() {
 }
 
 // demo.cc の InitModel と同じ条件（輝度は 15 波長で事前計算、表は半精度、散乱の表はまとめる）。
+// 太陽スペクトル（白の基準：radiance を表示するときの white point に使う。demo の do_white_balance と同じ）
+std::vector<double> gWavelengths, gSolar;
+
 std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance) {
   constexpr int kLambdaMin = 360, kLambdaMax = 830;
   constexpr double kSolarIrradiance[48] = {1.11776, 1.14259, 1.01249, 1.14716, 1.72765, 1.73054, 1.6887, 1.61253, 1.91198, 2.03474, 2.02042, 2.02212,
@@ -94,6 +97,8 @@ std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance) {
     abs.push_back(kMaxOzoneNumberDensity * kOzoneCrossSection[(l - kLambdaMin) / 10]);
     albedo.push_back(kGroundAlbedo);
   }
+  gWavelengths = wl;
+  gSolar = sol;
   return std::unique_ptr<Model>(new Model(wl, sol, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, ray, {mie}, mieS, mieE, kMiePhaseFunctionG, ozone, abs,
                                           albedo, maxSunZenith, kLengthUnitInMeters, luminance ? 15 : 3, false, !std::getenv("KOCHI_FULL_PRECISION")));
 }
@@ -199,6 +204,9 @@ int main(int argc, char** argv) {
   const std::string out = std::string(argv[2]) + "/";
   const bool luminance = std::string(argv[3]) == "luminance";
   const double mieBeta = argc > 4 ? std::atof(argv[4]) : 5.328e-3;
+  // Mesa のシェーダーのキャッシュを使わない（11/27：キャッシュがあると、事前計算のシェーダーが別の回の版に取り違えられ、
+  // 3 色が同じ値（灰色）になった。消すと正しい値に戻る。Bruneton の事前計算は回ごとに中身の違う同じ形のシェーダーを何度も作る）。
+  setenv("MESA_SHADER_CACHE_DISABLE", "true", 1);
   InitEgl();
   const auto t0 = std::chrono::steady_clock::now();
   auto model = MakeModel(mieBeta, luminance);
@@ -237,6 +245,12 @@ int main(int argc, char** argv) {
   std::vector<std::string> ids;
   std::vector<float> dirs;
   std::ofstream meta(out + "meta.txt");
+  {
+    double r, g, b;
+    Model::ConvertSpectrumToLinearSrgb(gWavelengths, gSolar, &r, &g, &b);
+    const double m = (r + g + b) / 3.0;
+    meta << "white_point " << r / m << " " << g / m << " " << b / m << "\n";
+  }
   meta << "mode " << (luminance ? "luminance" : "radiance") << "\nprecompute_ms " << precomputeMs << "\nmie_beta " << mieBeta << "\nrenderer " << glGetString(GL_RENDERER) << "\n";
   auto flush = [&]() {
     if (caseId.empty()) return;

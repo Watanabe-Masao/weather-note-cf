@@ -1,15 +1,16 @@
 // β2 の比較ページ（#537）：高知の固定事例（太陽 +5°・−1.9°・−6.8°）で、太陽側・横・反対側を同じ視線・同じ露出で並べる。
 // - β1：今の空の絵（shared/skyScene.ts の晴天大気。表示用の色）
-// - OpenGL 参照：Bruneton のモデルを PC（Mesa llvmpipe）で計算した輝度（opengl/kochi_ref、research/sky-beta2/README.md）
-// - WebGL 2：同じ事前計算の表（半精度）を、このブラウザで同じ視線に読み出した輝度
-// 露出と色変換は 3 つで同じ（輝度 L［cd/m²、線形 sRGB］→ 1 − exp(−E·L) → sRGB の符号化）。β1 は物理の明るさを持たないので、色だけを並べる。
+// - OpenGL 参照：Bruneton のモデルを PC（Mesa llvmpipe）で計算した放射輝度（680・550・440 nm、opengl/kochi_ref、README.md）
+// - WebGL 2：同じ事前計算の表（半精度）を、このブラウザで同じ視線に読み出した放射輝度
+// 露出と色変換は OpenGL と WebGL 2 で同じ（放射輝度 L ÷ 白の基準（太陽スペクトル）→ 1 − exp(−E·L) → sRGB の符号化。E は 3 事例で同じ）。
+// β1 は物理の明るさを持たないので、色だけを並べる。
 import { skyAt } from "../../../shared/sky";
 import { type SceneInput, skyRgb, skyWeatherFrom } from "../../../shared/skyScene";
 
 type View = { id: string; diff: number | null; az: number; alt: number };
 type Case = { id: string; date: string; time: string; sunAlt: number; sunAz: number; views: View[] };
 type Cases = { observerHeightM: number; panorama: { az: number[]; alt: number[] }; cases: Case[] };
-type Ref = { meta: Record<string, Record<string, string[]>>; cases: Record<string, Record<string, { luminance: number[]; radiance: number[]; transmittance: number[] }>> };
+type Ref = { meta: Record<string, Record<string, string[]>>; cases: Record<string, Record<string, { radiance: number[]; transmittance: number[] }>> };
 
 const $ = (s: string) => document.querySelector(s) as HTMLElement;
 const log = (t: string) => {
@@ -18,8 +19,9 @@ const log = (t: string) => {
 const BOTTOM_RADIUS_KM = 6360;
 const DIMS = { transmittance: [256, 64], scattering: [256, 128, 32], irradiance: [64, 16] };
 
-/** 露出：既定は全部の事例で同じ（E_FIXED）。「場面ごと」は天頂の輝度で合わせた参考。 */
-const E_FIXED = 1.6e-4;
+/** 露出：既定は全部の事例で同じ（E_FIXED、Bruneton のデモの既定の露出 10）。「場面ごと」は天頂で合わせた参考。 */
+const E_FIXED = 10;
+let WHITE = [1, 1, 1];
 let autoExposure = false;
 
 function dir(azDeg: number, altDeg: number): [number, number, number] {
@@ -29,7 +31,7 @@ function dir(azDeg: number, altDeg: number): [number, number, number] {
 }
 const srgb = (v: number) => (v <= 0.0031308 ? 12.92 * v : 1.055 * Math.pow(v, 1 / 2.4) - 0.055);
 function tone(l: number[], e: number): number[] {
-  return l.slice(0, 3).map((x) => Math.round(255 * Math.min(1, Math.max(0, srgb(1 - Math.exp(-Math.max(0, x) * e))))));
+  return l.slice(0, 3).map((x, i) => Math.round(255 * Math.min(1, Math.max(0, srgb(1 - Math.exp((-Math.max(0, x) / WHITE[i]) * e))))));
 }
 const hex = (c: number[]) => "#" + c.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("");
 
@@ -50,12 +52,12 @@ const FRAGMENT = `
 uniform vec3 camera;
 uniform vec3 sun_direction;
 uniform highp sampler2D views;
-layout(location = 0) out vec4 luminance;
-vec3 GetSkyLuminance(vec3 camera, vec3 view_ray, float shadow_length, vec3 sun_direction, out vec3 transmittance);
+layout(location = 0) out vec4 radiance;
+vec3 GetSkyRadiance(vec3 camera, vec3 view_ray, float shadow_length, vec3 sun_direction, out vec3 transmittance);
 void main() {
   vec3 v = normalize(texelFetch(views, ivec2(gl_FragCoord.xy), 0).xyz);
   vec3 t;
-  luminance = vec4(GetSkyLuminance(camera, v, 0.0, sun_direction, t), 1.0);
+  radiance = vec4(GetSkyRadiance(camera, v, 0.0, sun_direction, t), 1.0);
 }`;
 
 class WebGlSky {
@@ -162,7 +164,7 @@ type Result = { c: Case; webViews: Float32Array; webPano: Float32Array; refPano:
 function exposureFor(r: Result): number {
   if (!autoExposure) return E_FIXED;
   const z = r.c.views.findIndex((v) => v.id === "zenith");
-  const lz = Math.max(1e-3, r.webViews[z * 3 + 1]);
+  const lz = Math.max(1e-7, r.webViews[z * 3 + 1] / WHITE[1]);
   return 0.431 / lz; // 天頂が 35%（1 − exp(−0.431)）
 }
 
@@ -220,7 +222,7 @@ function drawTable(results: Result[], ref: Ref) {
   host.textContent = "";
   const t = document.createElement("table");
   t.innerHTML =
-    "<thead><tr><th>事例</th><th>視線</th><th>β1</th><th>OpenGL</th><th>WebGL 2</th><th>輝度 cd/m²（OpenGL）</th><th>WebGL/OpenGL</th><th>透過率（680/550/440 nm）</th></tr></thead>";
+    "<thead><tr><th>事例</th><th>視線</th><th>β1</th><th>OpenGL</th><th>WebGL 2</th><th>放射輝度 mW/m²/sr/nm（680/550/440 nm、OpenGL）</th><th>WebGL/OpenGL</th><th>透過率（680/550/440 nm）</th></tr></thead>";
   const tb = document.createElement("tbody");
   for (const r of results) {
     const e = exposureFor(r);
@@ -230,10 +232,10 @@ function drawTable(results: Result[], ref: Ref) {
       const web = Array.from(r.webViews.subarray(k * 3, k * 3 + 3));
       const b1 = skyRgb(beta1Scene(r.c), v.az, v.alt).map((x) => x * 255);
       const sw = (c: number[]) => `<span class="sw" style="background:${hex(c)}"></span>${hex(c)}`;
-      const ratio = o.luminance.map((x, i) => (Math.abs(x) > 1e-3 ? (web[i] / x).toFixed(3) : "—")).join(" / ");
+      const ratio = o.radiance.map((x, i) => (Math.abs(x) > 1e-6 ? (web[i] / x).toFixed(3) : "—")).join(" / ");
       const name = v.id === "zenith" ? "天頂" : `${v.diff === 0 ? "太陽側" : v.diff === 90 ? "横" : "反対側"}・${v.alt}°`;
       const tr = document.createElement("tr");
-      tr.innerHTML = `<td>${r.c.id}</td><td>${name}</td><td>${sw(b1)}</td><td>${sw(tone(o.luminance, e))}</td><td>${sw(tone(web, e))}</td><td>${o.luminance.map((x) => x.toFixed(1)).join(" / ")}</td><td>${ratio}</td><td>${o.transmittance.map((x) => x.toFixed(3)).join(" / ")}</td>`;
+      tr.innerHTML = `<td>${r.c.id}</td><td>${name}</td><td>${sw(b1)}</td><td>${sw(tone(o.radiance, e))}</td><td>${sw(tone(web, e))}</td><td>${o.radiance.map((x) => (x * 1000).toFixed(2)).join(" / ")}</td><td>${ratio}</td><td>${o.transmittance.map((x) => x.toFixed(3)).join(" / ")}</td>`;
       tb.append(tr);
     });
   }
@@ -255,6 +257,7 @@ async function main() {
   ]);
   const tLoad = performance.now() - t0;
   const t1 = performance.now();
+  WHITE = (ref.meta.radiance.white_point?.[0] ?? "1 1 1").split(" ").map(Number);
   const sky = new WebGlSky(shader, { transmittance, scattering, single_mie_scattering, irradiance });
   const tInit = performance.now() - t1;
   const [az0, az1, azStep] = cases.panorama.az;
@@ -279,8 +282,8 @@ async function main() {
   let worst = 0;
   for (const r of results)
     r.c.views.forEach((v, k) => {
-      const o = ref.cases[r.c.id][v.id].luminance;
-      for (let i = 0; i < 3; i++) if (o[i] > 1) worst = Math.max(worst, Math.abs(r.webViews[k * 3 + i] / o[i] - 1));
+      const o = ref.cases[r.c.id][v.id].radiance;
+      for (let i = 0; i < 3; i++) if (o[i] > 1e-4) worst = Math.max(worst, Math.abs(r.webViews[k * 3 + i] / o[i] - 1));
     });
   const gl = sky.gl;
   const dbg = gl.getExtension("WEBGL_debug_renderer_info");
@@ -297,7 +300,7 @@ async function main() {
   (window as unknown as { __b2: unknown }).__b2 = { info, results: results.map((r) => ({ id: r.c.id, views: Array.from(r.webViews) })) };
   $("#info").textContent =
     `描画：${info.renderer}（描き先 ${info.floatTarget ? "32bit" : "16bit"}）・表の読み込み ${info.loadMs} ms・準備 ${info.initMs} ms・` +
-    `視線 ${info.viewsMs.join("/")} ms・帯（${w}×${h}）${info.panoMs.join("/")} ms・OpenGL との最大の差 ${(info.worstRelDiff * 100).toFixed(2)}%（輝度 1 cd/m² 超の視線）`;
+    `視線 ${info.viewsMs.join("/")} ms・帯（${w}×${h}）${info.panoMs.join("/")} ms・OpenGL との最大の差 ${(info.worstRelDiff * 100).toFixed(2)}%（放射輝度 0.1 mW/m²/sr/nm 超の視線）`;
   const render = () => {
     drawPanoramas(results, cases);
     drawTable(results, ref);
