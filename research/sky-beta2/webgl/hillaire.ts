@@ -76,15 +76,21 @@ vec2 transmittanceUv(float r, float mu) {
   float dMax = rho + H;
   return vec2((d - dMin) / (dMax - dMin), rho / H);
 }
-void uvToRMu(vec2 uv, out float r, out float mu) {
+// d は大気の上端までの距離（表の割り付けそのもの）。透過率の表はこれをそのまま積分の長さに使う（mu から上端との交点を
+// 求め直すと、上端の行 r＝topRadius で交点が 0 や不定になり、行が崩れる。11/27 レビュー）。
+void uvToRMuD(vec2 uv, out float r, out float mu, out float d) {
   float H = sqrt(topRadius * topRadius - bottomRadius * bottomRadius);
   float rho = H * uv.y;
   r = sqrt(rho * rho + bottomRadius * bottomRadius);
   float dMin = topRadius - r;
   float dMax = rho + H;
-  float d = dMin + uv.x * (dMax - dMin);
+  d = dMin + uv.x * (dMax - dMin);
   mu = d == 0.0 ? 1.0 : (H * H - rho * rho - d * d) / (2.0 * r * d);
   mu = clamp(mu, -1.0, 1.0);
+}
+void uvToRMu(vec2 uv, out float r, out float mu) {
+  float d;
+  uvToRMuD(uv, r, mu, d);
 }
 `;
 
@@ -96,11 +102,10 @@ const TRANSMITTANCE_FS = `${HEAD}${COMMON}
 uniform vec2 size;
 out vec4 color;
 void main() {
-  float r, mu;
-  uvToRMu((gl_FragCoord.xy - 0.5) / (size - 1.0), r, mu);
+  float r, mu, tMax;
+  uvToRMuD((gl_FragCoord.xy - 0.5) / (size - 1.0), r, mu, tMax);
   vec3 o = vec3(0.0, 0.0, r);
   vec3 d = vec3(sqrt(1.0 - mu * mu), 0.0, mu);
-  float tMax = raySphere(o, d, topRadius);
   const int N = 64;
   vec3 depth = vec3(0.0);
   float dt = tMax / float(N);
@@ -234,7 +239,8 @@ export class HillaireSky {
   private mLut: WebGLTexture;
   constructor(gl: WebGL2RenderingContext, steps = 64) {
     this.gl = gl;
-    this.steps = steps;
+    // シェーダーの繰り返しは 256 段まで（それより多い指定は 256 に、0 や負・数でない指定は 1 に。11/27 レビュー）
+    this.steps = Math.min(256, Math.max(1, Math.round(Number.isFinite(steps) ? steps : 64)));
     if (!gl.getExtension("EXT_color_buffer_float") && !gl.getExtension("EXT_color_buffer_half_float")) throw new Error("浮動小数の描き先が使えない");
     const t0 = performance.now();
     const quad = gl.createBuffer();

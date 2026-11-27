@@ -19,7 +19,7 @@
 - 大気の条件はその実装のデモの既定：Rayleigh（尺度高 8 km）、Mie（Ångström β 5.328e-3・α 0、尺度高 1.2 km、単散乱アルベド 0.9、g 0.8）、
   オゾン 300 DU、地面のアルベド 0.1、太陽スペクトルは実測。観測者は地表から 10 m
 - 2 通りで計算する：**luminance**（15 波長で事前計算し CIE の等色関数で積分した輝度。色の比較に使う）と **radiance**（3 波長の放射輝度。透過率はこちらで読む）。
-  luminance の表の透過率は最後の 3 波長分で、色の意味を持たない
+  luminance の表の透過率も Init が 680・550・440 nm で計算し直す（model.cc）。読む側を radiance にそろえている
 - 表は半精度（float16）。WebGL 2 でも RGBA16F のまま線形補間できる（iPhone で拡張が要らない）
 - 太陽の円盤は描かない（空の散乱光だけ）
 
@@ -33,10 +33,13 @@ python3 research/sky-beta2/tools/cases_txt.py research/sky-beta2/cases.json > /t
 sh research/sky-beta2/opengl/build.sh /tmp/b2          # → /tmp/b2/kochi_ref
 /tmp/b2/kochi_ref /tmp/cases.txt /tmp/b2/lum luminance  # 事前計算は llvmpipe で数分
 /tmp/b2/kochi_ref /tmp/cases.txt /tmp/b2/rad radiance
-# 3) 比較ページのデータと JS
-python3 research/sky-beta2/tools/pack.py /tmp/b2/lum /tmp/b2/rad research/sky-beta2/cases.json research/sky-beta2/webgl/data
+# 3) 多波長（15 波長を 3 波長ずつ 5 回。足し合わせの経路の確かめ）
+(cd /tmp/b2 && cp /tmp/cases.txt . && sh "$OLDPWD/research/sky-beta2/tools/spec.sh")   # → /tmp/b2/spec/g0〜g4
+python3 research/sky-beta2/tools/spectral.py /tmp/b2/spec research/sky-beta2/cases.json /tmp/b2/bruneton/atmosphere/constants.h /tmp/b2/spectral.json
+# 4) 比較ページのデータと JS
+python3 research/sky-beta2/tools/pack.py /tmp/b2/lum /tmp/b2/rad /tmp/b2/spectral.json research/sky-beta2/cases.json research/sky-beta2/webgl/data
 npx esbuild research/sky-beta2/webgl/compare.ts --bundle --format=iife --target=es2020 --outfile=research/sky-beta2/webgl/compare.js
-# 4) Chromium で確かめる（WebGL 2 は SwiftShader）
+# 5) Chromium で確かめる（WebGL 2 は SwiftShader）
 python3 research/sky-beta2/tools/check_web.py research/sky-beta2/webgl /tmp/b2/shots
 ```
 

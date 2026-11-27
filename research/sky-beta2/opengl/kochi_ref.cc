@@ -3,7 +3,8 @@
 // 大気の条件はデモ（atmosphere/demo/demo.cc）の既定に合わせる：標準的な空気分子（Rayleigh）・エアロゾル（Mie、Ångström β 5.328e-3、
 // α 0、高さの尺度 1.2 km、単散乱アルベド 0.9、g 0.8）・オゾン（300 DU）・地面のアルベド 0.1・太陽スペクトル（実測）。
 // 2 通りで動かす：luminance（15 波長で事前計算し CIE の等色関数で積分した輝度、cd/m²、線形 sRGB。色の比較に使う）と、
-// radiance（680・550・440 nm の放射輝度、W/m²/sr/nm。透過率はこちらの 3 波長で読む：luminance の表の透過率は最後の 3 波長の分で、色の意味を持たない）。
+// radiance（680・550・440 nm の放射輝度、W/m²/sr/nm）。透過率は radiance の 3 波長で読む（luminance の表の透過率も、Init が
+// 680・550・440 nm で計算し直している〔model.cc〕ので同じ波長だが、読む側を1つにそろえる。11/27 レビューで前の説明の誤りを直した）。
 // 散乱の表は Mie を分けて持つ（まとめると luminance で Mie の色が崩れる）。表は半精度（ブラウザの WebGL 2 版と同じ）。
 // 入力：cases.txt（tools/cases_txt.py が cases.json から作る）。出力：out/ に視線ごとの値（.bin）、帯（パノラマ）、事前計算の表（.dat）。
 //
@@ -61,7 +62,8 @@ void InitEgl() {
   std::cerr << "GL: " << glGetString(GL_VERSION) << " / " << glGetString(GL_RENDERER) << std::endl;
 }
 
-// demo.cc の InitModel と同じ条件（輝度は 15 波長で事前計算、表は半精度、散乱の表はまとめる）。
+// demo.cc の InitModel と同じ条件（輝度は 15 波長で事前計算、表は半精度）。ただし散乱の表は demo と違ってまとめず、Mie を分けて持つ（上の説明）。
+// 散乱の次数は Init() の既定の 4 次まで（深い薄明では、これより高い次数の寄与の大きさを確かめていない。11/27 レビュー）。
 // 太陽スペクトル（白の基準：radiance を表示するときの white point に使う。demo の do_white_balance と同じ）
 std::vector<double> gWavelengths, gSolar;
 
@@ -108,9 +110,14 @@ std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance, const std::vect
   if (gProfileW >= 0) {
     const double W = gProfileW, S1 = gProfileS1, S2 = gProfileS2;
     // Bruneton の層：exp_term·exp(exp_scale·h) + linear·h + const（下の層は幅 W）
+    // Bruneton は層の値を std::to_string（小数 6 桁）でシェーダーに書くので、下の層の exp(−W/S1) が小さいと桁が落ちる
+    // （W/S1 が 10 で数%、14.5 で 0 になり下の層が消える。11/27 レビュー）。W/S1 は 8 まで（exp ≈ 3.4e-4、ずれ 0.15% 以内）。
+    if (!(S1 > 0 && S2 > 0 && W >= 0 && W < 60000)) Die("2 層の分布：W は 0〜60 km、S1・S2 は正の値");
+    if (W > 0 && W / S1 > 8.0) Die("2 層の分布：W/S1 が 8 を超える（下の層の係数が小数 6 桁で崩れる）");
     mieLayers = {DensityProfileLayer(W, std::exp(-W / S1), 1.0 / S1, 0.0, 0.0), DensityProfileLayer(0.0, std::exp(W / S2), -1.0 / S2, 0.0, 0.0)};
     if (W == 0) mieLayers = {DensityProfileLayer(0.0, 1.0, -1.0 / S2, 0.0, 0.0)};
-    mieColumn = S1 * (1.0 - std::exp(-W / S1)) + S2;
+    // 縦の積分は大気の上端（地表から 60 km）まで
+    mieColumn = S1 * (1.0 - std::exp(-W / S1)) + S2 * (1.0 - std::exp(-(60000.0 - W) / S2));
   }
   std::vector<DensityProfileLayer> ozone = {DensityProfileLayer(25000.0, 0.0, 0.0, 1.0 / 15000.0, -2.0 / 3.0),
                                             DensityProfileLayer(0.0, 0.0, 0.0, -1.0 / 15000.0, 8.0 / 3.0)};

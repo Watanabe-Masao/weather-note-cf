@@ -65,6 +65,8 @@ def fit_two_layer(zc, ext, dz):
     for W in np.arange(0, 4001, 100.0):
         for S1 in [200, 400, 700, 1000, 1500, 2500]:
             for S2 in [300, 500, 700, 1000, 1300, 1700, 2200, 3000, 4000, 6000]:
+                if W / S1 > 8:  # kochi_ref が受け付けない（下の層の係数が小数 6 桁で崩れる。11/27 レビュー）
+                    continue
                 m = np.where(grid < W, np.exp((grid - W) / S1), np.exp(-(grid - W) / S2))
                 m = m / m.sum()
                 e = float(((m - obs) ** 2).sum())
