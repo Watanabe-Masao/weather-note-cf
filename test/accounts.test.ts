@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { COOKIE, LOCK_MS, MAX_FAILED, newPassword, PULL_PAGE, RESEARCH_CONSENT_VERSION } from "../worker/src/accounts";
+import { COOKIE, LOCK_MS, MAX_FAILED, newPassword, PULL_PAGE, RESEARCH_CONSENT_VERSION, SKY_CONSENT_VERSION } from "../worker/src/accounts";
 import worker from "../worker/src/index";
 import { d1 } from "./d1";
 
@@ -246,6 +246,26 @@ describe("the ground for analysis", () => {
     expect((await call("/api/admin/research", { cookie: t })).status).toBe(401);
     expect((await call("/api/admin/research", { cookie: a.cookie })).status).toBe(401); // a login is not enough
     expect((await call("/api/admin/export-token", { body: {}, cookie: t })).status).toBe(403);
+  });
+});
+
+describe("研究への協力：空の写真（11/27、研究ごとに選ぶ）", () => {
+  it("肌感の研究とは別の答えとして残り、肌感の答えと研究用の番号を変えない", async () => {
+    const a = await admin();
+    const p = await issue(a.cookie, "sato");
+    const t = (await login("sato", p.password)).cookie!;
+    const on = await call("/api/me/consent", { body: { granted: true, kind: "sky" }, cookie: t });
+    expect(on.body.user.researchSky).toMatchObject({ granted: true, version: SKY_CONSENT_VERSION });
+    expect(on.body.user.research.granted).toBe(false);
+    const before = env.DB.raw.prepare("SELECT research_id FROM users WHERE login_id = 'sato'").get();
+    const off = await call("/api/me/consent", { body: { granted: false, kind: "sky" }, cookie: t });
+    expect(off.body.user.researchSky.granted).toBe(false);
+    expect(env.DB.raw.prepare("SELECT research_id FROM users WHERE login_id = 'sato'").get()).toEqual(before);
+    expect(env.DB.raw.prepare("SELECT kind, granted FROM consents ORDER BY at, rowid").all()).toEqual([
+      { kind: "research-sky", granted: 1 },
+      { kind: "research-sky", granted: 0 },
+    ]);
+    expect((await call("/api/me/consent", { body: { granted: true, kind: "other" }, cookie: t })).status).toBe(400);
   });
 });
 

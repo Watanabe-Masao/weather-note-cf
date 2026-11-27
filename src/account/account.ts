@@ -13,6 +13,9 @@ export interface Me {
   role: "user" | "admin";
   research: { granted: boolean; version: number | null; at: number | null };
   consentVersion: number;
+  /** 空の写真の研究への協力（11/27〜。前の保存には無いことがある） */
+  researchSky?: { granted: boolean; version: number | null; at: number | null };
+  skyConsentVersion?: number;
 }
 
 export interface AccountView {
@@ -101,7 +104,8 @@ export async function logOut(): Promise<void> {
   set({ me: null });
 }
 
-export async function answerResearch(granted: boolean): Promise<void> {
-  const r = await api<{ user: Me }>("/api/me/consent", { granted });
+/** 研究への協力の答え。kind：feel＝肌感の研究（前からの答え）、sky＝空の写真の研究。 */
+export async function answerResearch(granted: boolean, kind: "feel" | "sky" = "feel"): Promise<void> {
+  const r = await api<{ user: Me }>("/api/me/consent", kind === "feel" ? { granted } : { granted, kind });
   set({ me: r.user });
 }

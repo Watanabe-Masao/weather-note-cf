@@ -6036,3 +6036,20 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .sky-beta { margin-top: var(--space-2); }
 .sky-trace { margin: 0; padding-left: var(--space-4); display: grid; gap: var(--space-1); font-size: var(--size-xs); color: var(--ink-secondary); }
 .sky-trace li.off b { font-weight: var(--weight-regular); }
+
+/* 空の写真（見本、管理者ページ、11/27） */
+.sp-file { display: inline-flex; align-items: center; min-height: 44px; margin: var(--space-4) 0; }
+.sp-file input { font: inherit; max-width: 100%; }
+.sp-thumb { display: block; width: 100%; max-height: 240px; object-fit: cover; border-radius: var(--radius-md); margin: var(--space-4) 0; }
+.sp-note { display: grid; gap: var(--space-4); margin: var(--space-4) 0; color: var(--ink-secondary); }
+.sp-note textarea { font: inherit; width: 100%; box-sizing: border-box; }
+.report dd small { display: block; color: var(--ink-secondary); }
+.report dd input[type="datetime-local"] { font: inherit; max-width: 100%; }
+.sp-after { margin-top: var(--space-4); padding: var(--space-5) var(--space-6); border-radius: var(--radius-md); background: var(--surface-inset); }
+.sp-after ul { margin: var(--space-4) 0 0; padding-left: 1.2em; }
+.sp-list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--space-4); }
+.sp-list small { display: block; color: var(--ink-secondary); }
+/* 研究への協力：研究ごとのチェック（11/27） */
+.consent-check { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-4); align-items: start; min-height: var(--tap-min); }
+.consent-check input { width: 22px; height: 22px; margin: var(--space-1) 0 0; }
+.consent-check small { display: block; }

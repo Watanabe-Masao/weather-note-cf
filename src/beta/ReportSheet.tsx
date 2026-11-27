@@ -20,6 +20,8 @@ import { bandOf, centreUnknown, type ComfortPrediction, LEARNING_LABELS, LEARNIN
 import { baselineOf, baselineStateOf, driversOfDay, historyOf, useBaselineHistory } from "./useBaseline";
 import { reports } from "./useReports";
 import { nightAt } from "./engine/observations";
+import { useAccount } from "../account/account";
+import { SkyPhotoSection } from "../account/SkyPhotoSection";
 
 interface Props {
   store: WeatherStore | null;
@@ -346,10 +348,32 @@ function PredictionCard({ prediction, reported, learning, station }: { predictio
 
 const labelOf = (v: number) => SENSATIONS.find((s) => s.value === v)?.label ?? "";
 
+type Mode = "feel" | "photo";
+const MODES: { id: Mode; label: string }[] = [
+  { id: "feel", label: "肌感" },
+  { id: "photo", label: "空の写真" },
+];
+
+/**
+ * 記録：肌感か、空の写真か（11/27 渡辺さん「記録タブで肌感か写真選択できるように」「ログインしてる他の協力者も送れるように」
+ * 「どの研究に協力するかチェックボックスを入れ、入れたものだけ表示」）。記録のボタンはログインしている人にだけ出る。
+ * 設定の「研究への協力」で入れた研究だけを出す。どれも入れていない人には、記録を出さずに選び方を案内する（11/27 渡辺さん「厳密に」）。
+ */
 export function ReportSheet(props: Props) {
+  const { me } = useAccount();
+  const modes = MODES.filter((m) => (m.id === "feel" ? me?.research.granted : me?.researchSky?.granted));
+  const [picked, setMode] = useState<Mode>("feel");
+  const mode = modes.some((m) => m.id === picked) ? picked : modes[0]?.id;
   return (
-    <ModalSheet title="今の感じ方を記録 β" onClose={props.onClose} className="report-sheet" size="fit">
-      <Body {...props} />
+    <ModalSheet title={modes.length > 1 ? "今を記録 β" : mode === "photo" ? "空の写真を記録 β" : "今の感じ方を記録 β"} onClose={props.onClose} className="report-sheet" size="fit">
+      {modes.length > 1 && <Segmented label="記録するもの" options={modes} value={mode!} onChange={setMode} />}
+      {mode === "photo" ? (
+        <SkyPhotoSection />
+      ) : mode === "feel" ? (
+        <Body {...props} />
+      ) : (
+        <p className="set-lead">記録するには、設定のアカウントにある「研究への協力」で、協力する研究（肌感・空の写真）を選んでください。選んだものだけ、ここに出ます。</p>
+      )}
     </ModalSheet>
   );
 }
