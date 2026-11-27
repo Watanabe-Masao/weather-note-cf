@@ -163,7 +163,7 @@ export function moonOutlook(wx: SkyWeather, moonAlt: number): { level: "見え�
         ? `（${coverText(wx, true)}）`
         : `（${wx.hour != null ? `${wx.hour - 1}時台 ` : ""}${wx.text ?? ""}・${wx.source}）`;
   if (wx.kind === "fog") return { level: "見えにくそう", note: `霧で、見えにくそう${from}` };
-  if (c == null) return { level: "分からない", note: "この時間の天気が無いので、見えるかは分からない" };
+  if (c == null) return { level: "分からない", note: "この時間の天気・全雲量がないので、見えるかは分からない" };
   if (c >= 0.8) return { level: "見えにくそう", note: `雲が多く、見えにくそう${from}` };
   if (c >= 0.35) return { level: "切れ間から", note: `雲の切れ間から見えるかも${from}` };
   return { level: "見える", note: `晴れていれば見える${from}` };
