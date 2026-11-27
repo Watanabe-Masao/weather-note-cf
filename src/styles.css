@@ -6021,3 +6021,18 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 @media (prefers-reduced-motion: no-preference) and (min-height: 760px) { .ms-caps[data-directed] .ms-cap[data-drop] { top: var(--cap-drop); height: calc(100% - var(--cap-drop)); } }
 /* コールドムーン：小さな画面だけ、絵を少し大きくして右を起点に（幹が左へ寄り、右に文字の余白。どのページも同じ寄せ方）。 */
 @media (max-width: 374px) { .ms-world svg.cw { transform: scale(1.12); transform-origin: 100% 50%; } }
+
+/* 見本（sample/sky-canvas、マージしない）：空の絵（Canvas 2D）と、出典・月の見えやすさ・軌道と目盛りの切り替え。 */
+.sky-stage .sky-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.sky-src { position: absolute; left: var(--space-3); right: var(--space-3); bottom: var(--space-3); margin: 0; padding: var(--space-1) var(--space-3); border-radius: var(--radius-md); background: var(--surface-overlay); font-size: var(--size-xs); color: var(--ink-secondary); pointer-events: none; display: grid; gap: var(--space-1); }
+.sky-src b { font-weight: var(--weight-bold); color: var(--ink-primary); }
+.sky-src.guess { border: var(--stroke-hair) dashed var(--ink-secondary); }
+.sky-src.none { border: var(--stroke-hair) dotted var(--ink-secondary); }
+.sky-guides { position: absolute; right: var(--space-3); top: var(--space-9); min-height: 44px; padding: var(--space-1) var(--space-3); border-radius: var(--radius-pill); border: var(--stroke-hair) solid var(--ink-secondary); background: var(--surface-overlay); color: var(--ink-secondary); font-size: var(--size-xs); }
+.sky-guides[aria-pressed="true"] { color: var(--ink-primary); border-color: var(--ink-primary); }
+.sky-stage.full .sky-guides { left: auto; right: calc(env(safe-area-inset-right, 0px) + var(--space-4)); top: calc(env(safe-area-inset-top, 0px) + var(--space-4)); }
+.sky-body-ring.dim { stroke-dasharray: 2 3; }
+.sky-src.below { position: static; margin-top: var(--space-2); background: none; padding: 0; }
+.sky-src.below.guess, .sky-src.below.none { border: 0; }
+.sky-src.below.guess::before { content: "推定・予報"; justify-self: start; padding: 0 var(--space-2); border: var(--stroke-hair) dashed var(--ink-secondary); border-radius: var(--radius-pill); font-size: var(--size-xs); }
+.sky-src.below.none::before { content: "天気なし"; justify-self: start; padding: 0 var(--space-2); border: var(--stroke-hair) dotted var(--ink-secondary); border-radius: var(--radius-pill); font-size: var(--size-xs); }
