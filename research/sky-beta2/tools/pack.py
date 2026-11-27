@@ -1,7 +1,7 @@
 """OpenGL 参照（opengl/kochi_ref）の出力 → WebGL 2 の比較ページが読むデータ（webgl/data/）。
 python3 research/sky-beta2/tools/pack.py <luminance の出力> <radiance の出力> <spectral.json> <cases.json> <webgl/data>
 - 事前計算の表（luminance：15 波長を CIE の等色関数で積分した輝度の表）を半精度（float16）に。iPhone の WebGL 2 で RGBA16F のまま線形補間できる
-- 視線ごとの値 → ref.json：輝度（luminance、cd/m²、線形 sRGB）、多波長を CPU で積分した輝度（spectral、tools/spectral.py。独立の確かめ）、
+- 視線ごとの値 → ref.json：輝度（luminance、cd/m²、線形 sRGB）、多波長を CPU で積分した輝度（spectral、tools/spectral.py。色の積分の経路の確かめ）、
   3 波長の放射輝度と透過率（radiance、680・550・440 nm。今までの近似と、透過率）
 - 帯（パノラマ）の輝度 → <case>.pano.f16
 - 非公開のページ（artifact）は任意の 2 進のファイルを配らないので、.f16 は base64 の文字（.f16.txt）で置く
