@@ -20,6 +20,8 @@ import { bandOf, centreUnknown, type ComfortPrediction, LEARNING_LABELS, LEARNIN
 import { baselineOf, baselineStateOf, driversOfDay, historyOf, useBaselineHistory } from "./useBaseline";
 import { reports } from "./useReports";
 import { nightAt } from "./engine/observations";
+import { useAccount } from "../account/account";
+import { SkyPhotoSection } from "../account/SkyPhotoSection";
 
 interface Props {
   store: WeatherStore | null;
@@ -346,10 +348,24 @@ function PredictionCard({ prediction, reported, learning, station }: { predictio
 
 const labelOf = (v: number) => SENSATIONS.find((s) => s.value === v)?.label ?? "";
 
+type Mode = "feel" | "photo";
+const MODES: { id: Mode; label: string }[] = [
+  { id: "feel", label: "肌感" },
+  { id: "photo", label: "空の写真" },
+];
+
+/**
+ * 記録：肌感か、空の写真か（11/27 渡辺さん「記録タブで肌感か写真選択できるように」）。空の写真は見本のあいだ管理者だけに見せる
+ * （写真の情報には位置が入る。ほかの人に開くかは、あとで決める）。
+ */
 export function ReportSheet(props: Props) {
+  const { me } = useAccount();
+  const [mode, setMode] = useState<Mode>("feel");
+  const canPhoto = me?.role === "admin";
   return (
-    <ModalSheet title="今の感じ方を記録 β" onClose={props.onClose} className="report-sheet" size="fit">
-      <Body {...props} />
+    <ModalSheet title={canPhoto ? "今を記録 β" : "今の感じ方を記録 β"} onClose={props.onClose} className="report-sheet" size="fit">
+      {canPhoto && <Segmented label="記録するもの" options={MODES} value={mode} onChange={setMode} />}
+      {mode === "photo" && canPhoto ? <SkyPhotoSection /> : <Body {...props} />}
     </ModalSheet>
   );
 }

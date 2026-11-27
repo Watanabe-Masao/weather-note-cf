@@ -14,16 +14,13 @@ import { EventPreviewSection, ResearchSection } from "../ui/Settings";
 import { api } from "./account";
 import { ForecastImportSection, UsersBody } from "./AdminSheet";
 import { MaintenanceBody } from "./MaintenanceSheet";
-import { SkyPhotoSection } from "./SkyPhotoSection";
 import type { ForecastTypesResponse, TypeSummary } from "../../shared/forecastTypes";
 
-type Tab = "ops" | "forecast" | "check" | "photos" | "users";
+type Tab = "ops" | "forecast" | "check" | "users";
 const TABS: { id: Tab; label: string }[] = [
   { id: "ops", label: "運用" },
   { id: "forecast", label: "予報" },
   { id: "check", label: "確認用" },
-  // 空の写真（見本、11/27）：空の絵の答え合わせに使う写真を上げる
-  { id: "photos", label: "空の写真" },
   { id: "users", label: "ユーザー" },
 ];
 const KEY = "weather-note:admin-tab";
@@ -148,7 +145,6 @@ function Body({ store, station }: { store: WeatherStore | null; station: string 
           <ResearchSection store={store} station={station} />
         </>
       )}
-      {tab === "photos" && <SkyPhotoSection />}
       {tab === "users" && <UsersBody />}
     </div>
   );
