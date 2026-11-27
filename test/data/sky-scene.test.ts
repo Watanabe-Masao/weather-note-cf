@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleBetween, clearLin, cloudAmount, cloudAt, coverText, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyHours, skyKindOf, skyRgb, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
+import { angleBetween, clearLin, cloudAmount, cloudAt, coverText, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyBasis, skyHours, skyKindOf, skyRgb, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
 import type { WeatherRow } from "../../shared/types";
 
 // 空の絵（β）：空色エンジン バージョンアップ計画書（11/27）段階 2 の受け入れ条件。晴天大気と雲を分けて線形の光量で合成する。
@@ -114,6 +114,35 @@ describe("空の絵（β）：予報の全雲量（#532 の 1）", () => {
     const w = skyWeatherFrom(rows, 2, "47893", 3); // 2時台（実績）を、3時の全雲量（予報）に近い時刻で見る
     expect(w).toMatchObject({ source: "実績", text: "晴" });
     expect(w.cover).toBeUndefined();
+  });
+});
+
+describe("空の絵（β）の根拠：絵の直下の1か所（11/27 渡辺さん「β の説明に一本化」）", () => {
+  const row = (n: number, extra: Partial<WeatherRow>): WeatherRow => ({ date: "2026-11-24", n, type: "forecast", ...extra }) as WeatherRow;
+  it("天気・全雲量の予報が無い：何が欠けているかを書き、降水量は事実として添えるだけ（雲の量は補わない）", () => {
+    const w = skyWeatherFrom([row(13, { rain: 0 })], 13, "47893", 12);
+    expect(skyBasis(w)).toEqual(["この時間の天気・全雲量の予報がないため、雲は描いていません。", "予報の降水量は0.0 mmです。"]);
+    expect(cloudAmount(w)).toBeNull();
+    expect(skyBasis(skyWeatherFrom([{ ...row(13, { rain: 0 }), type: "actual" } as WeatherRow], 13, "47893"))).toEqual(["この時間の天気・全雲量の記録がないため、雲は描いていません。", "観測の降水量は0.0 mmです。"]);
+    expect(skyBasis(skyWeatherFrom([], 13, "47893"))).toEqual(["この時間の天気・全雲量の記録・予報がないため、雲は描いていません。"]);
+  });
+  it("全雲量 0% で描いていないことと、情報が無くて描いていないことを言い分ける", () => {
+    const zero = skyBasis(skyWeatherFrom([row(12, { weather: "快晴", cover: 0 }), row(13, { weather: "快晴" })], 13, "47893", 12));
+    expect(zero[0]).toBe("12時の全雲量の予報が 0% のため、雲は描いていません。");
+    expect(zero[1]).toBe("12時台の天気は「快晴」（予報）です。");
+    expect(zero.join("")).not.toContain("ないため");
+  });
+  it("全雲量から・天気から・前後の時間から・霧", () => {
+    expect(skyBasis(skyWeatherFrom([row(12, { cover: 84 }), row(13, {})], 13, "47893", 12))).toEqual(["12時の全雲量の予報 84% から雲を描いています（雲の形と位置はイメージ）。", "この時間の天気の予報はありません。"]);
+    expect(skyBasis(skyWeatherFrom([row(13, { weather: "曇り" })], 13, "47893"))[0]).toBe("12時台の天気「曇り」（予報）から雲を描いています（全雲量がないため、雲の量は天気から決めたイメージ）。");
+    expect(skyBasis(skyWeatherFrom([row(13, {}), row(14, { weather: "晴" })], 13, "47893"))[0]).toContain("この時間の天気がないため、近い13時台の天気「晴」から");
+    expect(skyBasis(skyWeatherFrom([row(13, { weather: "霧" })], 13, "47893"))[0]).toContain("霧は雲の量にしないので、雲は描いていません");
+  });
+  it("空の帯の言葉と元は、詳細欄の「空の帯（参考）」にだけ（β には使っていないと書く）", () => {
+    const t = sceneTrace(base(NONE, { band: "雲の多い青空・12時台 雨 0.0mm（予報）" }));
+    expect(t.at(-1)).toMatchObject({ layer: "空の帯（参考）", used: false });
+    expect(t.at(-1)!.note).toContain("β の空の絵には使っていない");
+    expect(sceneTrace(base(NONE)).map((x) => x.layer)).not.toContain("空の帯（参考）");
   });
 });
 

@@ -15,7 +15,7 @@ import { moonSeen } from "../../shared/moonLook";
 import { DEFAULT_LAT_LON, solarAltitude, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
 import { jstToday } from "../../shared/dates";
 import { azDiff, magneticDeclination, project, tapCorrection } from "../../shared/skyLook";
-import { cloudAmount, coverText, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyHours, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
+import { cloudAmount, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyBasis, skyHours, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
 import { SkyCanvas } from "./SkyCanvas";
 import { useCamera } from "./useCamera";
 import { createPortal } from "react-dom";
@@ -270,6 +270,7 @@ export function SunSheet({
         moonLit: phaseAt.illuminated,
         wx: skyWx,
         seed: sceneSeed(station ?? "", date, skyH.n, cloudAmount(skyWx)),
+        band: `${skyNow.word}・${skyFrom.replace(/^空の色：/, "")}`,
       }
     : undefined;
   // 月の線（地平線より上だけ）を x・y の関数でつなぐ：下に入るとそこで切る。方位の線では 360°→0° をまたぐ所でも切る。
@@ -458,7 +459,8 @@ export function SunSheet({
         <span className="sun-now-phase">
           {phase}
           <small>
-            時間帯は{part}・{skyNow.word}
+            時間帯は{part}
+            {!scene && `・${skyNow.word}`}
           </small>
         </span>
         <span className="sun-now-alt">
@@ -467,7 +469,8 @@ export function SunSheet({
         </span>
       </div>
       {/* 空の色の元（11/20 渡辺さん「空の色に天気が反映しているのに天気の情報が出ていない」）：その時間の天気・日照・雨と、実績か予報か。 */}
-      <p className="sun-now-from">{skyFrom}</p>
+      {/* β を入れているときは、根拠は空の絵の直下の1か所だけ（空の帯の言葉と元は「どの入力で描いたか」の「空の帯（参考）」へ。11/27 渡辺さん）。 */}
+      {!scene && <p className="sun-now-from">{skyFrom}</p>}
       <div className="sun-now moon">
         {/* 11/19 渡辺さん「この回転や傾きをこっちにも」：出ている間は月のこよみの「見え方」と同じ（光っている側の傾き・模様の向き・
             高さの色）。地平線の下は暦の形のまま。 */}
@@ -888,13 +891,8 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
   const veil = scene && !stream ? moonVeil(scene) : 0;
   const [traceOpen, setTraceOpen] = useState(false);
   const outlook = scene && !stream ? moonOutlook(scene.wx, moon.altitude) : null;
-  const srcText = scene
-    ? scene.wx.source === "なし"
-      ? "空：この時間の天気が無いので、雲は描いていない"
-      : scene.wx.cover != null
-        ? `空：${coverText(scene.wx)}${scene.wx.cover > 0 ? "から描いた雲のイメージ" : "なので、雲は描いていない"}${scene.wx.text ? `・${scene.wx.hour != null ? `${scene.wx.hour - 1}時台の` : ""}天気 ${scene.wx.text}` : "・天気は無い"}`
-        : `空：${scene.wx.hour != null ? `${scene.wx.hour - 1}時台の` : ""}${scene.wx.text ?? ""}（${scene.wx.source}）から描いた雲のイメージ（全雲量が無いので、雲の量は天気から）`
-    : null;
+  // 空の絵の根拠（skyBasis）：絵の直下の1か所だけに（11/27 渡辺さん「β の説明に一本化」）。
+  const basis = scene ? skyBasis(scene.wx) : [];
   return (
     <>
     <div
@@ -1015,7 +1013,9 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
       {scene && !stream && full && (
         <>
           <p className={`sky-src ${scene.wx.source === "なし" ? "none" : scene.wx.source === "実績" ? "seen" : "guess"}`}>
-            {srcText}
+            {basis.map((t) => (
+              <span key={t}>{t}</span>
+            ))}
             {outlook && moon.altitude >= 0 && <b>月：{outlook.note}</b>}
           </p>
           <Button size="sm" className="sky-guides" aria-pressed={guidesOn} onClick={() => setGuidesOn((v) => !v)} onPointerDown={(e) => e.stopPropagation()}>
@@ -1036,9 +1036,10 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
     </div>
     {scene && !stream && !full && (
       <p className={`sky-src below ${scene.wx.source === "なし" ? "none" : scene.wx.source === "実績" ? "seen" : "guess"}`}>
-        {scene.wx.source !== "実績" && <span className="sky-src-tag">{scene.wx.source === "なし" ? "天気なし" : scene.wx.source === "前後の時間" ? "前後の時間から" : scene.wx.source}</span>}
+        {basis.map((t) => (
+          <span key={t}>{t}</span>
+        ))}
         {outlook && moon.altitude >= 0 && <b>月：{outlook.note}</b>}
-        {srcText}
       </p>
     )}
     {scene && !stream && !full && (
