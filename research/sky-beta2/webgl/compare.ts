@@ -294,7 +294,9 @@ async function main() {
   if (!hgl) throw new Error("WebGL 2 が使えない");
   // Hillaire の視線あたりの段数（?steps=192 などで変える。−6.8° の東の暗い弧が刻み数で動くかを見る）
   const steps = Number(new URLSearchParams(location.search).get("steps")) || 96;
-  const hil = new HillaireSky(hgl, steps);
+  // 多重散乱の表の大きさ（?ms=128 など。既定 32）
+  const msSize = Number(new URLSearchParams(location.search).get("ms")) || 32;
+  const hil = new HillaireSky(hgl, steps, msSize);
   const results: Result[] = [];
   for (const c of cases.cases) {
     const sun = dir(c.sunAz, c.sunAlt);
@@ -341,7 +343,7 @@ async function main() {
     panoMs: results.map((r) => +r.panoMs.toFixed(1)),
     worstRelDiff: +worst.toPrecision(3),
     exposures: results.map((r) => ({ id: r.c.id, fixed: E_FIXED, scene: +r.eScene.toPrecision(3), hilFixed: E_RAD, hilScene: +r.eHil.toPrecision(3) })),
-    hillaire: { lutMs: Math.round(hil.lutMs), panoMs: results.map((r) => +r.hilMs.toFixed(1)), steps: hil.steps },
+    hillaire: { lutMs: Math.round(hil.lutMs), panoMs: results.map((r) => +r.hilMs.toFixed(1)), steps: hil.steps, msSize: hil.msSize },
     userAgent: navigator.userAgent,
   };
   (window as unknown as { __b2: unknown }).__b2 = {

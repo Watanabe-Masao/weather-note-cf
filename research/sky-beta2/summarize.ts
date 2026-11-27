@@ -54,3 +54,24 @@ for (const c of cases.cases) {
   ext.push(`| ${c.id} | ${rw} | ${bw} | ${ratio.toFixed(1)} 倍 |`);
 }
 console.log([...lines, ...ext].join("\n"));
+
+// 暖かさの定義をそろえた表（11/27 外部レビュー）：参照は 15 波長の輝度（線形 sRGB、白で割らない。aerosol_table.py と同じ定義）。
+// 上の表の「暖かさ 参照」は 3 波長を白で割った値（旧定義）で、数字は表をまたいで比べない。
+type Lum = { luminance: number[] };
+const unified: string[] = [
+  "",
+  "### 暖かさ（統一の定義：15 波長の輝度、線形 sRGB、白で割らない）",
+  "",
+  "| 事例 | 高さ 3° の方位差ごと 0°・30°・60°・90°・100°・120°・150°・180°（参照） | 同じく β1 | 太陽側・横・反対側 20°・天頂（参照） | 同じく β1 |",
+  "|---|---|---|---|---|",
+];
+for (const c of cases.cases) {
+  const scene: SceneInput = { clear: skyAt(c.sunAlt, 1, 0, true), sunAlt: c.sunAlt, sunAz: c.sunAz, moonAlt: -30, moonAz: 0, moonLit: 0, wx: skyWeatherFrom([], 1, "47893"), seed: 1 };
+  const lum = (id: string) => (ref.cases[c.id][id] as unknown as Lum).luminance;
+  const row = c.views.filter((v) => v.alt === 3 && v.diff != null);
+  const hi = ["d0-a20", "d90-a20", "d180-a20", "zenith"].map((id) => c.views.find((v) => v.id === id)!);
+  unified.push(
+    `| ${c.id} | ${row.map((v) => f(warm(lum(v.id)))).join(" ")} | ${row.map((v) => f(warm(skyRgb(scene, v.az, v.alt).map(toLin)))).join(" ")} | ${hi.map((v) => f(warm(lum(v.id)))).join(" ")} | ${hi.map((v) => f(warm(skyRgb(scene, v.az, v.alt).map(toLin)))).join(" ")} |`,
+  );
+}
+console.log(unified.join("\n"));

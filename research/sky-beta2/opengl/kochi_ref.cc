@@ -62,8 +62,15 @@ void InitEgl() {
   std::cerr << "GL: " << glGetString(GL_VERSION) << " / " << glGetString(GL_RENDERER) << std::endl;
 }
 
+// 散乱の次数（環境変数 KOCHI_ORDERS、既定は Init() と同じ 4。深い薄明で高い次数の寄与を見るため。11/27 レビュー）
+unsigned ScatteringOrders() {
+  const char* e = std::getenv("KOCHI_ORDERS");
+  const int n = e ? std::atoi(e) : 4;
+  return n >= 2 && n <= 20 ? n : 4;
+}
+
 // demo.cc の InitModel と同じ条件（輝度は 15 波長で事前計算、表は半精度）。ただし散乱の表は demo と違ってまとめず、Mie を分けて持つ（上の説明）。
-// 散乱の次数は Init() の既定の 4 次まで（深い薄明では、これより高い次数の寄与の大きさを確かめていない。11/27 レビュー）。
+// 散乱の次数は既定で 4 次まで（KOCHI_ORDERS で変える）。
 // 太陽スペクトル（白の基準：radiance を表示するときの white point に使う。demo の do_white_balance と同じ）
 std::vector<double> gWavelengths, gSolar;
 
@@ -148,7 +155,7 @@ std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance, const std::vect
     }
     std::unique_ptr<Model> m(new Model(w3, s3, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, r3, mieLayers, ms3, me3, kMiePhaseFunctionG, ozone, a3, al3,
                                        maxSunZenith, kLengthUnitInMeters, 3, false, !std::getenv("KOCHI_FULL_PRECISION")));
-    m->Init();
+    m->Init(ScatteringOrders());
     return m;
   }
   // Init() はここで呼ぶ（11/27）：Model は波長の配列を参照で持ち、Init() の中でシェーダーを作るときに読む。この関数の外で
@@ -156,7 +163,7 @@ std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance, const std::vect
   // demo.cc も InitModel の中で Init() を呼んでいる。
   std::unique_ptr<Model> m(new Model(wl, sol, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, ray, mieLayers, mieS, mieE, kMiePhaseFunctionG, ozone, abs, albedo,
                                      maxSunZenith, kLengthUnitInMeters, luminance ? 15 : 3, false, !std::getenv("KOCHI_FULL_PRECISION")));
-  m->Init();
+  m->Init(ScatteringOrders());
   return m;
 }
 

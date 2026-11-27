@@ -192,11 +192,12 @@ uniform vec3 camera;
 uniform vec3 sunDir;
 uniform vec3 solar;
 uniform int steps;
+uniform vec2 multiSize;
 layout(location = 0) out vec4 radiance;
 layout(location = 1) out vec4 transmittanceOut;
 vec3 multi(float r, float muS) {
   vec2 uv = vec2(muS * 0.5 + 0.5, (r - bottomRadius) / (topRadius - bottomRadius));
-  return texture(multiLut, 0.5 / 32.0 + clamp(uv, 0.0, 1.0) * (1.0 - 1.0 / 32.0)).rgb;
+  return texture(multiLut, 0.5 / multiSize + clamp(uv, 0.0, 1.0) * (1.0 - 1.0 / multiSize)).rgb;
 }
 void main() {
   vec3 d = normalize(texelFetch(views, ivec2(gl_FragCoord.xy), 0).xyz);
@@ -237,7 +238,10 @@ export class HillaireSky {
   steps: number;
   private tLut: WebGLTexture;
   private mLut: WebGLTexture;
-  constructor(gl: WebGL2RenderingContext, steps = 64) {
+  /** 多重散乱の表の大きさ（太陽の天頂角の余弦 × 高さ。既定 32×32。−6.8° が表の間の線形補間になるので、細かくして差を見る。11/27 レビュー） */
+  msSize: number;
+  constructor(gl: WebGL2RenderingContext, steps = 64, msSize = 32) {
+    this.msSize = Math.min(512, Math.max(8, Math.round(Number.isFinite(msSize) ? msSize : 32)));
     this.gl = gl;
     // シェーダーの繰り返しは 256 段まで（それより多い指定は 256 に、0 や負・数でない指定は 1 に。11/27 レビュー）
     this.steps = Math.min(256, Math.max(1, Math.round(Number.isFinite(steps) ? steps : 64)));
@@ -251,7 +255,7 @@ export class HillaireSky {
     const tp = this.program(TRANSMITTANCE_FS);
     this.tLut = this.renderLut(tp, 256, 64, () => undefined);
     const mp = this.program(MULTI_FS);
-    this.mLut = this.renderLut(mp, 32, 32, () => this.bind(mp, "transmittanceLut", this.tLut, 0));
+    this.mLut = this.renderLut(mp, this.msSize, this.msSize, () => this.bind(mp, "transmittanceLut", this.tLut, 0));
     this.sky = this.program(SKY_FS);
     gl.finish(); // 表ができるまで待つ
     this.lutMs = performance.now() - t0;
@@ -328,6 +332,7 @@ export class HillaireSky {
     gl.useProgram(p);
     this.bind(p, "transmittanceLut", this.tLut, 0);
     this.bind(p, "multiLut", this.mLut, 1);
+    gl.uniform2f(gl.getUniformLocation(p, "multiSize"), this.msSize, this.msSize);
     gl.uniform3f(gl.getUniformLocation(p, "camera"), 0, 0, HILLAIRE_PARAMS.bottomRadius + heightM / 1000);
     gl.uniform3f(gl.getUniformLocation(p, "sunDir"), ...sun);
     gl.uniform3fv(gl.getUniformLocation(p, "solar"), HILLAIRE_PARAMS.solarIrradiance);
