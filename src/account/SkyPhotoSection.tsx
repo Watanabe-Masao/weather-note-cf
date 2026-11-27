@@ -9,7 +9,7 @@
 import { useMemo, useState } from "react";
 import { solarAltitude, solarAzimuth } from "../../shared/sunTimes";
 import { Button, Chip } from "../ui/kit";
-import { RAIN_LEVELS, type RainLevel, type Sky, SKIES } from "../../shared/nowWeather";
+import { type Intensity, intensitiesOf, intensityTitle, type Sky, SKIES } from "../../shared/nowWeather";
 import { useAccount } from "./account";
 import { compass16, type PhotoExif, readExif, takenIso } from "./exif";
 
@@ -54,7 +54,7 @@ export function SkyPhotoSection() {
   const [when, setWhen] = useState<string | null>(null);
   const [dir, setDir] = useState<number | null>(null);
   const [sky, setSky] = useState<Sky | null>(null);
-  const [rain, setRain] = useState<RainLevel | null>(null);
+  const [intensity, setIntensity] = useState<Intensity | null>(null);
   const [look, setLook] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [shown, setShown] = useState(false);
@@ -130,15 +130,15 @@ export function SkyPhotoSection() {
             <p className="set-help">撮った時の天気（天気の記録にも入ります）</p>
             <div className="chip-row" role="group" aria-label="撮った時の天気">
               {SKIES.map((k) => (
-                <Chip key={k.id} on={sky === k.id} onClick={() => { setSky(sky === k.id ? null : k.id); setRain(null); }}>
+                <Chip key={k.id} on={sky === k.id} onClick={() => { setSky(sky === k.id ? null : k.id); setIntensity(null); }}>
                   {k.label}
                 </Chip>
               ))}
             </div>
-            {sky === "rain" && (
-              <div className="chip-row" role="group" aria-label="雨の強さ">
-                {RAIN_LEVELS.map((k) => (
-                  <Chip key={k.id} on={rain === k.id} onClick={() => setRain(rain === k.id ? null : k.id)}>
+            {intensitiesOf(sky) && (
+              <div className="chip-row" role="group" aria-label={intensityTitle(sky)!}>
+                {intensitiesOf(sky)!.map((k) => (
+                  <Chip key={k.id} on={intensity === k.id} onClick={() => setIntensity(intensity === k.id ? null : k.id)}>
                     {k.label}
                   </Chip>
                 ))}

@@ -105,7 +105,7 @@ def api(path, q):
     if path == "/api/me/notify":
         return {"settings": {"enabled": True, "times": ["07:30", "12:30", "18:30"], "days": [1, 2, 3, 4, 5]}, "devices": 1}
     if path == "/api/me/weather":
-        return {"list": [{"id": "feel:r1", "source": "feel", "at": "2026-11-10T02:00:00Z", "sky": "rain", "rain": "para", "station": "74181"}]}
+        return {"list": [{"id": "feel:r1", "source": "feel", "at": "2026-11-10T02:00:00Z", "sky": "rain", "intensity": "para", "station": "74181"}]}
     if path == "/api/push/key":
         return {"publicKey": "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8"}
     if path == "/api/reports/sync":
@@ -1722,7 +1722,10 @@ with sync_playwright() as p:
         check("R11 強さを選ぶまで記録できない", b.is_disabled() and "雨の強さ" in b.inner_text(), b.inner_text())
         pg.locator(".msheet.report-sheet .chip", has_text="ザーザー").first.click(); calm()
         check("R12 強さを選ぶと記録できる", not b.is_disabled())
+        pg.locator(".msheet.report-sheet .chip", has_text="雪").first.click(); calm()
+        snow = pg.locator(".msheet.report-sheet [aria-label='雪の強さ'] .chip").all_inner_texts()
         if os.environ.get("WN_WSHOT"): pg.locator(".msheet.report-sheet").last.screenshot(path=os.environ["WN_WSHOT"])
+        check("R12b 雪を選ぶと雪の強さが 4 段（雨の強さは消え、選び直し）", snow == ["チラチラ", "シンシン", "ドカドカ", "吹雪"] and pg.locator(".msheet.report-sheet [aria-label='雨の強さ']").count() == 0 and b.is_disabled(), str(snow))
         check("R13 一覧に肌感の記録の天気も出る", "肌感の記録から" in txt("section[aria-labelledby='ws-list']"))
         st = small_text(); check("R14 11px より小さい文字がない（今の天気）", not st, str(st))
         layout_ok("R15", "今の天気")

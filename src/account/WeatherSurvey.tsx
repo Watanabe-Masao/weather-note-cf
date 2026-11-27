@@ -4,7 +4,7 @@
 // アメダスとの突き合わせは、今は作らない。
 
 import { useEffect, useState } from "react";
-import { rainLabel, RAIN_LEVELS, type RainLevel, type Sky, SKIES, skyLabel } from "../../shared/nowWeather";
+import { type Intensity, intensitiesOf, intensityLabel, intensityTitle, type Sky, SKIES, skyLabel } from "../../shared/nowWeather";
 import { newId } from "../beta/reports";
 import { Button, Chip } from "../ui/kit";
 import { api } from "./account";
@@ -14,7 +14,7 @@ interface Obs {
   source: string;
   at: string;
   sky: string;
-  rain: string | null;
+  intensity: string | null;
   station: string | null;
 }
 
@@ -23,7 +23,7 @@ const jst = (iso: string) => new Date(iso).toLocaleString("ja-JP", { timeZone: "
 
 export function WeatherSurvey({ station }: { station: string }) {
   const [sky, setSky] = useState<Sky | null>(null);
-  const [rain, setRain] = useState<RainLevel | null>(null);
+  const [intensity, setIntensity] = useState<Intensity | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -35,9 +35,11 @@ export function WeatherSurvey({ station }: { station: string }) {
       .catch(() => setList([]));
   }, []);
 
+  const levels = intensitiesOf(sky);
+
   const pickSky = (v: Sky) => {
     setSky(v);
-    if (v !== "rain") setRain(null);
+    if (v !== sky) setIntensity(null);
     setSaved(null);
   };
   const send = () => {
@@ -45,12 +47,12 @@ export function WeatherSurvey({ station }: { station: string }) {
     setBusy(true);
     setError(null);
     const at = new Date().toISOString();
-    api<{ list: Obs[] }>("/api/me/weather", { id: newId(), at, sky, rain: sky === "rain" ? rain : null, station })
+    api<{ list: Obs[] }>("/api/me/weather", { id: newId(), at, sky, intensity: levels ? intensity : null, station })
       .then((r) => {
         setList(r.list);
-        setSaved(`${jst(at)} ${skyLabel(sky)}${sky === "rain" && rain ? `（${rainLabel(rain)}）` : ""}を記録しました`);
+        setSaved(`${jst(at)} ${skyLabel(sky)}${levels && intensity ? `（${intensityLabel(intensity)}）` : ""}を記録しました`);
         setSky(null);
-        setRain(null);
+        setIntensity(null);
       })
       .catch((e) => setError((e as Error).message))
       .finally(() => setBusy(false));
@@ -76,20 +78,20 @@ export function WeatherSurvey({ station }: { station: string }) {
             </Chip>
           ))}
         </div>
-        {sky === "rain" && (
+        {levels && (
           <>
-            <p className="set-help">雨の強さ（見た・聞いた感じ）</p>
-            <div className="chip-row" role="group" aria-label="雨の強さ">
-              {RAIN_LEVELS.map((k) => (
-                <Chip key={k.id} on={rain === k.id} onClick={() => setRain(rain === k.id ? null : k.id)}>
+            <p className="set-help">{intensityTitle(sky)}（見た・聞いた感じ）</p>
+            <div className="chip-row" role="group" aria-label={intensityTitle(sky)!}>
+              {levels.map((k) => (
+                <Chip key={k.id} on={intensity === k.id} onClick={() => setIntensity(intensity === k.id ? null : k.id)}>
                   {k.label}
                 </Chip>
               ))}
             </div>
           </>
         )}
-        <Button kind="primary" block busy={busy} disabled={!sky || busy || (sky === "rain" && !rain)} onClick={send}>
-          {!sky ? "天気を選んでください" : sky === "rain" && !rain ? "雨の強さを選んでください" : "記録する"}
+        <Button kind="primary" block busy={busy} disabled={!sky || busy || (!!levels && !intensity)} onClick={send}>
+          {!sky ? "天気を選んでください" : levels && !intensity ? `${intensityTitle(sky)}を選んでください` : "記録する"}
         </Button>
         {saved && (
           <p className="set-help" role="status">
@@ -110,7 +112,7 @@ export function WeatherSurvey({ station }: { station: string }) {
               <li key={o.id}>
                 <b>
                   {jst(o.at)}・{skyLabel(o.sky) ?? o.sky}
-                  {o.rain ? `（${rainLabel(o.rain) ?? o.rain}）` : ""}
+                  {o.intensity ? `（${intensityLabel(o.intensity) ?? o.intensity}）` : ""}
                 </b>
                 <small>
                   {SOURCE[o.source] ?? o.source}から

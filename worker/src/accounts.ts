@@ -64,7 +64,7 @@ import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typho
 import { alertSummary } from "./typhoonWatch";
 import { doneOnce } from "./once";
 import { migrate } from "./migrate";
-import { isRainLevel } from "../../shared/nowWeather";
+import { isIntensityOf } from "../../shared/nowWeather";
 import { checkSurvey, deleteSurvey, listMine, mirrorFeel, saveSurvey, WEATHER_OBS_MIGRATIONS, WEATHER_OBS_SCHEMA, WeatherObsRefused } from "./weatherObs";
 
 // ---- schema ----------------------------------------------------------------------------------
@@ -525,7 +525,7 @@ interface ReportIn {
   exposure?: unknown;
   windFelt?: unknown;
   sky?: unknown;
-  rain?: unknown;
+  intensity?: unknown;
 }
 
 const oneOf = (v: unknown, list: readonly string[]) => v === undefined || (typeof v === "string" && list.includes(v));
@@ -540,7 +540,7 @@ export function validReport(r: Record<string, unknown>): boolean {
   if (typeof r.at !== "string" || r.at.length > 40 || !Number.isFinite(Date.parse(r.at))) return false;
   if (r.deleted === true) return true;
   if (!intIn(r.sensation, -3, 3)) return false;
-  if (r.rain !== undefined && !(r.sky === "rain" && isRainLevel(r.rain))) return false;
+  if (r.intensity !== undefined && !isIntensityOf(r.sky, r.intensity)) return false;
   if (!oneOf(r.thermalPreference, ["warmer", "same", "cooler"]) || !oneOf(r.drinkPreference, ["warm", "either", "cold"])) return false;
   if (r.preferenceVersion !== undefined && !intIn(r.preferenceVersion, 1, 100)) return false;
   if (r.scaleVersion !== undefined && !intIn(r.scaleVersion, 1, 100)) return false;

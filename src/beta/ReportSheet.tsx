@@ -11,7 +11,7 @@ import { FeelContext } from "../ui/FeelBar";
 import { Button, InfoNote, Segmented } from "../ui/kit";
 import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
-import { reportMoment, DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type RainLevel, RAIN_LEVELS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
+import { reportMoment, DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Intensity, intensitiesOf, intensityTitle, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
 import { noteAnswered } from "./AfterAnswer";
 import { feelOn } from "../feelSeason";
@@ -42,7 +42,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   const [exposure, setExposure] = useState<Exposure | null>(null);
   const [windFelt, setWindFelt] = useState<WindFelt | null>(null);
   const [sky, setSky] = useState<Sky | null>(null);
-  const [rain, setRain] = useState<RainLevel | null>(null);
+  const [intensity, setIntensity] = useState<Intensity | null>(null);
   const [thermal, setThermal] = useState<ThermalPreference | null>(null);
   const [drink, setDrink] = useState<DrinkPreference | null>(null);
   // Opened now; sent maybe much later (from a notification): both are kept, and the prediction is
@@ -151,7 +151,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       exposure: nightNow(now) ? null : exposure,
       windFelt,
       sky,
-      ...(sky === "rain" && rain ? { rain } : {}),
+      ...(intensity && intensitiesOf(sky)?.some((k) => k.id === intensity) ? { intensity } : {}),
       ...(thermal ? { thermalPreference: thermal } : {}),
       ...(drink ? { drinkPreference: drink } : {}),
       preferenceVersion: PREFERENCE_VERSION,
@@ -242,11 +242,11 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       <PredictionCard prediction={preview} reported={sensation} learning={beta.learning} station={station} />
       <div className="set-row">
         <span className="set-label">今の天気</span>
-        <Segmented label="今の天気" value={sky ?? ("" as Sky)} options={SKIES.map((k) => ({ id: k.id, label: k.label }))} onChange={setSky} />
-        {sky === "rain" && (
-          <Segmented label="雨の強さ" value={rain ?? ("" as RainLevel)} options={RAIN_LEVELS.map((k) => ({ id: k.id, label: k.label }))} onChange={setRain} onReselect={() => setRain(null)} />
+        <Segmented label="今の天気" value={sky ?? ("" as Sky)} options={SKIES.map((k) => ({ id: k.id, label: k.label }))} onChange={(v) => { setSky(v); if (v !== sky) setIntensity(null); }} />
+        {intensitiesOf(sky) && (
+          <Segmented key={sky} label={intensityTitle(sky)!} value={intensity ?? ("" as Intensity)} options={intensitiesOf(sky)!.map((k) => ({ id: k.id, label: k.label }))} onChange={setIntensity} onReselect={() => setIntensity(null)} />
         )}
-        <InfoNote more="その時刻の予報の天気は自動で添えるので、あとで予報と実際を突き合わせられます。雨の強さは、分かれば選んでください（選ばなくても記録できます）。">見たままの空を選んでください。</InfoNote>
+        <InfoNote more="その時刻の予報の天気は自動で添えるので、あとで予報と実際を突き合わせられます。雨・雪の強さは、分かれば選んでください（選ばなくても記録できます）。">見たままの空を選んでください。</InfoNote>
       </div>
       {waitingFor == null && !quality.trainable && (
         <p className="report-quality warn">この記録は保存しますが、学習には使いません（{quality.reason}）。</p>

@@ -283,23 +283,27 @@ describe("今の天気（#553）：アンケートと、肌感の記録の今の
     expect(env.DB.raw.prepare("SELECT research_id FROM users WHERE login_id = 'sato'").get()).toEqual(before);
   });
 
-  it("アンケート：雨なら強さを残し、雨でなければ強さを捨てる。取り消せる", async () => {
+  it("アンケート：雨・雪ならその強さを残し、ほかの空では強さを捨てる。取り消せる", async () => {
     const a = await admin();
     const at = recent();
-    const r1 = await call("/api/me/weather", { body: { id: "survey-0001", at, sky: "rain", rain: "zaa", station: "74181" }, cookie: a.cookie });
+    const r1 = await call("/api/me/weather", { body: { id: "survey-0001", at, sky: "rain", intensity: "zaa", station: "74181" }, cookie: a.cookie });
     expect(r1.status).toBe(200);
-    expect(r1.body.list).toEqual([{ id: "survey-0001", source: "survey", at, sky: "rain", rain: "zaa", station: "74181" }]);
-    await call("/api/me/weather", { body: { id: "survey-0002", at, sky: "sunny", rain: "gou" }, cookie: a.cookie });
-    expect(env.DB.raw.prepare("SELECT rain FROM weather_obs WHERE id = 'survey-0002'").get()).toEqual({ rain: null });
+    expect(r1.body.list).toEqual([{ id: "survey-0001", source: "survey", at, sky: "rain", intensity: "zaa", station: "74181" }]);
+    await call("/api/me/weather", { body: { id: "survey-0002", at, sky: "sunny", intensity: "gou" }, cookie: a.cookie });
+    expect(env.DB.raw.prepare("SELECT intensity FROM weather_obs WHERE id = 'survey-0002'").get()).toEqual({ intensity: null });
+    await call("/api/me/weather", { body: { id: "survey-0009", at, sky: "snow", intensity: "fubuki" }, cookie: a.cookie });
+    expect(env.DB.raw.prepare("SELECT intensity FROM weather_obs WHERE id = 'survey-0009'").get()).toEqual({ intensity: "fubuki" });
     const off = await call("/api/me/weather/delete", { body: { id: "survey-0001" }, cookie: a.cookie });
-    expect(off.body.list.map((o: { id: string }) => o.id)).toEqual(["survey-0002"]);
+    expect(off.body.list.map((o: { id: string }) => o.id).sort()).toEqual(["survey-0002", "survey-0009"]);
   });
 
   it("おかしな答え・先の時刻・古すぎる時刻・ログインなしは受けない", async () => {
     const a = await admin();
     const bad = [
       { id: "survey-0003", at: recent(), sky: "storm" },
-      { id: "survey-0004", at: recent(), sky: "rain", rain: "dosha" },
+      { id: "survey-0004", at: recent(), sky: "rain", intensity: "dosha" },
+      { id: "survey-0010", at: recent(), sky: "rain", intensity: "shin" }, // 雪の強さを雨に
+      { id: "survey-0011", at: recent(), sky: "snow", intensity: "zaa" }, // 雨の強さを雪に
       { id: "survey-0005", at: new Date(Date.now() + 3_600_000).toISOString(), sky: "sunny" },
       { id: "survey-0006", at: "2026-01-01T00:00:00Z", sky: "sunny" },
       { id: "x", at: recent(), sky: "sunny" },
@@ -311,10 +315,10 @@ describe("今の天気（#553）：アンケートと、肌感の記録の今の
 
   it("肌感の記録の今の天気（と雨の強さ）を写し、記録を消すと天気の記録からも消える", async () => {
     const a = await admin();
-    await call("/api/reports/sync", { body: { push: [rep("f1", 1, { sky: "rain", rain: "para" }), rep("f2", 1, { sky: "cloudy" }), rep("f3", 1)] }, cookie: a.cookie });
-    expect(env.DB.raw.prepare("SELECT id, source, ref_id, sky, rain, deleted FROM weather_obs ORDER BY id").all()).toEqual([
-      { id: "feel:f1", source: "feel", ref_id: "f1", sky: "rain", rain: "para", deleted: 0 },
-      { id: "feel:f2", source: "feel", ref_id: "f2", sky: "cloudy", rain: null, deleted: 0 },
+    await call("/api/reports/sync", { body: { push: [rep("f1", 1, { sky: "rain", intensity: "para" }), rep("f2", 1, { sky: "cloudy" }), rep("f3", 1)] }, cookie: a.cookie });
+    expect(env.DB.raw.prepare("SELECT id, source, ref_id, sky, intensity, deleted FROM weather_obs ORDER BY id").all()).toEqual([
+      { id: "feel:f1", source: "feel", ref_id: "f1", sky: "rain", intensity: "para", deleted: 0 },
+      { id: "feel:f2", source: "feel", ref_id: "f2", sky: "cloudy", intensity: null, deleted: 0 },
     ]);
     await call("/api/reports/sync", { body: { push: [rep("f1", 2, { deleted: true })] }, cookie: a.cookie });
     expect(env.DB.raw.prepare("SELECT deleted FROM weather_obs WHERE id = 'feel:f1'").get()).toEqual({ deleted: 1 });
@@ -335,9 +339,9 @@ describe("今の天気（#553）：アンケートと、肌感の記録の今の
     expect(env.DB.raw.prepare("SELECT id, source, sky FROM weather_obs").all()).toEqual([{ id: "feel:old1", source: "feel", sky: "thin" }]);
   });
 
-  it("雨でないのに雨の強さがある肌感の記録は受けない", async () => {
+  it("その空のものでない強さがある肌感の記録は受けない", async () => {
     const a = await admin();
-    await call("/api/reports/sync", { body: { push: [rep("g1", 1, { sky: "sunny", rain: "zaa" })] }, cookie: a.cookie });
+    await call("/api/reports/sync", { body: { push: [rep("g1", 1, { sky: "sunny", intensity: "zaa" }), rep("g2", 1, { sky: "snow", intensity: "zaa" })] }, cookie: a.cookie });
     expect(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM reports").get()).toEqual({ n: 0 });
   });
 

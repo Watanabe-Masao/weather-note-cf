@@ -9,7 +9,7 @@
 
 import { type IDBPDatabase, openDB } from "idb";
 import { inputQuality } from "./quality";
-import type { RainLevel, Sky } from "../../shared/nowWeather";
+import type { Intensity, Sky } from "../../shared/nowWeather";
 import { FEEL_TRANSFORM, feelOf, type FeelSettings, radiationOf, wind10Of } from "../../shared/feel";
 import { feel2Warming } from "../../shared/sunLoad";
 import { sunshineRadiation } from "../../shared/mrt";
@@ -88,7 +88,7 @@ export type DrinkPreference = (typeof DRINK_PREFERENCES)[number]["id"];
 export const PREFERENCE_VERSION = 1;
 
 /** What the sky looks like where the person is (JMA's observation words), to set beside the forecast. Shared with the weather record (#553). */
-export { SKIES, type Sky, RAIN_LEVELS, type RainLevel } from "../../shared/nowWeather";
+export { SKIES, type Sky, type Intensity, intensitiesOf, intensityTitle } from "../../shared/nowWeather";
 
 export type Sensation = (typeof SENSATIONS)[number]["value"];
 export type Exposure = (typeof EXPOSURES)[number]["id"];
@@ -218,8 +218,8 @@ export interface Report {
   windFelt: WindFelt;
   /** The sky the person saw (reports before it was asked have none). */
   sky?: Sky;
-  /** How hard the rain was, when the sky was rain (#553; reports before it have none). */
-  rain?: RainLevel;
+  /** How hard the rain or snow fell, when the sky was rain or snow (#553; reports before it have none). */
+  intensity?: Intensity;
   /** The two optional preference questions (#63 P1). Undefined = not answered; reports without
    *  `preferenceVersion` were made before the questions existed. */
   thermalPreference?: ThermalPreference;
