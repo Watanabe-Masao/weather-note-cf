@@ -41,6 +41,6 @@ for c in cases["cases"]:
         for v in c["views"]
     }
     p = np.fromfile(os.path.join(lum_dir, c["id"] + ".pano.lum.f32"), dtype="<f4")
-    p.astype("<f2").tofile(os.path.join(out, c["id"] + ".pano.f16"))
+    np.clip(p, -65504, 65504).astype("<f2").tofile(os.path.join(out, c["id"] + ".pano.f16"))  # 太陽のすぐそばは半精度の上限を超える
 json.dump(ref, open(os.path.join(out, "ref.json"), "w"), ensure_ascii=False, indent=1)
 print("ok", out)

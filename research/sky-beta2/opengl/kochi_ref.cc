@@ -16,6 +16,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -94,7 +95,7 @@ std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance) {
     albedo.push_back(kGroundAlbedo);
   }
   return std::unique_ptr<Model>(new Model(wl, sol, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, ray, {mie}, mieS, mieE, kMiePhaseFunctionG, ozone, abs,
-                                          albedo, maxSunZenith, kLengthUnitInMeters, luminance ? 15 : 3, false, true));
+                                          albedo, maxSunZenith, kLengthUnitInMeters, luminance ? 15 : 3, false, !std::getenv("KOCHI_FULL_PRECISION")));
 }
 
 const char* kVertex = R"(#version 330
