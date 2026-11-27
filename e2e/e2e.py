@@ -34,7 +34,7 @@ def row0(d, kind="actual"):
             "humidity": round(55 + 30 * r.random()), "wind": round(1 + 4 * r.random(), 1),
             "dayWeather": SKY[d.toordinal() % len(SKY)], "snow": (2.0 if (d.year, d.day) == (2025, 8) else 0), "pressure": round(1012 + 8 * r.random(), 1), "gust": round(6 + 6 * r.random(), 1), "humidityMin": round(30 + 20 * r.random()), "sun": round(9 * r.random(), 1), "temp": round(mx - 4, 1), "raw": {"max": str(mx)}, "quality": {}, "unpublished": []}
 
-ME = {"id": "u1", "loginId": "masao", "name": "渡辺", "role": "admin", "research": {"granted": False, "version": None, "at": None}, "consentVersion": 1}
+ME = {"id": "u1", "loginId": "masao", "name": "渡辺", "role": "admin", "research": {"granted": True, "version": 2, "at": 1762800000000}, "consentVersion": 2}
 LOGGED_IN = os.environ.get("WN_LOGGED_OUT") != "1"
 
 # 近づいている台風 (/api/typhoon): one made-up typhoon (台風14号 テスト) south of Kochi, its 強風域 holding
