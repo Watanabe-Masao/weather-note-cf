@@ -1,23 +1,22 @@
 // 磁北の方位を真北にそろえる（空の写真、段階 1a。2026-11-28）。
-// 国土地理院「磁気偏角の近似式（2020.0 年値）」をそのまま使う（原典：国土地理院 地磁気 近似式のページ、11/28 に読んだ）。
+// 国土地理院「磁気偏角の近似式（2020.0 年値）」をそのまま使う（「空を見上げる」の shared/skyLook.ts と同じ式。1 か所にまとめた）（原典：国土地理院 地磁気 近似式のページ、11/28 に読んだ）。
 //   D = 8°15.822′ + 18.462′Δφ − 7.726′Δλ + 0.007′Δφ² − 0.007′ΔφΔλ − 0.655′Δλ²
 //   Δφ = 緯度 − 37°、Δλ = 経度 − 138°（度）。D は真北から反時計回り（西）を正。
 // 原典の注意：日本のまわりの広い分布の 2 次近似で、局所的な異常は入らない。離島では精度が落ちる。
 // 原典の例（東京 35°41′N・139°42′E → 西偏 7°36.5′）と同じになることをテストで確かめる。高知（33.5667, 133.5483）は 7°33.8′。
 // 2020.0 年からの年ごとの変化は入れていない（その分のずれは残る。版の名前で区別する）。
 
+import { magneticDeclination } from "./skyLook";
+
 export const DECLINATION_MODEL = "gsi2020.0";
 
 /** 近似式を使う範囲（日本のまわり、おおよそ）。外は「直せない」。 */
 const inJapan = (lat: number, lon: number) => lat >= 20 && lat <= 46 && lon >= 122 && lon <= 154;
 
-/** 西偏を正にした偏角（度）。範囲の外は null。 */
+/** 西偏を正にした偏角（度）。式は「空を見上げる」と同じもの（shared/skyLook.ts の magneticDeclination）を使う。範囲の外は null。 */
 export function westDeclination(lat: number, lon: number): number | null {
   if (!Number.isFinite(lat) || !Number.isFinite(lon) || !inJapan(lat, lon)) return null;
-  const a = lat - 37;
-  const b = lon - 138;
-  const minutes = 8 * 60 + 15.822 + 18.462 * a - 7.726 * b + 0.007 * a * a - 0.007 * a * b - 0.655 * b * b;
-  return minutes / 60;
+  return magneticDeclination(lat, lon);
 }
 
 export interface TrueBearing {
