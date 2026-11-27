@@ -260,8 +260,29 @@ export interface SceneInput {
 }
 
 /** 晴天大気（雲なし）。値は表示用の色（sRGB）を線形 RGB に戻したもので、物理の放射輝度ではない（物理版とは区別して受け渡す）：天頂・地平の色の間を高さで、太陽の側の地平線の暖色、昼の太陽のまわり、夜の月のまわり。 */
+/**
+ * 地平の下地の夕焼けの暖色を、太陽との方位差で弱める（11/27 渡辺さん「夕焼けの方位表現」修正依頼）。
+ * skyAt の地平の色は空の帯向けの代表色（低い太陽の暖色を含む一色）なので、そのまま全方位の下地にすると、
+ * 太陽から離れた方向まで地平が桃橙色の帯になる。太陽側の低空は暖色のまま、方位差 35° から 120° にかけて、
+ * 同じ輝度の中立色へなめらかに寄せる（反対側も少し残す：WARM_KEEP）。方位差は北をまたいでも最短の角。
+ * 暖かくない地平（赤 ≦ 青：昼の空・深い薄明）は変えない。日没後に反対側の空が淡く色づく表現は β2（#537）で比べる。
+ */
+const WARM_FADE: [number, number] = [35, 120];
+const WARM_KEEP = 0.2;
+export function azimuthDiff(a: number, b: number): number {
+  return Math.abs((((a - b) % 360) + 540) % 360 - 180);
+}
+export function horizonBase(s: SceneInput, az: number): Rgb {
+  const h = lin(hexRgb(s.clear.horizon));
+  const warm = smooth(0, 0.12, h[0] - h[2]);
+  if (warm <= 0) return h;
+  const y = 0.2126 * h[0] + 0.7152 * h[1] + 0.0722 * h[2];
+  const away = smooth(WARM_FADE[0], WARM_FADE[1], azimuthDiff(az, s.sunAz));
+  return mix(h, [y, y, y], warm * away * (1 - WARM_KEEP));
+}
+
 export function clearLin(s: SceneInput, az: number, alt: number): Rgb {
-  let c = mix(lin(hexRgb(s.clear.horizon)), lin(hexRgb(s.clear.zenith)), smooth(0, 55, alt));
+  let c = mix(horizonBase(s, az), lin(hexRgb(s.clear.zenith)), smooth(0, 55, alt));
   const sunAng = angleBetween(az, alt, s.sunAz, s.sunAlt);
   const twilight = smooth(-11, -2, s.sunAlt) * (1 - smooth(4, 14, s.sunAlt));
   const lowAlt = 1 - smooth(0, 28, alt);
