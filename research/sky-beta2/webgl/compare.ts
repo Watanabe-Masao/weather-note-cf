@@ -7,7 +7,7 @@
 // β1 は物理の明るさを持たないので、色だけを並べる。
 import { skyAt } from "../../../shared/sky";
 import { type SceneInput, skyRgb, skyWeatherFrom } from "../../../shared/skyScene";
-import { HillaireSky } from "./hillaire";
+import { HILLAIRE_PARAMS, HillaireSky } from "./hillaire";
 import { SPECTRAL_CMF, SPECTRAL_GROUPS, SPECTRAL_STEP_NM } from "./hillaire_spectral";
 
 type View = { id: string; diff: number | null; az: number; alt: number };
@@ -307,10 +307,12 @@ async function main() {
   const steps = Number(new URLSearchParams(location.search).get("steps")) || 96;
   // 多重散乱の表の大きさ（?ms=32 など。既定 128：32 では深い薄明の暗い側が 2〜3 倍明るく出た、results.md 21:40）
   const msSize = Number(new URLSearchParams(location.search).get("ms")) || 128;
-  const hil = new HillaireSky(hgl, steps, msSize);
+  // 太陽の放射照度の倍率（?sun=1.0343 など。地球と太陽の距離による (1 au / r)²。既定 1＝平均の距離。11/27 比較）
+  const sunScale = Number(new URLSearchParams(location.search).get("sun")) || 1;
+  const hil = new HillaireSky(hgl, steps, msSize, { solarIrradiance: HILLAIRE_PARAMS.solarIrradiance.map((x) => x * sunScale) });
   // Hillaire の多波長（15 波長を 3 波長ずつ 5 回、Bruneton と同じ等色関数で輝度に。11/27）。表は 5 組（作る時間に含む）
   const tSpec0 = performance.now();
-  const spec = SPECTRAL_GROUPS.map((g) => new HillaireSky(hgl, steps, msSize, g));
+  const spec = SPECTRAL_GROUPS.map((g) => new HillaireSky(hgl, steps, msSize, { ...g, solarIrradiance: g.solarIrradiance.map((x) => x * sunScale) }));
   const specLutMs = performance.now() - tSpec0;
   const XYZ_TO_SRGB = [
     [3.2406, -1.5372, -0.4986],
@@ -395,7 +397,7 @@ async function main() {
     panoMs: results.map((r) => +r.panoMs.toFixed(1)),
     worstRelDiff: +worst.toPrecision(3),
     exposures: results.map((r) => ({ id: r.c.id, fixed: E_FIXED, scene: +r.eScene.toPrecision(3), hilFixed: E_RAD, hilScene: +r.eHil.toPrecision(3) })),
-    hillaire: { lutMs: Math.round(hil.lutMs), panoMs: results.map((r) => +r.hilMs.toFixed(1)), steps: hil.steps, msSize: hil.msSize, spectralLutMs: Math.round(specLutMs), spectralPanoMs: results.map((r) => +r.specMs.toFixed(1)) },
+    hillaire: { lutMs: Math.round(hil.lutMs), panoMs: results.map((r) => +r.hilMs.toFixed(1)), steps: hil.steps, msSize: hil.msSize, spectralLutMs: Math.round(specLutMs), sunScale, spectralPanoMs: results.map((r) => +r.specMs.toFixed(1)) },
     userAgent: navigator.userAgent,
   };
   (window as unknown as { __b2: unknown }).__b2 = {
