@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { angleBetween, clearLin, cloudAmount, cloudAt, coverText, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyBasis, skyHours, skyKindOf, skyRgb, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
+import { skyAt } from "../../shared/sky";
+import { angleBetween, azimuthDiff, clearLin, horizonBase, cloudAmount, cloudAt, coverText, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyBasis, skyHours, skyKindOf, skyRgb, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
 import type { WeatherRow } from "../../shared/types";
 
 // 空の絵（β）：空色エンジン バージョンアップ計画書（11/27）段階 2 の受け入れ条件。晴天大気と雲を分けて線形の光量で合成する。
@@ -205,6 +206,43 @@ describe("空色エンジン 段階 2 の受け入れ条件", () => {
     expect(sceneTrace(base(wx("雨")))[1].note).toContain("1時台の雨（実績）");
     expect(sceneTrace(base(wx(null, "予報", { cover: 0.62, coverAt: 2, coverSource: "予報" })))[1].note).toContain("2時の全雲量 62%（予報）");
     expect(t[2].used).toBe(false);
+  });
+});
+
+describe("空の絵（β）：夕焼けの暖色は太陽の方位に寄せる（11/27 修正依頼、11/23 16:30 の画面）", () => {
+  // 太陽高度 +5°、晴れ（雲を描かない）、同じ露出。低空（高さ 3°）で、太陽の方向と方位差 60°・100°・180°。
+  const SUN_AZ = 245;
+  const at = (sunAlt: number, d: number, alt = 3) =>
+    skyRgb(base(NONE, { clear: skyAt(sunAlt, 1, 0, true), sunAlt, sunAz: SUN_AZ, moonAlt: -30 }), (SUN_AZ + d + 360) % 360, alt);
+  const warmth = (c: number[]) => c[0] - c[2];
+  it("太陽側は暖かく、横で弱まり、100°・180° では広い橙色の帯にならない（左右どちらに回しても同じ）", () => {
+    const w = [0, 60, 100, 180].map((d) => warmth(at(5, d)));
+    expect(w[0]).toBeGreaterThan(w[1]);
+    expect(w[1]).toBeGreaterThan(w[2]);
+    expect(w[2]).toBeLessThan(w[0] * 0.35);
+    expect(w[3]).toBeLessThan(w[0] * 0.35);
+    expect(at(5, -100)).toEqual(at(5, 100));
+  });
+  it("方位を 1° ずつ回しても色が急に切り替わらない（北をまたいでも）。太陽高度 0° 付近の段差も戻らない", () => {
+    for (const sunAlt of [5, 0.25, 0, -1.9]) {
+      let prev = at(sunAlt, 0);
+      for (let d = 1; d <= 360; d++) {
+        const c = at(sunAlt, d);
+        expect(Math.max(...c.map((v, i) => Math.abs(v - prev[i])))).toBeLessThan(6 / 255);
+        prev = c;
+      }
+    }
+    expect(azimuthDiff(350, 10)).toBe(20);
+    expect(azimuthDiff(10, 350)).toBe(20);
+    for (let k = 0; k < 48; k++) {
+      const a = at(2 - k * 0.25, 0);
+      const b = at(2 - (k + 1) * 0.25, 0);
+      expect(Math.max(...a.map((v, i) => Math.abs(v - b[i])))).toBeLessThan(16 / 255);
+    }
+  });
+  it("暖かくない地平（昼の空）は方位で変えない", () => {
+    const noon = base(NONE, { clear: skyAt(40, 1, 0, false), sunAlt: 40, sunAz: 180 });
+    for (const az of [0, 90, 180, 270]) expect(horizonBase(noon, az)).toEqual(horizonBase(noon, 180));
   });
 });
 
