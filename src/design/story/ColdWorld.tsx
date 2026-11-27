@@ -452,11 +452,13 @@ export function ColdWorld(): ReactElement {
         <mask id="cw-land" maskUnits="userSpaceOnUse" x={-700} y={-400} width={1800} height={2000} style={ALPHA_MASK}>
           <path d={land} fill="#ffffff" />
           <path d={TRUNK3_D} fill="#ffffff" />
+          {/* 描き込んだ幹（穴・二股）は、見えている絵と同じぼかし（cw-trunk-mask・cw-fork-mask）をかけて形に使う。ぼかしを
+              かけないと、見えない上下の端（穴の幹の上の雪のこぶなど）まで沈め・光がかかり、空に四角い影が出た（#525、11/27 の iPhone 実機）。 */}
           {/* 中景の林は稜線より上へ伸びるので、その形も地上として沈める。 */}
           <image href={A("middle-c2")} x={BG_MID.x} y={BG_MID.y} width={BG_MID.w} height={BG_MID.h} />
           <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} />
-          <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} />
-          <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} />
+          <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} mask="url(#cw-trunk-mask)" />
+          <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} mask="url(#cw-fork-mask)" />
         </mask>
         {/* 穴の口（穴の中のコガラは口の形に切る）。 */}
         {/* 月の光が届いた眠るコガラ（顔の所が明るく、外へやわらかく消える。青白い月の色。明るい所は月のある左上へ少し寄せる＝光の向きと縁の陰影をそろえる）。 */}
@@ -476,8 +478,8 @@ export function ColdWorld(): ReactElement {
         <mask id="cw-trunk-light-mask" maskUnits="userSpaceOnUse" x={BIRCH.x - 60} y={-340} width={180} height={1060} style={ALPHA_MASK}>
           <path d={TRUNK3_D} fill="#ffffff" />
           <image href={A("trunk-plain")} x={PLAIN_IMG.x} y={PLAIN_IMG.y} width={PLAIN_IMG.w} height={PLAIN_IMG.h} />
-          <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} />
-          <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} />
+          <image href={A("trunk-hole")} x={TRUNK_IMG.x} y={TRUNK_IMG.y} width={TRUNK_IMG.w} height={TRUNK_IMG.h} mask="url(#cw-trunk-mask)" />
+          <image href={A("trunk-fork")} x={FORK_IMG.x} y={FORK_IMG.y} width={FORK_IMG.w} height={FORK_IMG.h} mask="url(#cw-fork-mask)" />
         </mask>
         <linearGradient id="cw-bark-moon-g" x1="0" y1="0" x2="1" y2="0">
           <stop offset="0" stopColor="#dfe8fb" stopOpacity={0.95} />
