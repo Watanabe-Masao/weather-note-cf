@@ -7,6 +7,7 @@
 // β1 は物理の明るさを持たないので、色だけを並べる。
 import { skyAt } from "../../../shared/sky";
 import { type SceneInput, skyRgb, skyWeatherFrom } from "../../../shared/skyScene";
+import { HillaireSky } from "./hillaire";
 
 type View = { id: string; diff: number | null; az: number; alt: number };
 type Case = { id: string; date: string; time: string; sunAlt: number; sunAz: number; views: View[] };
@@ -166,7 +167,7 @@ function beta1Scene(c: Case): SceneInput {
   return { clear: skyAt(c.sunAlt, 1, 0, true), sunAlt: c.sunAlt, sunAz: c.sunAz, moonAlt: -30, moonAz: 0, moonLit: 0, wx: skyWeatherFrom([], 1, "47893"), seed: 1 };
 }
 
-type Result = { c: Case; webViews: Float32Array; webPano: Float32Array; refPano: Float32Array; viewMs: number; panoMs: number; eScene: number };
+type Result = { c: Case; webViews: Float32Array; webPano: Float32Array; refPano: Float32Array; viewMs: number; panoMs: number; eScene: number; hilViews: Float32Array; hilTrans: Float32Array; hilPano: Float32Array; hilMs: number; eHil: number };
 
 /** 場面ごとの露出：帯（地平線より上）の輝度（G）の 99 パーセンタイルが 0.9（1 − exp(−2.3)）になる値。 */
 function sceneExposure(pano: Float32Array, w: number, h: number, alt0: number, altStep: number): number {
@@ -193,7 +194,7 @@ function drawPanoramas(results: Result[], cases: Cases) {
     title.textContent = `${r.c.id}：${r.c.date} ${r.c.time}・太陽 高さ ${r.c.sunAlt.toFixed(1)}°・方位 ${r.c.sunAz.toFixed(1)}°`;
     const ex = document.createElement("p");
     ex.className = "ex";
-    ex.textContent = `露出 E：固定 ${fmtE(E_FIXED)}（3 事例で同じ）／場面ごと ${fmtE(r.eScene)}（固定の ${(r.eScene / E_FIXED).toFixed(1)} 倍）`;
+    ex.textContent = `露出 E：Bruneton（輝度）固定 ${fmtE(E_FIXED)}／場面ごと ${fmtE(r.eScene)}（固定の ${(r.eScene / E_FIXED).toFixed(1)} 倍）。Hillaire（3 波長の放射輝度）固定 ${E_RAD}／場面ごと ${r.eHil.toFixed(1)}（${(r.eHil / E_RAD).toFixed(1)} 倍）`;
     box.append(title, ex);
     const at = (pano: Float32Array, i: number, j: number) => Array.from(pano.subarray((j * w + i) * 3, (j * w + i) * 3 + 3));
     const rows: [string, (i: number, j: number) => number[]][] = [
@@ -201,6 +202,8 @@ function drawPanoramas(results: Result[], cases: Cases) {
       ["OpenGL 参照（PC）・固定の露出", (i, j) => tone(at(r.refPano, i, j), E_FIXED)],
       ["WebGL 2（このブラウザ）・固定の露出", (i, j) => tone(at(r.webPano, i, j), E_FIXED)],
       ["WebGL 2（このブラウザ）・場面ごとの露出", (i, j) => tone(at(r.webPano, i, j), r.eScene)],
+      ["Hillaire（WebGL 2、3 波長）・固定の露出", (i, j) => tone(at(r.hilPano, i, j), E_RAD, WHITE)],
+      ["Hillaire（WebGL 2、3 波長）・場面ごとの露出", (i, j) => tone(at(r.hilPano, i, j), r.eHil, WHITE)],
     ];
     for (const [label, px] of rows) {
       const fig = document.createElement("figure");
@@ -239,7 +242,7 @@ function drawTable(results: Result[], ref: Ref) {
   host.textContent = "";
   const t = document.createElement("table");
   t.innerHTML =
-    "<thead><tr><th>事例</th><th>視線</th><th>β1</th><th>WebGL 2（場面ごと）</th><th>多波長 CPU（場面ごと）</th><th>3 波長の近似</th><th>輝度 cd/m²（OpenGL、15 波長）</th><th>多波長 CPU / 15 波長</th><th>WebGL / OpenGL</th><th>透過率（680/550/440 nm）</th></tr></thead>";
+    "<thead><tr><th>事例</th><th>視線</th><th>β1</th><th>WebGL 2（場面ごと）</th><th>多波長 CPU（場面ごと）</th><th>3 波長の近似</th><th>Hillaire（3 波長）</th><th>輝度 cd/m²（OpenGL、15 波長）</th><th>多波長 CPU / 15 波長</th><th>WebGL / OpenGL</th><th>550 nm mW（Bruneton / Hillaire）</th><th>透過率（680/550/440 nm）</th></tr></thead>";
   const tb = document.createElement("tbody");
   for (const r of results) {
     r.c.views.forEach((v, k) => {
@@ -248,12 +251,13 @@ function drawTable(results: Result[], ref: Ref) {
       const web = Array.from(r.webViews.subarray(k * 3, k * 3 + 3));
       const b1 = skyRgb(beta1Scene(r.c), v.az, v.alt).map((x) => x * 255);
       const sw = (c: number[]) => `<span class="sw" style="background:${hex(c)}"></span>${hex(c)}`;
+      const hil = Array.from(r.hilViews.subarray(k * 3, k * 3 + 3));
       const ratio = (a: number[], b: number[]) => a.map((x, i) => (Math.abs(b[i]) > 1 ? (x / b[i]).toFixed(3) : "—")).join(" / ");
       const name = v.id === "zenith" ? "天頂" : `${v.diff === 0 ? "太陽側" : v.diff === 90 ? "横" : "反対側"}・${v.alt}°`;
       const tr = document.createElement("tr");
       tr.innerHTML = `<td>${r.c.id}</td><td>${name}</td><td>${sw(b1)}</td><td>${sw(tone(web, r.eScene))}</td><td>${sw(tone(o.spectral, r.eScene))}</td><td>${sw(
         tone(o.radiance, E_RAD, WHITE),
-      )}</td><td>${o.luminance.map((x) => x.toFixed(1)).join(" / ")}</td><td>${ratio(o.spectral, o.luminance)}</td><td>${ratio(web, o.luminance)}</td><td>${o.transmittance
+      )}</td><td>${sw(tone(hil, E_RAD, WHITE))}</td><td>${o.luminance.map((x) => x.toFixed(1)).join(" / ")}</td><td>${ratio(o.spectral, o.luminance)}</td><td>${ratio(web, o.luminance)}</td><td>${(o.radiance[1] * 1000).toFixed(2)} / ${(hil[1] * 1000).toFixed(2)}</td><td>${o.transmittance
         .map((x) => x.toFixed(3))
         .join(" / ")}</td>`;
       tb.append(tr);
@@ -286,6 +290,9 @@ async function main() {
   const h = Math.round((alt1 - alt0) / altStep) + 1;
   const pano = new Float32Array(w * h * 3);
   for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) pano.set(dir(az0 + i * azStep, alt0 + j * altStep), (j * w + i) * 3);
+  const hgl = document.createElement("canvas").getContext("webgl2");
+  if (!hgl) throw new Error("WebGL 2 が使えない");
+  const hil = new HillaireSky(hgl, 96);
   const results: Result[] = [];
   for (const c of cases.cases) {
     const sun = dir(c.sunAz, c.sunAlt);
@@ -296,7 +303,24 @@ async function main() {
     const raw = await f16(`data/${c.id}.pano.f16`);
     const refPano = new Float32Array(raw.length);
     for (let k = 0; k < raw.length; k++) refPano[k] = halfToFloat(raw[k]);
-    results.push({ c, webViews: a.lum, webPano: b.lum, refPano, viewMs: a.ms, panoMs: b.ms, eScene: sceneExposure(b.lum, w, h, alt0, altStep) });
+    const hv = hil.evaluate(vd, c.views.length, 1, cases.observerHeightM, sun);
+    const hp = hil.evaluate(pano, w, h, cases.observerHeightM, sun);
+    const hpWhite = new Float32Array(hp.rad.length);
+    for (let k = 0; k < hp.rad.length; k++) hpWhite[k] = hp.rad[k] / WHITE[k % 3];
+    results.push({
+      c,
+      webViews: a.lum,
+      webPano: b.lum,
+      refPano,
+      viewMs: a.ms,
+      panoMs: b.ms,
+      eScene: sceneExposure(b.lum, w, h, alt0, altStep),
+      hilViews: hv.rad,
+      hilTrans: hv.trans,
+      hilPano: hp.rad,
+      hilMs: hp.ms,
+      eHil: sceneExposure(hpWhite, w, h, alt0, altStep),
+    });
   }
   let worst = 0;
   for (const r of results)
@@ -314,13 +338,17 @@ async function main() {
     viewsMs: results.map((r) => +r.viewMs.toFixed(1)),
     panoMs: results.map((r) => +r.panoMs.toFixed(1)),
     worstRelDiff: +worst.toFixed(4),
-    exposures: results.map((r) => ({ id: r.c.id, fixed: E_FIXED, scene: +r.eScene.toPrecision(3) })),
+    exposures: results.map((r) => ({ id: r.c.id, fixed: E_FIXED, scene: +r.eScene.toPrecision(3), hilFixed: E_RAD, hilScene: +r.eHil.toPrecision(3) })),
+    hillaire: { lutMs: Math.round(hil.lutMs), panoMs: results.map((r) => +r.hilMs.toFixed(1)), steps: hil.steps },
     userAgent: navigator.userAgent,
   };
-  (window as unknown as { __b2: unknown }).__b2 = { info, results: results.map((r) => ({ id: r.c.id, views: Array.from(r.webViews), eScene: r.eScene })) };
+  (window as unknown as { __b2: unknown }).__b2 = {
+    info,
+    results: results.map((r) => ({ id: r.c.id, views: Array.from(r.webViews), eScene: r.eScene, hillaire: Array.from(r.hilViews), hillaireTrans: Array.from(r.hilTrans) })),
+  };
   $("#info").textContent =
     `描画：${info.renderer}（描き先 ${info.floatTarget ? "32bit" : "16bit"}）・表の読み込み ${info.loadMs} ms・準備 ${info.initMs} ms・` +
-    `視線 ${info.viewsMs.join("/")} ms・帯（${w}×${h}）${info.panoMs.join("/")} ms・OpenGL との最大の差 ${(info.worstRelDiff * 100).toFixed(2)}%（輝度 1 cd/m² 超の視線）`;
+    `視線 ${info.viewsMs.join("/")} ms・帯（${w}×${h}）${info.panoMs.join("/")} ms・OpenGL との最大の差 ${(info.worstRelDiff * 100).toFixed(2)}%（輝度 1 cd/m² 超の視線）。Hillaire：表を作る ${info.hillaire.lutMs} ms・帯 ${info.hillaire.panoMs.join("/")} ms（視線あたり ${info.hillaire.steps} 段）`;
   drawPanoramas(results, cases);
   drawTable(results, ref);
   log("");
