@@ -68,6 +68,12 @@ import { doneOnce } from "./once";
 
 export const SCHEMA_VERSION = 1;
 export const RESEARCH_CONSENT_VERSION = 2; // 2: taking consent back also removes you from copies already exported (#45)
+/**
+ * 空の写真の研究への協力（2026-11-27 渡辺さん「どの研究に協力するかチェックボックスを入れ、入れたものだけ表示」）。肌感の研究
+ * （kind 'research'）とは別の答え（kind 'research-sky'）。1：写真・撮影時刻・写した方角・約 1 km に丸めた場所を、名前と切り離して
+ * 空の絵の答え合わせの研究に使う。写真の保存はまだ作っていない（取り消したときの写真の扱いは、保存を作るときに決める）。
+ */
+export const SKY_CONSENT_VERSION = 1;
 
 const SCHEMA = [
   "CREATE TABLE IF NOT EXISTS schema_version (v INTEGER NOT NULL)",
@@ -451,8 +457,25 @@ async function researchConsent(db: Db, userId: string): Promise<{ granted: boole
   return { granted: c?.granted === 1, version: c?.version ?? null, at: c?.at ?? null };
 }
 
+async function skyConsent(db: Db, userId: string): Promise<{ granted: boolean; version: number | null; at: number | null }> {
+  const c = await db
+    .prepare("SELECT granted, version, at FROM consents WHERE user_id = ? AND kind = 'research-sky' ORDER BY at DESC, rowid DESC LIMIT 1")
+    .bind(userId)
+    .first<{ granted: number; version: number; at: number }>();
+  return { granted: c?.granted === 1, version: c?.version ?? null, at: c?.at ?? null };
+}
+
 async function me(db: Db, u: User) {
-  return { id: u.id, loginId: u.login_id, name: u.name, role: u.role, research: await researchConsent(db, u.id), consentVersion: RESEARCH_CONSENT_VERSION };
+  return {
+    id: u.id,
+    loginId: u.login_id,
+    name: u.name,
+    role: u.role,
+    research: await researchConsent(db, u.id),
+    consentVersion: RESEARCH_CONSENT_VERSION,
+    researchSky: await skyConsent(db, u.id),
+    skyConsentVersion: SKY_CONSENT_VERSION,
+  };
 }
 
 async function createUser(db: Db, loginId: string, name: string | null, role: "user" | "admin", now: number) {
@@ -679,6 +702,12 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
     if (path === "/api/me/consent" && post) {
       const b = await body(req);
       if (typeof b.granted !== "boolean") throw new Refused("同意の答えが正しくありません。");
+      // 空の写真の研究（kind "sky"）：肌感の研究とは別の答え。研究用の番号は変えない（写真の書き出しはまだ無い）。
+      if (b.kind === "sky") {
+        await db.prepare("INSERT INTO consents (user_id, kind, version, granted, at) VALUES (?, 'research-sky', ?, ?, ?)").bind(u.id, SKY_CONSENT_VERSION, b.granted ? 1 : 0, now).run();
+        return json({ user: await me(db, u) });
+      }
+      if (b.kind != null && b.kind !== "feel") throw new Refused("同意の種類が正しくありません。");
       // Taking consent back is also told to the exported copies (#45).
       // The person gets a new research ID: the old one stays withdrawn for good, and consenting
       // again starts under the new one (#55).

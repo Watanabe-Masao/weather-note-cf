@@ -3,7 +3,6 @@
 
 import { type FormEvent, useState } from "react";
 import { DELETION_NOTE_KEY, deleteAccountAndLeave, syncNow, logOutAndLeave, useSync } from "../beta/useSync";
-import { Segmented } from "../ui/kit";
 import { NotifySection } from "./NotifySection";
 import { answerResearch, logIn, setUp, useAccount } from "./account";
 
@@ -105,37 +104,57 @@ function LoginForm() {
   );
 }
 
+/**
+ * 研究への協力（11/27 渡辺さん「どの研究に協力するかチェックボックスを入れ、入れたものだけ表示」）：研究ごとに選ぶ。
+ * 入れた研究だけ、記録のシートに出る（肌感・空の写真）。肌感の研究の答えは前からのもの（kind 'research'）。
+ */
+const STUDIES = [
+  {
+    kind: "feel" as const,
+    label: "肌感（感じ方の記録）",
+    text: "あなたの感じ方の記録を、名前やログインIDと切り離した研究用の番号で、他の人の記録と合わせて分析します（肌感の中心とちょうどよい範囲の研究のため）。取り消すと、以後の分析から外れ、すでに研究用に書き出した写しからも消します。",
+  },
+  {
+    kind: "sky" as const,
+    label: "空の写真",
+    text: "あなたが送る空の写真と、撮影時刻・写した方角・場所（約 1 km に丸めたもの）を、名前と切り離して、空の絵の答え合わせの研究に使います。",
+  },
+];
+
 function Research() {
   const { me } = useAccount();
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   if (!me) return null;
-  const granted = me.research.granted;
-  const answer = (v: boolean) => {
-    setBusy(true);
+  const state = { feel: me.research, sky: me.researchSky ?? { granted: false, version: null, at: null } };
+  const answer = (kind: "feel" | "sky", v: boolean) => {
+    setBusy(kind);
     setError(null);
-    answerResearch(v)
+    answerResearch(v, kind)
       .catch((e) => setError((e as Error).message))
-      .finally(() => setBusy(false));
+      .finally(() => setBusy(null));
   };
   return (
     <div className="set-row">
       <span className="set-label">
         研究への協力
-        <small className="set-help">
-          同意すると、あなたの感じ方の記録を、名前やログインIDと切り離した研究用の番号で、他の人の記録と合わせて分析します（肌感の中心とちょうどよい範囲の研究のため）。いつでも取り消せます。取り消すと、以後の分析から外れ、すでに研究用に書き出した写しからも消します。
-          {me.research.at ? `（${granted ? "同意" : "取り消し"} ${when(me.research.at)}）` : ""}
-        </small>
+        <small className="set-help">協力する研究を選んでください。選んだものだけ、記録のシートに出ます。いつでも取り消せます。</small>
       </span>
-      <Segmented
-        label="研究への協力"
-        value={granted ? "yes" : "no"}
-        options={[
-          { id: "yes", label: "協力する" },
-          { id: "no", label: "協力しない" },
-        ]}
-        onChange={(v) => !busy && answer(v === "yes")}
-      />
+      {STUDIES.map((st) => {
+        const s = state[st.kind];
+        return (
+          <label key={st.kind} className="consent-check">
+            <input type="checkbox" checked={s.granted} disabled={busy != null} onChange={(ev) => answer(st.kind, ev.target.checked)} />
+            <span>
+              <b>{st.label}</b>
+              <small className="set-help">
+                {st.text}
+                {s.at ? `（${s.granted ? "同意" : "取り消し"} ${when(s.at)}）` : ""}
+              </small>
+            </span>
+          </label>
+        );
+      })}
       {error ? <p className="warn">{error}</p> : null}
     </div>
   );

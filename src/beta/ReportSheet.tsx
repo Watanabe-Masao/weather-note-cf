@@ -355,17 +355,20 @@ const MODES: { id: Mode; label: string }[] = [
 ];
 
 /**
- * 記録：肌感か、空の写真か（11/27 渡辺さん「記録タブで肌感か写真選択できるように」）。空の写真は見本のあいだ管理者だけに見せる
- * （写真の情報には位置が入る。ほかの人に開くかは、あとで決める）。
+ * 記録：肌感か、空の写真か（11/27 渡辺さん「記録タブで肌感か写真選択できるように」「ログインしてる他の協力者も送れるように」
+ * 「どの研究に協力するかチェックボックスを入れ、入れたものだけ表示」）。記録のボタンはログインしている人にだけ出る。
+ * 設定の「研究への協力」で入れた研究だけを出す。どれも入れていない人には、前からの肌感の記録を出す（自分の記録として残る。研究には使わない）。
  */
 export function ReportSheet(props: Props) {
   const { me } = useAccount();
-  const [mode, setMode] = useState<Mode>("feel");
-  const canPhoto = me?.role === "admin";
+  const shown = MODES.filter((m) => (m.id === "feel" ? me?.research.granted : me?.researchSky?.granted));
+  const modes = shown.length ? shown : MODES.filter((m) => m.id === "feel");
+  const [picked, setMode] = useState<Mode>(modes[0].id);
+  const mode = modes.some((m) => m.id === picked) ? picked : modes[0].id;
   return (
-    <ModalSheet title={canPhoto ? "今を記録 β" : "今の感じ方を記録 β"} onClose={props.onClose} className="report-sheet" size="fit">
-      {canPhoto && <Segmented label="記録するもの" options={MODES} value={mode} onChange={setMode} />}
-      {mode === "photo" && canPhoto ? <SkyPhotoSection /> : <Body {...props} />}
+    <ModalSheet title={modes.length > 1 ? "今を記録 β" : mode === "photo" ? "空の写真を記録 β" : "今の感じ方を記録 β"} onClose={props.onClose} className="report-sheet" size="fit">
+      {modes.length > 1 && <Segmented label="記録するもの" options={modes} value={mode} onChange={setMode} />}
+      {mode === "photo" ? <SkyPhotoSection /> : <Body {...props} />}
     </ModalSheet>
   );
 }

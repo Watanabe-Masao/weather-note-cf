@@ -9,6 +9,7 @@
 import { useMemo, useState } from "react";
 import { solarAltitude, solarAzimuth } from "../../shared/sunTimes";
 import { Button, Chip } from "../ui/kit";
+import { useAccount } from "./account";
 import { compass16, type PhotoExif, readExif, takenIso } from "./exif";
 
 const KOCHI = { lat: 33.5667, lon: 133.5483 };
@@ -46,6 +47,7 @@ const SAMPLES = [
 ];
 
 export function SkyPhotoSection() {
+  const { me } = useAccount();
   const [picked, setPicked] = useState<Picked | null>(null);
   const [when, setWhen] = useState<string | null>(null);
   const [dir, setDir] = useState<number | null>(null);
@@ -72,6 +74,11 @@ export function SkyPhotoSection() {
         <h3 id="sp-add">空の写真を上げる（見本）</h3>
         <p className="set-lead">
           空の絵の答え合わせに使う写真です。撮れたときに、撮れた時刻で構いません。日の入りの前後の西の空が、いちばん役に立ちます。見本なので、まだ送りません。
+        </p>
+        <p className="set-help">
+          {me?.research.granted
+            ? "研究への協力に同意しているので、写真と撮影時刻・方角・場所（約 1 km に丸めたもの）を、名前と切り離して研究に使います。"
+            : "研究への協力に同意していないので、写真はあなたの記録としてだけ残し、研究には使いません（設定のアカウントで変えられます）。"}
         </p>
         <label className="sp-file">
           <input type="file" accept="image/*" onChange={(ev) => void pick(ev.target.files?.[0])} />
@@ -110,7 +117,7 @@ export function SkyPhotoSection() {
                 </small>
               </dd>
               <dt>位置</dt>
-              <dd>{e?.lat != null && e?.lon != null ? `${e.lat.toFixed(3)}, ${e.lon.toFixed(3)}（保存するときは 0.01° に丸める）` : "写真の情報にありません（高知の観測所の位置で計算）"}</dd>
+              <dd>{e?.lat != null && e?.lon != null ? `${e.lat.toFixed(2)}, ${e.lon.toFixed(2)}（約 1 km に丸めて保存します。細かい位置は残しません）` : "写真の情報にありません（高知の観測所の位置で計算）"}</dd>
               <dt>ファイル</dt>
               <dd>
                 {picked.file.type || "不明"}・{(picked.file.size / 1e6).toFixed(1)} MB
@@ -135,7 +142,7 @@ export function SkyPhotoSection() {
               <div className="sp-after" role="status">
                 <b>上げると、こうなります</b>
                 <ul>
-                  <li>写真を研究用の保存先に入れます（上限 5 GB。近づいたら止めて知らせます）。</li>
+                  <li>写真を研究用の保存先に入れます（上限 5 GB。近づいたら止めて知らせます）。写真から位置の情報を外し、場所は約 1 km に丸めて別に記録します。</li>
                   <li>
                     気象庁の衛星画像（ひまわり、日本域）を取りに行きます：{jst(satelliteTimes(when)[0])}〜{jst(satelliteTimes(when).at(-1)!)} の 10 分ごと 7 時刻、赤外とトゥルーカラー、高知と西の 2 枚分（28 枚まで）。
                   </li>
@@ -148,7 +155,7 @@ export function SkyPhotoSection() {
         )}
       </section>
       <section className="set-group" aria-labelledby="sp-list">
-        <h3 id="sp-list">これまでの写真（見本の例）</h3>
+        <h3 id="sp-list">あなたの写真（見本の例）</h3>
         <ul className="sp-list">
           {SAMPLES.map((s) => (
             <li key={s.when}>
