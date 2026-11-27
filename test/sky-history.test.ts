@@ -4,7 +4,7 @@
 import { describe, expect, it } from "vitest";
 import type { Station } from "../shared/types";
 import { saveAirForecast } from "../worker/src/airForecast";
-import { dayBeforeCutoff, historyRange, recordSkyHistory, saveSkyForecast, skyAsOf, validAtOf } from "../worker/src/skyHistory";
+import { dayBeforeCutoff, ensureSkyHistorySchema, fetchDue, historyRange, recordSkyHistory, saveSkyForecast, skyAsOf, validAtOf } from "../worker/src/skyHistory";
 import { d1 } from "./d1";
 
 const KOCHI = { blockNo: "47893", lat: [33, 34], lon: [133, 33] } as unknown as Station;
@@ -64,22 +64,22 @@ describe("空の予報の履歴：保存", () => {
     expect(await run(db, at("11:21:00"), () => forecastBody())).toEqual({ appended: 48 * 4, ok: true });
     // 明日 3時の全雲量だけ 62 → 80（それでも回の全部を残す）
     expect(await run(db, at("12:22:00"), () => forecastBody({ cover: (i) => (i === 27 ? 80 : 62) }))).toEqual({ appended: 48 * 4, ok: true });
-    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_history WHERE item = 'cover' AND valid_at = '2026-11-26T03:00:00+09:00'").get()).toEqual({ n: 3 });
-    const log = db.raw.prepare("SELECT source, via, ok, req_lat, grid_lat, appended FROM sky_forecast_fetch_log ORDER BY at").all();
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_values WHERE item = 'cover' AND valid_at = '2026-11-26T03:00:00+09:00'").get()).toEqual({ n: 3 });
+    const log = db.raw.prepare("SELECT source, via, ok, req_lat, grid_lat, appended FROM sky_forecast_receipts ORDER BY at").all();
     expect(log).toHaveLength(3);
     expect(log[0]).toMatchObject({ source: "open-meteo-forecast", via: "cron", ok: 1, grid_lat: 33.5625, appended: 192 });
     // 視程は km（20 km で止める前の値）、単位と出典は行ごと
-    expect(db.raw.prepare("SELECT unit, source, value FROM sky_forecast_history WHERE item = 'visibility' LIMIT 1").get()).toEqual({ unit: "km", source: "open-meteo-forecast", value: 24.1 });
+    expect(db.raw.prepare("SELECT unit, source, value FROM sky_forecast_values WHERE item = 'visibility' LIMIT 1").get()).toEqual({ unit: "km", source: "open-meteo-forecast", value: 24.1 });
   });
   it("明日の最後の1時間の降水（翌々日 0:00）を残す。0 は値、値の無い時間は missing。取れなかった回は行を足さず、記録に失敗", async () => {
     const db = d1();
     await run(db, at("10:20:00"), () => forecastBody({ rain: (i) => (i === 48 ? 2.5 : 0) }));
-    expect(db.raw.prepare("SELECT value FROM sky_forecast_history WHERE item = 'rain' AND valid_at = '2026-11-27T00:00:00+09:00'").get()).toEqual({ value: 2.5 });
-    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_history WHERE item = 'rain' AND value = 0").get()).toEqual({ n: 47 });
+    expect(db.raw.prepare("SELECT value FROM sky_forecast_values WHERE item = 'rain' AND valid_at = '2026-11-27T00:00:00+09:00'").get()).toEqual({ value: 2.5 });
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_values WHERE item = 'rain' AND value = 0").get()).toEqual({ n: 47 });
     expect(await run(db, at("11:21:00"), () => forecastBody({ rain: (i) => (i === 48 ? 2.5 : 0), cover: (i) => (i <= 10 ? null : 62) }))).toEqual({ appended: 48 * 4, ok: true });
-    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_history WHERE item = 'cover' AND status = 'missing' AND value IS NULL").get()).toEqual({ n: 10 });
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_values WHERE item = 'cover' AND status = 'missing' AND value IS NULL").get()).toEqual({ n: 10 });
     expect(await run(db, at("12:22:00"), () => "", 0, 503)).toEqual({ appended: 0, ok: false });
-    expect(db.raw.prepare("SELECT ok, error FROM sky_forecast_fetch_log ORDER BY at DESC LIMIT 1").get()).toEqual({ ok: 0, error: "予報の取得に失敗しました（503）。" });
+    expect(db.raw.prepare("SELECT ok, error FROM sky_forecast_receipts ORDER BY at DESC LIMIT 1").get()).toEqual({ ok: 0, error: "予報の取得に失敗しました（503）。" });
   });
   it("AOD は空気質の予測の取得の応答から、受け取った時刻で（別に問い合わせない）", async () => {
     const db = d1();
@@ -89,8 +89,8 @@ describe("空の予報の履歴：保存", () => {
     const seen: string[] = [];
     await saveAirForecast(db, clock.t, async (url) => (seen.push(url), (clock.t += 3000), { ok: true, status: 200, text: async () => body }), () => clock.t);
     expect(seen).toHaveLength(1);
-    expect(db.raw.prepare("SELECT COUNT(*) AS n, MIN(fetched_at) AS f FROM sky_forecast_history WHERE item = 'aod'").get()).toEqual({ n: 48, f: iso(at("10:20:03")) });
-    expect(db.raw.prepare("SELECT value FROM sky_forecast_history WHERE item = 'aod' AND valid_at = '2026-11-26T06:00:00+09:00'").get()).toEqual({ value: 0.3 });
+    expect(db.raw.prepare("SELECT COUNT(*) AS n, MIN(fetched_at) AS f FROM sky_forecast_values WHERE item = 'aod'").get()).toEqual({ n: 48, f: iso(at("10:20:03")) });
+    expect(db.raw.prepare("SELECT value FROM sky_forecast_values WHERE item = 'aod' AND valid_at = '2026-11-26T06:00:00+09:00'").get()).toEqual({ value: 0.3 });
   });
 });
 
@@ -105,7 +105,7 @@ describe("空の予報の履歴：前日14時の再現", () => {
     const db = d1();
     await run(db, at("12:20:00"), () => forecastBody({ cover: () => 40 }));
     await run(db, at("13:59:59"), () => forecastBody({ cover: () => 55 }), 3000);
-    expect(db.raw.prepare("SELECT MAX(fetched_at) AS f FROM sky_forecast_history").get()).toEqual({ f: iso(at("14:00:02")) });
+    expect(db.raw.prepare("SELECT MAX(fetched_at) AS f FROM sky_forecast_values").get()).toEqual({ f: iso(at("14:00:02")) });
     expect(await skyAsOf(db, "47893", "cover", V, cutoff)).toMatchObject({ value: 40, source: "open-meteo-forecast", fetchedAt: iso(at("12:20:00")), confirmedAt: iso(at("12:20:00")) });
   });
   it("14時ちょうどに受け取った値は使い、直後の値は混ぜない。同じ値の回も、その受信時刻で残る", async () => {
@@ -156,5 +156,146 @@ describe("空の予報の履歴：前日14時の再現", () => {
     await recordSkyHistory(db, { station: "47893", source: "open-meteo-cams", via: "cron", receivedAt: iso(at("13:55:00")), values: [{ item: "aod", validAt: V, value: 0.2 }] });
     await recordSkyHistory(db, { station: "47893", source: "open-meteo-cams", via: "cron", receivedAt: iso(at("14:05:00")), values: [{ item: "aod", validAt: V, value: 0.4 }] });
     expect(await skyAsOf(db, "47893", "aod", V, cutoff)).toMatchObject({ value: 0.2, source: "open-meteo-cams", fetchedAt: iso(at("13:55:00")) });
+  });
+});
+
+describe("空の予報の履歴：11/27 レビューの直し", () => {
+  const cutoff = dayBeforeCutoff("2026-11-26");
+  const V = "2026-11-26T03:00:00+09:00";
+  const rec = (o: { t: string; value: number | null; id?: string; source?: string; item?: "cover" | "aod"; validAt?: string }) => ({
+    station: "47893",
+    source: (o.source ?? "open-meteo-forecast") as "open-meteo-forecast",
+    via: "api" as const,
+    receivedAt: iso(at(o.t)),
+    receiptId: o.id,
+    values: [{ item: o.item ?? ("cover" as const), validAt: o.validAt ?? V, value: o.value }],
+  });
+
+  it("同じミリ秒に受け取った2回は両方残り、どちらを選ぶかは保存の順によらない（受信の ID の順）", async () => {
+    const a = rec({ t: "13:59:00.123", value: 20, id: "2026-11-25T04:59:00.123Z~aaaaaaaa" });
+    const b = rec({ t: "13:59:00.123", value: 80, id: "2026-11-25T04:59:00.123Z~bbbbbbbb" });
+    for (const order of [
+      [a, b],
+      [b, a],
+    ]) {
+      const db = d1();
+      for (const r of order) await recordSkyHistory(db, r);
+      expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_values").get()).toEqual({ n: 2 });
+      expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_receipts").get()).toEqual({ n: 2 });
+      expect(await skyAsOf(db, "47893", "cover", V, cutoff)).toMatchObject({ value: 80, fetchedAt: iso(at("13:59:00.123")) });
+    }
+    // ID を決めなくても（ふだんの乱数）、同じミリ秒の2回が両方残る
+    const db = d1();
+    await recordSkyHistory(db, rec({ t: "13:59:00.123", value: 20 }));
+    await recordSkyHistory(db, rec({ t: "13:59:00.123", value: 80 }));
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_values").get()).toEqual({ n: 2 });
+  });
+
+  it("出典が2つ：締め切りまでに ok の値を受け取っていた最初の出典を選ぶ（none・missing だけの出典は飛ばす）", async () => {
+    const S = ["src-a", "src-b"];
+    // a は記録が無い、b に値 → b
+    let db = d1();
+    await recordSkyHistory(db, rec({ t: "13:00:00", value: 30, source: "src-b" }));
+    expect(await skyAsOf(db, "47893", "cover", V, cutoff, S)).toMatchObject({ source: "src-b", value: 30, status: "ok" });
+    // a は欠測だけ、b に値 → b
+    db = d1();
+    await recordSkyHistory(db, rec({ t: "12:00:00", value: null, source: "src-a" }));
+    await recordSkyHistory(db, rec({ t: "13:00:00", value: 30, source: "src-b" }));
+    expect(await skyAsOf(db, "47893", "cover", V, cutoff, S)).toMatchObject({ source: "src-b", value: 30 });
+    // a は値のあと欠測（最後の回が missing）→ a の前の値（b より優先）
+    db = d1();
+    await recordSkyHistory(db, rec({ t: "11:00:00", value: 10, source: "src-a" }));
+    await recordSkyHistory(db, rec({ t: "12:00:00", value: null, source: "src-a" }));
+    await recordSkyHistory(db, rec({ t: "13:00:00", value: 30, source: "src-b" }));
+    expect(await skyAsOf(db, "47893", "cover", V, cutoff, S)).toMatchObject({ source: "src-a", value: 10, status: "missing", fetchedAt: iso(at("11:00:00")), confirmedAt: iso(at("12:00:00")) });
+    // どちらも欠測だけ → 欠測のある最初の出典（値は null）。どちらも記録なし → none
+    db = d1();
+    await recordSkyHistory(db, rec({ t: "13:00:00", value: null, source: "src-b" }));
+    expect(await skyAsOf(db, "47893", "cover", V, cutoff, S)).toMatchObject({ source: "src-b", value: null, status: "missing" });
+    expect(await skyAsOf(d1(), "47893", "cover", V, cutoff, S)).toMatchObject({ source: null, status: "none" });
+  });
+
+  it("確かめた時刻は、その時間を実際に含んでいた応答から（頼んだ範囲ではなく）", async () => {
+    const db = d1();
+    await recordSkyHistory(db, rec({ t: "11:00:00", value: 40 }));
+    // 13:00 の回は別の時間だけを返した（V を含まない）
+    await recordSkyHistory(db, rec({ t: "13:00:00", value: 50, validAt: "2026-11-26T04:00:00+09:00" }));
+    expect(await skyAsOf(db, "47893", "cover", V, cutoff)).toMatchObject({ value: 40, confirmedAt: iso(at("11:00:00")) });
+    expect(db.raw.prepare("SELECT from_valid, to_valid, range_from, range_to FROM sky_forecast_receipts ORDER BY at DESC LIMIT 1").get()).toEqual({
+      from_valid: "2026-11-26T04:00:00+09:00",
+      to_valid: "2026-11-26T04:00:00+09:00",
+      range_from: "2026-11-25T01:00:00+09:00",
+      range_to: "2026-11-27T00:00:00+09:00",
+    });
+  });
+
+  it("定時の間隔：取れた回で数える。取れなかったあとは 10 分で取り直す。13:45〜13:59 にまだ取れていなければ必ず取る", () => {
+    const t = (x: string) => iso(at(x));
+    expect(fetchDue(t("13:10:00"), t("13:10:00"), at("13:40:00"))).toBe(false);
+    expect(fetchDue(t("13:10:00"), t("13:10:00"), at("13:45:00"))).toBe(true); // 締め切りの直前
+    expect(fetchDue(t("13:46:00"), t("13:46:00"), at("13:55:00"))).toBe(false); // 直前に取れている
+    expect(fetchDue(t("13:10:00"), t("13:10:00"), at("14:05:00"))).toBe(false);
+    expect(fetchDue(t("13:10:00"), t("13:10:00"), at("14:10:00"))).toBe(true); // 1時間
+    expect(fetchDue(t("12:00:00"), t("13:20:00"), at("13:25:00"))).toBe(false); // 失敗の直後
+    expect(fetchDue(t("12:00:00"), t("13:20:00"), at("13:31:00"))).toBe(true); // 10 分あけて取り直す
+    expect(fetchDue(null, null, at("09:00:00"))).toBe(true);
+  });
+
+  it("予報：12:50 に取れたあと、13:50 の定時処理は取る（14時の締め切りの値が古くならない）", async () => {
+    const db = d1();
+    await run(db, at("12:50:00"), () => forecastBody({ cover: () => 40 }));
+    expect(await run(db, at("13:40:00"), () => forecastBody({ cover: () => 50 }))).toMatchObject({ skipped: true });
+    expect(await run(db, at("13:50:00"), () => forecastBody({ cover: () => 60 }))).toMatchObject({ ok: true, appended: 192 });
+    expect(await skyAsOf(db, "47893", "cover", V, cutoff)).toMatchObject({ value: 60, fetchedAt: iso(at("13:50:00")) });
+  });
+
+  it("AOD：取れなかった回は間隔に数えない（10 分で取り直す）", async () => {
+    const db = d1();
+    const t = times("2026-11-25", 5);
+    const body = JSON.stringify({ latitude: 33.55, longitude: 133.55, hourly: { time: t, pm2_5: t.map(() => 8), pm10: t.map(() => 12), dust: t.map(() => 0), aerosol_optical_depth: t.map(() => 0.2) } });
+    const fail = async () => ({ ok: false, status: 503, text: async () => "" });
+    const okGet = async () => ({ ok: true, status: 200, text: async () => body });
+    expect(await saveAirForecast(db, at("13:00:00"), fail, () => at("13:00:01"))).toMatchObject({ ok: false });
+    expect(await saveAirForecast(db, at("13:05:00"), okGet, () => at("13:05:01"))).toMatchObject({ skipped: true });
+    expect(await saveAirForecast(db, at("13:11:00"), okGet, () => at("13:11:01"))).toMatchObject({ ok: true });
+    expect(await skyAsOf(db, "47893", "aod", V, cutoff)).toMatchObject({ value: 0.2, fetchedAt: iso(at("13:11:01")) });
+    expect(db.raw.prepare("SELECT model, variant, kind FROM sky_forecast_receipts WHERE ok = 1").get()).toEqual({ model: "cams_global", variant: "full", kind: "ok" });
+  });
+
+  it("どこから来た値か：省ける項目を外して取り直した回は without-optional、モデルは best_match", async () => {
+    const db = d1();
+    const clock = { t: at("10:20:00") };
+    let n = 0;
+    const get = async (url: string) => (n++ === 0 ? { ok: false, status: 400, text: async () => "" } : { ok: true, status: 200, text: async () => (url.includes("cloud_cover") ? "" : forecastBody({ cover: () => null, vis: () => null })) });
+    await saveSkyForecast(db, [KOCHI], clock.t, { get, clock: () => clock.t });
+    expect(db.raw.prepare("SELECT model, variant, kind, via FROM sky_forecast_receipts").get()).toEqual({ model: "best_match", variant: "without-optional", kind: "ok", via: "cron" });
+  });
+
+  it("保存の失敗は、取れなかった回と分けて記録する（kind = db）", async () => {
+    const db = d1();
+    await ensureSkyHistorySchema(db);
+    const broken = { ...db, batch: async () => Promise.reject(new Error("D1 is down")) };
+    const clock = { t: at("10:20:00") };
+    const s = server(clock, () => forecastBody());
+    expect(await saveSkyForecast(broken, [KOCHI], clock.t, { get: s.get, clock: () => clock.t })).toEqual({ appended: 0, ok: false });
+    expect(db.raw.prepare("SELECT ok, kind, error FROM sky_forecast_receipts").get()).toEqual({ ok: 0, kind: "db", error: "D1 is down" });
+    await run(db, at("10:40:00"), () => "", 0, 503);
+    expect(db.raw.prepare("SELECT kind FROM sky_forecast_receipts ORDER BY at DESC LIMIT 1").get()).toEqual({ kind: "fetch" });
+  });
+
+  it("前の表（#540〜11/27）の中身は、一度だけ新しい表へ写る（前の表は消さない）", async () => {
+    const db = d1();
+    db.raw.exec(`CREATE TABLE sky_forecast_history (station TEXT NOT NULL, item TEXT NOT NULL, valid_at TEXT NOT NULL, fetched_at TEXT NOT NULL, source TEXT NOT NULL, unit TEXT NOT NULL, value REAL, status TEXT NOT NULL, model_run TEXT, PRIMARY KEY (station, item, source, valid_at, fetched_at))`);
+    db.raw.exec(`CREATE TABLE sky_forecast_fetch_log (at TEXT NOT NULL, station TEXT NOT NULL, source TEXT NOT NULL, via TEXT NOT NULL, ok INTEGER NOT NULL, from_valid TEXT, to_valid TEXT, req_lat REAL, req_lon REAL, grid_lat REAL, grid_lon REAL, model_run TEXT, appended INTEGER NOT NULL, error TEXT, PRIMARY KEY (at, station, source))`);
+    const f = iso(at("11:00:00"));
+    db.raw.prepare("INSERT INTO sky_forecast_history VALUES ('47893', 'cover', ?, ?, 'open-meteo-forecast', '%', 70, 'ok', NULL)").run(V, f);
+    db.raw.prepare("INSERT INTO sky_forecast_fetch_log VALUES (?, '47893', 'open-meteo-forecast', 'cron', 1, '2026-11-25T01:00:00+09:00', '2026-11-27T00:00:00+09:00', 33.56, 133.55, 33.56, 133.56, NULL, 1, NULL)").run(f);
+    db.raw.prepare("INSERT INTO sky_forecast_fetch_log VALUES (?, '47893', 'open-meteo-forecast', 'cron', 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, '503')").run(iso(at("12:00:00")));
+    expect(await skyAsOf(db, "47893", "cover", V, cutoff)).toMatchObject({ value: 70, fetchedAt: f, confirmedAt: f });
+    expect(db.raw.prepare("SELECT kind, from_valid, range_to FROM sky_forecast_receipts ORDER BY at").all()).toEqual([
+      { kind: "ok", from_valid: V, range_to: "2026-11-27T00:00:00+09:00" },
+      { kind: "fetch", from_valid: null, range_to: null },
+    ]);
+    expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_history").get()).toEqual({ n: 1 });
   });
 });

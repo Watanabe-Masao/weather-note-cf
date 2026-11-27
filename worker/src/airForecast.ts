@@ -18,7 +18,7 @@ import type { Db } from "./accounts";
 import { ensureAirSchema } from "./airQuality";
 import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
-import { recordSkyFailure, recordSkyHistory } from "./skyHistory";
+import { fetchDue, recordSkyFailure, recordSkyHistory } from "./skyHistory";
 import type { AirDay, AirDaysResponse, AirResponse } from "../../shared/airQuality";
 import { ensureSoramameSchema } from "./soramame";
 import { USUAL_DAYS, type Usual, usualItem, dayUsual, groupByDay } from "../../shared/airUsual";
@@ -44,7 +44,6 @@ export const AIR_FORECAST_SCHEMA = [
 
 /** 今日を含めて何日分か（CAMS 全球は5日先まで）。 */
 export const AIR_FORECAST_DAYS = 5;
-const EVERY_MS = 3_600_000;
 const LOG_DAYS = 30;
 const FIELDS = { pm2_5: "pm2_5", pm10: "pm10", dust: "dust", aod: "aerosol_optical_depth" } as const;
 
@@ -69,8 +68,9 @@ export const airForecastUrl = (lat: number, lon: number, from: string, to: strin
 /** 1時間に1回まで（日付が変われば すぐ）、今日から5日分の予測を取り、値のある時刻・項目だけを書き換える。 */
 export async function saveAirForecast(db: Db, now = Date.now(), get: Fetcher = defaultFetch, clock: () => number = Date.now): Promise<{ saved: number; ok: boolean; skipped?: boolean }> {
   await ensureAirForecastSchema(db);
-  const last = await db.prepare("SELECT MAX(at) AS at FROM air_forecast_fetch_log").first<{ at: string | null }>();
-  if (last?.at && Date.parse(last.at) > now - EVERY_MS + 60_000 && jstDay(Date.parse(last.at)) === jstDay(now)) return { saved: 0, ok: true, skipped: true };
+  // 間隔は取れた回で数え、14時の締め切りの直前にも必ず取る（skyHistory.ts の fetchDue。11/27 レビュー：失敗の回も数えていたので、失敗すると1時間待っていた）。
+  const last = await db.prepare("SELECT MAX(CASE WHEN ok = 1 THEN at END) AS ok_at, MAX(at) AS try_at FROM air_forecast_fetch_log").first<{ ok_at: string | null; try_at: string | null }>();
+  if (!fetchDue(last?.ok_at ?? null, last?.try_at ?? null, now)) return { saved: 0, ok: true, skipped: true };
   const at = new Date(now).toISOString();
   const from = jstDay(now);
   const to = addDays(from, AIR_FORECAST_DAYS - 1);
@@ -80,8 +80,9 @@ export async function saveAirForecast(db: Db, now = Date.now(), get: Fetcher = d
     try {
       const r = await get(airForecastUrl(place.radar.lat, place.radar.lon, from, to));
       if (!r.ok) throw new Error(`air forecast: HTTP ${r.status}`);
-      const j = JSON.parse(await r.text()) as { latitude?: unknown; longitude?: unknown; hourly?: Record<string, (number | string | null)[]> };
-      const receivedAt = new Date(clock()).toISOString(); // 受け取り終えた時刻（空の予報の履歴の締め切りに使う）
+      const text = await r.text();
+      const receivedAt = new Date(clock()).toISOString(); // 本文を受け取り終えた時刻（読み解く前。空の予報の履歴の締め切りに使う）
+      const j = JSON.parse(text) as { latitude?: unknown; longitude?: unknown; hourly?: Record<string, (number | string | null)[]> };
       const h = j.hourly;
       const times = (h?.time ?? []) as string[];
       if (!times.length) throw new Error("air forecast: no hours");
@@ -94,7 +95,13 @@ export async function saveAirForecast(db: Db, now = Date.now(), get: Fetcher = d
         values: times.map((t, i) => ({ item: "aod" as const, validAt: `${t}:00+09:00`, value: num(h?.aerosol_optical_depth?.[i]) })),
         req: { lat: place.radar.lat, lon: place.radar.lon },
         grid: { lat: num(j.latitude), lon: num(j.longitude) },
-      }).catch((e) => console.error("weather-note: sky history (aod)", e));
+        model: "cams_global",
+        variant: "full",
+      }).catch((e) =>
+        recordSkyFailure(db, station, "open-meteo-cams", "cron", new Date(clock()).toISOString(), String(e instanceof Error ? e.message : e), "db").catch(() =>
+          console.error("weather-note: sky history (aod)", e),
+        ),
+      );
       const rows = [];
       for (let i = 0; i < times.length; i++) {
         const v = Object.fromEntries(Object.entries(FIELDS).map(([k, name]) => [k, num(h?.[name]?.[i])]));
