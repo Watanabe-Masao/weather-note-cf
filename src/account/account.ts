@@ -16,7 +16,7 @@ export interface Me {
   /** 空の写真の研究への協力（11/27〜。前の保存には無いことがある） */
   researchSky?: { granted: boolean; version: number | null; at: number | null };
   skyConsentVersion?: number;
-  /** 今の天気の研究への協力（#552）。古いサーバーの答えには無い。 */
+  /** 今の天気の研究への協力（#553）。古いサーバーの答えには無い。 */
   researchWeather?: { granted: boolean; version: number | null; at: number | null };
   weatherConsentVersion?: number;
 }

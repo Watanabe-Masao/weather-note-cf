@@ -1712,7 +1712,7 @@ with sync_playwright() as p:
         st = small_text(); check("R6 11px より小さい文字がない（記録）", not st, str(st))
         layout_ok("R7", "記録")
         buttons_ok("R8", "記録", 1)
-        # 今の天気（#552）：研究で選んだものだけ出る。雨を選ぶと強さが 4 段出て、選ぶまで記録できない。
+        # 今の天気（#553）：研究で選んだものだけ出る。雨を選ぶと強さが 4 段出て、選ぶまで記録できない。
         pg.locator(".msheet.report-sheet .seg button", has_text="今の天気").first.click(); calm()
         check("R9 今の天気に切り替わる", pg.locator("#ws-now").count() == 1)
         pg.locator(".msheet.report-sheet .chip", has_text="雨").first.click(); calm()

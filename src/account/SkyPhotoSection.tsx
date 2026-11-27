@@ -14,7 +14,7 @@ import { useAccount } from "./account";
 import { compass16, type PhotoExif, readExif, takenIso } from "./exif";
 
 const KOCHI = { lat: 33.5667, lon: 133.5483 };
-// 天気は天気の記録（正本、#552）と同じ言葉。写真ならではの様子（西だけ晴れ・まだら）は別に選ぶ。
+// 天気は天気の記録（正本、#553）と同じ言葉。写真ならではの様子（西だけ晴れ・まだら）は別に選ぶ。
 const LOOKS = ["西だけ晴れ", "まだら"] as const;
 const DIRS = [
   { label: "西", deg: 270 },

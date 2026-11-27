@@ -87,7 +87,7 @@ export type DrinkPreference = (typeof DRINK_PREFERENCES)[number]["id"];
 /** The version of these two questions' wording; set on every report they were shown on. */
 export const PREFERENCE_VERSION = 1;
 
-/** What the sky looks like where the person is (JMA's observation words), to set beside the forecast. Shared with the weather record (#552). */
+/** What the sky looks like where the person is (JMA's observation words), to set beside the forecast. Shared with the weather record (#553). */
 export { SKIES, type Sky, RAIN_LEVELS, type RainLevel } from "../../shared/nowWeather";
 
 export type Sensation = (typeof SENSATIONS)[number]["value"];
@@ -218,7 +218,7 @@ export interface Report {
   windFelt: WindFelt;
   /** The sky the person saw (reports before it was asked have none). */
   sky?: Sky;
-  /** How hard the rain was, when the sky was rain (#552; reports before it have none). */
+  /** How hard the rain was, when the sky was rain (#553; reports before it have none). */
   rain?: RainLevel;
   /** The two optional preference questions (#63 P1). Undefined = not answered; reports without
    *  `preferenceVersion` were made before the questions existed. */

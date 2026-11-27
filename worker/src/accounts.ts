@@ -257,7 +257,7 @@ export function ensureSchema(db: Db): Promise<void> {
           // Which statement failed, so a failure here can be read in the log (it stops every account request).
           throw new Error(`schema: ${q.replace(/\s+/g, " ").slice(0, 80)} — ${describe(e)}`, { cause: e });
         });
-    // 天気の記録（#552）：表を作ったあと、前からの肌感の記録の「今の天気」を 1 回だけ写す。
+    // 天気の記録（#553）：表を作ったあと、前からの肌感の記録の「今の天気」を 1 回だけ写す。
     await migrate(db, "weather_obs", WEATHER_OBS_MIGRATIONS);
     // 重なった要求がそれぞれ作っても1行だけ（読んでから書くと、間に別の要求が入ると2行になる）。
     await db.prepare("INSERT INTO schema_version (v) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM schema_version)").bind(SCHEMA_VERSION).run();
@@ -620,7 +620,7 @@ export async function pushReports(db: Db, userId: string, list: ReportIn[], now:
       .bind(userId, r.id, userId, k + 1, r.updatedAt, r.deleted ? 1 : 0, r.at, str(r.station), int(r.sensation), str(r.exposure), str(r.windFelt), str(r.sky), JSON.stringify(r), now),
   );
   statements.push(db.prepare("UPDATE users SET sync_seq = sync_seq + ? WHERE id = ?").bind(fresh.length, userId));
-  // 「今の天気」は天気の記録（正本）にも写す（#552）。同じ batch なので、記録と天気の記録はずれない。
+  // 「今の天気」は天気の記録（正本）にも写す（#553）。同じ batch なので、記録と天気の記録はずれない。
   statements.push(...mirrorFeel(db, userId, fresh, now));
   await db.batch(statements);
   return fresh.length;
@@ -748,7 +748,7 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       else await answer.run();
       return json({ user: await me(db, u) });
     }
-    // -- 天気の記録（今の天気のアンケート、#552） --
+    // -- 天気の記録（今の天気のアンケート、#553） --
     if (path === "/api/me/weather") {
       try {
         if (post) await saveSurvey(db, u.id, checkSurvey(await body(req), now), now);
