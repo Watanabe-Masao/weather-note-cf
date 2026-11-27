@@ -13,6 +13,7 @@ import { useMemo, useState } from "react";
 import { solarAltitude, solarAzimuth } from "../../shared/sunTimes";
 import { Button, Chip } from "../ui/kit";
 import { type Intensity, intensitiesOf, intensityTitle, type Sky, SKIES } from "../../shared/nowWeather";
+import { useAccount } from "./account";
 import { compass16, type PhotoExif, readExif, takenIso } from "./exif";
 
 const KOCHI = { lat: 33.5667, lon: 133.5483 };
@@ -51,6 +52,9 @@ const SAMPLES = [
 ];
 
 export function SkyPhotoSection() {
+  // 画面そのものも同意を確かめる（外の記録のシートの出し分けに頼りきらない。11/28 レビュー：肌感だけの同意で写真の案内が出ていた）。
+  const { me } = useAccount();
+  const granted = !!me?.researchSky?.granted;
   const [picked, setPicked] = useState<Picked | null>(null);
   const [when, setWhen] = useState<string | null>(null);
   const [dir, setDir] = useState<number | null>(null);
@@ -73,6 +77,7 @@ export function SkyPhotoSection() {
   const e = picked?.exif;
   const diff = sun && dir != null && dir >= 0 ? Math.round((((dir - sun.az) % 360) + 540) % 360) - 180 : null;
 
+  if (!granted) return null;
   return (
     <>
       <section className="set-group" aria-labelledby="sp-add">
