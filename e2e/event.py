@@ -57,7 +57,9 @@ def until(pg, cond, timeout=5.0):
     return cond()
 
 # 物語のスクロールが止まるまで（0.4秒ごとに見て、動いていなければ）。
-settle_js = "new Promise((res) => { const s = document.querySelector('.moon-story'); let p = -1; const t = () => { const c = s.scrollTop; if (Math.abs(c - p) < 0.5) res(c); else { p = c; setTimeout(t, 400); } }; setTimeout(t, 400); })"
+# 止まったと見るのは、0.4秒ごとに3回続けて動かなかったとき（11/28：↑で一つ前のページへ運ぶ途中の一瞬の止まりを着いたと取り違え、
+# 次の「横に払う」の基準 top1 がページの区切りでない所になって、#550・#556 の e2e (event) が落ちた。10287／10180 → 払って進むと 10853）。
+settle_js = "new Promise((res) => { const s = document.querySelector('.moon-story'); let p = -1, still = 0; const t = () => { const c = s.scrollTop; if (Math.abs(c - p) < 0.5) { if (++still >= 3) return res(c); } else still = 0; p = c; setTimeout(t, 400); }; setTimeout(t, 400); })"
 
 def page(b, iso, theme, block=False):
     ctx = b.new_context(viewport={"width": W, "height": 844}, device_scale_factor=2 if SHOTS else 1, is_mobile=True, has_touch=True, locale="ja-JP", timezone_id="Asia/Tokyo", service_workers="block")
