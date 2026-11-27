@@ -9,7 +9,7 @@ python3 research/sky-beta2/tools/weather_sim.py <cases.json> <比較ページの
 - 雨は τ を大きくしただけ（雨粒・雨のかすみ・雲底の高さは入れていない）
 露出は「晴天の基準」：その時刻の晴天の帯の 99 パーセンタイルで決め、同じ時刻の天気はすべて同じ露出で表示する。
 比べのため、雨を「場面ごとの露出」で引き伸ばした 1 枚も足す（これが不自然になる例）。"""
-import json, math, re, sys
+import json, math, os, re, sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
@@ -41,6 +41,36 @@ def direct_horizontal(alt_deg):
     e = sol * np.exp(-TAU_V * m) * math.sin(math.radians(alt_deg))  # W/m²/nm
     xyz = 683 * D * e @ cmf
     return M @ xyz
+
+
+# 雲の分光の透過（環境変数 CLOUD_SPECTRAL=1）：Lee・Hernández-Andrés（2005、Applied Optics 44, 5712）の測定では、曇天の透過は λ^−c に比例し、
+# 薄い層雲で c ≈ 0.270、厚い層雲で c ≈ 0.611（太陽 5° 以上）。仕組みは、多重散乱で長くなった光路での水滴の弱い吸収（590 nm より長い側）。
+# ここでは c を τ 3 で 0.27、τ 30 で 0.611、その間は log τ で線形（**仮**。論文の「薄い・厚い」の境の τ は確かめていない）。550 nm で 1 に正規化。
+SPECTRAL = os.environ.get("CLOUD_SPECTRAL") == "1"
+LAM = np.sort(np.array(lam))
+
+
+def cloud_c(tau):
+    if tau <= 3:
+        return 0.27
+    if tau >= 30:
+        return 0.611
+    return 0.27 + (0.611 - 0.27) * (math.log(tau) - math.log(3)) / (math.log(30) - math.log(3))
+
+
+def tint(tau, base_spec):
+    """雲の分光の透過を、基準の分光（雲の上に届く光の近似）に掛けたときの、線形 sRGB の各成分の倍率。"""
+    f = (LAM / 550.0) ** -cloud_c(tau)
+    a = M @ (base_spec @ cmf)
+    b = M @ ((base_spec * f) @ cmf)
+    return b / a
+
+
+def cct(rgb):
+    X, Y, Z = np.linalg.solve(M, rgb)
+    x, y = X / (X + Y + Z), Y / (X + Y + Z)
+    n = (x - 0.3320) / (0.1858 - y)
+    return 449 * n**3 + 3525 * n**2 + 6823.3 * n + 5520.33  # McCamy
 
 
 def srgb(x):
@@ -98,23 +128,40 @@ for c in cases["cases"]:
             through = np.exp(-tau / np.maximum(sa, 0.05))[:, None, None] * clear
             Td = max(Tt - (math.exp(-tau / mu0) if mu0 > 0 else 0.0), 0.0)
             Lz = 9 * Td * E_top / (7 * math.pi)
+            if SPECTRAL:
+                # 基準の分光：雲の上に届く光を、直達（太陽の分光 × 透過）と天空（D65 に近い昼光の代わりに太陽の分光 × λ^−4 で 550 nm 正規化）の照度の比で混ぜた近似
+                zz = 90 - max(c["sunAlt"], 0.5)
+                mm = 1 / (math.cos(math.radians(zz)) + 0.50572 * (96.07995 - zz) ** -1.6364)
+                sdir = sol * np.exp(-TAU_V * mm)
+                ssky = sol * (LAM / 550.0) ** -4
+                wd = E_dir[1] / max(E_top[1], 1e-9)
+                base = wd * sdir / max(float(M[1] @ (sdir @ cmf)), 1e-12) + (1 - wd) * ssky / float(M[1] @ (ssky @ cmf))
+                Lz = Lz * tint(tau, base)
             dome = ((1 + 2 * np.maximum(sa, 0)) / 3)[:, None, None] * Lz[None, None, :]
             L = through + np.where(up[:, None, None], dome, 0.0)
         mean_g = float(L[up][..., 1].mean())
-        summary[c["id"]]["weathers"][name] = {"tau": tau, "T": Tt, "mean_G_cd": mean_g}
+        cz = None
+        if tau > 0:
+            zrow = L[-1].mean(axis=0)
+            try:
+                cz = float(cct(zrow))
+            except Exception:
+                cz = None
+        summary[c["id"]]["weathers"][name] = {"tau": tau, "T": Tt, "mean_G_cd": mean_g, "cct_60deg_K": cz}
         img.paste(Image.fromarray(show(L, e_ref)[::-1]), (16, y))
         rel = mean_g / summary[c["id"]]["weathers"]["晴れ"]["mean_G_cd"]
-        dr.text((16, y + H + 2), f"{name}　空の平均の明るさ：晴れの {rel:.2f} 倍", font=f_l, fill=(170, 178, 192))
+        extra = f"・高さ 60° の色温度 約 {cz:,.0f} K" if (cz and tau > 0) else ""
+        dr.text((16, y + H + 2), f"{name}　空の平均の明るさ：晴れの {rel:.2f} 倍{extra}", font=f_l, fill=(170, 178, 192))
         y += row_h + 5
         rain_L = L
     e_rain = 1.0 / np.percentile(rain_L[up][..., 1], 99)
     img.paste(Image.fromarray(show(rain_L, e_rain)[::-1]), (16, y))
     dr.text((16, y + H + 2), "参考：雨（仮）を「場面ごとの露出」で引き伸ばすと（晴れと同じ明るさに見えてしまう例）", font=f_l, fill=(220, 150, 120))
     y += row_h + 15
-for k, t in enumerate(["Hillaire 15 波長・表 128×128 の晴天に、仮の簡略な雲を重ねた。", "雲は一様な 1 枚の層、明るさの分布は CIE 標準曇天空。τ は雲の光学的厚さ。", "雨は τ を大きくしただけ。左が北、方位 0〜360°、高さ −2〜60°。"]):
+for k, t in enumerate(["Hillaire 15 波長・表 128×128 の晴天に、仮の簡略な雲を重ねた。" + ("雲の分光の透過は Lee・Hernández-Andrés 2005 の λ^−c（仮の割り当て）。" if SPECTRAL else "雲は色を持たない。"), "雲は一様な 1 枚の層、明るさの分布は CIE 標準曇天空。τ は雲の光学的厚さ。", "雨は τ を大きくしただけ。左が北、方位 0〜360°、高さ −2〜60°。"]):
     dr.text((16, y + 20 * k), t, font=f_l, fill=(150, 158, 172))
 img.save(out_png)
 if out_json:
     json.dump(summary, open(out_json, "w"), ensure_ascii=False, indent=1)
 for k, v in summary.items():
-    print(k, {n: round(w["mean_G_cd"] / v["weathers"]["晴れ"]["mean_G_cd"], 3) for n, w in v["weathers"].items()}, "E_top G", round(v["E_top_lux_G"], 1), "direct", round(v["E_direct_G"], 1))
+    print(k, {n: (round(w["mean_G_cd"] / v["weathers"]["晴れ"]["mean_G_cd"], 3), None if w["cct_60deg_K"] is None else round(w["cct_60deg_K"])) for n, w in v["weathers"].items()})
