@@ -1,6 +1,6 @@
 """多波長の色（CPU で積分）：opengl/kochi_ref の spectral の 5 回（15 波長、各回 3 波長の放射輝度）を、CIE 1931 2° の等色関数で
 積分して XYZ → 線形 sRGB の輝度（cd/m²）にする。15 波長を足し合わせる経路（luminance）が、3 波長ずつ 5 回の計算と一致するかの確かめ
-（同じ GLSL・表・15 点・CIE 表・行列を使うので、物理や 15 点の粗さの独立な確かめではない。11/27 レビュー）。
+（違うのは色の積分の経路〔GPU／CPU〕だけ。散乱の計算と入力〔GLSL・表・15 点・CIE 表・行列〕は共通なので、物理や 15 点の粗さの確かめではない。11/27 レビュー）。
 python3 research/sky-beta2/tools/spectral.py <spec フォルダ> <cases.json> <constants.h> <出力 json> [帯の出力フォルダ]
 spec フォルダの g0〜g4 は、spec.sh のとおり R・G・B の枠に 15 波長を 3 つずつ（g0 の R＝438.33、G＝407、B＝375.67 nm …）。"""
 import json, os, re, sys
