@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { COOKIE, LOCK_MS, MAX_FAILED, newPassword, PULL_PAGE, RESEARCH_CONSENT_VERSION, SKY_CONSENT_VERSION } from "../worker/src/accounts";
+import { COOKIE, LOCK_MS, MAX_FAILED, newPassword, PULL_PAGE, RESEARCH_CONSENT_VERSION, SKY_CONSENT_VERSION, WEATHER_CONSENT_VERSION } from "../worker/src/accounts";
 import worker from "../worker/src/index";
 import { d1 } from "./d1";
 
@@ -266,6 +266,88 @@ describe("研究への協力：空の写真（11/27、研究ごとに選ぶ）",
       { kind: "research-sky", granted: 0 },
     ]);
     expect((await call("/api/me/consent", { body: { granted: true, kind: "other" }, cookie: t })).status).toBe(400);
+  });
+});
+
+describe("今の天気（#552）：アンケートと、肌感の記録の今の天気が、天気の記録（正本）に入る", () => {
+  const recent = () => new Date(Date.now() - 60_000).toISOString();
+  it("同意は別の答えで、研究用の番号を変えない", async () => {
+    const a = await admin();
+    const p = await issue(a.cookie, "sato");
+    const t = (await login("sato", p.password)).cookie!;
+    const before = env.DB.raw.prepare("SELECT research_id FROM users WHERE login_id = 'sato'").get();
+    const on = await call("/api/me/consent", { body: { granted: true, kind: "weather" }, cookie: t });
+    expect(on.body.user.researchWeather).toMatchObject({ granted: true, version: WEATHER_CONSENT_VERSION });
+    expect(on.body.user.research.granted).toBe(false);
+    expect(on.body.user.researchSky.granted).toBe(false);
+    expect(env.DB.raw.prepare("SELECT research_id FROM users WHERE login_id = 'sato'").get()).toEqual(before);
+  });
+
+  it("アンケート：雨なら強さを残し、雨でなければ強さを捨てる。取り消せる", async () => {
+    const a = await admin();
+    const at = recent();
+    const r1 = await call("/api/me/weather", { body: { id: "survey-0001", at, sky: "rain", rain: "zaa", station: "74181" }, cookie: a.cookie });
+    expect(r1.status).toBe(200);
+    expect(r1.body.list).toEqual([{ id: "survey-0001", source: "survey", at, sky: "rain", rain: "zaa", station: "74181" }]);
+    await call("/api/me/weather", { body: { id: "survey-0002", at, sky: "sunny", rain: "gou" }, cookie: a.cookie });
+    expect(env.DB.raw.prepare("SELECT rain FROM weather_obs WHERE id = 'survey-0002'").get()).toEqual({ rain: null });
+    const off = await call("/api/me/weather/delete", { body: { id: "survey-0001" }, cookie: a.cookie });
+    expect(off.body.list.map((o: { id: string }) => o.id)).toEqual(["survey-0002"]);
+  });
+
+  it("おかしな答え・先の時刻・古すぎる時刻・ログインなしは受けない", async () => {
+    const a = await admin();
+    const bad = [
+      { id: "survey-0003", at: recent(), sky: "storm" },
+      { id: "survey-0004", at: recent(), sky: "rain", rain: "dosha" },
+      { id: "survey-0005", at: new Date(Date.now() + 3_600_000).toISOString(), sky: "sunny" },
+      { id: "survey-0006", at: "2026-01-01T00:00:00Z", sky: "sunny" },
+      { id: "x", at: recent(), sky: "sunny" },
+    ];
+    for (const b of bad) expect((await call("/api/me/weather", { body: b, cookie: a.cookie })).status).toBe(400);
+    expect((await call("/api/me/weather", { body: { id: "survey-0007", at: recent(), sky: "sunny" } })).status).toBe(401);
+    expect(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM weather_obs").get()).toEqual({ n: 0 });
+  });
+
+  it("肌感の記録の今の天気（と雨の強さ）を写し、記録を消すと天気の記録からも消える", async () => {
+    const a = await admin();
+    await call("/api/reports/sync", { body: { push: [rep("f1", 1, { sky: "rain", rain: "para" }), rep("f2", 1, { sky: "cloudy" }), rep("f3", 1)] }, cookie: a.cookie });
+    expect(env.DB.raw.prepare("SELECT id, source, ref_id, sky, rain, deleted FROM weather_obs ORDER BY id").all()).toEqual([
+      { id: "feel:f1", source: "feel", ref_id: "f1", sky: "rain", rain: "para", deleted: 0 },
+      { id: "feel:f2", source: "feel", ref_id: "f2", sky: "cloudy", rain: null, deleted: 0 },
+    ]);
+    await call("/api/reports/sync", { body: { push: [rep("f1", 2, { deleted: true })] }, cookie: a.cookie });
+    expect(env.DB.raw.prepare("SELECT deleted FROM weather_obs WHERE id = 'feel:f1'").get()).toEqual({ deleted: 1 });
+    // 肌感から来た行は、アンケートの取り消しでは消えない
+    await call("/api/me/weather/delete", { body: { id: "feel:f2" }, cookie: a.cookie });
+    expect(env.DB.raw.prepare("SELECT deleted FROM weather_obs WHERE id = 'feel:f2'").get()).toEqual({ deleted: 0 });
+  });
+
+  it("前からの肌感の記録の今の天気は、一度だけ写す（版 1）", async () => {
+    const { migrate } = await import("../worker/src/migrate");
+    const { WEATHER_OBS_MIGRATIONS } = await import("../worker/src/weatherObs");
+    const a = await admin();
+    await call("/api/reports/sync", { body: { push: [rep("old1", 1, { sky: "thin" })] }, cookie: a.cookie });
+    env.DB.raw.prepare("DELETE FROM weather_obs").run();
+    env.DB.raw.prepare("DELETE FROM schema_migrations WHERE module = 'weather_obs'").run();
+    expect(await migrate(env.DB, "weather_obs", WEATHER_OBS_MIGRATIONS)).toEqual([1]);
+    expect(await migrate(env.DB, "weather_obs", WEATHER_OBS_MIGRATIONS)).toEqual([]);
+    expect(env.DB.raw.prepare("SELECT id, source, sky FROM weather_obs").all()).toEqual([{ id: "feel:old1", source: "feel", sky: "thin" }]);
+  });
+
+  it("雨でないのに雨の強さがある肌感の記録は受けない", async () => {
+    const a = await admin();
+    await call("/api/reports/sync", { body: { push: [rep("g1", 1, { sky: "sunny", rain: "zaa" })] }, cookie: a.cookie });
+    expect(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM reports").get()).toEqual({ n: 0 });
+  });
+
+  it("アカウントを消すと、天気の記録も消える", async () => {
+    const a = await admin();
+    const p = await issue(a.cookie, "kato");
+    const t = (await login("kato", p.password)).cookie!;
+    await call("/api/me/weather", { body: { id: "survey-0008", at: recent(), sky: "snow" }, cookie: t });
+    expect((await call("/api/me/delete", { body: { password: p.password }, cookie: t })).status).toBe(200);
+    expect(env.DB.raw.prepare("SELECT COUNT(*) AS n FROM weather_obs").get()).toEqual({ n: 0 });
   });
 });
 

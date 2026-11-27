@@ -34,7 +34,7 @@ def row0(d, kind="actual"):
             "humidity": round(55 + 30 * r.random()), "wind": round(1 + 4 * r.random(), 1),
             "dayWeather": SKY[d.toordinal() % len(SKY)], "snow": (2.0 if (d.year, d.day) == (2025, 8) else 0), "pressure": round(1012 + 8 * r.random(), 1), "gust": round(6 + 6 * r.random(), 1), "humidityMin": round(30 + 20 * r.random()), "sun": round(9 * r.random(), 1), "temp": round(mx - 4, 1), "raw": {"max": str(mx)}, "quality": {}, "unpublished": []}
 
-ME = {"id": "u1", "loginId": "masao", "name": "渡辺", "role": "admin", "research": {"granted": True, "version": 2, "at": 1762800000000}, "consentVersion": 2}
+ME = {"id": "u1", "loginId": "masao", "name": "渡辺", "role": "admin", "research": {"granted": True, "version": 2, "at": 1762800000000}, "consentVersion": 2, "researchWeather": {"granted": True, "version": 1, "at": 1764300000000}, "weatherConsentVersion": 1}
 LOGGED_IN = os.environ.get("WN_LOGGED_OUT") != "1"
 
 # 近づいている台風 (/api/typhoon): one made-up typhoon (台風14号 テスト) south of Kochi, its 強風域 holding
@@ -104,6 +104,8 @@ def api(path, q):
         return {"user": ME if LOGGED_IN else None, "setup": False}
     if path == "/api/me/notify":
         return {"settings": {"enabled": True, "times": ["07:30", "12:30", "18:30"], "days": [1, 2, 3, 4, 5]}, "devices": 1}
+    if path == "/api/me/weather":
+        return {"list": [{"id": "feel:r1", "source": "feel", "at": "2026-11-10T02:00:00Z", "sky": "rain", "rain": "para", "station": "74181"}]}
     if path == "/api/push/key":
         return {"publicKey": "BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8"}
     if path == "/api/reports/sync":
@@ -1710,6 +1712,20 @@ with sync_playwright() as p:
         st = small_text(); check("R6 11px より小さい文字がない（記録）", not st, str(st))
         layout_ok("R7", "記録")
         buttons_ok("R8", "記録", 1)
+        # 今の天気（#552）：研究で選んだものだけ出る。雨を選ぶと強さが 4 段出て、選ぶまで記録できない。
+        pg.locator(".msheet.report-sheet .seg button", has_text="今の天気").first.click(); calm()
+        check("R9 今の天気に切り替わる", pg.locator("#ws-now").count() == 1)
+        pg.locator(".msheet.report-sheet .chip", has_text="雨").first.click(); calm()
+        levels = pg.locator(".msheet.report-sheet [aria-label='雨の強さ'] .chip").all_inner_texts()
+        check("R10 雨を選ぶと強さが 4 段", levels == ["ポツポツ", "パラパラ", "ザーザー", "ゴウゴウ"], str(levels))
+        b = pg.locator(".msheet.report-sheet #ws-now ~ .btn.primary, .msheet.report-sheet section[aria-labelledby='ws-now'] .btn.primary").first
+        check("R11 強さを選ぶまで記録できない", b.is_disabled() and "雨の強さ" in b.inner_text(), b.inner_text())
+        pg.locator(".msheet.report-sheet .chip", has_text="ザーザー").first.click(); calm()
+        check("R12 強さを選ぶと記録できる", not b.is_disabled())
+        if os.environ.get("WN_WSHOT"): pg.locator(".msheet.report-sheet").last.screenshot(path=os.environ["WN_WSHOT"])
+        check("R13 一覧に肌感の記録の天気も出る", "肌感の記録から" in txt("section[aria-labelledby='ws-list']"))
+        st = small_text(); check("R14 11px より小さい文字がない（今の天気）", not st, str(st))
+        layout_ok("R15", "今の天気")
         esc()
     step("R", rr)
 

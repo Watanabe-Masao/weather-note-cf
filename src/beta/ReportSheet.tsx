@@ -11,7 +11,7 @@ import { FeelContext } from "../ui/FeelBar";
 import { Button, InfoNote, Segmented } from "../ui/kit";
 import { ModalSheet, useSheetClose } from "../ui/ModalSheet";
 import { departures, historyDays } from "./adaptation";
-import { reportMoment, DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
+import { reportMoment, DRINK_PREFERENCES, type DrinkPreference, PREFERENCE_VERSION, THERMAL_PREFERENCES, type ThermalPreference, SCALE_VERSION, type Exposure, EXPOSURES, newId, RECENT_DAYS, recentDay, type Report, type Sensation, SENSATIONS, type RainLevel, RAIN_LEVELS, type Sky, SKIES, snapshotOf, type WindFelt, WINDS } from "./reports";
 import { BetaContext } from "./settings";
 import { noteAnswered } from "./AfterAnswer";
 import { feelOn } from "../feelSeason";
@@ -22,6 +22,7 @@ import { reports } from "./useReports";
 import { nightAt } from "./engine/observations";
 import { useAccount } from "../account/account";
 import { SkyPhotoSection } from "../account/SkyPhotoSection";
+import { WeatherSurvey } from "../account/WeatherSurvey";
 
 interface Props {
   store: WeatherStore | null;
@@ -41,6 +42,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
   const [exposure, setExposure] = useState<Exposure | null>(null);
   const [windFelt, setWindFelt] = useState<WindFelt | null>(null);
   const [sky, setSky] = useState<Sky | null>(null);
+  const [rain, setRain] = useState<RainLevel | null>(null);
   const [thermal, setThermal] = useState<ThermalPreference | null>(null);
   const [drink, setDrink] = useState<DrinkPreference | null>(null);
   // Opened now; sent maybe much later (from a notification): both are kept, and the prediction is
@@ -149,6 +151,7 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       exposure: nightNow(now) ? null : exposure,
       windFelt,
       sky,
+      ...(sky === "rain" && rain ? { rain } : {}),
       ...(thermal ? { thermalPreference: thermal } : {}),
       ...(drink ? { drinkPreference: drink } : {}),
       preferenceVersion: PREFERENCE_VERSION,
@@ -240,7 +243,10 @@ function Body({ store, station, today, onSaved, notifiedAt }: Omit<Props, "onClo
       <div className="set-row">
         <span className="set-label">今の天気</span>
         <Segmented label="今の天気" value={sky ?? ("" as Sky)} options={SKIES.map((k) => ({ id: k.id, label: k.label }))} onChange={setSky} />
-        <InfoNote more="その時刻の予報の天気は自動で添えるので、あとで予報と実際を突き合わせられます。">見たままの空を選んでください。</InfoNote>
+        {sky === "rain" && (
+          <Segmented label="雨の強さ" value={rain ?? ("" as RainLevel)} options={RAIN_LEVELS.map((k) => ({ id: k.id, label: k.label }))} onChange={setRain} onReselect={() => setRain(null)} />
+        )}
+        <InfoNote more="その時刻の予報の天気は自動で添えるので、あとで予報と実際を突き合わせられます。雨の強さは、分かれば選んでください（選ばなくても記録できます）。">見たままの空を選んでください。</InfoNote>
       </div>
       {waitingFor == null && !quality.trainable && (
         <p className="report-quality warn">この記録は保存しますが、学習には使いません（{quality.reason}）。</p>
@@ -348,31 +354,36 @@ function PredictionCard({ prediction, reported, learning, station }: { predictio
 
 const labelOf = (v: number) => SENSATIONS.find((s) => s.value === v)?.label ?? "";
 
-type Mode = "feel" | "photo";
+type Mode = "feel" | "photo" | "weather";
 const MODES: { id: Mode; label: string }[] = [
   { id: "feel", label: "肌感" },
   { id: "photo", label: "空の写真" },
+  { id: "weather", label: "今の天気" },
 ];
+const TITLES: Record<Mode, string> = { feel: "今の感じ方を記録 β", photo: "空の写真を記録 β", weather: "今の天気を記録 β" };
 
 /**
- * 記録：肌感か、空の写真か（11/27 渡辺さん「記録タブで肌感か写真選択できるように」「ログインしてる他の協力者も送れるように」
+ * 記録：肌感か、空の写真か、今の天気か（11/27 渡辺さん「記録タブで肌感か写真選択できるように」「ログインしてる他の協力者も送れるように」
  * 「どの研究に協力するかチェックボックスを入れ、入れたものだけ表示」）。記録のボタンはログインしている人にだけ出る。
  * 設定の「研究への協力」で入れた研究だけを出す。どれも入れていない人には、記録を出さずに選び方を案内する（11/27 渡辺さん「厳密に」）。
  */
 export function ReportSheet(props: Props) {
   const { me } = useAccount();
-  const modes = MODES.filter((m) => (m.id === "feel" ? me?.research.granted : me?.researchSky?.granted));
+  const granted: Record<Mode, boolean> = { feel: !!me?.research.granted, photo: !!me?.researchSky?.granted, weather: !!me?.researchWeather?.granted };
+  const modes = MODES.filter((m) => granted[m.id]);
   const [picked, setMode] = useState<Mode>("feel");
   const mode = modes.some((m) => m.id === picked) ? picked : modes[0]?.id;
   return (
-    <ModalSheet title={modes.length > 1 ? "今を記録 β" : mode === "photo" ? "空の写真を記録 β" : "今の感じ方を記録 β"} onClose={props.onClose} className="report-sheet" size="fit">
+    <ModalSheet title={modes.length > 1 || !mode ? "今を記録 β" : TITLES[mode]} onClose={props.onClose} className="report-sheet" size="fit">
       {modes.length > 1 && <Segmented label="記録するもの" options={modes} value={mode!} onChange={setMode} />}
       {mode === "photo" ? (
         <SkyPhotoSection />
+      ) : mode === "weather" ? (
+        <WeatherSurvey station={props.station} />
       ) : mode === "feel" ? (
         <Body {...props} />
       ) : (
-        <p className="set-lead">記録するには、設定のアカウントにある「研究への協力」で、協力する研究（肌感・空の写真）を選んでください。選んだものだけ、ここに出ます。</p>
+        <p className="set-lead">記録するには、設定のアカウントにある「研究への協力」で、協力する研究（肌感・空の写真・今の天気）を選んでください。選んだものだけ、ここに出ます。</p>
       )}
     </ModalSheet>
   );
