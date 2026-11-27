@@ -7,10 +7,12 @@
 //   時間のための定時処理（saveSkyForecast、1時間に1回まで。その間に画面の取得があれば取らない）の両方で残す。
 // - AOD：airForecast.ts の saveAirForecast（空気質の予測の定時取得、1時間に1回）が受け取った値。
 // 答え合わせは「その時刻までに定時取得・画面の取得で受信した予報」。端の保存から出した画面の値は、その元の取得の回として残っている。
-// どう残すか：最新値とは別の表に、追記だけ。地点・項目・出典・対象時刻ごとに、前に残した値・状態と違うときだけ1行足す
-// （同じ値なら足さない。その回に確かめたことは取得の記録 sky_forecast_fetch_log に残る）。
+// どう残すか：最新値とは別の表に、追記だけ。**受け取った回ごとに、値が前と同じでも全部1行ずつ**（受信時刻つき）。
+// 前と同じ値を省くと、保存の順が受信の順と入れ替わったとき（画面の取得と定時処理が重なるなど）に、あとから保存した
+// 早い回が「同じ値」として捨てられ、締め切りでの再現を誤る（11/27 渡辺さんのテスト：13:58 に 20%、13:59 に 80%、14:01 に 80%。
+// 14:01 の分が先に保存されると、14 時の再現が 80% でなく 20% になった）。保存する項目・出典・範囲は絞ったまま。
 // - fetched_at は、その出典の応答を**受け取り終えた時刻**（頼んだ時刻ではない。13:59 に頼んで 14:00 過ぎに届いた値は 14 時の締め切りに入らない）。
-//   値が変わらない回や、取れなかった回では書き換えない（旧値の時刻のまま）。
+//   取れなかった回は行を足さない。
 // - 応答にその時刻の値が無ければ「missing」の行（値は null）。取れなかった回は行を足さず、取得の記録に失敗を残す。
 // - 時刻：valid_at は日本時間の正時（"+09:00"）。全雲量・視程・AOD・天気コードは、その正時の瞬時の値（天気コードは
 //   Open-Meteo ではその時間の代表）。降水量は、その正時までの1時間の量（JMA の時間 n。24 時＝次の日の 0:00）。
@@ -109,41 +111,22 @@ export interface SkyReceipt {
   grid?: { lat: number | null; lon: number | null } | null;
 }
 
-/** 受け取った値を、範囲の中で、前と違う所だけ追記し、取得の記録を残す。 */
+/** 受け取った値を、範囲の中で、値が前と同じでも全部（受信時刻つきで）追記し、取得の記録を残す。保存の順によらない。 */
 export async function recordSkyHistory(db: Db, r: SkyReceipt): Promise<number> {
   await ensureSkyHistorySchema(db);
   const { from, to } = historyRange(r.receivedAt);
   const values = r.values.filter((v) => v.validAt >= from && v.validAt <= to);
-  const latest = new Map(
-    (
-      await db
-        .prepare(
-          `SELECT h.item, h.valid_at, h.value, h.status FROM sky_forecast_history h
-           JOIN (SELECT item, valid_at, MAX(fetched_at) AS f FROM sky_forecast_history WHERE station = ? AND source = ? AND valid_at >= ? AND valid_at <= ? GROUP BY item, valid_at) m
-             ON h.item = m.item AND h.valid_at = m.valid_at AND h.fetched_at = m.f
-           WHERE h.station = ? AND h.source = ?`,
-        )
-        .bind(r.station, r.source, from, to, r.station, r.source)
-        .all<{ item: string; valid_at: string; value: number | null; status: string }>()
-    ).results.map((x) => [`${x.item}|${x.valid_at}`, x]),
+  const rows = values.map((v) =>
+    db
+      .prepare("INSERT OR IGNORE INTO sky_forecast_history (station, item, valid_at, fetched_at, source, unit, value, status, model_run) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(r.station, v.item, v.validAt, r.receivedAt, r.source, SKY_HISTORY_UNITS[v.item], v.value, v.value == null ? "missing" : "ok", null),
   );
-  const rows = [];
-  for (const v of values) {
-    const status = v.value == null ? "missing" : "ok";
-    const prev = latest.get(`${v.item}|${v.validAt}`);
-    if (prev && prev.status === status && prev.value === v.value) continue; // 前と同じ（この回に確かめたことは取得の記録に）
-    rows.push(
-      db
-        .prepare("INSERT OR IGNORE INTO sky_forecast_history (station, item, valid_at, fetched_at, source, unit, value, status, model_run) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-        .bind(r.station, v.item, v.validAt, r.receivedAt, r.source, SKY_HISTORY_UNITS[v.item], v.value, status, null),
-    );
-  }
   if (rows.length) await db.batch(rows);
   await logFetch(db, r.receivedAt, r.station, r.source, r.via, { ok: true, from, to, req: r.req, grid: r.grid, appended: rows.length });
   return rows.length;
 }
 
-/** 取れなかった回の記録（行は足さない。fetched_at は書き換えない）。at は失敗が分かった時刻。 */
+/** 取れなかった回の記録（行は足さない）。at は失敗が分かった時刻。 */
 export async function recordSkyFailure(db: Db, station: string, source: SkyHistorySource, via: "api" | "cron", at: string, error: string) {
   await ensureSkyHistorySchema(db);
   await logFetch(db, at, station, source, via, { ok: false, error: error.slice(0, 300), appended: 0 });
@@ -229,10 +212,11 @@ export interface SkyAsOf {
   /** その出典で、締め切りまでに受け取ったいちばん新しい値（欠測の回のあとも、その前に受け取った値とその時刻）。 */
   value: number | null;
   unit: string;
+  /** その値を受け取った回の受信時刻（締め切りまでで、その値を含むいちばん新しい回）。 */
   fetchedAt: string | null;
   /** ok：値がある／missing：締め切りまでの最後の回の応答に値が無かった（前の値を返す）／none：締め切りまでに記録が無い＝再現不可。 */
   status: "ok" | "missing" | "none";
-  /** 締め切りまでに、その出典でこの対象時刻を含む取得が最後に成功した時刻（値が変わらず行を足さなかった回も含む）。 */
+  /** 締め切りまでに、その出典でこの対象時刻を含む取得が最後に成功した時刻。 */
   confirmedAt: string | null;
 }
 
