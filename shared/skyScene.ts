@@ -38,6 +38,8 @@ export interface SkyWeather {
   coverSource?: SkySource | null;
   /** 視程（km）。useVisibility のときだけ、地平線近くのかすみに使う。 */
   visibilityKm?: number | null;
+  /** その時間（JMA の時間 n）の行：予報か記録か、降水量（mm）。行が無ければ null。根拠の説明（skyBasis）に使う（雲の量は補わない）。 */
+  row?: { forecast: boolean; rainMm: number | null } | null;
 }
 
 /**
@@ -60,6 +62,7 @@ const num = (v: unknown): number | null => (typeof v === "number" && Number.isFi
 export function skyWeatherFrom(rows: WeatherRow[], n: number, station: Where, coverAt: number = n): SkyWeather {
   const own = rows.find((r) => r.n === n);
   const visibilityKm = own ? num((own as { visibility?: unknown }).visibility) : null;
+  const ownRow = own ? { forecast: own.type === "forecast", rainMm: num(own.rain) } : null;
   const coverRow = rows.find((r) => r.n === coverAt && r.type === "forecast");
   const coverPct = coverRow ? num((coverRow as { cover?: unknown }).cover) : null;
   const withCover = (w: SkyWeather): SkyWeather =>
@@ -73,11 +76,39 @@ export function skyWeatherFrom(rows: WeatherRow[], n: number, station: Where, co
       if (!w.text) continue;
       const row = rows.find((r) => r.n === h);
       const source: SkySource = h !== n ? "前後の時間" : w.estimated ? "観測から推定" : row?.type === "forecast" ? "予報" : "実績";
-      return withCover({ kind: skyKindOf(w.text), source, text: w.text, hour: h, visibilityKm });
+      return withCover({ kind: skyKindOf(w.text), source, text: w.text, hour: h, visibilityKm, row: ownRow });
     }
   }
-  if (coverPct != null) return withCover({ kind: null, source: "予報", text: null, hour: null, visibilityKm });
-  return { kind: null, source: "なし", text: null, hour: null, visibilityKm };
+  if (coverPct != null) return withCover({ kind: null, source: "予報", text: null, hour: null, visibilityKm, row: ownRow });
+  return { kind: null, source: "なし", text: null, hour: null, visibilityKm, row: ownRow };
+}
+
+/**
+ * 空の絵の根拠（β を入れたとき、絵の直下に1か所だけ出す。2026-11-27 渡辺さん「β の説明に一本化」）。
+ * 何から描いたか・何が欠けているかを文で。「全雲量 0% で雲を描いていない」と「情報が無くて雲を描いていない」を言い分ける
+ * （青い空の絵は晴れの予報にも見えるので）。降水量は事実として添えるだけで、雲の量は補わない。
+ */
+export function skyBasis(wx: SkyWeather): string[] {
+  const hourOf = (h: number) => `${h - 1}時台`;
+  const weatherLine = wx.text && wx.hour != null ? `${hourOf(wx.hour)}の天気は「${wx.text}」（${wx.source}）です。` : null;
+  const rainLine = (r: SkyWeather["row"]) => (r && r.rainMm != null ? `${r.forecast ? "予報の" : "観測の"}降水量は${r.rainMm.toFixed(1)} mmです。` : null);
+  const lines: (string | null)[] = [];
+  if (wx.cover != null) {
+    const v = `${wx.coverAt != null ? `${wx.coverAt}時の` : ""}全雲量の${wx.coverSource ?? wx.source}`;
+    if (wx.cover <= 0) lines.push(`${v}が 0% のため、雲は描いていません。`);
+    else lines.push(`${v} ${Math.round(wx.cover * 100)}% から雲を描いています（雲の形と位置はイメージ）。`);
+    lines.push(weatherLine ?? "この時間の天気の予報はありません。");
+  } else if (wx.kind === "fog") {
+    lines.push(`${wx.hour != null ? hourOf(wx.hour) : "この時間"}の天気は「${wx.text}」（${wx.source}）です。霧は雲の量にしないので、雲は描いていません。`);
+  } else if (wx.text && wx.hour != null) {
+    const from = wx.source === "前後の時間" ? `この時間の天気がないため、近い${hourOf(wx.hour)}の天気「${wx.text}」から` : `${hourOf(wx.hour)}の天気「${wx.text}」（${wx.source}）から`;
+    lines.push(`${from}雲を描いています（全雲量がないため、雲の量は天気から決めたイメージ）。`);
+  } else {
+    const what = !wx.row ? "記録・予報" : wx.row.forecast ? "予報" : "記録";
+    lines.push(`この時間の天気・全雲量の${what}がないため、雲は描いていません。`);
+    lines.push(rainLine(wx.row));
+  }
+  return lines.filter((x): x is string => !!x);
 }
 
 /** 全雲量の言い方（「2時の全雲量 62%（予報）」）。無いときは null。 */
@@ -132,7 +163,7 @@ export function moonOutlook(wx: SkyWeather, moonAlt: number): { level: "見え�
         ? `（${coverText(wx, true)}）`
         : `（${wx.hour != null ? `${wx.hour - 1}時台 ` : ""}${wx.text ?? ""}・${wx.source}）`;
   if (wx.kind === "fog") return { level: "見えにくそう", note: `霧で、見えにくそう${from}` };
-  if (c == null) return { level: "分からない", note: "この時間の天気が無いので、見えるかは分からない" };
+  if (c == null) return { level: "分からない", note: "この時間の天気・全雲量がないので、見えるかは分からない" };
   if (c >= 0.8) return { level: "見えにくそう", note: `雲が多く、見えにくそう${from}` };
   if (c >= 0.35) return { level: "切れ間から", note: `雲の切れ間から見えるかも${from}` };
   return { level: "見える", note: `晴れていれば見える${from}` };
@@ -224,6 +255,8 @@ export interface SceneInput {
   seed: number;
   /** 視程のかすみを使う（初期状態は使わない）。 */
   useVisibility?: boolean;
+  /** 今の画面の空の帯（β では使わない）の言葉と元（「雲の多い青空・12時台 雨 0.0mm（予報）」）。詳細欄で参考に出すだけ。 */
+  band?: string | null;
 }
 
 /** 晴天大気（雲なし）。値は表示用の色（sRGB）を線形 RGB に戻したもので、物理の放射輝度ではない（物理版とは区別して受け渡す）：天頂・地平の色の間を高さで、太陽の側の地平線の暖色、昼の太陽のまわり、夜の月のまわり。 */
@@ -311,5 +344,6 @@ export function sceneTrace(s: SceneInput): { layer: string; used: boolean; note:
             : `${when}${s.wx.text ?? ""}（${s.wx.source}）から決めた雲の量 ${Math.round(amount * 100)}% のイメージ${amount >= OVERCAST ? "（空一面）" : ""}。全雲量は無い${s.wx.source === "実績" || s.wx.source === "観測から推定" ? "か、実績の時間なので使わない" : ""}`,
     },
     { layer: "かすみ", used: !!s.useVisibility && s.wx.visibilityKm != null, note: s.useVisibility ? `視程 ${s.wx.visibilityKm ?? "なし"} km` : "使っていない（遠景を描かない画面なので、視程による補正は初期状態で使わない）" },
+    ...(s.band ? [{ layer: "空の帯（参考）", used: false, note: `${s.band}。β の空の絵には使っていない（降水量・日照からの雲の係数で描く今の空の帯の色と言葉）` }] : []),
   ];
 }

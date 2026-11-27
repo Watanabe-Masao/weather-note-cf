@@ -239,7 +239,8 @@ def api(path, q):
                 hourly.append({"date": d.isoformat(), "n": n, "type": "forecast", "provider": "Open-Meteo", "temp": t, "humidity": 70, "wind": 2.0,
                                "pressure": 1015.0, "rain": 0, "probability": 20, "solar": round(max(0, 600 * math.sin(math.pi * (n - 6) / 12)), 0) if 6 < n < 18 else 0,
                                # 全雲量（%、正時の瞬時の値、#532）：空の絵（β）の雲の量
-                               "cover": (n * 7) % 101,
+                               # WN_NO_COVER=1：全雲量の無い予報（根拠の文の見本を撮るとき）
+                               **({} if os.environ.get("WN_NO_COVER") else {"cover": (n * 7) % 101}),
                                "raw": {}, "quality": {}})
         return {"rows": rows, "hourlyRows": hourly}
     if path == "/api/hourly":
@@ -889,16 +890,19 @@ with sync_playwright() as p:
         # 空の絵（β、11/27）：入れると窓の空が Canvas の空の絵に。細かい目盛りと通り道は「軌道・目盛り」で重ね、窓の下に出典。切ると元に戻る。
         pg.locator(".sky-beta").click(); calm()
         sb = pg.evaluate("""(() => ({ on: document.querySelector('.sky-beta')?.getAttribute('aria-pressed'), canvas: document.querySelectorAll('.sky-pan .sky-canvas').length,
-          grid: document.querySelectorAll('.sky-pan .sky-grid').length, src: (document.querySelector('.sky-src.below') || {}).textContent || '' }))()""")
+          grid: document.querySelectorAll('.sky-pan .sky-grid').length, src: (document.querySelector('.sky-src.below') || {}).textContent || '',
+          from: document.querySelectorAll('.sun-now-from').length, word: (document.querySelector('.sun-now-phase small') || {}).textContent || '' }))()""")
         # 回帰の基準の画像（#536）：β 入りの窓（β 切りは上の -pan.png）。リポジトリには入れない。
         if os.environ.get("WN_SUN"): pg.locator(".sun-card").screenshot(path=os.environ["WN_SUN"] + "-pan-beta.png")
         pg.locator(".sky-pan .sky-guides").click(); calm(); sb_grid = pg.locator(".sky-pan .sky-grid").count()
         pg.locator(".sky-pan .sky-guides").click(); calm()
         pg.locator(".sky-beta").click(); calm()
         sb_off = pg.evaluate("[document.querySelectorAll('.sky-pan .sky-canvas').length, document.querySelectorAll('.sky-src.below').length, document.querySelectorAll('.sky-pan .sky-grid').length]")
-        check("SB1 空の絵 β：入れると Canvas の空・出典（空：…）、目盛りは「軌道・目盛り」で重なる。切ると元の窓", sb["on"] == "true" and sb["canvas"] == 1 and sb["grid"] == 0 and "空：" in sb["src"], (sb, sb_grid, sb_off))
+        check("SB1 空の絵 β：入れると Canvas の空・絵の根拠（雲を描いた／描いていない理由）、目盛りは「軌道・目盛り」で重なる。切ると元の窓", sb["on"] == "true" and sb["canvas"] == 1 and sb["grid"] == 0 and "雲" in sb["src"] and "天気なし" not in sb["src"], (sb, sb_grid, sb_off))
+        # 根拠は絵の直下の1か所だけ（11/27）：β の間は空の帯の元（空の色：…）と空の帯の言葉を出さない（詳細欄の「空の帯（参考）」へ）
+        check("SB4 空の絵 β：根拠は1か所。空の帯の元・言葉は出さない", sb["from"] == 0 and "・" not in sb["word"], sb)
         # 予報の全雲量（#532）：予報の時間は、全雲量の値・何時の値か・出典が出典の欄に出る（見本の予報は 1時間ごとに cover がある）
-        check("SB3 空の絵 β：予報の時間は全雲量から描き、何時の値かと出典を出す", re.search(r"\d+時の全雲量 \d+%（予報）", sb["src"]) is not None, sb["src"])
+        check("SB3 空の絵 β：予報の時間は全雲量から描き、何時の値かと出典を出す", re.search(r"\d+時の全雲量の予報 \d+% から雲を描いています", sb["src"]) is not None, sb["src"])
         check("SB2 空の絵 β：軌道・目盛りで重ね、切ると Canvas と出典が消える", sb_grid > 0 and sb_off[0] == 0 and sb_off[1] == 0 and sb_off[2] > 0, (sb_grid, sb_off))
         # 球の基準線と拡大（11/19）：高さの輪・方位の線がある。＋で 1.5倍、細かい線に。全画面でもなぞる窓。空を見上げても1画面に収まる。
         grid0 = pg.locator(".sky-pan .sky-grid").count()
