@@ -15,7 +15,7 @@ import { moonSeen } from "../../shared/moonLook";
 import { DEFAULT_LAT_LON, solarAltitude, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
 import { jstToday } from "../../shared/dates";
 import { azDiff, magneticDeclination, project, tapCorrection } from "../../shared/skyLook";
-import { moonOutlook, moonVeil, type SceneInput, skyKindOf, skyRgb, type SkyWeather } from "../../shared/skyScene";
+import { cloudAmount, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyKindOf, type SkyWeather } from "../../shared/skyScene";
 import { SkyCanvas } from "./SkyCanvas";
 import { useCamera } from "./useCamera";
 import { createPortal } from "react-dom";
@@ -78,6 +78,7 @@ export function SunSheet({
   station,
   hour,
   sky,
+  alpha,
   rows,
   weather,
   onClose,
@@ -92,6 +93,8 @@ export function SunSheet({
   /** The day's own sky every 10 minutes (the 太陽 strip's, from the day's weather), by hour; an hour
    *  without data falls back to a clear day's sky (#151: the strip and the sheet tell the same sky). */
   sky?: (SkyColour[] | null)[];
+  /** 周りの様子（夜の街明かり、空の帯と同じ値）。空の絵（β）の晴天大気に使う。 */
+  alpha?: number | null;
   onClose: () => void;
 }) {
   // 計算の地点（11/19）：観測所か、現在地（太陽と月の計算だけ。天気は観測所のまま）。
@@ -264,8 +267,18 @@ export function SunSheet({
   const moonAt = { altitude: topoAt.altitude, azimuth: topoAt.azimuth, diameter: topoAt.diameter, limb: moonLimb(msAt, ll.lat, ll.lon), north: moonNorth(msAt, ll.lat, ll.lon), tint: seenAt.tint, strength: seenAt.strength };
   const sunAzAt = solarAzimuth(date, at, ll.lat, ll.lon);
   const phaseAt = moonPhase(sky3.day0 + at * 60_000);
+  // 晴天大気（雲なし）：今の空色モデルを、雲の係数を晴れ（1）・雨 0 にして計算（周りの様子は空の帯と同じ）。雲は別のレイヤー。
   const scene: SceneInput | undefined = skyWx
-    ? { sky: skyNow, sunAlt: altAt, sunAz: sunAzAt, moonAlt: moonAt.altitude, moonAz: moonAt.azimuth, moonLit: phaseAt.illuminated, wx: skyWx, seed: Math.floor(sky3.day0 / 86_400_000) * 31 + Math.floor(at / 60) }
+    ? {
+        clear: skyAt(altAt, 1, 0, at > 720, alpha),
+        sunAlt: altAt,
+        sunAz: sunAzAt,
+        moonAlt: moonAt.altitude,
+        moonAz: moonAt.azimuth,
+        moonLit: phaseAt.illuminated,
+        wx: skyWx,
+        seed: sceneSeed(station ?? "", date, Math.min(24, Math.floor(at / 60) + 1), cloudAmount(skyWx)),
+      }
     : undefined;
   // 月の線（地平線より上だけ）を x・y の関数でつなぐ：下に入るとそこで切る。方位の線では 360°→0° をまたぐ所でも切る。
   const pathOf = (pts: { x: number; y: number; up: boolean }[], wrap = false) =>
@@ -880,12 +893,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
     return (Math.atan2(-(q.x - mo.x), -(q.y - mo.y)) * 180) / Math.PI;
   })();
   const veil = scene ? moonVeil(scene) : 0;
-  // 月にかける雲の色は、空の絵のその方向の色（雲込み）と同じに（雲の中に月が沈んで見えるように）。
-  const veilColour = scene
-    ? `rgb(${skyRgb(scene, moon.azimuth, Math.max(0, moon.altitude) + 3)
-        .map((v) => Math.round(v * 255))
-        .join(",")})`
-    : "transparent";
+  const [traceOpen, setTraceOpen] = useState(false);
   const outlook = scene ? moonOutlook(scene.wx, moon.altitude) : null;
   const srcText = scene
     ? scene.wx.source === "なし"
@@ -932,11 +940,6 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
         preserveAspectRatio="xMidYMid slice"
         role="img" aria-label={`端末を向けた方向の空：${dirName(look.azimuth)}・高さ${Math.round(look.altitude)}°`}>
         <defs>
-          <radialGradient id="sky-moon-veil">
-            <stop offset="0" stopColor={veilColour} stopOpacity={1} />
-            <stop offset="0.55" stopColor={veilColour} stopOpacity={0.85} />
-            <stop offset="1" stopColor={veilColour} stopOpacity={0} />
-          </radialGradient>
           <linearGradient id="sky-window-bg" x1="0" y1="0" x2="0" y2="1" gradientTransform={tilt ? `rotate(${tilt.toFixed(1)} 0.5 0.5)` : undefined}>
             <stop offset="0" stopColor={sky.zenith} />
             <stop offset="1" stopColor={sky.horizon} />
@@ -980,11 +983,11 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
           <g className="sky-body">
             {/* 傾き：光っている側と模様の向きは天頂から測った角なので、画面の上と天頂の向きの差（ロール）を足す。 */}
             {/* 濃さは見え方（MA-02）：昼の空では淡く。輪と名前は見つけられるようにそのまま。 */}
-            <g transform={`translate(${(mo.x - moonR).toFixed(1)} ${(mo.y - moonR).toFixed(1)})`} opacity={moon.strength ?? 1}>
+            {/* 空の絵（β）：月の見え方は、空の絵のその方向の雲の透過で（シミュレーション）。案内の輪と名前は雲によらず出す。 */}
+            <g transform={`translate(${(mo.x - moonR).toFixed(1)} ${(mo.y - moonR).toFixed(1)})`} opacity={(moon.strength ?? 1) * (1 - veil)}>
               <MoonGlyph phase={phase} size={moonR * 2} limb={moon.limb != null ? moon.limb + upAt : undefined} north={moon.north != null ? moon.north + upAt : undefined} tint={moon.tint} seen />
             </g>
             {/* 見本：月の方向の雲（空の絵と同じ雲の形）を月の上に重ねる。 */}
-            {scene && veil > 0.02 && <circle cx={mo.x} cy={mo.y} r={moonR * 2.6 + 6} fill="url(#sky-moon-veil)" opacity={Math.min(0.92, veil)} />}
             <circle cx={mo.x} cy={mo.y} r={moonR + 7 * big} className={outlook && outlook.level !== "見える" ? "sky-body-ring dim" : "sky-body-ring"} />
             <text x={mo.x} y={mo.y - moonR - 10 * big} textAnchor="middle" className="sun-tick sky-body-name">
               {outlook && outlook.level !== "見える" ? `月・${outlook.level}` : "月"}
@@ -1042,6 +1045,17 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
         {outlook && moon.altitude >= 0 && <b>月：{outlook.note}</b>}
         {srcText}
       </p>
+    )}
+    {scene && !stream && !full && (
+      <Fold open={traceOpen} onToggle={() => setTraceOpen((v) => !v)} openLabel="どの入力で描いたか" closeLabel="閉じる">
+        <ul className="sky-trace">
+          {sceneTrace(scene).map((t) => (
+            <li key={t.layer} className={t.used ? undefined : "off"}>
+              <b>{t.layer}</b> {t.note}
+            </li>
+          ))}
+        </ul>
+      </Fold>
     )}
     </>
   );

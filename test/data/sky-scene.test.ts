@@ -1,23 +1,27 @@
 import { describe, expect, it } from "vitest";
-import { angleBetween, cloudAmount, cloudAt, moonOutlook, moonVeil, type SceneInput, skyKindOf, skyRgb, type SkyWeather } from "../../shared/skyScene";
+import { angleBetween, clearLin, cloudAmount, cloudAt, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyKindOf, skyRgb, type SkyWeather } from "../../shared/skyScene";
 
-// 空の絵（β）：天気の言葉 → 雲の量のイメージ → 方向ごとの色、月の見えやすさの目安。雲は空全体の多さだけで、月の方角の雲を
-// 言い当てない（出典の区別：実績・予報・推定・なし）。
+// 空の絵（β）：空色エンジン バージョンアップ計画書（11/27）段階 2 の受け入れ条件。晴天大気と雲を分けて線形の光量で合成する。
+// 雲量 0 で晴天の空と一致、一面の不透明な雲で背景が透けない、同じ時刻に戻すと雲の配置が同じ、雲量の欠測の根拠を追える、
+// 月の案内（見えやすさの目安）は生成した雲によらない、視程のかすみは初期状態で使わない。
 const wx = (text: string | null, source: SkyWeather["source"] = "実績", extra: Partial<SkyWeather> = {}): SkyWeather => ({ kind: skyKindOf(text), source, text, hour: 2, ...extra });
+const NONE: SkyWeather = { kind: null, source: "なし", text: null, hour: null };
 const base = (w: SkyWeather, over: Partial<SceneInput> = {}): SceneInput => ({
-  sky: { zenith: "#1a2238", horizon: "#3a4258" } as SceneInput["sky"],
+  clear: { zenith: "#1a2238", horizon: "#3a4258" } as SceneInput["clear"],
   sunAlt: -40,
   sunAz: 0,
   moonAlt: 59,
   moonAz: 247,
   moonLit: 1,
   wx: w,
-  seed: 12345,
+  seed: sceneSeed("47893", "2026-11-24", 2, cloudAmount(w)),
   ...over,
 });
 const lum = (c: number[]) => 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+const toSrgb = (v: number) => Math.min(1, Math.max(0, v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055));
+const DIRS = Array.from({ length: 120 }, (_, i) => [(i * 37) % 360, 2 + ((i * 13) % 85)] as const);
 
-describe("空の絵（β）の計算", () => {
+describe("空の絵（β）：天気の言葉と雲の量", () => {
   it("天気の言葉から種類（雪・雨を先に。晴れと曇りが両方なら晴れ間のある曇り）", () => {
     expect(skyKindOf("晴れ")).toBe("clear");
     expect(skyKindOf("晴れ時々曇り")).toBe("partly");
@@ -34,48 +38,82 @@ describe("空の絵（β）の計算", () => {
     expect(cloudAmount(wx("晴れ"))).toBeLessThan(cloudAmount(wx("晴れ時々曇り"))!);
     expect(cloudAmount(wx("晴れ時々曇り"))).toBeLessThan(cloudAmount(wx("曇り"))!);
     expect(cloudAmount(wx("雨"))).toBe(1);
-    expect(cloudAmount({ kind: null, source: "なし", text: null, hour: null })).toBeNull();
+    expect(cloudAmount(NONE)).toBeNull();
   });
-  it("月の見えやすさの目安：地平線の下／天気なし＝分からない／晴れ＝見える／曇り・雨＝見えにくそう。出典と時間を添える", () => {
+});
+
+describe("空色エンジン 段階 2 の受け入れ条件", () => {
+  it("雲量 0（と天気なし）では、晴天の空と一致する", () => {
+    for (const w of [wx("晴れ", "予報", { cover: 0 }), NONE]) {
+      const s = base(w);
+      for (const [az, alt] of DIRS) expect(skyRgb(s, az, alt)).toEqual(clearLin(s, az, alt).map(toSrgb));
+    }
+  });
+  it("一面の不透明な雲（雨・曇りの全雲量 100%）では、背景（晴天の空・月のまわりの明るさ）が透けない", () => {
+    for (const w of [wx("雨"), wx(null, "予報", { cover: 1 })]) {
+      const a = base(w);
+      const b = base(w, { clear: { zenith: "#ffffff", horizon: "#ff0000" } as SceneInput["clear"], moonLit: 0.01 });
+      for (const [az, alt] of DIRS.filter(([, alt]) => alt > 0)) expect(skyRgb(b, az, alt)).toEqual(skyRgb({ ...a, moonLit: b.moonLit }, az, alt));
+      expect(moonVeil(a)).toBe(1);
+    }
+  });
+  it("雲の配置：同じ地点・時刻・入力・版なら同じ。時刻（時間）や地点が変われば変わる", () => {
+    expect(sceneSeed("47893", "2026-11-24", 2, 0.5)).toBe(sceneSeed("47893", "2026-11-24", 2, 0.5));
+    expect(sceneSeed("47893", "2026-11-24", 3, 0.5)).not.toBe(sceneSeed("47893", "2026-11-24", 2, 0.5));
+    expect(sceneSeed("44132", "2026-11-24", 2, 0.5)).not.toBe(sceneSeed("47893", "2026-11-24", 2, 0.5));
+    const s = base(wx("晴れ時々曇り"));
+    const once = DIRS.map(([az, alt]) => skyRgb(s, az, alt));
+    expect(DIRS.map(([az, alt]) => skyRgb({ ...s }, az, alt))).toEqual(once);
+  });
+  it("雲の被覆は 0〜1。曇り・雨は空を覆い、晴れはほとんど覆わない", () => {
+    const cov = (a: number) => DIRS.reduce((sum, [az, alt]) => sum + cloudAt(az, alt, a, 7).cover, 0) / DIRS.length;
+    for (const [az, alt] of DIRS.slice(0, 40)) {
+      const v = cloudAt(az, alt, 0.5, 7).cover;
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
+    }
+    expect(cov(1)).toBe(1);
+    expect(cov(0.12)).toBeLessThan(0.25);
+    expect(cov(0.5)).toBeGreaterThan(cov(0.12));
+  });
+  it("月の案内（見えやすさの目安）は、生成した雲によらない（空全体の雲の量と出典だけ）", () => {
     expect(moonOutlook(wx("雨"), -3).level).toBe("地平線の下");
-    expect(moonOutlook({ kind: null, source: "なし", text: null, hour: null }, 40).level).toBe("分からない");
+    expect(moonOutlook(NONE, 40).level).toBe("分からない");
     expect(moonOutlook(wx("晴れ"), 40).level).toBe("見える");
     expect(moonOutlook(wx("晴れ時々曇り"), 40).level).toBe("切れ間から");
     const r = moonOutlook(wx("雨"), 59);
     expect(r.level).toBe("見えにくそう");
     expect(r.note).toContain("1時台 雨・実績");
-    // 月の方角の雲を言い当てる言い方はしない
     expect(r.note).not.toMatch(/隠れ/);
+    // moonOutlook は種（配置）を受け取らない：同じ天気なら、雲の配置が違っても同じ案内
+    expect(moonOutlook.length).toBe(2);
   });
-  it("雲の形：同じ種・同じ天気ならいつも同じ。0〜1。曇り・雨は空の大半を覆い、晴れはほとんど覆わない", () => {
-    const pts = Array.from({ length: 400 }, (_, i) => [(i * 37) % 360, 5 + ((i * 13) % 80)]);
-    const cov = (a: number) => pts.reduce((s, [az, alt]) => s + cloudAt(az, alt, a, 7), 0) / pts.length;
-    for (const [az, alt] of pts.slice(0, 50)) {
-      const v = cloudAt(az, alt, 0.5, 7);
-      expect(v).toBeGreaterThanOrEqual(0);
-      expect(v).toBeLessThanOrEqual(1);
-      expect(cloudAt(az, alt, 0.5, 7)).toBe(v);
-    }
-    expect(cov(1)).toBeGreaterThan(0.8);
-    expect(cov(0.12)).toBeLessThan(0.25);
-    expect(cov(0.5)).toBeGreaterThan(cov(0.12));
-    expect(cov(0.5)).toBeLessThan(cov(1));
+  it("視程のかすみは初期状態で使わない（useVisibility のときだけ）", () => {
+    const s = base(wx("晴れ", "実績", { visibilityKm: 2 }));
+    for (const [az, alt] of DIRS.slice(0, 20)) expect(skyRgb(s, az, alt)).toEqual(skyRgb(base(wx("晴れ")), az, alt));
+    expect(skyRgb({ ...s, useVisibility: true }, 0, 3)).not.toEqual(skyRgb(s, 0, 3));
   });
-  it("空の色：夜は暗く、昼は明るい。日の入りのころは太陽の側の地平線が反対側より暖かい色", () => {
+  it("どの入力で描いたか：晴天の空・雲・かすみのレイヤーごとに、使ったか・入力・出典。雲量の欠測の根拠", () => {
+    const t = sceneTrace(base(NONE));
+    expect(t.map((x) => x.layer)).toEqual(["晴天の空", "雲", "かすみ"]);
+    expect(t[1].used).toBe(false);
+    expect(t[1].note).toContain("天気が無い");
+    expect(sceneTrace(base(wx("雨")))[1].note).toContain("1時台の雨（実績）");
+    expect(sceneTrace(base(wx(null, "予報", { cover: 0.62 })))[1].note).toContain("全雲量 62%（予報）");
+    expect(t[2].used).toBe(false);
+  });
+});
+
+describe("空の絵（β）：色", () => {
+  it("夜は暗く、昼は明るい。日の入りのころは太陽の側の地平線が反対側より暖かい色。どれも 0〜1", () => {
     const night = skyRgb(base(wx("晴れ")), 180, 40);
-    const day = skyRgb(base(wx("晴れ"), { sunAlt: 40, sky: { zenith: "#4a78c8", horizon: "#a9c1e6" } as SceneInput["sky"] }), 180, 40);
+    const day = skyRgb(base(wx("晴れ"), { sunAlt: 40, clear: { zenith: "#4a78c8", horizon: "#a9c1e6" } as SceneInput["clear"] }), 180, 40);
     expect(lum(night)).toBeLessThan(lum(day));
-    const dusk = base(wx("晴れ"), { sunAlt: -2, sunAz: 245, sky: { zenith: "#4a5a8a", horizon: "#8a8fae" } as SceneInput["sky"] });
+    const dusk = base(wx("晴れ"), { sunAlt: -2, sunAz: 245, clear: { zenith: "#4a5a8a", horizon: "#8a8fae" } as SceneInput["clear"] });
     const sunSide = skyRgb(dusk, 245, 3);
     const away = skyRgb(dusk, 65, 3);
     expect(sunSide[0] - sunSide[2]).toBeGreaterThan(away[0] - away[2]);
-    for (const c of [night, day, sunSide, away]) for (const v of c) expect(v).toBeGreaterThanOrEqual(0), expect(v).toBeLessThanOrEqual(1);
-  });
-  it("月の覆い：雨の夜は月にも雲がかかり、晴れや天気なしではかからない（空の絵と同じ雲の形）", () => {
-    expect(moonVeil(base(wx("雨")))).toBeGreaterThan(0.6);
-    expect(moonVeil(base({ kind: null, source: "なし", text: null, hour: null }))).toBe(0);
-    expect(moonVeil(base(wx("雨"), { moonAlt: -5 }))).toBe(0);
-    expect(moonVeil(base(wx("晴れ")))).toBeLessThan(moonVeil(base(wx("雨"))));
+    for (const c of [night, day, sunSide, away]) for (const v of c) expect(v >= 0 && v <= 1).toBe(true);
   });
   it("二つの方向の角", () => {
     expect(angleBetween(0, 0, 90, 0)).toBeCloseTo(90, 6);

@@ -6036,3 +6036,5 @@ button.month-cal-day { border: none; font: inherit; color: inherit; cursor: poin
 .sky-src-tag { justify-self: start; padding: 0 var(--space-2); border: var(--stroke-hair) dashed var(--ink-secondary); border-radius: var(--radius-pill); font-size: var(--size-xs); }
 .sky-src.none .sky-src-tag { border-style: dotted; }
 .sky-beta { margin-top: var(--space-2); }
+.sky-trace { margin: 0; padding-left: var(--space-4); display: grid; gap: var(--space-1); font-size: var(--size-xs); color: var(--ink-secondary); }
+.sky-trace li.off b { font-weight: var(--weight-regular); }
