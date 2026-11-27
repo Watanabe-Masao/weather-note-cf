@@ -31,6 +31,8 @@ export interface AccountsEnv {
   SETUP_CODE?: string;
   /** R2 (weather-note-archive): telegrams and weather charts as files (r2Archive.ts). */
   ARCHIVE?: Bucket;
+  /** R2（weather-note-research）：空の写真（skyPhotos.ts）。利用者の写真なので ARCHIVE とは分け、外への控えにも入れない。 */
+  RESEARCH?: ResearchBucket;
   /** Cloudflare's own count of the month's use (usage.ts): a read-only token (secret) and the account. */
   CF_ANALYTICS_TOKEN?: string;
   CF_ACCOUNT_ID?: string;
@@ -63,6 +65,7 @@ import { archiveSummary } from "./typhoonArchive";
 import { checkTyphoonSettings, saveTyphoonSettings, TYPHOON_NOTIFY_SCHEMA, typhoonSettingsOf } from "./typhoonNotify";
 import { alertSummary } from "./typhoonWatch";
 import { doneOnce } from "./once";
+import { deleteAllPhotoFiles, deletePhoto, listAllPhotos, listPhotos, photoCount, photoFile, PhotoRefused, type ResearchBucket, savePhoto, SKY_PHOTO_SCHEMA } from "./skyPhotos";
 import { migrate } from "./migrate";
 import { isIntensityOf } from "../../shared/nowWeather";
 import { checkSurvey, deleteSurvey, listMine, mirrorFeel, saveSurvey, WEATHER_OBS_MIGRATIONS, WEATHER_OBS_SCHEMA, WeatherObsRefused } from "./weatherObs";
@@ -237,7 +240,7 @@ export function forResearch(report: Record<string, unknown>): Record<string, unk
 }
 
 const done = new WeakSet<Db>(); // 済んだ印だけを共有する（once.ts）
-const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA, ...TYPHOON_NOTIFY_SCHEMA, ...RESEARCH_SCHEMA, ...WEATHER_OBS_SCHEMA];
+const ALL_SCHEMA = [...SCHEMA, ...NOTIFY_SCHEMA, ...TYPHOON_NOTIFY_SCHEMA, ...RESEARCH_SCHEMA, ...WEATHER_OBS_SCHEMA, ...SKY_PHOTO_SCHEMA];
 
 /** An error as one line: its name, message and cause (what the log of a failure needs). */
 export function describe(e: unknown): string {
@@ -391,7 +394,7 @@ async function body(req: Request): Promise<Record<string, unknown>> {
 async function deleteAccount(db: Db, who: { id: string; research_id: string }, now: number) {
   await db.batch([
     db.prepare("INSERT INTO research_withdrawals (research_id, at, reason) VALUES (?, ?, 'account-deleted')").bind(who.research_id, now),
-    ...["reports", "weather_obs", "sessions", "consents", "push_subscriptions", "notify_settings", "notify_log", "typhoon_notify_settings", "typhoon_notify_log"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(who.id)),
+    ...["reports", "weather_obs", "sky_photos", "sessions", "consents", "push_subscriptions", "notify_settings", "notify_log", "typhoon_notify_settings", "typhoon_notify_log"].map((t) => db.prepare(`DELETE FROM ${t} WHERE user_id = ?`).bind(who.id)),
     db.prepare("DELETE FROM users WHERE id = ?").bind(who.id),
   ]);
 }
@@ -492,6 +495,8 @@ async function me(db: Db, u: User) {
     skyConsentVersion: SKY_CONSENT_VERSION,
     researchWeather: await consentOf(db, u.id, "research-weather"),
     weatherConsentVersion: WEATHER_CONSENT_VERSION,
+    /** 保存している空の写真の数（設定の「自分の写真」は 1 枚でもあれば出す。同意を取り消した人も）。 */
+    photoCount: await photoCount(db, u.id),
   };
 }
 
@@ -767,6 +772,23 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       }
       return json({ list: await listMine(db, u.id) });
     }
+    // -- 空の写真（段階 1a、skyPhotos.ts）。受けるのは同意した人だけ。見る・消すは本人（同意を取り消したあとも）と管理者 --
+    if (path === "/api/me/photos" && post) {
+      const origin = req.headers.get("Origin");
+      if (origin && origin !== new URL(req.url).origin) throw new Refused("このサイトからの操作ではありません。", 403);
+      if (!(req.headers.get("Content-Type") ?? "").includes("multipart/form-data")) throw new Refused("送り方が正しくありません。", 415);
+      const form = await req.formData().catch(() => null);
+      if (!form) throw new Refused("送り方が正しくありません。");
+      const r = await savePhoto(db, env.RESEARCH, u.id, form, now);
+      return json({ ...r, photos: await listPhotos(db, u.id) });
+    }
+    if (path === "/api/me/photos" && !post) return json({ photos: await listPhotos(db, u.id) });
+    if ((path === "/api/me/photos/thumb" || path === "/api/me/photos/image") && !post)
+      return await photoFile(db, env.RESEARCH, { id: u.id, admin: u.role === "admin" }, new URL(req.url).searchParams.get("id"), path.endsWith("image") ? "image" : "thumb");
+    if (path === "/api/me/photos/delete" && post) {
+      await deletePhoto(db, env.RESEARCH, { id: u.id, admin: false }, (await body(req)).id);
+      return json({ photos: await listPhotos(db, u.id) });
+    }
     if (path === "/api/me/delete" && post) {
       // The person deletes their own account (#55), confirmed by the password. An administrator
       // cannot: someone has to stay able to manage the accounts.
@@ -775,6 +797,7 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
       const row = await db.prepare("SELECT pw_hash, pw_salt, pw_iter FROM users WHERE id = ?").bind(u.id).first<{ pw_hash: string; pw_salt: string; pw_iter: number }>();
       const password = typeof b.password === "string" ? b.password.trim() : "";
       if (!row || !(await same(await hashPassword(password, row.pw_salt, row.pw_iter), row.pw_hash))) throw new Refused("パスワードが違います。", 403);
+      await deleteAllPhotoFiles(db, env.RESEARCH, u.id);
       await deleteAccount(db, u, now);
       return json({ deleted: true }, 200, { "Set-Cookie": sessionCookie("", 0) });
     }
@@ -842,6 +865,11 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
     // -- the administrator --
     if (path.startsWith("/api/admin/")) {
       if (u.role !== "admin") throw new Refused("管理者だけの操作です。", 403);
+      if (path === "/api/admin/photos" && !post) return json({ photos: await listAllPhotos(db) });
+      if (path === "/api/admin/photos/delete" && post) {
+        await deletePhoto(db, env.RESEARCH, { id: u.id, admin: true }, (await body(req)).id);
+        return json({ photos: await listAllPhotos(db) });
+      }
       if (path === "/api/admin/users" && !post) {
         const users = (
           await db
@@ -889,6 +917,7 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
         if (!target) throw new Refused("そのユーザーは見つかりません。", 404);
         if (target.id === u.id) throw new Refused("自分自身は削除できません。");
         if (typeof b.confirm !== "string" || b.confirm.trim().toLowerCase() !== target.login_id.toLowerCase()) throw new Refused("確認のため、ログインIDを正しく入れてください。");
+        await deleteAllPhotoFiles(db, env.RESEARCH, target.id);
         await deleteAccount(db, target, now);
         return json({ id: target.id, deleted: true });
       }
@@ -964,7 +993,7 @@ export async function handleAccounts(req: Request, env: AccountsEnv, now = Date.
     }
     throw new Refused("見つかりません。", 404);
   } catch (e) {
-    if (e instanceof Refused) return json({ error: e.message }, e.status);
+    if (e instanceof Refused || e instanceof PhotoRefused) return json({ error: e.message }, e.status);
     // The message, not only the stack: the log keeps one line, and D1's errors say what failed only in it.
     console.error(`weather-note: accounts failure ${new URL(req.url).pathname}: ${describe(e)}`);
     // Counted for the health check (health.ts), so a run of failures is seen without the dashboard's log.

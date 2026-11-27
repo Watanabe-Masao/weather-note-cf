@@ -34,7 +34,7 @@ def row0(d, kind="actual"):
             "humidity": round(55 + 30 * r.random()), "wind": round(1 + 4 * r.random(), 1),
             "dayWeather": SKY[d.toordinal() % len(SKY)], "snow": (2.0 if (d.year, d.day) == (2025, 8) else 0), "pressure": round(1012 + 8 * r.random(), 1), "gust": round(6 + 6 * r.random(), 1), "humidityMin": round(30 + 20 * r.random()), "sun": round(9 * r.random(), 1), "temp": round(mx - 4, 1), "raw": {"max": str(mx)}, "quality": {}, "unpublished": []}
 
-ME = {"id": "u1", "loginId": "masao", "name": "渡辺", "role": "admin", "research": {"granted": True, "version": 2, "at": 1762800000000}, "consentVersion": 2, "researchWeather": {"granted": True, "version": 1, "at": 1764300000000}, "weatherConsentVersion": 1}
+ME = {"id": "u1", "loginId": "masao", "name": "渡辺", "role": "admin", "research": {"granted": True, "version": 2, "at": 1762800000000}, "consentVersion": 2, "researchWeather": {"granted": True, "version": 1, "at": 1764300000000}, "weatherConsentVersion": 1, "photoCount": 3}
 LOGGED_IN = os.environ.get("WN_LOGGED_OUT") != "1"
 
 # 近づいている台風 (/api/typhoon): one made-up typhoon (台風14号 テスト) south of Kochi, its 強風域 holding
@@ -104,6 +104,10 @@ def api(path, q):
         return {"user": ME if LOGGED_IN else None, "setup": False}
     if path == "/api/me/notify":
         return {"settings": {"enabled": True, "times": ["07:30", "12:30", "18:30"], "days": [1, 2, 3, 4, 5]}, "devices": 1}
+    if path == "/api/me/photos":
+        # 自分の写真（段階 1a）：作り物の 3 枚（天気あり・方角が推定・撮影時刻も方角も不明）
+        prow = lambda i, t, d, est, sky, inten, look: {"id": i, "taken_at": t, "time_source": "exif", "dir_true": d, "dir_estimated": est, "sun_alt": None, "sun_az": None, "sun_at": None, "sky": sky, "intensity": inten, "look": look, "note": None}
+        return {"photos": [prow("p1", "2026-11-15T16:52:00+09:00", 270, 0, "cloudy", None, "西だけ晴れ"), prow("p2", "2026-11-17T16:40:00+09:00", 225, 1, "rain", "para", None), prow("p3", None, None, 1, None, None, None)]}
     if path == "/api/me/weather":
         return {"list": [{"id": "feel:r1", "source": "feel", "at": "2026-11-10T02:00:00Z", "sky": "rain", "intensity": "para", "station": "74181"}]}
     if path == "/api/push/key":
@@ -388,6 +392,7 @@ with sync_playwright() as p:
             FAILED_ON_PURPOSE.append(route.request.url)
             return route.fulfill(status=500, content_type="application/json", body=json.dumps({"error": "テスト用の失敗"}))
         u = urlparse(route.request.url)
+        if u.path == "/api/me/photos/thumb": return route.fulfill(status=200, content_type="image/png", body=PNG1)
         q = {k: v[0] for k, v in parse_qs(u.query).items()}
         route.fulfill(status=200, content_type="application/json", body=json.dumps(with_quality(api(u.path, q))))
     ctx.route("**/api/**", handle)
@@ -1241,7 +1246,7 @@ with sync_playwright() as p:
         # 自分の写真（見本、11/28）：一覧と［消す］。押すと何が消えるかを出し、［やめる］で戻る。
         mp = pg.locator("#set-my-photos")
         mp.scroll_into_view_if_needed(); calm()
-        check("J2c 自分の写真の見本：3 枚と［消す］", mp.locator(".sp-item").count() == 3 and mp.locator("button", has_text="消す").count() == 3, mp.inner_text()[:200])
+        check("J2c 自分の写真（写真が残っている人だけ）：3 枚と［消す］", mp.locator(".sp-item").count() == 3 and mp.locator("button", has_text="消す").count() == 3, mp.inner_text()[:200])
         mp.locator(".sp-item").nth(1).locator("button", has_text="消す").click(); calm()
         check("J2d 消す前に、消えるもの（写真・縮小画像・天気の記録）と元に戻せないことを出す", "元に戻せません" in mp.inner_text() and "天気の記録" in mp.inner_text() and mp.locator("button.danger, .btn.danger", has_text="消す").count() == 1, mp.inner_text()[:300])
         layout_ok("J2f", "自分の写真（消す前の確かめ）")

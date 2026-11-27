@@ -19,6 +19,8 @@ export interface Me {
   /** 今の天気の研究への協力（#553）。古いサーバーの答えには無い。 */
   researchWeather?: { granted: boolean; version: number | null; at: number | null };
   weatherConsentVersion?: number;
+  /** 保存している空の写真の数（古いサーバーの答えには無い）。 */
+  photoCount?: number;
 }
 
 export interface AccountView {

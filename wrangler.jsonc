@@ -16,7 +16,12 @@
   "d1_databases": [{ "binding": "DB", "database_name": "weather-note" }],
   // Files kept beside the database (worker/src/r2Archive.ts): the telegrams as issued (gzipped) and the
   // daily weather charts. Made by hand in the dashboard (Standard, not public), 2026-11-17.
-  "r2_buckets": [{ "binding": "ARCHIVE", "bucket_name": "weather-note-archive" }],
+  // RESEARCH: 空の写真（worker/src/skyPhotos.ts）。利用者の写真なので分ける。2026-11-28 渡辺さんが画面で作った（Standard、公開なし）。
+  // 5 GB の上限はアプリの側で数える。外のリポジトリへの控え（offsite.ts）には入れない。
+  "r2_buckets": [
+    { "binding": "ARCHIVE", "bucket_name": "weather-note-archive" },
+    { "binding": "RESEARCH", "bucket_name": "weather-note-research" }
+  ],
   // The account, for reading its month's use (worker/src/usage.ts, with the secret CF_ANALYTICS_TOKEN,
   // a read-only token set in the dashboard). An account id is not a secret.
   // ARCHIVE_REPO: the private repository that keeps the off-system copy of R2's originals (worker/src/offsite.ts, #370),

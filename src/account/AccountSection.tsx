@@ -291,7 +291,7 @@ export function AccountSection({ station }: { station: string }) {
           <SyncStatus />
           <NotifySection station={station} />
           <Research />
-          {me.role === "admin" ? <MyPhotosSection /> : null}
+          {(me.photoCount ?? 0) > 0 ? <MyPhotosSection /> : null}
           {me.role !== "admin" ? <DeleteAccount /> : null}
         </>
       )}

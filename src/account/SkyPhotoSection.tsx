@@ -1,20 +1,21 @@
-// 見本：空の写真を上げる（2026-11-27 渡辺さん「1・2・3 が貯められる仕組み」の 3、#537）。記録のシートで「空の写真」を選んだとき
+// 空の写真を保存する（段階 1a、2026-11-28。見本は #550）。記録のシートで「空の写真」を選んだとき
 // （渡辺さん「場所は記録に。記録タブで肌感か写真を選べるように」）。
 // 出るのは「空の写真」の研究に同意した人だけ（11/28 渡辺さん「厳密になので写真の保存は同意した人のみ。そもそも画面にも
-// 出さない」）。同意していない人には、記録のシートにこの画面を出さない（ReportSheet.tsx）。写真を受け取るサーバーの処理も、
-// 同意（kind 'research-sky'）を確かめてから保存する（作るとき）。
-// **見本なので、まだ送らない**（保存先のバケット・受け取り・衛星画像の取得はこのあと）。確かめたいこと：
-//   - iPhone で選んだ写真から、撮影時刻・向き・カメラの設定（EXIF）がどこまで読めるか（読めない所は手で直す）
-//   - 撮った時の太陽の高さ・方位と、写した方角の差が、その場で分かるか
-//   - 上げたら何が起こるか（衛星画像を撮影時刻の前後で取りに行く）が、上げる前に分かるか
+// 出さない」）。外の記録のシート（ReportSheet.tsx）と、この画面そのものの両方で確かめる。サーバーも同意を確かめてから保存する。
+// 写真は端末で描き直した JPEG にして送る（位置などの情報は落ちる。photos.ts）。撮影情報は決めた項目だけを別に送る。
+// 方角は真北にそろえ（磁北なら国土地理院の近似式 2020.0 で直す）、太陽は撮影地点（無ければ高知の観測所）で計算する。
 // 写真は決まった時刻でなくてよい（11/27 渡辺さん「固定の時刻に撮影が難しいかもしれません」）。
+// 衛星画像を取りに行くのは段階 1c。
 
 import { useMemo, useState } from "react";
+import { toTrueNorth } from "../../shared/declination";
 import { solarAltitude, solarAzimuth } from "../../shared/sunTimes";
 import { Button, Chip } from "../ui/kit";
 import { type Intensity, intensitiesOf, intensityTitle, type Sky, SKIES } from "../../shared/nowWeather";
 import { useAccount } from "./account";
-import { PhotoList, SAMPLE_PHOTOS } from "./MyPhotos";
+import { PhotoList, useMyPhotos } from "./MyPhotos";
+import { uploadPhoto } from "./photos";
+import { newId } from "../beta/reports";
 import { compass16, type PhotoExif, readExif, takenIso } from "./exif";
 
 const KOCHI = { lat: 33.5667, lon: 133.5483 };
@@ -29,24 +30,20 @@ const DIRS = [
   { label: "真上", deg: -1 },
 ];
 
-type Picked = { file: File; url: string; exif: PhotoExif; from: "exif" | "file" };
+type Picked = { file: File; url: string; exif: PhotoExif; from: "exif" | "file"; id: string };
 
 const jst = (iso: string) => new Date(iso).toLocaleString("ja-JP", { timeZone: "Asia/Tokyo", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
 const localInput = (iso: string) => new Date(Date.parse(iso) + 9 * 3_600_000).toISOString().slice(0, 16);
 const fromInput = (v: string) => `${v}:00+09:00`;
 
-function sunAt(iso: string) {
+/** 撮影時刻の太陽（場所があれば撮影地点、無ければ高知の観測所。サーバーの skyPhotos.ts sunOf と同じ）。 */
+function sunAt(iso: string, at: { lat: number; lon: number } | null) {
+  const p = at ?? KOCHI;
   const date = new Date(Date.parse(iso) + 9 * 3_600_000).toISOString().slice(0, 10);
   const min = (Date.parse(iso) - Date.parse(`${date}T00:00:00+09:00`)) / 60_000;
-  return { alt: solarAltitude(date, min, KOCHI.lat, KOCHI.lon), az: solarAzimuth(date, min, KOCHI.lat, KOCHI.lon) };
+  return { alt: solarAltitude(date, min, p.lat, p.lon), az: solarAzimuth(date, min, p.lat, p.lon), station: !at };
 }
-
-/** 衛星画像を取りに行く時刻：撮影時刻の前後 30 分を 10 分ごと（日本域は 2.5 分ごとに出るが、10 分ごとに間引く）。 */
-function satelliteTimes(iso: string): string[] {
-  const t = Math.round(Date.parse(iso) / 600_000) * 600_000;
-  return [-30, -20, -10, 0, 10, 20, 30].map((m) => new Date(t + m * 60_000).toISOString());
-}
-
+const round2 = (v: number) => Math.round(v * 100) / 100;
 
 export function SkyPhotoSection() {
   // 画面そのものも同意を確かめる（外の記録のシートの出し分けに頼りきらない。11/28 レビュー：肌感だけの同意で写真の案内が出ていた）。
@@ -54,37 +51,83 @@ export function SkyPhotoSection() {
   const granted = !!me?.researchSky?.granted;
   const [picked, setPicked] = useState<Picked | null>(null);
   const [when, setWhen] = useState<string | null>(null);
+  const [timeEdited, setTimeEdited] = useState(false);
+  /** 手で選んだ方角（真北、-1 は真上）。null なら写真の情報の方角を使う。 */
   const [dir, setDir] = useState<number | null>(null);
   const [sky, setSky] = useState<Sky | null>(null);
   const [intensity, setIntensity] = useState<Intensity | null>(null);
   const [look, setLook] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [shown, setShown] = useState(false);
-  const [photos, setPhotos] = useState(SAMPLE_PHOTOS);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState<string | null>(null);
+  const mine = useMyPhotos();
 
   const pick = async (f: File | undefined) => {
     if (!f) return;
     const exif = readExif(await f.arrayBuffer());
     const iso = takenIso(exif);
-    setPicked({ file: f, url: URL.createObjectURL(f), exif, from: iso ? "exif" : "file" });
+    if (picked) URL.revokeObjectURL(picked.url);
+    // 送信の ID は選んだときに決める（送り直しても 1 件）。
+    setPicked({ file: f, url: URL.createObjectURL(f), exif, from: iso ? "exif" : "file", id: newId() });
     setWhen(iso ?? new Date(f.lastModified).toISOString());
-    setDir(exif.direction != null && exif.directionRef !== "M" ? Math.round(exif.direction) : exif.direction != null ? Math.round(exif.direction) : null);
-    setShown(false);
+    setTimeEdited(false);
+    setDir(null);
+    setSaved(null);
+    setError(null);
   };
-  const sun = useMemo(() => (when ? sunAt(when) : null), [when]);
   const e = picked?.exif;
-  const diff = sun && dir != null && dir >= 0 ? Math.round((((dir - sun.az) % 360) + 540) % 360) - 180 : null;
+  const place = e?.lat != null && e?.lon != null ? { lat: round2(e.lat), lon: round2(e.lon) } : null;
+  const sun = useMemo(() => (when ? sunAt(when, place) : null), [when, place?.lat, place?.lon]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 写した方角（真北）：手で選んだものか、写真の情報（磁北なら直す）。
+  const fromExif = e?.direction != null && dir == null ? toTrueNorth(e.direction, e.directionRef, place, KOCHI) : null;
+  const bearing = dir != null ? (dir >= 0 ? dir : null) : (fromExif?.deg ?? null);
+  const diff = sun && bearing != null ? Math.round((((bearing - sun.az) % 360) + 540) % 360) - 180 : null;
+
+  const save = () => {
+    if (!picked || !when || saving) return;
+    setSaving(true);
+    setError(null);
+    const meta = {
+      id: picked.id,
+      takenAt: when,
+      timeSource: timeEdited ? "manual" : picked.from,
+      lat: place?.lat ?? null,
+      lon: place?.lon ?? null,
+      dir: dir != null ? (dir >= 0 ? dir : null) : (e?.direction ?? null),
+      dirRef: dir != null ? "T" : (e?.directionRef ?? null),
+      dirSource: dir != null ? (dir >= 0 ? "manual" : null) : e?.direction != null ? "exif" : null,
+      camera: { make: e?.make, model: e?.model, lens: e?.lens, exposure: e?.exposure, fNumber: e?.fNumber, iso: e?.iso, focalLength: e?.focalLength },
+      sky,
+      intensity: intensitiesOf(sky) ? intensity : null,
+      look,
+      note: [dir === -1 ? "真上" : null, note.trim() || null].filter(Boolean).join("・") || null,
+    };
+    uploadPhoto(picked.file, meta)
+      .then((list) => {
+        mine.setPhotos(list);
+        setSaved(`${jst(when)} の写真を保存しました。`);
+        URL.revokeObjectURL(picked.url);
+        setPicked(null);
+        setSky(null);
+        setIntensity(null);
+        setLook(null);
+        setNote("");
+      })
+      .catch((err) => setError((err as Error).message))
+      .finally(() => setSaving(false));
+  };
 
   if (!granted) return null;
   return (
     <>
       <section className="set-group" aria-labelledby="sp-add">
-        <h3 id="sp-add">空の写真を上げる（見本）</h3>
+        <h3 id="sp-add">空の写真を保存する</h3>
         <p className="set-lead">
-          空の絵の答え合わせに使う写真です。撮れたときに、撮れた時刻で構いません。日の入りの前後の西の空が、いちばん役に立ちます。見本なので、まだ送りません。
+          空の絵の答え合わせに使う写真です。撮れたときに、撮れた時刻で構いません。日の入りの前後の西の空が、いちばん役に立ちます。
         </p>
         <p className="set-help">
-          「空の写真」の研究への協力に同意しているので、写真と撮影時刻・方角・場所（約 1 km に丸めたもの）を、名前と切り離して研究に使います。同意を取り消すと、この画面は出なくなります（設定のアカウントで変えられます）。
+          「空の写真」の研究への協力に同意しているので、写真と撮影時刻・方角・場所（約 1 km に丸めたもの）を、名前と切り離して研究に使います。写真の位置などの情報は、送る前にこの端末で外します。写った景色から場所が分かることもあります。同意を取り消すと、この画面は出なくなります（設定のアカウントで変えられます）。
         </p>
         <label className="sp-file">
           <input type="file" accept="image/*" onChange={(ev) => void pick(ev.target.files?.[0])} />
@@ -96,7 +139,7 @@ export function SkyPhotoSection() {
             <dl className="report">
               <dt>撮影時刻</dt>
               <dd>
-                <input type="datetime-local" value={when ? localInput(when) : ""} onChange={(ev) => setWhen(fromInput(ev.target.value))} aria-label="撮影時刻（日本時間）" />
+                <input type="datetime-local" value={when ? localInput(when) : ""} onChange={(ev) => (setWhen(fromInput(ev.target.value)), setTimeEdited(true))} aria-label="撮影時刻（日本時間）" />
                 <small>{picked.from === "exif" ? "写真の情報から読みました（違えば直す）" : "写真の情報に無かったので、ファイルの時刻です。直してください"}</small>
               </dd>
               <dt>写した方角</dt>
@@ -108,11 +151,17 @@ export function SkyPhotoSection() {
                     </Chip>
                   ))}
                 </div>
-                <small>{e?.direction != null ? `写真の情報：${Math.round(e.direction)}°（${compass16(e.direction)}、${e.directionRef === "M" ? "磁北" : "真北"}基準）` : "写真の情報に向きがありません。選んでください"}</small>
+                <small>
+                  {dir != null
+                    ? "選んだ方角を使います（おおよそ。推定として保存）"
+                    : e?.direction != null
+                      ? `写真の情報：${Math.round(e.direction)}°（${e.directionRef === "M" ? "磁北" : e.directionRef === "T" ? "真北" : "基準不明"}）${fromExif?.deg != null && e.directionRef === "M" ? ` → 真北 ${Math.round(fromExif.deg)}°（${compass16(fromExif.deg)}、偏角 西 ${fromExif.declination!.toFixed(1)}°）` : fromExif?.deg != null ? `（${compass16(fromExif.deg)}）` : ""}${fromExif?.estimated ? "・推定" : ""}`
+                      : "写真の情報に向きがありません。選んでください"}
+                </small>
               </dd>
               <dt>撮った時の太陽</dt>
               <dd>
-                {sun ? `高さ ${sun.alt.toFixed(1)}°・方位 ${Math.round(sun.az)}°（${compass16(sun.az)}）` : "—"}
+                {sun ? `高さ ${sun.alt.toFixed(1)}°・方位 ${Math.round(sun.az)}°（${compass16(sun.az)}）${sun.station ? "・高知の観測所で計算" : "・撮った場所で計算"}` : "—"}
                 {diff != null && <small>写した方角との差 {diff > 0 ? "+" : ""}{diff}°{Math.abs(diff) < 20 ? "（太陽のほう。太陽が入ると、まわりが白く飛びます）" : ""}</small>}
               </dd>
               <dt>カメラ</dt>
@@ -158,29 +207,23 @@ export function SkyPhotoSection() {
               メモ
               <textarea value={note} onChange={(ev) => setNote(ev.target.value)} rows={2} placeholder="例：雲の底が赤い、西の山の上だけ晴れ" />
             </label>
-            <Button onClick={() => setShown(true)} disabled={!when}>
-              上げる（見本では送りません）
+            {error ? <p className="warn">{error}</p> : null}
+            <Button kind="primary" block busy={saving} onClick={save} disabled={!when || saving}>
+              保存する
             </Button>
-            {shown && when && (
-              <div className="sp-after" role="status">
-                <b>上げると、こうなります</b>
-                <ul>
-                  <li>写真を研究用の保存先に入れます（上限 5 GB。近づいたら止めて知らせます）。写真から位置の情報を外し、場所は約 1 km に丸めて別に記録します。</li>
-                  <li>
-                    気象庁の衛星画像（ひまわり、日本域）を取りに行きます：{jst(satelliteTimes(when)[0])}〜{jst(satelliteTimes(when).at(-1)!)} の 10 分ごと 7 時刻、赤外とトゥルーカラー、高知と西の 2 枚分（28 枚まで）。
-                  </li>
-                  <li>気象庁の一覧から消えた時刻は「取れなかった」と記録します（一覧に何時間前まで残るかは、最初の数回で確かめます）。</li>
-                  <li>選んだ天気は、天気の記録（正本）にも 1 件入ります（写真と結んで残します）。</li>
-                  <li>その日の観測（高知の日照・日射）と予報の履歴は、あとから答え合わせのときに組み合わせます。</li>
-                </ul>
-              </div>
-            )}
+            <p className="set-help">保存すると、写真は研究用の保存先に入ります（あとで「あなたの写真」から消せます）。選んだ天気は、天気の記録にも 1 件入ります。衛星画像との照合は、次の段階で足します。</p>
           </>
         )}
+        {saved ? (
+          <p className="set-help" role="status">
+            {saved}
+          </p>
+        ) : null}
       </section>
       <section className="set-group" aria-labelledby="sp-list">
-        <h3 id="sp-list">あなたの写真（見本の例）</h3>
-        <PhotoList photos={photos} onDelete={(id) => setPhotos((l) => l.filter((p) => p.id !== id))} empty="写真はまだありません。" />
+        <h3 id="sp-list">あなたの写真</h3>
+        {mine.error ? <p className="warn">{mine.error}</p> : null}
+        {mine.photos == null ? <p className="set-help">読み込んでいます…</p> : <PhotoList photos={mine.photos} onDelete={mine.remove} empty="写真はまだありません。" />}
       </section>
     </>
   );
