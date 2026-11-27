@@ -15,7 +15,7 @@ import { moonSeen } from "../../shared/moonLook";
 import { DEFAULT_LAT_LON, solarAltitude, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
 import { jstToday } from "../../shared/dates";
 import { azDiff, magneticDeclination, project, tapCorrection } from "../../shared/skyLook";
-import { cloudAmount, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyKindOf, type SkyWeather } from "../../shared/skyScene";
+import { cloudAmount, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
 import { SkyCanvas } from "./SkyCanvas";
 import { useCamera } from "./useCamera";
 import { createPortal } from "react-dom";
@@ -52,16 +52,6 @@ function useSkyBeta(): [boolean, (on: boolean) => void] {
     }
   };
   return [on, set];
-}
-
-/** 空の絵（β）の元の天気（skyHidden の結果から。出典の区別：その時間＝実績・予報、前後の時間＝推定、無い＝なし）。 */
-function skyWeatherOf(rows: WeatherRow[], n: number, hidden: { text: string; hour: number } | null): SkyWeather {
-  const own = rows.find((r) => r.n === n);
-  const visibilityKm = own ? num((own as { visibility?: unknown }).visibility) : null;
-  if (!hidden) return { kind: null, source: "なし", text: null, hour: null, visibilityKm };
-  const row = rows.find((r) => r.n === hidden.hour);
-  const source = hidden.hour !== n ? "推定" : row?.type === "forecast" ? "予報" : "実績";
-  return { kind: skyKindOf(hidden.text), source, text: hidden.text, hour: hidden.hour, visibilityKm };
 }
 
 /** 空の色の上に描くもの（#241、11/20）：テーマによらず暗い地に合わせた色で。 */
@@ -258,7 +248,7 @@ export function SunSheet({
   const moonCloud = rows?.length ? skyHidden(rows, Math.min(24, Math.floor(at / 60) + 1), station) : null;
   // 空の絵（β）の元の天気：その時間の天気。無ければ前後の時間（推定）。どちらも無ければ、なし。視程はその時間の観測・予報。
   const [skyBeta, setSkyBeta] = useSkyBeta();
-  const skyWx: SkyWeather | null = skyBeta ? skyWeatherOf(rows ?? [], Math.min(24, Math.floor(at / 60) + 1), moonCloud) : null;
+  const skyWx: SkyWeather | null = skyBeta ? skyWeatherFrom(rows ?? [], Math.min(24, Math.floor(at / 60) + 1), station) : null;
   const msAt = sky3.day0 + at * 60_000;
   const topoAt = moonTopo(msAt, ll.lat, ll.lon);
   // 空を見上げるの月：見かけの大きさ・光っている側・模様の向き・高さの色も（11/19 レビュー）。
@@ -892,9 +882,10 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
     const q = at(moon.azimuth, moon.altitude + 1);
     return (Math.atan2(-(q.x - mo.x), -(q.y - mo.y)) * 180) / Math.PI;
   })();
-  const veil = scene ? moonVeil(scene) : 0;
+  // カメラのとき（実際の空が映っている）は、仮の雲で月を薄くしない・見えやすさの目安を月に付けない。
+  const veil = scene && !stream ? moonVeil(scene) : 0;
   const [traceOpen, setTraceOpen] = useState(false);
-  const outlook = scene ? moonOutlook(scene.wx, moon.altitude) : null;
+  const outlook = scene && !stream ? moonOutlook(scene.wx, moon.altitude) : null;
   const srcText = scene
     ? scene.wx.source === "なし"
       ? "空：この時間の天気が無いので、雲は描いていない"
@@ -1041,7 +1032,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
     </div>
     {scene && !stream && !full && (
       <p className={`sky-src below ${scene.wx.source === "なし" ? "none" : scene.wx.source === "実績" ? "seen" : "guess"}`}>
-        {scene.wx.source !== "実績" && <span className="sky-src-tag">{scene.wx.source === "なし" ? "天気なし" : scene.wx.source}</span>}
+        {scene.wx.source !== "実績" && <span className="sky-src-tag">{scene.wx.source === "なし" ? "天気なし" : scene.wx.source === "前後の時間" ? "前後の時間から" : scene.wx.source}</span>}
         {outlook && moon.altitude >= 0 && <b>月：{outlook.note}</b>}
         {srcText}
       </p>

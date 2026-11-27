@@ -98,7 +98,7 @@ export function weatherGroup(text: unknown): "sun" | "cloud" | "rain" | null {
 export const hidesSky = (text: string | null): boolean => !!text && !/晴/.test(text) && /曇|くもり|霧|雨|雪|雷/.test(text);
 
 /** How far (hours) an hour without its own weather looks for a neighbour's (as the sky's colour does, shared/brightness.ts dayLights). */
-const NEAR_HOURS = 2;
+export const NEAR_HOURS = 2;
 
 /**
  * 空が雲で見えにくいか（2026-11-20 渡辺さん「雲の多い時間に、月を「雲で見えにくい」と出す」）：JMA の時間 n（n−1〜n 時）の

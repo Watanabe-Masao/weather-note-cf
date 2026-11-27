@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { angleBetween, clearLin, cloudAmount, cloudAt, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyKindOf, skyRgb, type SkyWeather } from "../../shared/skyScene";
+import { angleBetween, clearLin, cloudAmount, cloudAt, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyKindOf, skyRgb, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
+import type { WeatherRow } from "../../shared/types";
 
 // 空の絵（β）：空色エンジン バージョンアップ計画書（11/27）段階 2 の受け入れ条件。晴天大気と雲を分けて線形の光量で合成する。
 // 雲量 0 で晴天の空と一致、一面の不透明な雲で背景が透けない、同じ時刻に戻すと雲の配置が同じ、雲量の欠測の根拠を追える、
@@ -22,15 +23,31 @@ const toSrgb = (v: number) => Math.min(1, Math.max(0, v <= 0.0031308 ? v * 12.92
 const DIRS = Array.from({ length: 120 }, (_, i) => [(i * 37) % 360, 2 + ((i * 13) % 85)] as const);
 
 describe("空の絵（β）：天気の言葉と雲の量", () => {
-  it("天気の言葉から種類（雪・雨を先に。晴れと曇りが両方なら晴れ間のある曇り）", () => {
+  it("天気の言葉から種類：初めの言葉が主、後ろは一部の時間（晴一時雨は雨一色にしない）。霧は曇りに換算しない", () => {
     expect(skyKindOf("晴れ")).toBe("clear");
+    expect(skyKindOf("快晴")).toBe("clear");
     expect(skyKindOf("晴れ時々曇り")).toBe("partly");
+    expect(skyKindOf("晴時々曇")).toBe("partly");
+    expect(skyKindOf("曇時々晴")).toBe("partly");
+    expect(skyKindOf("晴一時雨")).toBe("showers");
+    expect(skyKindOf("晴時々雨")).toBe("showers");
     expect(skyKindOf("曇り")).toBe("cloudy");
-    expect(skyKindOf("霧")).toBe("cloudy");
+    expect(skyKindOf("くもり")).toBe("cloudy");
+    expect(skyKindOf("曇時々雨")).toBe("cloudy");
+    expect(skyKindOf("霧")).toBe("fog");
     expect(skyKindOf("雨")).toBe("rain");
+    expect(skyKindOf("雨のち晴")).toBe("rain");
     expect(skyKindOf("雷")).toBe("rain");
     expect(skyKindOf("雪")).toBe("snow");
     expect(skyKindOf(null)).toBeNull();
+  });
+  it("晴一時雨は空一面にしない（晴れ間が残る）。霧は雲の量にしない（描かない）が、月は見えにくそう", () => {
+    expect(cloudAmount(wx("晴一時雨"))).toBeLessThan(0.95);
+    const s = base(wx("晴一時雨"));
+    expect(DIRS.some(([az, alt]) => cloudAt(az, alt, cloudAmount(s.wx)!, s.seed).cover < 0.5)).toBe(true);
+    expect(cloudAmount(wx("霧"))).toBeNull();
+    expect(moonOutlook(wx("霧"), 40).level).toBe("見えにくそう");
+    expect(sceneTrace(base(wx("霧")))[1].note).toContain("霧");
   });
   it("雲の量：全雲量があればそれ（0〜1 に収める）、無ければ天気のイメージ、天気が無ければ描かない", () => {
     expect(cloudAmount(wx("晴れ", "予報", { cover: 0.3 }))).toBe(0.3);
@@ -39,6 +56,18 @@ describe("空の絵（β）：天気の言葉と雲の量", () => {
     expect(cloudAmount(wx("晴れ時々曇り"))).toBeLessThan(cloudAmount(wx("曇り"))!);
     expect(cloudAmount(wx("雨"))).toBe(1);
     expect(cloudAmount(NONE)).toBeNull();
+  });
+});
+
+describe("空の絵（β）の元の天気と出典", () => {
+  const row = (n: number, extra: Partial<WeatherRow>): WeatherRow => ({ date: "2026-11-24", n, type: "actual", ...extra }) as WeatherRow;
+  it("気象庁の天気の記録＝実績、降水量・日照からの推定＝観測から推定（実績と言わない）、予報、前後の時間、なし", () => {
+    expect(skyWeatherFrom([row(2, { weather: "雨" })], 2, "47893")).toMatchObject({ source: "実績", text: "雨", hour: 2, kind: "rain" });
+    expect(skyWeatherFrom([row(2, { rain: 1.5 })], 2, "47893")).toMatchObject({ source: "観測から推定", text: "雨" });
+    expect(skyWeatherFrom([row(2, { type: "forecast", weather: "曇" })], 2, "47893")).toMatchObject({ source: "予報", kind: "cloudy" });
+    expect(skyWeatherFrom([row(2, {}), row(3, { weather: "晴" })], 2, "47893")).toMatchObject({ source: "前後の時間", hour: 3 });
+    expect(skyWeatherFrom([row(2, {})], 2, "47893")).toMatchObject({ source: "なし", kind: null });
+    expect(skyWeatherFrom([row(2, { weather: "晴", visibility: 12 })], 2, "47893").visibilityKm).toBe(12);
   });
 });
 

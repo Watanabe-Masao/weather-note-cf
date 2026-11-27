@@ -6,18 +6,28 @@
 // 雲の配置は、地点・対象時刻（1 時間）・入力・描画版から決まる種で固定し、同じ時刻に戻せば同じになる。
 // 視程によるかすみは、遠景を描かない「空を見上げる」では初期状態で使わない（useVisibility を立てたときだけ）。
 import type { SkyColour } from "./sky";
+import type { WeatherRow } from "./types";
+import type { Where } from "./dayParts";
+import { hoursWeather, NEAR_HOURS } from "./dayWeather";
 
 const RAD = Math.PI / 180;
 
 /** 描画の版（雲の配置の種に入れる。描き方を変えたら上げる）。 */
 export const SKY_SCENE_VERSION = 1;
 
-/** その時間の天気（空の絵の元）。kind は天気の言葉から（晴れ・晴れ間のある曇り・曇り・雨・雪）。 */
-export type SkyKind = "clear" | "partly" | "cloudy" | "rain" | "snow";
+/**
+ * その時間の天気（空の絵の元）。kind は天気の言葉から：晴れ、晴れ間（晴時々曇・曇時々晴）、にわか雨（晴一時雨など、
+ * 雨は一部の時間・一部の空）、曇り、雨・雪（一面）、霧（雲の量にしない。霧は根拠のある事例で別に扱う）。
+ */
+export type SkyKind = "clear" | "partly" | "showers" | "cloudy" | "rain" | "snow" | "fog";
+/**
+ * 出典：実績＝気象庁のその時間の天気（観測）、観測から推定＝天気の記録が無く、降水量・日照から推定した天気、予報、
+ * 前後の時間＝その時間に天気が無く、前後の時間の天気から、なし＝天気が無い。
+ */
+export type SkySource = "実績" | "観測から推定" | "予報" | "前後の時間" | "なし";
 export interface SkyWeather {
   kind: SkyKind | null;
-  /** 実績＝その時間の観測、予報、推定＝前後の時間の天気から、なし＝天気が無い。 */
-  source: "実績" | "予報" | "推定" | "なし";
+  source: SkySource;
   /** 天気の言葉（気象庁の時別の天気など）と、何時台の値か（JMA の時間 n＝n−1〜n 時）。 */
   text: string | null;
   hour: number | null;
@@ -27,19 +37,51 @@ export interface SkyWeather {
   visibilityKm?: number | null;
 }
 
-/** 天気の言葉 → 種類（hidesSky と同じ言葉の見分け方）。 */
+/**
+ * 空の絵の元の天気（JMA の時間 n）。その時間の天気が無ければ、前後 NEAR_HOURS 時間の天気から（skyHidden と同じ探し方）。
+ * 出典は、気象庁の天気の記録（実績）・降水量と日照からの推定（観測から推定）・予報・前後の時間・なし、を分ける。
+ */
+const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
+export function skyWeatherFrom(rows: WeatherRow[], n: number, station: Where): SkyWeather {
+  const own = rows.find((r) => r.n === n);
+  const visibilityKm = own ? num((own as { visibility?: unknown }).visibility) : null;
+  for (let k = 0; k <= NEAR_HOURS; k++) {
+    for (const h of k ? [n - k, n + k] : [n]) {
+      if (h < 1 || h > 24 || !rows.some((r) => r.n === h)) continue;
+      const w = hoursWeather(rows, [h], station, 1);
+      if (!w.text) continue;
+      const row = rows.find((r) => r.n === h);
+      const source: SkySource = h !== n ? "前後の時間" : w.estimated ? "観測から推定" : row?.type === "forecast" ? "予報" : "実績";
+      return { kind: skyKindOf(w.text), source, text: w.text, hour: h, visibilityKm };
+    }
+  }
+  return { kind: null, source: "なし", text: null, hour: null, visibilityKm };
+}
+
+/**
+ * 天気の言葉 → 種類。初めの言葉（「後・時々・一時・のち」より前）が主で、後ろは一部の時間（晴一時雨は、晴れの空ににわか雨。
+ * 雨一色にしない）。霧は霧のまま（全天の曇りに換算しない）。
+ */
 export function skyKindOf(text: string | null): SkyKind | null {
   if (!text) return null;
-  if (/雪/.test(text)) return "snow";
-  if (/雨|雷/.test(text)) return "rain";
-  if (/晴/.test(text) && /曇|くもり/.test(text)) return "partly";
-  if (/晴/.test(text)) return "clear";
-  if (/曇|くもり|霧/.test(text)) return "cloudy";
+  const [main, ...rest] = text.split(/後|のち|時々|一時|、/);
+  const part = rest.join("");
+  const wet = (t: string) => /雨|雪|雷/.test(t);
+  if (/霧/.test(main)) return "fog";
+  if (/雪/.test(main)) return "snow";
+  if (/雨|雷/.test(main)) return "rain";
+  if (/晴/.test(main)) return wet(part) ? "showers" : /曇|くもり/.test(part) ? "partly" : "clear";
+  if (/曇|くもり/.test(main)) return wet(part) ? "cloudy" : /晴/.test(part) ? "partly" : "cloudy";
+  if (wet(text)) return "rain";
+  if (/霧/.test(text)) return "fog";
   return null;
 }
 
-/** 雲の量のイメージ（天気の言葉から。全雲量が無いとき）。 */
-const KIND_AMOUNT: Record<SkyKind, number> = { clear: 0.12, partly: 0.5, cloudy: 0.9, rain: 1, snow: 1 };
+/** 雨・雪の空か（雲の色を雨の灰にする）。「曇時々雨」は曇りの空に雨の色を少し。 */
+const wetText = (text: string | null) => !!text && /雨|雪|雷/.test(text);
+
+/** 雲の量のイメージ（天気の言葉から。全雲量が無いとき）。霧は雲の量にしない（null）。 */
+const KIND_AMOUNT: Record<SkyKind, number | null> = { clear: 0.12, partly: 0.5, showers: 0.55, cloudy: 0.9, rain: 1, snow: 1, fog: null };
 /** これ以上は空一面の雲（不透明。背景が透けない）。 */
 const OVERCAST = 0.95;
 
@@ -54,6 +96,7 @@ export function moonOutlook(wx: SkyWeather, moonAlt: number): { level: "見え�
   if (moonAlt < 0) return { level: "地平線の下", note: "月は地平線の下" };
   const c = cloudAmount(wx);
   const from = wx.source === "なし" ? "" : `（${wx.hour != null ? `${wx.hour - 1}時台 ` : ""}${wx.text ?? (wx.cover != null ? `全雲量 ${Math.round(wx.cover * 100)}%` : "")}・${wx.source}）`;
+  if (wx.kind === "fog") return { level: "見えにくそう", note: `霧で、見えにくそう${from}` };
   if (c == null) return { level: "分からない", note: "この時間の天気が無いので、見えるかは分からない" };
   if (c >= 0.8) return { level: "見えにくそう", note: `雲が多く、見えにくそう${from}` };
   if (c >= 0.35) return { level: "切れ間から", note: `雲の切れ間から見えるかも${from}` };
@@ -148,7 +191,7 @@ export interface SceneInput {
   useVisibility?: boolean;
 }
 
-/** 晴天大気（雲なし、線形の光量）：天頂・地平の色の間を高さで、太陽の側の地平線の暖色、昼の太陽のまわり、夜の月のまわり。 */
+/** 晴天大気（雲なし）。値は表示用の色（sRGB）を線形 RGB に戻したもので、物理の放射輝度ではない（物理版とは区別して受け渡す）：天頂・地平の色の間を高さで、太陽の側の地平線の暖色、昼の太陽のまわり、夜の月のまわり。 */
 export function clearLin(s: SceneInput, az: number, alt: number): Rgb {
   let c = mix(lin(hexRgb(s.clear.horizon)), lin(hexRgb(s.clear.zenith)), smooth(0, 55, alt));
   const sunAng = angleBetween(az, alt, s.sunAz, s.sunAlt);
@@ -173,7 +216,7 @@ export function cloudLayer(s: SceneInput, az: number, alt: number): { alpha: num
   const overcast = amount >= OVERCAST;
   const alpha = overcast ? 1 : cover * 0.92;
   const day = smooth(-6, 6, s.sunAlt);
-  const rainy = s.wx.kind === "rain" || s.wx.kind === "snow";
+  const rainy = s.wx.kind === "rain" || s.wx.kind === "snow" || (s.wx.kind !== "fog" && wetText(s.wx.text));
   const sunAng = angleBetween(az, alt, s.sunAz, s.sunAlt);
   const twilight = smooth(-11, -2, s.sunAlt) * (1 - smooth(4, 14, s.sunAlt));
   // 昼は白〜灰（雨は暗い灰）。夜は暗い底と、月の明かりを受けて明るむ所（月が明るく近いほど。塊の濃淡も）。
@@ -222,7 +265,9 @@ export function sceneTrace(s: SceneInput): { layer: string; used: boolean; note:
       layer: "雲",
       used: amount != null && amount > 0,
       note:
-        amount == null
+        s.wx.kind === "fog"
+          ? `${when}霧（${s.wx.source}）。霧は雲の量にしないので描いていない`
+          : amount == null
           ? "この時間の天気が無いので描いていない"
           : s.wx.cover != null
             ? `${when}全雲量 ${Math.round(s.wx.cover * 100)}%（${s.wx.source}）に基づくイメージ`
