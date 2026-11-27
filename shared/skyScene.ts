@@ -33,18 +33,39 @@ export interface SkyWeather {
   hour: number | null;
   /** 全雲量（0〜1）。予報・衛星解析から取れたときだけ。無いときは天気の言葉から雲の量のイメージを決める。 */
   cover?: number | null;
+  /** 全雲量が何時ちょうどの値か（正時の瞬時の値。0〜24）と、その出典。cover があるときだけ。 */
+  coverAt?: number | null;
+  coverSource?: SkySource | null;
   /** 視程（km）。useVisibility のときだけ、地平線近くのかすみに使う。 */
   visibilityKm?: number | null;
 }
 
 /**
+ * スライダーの時刻（0〜1440 分）から、空の絵が読む時間（2026-11-27、#532）。
+ * - 天気（気象庁の時別の天気・予報の天気）は、その時刻を含む時間（JMA の時間 n＝n−1〜n 時。1時20分なら n=2）。
+ * - 全雲量は正時の瞬時の値なので、いちばん近い正時（1時20分なら 1時、1時40分なら 2時）。行 n の全雲量は n 時ちょうどの値。
+ *   0時〜0時29分は、その日の行に 0 時の値が無い（前の日の 24 時の行）ので 1 時の値を読む（追跡にそう出る）。
+ */
+export function skyHours(at: number): { n: number; coverAt: number } {
+  return { n: Math.min(24, Math.floor(at / 60) + 1), coverAt: Math.min(24, Math.max(1, Math.round(at / 60))) };
+}
+
+/**
  * 空の絵の元の天気（JMA の時間 n）。その時間の天気が無ければ、前後 NEAR_HOURS 時間の天気から（skyHidden と同じ探し方）。
  * 出典は、気象庁の天気の記録（実績）・降水量と日照からの推定（観測から推定）・予報・前後の時間・なし、を分ける。
+ * 全雲量（coverAt 時ちょうどの、予報の行の cover ％）は、天気が実績・観測から推定のときは使わない（予報と実績を混ぜない：
+ * その時間の空は実績の天気で描く）。0% は値（雲を描かない）として、無い（天気から描く）と分ける。天気が無くても全雲量があれば描く。
  */
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
-export function skyWeatherFrom(rows: WeatherRow[], n: number, station: Where): SkyWeather {
+export function skyWeatherFrom(rows: WeatherRow[], n: number, station: Where, coverAt: number = n): SkyWeather {
   const own = rows.find((r) => r.n === n);
   const visibilityKm = own ? num((own as { visibility?: unknown }).visibility) : null;
+  const coverRow = rows.find((r) => r.n === coverAt && r.type === "forecast");
+  const coverPct = coverRow ? num((coverRow as { cover?: unknown }).cover) : null;
+  const withCover = (w: SkyWeather): SkyWeather =>
+    coverPct == null || w.source === "実績" || w.source === "観測から推定"
+      ? w
+      : { ...w, cover: Math.max(0, Math.min(100, coverPct)) / 100, coverAt, coverSource: "予報" };
   for (let k = 0; k <= NEAR_HOURS; k++) {
     for (const h of k ? [n - k, n + k] : [n]) {
       if (h < 1 || h > 24 || !rows.some((r) => r.n === h)) continue;
@@ -52,10 +73,19 @@ export function skyWeatherFrom(rows: WeatherRow[], n: number, station: Where): S
       if (!w.text) continue;
       const row = rows.find((r) => r.n === h);
       const source: SkySource = h !== n ? "前後の時間" : w.estimated ? "観測から推定" : row?.type === "forecast" ? "予報" : "実績";
-      return { kind: skyKindOf(w.text), source, text: w.text, hour: h, visibilityKm };
+      return withCover({ kind: skyKindOf(w.text), source, text: w.text, hour: h, visibilityKm });
     }
   }
+  if (coverPct != null) return withCover({ kind: null, source: "予報", text: null, hour: null, visibilityKm });
   return { kind: null, source: "なし", text: null, hour: null, visibilityKm };
+}
+
+/** 全雲量の言い方（「2時の全雲量 62%（予報）」）。無いときは null。 */
+export function coverText(wx: SkyWeather, inside = false): string | null {
+  if (wx.cover == null) return null;
+  const v = `${wx.coverAt != null ? `${wx.coverAt}時の` : ""}全雲量 ${Math.round(wx.cover * 100)}%`;
+  const src = wx.coverSource ?? wx.source;
+  return inside ? `${v}・${src}` : `${v}（${src}）`;
 }
 
 /**
@@ -95,7 +125,12 @@ export function cloudAmount(wx: SkyWeather): number | null {
 export function moonOutlook(wx: SkyWeather, moonAlt: number): { level: "見える" | "切れ間から" | "見えにくそう" | "分からない" | "地平線の下"; note: string } {
   if (moonAlt < 0) return { level: "地平線の下", note: "月は地平線の下" };
   const c = cloudAmount(wx);
-  const from = wx.source === "なし" ? "" : `（${wx.hour != null ? `${wx.hour - 1}時台 ` : ""}${wx.text ?? (wx.cover != null ? `全雲量 ${Math.round(wx.cover * 100)}%` : "")}・${wx.source}）`;
+  const from =
+    wx.source === "なし"
+      ? ""
+      : wx.cover != null
+        ? `（${coverText(wx, true)}）`
+        : `（${wx.hour != null ? `${wx.hour - 1}時台 ` : ""}${wx.text ?? ""}・${wx.source}）`;
   if (wx.kind === "fog") return { level: "見えにくそう", note: `霧で、見えにくそう${from}` };
   if (c == null) return { level: "分からない", note: "この時間の天気が無いので、見えるかは分からない" };
   if (c >= 0.8) return { level: "見えにくそう", note: `雲が多く、見えにくそう${from}` };
@@ -268,10 +303,12 @@ export function sceneTrace(s: SceneInput): { layer: string; used: boolean; note:
         s.wx.kind === "fog"
           ? `${when}霧（${s.wx.source}）。霧は雲の量にしないので描いていない`
           : amount == null
-          ? "この時間の天気が無いので描いていない"
+          ? "この時間の天気も全雲量も無いので描いていない"
           : s.wx.cover != null
-            ? `${when}全雲量 ${Math.round(s.wx.cover * 100)}%（${s.wx.source}）に基づくイメージ`
-            : `${when}${s.wx.text ?? ""}（${s.wx.source}）から決めた雲の量 ${Math.round(amount * 100)}% のイメージ${amount >= OVERCAST ? "（空一面）" : ""}`,
+            ? amount <= 0
+              ? `${coverText(s.wx)}なので、雲は描いていない${s.wx.text ? `（${when}天気 ${s.wx.text}・${s.wx.source}）` : "（天気は無い）"}`
+              : `${coverText(s.wx)}に基づくイメージ${amount >= OVERCAST ? "（空一面）" : ""}${s.wx.text ? `（${when}天気 ${s.wx.text}・${s.wx.source}）` : "（天気は無い）"}`
+            : `${when}${s.wx.text ?? ""}（${s.wx.source}）から決めた雲の量 ${Math.round(amount * 100)}% のイメージ${amount >= OVERCAST ? "（空一面）" : ""}。全雲量は無い${s.wx.source === "実績" || s.wx.source === "観測から推定" ? "か、実績の時間なので使わない" : ""}`,
     },
     { layer: "かすみ", used: !!s.useVisibility && s.wx.visibilityKm != null, note: s.useVisibility ? `視程 ${s.wx.visibilityKm ?? "なし"} km` : "使っていない（遠景を描かない画面なので、視程による補正は初期状態で使わない）" },
   ];

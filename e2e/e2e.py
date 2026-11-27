@@ -238,6 +238,8 @@ def api(path, q):
                 t = round(base["min"] + (base["max"] - base["min"]) * math.sin(math.pi * max(0, min(1, (n - 5) / 14))), 1)
                 hourly.append({"date": d.isoformat(), "n": n, "type": "forecast", "provider": "Open-Meteo", "temp": t, "humidity": 70, "wind": 2.0,
                                "pressure": 1015.0, "rain": 0, "probability": 20, "solar": round(max(0, 600 * math.sin(math.pi * (n - 6) / 12)), 0) if 6 < n < 18 else 0,
+                               # 全雲量（%、正時の瞬時の値、#532）：空の絵（β）の雲の量
+                               "cover": (n * 7) % 101,
                                "raw": {}, "quality": {}})
         return {"rows": rows, "hourlyRows": hourly}
     if path == "/api/hourly":
@@ -893,6 +895,8 @@ with sync_playwright() as p:
         pg.locator(".sky-beta").click(); calm()
         sb_off = pg.evaluate("[document.querySelectorAll('.sky-pan .sky-canvas').length, document.querySelectorAll('.sky-src.below').length, document.querySelectorAll('.sky-pan .sky-grid').length]")
         check("SB1 空の絵 β：入れると Canvas の空・出典（空：…）、目盛りは「軌道・目盛り」で重なる。切ると元の窓", sb["on"] == "true" and sb["canvas"] == 1 and sb["grid"] == 0 and "空：" in sb["src"], (sb, sb_grid, sb_off))
+        # 予報の全雲量（#532）：予報の時間は、全雲量の値・何時の値か・出典が出典の欄に出る（見本の予報は 1時間ごとに cover がある）
+        check("SB3 空の絵 β：予報の時間は全雲量から描き、何時の値かと出典を出す", re.search(r"\d+時の全雲量 \d+%（予報）", sb["src"]) is not None, sb["src"])
         check("SB2 空の絵 β：軌道・目盛りで重ね、切ると Canvas と出典が消える", sb_grid > 0 and sb_off[0] == 0 and sb_off[1] == 0 and sb_off[2] > 0, (sb_grid, sb_off))
         # 球の基準線と拡大（11/19）：高さの輪・方位の線がある。＋で 1.5倍、細かい線に。全画面でもなぞる窓。空を見上げても1画面に収まる。
         grid0 = pg.locator(".sky-pan .sky-grid").count()

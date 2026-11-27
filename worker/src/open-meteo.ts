@@ -66,6 +66,8 @@ const OPTIONAL_HOURLY = {
   gust: "wind_gusts_10m",
   // 視程（m、モデルの値）：km にして、観測（視程計の上限 約20 km）にそろえて 20 で止める。止める前は visibilityFull（normalizeForecast）。
   visibility: "visibility",
+  // 全雲量（%、その正時の瞬時の値。モデルの値）：空の絵（β、#532）の雲の量。行 n（n−1〜n 時）では n 時ちょうどの値。
+  cover: "cloud_cover",
 };
 const DAILY_FIELDS = {
   temp: "temperature_2m_mean",
@@ -102,7 +104,7 @@ export function normalizeForecast(data: ForecastPayload): { rows: WeatherRow[]; 
       quality: {},
     };
     fill(row, HOURLY_FIELDS, hourly, i);
-    if (hourly.snowfall || hourly.wind_gusts_10m || hourly.visibility) fill(row, OPTIONAL_HOURLY, hourly, i);
+    if (hourly.snowfall || hourly.wind_gusts_10m || hourly.visibility || hourly.cloud_cover) fill(row, OPTIONAL_HOURLY, hourly, i);
     if (typeof row.visibility === "number") {
       // 画面（グラフ・比べ）は観測にそろえて 20 km で止める。止める前の値（km）は判定用に visibilityFull に残す
       // （澄んだ日どうしの違いは予報にしか無い。2026-11-22 渡辺さん「グラフは20で止めて、内部では判定用に」）。
