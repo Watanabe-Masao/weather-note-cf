@@ -42,6 +42,7 @@ export async function recentErrors(db: Db, now: number, limit = 50): Promise<Err
     ["amedas_fetch_log", "アメダスの保存"],
     ["air_quality_fetch_log", "空気質の保存"],
     ["air_forecast_fetch_log", "空気質の予測の取得"],
+    ["sky_forecast_fetch_log", "空の予報の履歴の取得"],
     ["soramame_fetch_log", "大気汚染の実測の保存"],
     ["longrange_fetch_log", "長い先の予報の取得"],
   ];

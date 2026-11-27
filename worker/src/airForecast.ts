@@ -18,6 +18,7 @@ import type { Db } from "./accounts";
 import { ensureAirSchema } from "./airQuality";
 import { doneOnce } from "./once";
 import { retryingFetch } from "./retry";
+import { recordSkyFailure, recordSkyHistory } from "./skyHistory";
 import type { AirDay, AirDaysResponse, AirResponse } from "../../shared/airQuality";
 import { ensureSoramameSchema } from "./soramame";
 import { USUAL_DAYS, type Usual, usualItem, dayUsual, groupByDay } from "../../shared/airUsual";
@@ -66,7 +67,7 @@ export const airForecastUrl = (lat: number, lon: number, from: string, to: strin
   `&domains=cams_global&start_date=${from}&end_date=${to}&timezone=Asia%2FTokyo`;
 
 /** 1時間に1回まで（日付が変われば すぐ）、今日から5日分の予測を取り、値のある時刻・項目だけを書き換える。 */
-export async function saveAirForecast(db: Db, now = Date.now(), get: Fetcher = defaultFetch): Promise<{ saved: number; ok: boolean; skipped?: boolean }> {
+export async function saveAirForecast(db: Db, now = Date.now(), get: Fetcher = defaultFetch, clock: () => number = Date.now): Promise<{ saved: number; ok: boolean; skipped?: boolean }> {
   await ensureAirForecastSchema(db);
   const last = await db.prepare("SELECT MAX(at) AS at FROM air_forecast_fetch_log").first<{ at: string | null }>();
   if (last?.at && Date.parse(last.at) > now - EVERY_MS + 60_000 && jstDay(Date.parse(last.at)) === jstDay(now)) return { saved: 0, ok: true, skipped: true };
@@ -79,9 +80,21 @@ export async function saveAirForecast(db: Db, now = Date.now(), get: Fetcher = d
     try {
       const r = await get(airForecastUrl(place.radar.lat, place.radar.lon, from, to));
       if (!r.ok) throw new Error(`air forecast: HTTP ${r.status}`);
-      const h = (JSON.parse(await r.text()) as { hourly?: Record<string, (number | string | null)[]> }).hourly;
+      const j = JSON.parse(await r.text()) as { latitude?: unknown; longitude?: unknown; hourly?: Record<string, (number | string | null)[]> };
+      const receivedAt = new Date(clock()).toISOString(); // 受け取り終えた時刻（空の予報の履歴の締め切りに使う）
+      const h = j.hourly;
       const times = (h?.time ?? []) as string[];
       if (!times.length) throw new Error("air forecast: no hours");
+      // 空の答え合わせのための予報の履歴（skyHistory.ts、#540）：同じ応答の AOD を、受け取った時刻で残す。失敗しても空気質の保存は続ける。
+      await recordSkyHistory(db, {
+        station,
+        source: "open-meteo-cams",
+        via: "cron",
+        receivedAt,
+        values: times.map((t, i) => ({ item: "aod" as const, validAt: `${t}:00+09:00`, value: num(h?.aerosol_optical_depth?.[i]) })),
+        req: { lat: place.radar.lat, lon: place.radar.lon },
+        grid: { lat: num(j.latitude), lon: num(j.longitude) },
+      }).catch((e) => console.error("weather-note: sky history (aod)", e));
       const rows = [];
       for (let i = 0; i < times.length; i++) {
         const v = Object.fromEntries(Object.entries(FIELDS).map(([k, name]) => [k, num(h?.[name]?.[i])]));
@@ -102,6 +115,7 @@ export async function saveAirForecast(db: Db, now = Date.now(), get: Fetcher = d
       saved += rows.length;
     } catch (e) {
       error = String(e instanceof Error ? e.message : e).slice(0, 300);
+      await recordSkyFailure(db, station, "open-meteo-cams", "cron", new Date(clock()).toISOString(), error).catch(() => undefined);
     }
   }
   await db.prepare("INSERT OR REPLACE INTO air_forecast_fetch_log (at, ok, saved, error) VALUES (?, ?, ?, ?)").bind(at, error ? 0 : 1, saved, error).run();

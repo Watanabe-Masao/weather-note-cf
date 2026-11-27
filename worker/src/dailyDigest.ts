@@ -29,6 +29,7 @@ const SOURCES = [
   { table: "amedas_fetch_log", name: "アメダスの観測", added: "saved", unit: "ファイル" },
   { table: "air_quality_fetch_log", name: "空気質（CAMS）", added: "saved", unit: "時間" },
   { table: "air_forecast_fetch_log", name: "空気質の予測（CAMS）", added: "saved", unit: "時間" },
+  { table: "sky_forecast_fetch_log", name: "空の予報の履歴（天気コード・降水・全雲量・視程・AOD）", added: "appended", unit: "値" },
   { table: "soramame_fetch_log", name: "大気汚染の実測（そらまめくん）", added: "saved", unit: "時間" },
 ] as const;
 
