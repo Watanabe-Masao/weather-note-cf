@@ -884,6 +884,16 @@ with sync_playwright() as p:
         pg.locator(".sky-pan").focus(); pg.keyboard.press("ArrowLeft"); calm(); h2 = pan_head()
         if os.environ.get("WN_SUN"): pg.locator(".sun-card").screenshot(path=os.environ["WN_SUN"] + "-pan.png")
         check("SS2r なぞって見る窓：はじめは太陽（南）、左へ 1/3 なぞると約 30° 西へ、← で 5° 戻る", h0.startswith("南") and az_of(h1) is not None and 25 <= az_of(h1) - az_of(h0) <= 35 and az_of(h1) - az_of(h2) == 5 and pg.locator(".sky-view.window").count() == 0, (h0, h1, h2))
+        # 空の絵（β、11/27）：入れると窓の空が Canvas の空の絵に。細かい目盛りと通り道は「軌道・目盛り」で重ね、窓の下に出典。切ると元に戻る。
+        pg.locator(".sky-beta").click(); calm()
+        sb = pg.evaluate("""(() => ({ on: document.querySelector('.sky-beta')?.getAttribute('aria-pressed'), canvas: document.querySelectorAll('.sky-pan .sky-canvas').length,
+          grid: document.querySelectorAll('.sky-pan .sky-grid').length, src: (document.querySelector('.sky-src.below') || {}).textContent || '' }))()""")
+        pg.locator(".sky-pan .sky-guides").click(); calm(); sb_grid = pg.locator(".sky-pan .sky-grid").count()
+        pg.locator(".sky-pan .sky-guides").click(); calm()
+        pg.locator(".sky-beta").click(); calm()
+        sb_off = pg.evaluate("[document.querySelectorAll('.sky-pan .sky-canvas').length, document.querySelectorAll('.sky-src.below').length, document.querySelectorAll('.sky-pan .sky-grid').length]")
+        check("SB1 空の絵 β：入れると Canvas の空・出典（空：…）、目盛りは「軌道・目盛り」で重なる。切ると元の窓", sb["on"] == "true" and sb["canvas"] == 1 and sb["grid"] == 0 and "空：" in sb["src"], (sb, sb_grid, sb_off))
+        check("SB2 空の絵 β：軌道・目盛りで重ね、切ると Canvas と出典が消える", sb_grid > 0 and sb_off[0] == 0 and sb_off[1] == 0 and sb_off[2] > 0, (sb_grid, sb_off))
         # 球の基準線と拡大（11/19）：高さの輪・方位の線がある。＋で 1.5倍、細かい線に。全画面でもなぞる窓。空を見上げても1画面に収まる。
         grid0 = pg.locator(".sky-pan .sky-grid").count()
         sfit = pg.evaluate("(() => { const b = document.querySelector('.sun-sheet .msheet-body'); return [b.scrollHeight, b.clientHeight]; })()")
