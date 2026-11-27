@@ -15,6 +15,8 @@ import { moonSeen } from "../../shared/moonLook";
 import { DEFAULT_LAT_LON, solarAltitude, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
 import { jstToday } from "../../shared/dates";
 import { azDiff, magneticDeclination, project, tapCorrection } from "../../shared/skyLook";
+import { moonOutlook, moonVeil, type SceneInput, skyKindOf, skyRgb, type SkyWeather } from "../../shared/skyScene";
+import { SkyCanvas } from "./SkyCanvas";
 import { useCamera } from "./useCamera";
 import { createPortal } from "react-dom";
 import { CloseIcon } from "./icons";
@@ -27,6 +29,40 @@ import { cloudWhy, MoonSheet, type MoonWeather } from "./MoonSheet";
 import { onSkyVars, SKY_ICON, TWILIGHT_BAND } from "../design/tokens";
 import { type CSSProperties, type ReactNode, useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { svgTextSize, useDrawnWidth } from "./useDrawnWidth";
+
+/**
+ * 空の絵（β、2026-11-27 渡辺さん「空模様から差し替え」）：入れると、空を見上げるの窓の空を Canvas 2D の空の絵に（太陽の方向の
+ * 空の色・その時間の天気から描いた雲のイメージ・月の見えやすさの目安・出典）。この端末だけの設定（localStorage）。
+ */
+const SKY_BETA_KEY = "weather-note-sky-beta";
+function useSkyBeta(): [boolean, (on: boolean) => void] {
+  const [on, setOn] = useState(() => {
+    try {
+      return localStorage.getItem(SKY_BETA_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const set = (v: boolean) => {
+    setOn(v);
+    try {
+      localStorage.setItem(SKY_BETA_KEY, v ? "1" : "0");
+    } catch {
+      // 保存できない（プライベートブラウズなど）ときは、この画面の間だけ。
+    }
+  };
+  return [on, set];
+}
+
+/** 空の絵（β）の元の天気（skyHidden の結果から。出典の区別：その時間＝実績・予報、前後の時間＝推定、無い＝なし）。 */
+function skyWeatherOf(rows: WeatherRow[], n: number, hidden: { text: string; hour: number } | null): SkyWeather {
+  const own = rows.find((r) => r.n === n);
+  const visibilityKm = own ? num((own as { visibility?: unknown }).visibility) : null;
+  if (!hidden) return { kind: null, source: "なし", text: null, hour: null, visibilityKm };
+  const row = rows.find((r) => r.n === hidden.hour);
+  const source = hidden.hour !== n ? "推定" : row?.type === "forecast" ? "予報" : "実績";
+  return { kind: skyKindOf(hidden.text), source, text: hidden.text, hour: hidden.hour, visibilityKm };
+}
 
 /** 空の色の上に描くもの（#241、11/20）：テーマによらず暗い地に合わせた色で。 */
 const ON_SKY = onSkyVars() as CSSProperties;
@@ -217,6 +253,9 @@ export function SunSheet({
     return `空の色：${n - 1}時台 ${parts.join("・")}（${row.type === "forecast" ? "予報" : "実績"}）`;
   })();
   const moonCloud = rows?.length ? skyHidden(rows, Math.min(24, Math.floor(at / 60) + 1), station) : null;
+  // 空の絵（β）の元の天気：その時間の天気。無ければ前後の時間（推定）。どちらも無ければ、なし。視程はその時間の観測・予報。
+  const [skyBeta, setSkyBeta] = useSkyBeta();
+  const skyWx: SkyWeather | null = skyBeta ? skyWeatherOf(rows ?? [], Math.min(24, Math.floor(at / 60) + 1), moonCloud) : null;
   const msAt = sky3.day0 + at * 60_000;
   const topoAt = moonTopo(msAt, ll.lat, ll.lon);
   // 空を見上げるの月：見かけの大きさ・光っている側・模様の向き・高さの色も（11/19 レビュー）。
@@ -225,6 +264,9 @@ export function SunSheet({
   const moonAt = { altitude: topoAt.altitude, azimuth: topoAt.azimuth, diameter: topoAt.diameter, limb: moonLimb(msAt, ll.lat, ll.lon), north: moonNorth(msAt, ll.lat, ll.lon), tint: seenAt.tint, strength: seenAt.strength };
   const sunAzAt = solarAzimuth(date, at, ll.lat, ll.lon);
   const phaseAt = moonPhase(sky3.day0 + at * 60_000);
+  const scene: SceneInput | undefined = skyWx
+    ? { sky: skyNow, sunAlt: altAt, sunAz: sunAzAt, moonAlt: moonAt.altitude, moonAz: moonAt.azimuth, moonLit: phaseAt.illuminated, wx: skyWx, seed: Math.floor(sky3.day0 / 86_400_000) * 31 + Math.floor(at / 60) }
+    : undefined;
   // 月の線（地平線より上だけ）を x・y の関数でつなぐ：下に入るとそこで切る。方位の線では 360°→0° をまたぐ所でも切る。
   const pathOf = (pts: { x: number; y: number; up: boolean }[], wrap = false) =>
     pts
@@ -262,11 +304,16 @@ export function SunSheet({
           { id: "sky", label: "空を見上げる" },
         ]}
       />
-      {view === "sky" && !full && <SkyView look={sensor.state === "on" ? sensorLook : null} stream={camera.stream} tap={tap} zoom={zoom} onZoom={setZoom} panView={panView} onPan={setPanView} at={at} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} />}
+      {view === "sky" && !full && (
+        <Button size="sm" className="sky-beta" aria-pressed={skyBeta} onClick={() => setSkyBeta(!skyBeta)}>
+          空の絵 <span className="beta-tag">β</span>
+        </Button>
+      )}
+      {view === "sky" && !full && <SkyView look={sensor.state === "on" ? sensorLook : null} stream={camera.stream} tap={tap} zoom={zoom} onZoom={setZoom} panView={panView} onPan={setPanView} at={at} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} scene={scene} />}
       {full && view === "sky" && (sensor.state !== "on" || sensorLook) && (
         <SkyFull
           onClose={() => setFull(false)}
-          sky={(w, h) => sensor.state !== "on" || !sensorLook ? <SkyPan full zoom={zoom} onZoom={setZoom} view={panView} onView={setPanView} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} w={w} h={h} /> : <SkyWindow full zoom={zoom} onZoom={setZoom} look={sensorLook} stream={camera.stream} tap={tap} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} w={w} h={h} />}
+          sky={(w, h) => sensor.state !== "on" || !sensorLook ? <SkyPan full zoom={zoom} onZoom={setZoom} view={panView} onView={setPanView} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} scene={scene} w={w} h={h} /> : <SkyWindow full zoom={zoom} onZoom={setZoom} look={sensorLook} stream={camera.stream} tap={tap} sunAlt={altAt} sunAz={sunAzAt} moon={moonAt} phase={phaseAt} sunTrack={curve.map((p, i) => ({ alt: p.deg, az: sky3.sunAz[i] }))} moonTrack={sky3.moon.map((m) => ({ alt: m.altitude, az: m.azimuth }))} sky={skyNow} scene={scene} w={w} h={h} />}
           controls={
             <>
               <p className="sky-full-read">
@@ -547,13 +594,13 @@ export function SunSheet({
  * 空を見上げる（2026-11-18 の見本）：地上に立って見た空を、方位（北・東・南・西・北）を横に、高さ（地平線〜天頂）を縦に
  * 広げた絵。南を真ん中に。太陽と月のその日の通り道（地平線より上）と、選んだ時刻の位置。空の色は選んだ時刻の模式の色。
  */
-function SkyView({ look, stream, tap, zoom, onZoom, panView, onPan, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky }: { look?: { azimuth: number; altitude: number } | null; stream?: MediaStream | null; tap?: SkyTap; zoom: number; onZoom: (z: number) => void; panView: { azimuth: number; altitude: number } | null; onPan: (v: { azimuth: number; altitude: number }) => void; at: number; sunAlt: number; sunAz: number; moon: SkyMoon; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour }) {
+function SkyView({ look, stream, tap, zoom, onZoom, panView, onPan, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky, scene }: { look?: { azimuth: number; altitude: number } | null; stream?: MediaStream | null; tap?: SkyTap; zoom: number; onZoom: (z: number) => void; panView: { azimuth: number; altitude: number } | null; onPan: (v: { azimuth: number; altitude: number }) => void; at: number; sunAlt: number; sunAz: number; moon: SkyMoon; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour; scene?: SceneInput }) {
   // 窓の大きさ（11/19 渡辺さん「画面をもっと大きく使いたい」）：340×230 から縦に伸ばして 340×300。
   const VW = 340;
   // 窓を少し大きく（11/20 渡辺さん「画面が小さいので指が外れる」）：縦を 300 → 340（正方形）。
   const VH = 340;
-  if (look) return <SkyWindow look={look} tap={tap} zoom={zoom} onZoom={onZoom} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} stream={stream} />;
-  return <SkyPan zoom={zoom} onZoom={onZoom} view={panView} onView={onPan} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} w={VW} h={VH} />;
+  if (look) return <SkyWindow look={look} tap={tap} zoom={zoom} onZoom={onZoom} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} scene={scene} w={VW} h={VH} stream={stream} />;
+  return <SkyPan zoom={zoom} onZoom={onZoom} view={panView} onView={onPan} sunAlt={sunAlt} sunAz={sunAz} moon={moon} phase={phase} sunTrack={sunTrack} moonTrack={moonTrack} sky={sky} scene={scene} w={VW} h={VH} />;
 }
 
 /** なぞって見る窓の横の画角（°）。 */
@@ -714,11 +761,14 @@ type SkyMoon = { altitude: number; azimuth: number; diameter?: number; limb?: nu
 const SUN_DIAMETER = 0.533;
 /** 背面カメラ（1倍）の長い辺の画角（°）：iPhone の広角（26mm 相当、4:3）でおよそ 67°。映像を窓に「覆う」で合わせる。 */
 const CAMERA_LONG_FOV = 67;
-type SkyProps = { look: { azimuth: number; altitude: number; roll?: number }; sunAlt: number; sunAz: number; moon: SkyMoon; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour };
+type SkyProps = { look: { azimuth: number; altitude: number; roll?: number }; sunAlt: number; sunAz: number; moon: SkyMoon; phase: { age: number; illuminated: number }; sunTrack: { alt: number; az: number }[]; moonTrack: { alt: number; az: number }[]; sky: SkyColour; scene?: SceneInput };
 /** 本物を押して直す：armed の間に窓を押すと、近い方の天体（地平線の上の太陽か月）との方位・高さの差を返す。 */
 type SkyTap = { armed: boolean; onTap: (c: { dAz: number; dAlt: number; name: string }) => void };
-function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky, w, h, stream, full, tap, fov = FOV, pan, zoom = 1, onZoom }: SkyProps & { w: number; h: number; stream?: MediaStream | null; full?: boolean; tap?: SkyTap; fov?: number; pan?: boolean; zoom?: number; onZoom?: (z: number) => void }) {
+function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky, scene, w, h, stream, full, tap, fov = FOV, pan, zoom = 1, onZoom }: SkyProps & { w: number; h: number; stream?: MediaStream | null; full?: boolean; tap?: SkyTap; fov?: number; pan?: boolean; zoom?: number; onZoom?: (z: number) => void }) {
   const pinch = usePinch(zoom, onZoom ?? (() => {}));
+  // 空の絵（β）のときは、方角と天体を主役に。細かい目盛りと通り道は「軌道・目盛り」で重ねる。
+  const [guidesOn, setGuidesOn] = useState(false);
+  const guides = !scene || !!stream || guidesOn;
   const stageRef = useRef<HTMLDivElement>(null);
   useNoPageZoom(stageRef);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -829,7 +879,21 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
     const q = at(moon.azimuth, moon.altitude + 1);
     return (Math.atan2(-(q.x - mo.x), -(q.y - mo.y)) * 180) / Math.PI;
   })();
+  const veil = scene ? moonVeil(scene) : 0;
+  // 月にかける雲の色は、空の絵のその方向の色（雲込み）と同じに（雲の中に月が沈んで見えるように）。
+  const veilColour = scene
+    ? `rgb(${skyRgb(scene, moon.azimuth, Math.max(0, moon.altitude) + 3)
+        .map((v) => Math.round(v * 255))
+        .join(",")})`
+    : "transparent";
+  const outlook = scene ? moonOutlook(scene.wx, moon.altitude) : null;
+  const srcText = scene
+    ? scene.wx.source === "なし"
+      ? "空：この時間の天気が無いので、雲は描いていない"
+      : `空：${scene.wx.hour != null ? `${scene.wx.hour - 1}時台の` : ""}${scene.wx.text ?? ""}（${scene.wx.source}）から描いた雲のイメージ${scene.wx.cover != null ? "" : "（雲の量は天気から）"}`
+    : null;
   return (
+    <>
     <div
       ref={stageRef}
       className={`sky-stage${full ? " full" : ""}${stream ? " camera" : ""}`}
@@ -842,6 +906,7 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
       // パソコンのトラックパッドでつまむ（ctrl + ホイール）とき
       onWheel={onZoom ? (e) => e.ctrlKey && onZoom(clampZoom(zoom * Math.exp(-e.deltaY / 200))) : undefined}
     >
+      {scene && !stream && <SkyCanvas look={look} focal={focal} w={w} h={h} scene={scene} />}
       {stream && <video ref={video} className="sky-video" style={zoom > 1 ? { transform: `scale(${zoom})` } : undefined} playsInline muted autoPlay onLoadedMetadata={(e) => setDims({ w: e.currentTarget.videoWidth, h: e.currentTarget.videoHeight })} />}
       <svg
         ref={svgRef}
@@ -867,20 +932,25 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
         preserveAspectRatio="xMidYMid slice"
         role="img" aria-label={`端末を向けた方向の空：${dirName(look.azimuth)}・高さ${Math.round(look.altitude)}°`}>
         <defs>
+          <radialGradient id="sky-moon-veil">
+            <stop offset="0" stopColor={veilColour} stopOpacity={1} />
+            <stop offset="0.55" stopColor={veilColour} stopOpacity={0.85} />
+            <stop offset="1" stopColor={veilColour} stopOpacity={0} />
+          </radialGradient>
           <linearGradient id="sky-window-bg" x1="0" y1="0" x2="0" y2="1" gradientTransform={tilt ? `rotate(${tilt.toFixed(1)} 0.5 0.5)` : undefined}>
             <stop offset="0" stopColor={sky.zenith} />
             <stop offset="1" stopColor={sky.horizon} />
           </linearGradient>
         </defs>
-        {!stream && <rect width={w} height={h} fill="url(#sky-window-bg)" />}
+        {!stream && !scene && <rect width={w} height={h} fill="url(#sky-window-bg)" />}
         {!stream && ground && <path d={ground} className="sky-ground" />}
-        {gridAzs.map((az) => (
+        {guides && gridAzs.map((az) => (
           <path key={`m${az}`} d={meridian(az)} className={az % 45 === 0 ? "sky-grid major" : "sky-grid"} />
         ))}
-        {gridAlts.map((a) => (
+        {guides && gridAlts.map((a) => (
           <path key={a} d={ring(a)} className={a % 30 === 0 ? "sky-alt" : "sky-grid"} />
         ))}
-        {gridAlts.map((a) => {
+        {guides && gridAlts.map((a) => {
           const q = altLabel(a);
           return q ? (
             <text key={`l${a}`} x={q.x + 4} y={q.y - 3} className="sun-tick sky-alt-label">
@@ -894,8 +964,8 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
             {dirName(az)}
           </text>
         ))}
-        <path d={line(sunTrack)} className="sun-curve day" style={{ stroke: SKY_ICON.sun }} />
-        <path d={line(moonTrack)} className="moon-curve" style={{ stroke: SKY_ICON.moon }} />
+        {guides && <path d={line(sunTrack)} className="sun-curve day" style={{ stroke: SKY_ICON.sun }} />}
+        {guides && <path d={line(moonTrack)} className="moon-curve" style={{ stroke: SKY_ICON.moon }} />}
         {/* 本当の大きさ（11/19 レビュー）：見かけの直径 × 焦点。小さくて見つけにくいので、細い輪と名前を添える。 */}
         {sunAlt >= 0 && sun.inside && (
           <g className="sky-body">
@@ -913,9 +983,11 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
             <g transform={`translate(${(mo.x - moonR).toFixed(1)} ${(mo.y - moonR).toFixed(1)})`} opacity={moon.strength ?? 1}>
               <MoonGlyph phase={phase} size={moonR * 2} limb={moon.limb != null ? moon.limb + upAt : undefined} north={moon.north != null ? moon.north + upAt : undefined} tint={moon.tint} seen />
             </g>
-            <circle cx={mo.x} cy={mo.y} r={moonR + 7 * big} className="sky-body-ring" />
+            {/* 見本：月の方向の雲（空の絵と同じ雲の形）を月の上に重ねる。 */}
+            {scene && veil > 0.02 && <circle cx={mo.x} cy={mo.y} r={moonR * 2.6 + 6} fill="url(#sky-moon-veil)" opacity={Math.min(0.92, veil)} />}
+            <circle cx={mo.x} cy={mo.y} r={moonR + 7 * big} className={outlook && outlook.level !== "見える" ? "sky-body-ring dim" : "sky-body-ring"} />
             <text x={mo.x} y={mo.y - moonR - 10 * big} textAnchor="middle" className="sun-tick sky-body-name">
-              月
+              {outlook && outlook.level !== "見える" ? `月・${outlook.level}` : "月"}
             </text>
           </g>
         )}
@@ -942,12 +1014,36 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
         )}
       </svg>
       {/* 倍率（11/19 渡辺さん「倍率のボタンは無くし、2本指で。画面にチップで倍率を」）。 */}
+      {scene && !stream && full && (
+        <>
+          <p className={`sky-src ${scene.wx.source === "なし" ? "none" : scene.wx.source === "実績" ? "seen" : "guess"}`}>
+            {srcText}
+            {outlook && moon.altitude >= 0 && <b>月：{outlook.note}</b>}
+          </p>
+          <Button size="sm" className="sky-guides" aria-pressed={guidesOn} onClick={() => setGuidesOn((v) => !v)} onPointerDown={(e) => e.stopPropagation()}>
+            軌道・目盛り
+          </Button>
+        </>
+      )}
+      {scene && !stream && !full && (
+        <Button size="sm" className="sky-guides" aria-pressed={guidesOn} onClick={() => setGuidesOn((v) => !v)} onPointerDown={(e) => e.stopPropagation()}>
+          軌道・目盛り
+        </Button>
+      )}
       {onZoom && (
         <span className="sky-mag" aria-live="polite">
           {zoom >= 10 ? Math.round(zoom) : zoom.toFixed(1)}倍
         </span>
       )}
     </div>
+    {scene && !stream && !full && (
+      <p className={`sky-src below ${scene.wx.source === "なし" ? "none" : scene.wx.source === "実績" ? "seen" : "guess"}`}>
+        {scene.wx.source !== "実績" && <span className="sky-src-tag">{scene.wx.source === "なし" ? "天気なし" : scene.wx.source}</span>}
+        {outlook && moon.altitude >= 0 && <b>月：{outlook.note}</b>}
+        {srcText}
+      </p>
+    )}
+    </>
   );
 }
 
