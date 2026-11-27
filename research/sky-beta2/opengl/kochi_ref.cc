@@ -65,7 +65,18 @@ void InitEgl() {
 // 太陽スペクトル（白の基準：radiance を表示するときの white point に使う。demo の do_white_balance と同じ）
 std::vector<double> gWavelengths, gSolar;
 
-std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance) {
+// 線形補間（wl は昇順）
+double Lerp(const std::vector<double>& wl, const std::vector<double>& v, double x) {
+  if (x <= wl.front()) return v.front();
+  for (size_t i = 1; i < wl.size(); ++i)
+    if (x <= wl[i]) return v[i - 1] + (v[i] - v[i - 1]) * (x - wl[i - 1]) / (wl[i] - wl[i - 1]);
+  return v.back();
+}
+
+// bands（spectral の回）：3 つの波長（nm、R・G・B の枠の順）。radiance の計算は 680・550・440 nm の枠で値を読むので、
+// その枠に「本当の波長の値」を入れた 3 点の表を渡し、好きな 3 波長の放射輝度を正しく（足し合わせなしで）計算する。
+// 5 回（15 波長）を CPU で CIE の等色関数に積分すれば、多波長の色になる（tools/spectral.py）。
+std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance, const std::vector<double>* bands = nullptr) {
   constexpr int kLambdaMin = 360, kLambdaMax = 830;
   constexpr double kSolarIrradiance[48] = {1.11776, 1.14259, 1.01249, 1.14716, 1.72765, 1.73054, 1.6887, 1.61253, 1.91198, 2.03474, 2.02042, 2.02212,
                                            1.93377, 1.95809, 1.91686, 1.8298,  1.8685,  1.8931,  1.85149, 1.8504, 1.8341,  1.8345,  1.8147,  1.78158,
@@ -99,8 +110,29 @@ std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance) {
   }
   gWavelengths = wl;
   gSolar = sol;
-  return std::unique_ptr<Model>(new Model(wl, sol, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, ray, {mie}, mieS, mieE, kMiePhaseFunctionG, ozone, abs,
-                                          albedo, maxSunZenith, kLengthUnitInMeters, luminance ? 15 : 3, false, !std::getenv("KOCHI_FULL_PRECISION")));
+  if (bands) {
+    std::vector<double> w3 = {440.0, 550.0, 680.0}, s3, r3, ms3, me3, a3, al3;
+    for (int k = 2; k >= 0; --k) {  // 440 の枠＝B（bands[2]）、550＝G、680＝R（bands[0]）
+      const double x = (*bands)[k];
+      s3.push_back(Lerp(wl, sol, x));
+      r3.push_back(kRayleigh * std::pow(x * 1e-3, -4));
+      ms3.push_back(Lerp(wl, mieS, x));
+      me3.push_back(Lerp(wl, mieE, x));
+      a3.push_back(Lerp(wl, abs, x));
+      al3.push_back(kGroundAlbedo);
+    }
+    std::unique_ptr<Model> m(new Model(w3, s3, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, r3, {mie}, ms3, me3, kMiePhaseFunctionG, ozone, a3, al3,
+                                       maxSunZenith, kLengthUnitInMeters, 3, false, !std::getenv("KOCHI_FULL_PRECISION")));
+    m->Init();
+    return m;
+  }
+  // Init() はここで呼ぶ（11/27）：Model は波長の配列を参照で持ち、Init() の中でシェーダーを作るときに読む。この関数の外で
+  // Init() を呼ぶと、配列がもう無く（呼び出し元の一時の配列）、でたらめな値で事前計算していた（3 色が同じ値・15 波長で色が崩れる）。
+  // demo.cc も InitModel の中で Init() を呼んでいる。
+  std::unique_ptr<Model> m(new Model(wl, sol, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, ray, {mie}, mieS, mieE, kMiePhaseFunctionG, ozone, abs, albedo,
+                                     maxSunZenith, kLengthUnitInMeters, luminance ? 15 : 3, false, !std::getenv("KOCHI_FULL_PRECISION")));
+  m->Init();
+  return m;
 }
 
 const char* kVertex = R"(#version 330
@@ -202,15 +234,21 @@ void SaveTexture(GLenum unit, GLenum target, int texels, const std::string& path
 int main(int argc, char** argv) {
   if (argc < 4) Die("usage: kochi_ref cases.txt outdir luminance|radiance [mie_beta]");
   const std::string out = std::string(argv[2]) + "/";
-  const bool luminance = std::string(argv[3]) == "luminance";
+  const std::string mode = argv[3];
+  const bool luminance = mode == "luminance";
+  std::vector<double> bands;
+  if (mode.rfind("spectral:", 0) == 0) {
+    std::stringstream bs(mode.substr(9));
+    std::string t;
+    while (std::getline(bs, t, ',')) bands.push_back(std::atof(t.c_str()));
+    if (bands.size() != 3) Die("spectral:<nm>,<nm>,<nm>");
+  }
   const double mieBeta = argc > 4 ? std::atof(argv[4]) : 5.328e-3;
-  // Mesa のシェーダーのキャッシュを使わない（11/27：キャッシュがあると、事前計算のシェーダーが別の回の版に取り違えられ、
-  // 3 色が同じ値（灰色）になった。消すと正しい値に戻る。Bruneton の事前計算は回ごとに中身の違う同じ形のシェーダーを何度も作る）。
+  // Mesa のシェーダーのキャッシュは使わない（念のため。値が崩れた本当の原因は MakeModel の Init() の位置だった）。
   setenv("MESA_SHADER_CACHE_DISABLE", "true", 1);
   InitEgl();
   const auto t0 = std::chrono::steady_clock::now();
-  auto model = MakeModel(mieBeta, luminance);
-  model->Init();
+  auto model = MakeModel(mieBeta, luminance, bands.empty() ? nullptr : &bands);
   glFinish();
   const double precomputeMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
   std::cerr << "precompute " << precomputeMs << " ms" << std::endl;
@@ -251,7 +289,7 @@ int main(int argc, char** argv) {
     const double m = (r + g + b) / 3.0;
     meta << "white_point " << r / m << " " << g / m << " " << b / m << "\n";
   }
-  meta << "mode " << (luminance ? "luminance" : "radiance") << "\nprecompute_ms " << precomputeMs << "\nmie_beta " << mieBeta << "\nrenderer " << glGetString(GL_RENDERER) << "\n";
+  meta << "mode " << mode << "\nprecompute_ms " << precomputeMs << "\nmie_beta " << mieBeta << "\nrenderer " << glGetString(GL_RENDERER) << "\n";
   auto flush = [&]() {
     if (caseId.empty()) return;
     const float cam[3] = {0, 0, float((kBottomRadius + heightM) / kLengthUnitInMeters)};

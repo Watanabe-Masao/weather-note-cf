@@ -13,8 +13,13 @@
   #info { font-size: 12px; color: var(--muted); word-break: break-word; }
   label { display: inline-flex; gap: 6px; align-items: center; min-height: 44px; }
   .case { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px 12px; margin-top: 12px; }
-  figure { margin: 6px 0 0; overflow-x: auto; }
-  figure canvas { width: 100%; min-width: 360px; height: auto; display: block; image-rendering: auto; border-radius: 4px; }
+  figure { margin: 6px 0 0; }
+  figure canvas { width: 100%; height: auto; display: block; image-rendering: auto; border-radius: 4px; }
+  .ticks { position: relative; height: 16px; font-size: 11px; color: var(--muted); }
+  .ticks span { position: absolute; transform: translateX(-50%); }
+  .ticks span:first-child { transform: none; }
+  .ticks span:last-child { transform: translateX(-100%); }
+  .ex { font-size: 12px; margin: 0; }
   figcaption { font-size: 12px; color: var(--muted); }
   .scroll { overflow-x: auto; margin-top: 12px; }
   table { border-collapse: collapse; font-size: 12px; white-space: nowrap; }
@@ -23,8 +28,8 @@
 </style>
 <h1>空色エンジン β2：最初の比較</h1>
 <p>高知（47893）・2026-11-13 の晴天空。太陽 +5°・−1.9°（日没直後）・−6.8°（薄明）で、β1（今の空の絵）、PC の OpenGL 参照（Bruneton のモデル）、このブラウザの WebGL 2 を、同じ視線・同じ露出で並べます。帯は方位 0〜360°（左が北、白い印が太陽の方位）× 高さ −2〜60°。太陽の円盤は描いていません。</p>
-<p>β1 は表示用の色で物理の明るさを持たないため、色だけの比較です。OpenGL と WebGL 2 は 680・550・440 nm の放射輝度を、太陽スペクトルの白で割り、1 − exp(−E·L) と sRGB の符号化で表示しています（3 つの事例で同じ E＝10。Bruneton のデモと同じ）。</p>
-<label><input type="checkbox" id="auto"> 場面ごとの露出（天頂に合わせた参考）</label>
+<p>β1 は表示用の色で物理の明るさを持たないため、色だけの比較です。OpenGL と WebGL 2 は、15 波長を CIE の等色関数で積分した輝度（cd/m²）を、1 − exp(−E·L) と sRGB の符号化で表示しています。</p>
+<p>露出は 2 通り：<b>固定</b>（3 事例で同じ E。日没に伴う暗さを比べる）と、<b>場面ごと</b>（その場面の空の明るい所（99 パーセンタイル）が白に飛ばない E。同じ時刻の方位ごとの色を比べる）。各場面の E を見出しの下に出しています。表の「多波長 CPU」は、15 波長の放射輝度を別に計算して CPU で積分した独立の確かめ、「3 波長の近似」は前回までの表示（680・550・440 nm を RGB に当てる）です。</p>
 <div id="status">準備中…</div>
 <div id="info"></div>
 <div id="panos"></div>
