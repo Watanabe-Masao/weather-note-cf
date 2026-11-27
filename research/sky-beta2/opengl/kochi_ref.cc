@@ -76,6 +76,10 @@ double Lerp(const std::vector<double>& wl, const std::vector<double>& v, double 
 // bands（spectral の回）：3 つの波長（nm、R・G・B の枠の順）。radiance の計算は 680・550・440 nm の枠で値を読むので、
 // その枠に「本当の波長の値」を入れた 3 点の表を渡し、好きな 3 波長の放射輝度を正しく（足し合わせなしで）計算する。
 // 5 回（15 波長）を CPU で CIE の等色関数に積分すれば、多波長の色になる（tools/spectral.py）。
+// エアロゾル（#537 の感度の比較、11/27）：Mie の消散を τ(λ) = β·λ^−α（λ は µm）、高さ方向は尺度高 H の指数。
+// 既定は Bruneton のデモ（β 5.328e-3・α 0・H 1.2 km。550 nm の光学的厚さは約 0.005 で、ほぼエアロゾルなし）。
+double gMieAlpha = 0.0, gMieScaleHeight = 1200.0;
+
 std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance, const std::vector<double>* bands = nullptr) {
   constexpr int kLambdaMin = 360, kLambdaMax = 830;
   constexpr double kSolarIrradiance[48] = {1.11776, 1.14259, 1.01249, 1.14716, 1.72765, 1.73054, 1.6887, 1.61253, 1.91198, 2.03474, 2.02042, 2.02212,
@@ -89,8 +93,10 @@ std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance, const std::vect
                                              2.451e-26, 2.801e-26, 2.534e-26, 1.624e-26, 1.465e-26, 2.078e-26, 1.383e-26, 7.105e-27};
   constexpr double kDobsonUnit = 2.687e20;
   constexpr double kMaxOzoneNumberDensity = 300.0 * kDobsonUnit / 15000.0;
-  constexpr double kRayleigh = 1.24062e-6, kRayleighScaleHeight = 8000.0, kMieScaleHeight = 1200.0;
-  constexpr double kMieAngstromAlpha = 0.0, kMieSingleScatteringAlbedo = 0.9, kMiePhaseFunctionG = 0.8, kGroundAlbedo = 0.1;
+  constexpr double kRayleigh = 1.24062e-6, kRayleighScaleHeight = 8000.0;
+  const double kMieScaleHeight = gMieScaleHeight;
+  const double kMieAngstromAlpha = gMieAlpha;
+  constexpr double kMieSingleScatteringAlbedo = 0.9, kMiePhaseFunctionG = 0.8, kGroundAlbedo = 0.1;
   const double maxSunZenith = 102.0 / 180.0 * kPi;  // 半精度の表（demo と同じ）
   DensityProfileLayer rayleigh(0.0, 1.0, -1.0 / kRayleighScaleHeight, 0.0, 0.0);
   DensityProfileLayer mie(0.0, 1.0, -1.0 / kMieScaleHeight, 0.0, 0.0);
@@ -232,7 +238,7 @@ void SaveTexture(GLenum unit, GLenum target, int texels, const std::string& path
 }  // namespace
 
 int main(int argc, char** argv) {
-  if (argc < 4) Die("usage: kochi_ref cases.txt outdir luminance|radiance [mie_beta]");
+  if (argc < 4) Die("usage: kochi_ref cases.txt outdir luminance|radiance|spectral:a,b,c [aod550 [angstrom_alpha [mie_scale_height_km]]]");
   const std::string out = std::string(argv[2]) + "/";
   const std::string mode = argv[3];
   const bool luminance = mode == "luminance";
@@ -243,7 +249,10 @@ int main(int argc, char** argv) {
     while (std::getline(bs, t, ',')) bands.push_back(std::atof(t.c_str()));
     if (bands.size() != 3) Die("spectral:<nm>,<nm>,<nm>");
   }
-  const double mieBeta = argc > 4 ? std::atof(argv[4]) : 5.328e-3;
+  // 550 nm の光学的厚さ（AOD）を与えたときは β = AOD·0.55^α（τ(0.55 µm) = AOD）
+  if (argc > 5) gMieAlpha = std::atof(argv[5]);
+  if (argc > 6) gMieScaleHeight = std::atof(argv[6]) * 1000.0;
+  const double mieBeta = argc > 4 ? std::atof(argv[4]) * std::pow(0.55, gMieAlpha) : 5.328e-3;
   // Mesa のシェーダーのキャッシュは使わない（念のため。値が崩れた本当の原因は MakeModel の Init() の位置だった）。
   setenv("MESA_SHADER_CACHE_DISABLE", "true", 1);
   InitEgl();
@@ -289,7 +298,7 @@ int main(int argc, char** argv) {
     const double m = (r + g + b) / 3.0;
     meta << "white_point " << r / m << " " << g / m << " " << b / m << "\n";
   }
-  meta << "mode " << mode << "\nprecompute_ms " << precomputeMs << "\nmie_beta " << mieBeta << "\nrenderer " << glGetString(GL_RENDERER) << "\n";
+  meta << "mode " << mode << "\nprecompute_ms " << precomputeMs << "\nmie_beta " << mieBeta << "\nmie_alpha " << gMieAlpha << "\nmie_scale_height_m " << gMieScaleHeight << "\naod550 " << mieBeta * std::pow(0.55, -gMieAlpha) << "\nrenderer " << glGetString(GL_RENDERER) << "\n";
   auto flush = [&]() {
     if (caseId.empty()) return;
     const float cam[3] = {0, 0, float((kBottomRadius + heightM) / kLengthUnitInMeters)};
