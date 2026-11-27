@@ -3,4 +3,5 @@
 // rebuilt together. For corrected values (same shape), use shared/corrections.ts instead.
 // 3（2026-11-25）：#426 で1時間ごとの行に視程（visibility）が加わったのに上げていなかったため、11/21 より前に
 // 取っておいた日（端の保存・ブラウザの保存）に視程が無く、前年の視程が「—」になっていた。
-export const DATA_SHAPE = 3;
+// 4（2026-11-27）：#532 で Open-Meteo の1時間ごとの予報の行に全雲量（cover、%）が加わった。
+export const DATA_SHAPE = 4;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleBetween, clearLin, cloudAmount, cloudAt, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyKindOf, skyRgb, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
+import { angleBetween, clearLin, cloudAmount, cloudAt, coverText, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyHours, skyKindOf, skyRgb, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
 import type { WeatherRow } from "../../shared/types";
 
 // 空の絵（β）：空色エンジン バージョンアップ計画書（11/27）段階 2 の受け入れ条件。晴天大気と雲を分けて線形の光量で合成する。
@@ -71,6 +71,52 @@ describe("空の絵（β）の元の天気と出典", () => {
   });
 });
 
+describe("空の絵（β）：予報の全雲量（#532 の 1）", () => {
+  const row = (n: number, extra: Partial<WeatherRow>): WeatherRow => ({ date: "2026-11-24", n, type: "forecast", ...extra }) as WeatherRow;
+  it("時刻の対応：天気はその時刻を含む時間（1時20分→2時の行＝1時台）、全雲量はいちばん近い正時（1時20分→1時、1時40分→2時）", () => {
+    expect(skyHours(80)).toEqual({ n: 2, coverAt: 1 });
+    expect(skyHours(100)).toEqual({ n: 2, coverAt: 2 });
+    expect(skyHours(90)).toEqual({ n: 2, coverAt: 2 });
+    expect(skyHours(10)).toEqual({ n: 1, coverAt: 1 }); // 0 時の値はその日の行に無い（前の日の 24 時）
+    expect(skyHours(1435)).toEqual({ n: 24, coverAt: 24 });
+  });
+  it("予報の全雲量があれば、その値で雲を描き、出典・何時の値かを出す", () => {
+    const w = skyWeatherFrom([row(1, { weather: "曇り", cover: 30 }), row(2, { weather: "曇り", cover: 62 })], 2, "47893", 1);
+    expect(w).toMatchObject({ source: "予報", text: "曇り", cover: 0.3, coverAt: 1, coverSource: "予報" });
+    expect(cloudAmount(w)).toBe(0.3);
+    expect(coverText(w)).toBe("1時の全雲量 30%（予報）");
+    expect(sceneTrace(base(w))[1]).toMatchObject({ used: true });
+    expect(sceneTrace(base(w))[1].note).toContain("1時の全雲量 30%（予報）に基づくイメージ");
+    expect(moonOutlook(w, 40).note).toContain("（1時の全雲量 30%・予報）");
+  });
+  it("全雲量 0% は値：雲を描かない（晴天の空と一致）。全雲量が無いときは天気から描き、0% と区別する", () => {
+    const zero = skyWeatherFrom([row(2, { weather: "曇り", cover: 0 })], 2, "47893");
+    expect(zero.cover).toBe(0);
+    expect(cloudAmount(zero)).toBe(0);
+    const s = base(zero);
+    for (const [az, alt] of DIRS.slice(0, 30)) expect(skyRgb(s, az, alt)).toEqual(clearLin(s, az, alt).map(toSrgb));
+    expect(sceneTrace(s)[1]).toMatchObject({ used: false });
+    expect(sceneTrace(s)[1].note).toContain("全雲量 0%（予報）なので、雲は描いていない");
+    const missing = skyWeatherFrom([row(2, { weather: "曇り" })], 2, "47893");
+    expect(missing.cover).toBeUndefined();
+    expect(cloudAmount(missing)).toBe(0.9);
+    expect(sceneTrace(base(missing))[1].note).toContain("全雲量は無い");
+  });
+  it("天気が無くても全雲量があれば描く（出典は予報、天気は無いと書く）", () => {
+    const w = skyWeatherFrom([row(2, { cover: 80 })], 2, "47893");
+    expect(w).toMatchObject({ kind: null, source: "予報", text: null, cover: 0.8, coverAt: 2 });
+    expect(cloudAmount(w)).toBe(0.8);
+    expect(sceneTrace(base(w))[1].note).toContain("（天気は無い）");
+    expect(moonOutlook(w, 40).level).toBe("見えにくそう");
+  });
+  it("実績の時間には予報の全雲量を混ぜない（その時間の空は実績の天気で描く）", () => {
+    const rows = [{ ...row(2, { weather: "晴" }), type: "actual" } as WeatherRow, row(3, { weather: "曇り", cover: 90 })];
+    const w = skyWeatherFrom(rows, 2, "47893", 3); // 2時台（実績）を、3時の全雲量（予報）に近い時刻で見る
+    expect(w).toMatchObject({ source: "実績", text: "晴" });
+    expect(w.cover).toBeUndefined();
+  });
+});
+
 describe("空色エンジン 段階 2 の受け入れ条件", () => {
   it("雲量 0（と天気なし）では、晴天の空と一致する", () => {
     for (const w of [wx("晴れ", "予報", { cover: 0 }), NONE]) {
@@ -126,9 +172,9 @@ describe("空色エンジン 段階 2 の受け入れ条件", () => {
     const t = sceneTrace(base(NONE));
     expect(t.map((x) => x.layer)).toEqual(["晴天の空", "雲", "かすみ"]);
     expect(t[1].used).toBe(false);
-    expect(t[1].note).toContain("天気が無い");
+    expect(t[1].note).toContain("天気も全雲量も無い");
     expect(sceneTrace(base(wx("雨")))[1].note).toContain("1時台の雨（実績）");
-    expect(sceneTrace(base(wx(null, "予報", { cover: 0.62 })))[1].note).toContain("全雲量 62%（予報）");
+    expect(sceneTrace(base(wx(null, "予報", { cover: 0.62, coverAt: 2, coverSource: "予報" })))[1].note).toContain("2時の全雲量 62%（予報）");
     expect(t[2].used).toBe(false);
   });
 });

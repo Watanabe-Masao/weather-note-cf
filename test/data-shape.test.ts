@@ -11,7 +11,7 @@ import type { WeatherRow } from "../shared/types";
 import { parseTable } from "../worker/src/jma-tables";
 import { forecastUrl, normalizeForecast } from "../worker/src/open-meteo";
 
-const OPTIONAL_HOURLY_NAMES = ["snowfall", "wind_gusts_10m", "visibility"];
+const OPTIONAL_HOURLY_NAMES = ["snowfall", "wind_gusts_10m", "visibility", "cloud_cover"];
 import { aggregateRecentDay, parseLivePoint } from "../worker/src/amedas";
 import { fixture } from "./fixture";
 
@@ -25,7 +25,7 @@ const SHAPES = JSON.parse(readFileSync(new URL("./data-shape.json", import.meta.
 /** 見本の時別に、任意の系列（forecastUrl が頼む降雪・突風・視程）を足す。 */
 function withOptional(j: { hourly: Record<string, unknown[]> }) {
   const n = (j.hourly.time as unknown[]).length;
-  for (const k of OPTIONAL_HOURLY_NAMES) j.hourly[k] = Array.from({ length: n }, (_, i) => (i % 5 === 0 ? null : k === "visibility" ? 24_140 : 0.5));
+  for (const k of OPTIONAL_HOURLY_NAMES) j.hourly[k] = Array.from({ length: n }, (_, i) => (i % 5 === 0 ? null : k === "visibility" ? 24_140 : k === "cloud_cover" ? 62 : 0.5));
   return j as never;
 }
 
@@ -44,7 +44,7 @@ describe("データの形の版", () => {
       "気象庁の表（時別）": fields(parseTable(fixture("hourly.html"), true)),
       "Open-Meteo（日別）": fields(rows),
       "Open-Meteo（時別）": fields(hourlyRows),
-      // 任意の時別（降雪・突風・視程）：見本に無いので、全部ある形を作って読む（11/25 外部レビュー）。
+      // 任意の時別（降雪・突風・視程・全雲量）：見本に無いので、全部ある形を作って読む（11/25 外部レビュー）。
       "Open-Meteo（時別、任意項目あり）": fields(normalizeForecast(withOptional(JSON.parse(fixture("forecast.json")))).hourlyRows),
       "アメダス（時別）": fields(parseLivePoint(live, "2026-11-08").rows),
       "アメダス（日のまとめ）": fields([aggregateRecentDay(live, "2026-11-08").daily]),

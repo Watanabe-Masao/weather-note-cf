@@ -15,7 +15,7 @@ import { moonSeen } from "../../shared/moonLook";
 import { DEFAULT_LAT_LON, solarAltitude, solarAzimuth, stationLatLon } from "../../shared/sunTimes";
 import { jstToday } from "../../shared/dates";
 import { azDiff, magneticDeclination, project, tapCorrection } from "../../shared/skyLook";
-import { cloudAmount, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
+import { cloudAmount, coverText, moonOutlook, moonVeil, type SceneInput, sceneSeed, sceneTrace, skyHours, skyWeatherFrom, type SkyWeather } from "../../shared/skyScene";
 import { SkyCanvas } from "./SkyCanvas";
 import { useCamera } from "./useCamera";
 import { createPortal } from "react-dom";
@@ -248,7 +248,9 @@ export function SunSheet({
   const moonCloud = rows?.length ? skyHidden(rows, Math.min(24, Math.floor(at / 60) + 1), station) : null;
   // 空の絵（β）の元の天気：その時間の天気。無ければ前後の時間（推定）。どちらも無ければ、なし。視程はその時間の観測・予報。
   const [skyBeta, setSkyBeta] = useSkyBeta();
-  const skyWx: SkyWeather | null = skyBeta ? skyWeatherFrom(rows ?? [], Math.min(24, Math.floor(at / 60) + 1), station) : null;
+  // 天気はその時刻を含む時間、全雲量はいちばん近い正時の値（skyHours、#532）。
+  const skyH = skyHours(at);
+  const skyWx: SkyWeather | null = skyBeta ? skyWeatherFrom(rows ?? [], skyH.n, station, skyH.coverAt) : null;
   const msAt = sky3.day0 + at * 60_000;
   const topoAt = moonTopo(msAt, ll.lat, ll.lon);
   // 空を見上げるの月：見かけの大きさ・光っている側・模様の向き・高さの色も（11/19 レビュー）。
@@ -267,7 +269,7 @@ export function SunSheet({
         moonAz: moonAt.azimuth,
         moonLit: phaseAt.illuminated,
         wx: skyWx,
-        seed: sceneSeed(station ?? "", date, Math.min(24, Math.floor(at / 60) + 1), cloudAmount(skyWx)),
+        seed: sceneSeed(station ?? "", date, skyH.n, cloudAmount(skyWx)),
       }
     : undefined;
   // 月の線（地平線より上だけ）を x・y の関数でつなぐ：下に入るとそこで切る。方位の線では 360°→0° をまたぐ所でも切る。
@@ -889,7 +891,9 @@ function SkyWindow({ look, sunAlt, sunAz, moon, phase, sunTrack, moonTrack, sky,
   const srcText = scene
     ? scene.wx.source === "なし"
       ? "空：この時間の天気が無いので、雲は描いていない"
-      : `空：${scene.wx.hour != null ? `${scene.wx.hour - 1}時台の` : ""}${scene.wx.text ?? ""}（${scene.wx.source}）から描いた雲のイメージ${scene.wx.cover != null ? "" : "（雲の量は天気から）"}`
+      : scene.wx.cover != null
+        ? `空：${coverText(scene.wx)}${scene.wx.cover > 0 ? "から描いた雲のイメージ" : "なので、雲は描いていない"}${scene.wx.text ? `・${scene.wx.hour != null ? `${scene.wx.hour - 1}時台の` : ""}天気 ${scene.wx.text}` : "・天気は無い"}`
+        : `空：${scene.wx.hour != null ? `${scene.wx.hour - 1}時台の` : ""}${scene.wx.text ?? ""}（${scene.wx.source}）から描いた雲のイメージ（全雲量が無いので、雲の量は天気から）`
     : null;
   return (
     <>
