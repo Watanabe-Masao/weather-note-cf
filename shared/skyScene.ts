@@ -266,7 +266,9 @@ export function clearLin(s: SceneInput, az: number, alt: number): Rgb {
   const twilight = smooth(-11, -2, s.sunAlt) * (1 - smooth(4, 14, s.sunAlt));
   const lowAlt = 1 - smooth(0, 28, alt);
   c = mix(c, lin([1, 0.62, 0.36]), clamp01(twilight * Math.exp(-sunAng / 38) * lowAlt * 0.75));
-  if (s.sunAlt > 0) c = mix(c, lin([1, 0.98, 0.92]), clamp01(Math.exp(-sunAng / 10) * 0.5));
+  // 太陽のまわりの明るさ：日の入りの前後（+1°〜−1°）でなめらかに消す（11/27 の薄明の刻みで、0° ちょうどで太陽側の地平が
+  // 一段で暗くなる段差が見つかった。それまでは sunAlt > 0 で切っていた）。
+  c = mix(c, lin([1, 0.98, 0.92]), clamp01(Math.exp(-sunAng / 10) * 0.5 * smooth(-1, 1, s.sunAlt)));
   const night = 1 - smooth(-12, -4, s.sunAlt);
   if (s.moonAlt > 0) {
     const moonAng = angleBetween(az, alt, s.moonAz, s.moonAlt);
