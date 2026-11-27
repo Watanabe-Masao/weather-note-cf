@@ -217,17 +217,32 @@ async function fetchConfidence(station: Station): Promise<Map<string, { confiden
   return out;
 }
 
-export async function fetchForecast(station: Station) {
-  const confidence = fetchConfidence(station);
+/** 予報の取得の差し替え（テスト・定時処理）：取りに行く関数・時計・信頼度（アンサンブル）を取るか。 */
+export interface ForecastFetchOptions {
+  get?: (url: string) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
+  clock?: () => number;
+  confidence?: boolean;
+}
+const plainGet = async (url: string) => fetch(url, { signal: AbortSignal.timeout(25_000) });
+
+/**
+ * 予報（画面の /api/forecast と、空の予報の履歴 skyHistory.ts の定時取得が、同じこの関数で取る）。
+ * receivedAt は応答を受け取り終えた時刻（頼んだ時刻ではない。前日14時の締め切りに使う、#540）、grid は応答の格子の座標。
+ */
+export async function fetchForecast(station: Station, opt: ForecastFetchOptions = {}) {
+  const get = opt.get ?? plainGet;
+  const clock = opt.clock ?? Date.now;
+  const confidence = opt.confidence === false ? Promise.resolve(new Map<string, { confidence: Confidence; spread: Spread }>()) : fetchConfidence(station);
   let source = forecastUrl(station);
-  let r = await fetch(source, { signal: AbortSignal.timeout(25_000) });
+  let r = await get(source);
   // An unknown variable makes Open-Meteo answer 400: the forecast matters more than the extras.
   if (r.status === 400) {
     source = forecastUrl(station, false);
-    r = await fetch(source, { signal: AbortSignal.timeout(25_000) });
+    r = await get(source);
   }
   if (!r.ok) throw new SourceError(`予報の取得に失敗しました（${r.status}）。`);
-  const data = (await r.json()) as ForecastPayload & { error?: boolean; reason?: string };
+  const data = JSON.parse(await r.text()) as ForecastPayload & { error?: boolean; reason?: string; latitude?: unknown; longitude?: unknown };
+  const receivedAt = new Date(clock()).toISOString();
   if (data.error || !data.daily?.time?.length) throw new SourceError("予報データがありません。");
   const forecast = normalizeForecast(data);
   const conf = await confidence;
@@ -235,7 +250,8 @@ export async function fetchForecast(station: Station) {
     const c = conf.get(row.date);
     if (c) Object.assign(row, { confidence: c.confidence, spread: c.spread });
   }
-  return { ...forecast, source, provider: "Open-Meteo" };
+  const grid = { lat: typeof data.latitude === "number" ? data.latitude : null, lon: typeof data.longitude === "number" ? data.longitude : null };
+  return { ...forecast, source, provider: "Open-Meteo", receivedAt, grid };
 }
 
 export async function fetchSunTimes(station: Station, day: string, today: string) {

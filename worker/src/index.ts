@@ -27,7 +27,7 @@ import { saveAmedas } from "./amedasArchive";
 import { AIR_FIRST_DAY, saveAirQuality } from "./airQuality";
 import { STATION_PLACES } from "../../shared/stationPlaces";
 import { AIR_DAYS_MAX, AIR_FORECAST_DAYS, readAir, readAirDays, saveAirForecast } from "./airForecast";
-import { saveSkyHistory } from "./skyHistory";
+import { recordForecastReceipt, saveSkyForecast } from "./skyHistory";
 import { readMeasured, saveSoramame } from "./soramame";
 import { collectLongRange } from "./longRangeArchive";
 import { health, markStart, timed } from "./health";
@@ -162,10 +162,12 @@ async function handle(req: Request, ctx: ExecutionContext, db?: Db, env: Account
       const station = findStation(q.get("station"));
       // The forecast (and its 51-member ensemble) changes a few times a day: share one fetch per
       // station for 30 minutes, so opening the app does not call Open-Meteo every time.
-      return cachedFor(url.origin, `${CACHE_VERSION}/forecast/${station.blockNo}`, FORECAST_TTL, waitUntil, async () => ({
-        ...(await fetchForecast(station)),
-        fetchedAt: new Date().toISOString(),
-      }));
+      // 受け取った予報は、空の答え合わせのための予報の履歴にも残す（skyHistory.ts、#540：画面と同じ取得の値を、受け取った時刻で）。
+      return cachedFor(url.origin, `${CACHE_VERSION}/forecast/${station.blockNo}`, FORECAST_TTL, waitUntil, async () => {
+        const f = await fetchForecast(station);
+        if (db) waitUntil(recordForecastReceipt(db, station, f).catch((e) => console.error("weather-note: sky history", e)));
+        return { ...f, fetchedAt: f.receivedAt };
+      });
     }
 
     case "/api/health": {
@@ -368,8 +370,9 @@ export default {
     ctx.waitUntil(
       stage("air quality", (d) => saveAirQuality(d))()
         .then(stage("air forecast", (d) => saveAirForecast(d)))
-        // 空の答え合わせのための予報の履歴（skyHistory.ts、#532）：1時間に1回まで、今日と明日の天気コード・降水量・全雲量・視程・AOD を、変わった所だけ追記。
-        .then(stage("sky history", (d) => saveSkyHistory(d, stations)))
+        // 空の答え合わせのための予報の履歴（skyHistory.ts、#532）：画面と同じ予報の取得を、アプリが開かれていない時間にも1時間に1回まで
+        // （AOD は上の空気質の予測の取得で残す）。今日と明日の天気コード・降水量・全雲量・視程を、変わった所だけ追記。
+        .then(stage("sky history", (d) => saveSkyForecast(d, stations)))
         .then(stage("soramame", (d) => saveSoramame(d))),
     );
     // Files kept in R2 (r2Archive.ts), apart from the rest: the rain radar every 30 minutes first (JMA lists
