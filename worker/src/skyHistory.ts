@@ -1,7 +1,7 @@
 // 空の答え合わせのための予報の履歴（#532 の 2、2026-11-27 渡辺さん「前日14時の答え合わせに必要な予報の保存は、
 // 照合表の実装と切り離して早めに始める」）。画面・照合はまだ作らない。保存と、前日14時の値の選び方だけ。
 //
-// 何を：天気コード・降水量・全雲量・視程（Open-Meteo の予報）と AOD（Open-Meteo の Air Quality、CAMS 全球）。
+// 何を：天気コード・降水量・全雲量・層ごとの雲量（下層〜3 km・中層 3〜8 km・上層 8 km〜、11/27 追加）・視程（Open-Meteo の予報）と AOD（Open-Meteo の Air Quality、CAMS 全球）。
 // どこから：**画面と同じ取得**で受け取った値（別に問い合わせない。#540 レビュー）。
 // - 予報：open-meteo.ts の fetchForecast。画面の /api/forecast が取り直したとき（端の保存は 30 分）と、アプリが開かれていない
 //   時間のための定時処理（saveSkyForecast、1時間に1回まで。その間に画面の取得があれば取らない）の両方で残す。
@@ -119,9 +119,18 @@ const MIGRATE = [
    WHERE receipt_id LIKE 'legacy:%' AND from_valid IS NULL`,
 ];
 
-export type SkyHistoryItem = "weather_code" | "rain" | "cover" | "visibility" | "aod";
+export type SkyHistoryItem = "weather_code" | "rain" | "cover" | "cover_low" | "cover_mid" | "cover_high" | "visibility" | "aod";
 export type SkyHistorySource = "open-meteo-forecast" | "open-meteo-cams";
-export const SKY_HISTORY_UNITS: Record<SkyHistoryItem, string> = { weather_code: "WMO", rain: "mm/h", cover: "%", visibility: "km", aod: "1" };
+export const SKY_HISTORY_UNITS: Record<SkyHistoryItem, string> = {
+  weather_code: "WMO",
+  rain: "mm/h",
+  cover: "%",
+  cover_low: "%",
+  cover_mid: "%",
+  cover_high: "%",
+  visibility: "km",
+  aod: "1",
+};
 /**
  * 項目ごとの出典の優先順位（前が優先）。画面と同じ決まりで、今は 1時間ごとの値を出す出典がそれぞれ1つ（気象庁の予報に
  * 1時間ごとの値は無い）。出典が増えたらここに足す（再現は「締め切りで絞ってから、この順」）。
@@ -130,6 +139,9 @@ export const SKY_HISTORY_SOURCES: Record<SkyHistoryItem, SkyHistorySource[]> = {
   weather_code: ["open-meteo-forecast"],
   rain: ["open-meteo-forecast"],
   cover: ["open-meteo-forecast"],
+  cover_low: ["open-meteo-forecast"],
+  cover_mid: ["open-meteo-forecast"],
+  cover_high: ["open-meteo-forecast"],
   visibility: ["open-meteo-forecast"],
   aod: ["open-meteo-cams"],
 };
@@ -270,7 +282,7 @@ function receiptStmt(
     );
 }
 
-/** 予報の行（fetchForecast の 1時間ごと）から、残す値（天気コード・降水量・全雲量・視程）。 */
+/** 予報の行（fetchForecast の 1時間ごと）から、残す値（天気コード・降水量・全雲量・層ごとの雲量・視程）。 */
 export function forecastValues(hourlyRows: WeatherRow[]): SkyValue[] {
   const out: SkyValue[] = [];
   for (const r of hourlyRows) {
@@ -280,6 +292,9 @@ export function forecastValues(hourlyRows: WeatherRow[]): SkyValue[] {
       { item: "weather_code", validAt, value: num(x.weatherCode) },
       { item: "rain", validAt, value: num(x.rain) },
       { item: "cover", validAt, value: num(x.cover) },
+      { item: "cover_low", validAt, value: num(x.coverLow) },
+      { item: "cover_mid", validAt, value: num(x.coverMid) },
+      { item: "cover_high", validAt, value: num(x.coverHigh) },
       { item: "visibility", validAt, value: num(x.visibilityFull) },
     );
   }

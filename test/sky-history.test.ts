@@ -20,14 +20,24 @@ function times(from: string, days: number) {
 }
 type F = (i: number) => number | null;
 /** Open-Meteo の予報の応答（16日、今日 0:00 から）。i は今日 0:00 からの時間。 */
-function forecastBody(o: { code?: F; rain?: F; cover?: F; vis?: F } = {}) {
+function forecastBody(o: { code?: F; rain?: F; cover?: F; vis?: F; low?: F } = {}) {
   const t = times("2026-11-25", 16);
   const s = (f: F | undefined, d: number) => t.map((_, i) => (f ? f(i) : d));
   const days = t.filter((x) => x.endsWith("T00:00")).map((x) => x.slice(0, 10));
   return JSON.stringify({
     latitude: 33.5625,
     longitude: 133.5625,
-    hourly: { time: t, weather_code: s(o.code, 3), precipitation: s(o.rain, 0), cloud_cover: s(o.cover, 62), visibility: s(o.vis, 24_140), temperature_2m: s(undefined, 10) },
+    hourly: {
+      time: t,
+      weather_code: s(o.code, 3),
+      precipitation: s(o.rain, 0),
+      cloud_cover: s(o.cover, 62),
+      cloud_cover_low: s(o.low, 10),
+      cloud_cover_mid: s(undefined, 30),
+      cloud_cover_high: s(undefined, 55),
+      visibility: s(o.vis, 24_140),
+      temperature_2m: s(undefined, 10),
+    },
     daily: { time: days, weather_code: days.map(() => 3) },
   });
 }
@@ -57,17 +67,17 @@ describe("空の予報の履歴：保存", () => {
     const db = d1();
     const clock = { t: at("10:20:00") };
     const a = server(clock, () => forecastBody());
-    expect(await saveSkyForecast(db, [KOCHI], clock.t, { get: a.get, clock: () => clock.t })).toEqual({ appended: 48 * 4, ok: true });
+    expect(await saveSkyForecast(db, [KOCHI], clock.t, { get: a.get, clock: () => clock.t })).toEqual({ appended: 48 * 7, ok: true });
     expect(a.seen).toHaveLength(1);
     expect(a.seen[0]).toContain("cloud_cover");
     expect(await run(db, at("10:30:00"), () => forecastBody())).toMatchObject({ skipped: true });
-    expect(await run(db, at("11:21:00"), () => forecastBody())).toEqual({ appended: 48 * 4, ok: true });
+    expect(await run(db, at("11:21:00"), () => forecastBody())).toEqual({ appended: 48 * 7, ok: true });
     // 明日 3時の全雲量だけ 62 → 80（それでも回の全部を残す）
-    expect(await run(db, at("12:22:00"), () => forecastBody({ cover: (i) => (i === 27 ? 80 : 62) }))).toEqual({ appended: 48 * 4, ok: true });
+    expect(await run(db, at("12:22:00"), () => forecastBody({ cover: (i) => (i === 27 ? 80 : 62) }))).toEqual({ appended: 48 * 7, ok: true });
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_values WHERE item = 'cover' AND valid_at = '2026-11-26T03:00:00+09:00'").get()).toEqual({ n: 3 });
     const log = db.raw.prepare("SELECT source, via, ok, req_lat, grid_lat, appended FROM sky_forecast_receipts ORDER BY at").all();
     expect(log).toHaveLength(3);
-    expect(log[0]).toMatchObject({ source: "open-meteo-forecast", via: "cron", ok: 1, grid_lat: 33.5625, appended: 192 });
+    expect(log[0]).toMatchObject({ source: "open-meteo-forecast", via: "cron", ok: 1, grid_lat: 33.5625, appended: 336 });
     // 視程は km（20 km で止める前の値）、単位と出典は行ごと
     expect(db.raw.prepare("SELECT unit, source, value FROM sky_forecast_values WHERE item = 'visibility' LIMIT 1").get()).toEqual({ unit: "km", source: "open-meteo-forecast", value: 24.1 });
   });
@@ -76,7 +86,7 @@ describe("空の予報の履歴：保存", () => {
     await run(db, at("10:20:00"), () => forecastBody({ rain: (i) => (i === 48 ? 2.5 : 0) }));
     expect(db.raw.prepare("SELECT value FROM sky_forecast_values WHERE item = 'rain' AND valid_at = '2026-11-27T00:00:00+09:00'").get()).toEqual({ value: 2.5 });
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_values WHERE item = 'rain' AND value = 0").get()).toEqual({ n: 47 });
-    expect(await run(db, at("11:21:00"), () => forecastBody({ rain: (i) => (i === 48 ? 2.5 : 0), cover: (i) => (i <= 10 ? null : 62) }))).toEqual({ appended: 48 * 4, ok: true });
+    expect(await run(db, at("11:21:00"), () => forecastBody({ rain: (i) => (i === 48 ? 2.5 : 0), cover: (i) => (i <= 10 ? null : 62) }))).toEqual({ appended: 48 * 7, ok: true });
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_values WHERE item = 'cover' AND status = 'missing' AND value IS NULL").get()).toEqual({ n: 10 });
     expect(await run(db, at("12:22:00"), () => "", 0, 503)).toEqual({ appended: 0, ok: false });
     expect(db.raw.prepare("SELECT ok, error FROM sky_forecast_receipts ORDER BY at DESC LIMIT 1").get()).toEqual({ ok: 0, error: "予報の取得に失敗しました（503）。" });
@@ -245,7 +255,7 @@ describe("空の予報の履歴：11/27 レビューの直し", () => {
     const db = d1();
     await run(db, at("12:50:00"), () => forecastBody({ cover: () => 40 }));
     expect(await run(db, at("13:40:00"), () => forecastBody({ cover: () => 50 }))).toMatchObject({ skipped: true });
-    expect(await run(db, at("13:50:00"), () => forecastBody({ cover: () => 60 }))).toMatchObject({ ok: true, appended: 192 });
+    expect(await run(db, at("13:50:00"), () => forecastBody({ cover: () => 60 }))).toMatchObject({ ok: true, appended: 336 });
     expect(await skyAsOf(db, "47893", "cover", V, cutoff)).toMatchObject({ value: 60, fetchedAt: iso(at("13:50:00")) });
   });
 
@@ -297,5 +307,19 @@ describe("空の予報の履歴：11/27 レビューの直し", () => {
       { kind: "fetch", from_valid: null, range_to: null },
     ]);
     expect(db.raw.prepare("SELECT COUNT(*) AS n FROM sky_forecast_history").get()).toEqual({ n: 1 });
+  });
+});
+
+describe("空の予報の履歴：層ごとの雲量（11/27）", () => {
+  it("下層・中層・上層の雲量も、受け取った回ごとに残り、前日14時に再現できる", async () => {
+    const db = d1();
+    await run(db, at("10:20:00"), () => forecastBody({ low: () => 20 }));
+    await run(db, at("13:50:00"), () => forecastBody({ low: () => 70 }));
+    const V = "2026-11-26T17:00:00+09:00";
+    const cutoff = dayBeforeCutoff("2026-11-26");
+    expect(await skyAsOf(db, "47893", "cover_low", V, cutoff)).toMatchObject({ value: 70, unit: "%", status: "ok", fetchedAt: iso(at("13:50:00")) });
+    expect(await skyAsOf(db, "47893", "cover_mid", V, cutoff)).toMatchObject({ value: 30 });
+    expect(await skyAsOf(db, "47893", "cover_high", V, cutoff)).toMatchObject({ value: 55 });
+    expect(await skyAsOf(db, "47893", "cover_low", V, iso(at("12:00:00")))).toMatchObject({ value: 20 });
   });
 });
