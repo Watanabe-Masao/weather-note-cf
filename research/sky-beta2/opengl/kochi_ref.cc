@@ -79,6 +79,9 @@ double Lerp(const std::vector<double>& wl, const std::vector<double>& v, double 
 // エアロゾル（#537 の感度の比較、11/27）：Mie の消散を τ(λ) = β·λ^−α（λ は µm）、高さ方向は尺度高 H の指数。
 // 既定は Bruneton のデモ（β 5.328e-3・α 0・H 1.2 km。550 nm の光学的厚さは約 0.005 で、ほぼエアロゾルなし）。
 double gMieAlpha = 0.0, gMieScaleHeight = 1200.0;
+// 2 層の高さの分布（CAMS の高度別から合わせたもの、tools/cams_aer_profile.py）：密度は高さ W（m）で 1、
+// W より下は exp((h − W)/S1)、上は exp(−(h − W)/S2)。W = 0 なら尺度高 S2 の指数（今までと同じ形）。gProfileW < 0 なら使わない。
+double gProfileW = -1, gProfileS1 = 1, gProfileS2 = 1200;
 
 std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance, const std::vector<double>* bands = nullptr) {
   constexpr int kLambdaMin = 360, kLambdaMax = 830;
@@ -99,13 +102,22 @@ std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance, const std::vect
   constexpr double kMieSingleScatteringAlbedo = 0.9, kMiePhaseFunctionG = 0.8, kGroundAlbedo = 0.1;
   const double maxSunZenith = 102.0 / 180.0 * kPi;  // 半精度の表（demo と同じ）
   DensityProfileLayer rayleigh(0.0, 1.0, -1.0 / kRayleighScaleHeight, 0.0, 0.0);
-  DensityProfileLayer mie(0.0, 1.0, -1.0 / kMieScaleHeight, 0.0, 0.0);
+  std::vector<DensityProfileLayer> mieLayers = {DensityProfileLayer(0.0, 1.0, -1.0 / kMieScaleHeight, 0.0, 0.0)};
+  // 縦に積分した密度（m）：消散係数＝光学的厚さ ÷ これ
+  double mieColumn = kMieScaleHeight;
+  if (gProfileW >= 0) {
+    const double W = gProfileW, S1 = gProfileS1, S2 = gProfileS2;
+    // Bruneton の層：exp_term·exp(exp_scale·h) + linear·h + const（下の層は幅 W）
+    mieLayers = {DensityProfileLayer(W, std::exp(-W / S1), 1.0 / S1, 0.0, 0.0), DensityProfileLayer(0.0, std::exp(W / S2), -1.0 / S2, 0.0, 0.0)};
+    if (W == 0) mieLayers = {DensityProfileLayer(0.0, 1.0, -1.0 / S2, 0.0, 0.0)};
+    mieColumn = S1 * (1.0 - std::exp(-W / S1)) + S2;
+  }
   std::vector<DensityProfileLayer> ozone = {DensityProfileLayer(25000.0, 0.0, 0.0, 1.0 / 15000.0, -2.0 / 3.0),
                                             DensityProfileLayer(0.0, 0.0, 0.0, -1.0 / 15000.0, 8.0 / 3.0)};
   std::vector<double> wl, sol, ray, mieS, mieE, abs, albedo;
   for (int l = kLambdaMin; l <= kLambdaMax; l += 10) {
     const double lambda = l * 1e-3;
-    const double m = mieBeta / kMieScaleHeight * std::pow(lambda, -kMieAngstromAlpha);
+    const double m = mieBeta / mieColumn * std::pow(lambda, -kMieAngstromAlpha);
     wl.push_back(l);
     sol.push_back(kSolarIrradiance[(l - kLambdaMin) / 10]);
     ray.push_back(kRayleigh * std::pow(lambda, -4));
@@ -127,7 +139,7 @@ std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance, const std::vect
       a3.push_back(Lerp(wl, abs, x));
       al3.push_back(kGroundAlbedo);
     }
-    std::unique_ptr<Model> m(new Model(w3, s3, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, r3, {mie}, ms3, me3, kMiePhaseFunctionG, ozone, a3, al3,
+    std::unique_ptr<Model> m(new Model(w3, s3, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, r3, mieLayers, ms3, me3, kMiePhaseFunctionG, ozone, a3, al3,
                                        maxSunZenith, kLengthUnitInMeters, 3, false, !std::getenv("KOCHI_FULL_PRECISION")));
     m->Init();
     return m;
@@ -135,7 +147,7 @@ std::unique_ptr<Model> MakeModel(double mieBeta, bool luminance, const std::vect
   // Init() はここで呼ぶ（11/27）：Model は波長の配列を参照で持ち、Init() の中でシェーダーを作るときに読む。この関数の外で
   // Init() を呼ぶと、配列がもう無く（呼び出し元の一時の配列）、でたらめな値で事前計算していた（3 色が同じ値・15 波長で色が崩れる）。
   // demo.cc も InitModel の中で Init() を呼んでいる。
-  std::unique_ptr<Model> m(new Model(wl, sol, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, ray, {mie}, mieS, mieE, kMiePhaseFunctionG, ozone, abs, albedo,
+  std::unique_ptr<Model> m(new Model(wl, sol, kSunAngularRadius, kBottomRadius, kTopRadius, {rayleigh}, ray, mieLayers, mieS, mieE, kMiePhaseFunctionG, ozone, abs, albedo,
                                      maxSunZenith, kLengthUnitInMeters, luminance ? 15 : 3, false, !std::getenv("KOCHI_FULL_PRECISION")));
   m->Init();
   return m;
@@ -251,7 +263,21 @@ int main(int argc, char** argv) {
   }
   // 550 nm の光学的厚さ（AOD）を与えたときは β = AOD·0.55^α（τ(0.55 µm) = AOD）
   if (argc > 5) gMieAlpha = std::atof(argv[5]);
-  if (argc > 6) gMieScaleHeight = std::atof(argv[6]) * 1000.0;
+  if (argc > 6) {
+    const std::string h = argv[6];
+    if (h.find(',') != std::string::npos) {  // "W,S1,S2"（km）
+      std::stringstream hs(h);
+      std::string t;
+      std::vector<double> v;
+      while (std::getline(hs, t, ',')) v.push_back(std::atof(t.c_str()) * 1000.0);
+      if (v.size() != 3) Die("profile: W,S1,S2 (km)");
+      gProfileW = v[0];
+      gProfileS1 = v[1];
+      gProfileS2 = v[2];
+    } else {
+      gMieScaleHeight = std::atof(argv[6]) * 1000.0;
+    }
+  }
   const double mieBeta = argc > 4 ? std::atof(argv[4]) * std::pow(0.55, gMieAlpha) : 5.328e-3;
   // Mesa のシェーダーのキャッシュは使わない（念のため。値が崩れた本当の原因は MakeModel の Init() の位置だった）。
   setenv("MESA_SHADER_CACHE_DISABLE", "true", 1);
@@ -298,7 +324,7 @@ int main(int argc, char** argv) {
     const double m = (r + g + b) / 3.0;
     meta << "white_point " << r / m << " " << g / m << " " << b / m << "\n";
   }
-  meta << "mode " << mode << "\nprecompute_ms " << precomputeMs << "\nmie_beta " << mieBeta << "\nmie_alpha " << gMieAlpha << "\nmie_scale_height_m " << gMieScaleHeight << "\naod550 " << mieBeta * std::pow(0.55, -gMieAlpha) << "\nrenderer " << glGetString(GL_RENDERER) << "\n";
+  meta << "mode " << mode << "\nprecompute_ms " << precomputeMs << "\nmie_beta " << mieBeta << "\nmie_alpha " << gMieAlpha << "\nmie_scale_height_m " << gMieScaleHeight << "\nmie_profile_m " << gProfileW << " " << gProfileS1 << " " << gProfileS2 << "\naod550 " << mieBeta * std::pow(0.55, -gMieAlpha) << "\nrenderer " << glGetString(GL_RENDERER) << "\n";
   auto flush = [&]() {
     if (caseId.empty()) return;
     const float cam[3] = {0, 0, float((kBottomRadius + heightM) / kLengthUnitInMeters)};

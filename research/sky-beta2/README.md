@@ -42,6 +42,13 @@ python3 research/sky-beta2/tools/check_web.py research/sky-beta2/webgl /tmp/b2/s
 
 `webgl/data/`（表 約 17 MB）と `compare.js` はリポジトリに入れない。iPhone では、同じものを置いた非公開のページで開く。
 
+## エアロゾルの高度分布（CAMS aerext532）
+
+- `opengl/kochi_ref` の 6 番目の引数：尺度高（km、例 `1.2`）か、2 層の形 `W,S1,S2`（km。高さ W で最大、下は exp((h−W)/S1)、上は exp(−(h−W)/S2)）。
+  5 番目までは `AOD550 α`。例：`kochi_ref cases.txt out luminance 0.17 1.3 2,0.7,1.0`（`0,1,1.2` は尺度高 1.2 km と同じ結果になることを確かめた）
+- `tools/cams_aer_profile.py`：ADS（Copernicus Atmosphere Data Store）から 11/13 の aerext532（137 層）・気温・比湿・地上気圧を取り（`fetch`、ADS のアカウントと鍵が要るので手元の PC で）、
+  高知の格子の列の高さごとの消散係数から、532 nm の光学的厚さ、地表〜1 km・1〜3 km・3 km より上の寄与、2 層の形の W・S1・S2 を出す（`profile`）
+
 ## 結果
 
 [results.md](results.md)
