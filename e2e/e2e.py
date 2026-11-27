@@ -890,6 +890,8 @@ with sync_playwright() as p:
         pg.locator(".sky-beta").click(); calm()
         sb = pg.evaluate("""(() => ({ on: document.querySelector('.sky-beta')?.getAttribute('aria-pressed'), canvas: document.querySelectorAll('.sky-pan .sky-canvas').length,
           grid: document.querySelectorAll('.sky-pan .sky-grid').length, src: (document.querySelector('.sky-src.below') || {}).textContent || '' }))()""")
+        # 回帰の基準の画像（#536）：β 入りの窓（β 切りは上の -pan.png）。リポジトリには入れない。
+        if os.environ.get("WN_SUN"): pg.locator(".sun-card").screenshot(path=os.environ["WN_SUN"] + "-pan-beta.png")
         pg.locator(".sky-pan .sky-guides").click(); calm(); sb_grid = pg.locator(".sky-pan .sky-grid").count()
         pg.locator(".sky-pan .sky-guides").click(); calm()
         pg.locator(".sky-beta").click(); calm()
