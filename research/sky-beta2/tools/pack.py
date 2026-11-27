@@ -55,5 +55,7 @@ for c in cases["cases"]:
         for v in c["views"]
     }
     put_f16(np.fromfile(os.path.join(lum_dir, c["id"] + ".pano.lum.f32"), dtype="<f4"), c["id"] + ".pano")
+    # 3 波長（680・550・440 nm）の放射輝度の帯：Hillaire と同じ表示で並べる（方式の違いだけを見る。11/27）
+    put_f16(np.fromfile(os.path.join(rad_dir, c["id"] + ".pano.lum.f32"), dtype="<f4"), c["id"] + ".radpano")
 json.dump(ref, open(os.path.join(out, "ref.json"), "w"), ensure_ascii=False, indent=1)
 print("ok", out)

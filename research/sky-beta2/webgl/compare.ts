@@ -42,7 +42,9 @@ const fmtE = (e: number) => e.toExponential(2).replace("e", "×10^");
 
 // 表・帯は base64 の文字（.f16.txt。非公開のページは任意の 2 進のファイルを配らないため）
 async function f16(url: string): Promise<Uint16Array> {
-  const bin = atob(await (await fetch(url + ".txt")).text());
+  const res = await fetch(url + ".txt");
+  if (!res.ok) throw new Error(`${url}: ${res.status}`);
+  const bin = atob(await res.text());
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new Uint16Array(bytes.buffer);
@@ -167,7 +169,7 @@ function beta1Scene(c: Case): SceneInput {
   return { clear: skyAt(c.sunAlt, 1, 0, true), sunAlt: c.sunAlt, sunAz: c.sunAz, moonAlt: -30, moonAz: 0, moonLit: 0, wx: skyWeatherFrom([], 1, "47893"), seed: 1 };
 }
 
-type Result = { c: Case; webViews: Float32Array; webPano: Float32Array; refPano: Float32Array; viewMs: number; panoMs: number; eScene: number; hilViews: Float32Array; hilTrans: Float32Array; hilPano: Float32Array; hilMs: number; eHil: number };
+type Result = { c: Case; webViews: Float32Array; webPano: Float32Array; refPano: Float32Array; viewMs: number; panoMs: number; eScene: number; hilViews: Float32Array; hilTrans: Float32Array; hilPano: Float32Array; hilMs: number; eHil: number; radPano: Float32Array | null };
 
 /** 場面ごとの露出：帯（地平線より上）の輝度（G）の 99 パーセンタイルが 0.9（1 − exp(−2.3)）になる値。 */
 function sceneExposure(pano: Float32Array, w: number, h: number, alt0: number, altStep: number): number {
@@ -205,6 +207,12 @@ function drawPanoramas(results: Result[], cases: Cases) {
       ["Hillaire（WebGL 2、3 波長）・固定の露出", (i, j) => tone(at(r.hilPano, i, j), E_RAD, WHITE)],
       ["Hillaire（WebGL 2、3 波長）・場面ごとの露出", (i, j) => tone(at(r.hilPano, i, j), r.eHil, WHITE)],
     ];
+    // 同じ 3 波長・同じ表示・同じ露出の Bruneton（方式の違いだけを見る。11/27）
+    const rp = r.radPano;
+    if (rp) {
+      rows.splice(rows.length - 2, 0, ["Bruneton（PC、3 波長・Hillaire と同じ表示）・固定の露出", (i, j) => tone(at(rp, i, j), E_RAD, WHITE)]);
+      rows.push(["Bruneton（PC、3 波長・Hillaire と同じ表示）・Hillaire と同じ場面ごとの露出", (i, j) => tone(at(rp, i, j), r.eHil, WHITE)]);
+    }
     for (const [label, px] of rows) {
       const fig = document.createElement("figure");
       const cv = document.createElement("canvas");
@@ -294,8 +302,8 @@ async function main() {
   if (!hgl) throw new Error("WebGL 2 が使えない");
   // Hillaire の視線あたりの段数（?steps=192 などで変える。−6.8° の東の暗い弧が刻み数で動くかを見る）
   const steps = Number(new URLSearchParams(location.search).get("steps")) || 96;
-  // 多重散乱の表の大きさ（?ms=128 など。既定 32）
-  const msSize = Number(new URLSearchParams(location.search).get("ms")) || 32;
+  // 多重散乱の表の大きさ（?ms=32 など。既定 128：32 では深い薄明の暗い側が 2〜3 倍明るく出た、results.md 21:40）
+  const msSize = Number(new URLSearchParams(location.search).get("ms")) || 128;
   const hil = new HillaireSky(hgl, steps, msSize);
   const results: Result[] = [];
   for (const c of cases.cases) {
@@ -309,6 +317,14 @@ async function main() {
     for (let k = 0; k < raw.length; k++) refPano[k] = halfToFloat(raw[k]);
     const hv = hil.evaluate(vd, c.views.length, 1, cases.observerHeightM, sun);
     const hp = hil.evaluate(pano, w, h, cases.observerHeightM, sun);
+    let radPano: Float32Array | null = null;
+    try {
+      const rr = await f16(`data/${c.id}.radpano.f16`);
+      radPano = new Float32Array(rr.length);
+      for (let k = 0; k < rr.length; k++) radPano[k] = halfToFloat(rr[k]);
+    } catch {
+      radPano = null; // 古いデータ（3 波長の帯なし）
+    }
     const hpWhite = new Float32Array(hp.rad.length);
     for (let k = 0; k < hp.rad.length; k++) hpWhite[k] = hp.rad[k] / WHITE[k % 3];
     results.push({
@@ -323,6 +339,7 @@ async function main() {
       hilTrans: hv.trans,
       hilPano: hp.rad,
       hilMs: hp.ms,
+      radPano,
       eHil: sceneExposure(hpWhite, w, h, alt0, altStep),
     });
   }
@@ -357,7 +374,7 @@ async function main() {
   };
   $("#info").textContent =
     `描画：${info.renderer}（描き先 ${info.floatTarget ? "32bit" : "16bit"}）・表の読み込み ${info.loadMs} ms・準備 ${info.initMs} ms・` +
-    `視線 ${info.viewsMs.join("/")} ms・帯（${w}×${h}）${info.panoMs.join("/")} ms・OpenGL との最大の差 ${info.worstRelDiff < 1e-4 ? "0.01% 未満" : (info.worstRelDiff * 100).toFixed(2) + "%"}（輝度 1 cd/m² 超の視線）。Hillaire：表を作る ${info.hillaire.lutMs} ms・帯 ${info.hillaire.panoMs.join("/")} ms（視線あたり ${info.hillaire.steps} 段）`;
+    `視線 ${info.viewsMs.join("/")} ms・帯（${w}×${h}）${info.panoMs.join("/")} ms・OpenGL との最大の差 ${info.worstRelDiff < 1e-4 ? "0.01% 未満" : (info.worstRelDiff * 100).toFixed(2) + "%"}（輝度 1 cd/m² 超の視線）。Hillaire：表を作る ${info.hillaire.lutMs} ms・帯 ${info.hillaire.panoMs.join("/")} ms（視線あたり ${info.hillaire.steps} 段・多重散乱の表 ${info.hillaire.msSize}×${info.hillaire.msSize}）`;
   drawPanoramas(results, cases);
   drawTable(results, ref);
   log("");
