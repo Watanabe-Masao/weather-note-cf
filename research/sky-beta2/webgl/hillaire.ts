@@ -5,6 +5,7 @@
 // 地面のアルベド 0.1・地球の半径 6360 km・大気の上端 6420 km。出力は 3 波長の放射輝度（W/m²/sr/nm）と、視線方向の透過率。
 // 位相関数は Bruneton と同じ（Rayleigh、Cornette–Shanks の Mie、g 0.8）。多重散乱は Hillaire の近似（等方の 2 次散乱 ×1/(1 − f_ms)）。
 
+export type HillaireParams = typeof HILLAIRE_PARAMS;
 export const HILLAIRE_PARAMS = {
   bottomRadius: 6360, // km
   topRadius: 6420,
@@ -240,7 +241,10 @@ export class HillaireSky {
   private mLut: WebGLTexture;
   /** 多重散乱の表の大きさ（太陽の天頂角の余弦 × 高さ。既定 32×32。−6.8° が表の間の線形補間になるので、細かくして差を見る。11/27 レビュー） */
   msSize: number;
-  constructor(gl: WebGL2RenderingContext, steps = 64, msSize = 32) {
+  /** 大気の定数（3 波長分）。多波長のときは、3 波長ずつ別の組を渡す（hillaire_spectral.ts）。 */
+  P: HillaireParams;
+  constructor(gl: WebGL2RenderingContext, steps = 64, msSize = 32, params: Partial<HillaireParams> = {}) {
+    this.P = { ...HILLAIRE_PARAMS, ...params };
     this.msSize = Math.min(512, Math.max(8, Math.round(Number.isFinite(msSize) ? msSize : 32)));
     this.gl = gl;
     // シェーダーの繰り返しは 256 段まで（それより多い指定は 256 に、0 や負・数でない指定は 1 に。11/27 レビュー）
@@ -275,7 +279,7 @@ export class HillaireSky {
     gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p) ?? "link");
     gl.useProgram(p);
-    const P = HILLAIRE_PARAMS;
+    const P = this.P;
     const u = (n: string) => gl.getUniformLocation(p, n);
     gl.uniform1f(u("bottomRadius"), P.bottomRadius);
     gl.uniform1f(u("topRadius"), P.topRadius);
@@ -333,9 +337,9 @@ export class HillaireSky {
     this.bind(p, "transmittanceLut", this.tLut, 0);
     this.bind(p, "multiLut", this.mLut, 1);
     gl.uniform2f(gl.getUniformLocation(p, "multiSize"), this.msSize, this.msSize);
-    gl.uniform3f(gl.getUniformLocation(p, "camera"), 0, 0, HILLAIRE_PARAMS.bottomRadius + heightM / 1000);
+    gl.uniform3f(gl.getUniformLocation(p, "camera"), 0, 0, this.P.bottomRadius + heightM / 1000);
     gl.uniform3f(gl.getUniformLocation(p, "sunDir"), ...sun);
-    gl.uniform3fv(gl.getUniformLocation(p, "solar"), HILLAIRE_PARAMS.solarIrradiance);
+    gl.uniform3fv(gl.getUniformLocation(p, "solar"), this.P.solarIrradiance);
     gl.uniform1i(gl.getUniformLocation(p, "steps"), this.steps);
     const vt = gl.createTexture();
     gl.activeTexture(gl.TEXTURE5);
