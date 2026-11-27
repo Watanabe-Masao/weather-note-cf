@@ -14,6 +14,7 @@ import { solarAltitude, solarAzimuth } from "../../shared/sunTimes";
 import { Button, Chip } from "../ui/kit";
 import { type Intensity, intensitiesOf, intensityTitle, type Sky, SKIES } from "../../shared/nowWeather";
 import { useAccount } from "./account";
+import { PhotoList, SAMPLE_PHOTOS } from "./MyPhotos";
 import { compass16, type PhotoExif, readExif, takenIso } from "./exif";
 
 const KOCHI = { lat: 33.5667, lon: 133.5483 };
@@ -46,10 +47,6 @@ function satelliteTimes(iso: string): string[] {
   return [-30, -20, -10, 0, 10, 20, 30].map((m) => new Date(t + m * 60_000).toISOString());
 }
 
-const SAMPLES = [
-  { when: "2026-11-15T16:52:00+09:00", dir: "西", weather: "曇り・西だけ晴れ", sat: "7 時刻・28 枚", note: "雲の切れ目から夕陽" },
-  { when: "2026-11-17T16:40:00+09:00", dir: "南西", weather: "雨（パラパラ）", sat: "取れなかった（一覧に無い）", note: "" },
-];
 
 export function SkyPhotoSection() {
   // 画面そのものも同意を確かめる（外の記録のシートの出し分けに頼りきらない。11/28 レビュー：肌感だけの同意で写真の案内が出ていた）。
@@ -63,6 +60,7 @@ export function SkyPhotoSection() {
   const [look, setLook] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [shown, setShown] = useState(false);
+  const [photos, setPhotos] = useState(SAMPLE_PHOTOS);
 
   const pick = async (f: File | undefined) => {
     if (!f) return;
@@ -182,19 +180,7 @@ export function SkyPhotoSection() {
       </section>
       <section className="set-group" aria-labelledby="sp-list">
         <h3 id="sp-list">あなたの写真（見本の例）</h3>
-        <ul className="sp-list">
-          {SAMPLES.map((s) => (
-            <li key={s.when}>
-              <b>
-                {jst(s.when)}・{s.dir}・{s.weather}
-              </b>
-              <small>
-                衛星画像：{s.sat}
-                {s.note ? `・${s.note}` : ""}
-              </small>
-            </li>
-          ))}
-        </ul>
+        <PhotoList photos={photos} onDelete={(id) => setPhotos((l) => l.filter((p) => p.id !== id))} empty="写真はまだありません。" />
       </section>
     </>
   );

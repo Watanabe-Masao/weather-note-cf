@@ -1,6 +1,7 @@
 // Settings › アカウント: logging in with an issued ID and password, the first setup, the research
 // consent, the sync status, the administrator's screen and logging out.
 
+import { MyPhotosSection } from "./MyPhotos";
 import { type FormEvent, useState } from "react";
 import { DELETION_NOTE_KEY, deleteAccountAndLeave, syncNow, logOutAndLeave, useSync } from "../beta/useSync";
 import { NotifySection } from "./NotifySection";
@@ -290,6 +291,7 @@ export function AccountSection({ station }: { station: string }) {
           <SyncStatus />
           <NotifySection station={station} />
           <Research />
+          {me.role === "admin" ? <MyPhotosSection /> : null}
           {me.role !== "admin" ? <DeleteAccount /> : null}
         </>
       )}
