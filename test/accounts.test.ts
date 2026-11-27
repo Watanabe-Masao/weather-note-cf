@@ -291,8 +291,8 @@ describe("今の天気（#553）：アンケートと、肌感の記録の今の
     expect(r1.body.list).toEqual([{ id: "survey-0001", source: "survey", at, sky: "rain", intensity: "zaa", station: "74181" }]);
     await call("/api/me/weather", { body: { id: "survey-0002", at, sky: "sunny", intensity: "gou" }, cookie: a.cookie });
     expect(env.DB.raw.prepare("SELECT intensity FROM weather_obs WHERE id = 'survey-0002'").get()).toEqual({ intensity: null });
-    await call("/api/me/weather", { body: { id: "survey-0009", at, sky: "snow", intensity: "fubuki" }, cookie: a.cookie });
-    expect(env.DB.raw.prepare("SELECT intensity FROM weather_obs WHERE id = 'survey-0009'").get()).toEqual({ intensity: "fubuki" });
+    await call("/api/me/weather", { body: { id: "survey-0009", at, sky: "snow", intensity: "gou-snow" }, cookie: a.cookie });
+    expect(env.DB.raw.prepare("SELECT intensity FROM weather_obs WHERE id = 'survey-0009'").get()).toEqual({ intensity: "gou-snow" });
     const off = await call("/api/me/weather/delete", { body: { id: "survey-0001" }, cookie: a.cookie });
     expect(off.body.list.map((o: { id: string }) => o.id).sort()).toEqual(["survey-0002", "survey-0009"]);
   });

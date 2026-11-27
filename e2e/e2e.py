@@ -1725,7 +1725,7 @@ with sync_playwright() as p:
         pg.locator(".msheet.report-sheet .chip", has_text="雪").first.click(); calm()
         snow = pg.locator(".msheet.report-sheet [aria-label='雪の強さ'] .chip").all_inner_texts()
         if os.environ.get("WN_WSHOT"): pg.locator(".msheet.report-sheet").last.screenshot(path=os.environ["WN_WSHOT"])
-        check("R12b 雪を選ぶと雪の強さが 4 段（雨の強さは消え、選び直し）", snow == ["チラチラ", "シンシン", "ドカドカ", "吹雪"] and pg.locator(".msheet.report-sheet [aria-label='雨の強さ']").count() == 0 and b.is_disabled(), str(snow))
+        check("R12b 雪を選ぶと雪の強さが 4 段（雨の強さは消え、選び直し）", snow == ["チラチラ", "ヒラヒラ", "シンシン", "ゴウゴウ"] and pg.locator(".msheet.report-sheet [aria-label='雨の強さ']").count() == 0 and b.is_disabled(), str(snow))
         check("R13 一覧に肌感の記録の天気も出る", "肌感の記録から" in txt("section[aria-labelledby='ws-list']"))
         st = small_text(); check("R14 11px より小さい文字がない（今の天気）", not st, str(st))
         layout_ok("R15", "今の天気")
