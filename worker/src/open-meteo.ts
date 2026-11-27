@@ -234,15 +234,18 @@ export async function fetchForecast(station: Station, opt: ForecastFetchOptions 
   const clock = opt.clock ?? Date.now;
   const confidence = opt.confidence === false ? Promise.resolve(new Map<string, { confidence: Confidence; spread: Spread }>()) : fetchConfidence(station);
   let source = forecastUrl(station);
+  let variant = "full";
   let r = await get(source);
   // An unknown variable makes Open-Meteo answer 400: the forecast matters more than the extras.
   if (r.status === 400) {
     source = forecastUrl(station, false);
+    variant = "without-optional"; // 全雲量・視程を外して取り直した（履歴では、その回の値が missing になる理由として残す）
     r = await get(source);
   }
   if (!r.ok) throw new SourceError(`予報の取得に失敗しました（${r.status}）。`);
-  const data = JSON.parse(await r.text()) as ForecastPayload & { error?: boolean; reason?: string; latitude?: unknown; longitude?: unknown };
-  const receivedAt = new Date(clock()).toISOString();
+  const body = await r.text();
+  const receivedAt = new Date(clock()).toISOString(); // 本文を受け取り終えた時刻（読み解く前。11/27 レビュー）
+  const data = JSON.parse(body) as ForecastPayload & { error?: boolean; reason?: string; latitude?: unknown; longitude?: unknown };
   if (data.error || !data.daily?.time?.length) throw new SourceError("予報データがありません。");
   const forecast = normalizeForecast(data);
   const conf = await confidence;
@@ -251,7 +254,8 @@ export async function fetchForecast(station: Station, opt: ForecastFetchOptions 
     if (c) Object.assign(row, { confidence: c.confidence, spread: c.spread });
   }
   const grid = { lat: typeof data.latitude === "number" ? data.latitude : null, lon: typeof data.longitude === "number" ? data.longitude : null };
-  return { ...forecast, source, provider: "Open-Meteo", receivedAt, grid };
+  // model：models を指定しないので Open-Meteo の既定（best_match）。
+  return { ...forecast, source, provider: "Open-Meteo", receivedAt, grid, variant, model: "best_match" };
 }
 
 export async function fetchSunTimes(station: Station, day: string, today: string) {

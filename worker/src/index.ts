@@ -371,7 +371,7 @@ export default {
       stage("air quality", (d) => saveAirQuality(d))()
         .then(stage("air forecast", (d) => saveAirForecast(d)))
         // 空の答え合わせのための予報の履歴（skyHistory.ts、#532）：画面と同じ予報の取得を、アプリが開かれていない時間にも1時間に1回まで
-        // （AOD は上の空気質の予測の取得で残す）。今日と明日の天気コード・降水量・全雲量・視程を、変わった所だけ追記。
+        // （AOD は上の空気質の予測の取得で残す）。今日と明日の天気コード・降水量・全雲量・視程を、受け取った回ごとに全部追記（14時の締め切りの直前にも必ず取る）。
         .then(stage("sky history", (d) => saveSkyForecast(d, stations)))
         .then(stage("soramame", (d) => saveSoramame(d))),
     );
