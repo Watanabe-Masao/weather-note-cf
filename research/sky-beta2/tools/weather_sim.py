@@ -147,7 +147,11 @@ for c in cases["cases"]:
                 cz = float(cct(zrow))
             except Exception:
                 cz = None
-        summary[c["id"]]["weathers"][name] = {"tau": tau, "T": Tt, "mean_G_cd": mean_g, "cct_60deg_K": cz}
+        jj = int(round((3 - ALT0) / ALTS))
+        ii = int(round(((c["sunAz"] - AZ0) % 360) / AZS)) % W
+        sv = np.maximum(L[jj, ii], 0)
+        warm_sun3 = float((sv[0] - sv[2]) / sv.sum()) if sv.sum() > 0 else 0.0
+        summary[c["id"]]["weathers"][name] = {"tau": tau, "T": Tt, "mean_G_cd": mean_g, "cct_60deg_K": cz, "warm_sun_side_3deg": warm_sun3}
         img.paste(Image.fromarray(show(L, e_ref)[::-1]), (16, y))
         rel = mean_g / summary[c["id"]]["weathers"]["晴れ"]["mean_G_cd"]
         extra = f"・高さ 60° の色温度 約 {cz:,.0f} K" if (cz and tau > 0) else ""
@@ -164,4 +168,4 @@ img.save(out_png)
 if out_json:
     json.dump(summary, open(out_json, "w"), ensure_ascii=False, indent=1)
 for k, v in summary.items():
-    print(k, {n: (round(w["mean_G_cd"] / v["weathers"]["晴れ"]["mean_G_cd"], 3), None if w["cct_60deg_K"] is None else round(w["cct_60deg_K"])) for n, w in v["weathers"].items()})
+    print(k, {n: (round(w["mean_G_cd"] / v["weathers"]["晴れ"]["mean_G_cd"], 3), None if w["cct_60deg_K"] is None else round(w["cct_60deg_K"]), round(w["warm_sun_side_3deg"], 2)) for n, w in v["weathers"].items()})
