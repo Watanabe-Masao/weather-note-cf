@@ -77,6 +77,65 @@ function digest(s: Summary): string {
   return out.join("\n");
 }
 
+/**
+ * 画面の全部を文字に（11/28 渡辺さん「一発で全部コピーできるようにできませんか？」）。まとめ（digest）に、欠けの時刻・空気のデータ・
+ * 週の点検（抜けた区間まで）・原本の控え・エラーの全部・重なり・表の点検（表ごとの行数まで）・大きさの細かい値を足す。
+ * 畳んで見えていない所も入れる。提供スケジュールの説明文（変わらない文）は入れない。
+ */
+export function fullText(s: Summary): string {
+  const out = [digest(s)];
+  const series = s.completeness ? [...Object.entries(s.completeness.forecast), ...Object.entries(s.completeness.radar)].filter(([, a]) => a.expected) : [];
+  if (series.length) {
+    out.push("", "欠け（最大14日）：");
+    for (const [k, a] of series) {
+      out.push(`・${NAME[k] ?? k}：${a.expected}回中${a.kept}回${a.pendingCount ? `・まだ取り戻せる ${a.pendingCount}` : ""}${a.lostCount ? `・取り戻せない ${a.lostCount}` : ""}${a.absentCount ? `・気象庁が出していない ${a.absentCount}` : ""}`);
+      for (const t of a.pending) out.push(`  ${clock(t)}（まだ取り戻せる）`);
+      for (const t of a.lost) out.push(`  ${clock(t)}（取り戻せない）`);
+    }
+  }
+  const a = s.completeness?.air;
+  if (a) {
+    out.push("", "空気のデータ：");
+    out.push(`・空気質の予測（CAMS）：今日から4日先まで ${a.forecast.expected}時間中 ${a.forecast.kept}時間`);
+    out.push(`・空気質（CAMS、終わった日）：手前14日 ${a.cams.expected}時間中 ${a.cams.kept}時間${a.cams.watermark ? `（続けて確かめられた位置 ${clock(a.cams.watermark)}）` : ""}${a.cams.pendingCount ? `・欠け ${a.cams.pendingCount}時間（${a.cams.pending.map(clock).join("・")}）` : ""}`);
+    out.push(`・大気汚染の実測：最新 ${a.soramame.newest ? clock(a.soramame.newest) : "なし"}・手前14日 ${a.soramame.expected}時間中 ${a.soramame.kept}時間${a.soramame.absentCount ? `・提供元が出していない ${a.soramame.absentCount}時間` : ""}${a.soramame.pendingCount ? `・欠け ${a.soramame.pendingCount}時間（${a.soramame.pending.map(clock).join("・")}）` : ""}`);
+  }
+  const w = s.weeklyAudit?.result;
+  if (w) {
+    out.push("", `週の点検（${clock(s.weeklyAudit!.at)}）：最新 ${w.latestOk ? "すべて新しい" : `遅れ ${w.series.filter((x) => !x.fresh).length}`}・履歴 ${w.historyOk ? "抜けなし" : `抜けのある系列 ${w.series.filter((x) => x.gapCount).length}`}`);
+    for (const x of w.series) {
+      out.push(
+        `・${x.name} ${x.part}：${ymd(x.first)}〜${ymd(x.last)}・${x.have.toLocaleString()}${x.missing == null ? "通" : "回分"}・最新 ${age(x.ageH)}${x.fresh ? "" : `（${x.freshH}時間より古い）`}・${x.gapCount ? (x.missing == null ? `長く空いたところ ${x.gapCount}` : `抜け ${x.missing.toLocaleString()}回（${x.gapCount}か所）`) : "抜けなし"}`,
+      );
+      for (const g of x.gaps) out.push(`  ${clock(g.from)} 〜 ${clock(g.to)} の間${g.n == null ? "" : `（${g.n}回）`}`);
+      if (x.gapCount > x.gaps.length) out.push(`  ほか ${x.gapCount - x.gaps.length}か所`);
+      if (x.gapCount && x.note) out.push(`  ${x.note}`);
+    }
+    if (w.r2) out.push(`・R2 の実物：${w.r2.checked}件中 ${w.r2.checked - w.r2.missing.length - w.r2.wrongSize.length}件そのまま${w.r2.missing.length ? `・無い ${w.r2.missing.join("・")}` : ""}${w.r2.wrongSize.length ? `・大きさが違う ${w.r2.wrongSize.join("・")}` : ""}`);
+    if (w.holes.length) out.push(`・毎時の欠けの発見（これまで）：${w.holes.map((h) => `${h.source} 取り戻せない ${h.lost}・後で取り戻した ${h.recovered}・出ていない ${h.absent}`).join("／")}`);
+    if (w.failed.length) out.push(`・読めなかった部分：${w.failed.map((f) => `${f.part}（${f.message}）`).join("・")}`);
+  }
+  if (s.offsite)
+    out.push(
+      "",
+      s.offsite.configured
+        ? `原本の控え（GitHub）：${s.offsite.days}日分（${mb(s.offsite.bytes)}）・最後に置いた日 ${s.offsite.lastDay ?? "—"}${s.offsite.pending ? `・まだ ${s.offsite.pending}日（${s.offsite.oldestPending} から）` : "・遅れなし"}${s.offsite.lastError ? `・${clock(s.offsite.lastError.at)} の失敗：${s.offsite.lastError.error}` : ""}`
+        : "原本の控え（GitHub）：まだ設定されていません",
+    );
+  if (s.errors.length > 10) out.push("", `エラーの記録（全部 ${s.errors.length}件）：`, ...s.errors.map((e) => `・${clock(e.at)} ${e.where}：${e.message}`));
+  if (s.lastDupCheck) out.push("", `重なり（${clock(s.lastDupCheck.at)}）：`, ...s.lastDupCheck.result.map((d) => `・${d.name}：${d.n ? `${d.n}（${d.examples.join("・")}）${d.note ? `（${d.note}）` : ""}` : "0"}`));
+  if (s.lastAudit) {
+    out.push("", `表の点検（${clock(s.lastAudit.at)}）：`, ...s.lastAudit.result.links.map((l) => `・${l.name}：${l.n}`));
+    out.push("表ごとの行数：", ...s.lastAudit.result.tables.map((t) => `・${t.name} ${t.rows.toLocaleString()}`));
+  }
+  if (s.room)
+    out.push(
+      "",
+      `大きさ：データベース ${s.room.d1Size ? `${mb(s.room.d1Size.bytes)}（${s.room.d1Size.percent}%）` : "—"}・月の書き込みの見込み ${Math.round(s.room.d1WritesMonth.estimate / 1_000) / 10}万行（${s.room.d1WritesMonth.percent}%）・1日 ${s.room.d1WritesMonth.rowsLastDay.toLocaleString()}行・R2 ${mb(s.room.r2.bytes)}（${s.room.r2.percentOfFree}%）・定時処理 ${s.room.cronRunsLastDay}/288${s.room.cronMissing ? `（記録の無い回 ${s.room.cronMissing}）` : ""}`,
+    );
+  return out.join("\n");
+}
+
 /** 管理者ページの「運用」：データの保守の中身。 */
 export function MaintenanceBody() {
   const [s, setS] = useState<Summary | null>(null);
@@ -152,10 +211,15 @@ export function MaintenanceBody() {
               </p>
             ))
           : null}
-        <small className="set-help">{clock(s.at)} の時点。毎時の見張りと同じ判定です。手順の番号は障害の手引き（docs/runbook.md）。</small>
+        <small className="set-help">
+          {clock(s.at)} の時点。毎時の見張りと同じ判定です。手順の番号は障害の手引き（docs/runbook.md）。「全部コピー」は、畳んである所（欠けの時刻・週の点検の抜けた区間・表ごとの行数など）も含めて、この画面の全部を文字にします。
+        </small>
         <div className="actions tight">
           <Button size="sm" onClick={() => void copy(digest(s)).then((ok) => say("まとめ", ok))}>
             まとめてコピー
+          </Button>
+          <Button size="sm" onClick={() => void copy(fullText(s)).then((ok) => say("全部", ok))}>
+            全部コピー
           </Button>
           <Button size="sm" onClick={load}>
             読み直す
