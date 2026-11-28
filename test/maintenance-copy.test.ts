@@ -1,6 +1,6 @@
 // データの保守の「全部コピー」（11/28 渡辺さん「一発で全部コピーできるようにできませんか？」）：畳んである所も文字に入るか。
 import { describe, expect, it } from "vitest";
-import { fullText } from "../src/account/MaintenanceSheet";
+import { fullText } from "../src/account/maintenanceText";
 
 const s = {
   at: "2026-11-28T03:05:00Z",
