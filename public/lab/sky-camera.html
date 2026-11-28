@@ -30,6 +30,10 @@
   .warn{color:var(--warn);font-weight:600}
   #bar{position:fixed;bottom:0;left:0;right:0;padding:14px max(16px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:#000b}
   #bar > :last-child{justify-self:end}
+  #ctl{position:fixed;left:0;right:0;bottom:calc(104px + env(safe-area-inset-bottom));display:flex;justify-content:center;flex-wrap:wrap;gap:8px;padding:0 12px;pointer-events:none}
+  #ctl button{pointer-events:auto;background:#000a;font-size:14px;padding:8px 12px}
+  #ctl button[aria-pressed=true]{background:var(--accent);color:#04121f;font-weight:600}
+  #ctl button[hidden]{display:none}
   #shot{width:74px;height:74px;border-radius:50%;border:4px solid #fff;background:#ffffff33;padding:0}
   #shot:active{background:#fff}
   button{font:inherit;font-size:15px;color:var(--fg);background:#2a3440;border:0;border-radius:10px;padding:10px 14px}
@@ -69,6 +73,12 @@
 <div id="hud">準備中…</div>
 <div id="flash"></div>
 <div id="toast"></div>
+<div id="ctl" aria-label="カメラの設定">
+  <button id="wb" aria-pressed="false" hidden>色：自動</button>
+  <button class="zoom" data-z="0.5" aria-pressed="false" hidden>0.5×</button>
+  <button class="zoom" data-z="1" aria-pressed="true" hidden>1×</button>
+  <button class="zoom" data-z="2" aria-pressed="false" hidden>2×</button>
+</div>
 <div id="bar">
   <button id="open">診断</button>
   <button id="shot" aria-label="撮影"></button>
@@ -134,7 +144,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const D = Math.PI / 180;
-const VERSION = "sky-camera-diag-0.3";
+const VERSION = "sky-camera-diag-0.4";
 
 // ---------- 状態 ----------
 let ori = null;            // 最新の端末姿勢
@@ -302,9 +312,45 @@ $("go").onclick = async () => {
     }
     navigator.geolocation?.watchPosition(p => { geo = p; geoErr = null; }, e => { geoErr = e.message || String(e.code); note(`geo error: ${geoErr}`); },
       { enableHighAccuracy: true, maximumAge: 5000 });
+    setupControls();
     $("start").remove();
   }catch(e){ $("err").textContent = "開始できません：" + (e && e.message || e); note(`start failed: ${e && e.name} ${e && e.message}`); }
 };
+
+// ---------- カメラの設定（11/28 渡辺さん：自動で整える機能に制限をかけられないか） ----------
+// ホワイトバランスを固定（whiteBalanceMode: manual）と、ズーム（0.5 で超広角の見込み）。露出の固定は Safari に無い（診断 1 回目）。
+const controlLog = [];
+async function applyCam(c, label){
+  try{
+    await track.applyConstraints({ advanced: [c] });
+    const st = track.getSettings();
+    controlLog.push({ at: new Date().toISOString(), asked: c, ok: true, whiteBalanceMode: st.whiteBalanceMode, zoom: st.zoom, colorTemperature: st.colorTemperature ?? null });
+    note(`apply ${label} ok → wb ${st.whiteBalanceMode} zoom ${st.zoom}`);
+    return st;
+  }catch(e){
+    controlLog.push({ at: new Date().toISOString(), asked: c, ok: false, error: `${e && e.name}: ${e && e.message}` });
+    note(`apply ${label} failed: ${e && e.name} ${e && e.message}`); toast(`${label} を変えられませんでした`);
+    return null;
+  }
+}
+function syncControls(){
+  const st = track?.getSettings?.() ?? {};
+  $("wb").textContent = st.whiteBalanceMode === "manual" ? "色：固定" : "色：自動";
+  $("wb").setAttribute("aria-pressed", String(st.whiteBalanceMode === "manual"));
+  document.querySelectorAll(".zoom").forEach(b => b.setAttribute("aria-pressed", String(Math.abs((st.zoom ?? 1) - Number(b.dataset.z)) < 0.01)));
+}
+function setupControls(){
+  const caps = track?.getCapabilities?.() ?? {};
+  if (Array.isArray(caps.whiteBalanceMode) && caps.whiteBalanceMode.includes("manual")) $("wb").hidden = false;
+  if (caps.zoom) document.querySelectorAll(".zoom").forEach(b => { const z = Number(b.dataset.z); if (z >= caps.zoom.min - 1e-6 && z <= caps.zoom.max + 1e-6) b.hidden = false; });
+  $("wb").onclick = async () => {
+    const manual = track.getSettings().whiteBalanceMode !== "manual";
+    await applyCam({ whiteBalanceMode: manual ? "manual" : "continuous" }, "色合い");
+    syncControls(); toast(track.getSettings().whiteBalanceMode === "manual" ? "色合いを固定しました（今の色で止める）" : "色合いを自動に戻しました");
+  };
+  document.querySelectorAll(".zoom").forEach(b => b.onclick = async () => { await applyCam({ zoom: Number(b.dataset.z) }, `ズーム ${b.dataset.z}×`); syncControls(); });
+  syncControls();
+}
 
 // ---------- 撮影 ----------
 function makeId(d){
@@ -551,6 +597,9 @@ function render(){
     ["使えるつまみ", caps ? Object.keys(caps).filter(k => !["width","height","frameRate","aspectRatio","deviceId","groupId","facingMode","resizeMode"].includes(k)).join("・") || "なし" : "—"],
     ["ImageCapture", typeof ImageCapture === "function" ? (imageCapture ? "あり" : "あり（作れない）") : "なし"],
     ["静止画の最大（takePhoto）", photoCaps ? `${photoCaps.imageWidth?.max ?? "?"}×${photoCaps.imageHeight?.max ?? "?"}` : (photoCapsErr ?? "—")],
+    ["色合い（ホワイトバランス）", `${s.whiteBalanceMode ?? "—"}（選べる：${[].concat(caps?.whiteBalanceMode ?? []).join("・") || "—"}）`],
+    ["ズーム", `${s.zoom ?? "—"}（${caps?.zoom ? `${caps.zoom.min}〜${caps.zoom.max}` : "—"}）`],
+    ["設定を変えた記録", controlLog.length ? controlLog.map(c => `${JSON.stringify(c.asked)} ${c.ok ? `→ 色 ${c.whiteBalanceMode}・ズーム ${c.zoom}` : `失敗（${c.error}）`}`).join(" ／ ") : "まだ"],
     ["撮った枚数", `${shots.length}枚`],
   ];
   if (last) camRows.push(
@@ -558,6 +607,8 @@ function render(){
     ["最後の1枚：形式", `${last.image.mime}（先頭 ${last.image.magic.slice(0, 11)} ＝ ${magicName(last.image.magic)}）`],
     ["最後の1枚：画素", `${last.image.width}×${last.image.height}（${round(last.image.width * last.image.height / 1e6, 1)} 百万画素）`],
     ["最後の1枚：大きさ", `${(last.image.bytes/1024/1024).toFixed(2)} MB`],
+    ["最後の1枚：撮ったときの色・ズーム", `${last.track?.whiteBalanceMode ?? "—"}・${last.track?.zoom ?? "—"}×`],
+    ["最後の1枚：写真の中の色・画角", last.image.tags ? `ホワイトバランス ${last.image.tags.wb === 1 ? "手動（固定）" : last.image.tags.wb === 0 ? "自動" : "—"}・35mm 換算 ${last.image.tags.focal35 ?? "—"} mm・${last.image.tags.lens ?? ""}` : "読めない"],
   );
   table("camTable", ["項目", "この端末"], camRows);
   const raws = fileChecks.filter(f => f.dng && f.dng.match(/^\d/));
@@ -628,6 +679,7 @@ function report(){
     imageCapture: typeof ImageCapture === "function", photoCapabilities: photoCaps ? { w: photoCaps.imageWidth, h: photoCaps.imageHeight, fill: photoCaps.fillLightMode } : photoCapsErr,
     trackSettings: track?.getSettings?.() ?? null, trackCapabilities: caps,
     // 位置は約 1 km に丸める（貼る先が公開のリポジトリでもよいように。11/28 メインのレビュー）
+    controlLog,
     shots: shots.map(s => ({ ...s.meta, location: s.meta.location ? { lat1km: round(s.meta.location.lat, 2), lon1km: round(s.meta.location.lon, 2), accuracyM: Math.round(s.meta.location.accuracyM) } : null })),
     fileChecks, sunChecks,
     orientationPermission: oriDenied ? "denied" : "granted_or_not_asked",
