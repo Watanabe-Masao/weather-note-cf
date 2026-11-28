@@ -9,6 +9,7 @@
 //   fitting worker — is cached at install, and the app works offline in full.
 // - Icons and the manifest: the cached copy at once, refreshed in the background.
 // - イベントの日の見出しの絵（/event/*）：入れたときには保存せず、読んだ1枚だけを取っておく（版つきの URL）。
+// - 試作・診断のページ（/lab/*）も触らない（アプリとは別の HTML。navigate で「/」の控えを上書きしないため）。
 // - The API (/api/*) is never touched here: the app keeps its own weather data (IndexedDB) and its
 //   own rules for what is fresh (正本管理). A cached API answer would bypass them.
 //
@@ -82,6 +83,8 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) return;
+  // 試作・診断のページ（/lab/、アプリとは別の HTML）：触らない。navigate として扱うと、そのページでアプリの「/」の控えを上書きしてしまう。
+  if (url.pathname.startsWith("/lab/")) return;
 
   if (req.mode === "navigate") {
     event.respondWith(page(event));
