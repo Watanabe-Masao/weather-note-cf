@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>空カメラ 診断</title>
+<!--
+  空カメラ（試作）の実機診断（2026-11-28）。アプリ本体とは別の、ひとつで完結したページ。サーバーには何も送らない。
+  確かめること：
+    1. 写真の形式：ブラウザから RAW が撮れるか（getUserMedia の映像・ImageCapture.takePhoto・カメラアプリの DNG を選ぶ）。
+    2. 方位・仰角・傾き：iPhone の webkitCompassHeading と、回転行列（Z-X'-Y''）＋補正値の2通りを並べ、太陽で確かめる。
+    3. 保存の土台（worker/src/skyPhotos.ts の checkMeta、段階 1a）に、撮った情報のどれが残り、どれが落ちるか。
+  /lab/ は service worker が触らない（public/sw.js）。アプリの「/」の控えをこのページで上書きしないため。
+-->
+<style>
+  :root{
+    --bg:#05080c; --panel:#0e141b; --line:#26313d; --fg:#eef3f7; --dim:#9aa9b7;
+    --accent:#4fa3e0; --ok:#5cc98a; --warn:#ffb74d; --bad:#ff8a80;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:-apple-system,"Hiragino Sans","Noto Sans JP",sans-serif;overflow:hidden}
+  #v{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#000}
+  #cross{position:fixed;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;pointer-events:none}
+  #cross:before,#cross:after{content:"";position:absolute;background:#ffffffcc}
+  #cross:before{left:21px;top:0;width:2px;height:44px}
+  #cross:after{top:21px;left:0;height:2px;width:44px}
+  #hud{position:fixed;top:0;left:0;right:0;padding:calc(8px + env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 8px max(12px,env(safe-area-inset-left));background:#000b;font-size:14px;line-height:1.55;font-variant-numeric:tabular-nums}
+  .warn{color:var(--warn);font-weight:600}
+  #bar{position:fixed;bottom:0;left:0;right:0;padding:14px max(16px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));display:grid;grid-template-columns:1fr auto 1fr;align-items:center;background:#000b}
+  #bar > :last-child{justify-self:end}
+  #shot{width:74px;height:74px;border-radius:50%;border:4px solid #fff;background:#ffffff33;padding:0}
+  #shot:active{background:#fff}
+  button{font:inherit;font-size:15px;color:var(--fg);background:#2a3440;border:0;border-radius:10px;padding:10px 14px}
+  button:disabled{opacity:.4}
+  button.primary{background:var(--accent);color:#04121f;font-weight:600}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  #flash{position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .25s}
+  #start{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:var(--bg);padding:24px;text-align:center;z-index:10}
+  #start h1{font-size:22px;margin:0}
+  #start p{margin:0;color:var(--dim);font-size:14px;line-height:1.6;max-width:30em}
+  #start button{font-size:18px;padding:14px 30px}
+  #err{color:var(--bad);font-size:14px}
+  #sheet{position:fixed;inset:0;z-index:20;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  #sheet header{display:flex;justify-content:space-between;align-items:center;gap:12px;position:sticky;top:calc(-12px - env(safe-area-inset-top));background:var(--bg);padding:8px 0}
+  #sheet h2{font-size:18px;margin:0}
+  section{border-top:1px solid var(--line);padding:14px 0;display:grid;gap:10px}
+  section h3{font-size:15px;margin:0;color:var(--accent)}
+  section p{margin:0;font-size:14px;line-height:1.65;color:var(--dim)}
+  .verdict{font-size:15px;line-height:1.6;color:var(--fg)}
+  .row{display:flex;flex-wrap:wrap;gap:8px}
+  .tbl{overflow-x:auto}
+  table{border-collapse:collapse;font-size:13px;width:100%;font-variant-numeric:tabular-nums}
+  th,td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:left;vertical-align:top}
+  th{color:var(--dim);font-weight:500;white-space:nowrap}
+  td code,pre{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+  pre{white-space:pre-wrap;word-break:break-all;background:var(--panel);border-radius:8px;padding:10px;margin:0;max-height:16em;overflow:auto}
+  .pill{display:inline-block;border-radius:999px;padding:1px 8px;font-size:12px;font-weight:600;white-space:nowrap}
+  .pill.ok{background:#1d3b2a;color:var(--ok)} .pill.part{background:#3d301a;color:var(--warn)} .pill.no{background:#3e1f1f;color:var(--bad)}
+  input[type=file]{font-size:14px;color:var(--dim);max-width:100%}
+  #toast{position:fixed;left:50%;bottom:calc(110px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#000d;padding:8px 14px;border-radius:10px;font-size:14px;z-index:30;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+  @media (prefers-reduced-motion:reduce){#flash,#toast{transition:none}}
+</style>
+</head>
+<body>
+<video id="v" playsinline muted autoplay></video>
+<div id="cross"></div>
+<div id="hud">準備中…</div>
+<div id="flash"></div>
+<div id="toast"></div>
+<div id="bar">
+  <button id="open">診断</button>
+  <button id="shot" aria-label="撮影"></button>
+  <span id="count">0枚</span>
+</div>
+
+<div id="start">
+  <h1>空カメラ 診断</h1>
+  <p>写真の形式（RAW が撮れるか）、方位・仰角・傾き、アプリの保存の決まりでどの情報が残るかを、この端末で確かめます。カメラ・向きのセンサー・位置情報の許可を求めます。写真や情報はどこにも送りません。</p>
+  <button id="go" class="primary">はじめる</button>
+  <div id="err"></div>
+</div>
+
+<div id="sheet" hidden>
+  <header><h2>診断の結果</h2><button id="close">カメラに戻る</button></header>
+
+  <section>
+    <h3>結果を渡す</h3>
+    <p>下の内容をまとめて文字にします。そのまま貼り付けて送ってください。</p>
+    <div class="row"><button id="copy" class="primary">結果をコピー</button></div>
+    <pre id="copied" hidden></pre>
+  </section>
+
+  <section>
+    <h3>1. 写真の形式（RAW が撮れるか）</h3>
+    <div class="verdict" id="rawVerdict">撮影すると、ここに結果が出ます。</div>
+    <div class="tbl"><table id="camTable"></table></div>
+    <p>ブラウザのカメラ（getUserMedia）は、処理済みの映像を渡すだけです。RAW（DNG）の受け渡しはウェブの決まりにありません。そのため、カメラアプリで RAW（iPhone なら ProRAW）を撮って、ここで選んだときにファイルがそのまま届くかも確かめます。</p>
+    <label class="row" for="rawFile"><span>カメラアプリで撮った写真を選ぶ：</span></label>
+    <input id="rawFile" type="file" accept="image/*,.dng,.DNG,image/x-adobe-dng">
+    <div class="tbl"><table id="fileTable"></table></div>
+  </section>
+
+  <section>
+    <h3>2. 方位・仰角・傾き</h3>
+    <div class="verdict" id="oriVerdict">センサー待ち…</div>
+    <div class="tbl"><table id="oriTable"></table></div>
+    <p>太陽の近くに雲や建物の目印がある日に、太陽を十字の真ん中に入れて「太陽で確かめる」を押してください。直接見ないでください。ずれが分かります。持ち方（縦・横、少し上向き・真上近く）を変えて何回か押すと、どの持ち方で狂うかも分かります。</p>
+    <div class="row"><button id="sunCheck">太陽で確かめる</button></div>
+    <div class="tbl"><table id="sunTable"></table></div>
+  </section>
+
+  <section>
+    <h3>3. 保存の土台に残るか（段階 1a のサーバー）</h3>
+    <div class="verdict" id="storeVerdict">撮影すると、最後の1枚で突き合わせます。</div>
+    <div class="tbl"><table id="storeTable"></table></div>
+  </section>
+
+  <section>
+    <h3>撮った写真と情報を端末に残す</h3>
+    <p>写真と情報（JSON）を分けて共有します。iPhone では、写真だけのときに「画像を保存」が出ます。</p>
+    <div class="row">
+      <button id="savePhotos" disabled>写真を保存</button>
+      <button id="saveJson" disabled>情報を保存</button>
+      <button id="clear" disabled>撮った分を消す</button>
+    </div>
+  </section>
+</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const D = Math.PI / 180;
+const VERSION = "sky-camera-diag-0.2";
+
+// ---------- 状態 ----------
+let ori = null;            // 最新の端末姿勢
+let offsets = [];          // iPhone：alpha → 磁北基準 の補正値（円平均する）
+let absSeen = false;       // deviceorientationabsolute が来たか（Android）
+let geo = null, geoErr = null, oriDenied = false;
+let stream = null, track = null, imageCapture = null, photoCaps = null, photoCapsErr = null;
+const shots = [];          // {id, blob, meta}
+const sunChecks = [];
+const fileChecks = [];
+const log = [];
+const note = s => { log.push(`${new Date().toISOString()} ${s}`); if (log.length > 60) log.shift(); };
+
+// ---------- 数学 ----------
+const norm360 = x => ((x % 360) + 360) % 360;
+const azDiff = (a, b) => ((((a - b) % 360) + 540) % 360) - 180;
+const round = (x, n) => x == null || !Number.isFinite(x) ? null : Math.round(x * 10 ** n) / 10 ** n;
+function circStats(arr){
+  if (!arr.length) return null;
+  let s = 0, c = 0; for (const x of arr){ s += Math.sin(x*D); c += Math.cos(x*D); }
+  const R = Math.hypot(s, c) / arr.length;
+  return { mean: norm360(Math.atan2(s, c) / D), sdDeg: R >= 1 ? 0 : Math.sqrt(-2 * Math.log(R)) / D, n: arr.length };
+}
+function mul(A,B){ const C=[[0,0,0],[0,0,0],[0,0,0]]; for(let i=0;i<3;i++)for(let j=0;j<3;j++)for(let k=0;k<3;k++)C[i][j]+=A[i][k]*B[k][j]; return C; }
+function apply(M,v){ return [0,1,2].map(i=>M[i][0]*v[0]+M[i][1]*v[1]+M[i][2]*v[2]); }
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+function unit(a){ const n=Math.hypot(...a); return n<1e-9?null:a.map(x=>x/n); }
+// W3C DeviceOrientation（Z-X'-Y''）。世界座標：x=東, y=北, z=上
+function rot(a,b,g){
+  const ca=Math.cos(a),sa=Math.sin(a),cb=Math.cos(b),sb=Math.sin(b),cg=Math.cos(g),sg=Math.sin(g);
+  return mul(mul([[ca,-sa,0],[sa,ca,0],[0,0,1]],[[1,0,0],[0,cb,-sb],[0,sb,cb]]),[[cg,0,sg],[0,1,0],[-sg,0,cg]]);
+}
+function screenAngle(){
+  if (screen.orientation && typeof screen.orientation.angle === "number") return screen.orientation.angle;
+  return typeof window.orientation === "number" ? window.orientation : 0;
+}
+/** 磁気偏角（°、西偏が正）：国土地理院 2020.0 の近似式（shared/skyLook.ts と同じ）。真北 = 磁北 − 偏角。 */
+function declination(lat, lon){
+  const dp = lat - 37, dl = lon - 138;
+  return (8*60 + 15.822 + 18.462*dp - 7.726*dl + 0.007*dp*dp - 0.007*dp*dl - 0.655*dl*dl) / 60;
+}
+const KOCHI = { lat: 33.5667, lon: 133.5483 };
+const here = () => geo ? { lat: geo.coords.latitude, lon: geo.coords.longitude } : KOCHI;
+
+/** 太陽の方位（真北 0、時計回り）と高度（大気差込み）。NOAA の簡略式、誤差 0.1° 前後。 */
+function sunPos(date, lat, lon){
+  const jd = date.getTime() / 86400000 + 2440587.5, T = (jd - 2451545) / 36525;
+  const L0 = norm360(280.46646 + T*(36000.76983 + 0.0003032*T));
+  const M = 357.52911 + T*(35999.05029 - 0.0001537*T);
+  const e = 0.016708634 - T*(0.000042037 + 0.0000001267*T);
+  const C = Math.sin(M*D)*(1.914602 - T*(0.004817 + 0.000014*T)) + Math.sin(2*M*D)*(0.019993 - 0.000101*T) + Math.sin(3*M*D)*0.000289;
+  const om = 125.04 - 1934.136*T;
+  const lam = L0 + C - 0.00569 - 0.00478*Math.sin(om*D);
+  const eps = 23 + (26 + (21.448 - T*(46.815 + T*(0.00059 - T*0.001813)))/60)/60 + 0.00256*Math.cos(om*D);
+  const dec = Math.asin(Math.sin(eps*D)*Math.sin(lam*D));
+  const y = Math.tan(eps*D/2)**2;
+  const eot = 4/D*(y*Math.sin(2*L0*D) - 2*e*Math.sin(M*D) + 4*e*y*Math.sin(M*D)*Math.cos(2*L0*D) - 0.5*y*y*Math.sin(4*L0*D) - 1.25*e*e*Math.sin(2*M*D));
+  const utcMin = date.getUTCHours()*60 + date.getUTCMinutes() + date.getUTCSeconds()/60;
+  const H = (norm360((utcMin + eot + 4*lon) / 4) - 180) * D;
+  const la = lat * D;
+  const alt = Math.asin(Math.sin(la)*Math.sin(dec) + Math.cos(la)*Math.cos(dec)*Math.cos(H)) / D;
+  const az = norm360(Math.atan2(Math.sin(H), Math.cos(H)*Math.sin(la) - Math.tan(dec)*Math.cos(la)) / D + 180);
+  const refr = alt > -1 ? 1.02 / Math.tan((alt + 10.3/(alt + 5.11)) * D) / 60 : 0;
+  return { az, alt: alt + refr };
+}
+
+/**
+ * 端末姿勢 → 背面カメラ（写真の中央）の方位・仰角・画像の傾き。方位は2通り：
+ *   matrix：回転行列の光軸から（iPhone は alpha に補正値を足して磁北基準に、Android は deviceorientationabsolute の alpha）
+ *   heading：iPhone の webkitCompassHeading そのもの（アプリの「空を見上げる」はこちらを使っている）
+ * 傾き（rollDeg）：撮る人から見て、写真の上が真上から時計回りに回っていると正（そのとき写真の水平線は反時計回りに傾いて写る）。
+ */
+function compute(o){
+  if (!o) return null;
+  const st = circStats(offsets);
+  let alphaAbs = null, northSource = "none";
+  if (o.webkitCompassHeading != null && st){ alphaAbs = norm360(o.alpha + st.mean); northSource = "ios_heading_offset"; }
+  else if (o.absolute){ alphaAbs = o.alpha; northSource = "absolute_event"; }
+  const R = rot((alphaAbs ?? o.alpha)*D, o.beta*D, o.gamma*D);
+  const cam = apply(R,[0,0,-1]);
+  const elevation = Math.asin(Math.max(-1,Math.min(1,cam[2])))/D;
+  const nearVertical = Math.abs(elevation) > 80;
+  const azMatrix = alphaAbs == null || nearVertical ? null : norm360(Math.atan2(cam[0],cam[1])/D);
+  const azHeading = o.webkitCompassHeading != null && o.webkitCompassHeading >= 0 ? o.webkitCompassHeading : null;
+  const sa = screenAngle()*D;
+  const upW = apply(R,[Math.sin(sa),Math.cos(sa),0]);
+  let roll = null;
+  const r = unit([-cam[0]*cam[2], -cam[1]*cam[2], 1-cam[2]*cam[2]]);
+  const u = unit(upW.map((x,i)=>x-cam[i]*dot(upW,cam)));
+  if (r && u && !nearVertical) roll = Math.atan2(dot(cross(r,u),cam), dot(r,u))/D;
+  const acc = o.headingAccuracy;
+  const quality = acc == null ? "unknown" : acc < 0 ? "invalid" : acc > 15 ? "low" : "ok";
+  return {
+    azimuthMagneticDeg: round(azMatrix, 1),
+    azimuthFromHeadingDeg: round(azHeading, 1),
+    elevationDeg: round(elevation, 1),
+    rollDeg: round(roll, 1),
+    rollConvention: "clockwise_from_photographer_positive",
+    northReference: alphaAbs == null ? "none" : "magnetic",
+    northSource,
+    compassAccuracyDeg: acc ?? null,
+    compassQuality: quality,
+    offsetSpreadDeg: st ? round(st.sdDeg, 2) : null,
+    azimuthMissingReason: nearVertical ? "near_zenith_or_nadir" : (alphaAbs == null ? "no_compass" : null),
+    screenOrientationAngle: screenAngle()
+  };
+}
+
+// ---------- センサー ----------
+function onOri(e){
+  if (e.alpha == null) return;
+  const absolute = e.type === "deviceorientationabsolute" || e.absolute === true;
+  if (absolute) absSeen = true;
+  else if (absSeen && e.webkitCompassHeading == null) return; // Android：北基準の方が来るなら、相対の方は使わない
+  const h = typeof e.webkitCompassHeading === "number" ? e.webkitCompassHeading : null;
+  if (h != null && h >= 0){ offsets.push(norm360((360 - h) - e.alpha)); if (offsets.length > 30) offsets.shift(); }
+  ori = { t: Date.now(), type: e.type, absolute, alpha: e.alpha, beta: e.beta, gamma: e.gamma,
+          webkitCompassHeading: h,
+          headingAccuracy: typeof e.webkitCompassAccuracy === "number" ? e.webkitCompassAccuracy : null };
+}
+const dirName = az => ["北","北北東","北東","東北東","東","東南東","南東","南南東","南","南南西","南西","西南西","西","西北西","北西","北北西"][Math.round(az/22.5)%16];
+function hud(){
+  const c = compute(ori);
+  let s = "";
+  if (!c) s = oriDenied ? `<span class="warn">向きのセンサーを断られました（iPhone：設定 → アプリ → Safari →「動作と方向へのアクセス」）。写真の形式は確かめられます</span>` : "向きのセンサー待ち…";
+  else {
+    const az = c.azimuthMagneticDeg ?? c.azimuthFromHeadingDeg;
+    s += az == null ? "方位：—" : `方位：${az}°（${dirName(az)}・磁北）`;
+    s += `　仰角：${c.elevationDeg}°<br>傾き：${c.rollDeg == null ? "—" : c.rollDeg + "°"}　`;
+    s += geo ? `位置：±${Math.round(geo.coords.accuracy)}m` : (geoErr ? "位置：使えません" : "位置：取得中…");
+    if (c.azimuthMissingReason === "near_zenith_or_nadir") s += `<br><span class="warn">真上付近のため方位は記録しません</span>`;
+    else if (c.northReference === "none") s += `<br><span class="warn">北の分かる向きの値が来ていません</span>`;
+    else if (c.compassQuality === "low" || c.compassQuality === "invalid") s += `<br><span class="warn">方位の精度が低い（8の字に振ると良くなることがあります）</span>`;
+    else if (c.compassQuality === "unknown") s += `<br><span style="color:var(--dim)">方位の精度：この端末は知らせません</span>`;
+  }
+  $("hud").innerHTML = s;
+}
+setInterval(hud, 200);
+
+// ---------- 開始 ----------
+$("go").onclick = async () => {
+  $("err").textContent = "";
+  try{
+    if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function"){
+      const p = await DeviceOrientationEvent.requestPermission();
+      note(`orientation permission: ${p}`);
+      // 断られても写真の形式は確かめられるので止めない（方位・仰角は「北の分かる向きの値が来ていません」と出る）。
+      if (p !== "granted") oriDenied = true;
+    }
+    window.removeEventListener("deviceorientationabsolute", onOri);
+    window.removeEventListener("deviceorientation", onOri);
+    window.addEventListener("deviceorientationabsolute", onOri);
+    window.addEventListener("deviceorientation", onOri);
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error("このブラウザではカメラを使えません（https で開いているか確かめてください）");
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 4032 }, height: { ideal: 3024 } }, audio: false });
+    track = stream.getVideoTracks()[0];
+    $("v").srcObject = stream;
+    if (typeof ImageCapture === "function"){
+      try{
+        imageCapture = new ImageCapture(track);
+        photoCaps = await imageCapture.getPhotoCapabilities();
+      }catch(e){ photoCapsErr = String(e && e.message || e); }
+    }
+    navigator.geolocation?.watchPosition(p => { geo = p; geoErr = null; }, e => { geoErr = e.message || String(e.code); note(`geo error: ${geoErr}`); },
+      { enableHighAccuracy: true, maximumAge: 5000 });
+    $("start").remove();
+  }catch(e){ $("err").textContent = "開始できません：" + (e && e.message || e); note(`start failed: ${e && e.name} ${e && e.message}`); }
+};
+
+// ---------- 撮影 ----------
+function makeId(d){
+  const p = n => String(n).padStart(2,"0");
+  return `sky_${d.getUTCFullYear()}${p(d.getUTCMonth()+1)}${p(d.getUTCDate())}_${p(d.getUTCHours())}${p(d.getUTCMinutes())}${p(d.getUTCSeconds())}Z_${Math.random().toString(36).slice(2,6)}`;
+}
+function toast(s){ const t = $("toast"); t.textContent = s; t.style.opacity = 1; clearTimeout(toast.h); toast.h = setTimeout(() => t.style.opacity = 0, 2200); }
+const head = async (blob, n = 16) => [...new Uint8Array(await blob.slice(0, n).arrayBuffer())].map(b => b.toString(16).padStart(2,"0")).join(" ");
+function magicName(hex){
+  if (hex.startsWith("ff d8")) return "JPEG";
+  if (hex.startsWith("49 49 2a 00") || hex.startsWith("4d 4d 00 2a")) return "TIFF 系（DNG・RAW の多く）";
+  if (hex.slice(12, 23) === "66 74 79 70") return "HEIF/HEIC 系（ftyp）";
+  if (hex.startsWith("89 50 4e 47")) return "PNG";
+  if (hex.startsWith("52 49 46 46")) return "WebP?";
+  return "不明";
+}
+async function imgSize(blob){
+  try{ const b = await createImageBitmap(blob); const s = { w: b.width, h: b.height }; b.close?.(); return s; }catch{ return null; }
+}
+/** JPEG に APP1（Exif・XMP）があるか（サーバーの cleanJpeg と同じ見方）。 */
+async function jpegHasApp1(blob){
+  const v = new DataView(await blob.slice(0, 256 * 1024).arrayBuffer());
+  if (v.byteLength < 4 || v.getUint16(0) !== 0xffd8) return null;
+  let p = 2;
+  while (p + 4 <= v.byteLength){
+    const m = v.getUint16(p);
+    if ((m & 0xff00) !== 0xff00) return null;
+    if (m === 0xffda) return false;
+    if (m === 0xffe1) return true;
+    p += 2 + v.getUint16(p + 2);
+  }
+  return null;
+}
+/** TIFF の最初の IFD（とその SubIFD）に DNGVersion（0xC612）があるか。 */
+async function dngVersion(blob){
+  const buf = await blob.slice(0, 4 * 1024 * 1024).arrayBuffer(), v = new DataView(buf);
+  if (v.byteLength < 8) return null;
+  const le = v.getUint16(0) === 0x4949;
+  const u16 = p => v.getUint16(p, le), u32 = p => v.getUint32(p, le);
+  if (u16(2) !== 42) return null;
+  const ifd = u32(4);
+  if (ifd + 2 > v.byteLength) return null;
+  const n = u16(ifd);
+  for (let i = 0; i < n; i++){
+    const e = ifd + 2 + i * 12;
+    if (e + 12 > v.byteLength) break;
+    if (u16(e) === 0xc612) return [v.getUint8(e+8), v.getUint8(e+9), v.getUint8(e+10), v.getUint8(e+11)].join(".");
+  }
+  return "なし（TIFF だが DNG の印が見つからない）";
+}
+
+$("shot").onclick = async () => {
+  const v = $("v");
+  if (!v.videoWidth) return;
+  const o = ori ? { ...ori } : null;   // シャッター瞬間の姿勢を固定
+  const g = geo;
+  const now = new Date();
+  const camera = compute(o);
+  $("flash").style.opacity = .7; setTimeout(() => $("flash").style.opacity = 0, 80);
+  const id = makeId(now);
+  let blob = null, method = null, takePhotoError = null;
+  // 1) ImageCapture.takePhoto（Android の Chrome など）：映像ではなく静止画として撮る
+  if (imageCapture){
+    try{ blob = await imageCapture.takePhoto(); method = "ImageCapture.takePhoto"; }
+    catch(e){ takePhotoError = `${e && e.name}: ${e && e.message}`; note(`takePhoto failed: ${takePhotoError}`); }
+  }
+  // 2) 映像の1コマを canvas で JPEG に
+  let frame = { w: v.videoWidth, h: v.videoHeight };
+  if (!blob){
+    const cv = document.createElement("canvas");
+    cv.width = v.videoWidth; cv.height = v.videoHeight;
+    cv.getContext("2d").drawImage(v, 0, 0);
+    blob = await new Promise(ok => cv.toBlob(ok, "image/jpeg", 0.95));
+    method = "getUserMedia_frame_canvas";
+  }
+  if (!blob){ toast("写真にできませんでした"); return; }
+  const hex = await head(blob);
+  const size = await imgSize(blob);
+  const app1 = await jpegHasApp1(blob);
+  const settings = track?.getSettings?.() ?? null;
+  const st = circStats(offsets);
+  const meta = {
+    id,
+    capturedAtUTC: now.toISOString(),
+    timeSource: "device_clock",
+    camera,
+    rawDeviceOrientation: o ? { ...o, sampleAgeMs: now.getTime() - o.t } : null,
+    alphaToMagneticOffset: st ? { meanDeg: round(st.mean, 2), spreadDeg: round(st.sdDeg, 2), samples: st.n } : null,
+    location: g ? { lat: g.coords.latitude, lon: g.coords.longitude, accuracyM: g.coords.accuracy, altitudeM: g.coords.altitude, fixAgeMs: now.getTime() - g.timestamp } : null,
+    sunAtShot: (() => { const p = g ? { lat: g.coords.latitude, lon: g.coords.longitude } : KOCHI; const s = sunPos(now, p.lat, p.lon); return { azTrueDeg: round(s.az, 2), altDeg: round(s.alt, 2), at: g ? "photo" : "kochi_station" }; })(),
+    image: { file: id + (blob.type === "image/jpeg" ? ".jpg" : ""), mime: blob.type, bytes: blob.size, width: size?.w ?? null, height: size?.h ?? null,
+             videoFrame: frame, method, takePhotoError, magic: hex, hasExifOrXmp: app1 },
+    track: settings,
+    userAgent: navigator.userAgent,
+    appVersion: VERSION
+  };
+  shots.push({ id, blob, meta });
+  note(`shot ${id} ${method} ${blob.type} ${blob.size}B ${size?.w}x${size?.h}`);
+  $("count").textContent = shots.length + "枚";
+  toast(`${method === "ImageCapture.takePhoto" ? "静止画" : "映像の1コマ"}・${size?.w ?? "?"}×${size?.h ?? "?"}・${(blob.size/1024/1024).toFixed(1)}MB`);
+};
+
+// ---------- 太陽で確かめる ----------
+$("sunCheck").onclick = () => {
+  const c = compute(ori);
+  if (!c){ toast("向きのセンサーの値がまだありません"); return; }
+  const now = new Date(), p = here(), s = sunPos(now, p.lat, p.lon), decl = declination(p.lat, p.lon);
+  if (s.alt < 2){ toast("太陽が地平線の近く・下にあります"); return; }
+  const tM = c.azimuthMagneticDeg == null ? null : norm360(c.azimuthMagneticDeg - decl);
+  const tH = c.azimuthFromHeadingDeg == null ? null : norm360(c.azimuthFromHeadingDeg - decl);
+  sunChecks.push({
+    at: now.toISOString(), place: geo ? "gps" : "kochi_station",
+    sunAzTrue: round(s.az, 1), sunAlt: round(s.alt, 1), declinationWest: round(decl, 2),
+    elevation: c.elevationDeg, roll: c.rollDeg, screen: c.screenOrientationAngle,
+    azMatrixTrue: round(tM, 1), azHeadingTrue: round(tH, 1),
+    dAzMatrix: tM == null ? null : round(azDiff(tM, s.az), 1),
+    dAzHeading: tH == null ? null : round(azDiff(tH, s.az), 1),
+    dElevation: round(c.elevationDeg - s.alt, 1),
+    compassAccuracy: c.compassAccuracyDeg, offsetSpread: c.offsetSpreadDeg
+  });
+  note(`sun check ${JSON.stringify(sunChecks.at(-1))}`);
+  render();
+  toast("記録しました");
+};
+
+// ---------- カメラアプリの写真を選ぶ ----------
+$("rawFile").onchange = async e => {
+  const f = e.target.files?.[0];
+  if (!f) return;
+  const hex = await head(f), kind = magicName(hex);
+  const r = { name: f.name, type: f.type || "(なし)", bytes: f.size, magic: hex, kind,
+              dng: kind.startsWith("TIFF") ? await dngVersion(f) : null,
+              exif: kind === "JPEG" ? await jpegHasApp1(f) : null,
+              size: await imgSize(f) };
+  r.converted = /\.dng$/i.test(f.name) && kind !== "TIFF 系（DNG・RAW の多く）";
+  fileChecks.push(r);
+  note(`file ${JSON.stringify(r)}`);
+  render();
+  e.target.value = "";
+};
+
+// ---------- 保存の土台との突き合わせ（worker/src/skyPhotos.ts の checkMeta・savePhoto に合わせる） ----------
+function storeRows(m){
+  const c = m.camera || {}, loc = m.location, img = m.image;
+  const P = (s, t) => `<span class="pill ${s}">${t}</span>`;
+  return [
+    ["写真の形式", `${img.mime}・${img.width}×${img.height}`, img.mime === "image/jpeg" ? (img.hasExifOrXmp ? P("no","断られる") : P("ok","残る")) : P("no","断られる"), (img.mime === "image/jpeg" ? (img.hasExifOrXmp ? "Exif・XMP 付きの JPEG は受けない。" : "JPEG・15MB まで・Exif なし。") : "受けるのは JPEG だけ（RAW・HEIC・PNG は 415）。") + "アプリは送る前に端末で 8bit の JPEG に描き直す（photos.ts）ので、RAW を選んでも RAW のまま残す道はない"],
+    ["大きさ", `${(img.bytes/1024/1024).toFixed(2)} MB`, img.bytes <= 15*1024*1024 ? P("ok","残る") : P("no","断られる"), "上限 15 MB"],
+    ["撮影時刻", m.capturedAtUTC, P("ok","残る"), ""],
+    ["時刻の出どころ", m.timeSource, P("part","落ちる"), "受けるのは exif・file・manual だけ（端末の時計がない）"],
+    ["位置", loc ? `${round(loc.lat,5)}, ${round(loc.lon,5)}` : "なし", loc ? P("part","丸める") : P("no","なし"), "0.01°（約 1 km）に丸める（決めた扱い）"],
+    ["位置の精度・高さ", loc ? `±${Math.round(loc.accuracyM)} m・${loc.altitudeM == null ? "—" : Math.round(loc.altitudeM) + " m"}` : "—", P("no","欄なし"), ""],
+    ["方位（磁北）", c.azimuthMagneticDeg ?? c.azimuthFromHeadingDeg ?? "なし", (c.azimuthMagneticDeg ?? c.azimuthFromHeadingDeg) == null ? P("no","なし") : P("ok","残る"), "dir・dirRef M → 真北に直して dir_true"],
+    ["方位の出どころ", c.northSource, P("part","落ちる"), "dirSource は exif・manual だけ（センサーがない）"],
+    ["仰角", c.elevationDeg, P("no","欄なし"), ""],
+    ["傾き", c.rollDeg ?? "—", P("no","欄なし"), ""],
+    ["方位の精度・補正値のばらつき", `${c.compassAccuracyDeg ?? "—"}°・${c.offsetSpreadDeg ?? "—"}°`, P("no","欄なし"), ""],
+    ["画面の向き・生のセンサー値", `${c.screenOrientationAngle}°`, P("no","欄なし"), ""],
+    ["撮り方・映像の設定", img.method, P("no","欄なし"), "camera に入るのは make・model・lens・exposure・fNumber・iso・focalLength だけ。ウェブからはどれも取れない"],
+    ["画角", "取れない", P("no","欄なし"), "雲を方向に直すのに要る。機種ごとに測る"],
+    ["太陽", `方位 ${m.sunAtShot.azTrueDeg}°・高度 ${m.sunAtShot.altDeg}°`, P("ok","サーバーが計算"), "撮影地点（丸めた位置）か高知の観測所で"],
+  ];
+}
+
+// ---------- 表示 ----------
+const esc = s => String(s ?? "—").replace(/[&<>"']/g, ch => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" })[ch]);
+const table = (el, head, rows) => { $(el).innerHTML = rows.length ? `<tr>${head.map(h => `<th>${h}</th>`).join("")}</tr>` + rows.map(r => `<tr>${r.map((x, i) => `<td>${i === 2 && head[2] === "土台" ? x : esc(x)}</td>`).join("")}</tr>`).join("") : ""; };
+
+function render(){
+  const s = track?.getSettings?.() ?? {};
+  const caps = track?.getCapabilities?.() ?? null;
+  const last = shots.at(-1)?.meta;
+  // 1. 写真の形式
+  const camRows = [
+    ["映像の大きさ（設定）", `${s.width ?? "?"}×${s.height ?? "?"}・${round(s.frameRate, 1) ?? "?"} fps`],
+    ["映像の最大（能力）", caps ? `${caps.width?.max ?? "?"}×${caps.height?.max ?? "?"}` : "getCapabilities なし"],
+    ["使えるつまみ", caps ? Object.keys(caps).filter(k => !["width","height","frameRate","aspectRatio","deviceId","groupId","facingMode","resizeMode"].includes(k)).join("・") || "なし" : "—"],
+    ["ImageCapture", typeof ImageCapture === "function" ? (imageCapture ? "あり" : "あり（作れない）") : "なし"],
+    ["静止画の最大（takePhoto）", photoCaps ? `${photoCaps.imageWidth?.max ?? "?"}×${photoCaps.imageHeight?.max ?? "?"}` : (photoCapsErr ?? "—")],
+    ["撮った枚数", `${shots.length}枚`],
+  ];
+  if (last) camRows.push(
+    ["最後の1枚：撮り方", last.image.method === "ImageCapture.takePhoto" ? "静止画（takePhoto）" : "映像の1コマ（canvas）"],
+    ["最後の1枚：形式", `${last.image.mime}（先頭 ${last.image.magic.slice(0, 11)} ＝ ${magicName(last.image.magic)}）`],
+    ["最後の1枚：画素", `${last.image.width}×${last.image.height}（${round(last.image.width * last.image.height / 1e6, 1)} 百万画素）`],
+    ["最後の1枚：大きさ", `${(last.image.bytes/1024/1024).toFixed(2)} MB`],
+  );
+  table("camTable", ["項目", "この端末"], camRows);
+  const raws = fileChecks.filter(f => f.dng && f.dng.match(/^\d/));
+  $("rawVerdict").textContent = !shots.length
+    ? "撮影すると、ここに結果が出ます。"
+    : `ブラウザのカメラから撮れたのは ${last.image.mime}（${last.image.width}×${last.image.height}）でした。RAW ではありません。`
+      + (raws.length ? ` カメラアプリの RAW は、選ぶと DNG ${raws.at(-1).dng} のまま届きました。` : fileChecks.length ? " 選んだ写真は RAW として届きませんでした（下の表）。" : " カメラアプリの RAW を選ぶ確かめはまだです。");
+  table("fileTable", ["名前", "種類（申告）", "中身", "DNG", "Exif", "画素", "大きさ"],
+    fileChecks.map(f => [f.name, f.type, f.kind + (f.converted ? "（変換された）" : ""), f.dng ?? "—", f.exif == null ? "—" : f.exif ? "あり" : "なし",
+      f.size ? `${f.size.w}×${f.size.h}` : "読めない", `${(f.bytes/1024/1024).toFixed(2)} MB`]));
+  // 2. 向き
+  const c = compute(ori);
+  $("oriVerdict").textContent = !c ? (oriDenied ? "向きのセンサーを断られました。" : "向きのセンサーの値がまだ来ていません。")
+    : c.northSource === "ios_heading_offset" ? `iPhone の方位（webkitCompassHeading）が来ています。補正値のばらつきは ${c.offsetSpreadDeg}°。持ち方を変えてこの数が大きく動くなら、回転行列の方位は当てになりません。`
+    : c.northSource === "absolute_event" ? "北を基準にした向きの値（deviceorientationabsolute）が来ています。"
+    : "北の分かる向きの値が来ていません。方位は記録できません。";
+  table("oriTable", ["項目", "今の値"], c ? [
+    ["方位（回転行列・磁北）", c.azimuthMagneticDeg ?? "—"],
+    ["方位（webkitCompassHeading）", c.azimuthFromHeadingDeg ?? "—"],
+    ["2つの差", c.azimuthMagneticDeg != null && c.azimuthFromHeadingDeg != null ? round(azDiff(c.azimuthMagneticDeg, c.azimuthFromHeadingDeg), 1) : "—"],
+    ["仰角", c.elevationDeg], ["傾き（時計回りが正）", c.rollDeg ?? "—"],
+    ["方位の精度", c.compassAccuracyDeg ?? "端末が知らせない"], ["補正値のばらつき", c.offsetSpreadDeg ?? "—"],
+    ["画面の向き", `${c.screenOrientationAngle}°`], ["イベント", ori.type],
+    ["偏角（西偏）", `${round(declination(here().lat, here().lon), 2)}°（${geo ? "今の位置" : "高知の観測所"}）`],
+  ] : []);
+  table("sunTable", ["時刻", "太陽 方位/高度", "仰角", "傾き", "方位のずれ 行列", "方位のずれ heading", "高さのずれ"],
+    sunChecks.map(x => [new Date(x.at).toLocaleTimeString("ja-JP"), `${x.sunAzTrue}° / ${x.sunAlt}°`, x.elevation, x.roll ?? "—", x.dAzMatrix ?? "—", x.dAzHeading ?? "—", x.dElevation]));
+  // 3. 保存の土台
+  if (last){
+    const rows = storeRows(last);
+    const lost = rows.filter(r => !r[2].includes(" ok"));
+    $("storeVerdict").textContent = `最後の1枚の ${rows.length} 項目のうち、そのまま残るのは ${rows.length - lost.length} 項目です。仰角・傾き・精度・出どころは、今のサーバーには入れる欄がありません。`;
+    table("storeTable", ["項目", "この写真", "土台", "決まり"], rows);
+  }
+  for (const id of ["savePhotos", "saveJson", "clear"]) $(id).disabled = !shots.length;
+  $("savePhotos").textContent = `写真を保存（${shots.length}）`;
+  $("saveJson").textContent = `情報を保存（${shots.length}）`;
+}
+
+$("open").onclick = () => { render(); $("sheet").hidden = false; };
+$("close").onclick = () => { $("sheet").hidden = true; };
+setInterval(() => { if (!$("sheet").hidden) render(); }, 1000);
+
+// ---------- 結果をコピー ----------
+function report(){
+  const caps = track?.getCapabilities?.() ?? null;
+  return JSON.stringify({
+    tool: VERSION, at: new Date().toISOString(), userAgent: navigator.userAgent,
+    screen: { w: screen.width, h: screen.height, dpr: devicePixelRatio, angle: screenAngle() },
+    imageCapture: typeof ImageCapture === "function", photoCapabilities: photoCaps ? { w: photoCaps.imageWidth, h: photoCaps.imageHeight, fill: photoCaps.fillLightMode } : photoCapsErr,
+    trackSettings: track?.getSettings?.() ?? null, trackCapabilities: caps,
+    shots: shots.map(s => s.meta), fileChecks, sunChecks,
+    orientationPermission: oriDenied ? "denied" : "granted_or_not_asked",
+    location: geo ? { accuracyM: Math.round(geo.coords.accuracy), place: "記録しない（撮った写真の情報にだけ入る）" } : geoErr,
+    log
+  }, null, 1);
+}
+$("copy").onclick = async () => {
+  render();
+  const txt = report();
+  const pre = $("copied");
+  try{ await navigator.clipboard.writeText(txt); toast("コピーしました"); pre.hidden = true; }
+  catch{
+    pre.textContent = txt; pre.hidden = false;
+    const r = document.createRange(); r.selectNodeContents(pre); const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+    toast("コピーできなかったので、下の文字を選んで手でコピーしてください");
+  }
+};
+
+// ---------- 端末に残す ----------
+async function share(files){
+  try{
+    if (navigator.canShare && navigator.canShare({ files })) { await navigator.share({ files }); return true; }
+    for (const f of files){
+      const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; a.click();
+      await new Promise(r => setTimeout(r, 400));
+    }
+    return true;
+  }catch(e){ if (e && e.name !== "AbortError") toast("保存できませんでした：" + e.message); return false; }
+}
+$("savePhotos").onclick = () => share(shots.map(s => new File([s.blob], s.meta.image.file || s.id, { type: s.blob.type })));
+$("saveJson").onclick = () => share([new File([JSON.stringify(shots.map(s => s.meta), null, 2)], `sky-camera-${makeId(new Date())}.json`, { type: "application/json" })]);
+$("clear").onclick = () => { shots.length = 0; $("count").textContent = "0枚"; render(); toast("撮った分を消しました"); };
+</script>
+</body>
+</html>
