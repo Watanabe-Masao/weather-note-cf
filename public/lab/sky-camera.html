@@ -100,6 +100,8 @@
     <label class="row" for="rawFile"><span>カメラアプリで撮った写真を選ぶ：</span></label>
     <input id="rawFile" type="file" accept="image/*,.dng,.DNG,image/x-adobe-dng">
     <div class="tbl"><table id="fileTable"></table></div>
+    <p>写真の中の情報（生の値か、撮影時の情報が残っているか）：</p>
+    <div class="tbl"><table id="tagTable"></table></div>
   </section>
 
   <section>
@@ -132,7 +134,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const D = Math.PI / 180;
-const VERSION = "sky-camera-diag-0.2";
+const VERSION = "sky-camera-diag-0.3";
 
 // ---------- 状態 ----------
 let ori = null;            // 最新の端末姿勢
@@ -354,6 +356,71 @@ async function dngVersion(blob){
   return "なし（TIFF だが DNG の印が見つからない）";
 }
 
+/**
+ * 写真の中の情報を読む（11/28 渡辺さんの実機：DNG がそのまま届いた → 中身が生の値か、撮影時の情報が残るかを見る）。
+ * TIFF（DNG）か JPEG の Exif（APP1）。IFD0・SubIFD（DNG の RAW はたいていここ）・Exif・GPS を読む。位置は「あり」と
+ * 0.01° に丸めた値だけ出す（研究目的の個人データの取り扱い）。
+ */
+async function readTags(blob){
+  const buf = await blob.arrayBuffer(), v = new DataView(buf);
+  let base = -1;
+  if (v.byteLength >= 8 && (v.getUint16(0) === 0x4949 || v.getUint16(0) === 0x4d4d)) base = 0;
+  else if (v.byteLength >= 4 && v.getUint16(0) === 0xffd8){
+    let p = 2;
+    while (p + 10 <= v.byteLength){
+      const m = v.getUint16(p); if ((m & 0xff00) !== 0xff00 || m === 0xffda) break;
+      if (m === 0xffe1 && v.getUint32(p + 4) === 0x45786966){ base = p + 10; break; }
+      p += 2 + v.getUint16(p + 2);
+    }
+  }
+  if (base < 0) return null;
+  const le = v.getUint16(base) === 0x4949;
+  const u16 = o => v.getUint16(base + o, le), u32 = o => v.getUint32(base + o, le), i32 = o => v.getInt32(base + o, le);
+  const SZ = { 1:1, 2:1, 3:2, 4:4, 5:8, 7:1, 8:2, 9:4, 10:8, 11:4, 12:8 };
+  const val = (type, count, at) => {
+    const o = SZ[type] * count > 4 ? u32(at) : at, out = [];
+    const n = Math.min(count, type === 2 ? 200 : 16);
+    if (type === 2){ let t = ""; for (let i = 0; i < count && i < 200; i++){ const ch = v.getUint8(base + o + i); if (!ch) break; t += String.fromCharCode(ch); } return t.trim(); }
+    for (let i = 0; i < n; i++){
+      const q = o + i * SZ[type];
+      out.push(type === 1 || type === 7 ? v.getUint8(base + q) : type === 3 ? u16(q) : type === 4 ? u32(q) : type === 9 ? i32(q)
+        : type === 5 ? (u32(q + 4) ? u32(q) / u32(q + 4) : null) : type === 10 ? (i32(q + 4) ? i32(q) / i32(q + 4) : null) : type === 11 ? v.getFloat32(base + q, le) : type === 12 ? v.getFloat64(base + q, le) : null);
+    }
+    return count === 1 ? out[0] : out;
+  };
+  const ifd = o => {
+    const t = {}; if (!o || o + 2 > v.byteLength - base) return t;
+    const n = u16(o);
+    for (let i = 0; i < n && i < 500; i++){ const e = o + 2 + i * 12; try{ t[u16(e)] = { v: val(u16(e+2), u32(e+4), e + 8), type: u16(e+2), count: u32(e+4), at: e + 8 }; }catch{} }
+    return t;
+  };
+  const ifd0 = ifd(u32(4));
+  const subs = ifd0[0x14a] ? [].concat(ifd0[0x14a].v).map(ifd) : [];
+  const exif = ifd0[0x8769] ? ifd(ifd0[0x8769].v) : {};
+  const gps = ifd0[0x8825] ? ifd(ifd0[0x8825].v) : {};
+  const g = (t, k) => t[k]?.v ?? null;
+  // RAW の本体：NewSubfileType が 0（主画像）の IFD（DNG は SubIFD が多い。無ければ IFD0）
+  const main = [ifd0, ...subs].find(t => g(t, 0xfe) === 0 && g(t, 0x106) != null) ?? ifd0;
+  const PI = { 2: "RGB（処理済み）", 6: "YCbCr（処理済み）", 32803: "CFA（センサーの生の値・Bayer）", 34892: "LinearRaw（色を合わせたあとの線形の値）" };
+  const pi = g(main, 0x106);
+  const cfa = g(main, 0x828e);
+  const dms = (a, ref) => Array.isArray(a) && a.length >= 3 ? (a[0] + a[1] / 60 + a[2] / 3600) * (ref === "S" || ref === "W" ? -1 : 1) : null;
+  const lat = dms(g(gps, 2), g(gps, 1)), lon = dms(g(gps, 4), g(gps, 3));
+  return {
+    kind: base === 0 ? "TIFF/DNG" : "JPEG の Exif",
+    dngVersion: ifd0[0xc612] ? [].concat(ifd0[0xc612].v).join(".") : null,
+    make: g(ifd0, 0x10f), model: g(ifd0, 0x110), software: g(ifd0, 0x131), uniqueModel: g(ifd0, 0xc614),
+    raw: { photometric: pi == null ? null : `${pi} ${PI[pi] ?? ""}`.trim(), width: g(main, 0x100), height: g(main, 0x101),
+           bits: [].concat(g(main, 0x102) ?? []).join("/") || null, compression: g(main, 0x103),
+           cfaPattern: cfa == null ? null : [].concat(cfa).map(c => "RGB"[c] ?? c).join(""), blackLevel: g(main, 0xc61a), whiteLevel: g(main, 0xc61d), subIfds: subs.length },
+    taken: g(exif, 0x9003) ?? g(ifd0, 0x132), offset: g(exif, 0x9011), subsec: g(exif, 0x9291),
+    exposure: g(exif, 0x829a), fNumber: g(exif, 0x829d), iso: [].concat(g(exif, 0x8827) ?? [])[0] ?? null,
+    focal: g(exif, 0x920a), focal35: g(exif, 0xa405), lens: g(exif, 0xa434), expBias: g(exif, 0x9204), wb: g(exif, 0xa403),
+    gps: { has: lat != null && lon != null, lat1km: lat == null ? null : round(lat, 2), lon1km: lon == null ? null : round(lon, 2),
+           alt: g(gps, 6), dir: g(gps, 0x11), dirRef: g(gps, 0x10), time: g(gps, 7) ? [].concat(g(gps, 7)).join(":") : null, date: g(gps, 0x1d) },
+  };
+}
+
 $("shot").onclick = async () => {
   const v = $("v");
   if (!v.videoWidth) return;
@@ -382,6 +449,7 @@ $("shot").onclick = async () => {
   const hex = await head(blob);
   const size = await imgSize(blob);
   const app1 = await jpegHasApp1(blob);
+  const tags = app1 ? await readTags(blob).catch(() => null) : null;
   const settings = track?.getSettings?.() ?? null;
   const st = circStats(offsets);
   const meta = {
@@ -394,7 +462,7 @@ $("shot").onclick = async () => {
     location: g ? { lat: g.coords.latitude, lon: g.coords.longitude, accuracyM: g.coords.accuracy, altitudeM: g.coords.altitude, fixAgeMs: now.getTime() - g.timestamp } : null,
     sunAtShot: (() => { const p = g ? { lat: g.coords.latitude, lon: g.coords.longitude } : KOCHI; const s = sunPos(now, p.lat, p.lon); return { azTrueDeg: round(s.az, 2), altDeg: round(s.alt, 2), at: g ? "photo" : "kochi_station" }; })(),
     image: { file: id + (blob.type === "image/jpeg" ? ".jpg" : ""), mime: blob.type, bytes: blob.size, width: size?.w ?? null, height: size?.h ?? null,
-             videoFrame: frame, method, takePhotoError, magic: hex, hasExifOrXmp: app1 },
+             videoFrame: frame, method, takePhotoError, magic: hex, hasExifOrXmp: app1, tags },
     track: settings,
     userAgent: navigator.userAgent,
     appVersion: VERSION
@@ -437,6 +505,7 @@ $("rawFile").onchange = async e => {
               dng: kind.startsWith("TIFF") ? await dngVersion(f) : null,
               exif: kind === "JPEG" ? await jpegHasApp1(f) : null,
               size: await imgSize(f) };
+  r.tags = (kind.startsWith("TIFF") || kind === "JPEG") ? await readTags(f).catch(e => ({ error: String(e && e.message || e) })) : null;
   r.converted = /\.dng$/i.test(f.name) && kind !== "TIFF 系（DNG・RAW の多く）";
   fileChecks.push(r);
   note(`file ${JSON.stringify(r)}`);
@@ -499,6 +568,24 @@ function render(){
   table("fileTable", ["名前", "種類（申告）", "中身", "DNG", "Exif", "画素", "大きさ"],
     fileChecks.map(f => [f.name, f.type, f.kind + (f.converted ? "（変換された）" : ""), f.dng ?? "—", f.exif == null ? "—" : f.exif ? "あり" : "なし",
       f.size ? `${f.size.w}×${f.size.h}` : "読めない", `${(f.bytes/1024/1024).toFixed(2)} MB`]));
+  // 1b. 写真の中の情報（選んだ写真と、最後に撮った 1 枚）
+  const tagCols = [...fileChecks.map(f => [f.name, f.tags]), ...(last?.image?.tags ? [["撮った 1 枚（takePhoto）", last.image.tags]] : [])];
+  const T = (t, f) => t ? (f(t) ?? "—") : "読めない";
+  const fmtExp = x => x == null ? null : x >= 1 ? `${round(x, 2)} 秒` : `1/${Math.round(1 / x)} 秒`;
+  const tagRows = [
+    ["生の値か", t => t.raw?.photometric],
+    ["RAW の画素・ビット", t => t.raw?.width ? `${t.raw.width}×${t.raw.height}・${t.raw.bits ?? "?"} bit・圧縮 ${t.raw.compression ?? "?"}` : null],
+    ["色の並び（CFA）", t => t.raw?.cfaPattern],
+    ["黒・白の基準", t => t.raw?.blackLevel != null || t.raw?.whiteLevel != null ? `${[].concat(t.raw.blackLevel ?? "—").slice(0, 4).join(",")} ／ ${[].concat(t.raw.whiteLevel ?? "—").join(",")}` : null],
+    ["DNG の版", t => t.dngVersion],
+    ["カメラ・ソフト", t => [t.make, t.model, t.software].filter(Boolean).join("・") || null],
+    ["撮影時刻・時差", t => t.taken ? `${t.taken}${t.subsec ? "." + t.subsec : ""} ${t.offset ?? "（時差なし）"}` : null],
+    ["露出時間・F 値・ISO", t => [fmtExp(t.exposure), t.fNumber ? `F${round(t.fNumber, 1)}` : null, t.iso ? `ISO ${t.iso}` : null].filter(Boolean).join("・") || null],
+    ["焦点距離（35mm 換算）・レンズ", t => [t.focal ? `${round(t.focal, 2)} mm` : null, t.focal35 ? `（${t.focal35} mm）` : null, t.lens].filter(Boolean).join(" ") || null],
+    ["位置", t => t.gps ? (t.gps.has ? `あり（約 1 km に丸めて ${t.gps.lat1km}, ${t.gps.lon1km}）${t.gps.alt != null ? `・高さ ${round(t.gps.alt, 0)} m` : ""}` : "なし") : null],
+    ["方位（GPSImgDirection）", t => t.gps?.dir != null ? `${round(t.gps.dir, 1)}°（${t.gps.dirRef === "T" ? "真北" : t.gps.dirRef === "M" ? "磁北" : "基準なし"}）` : "なし"],
+  ];
+  table("tagTable", ["項目", ...tagCols.map(([n]) => n)], tagCols.length ? tagRows.map(([label, f]) => [label, ...tagCols.map(([, t]) => T(t, f))]) : []);
   // 2. 向き
   const c = compute(ori);
   $("oriVerdict").textContent = !c ? (oriDenied ? "向きのセンサーを断られました。" : "向きのセンサーの値がまだ来ていません。")
@@ -540,7 +627,9 @@ function report(){
     screen: { w: screen.width, h: screen.height, dpr: devicePixelRatio, angle: screenAngle() },
     imageCapture: typeof ImageCapture === "function", photoCapabilities: photoCaps ? { w: photoCaps.imageWidth, h: photoCaps.imageHeight, fill: photoCaps.fillLightMode } : photoCapsErr,
     trackSettings: track?.getSettings?.() ?? null, trackCapabilities: caps,
-    shots: shots.map(s => s.meta), fileChecks, sunChecks,
+    // 位置は約 1 km に丸める（貼る先が公開のリポジトリでもよいように。11/28 メインのレビュー）
+    shots: shots.map(s => ({ ...s.meta, location: s.meta.location ? { lat1km: round(s.meta.location.lat, 2), lon1km: round(s.meta.location.lon, 2), accuracyM: Math.round(s.meta.location.accuracyM) } : null })),
+    fileChecks, sunChecks,
     orientationPermission: oriDenied ? "denied" : "granted_or_not_asked",
     location: geo ? { accuracyM: Math.round(geo.coords.accuracy), place: "記録しない（撮った写真の情報にだけ入る）" } : geoErr,
     log
