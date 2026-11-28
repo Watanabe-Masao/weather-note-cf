@@ -10,50 +10,7 @@ import { createPortal } from "react-dom";
 import { ModalSheet } from "../ui/ModalSheet";
 import { Button, Fold } from "../ui/kit";
 import { api } from "./account";
-
-type Stage = { id: string; name: string; reach: string; lastOk: string | null; waiting: number | null; left: number; available: boolean; needed: boolean; why: string[]; last: { at: string; ok: boolean; detail: string } | null };
-type Series = { expected: number; kept: number; pendingCount: number; lostCount: number; absentCount?: number; pending: string[]; lost: string[]; absent?: string[] };
-/** 空気のデータ（worker/src/airAudit.ts、11/25）。pending・absent は新しい順に6つまで。 */
-type AirC = {
-  cams: { expected: number; kept: number; pending: string[]; pendingCount: number; watermark: string | null };
-  soramame: { expected: number; kept: number; pending: string[]; pendingCount: number; absent: string[]; absentCount: number; watermark: string | null; newest: string | null };
-  forecast: { expected: number; kept: number; pendingCount: number };
-};
-type Dup = { name: string; n: number; examples: string[]; note?: string };
-type Summary = {
-  at: string;
-  failed?: { part: string; message: string }[];
-  judged: { problems: { key: string; text: string }[]; notes: { key: string; text: string }[] };
-  refetch: { perHour: number; stages: Stage[] };
-  completeness?: { forecast: Record<string, Series>; radar: Record<string, Series>; air?: AirC | null; lostAll: { source: string; n: number }[]; absentAll?: { source: string; n: number }[] };
-  errors: { at: string; where: string; message: string }[];
-  room: null | { d1Size: { bytes: number; percent: number } | null; d1WritesMonth: { estimate: number; percent: number; rowsLastDay: number }; r2: { bytes: number; percentOfFree: number }; cronRunsLastDay: number; cronMissing: number };
-  lastDupCheck: { at: string; result: Dup[] } | null;
-  lastAudit?: { at: string; result: { tables: { name: string; rows: number }[]; links: { name: string; n: number }[] } } | null;
-  weeklyAudit?: { at: string; result: Weekly } | null;
-  offsite?: { configured: boolean; lastDay: string | null; lastAt: string | null; days: number; bytes: number; pending: number; oldestPending: string | null; lastError: { at: string; day: string | null; error: string } | null } | null;
-};
-type Weekly = {
-  series: { id: string; name: string; part: string; first: string | null; last: string | null; have: number; missing: number | null; gapCount: number; gaps: { from: string; to: string; n: number | null }[]; ageH: number | null; freshH: number; fresh: boolean; note: string }[];
-  holes: { source: string; lost: number; recovered: number; absent: number }[];
-  r2: { checked: number; missing: string[]; wrongSize: string[] } | null;
-  latestOk: boolean;
-  historyOk: boolean;
-  failed: { part: string; message: string }[];
-};
-
-const NAME: Record<string, string> = { VPFD51: "府県天気予報", VPFW50: "府県週間天気予報", hrpns: "雨雲レーダー", rasrf: "解析雨量" };
-const clock = (iso: string) => {
-  const d = new Date(Date.parse(iso) + 9 * 3_600_000);
-  return `${d.getUTCMonth() + 1}/${d.getUTCDate()} ${d.getUTCHours()}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
-};
-const ymd = (iso: string | null) => {
-  if (!iso) return "—";
-  const d = new Date(Date.parse(iso) + 9 * 3_600_000);
-  return `${d.getUTCFullYear()}/${d.getUTCMonth() + 1}/${d.getUTCDate()}`;
-};
-const age = (h: number | null) => (h == null ? "—" : h < 48 ? `${Math.round(h)}時間前` : `${Math.round(h / 24)}日前`);
-const mb = (b: number) => `${(b / 1_048_576).toFixed(1)}MB`;
+import { age, clock, digest, fullText, mb, NAME, type Summary, ymd } from "./maintenanceText";
 
 async function copy(text: string): Promise<boolean> {
   try {
@@ -62,19 +19,6 @@ async function copy(text: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/** メインのスレッドに貼るまとめ（文字だけ）。 */
-function digest(s: Summary): string {
-  const out = [`【データの保守】${clock(s.at)}`];
-  const { problems, notes } = s.judged;
-  out.push(problems.length ? `異常 ${problems.length}：` : "異常なし", ...problems.map((p) => `・${p.text}`));
-  if (notes.length) out.push(`注意 ${notes.length}：`, ...notes.map((p) => `・${p.text}`));
-  out.push("取得：", ...s.refetch.stages.map((x) => `・${x.name}：最後に取れた ${x.lastOk ? clock(x.lastOk) : "—"}${x.waiting ? `・取り残し ${x.waiting}` : ""}${x.needed ? `（${x.why.join("・")}）` : ""}`));
-  if (s.errors.length) out.push(`エラー（新しい順、${Math.min(10, s.errors.length)}件）：`, ...s.errors.slice(0, 10).map((e) => `・${clock(e.at)} ${e.where}：${e.message}`));
-  if (s.failed?.length) out.push("読めなかった部分：", ...s.failed.map((f) => `・${f.part}：${f.message}`));
-  if (s.room) out.push(`大きさ：DB ${s.room.d1Size ? `${mb(s.room.d1Size.bytes)}（${s.room.d1Size.percent}%）` : "—"}・月の書き込み見込み ${s.room.d1WritesMonth.percent}%・R2 ${mb(s.room.r2.bytes)}・定時処理 ${s.room.cronRunsLastDay}/288`);
-  return out.join("\n");
 }
 
 /** 管理者ページの「運用」：データの保守の中身。 */
@@ -152,10 +96,15 @@ export function MaintenanceBody() {
               </p>
             ))
           : null}
-        <small className="set-help">{clock(s.at)} の時点。毎時の見張りと同じ判定です。手順の番号は障害の手引き（docs/runbook.md）。</small>
+        <small className="set-help">
+          {clock(s.at)} の時点。毎時の見張りと同じ判定です。手順の番号は障害の手引き（docs/runbook.md）。「全部コピー」は、畳んである所（欠けの時刻・週の点検の抜けた区間・表ごとの行数など）も含めて、この画面の全部を文字にします。
+        </small>
         <div className="actions tight">
           <Button size="sm" onClick={() => void copy(digest(s)).then((ok) => say("まとめ", ok))}>
             まとめてコピー
+          </Button>
+          <Button size="sm" onClick={() => void copy(fullText(s)).then((ok) => say("全部", ok))}>
+            全部コピー
           </Button>
           <Button size="sm" onClick={load}>
             読み直す

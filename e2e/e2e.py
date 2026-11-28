@@ -1277,6 +1277,9 @@ with sync_playwright() as p:
         ms = pg.locator(".admin-page-sheet")
         rb = ms.locator("button", has_text="今すぐ取り直す")
         check("J6 データの保守：注意の行、取り直しは要る段（雨雲）だけ、ほかは「必要ありません」、エラー2件、重なりの疑い", ms.locator(".mt-badge", has_text="注意 1").count() == 1 and rb.count() == 1 and "あと2回" in rb.inner_text() and ms.locator(".mt-fine", has_text="今は取り直す必要はありません").count() == 3 and "2件" in ms.inner_text() and "訂正報" in ms.inner_text() and "表ごとの行数（3表）" in ms.inner_text(), ms.inner_text()[:300])
+        # 全部コピー（11/28）：押すとコピーした／できなかったを出す（中身は単体テスト test/maintenance-copy.test.ts）。
+        ms.locator("button", has_text="全部コピー").click(); calm()
+        check("J6f 全部コピーのボタン：押すと結果を出す", ms.locator("[role=status]", has_text="コピー").count() == 1, ms.inner_text()[:200])
         wk = ms.locator("section[aria-labelledby=mt-weekly]")
         check("J6c 週の点検：最新と履歴を分けて出し、抜けの回数と R2 の実物、今すぐ点検するボタン", "最新：すべて新しい" in wk.inner_text() and "履歴：抜けのある系列 1" in wk.inner_text() and "抜け 2回（1か所）" in wk.inner_text() and "33,576回分" in wk.inner_text() and "20件中 20件そのまま" in wk.inner_text() and wk.locator("button", has_text="今すぐ点検する").count() == 1, wk.inner_text()[:300])
         od = ms.locator("section[aria-labelledby=mt-offsite]")
