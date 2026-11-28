@@ -144,7 +144,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const D = Math.PI / 180;
-const VERSION = "sky-camera-diag-0.4";
+const VERSION = "sky-camera-diag-0.5";
 
 // ---------- 状態 ----------
 let ori = null;            // 最新の端末姿勢
@@ -152,6 +152,8 @@ let offsets = [];          // iPhone：alpha → 磁北基準 の補正値（円
 let absSeen = false;       // deviceorientationabsolute が来たか（Android）
 let geo = null, geoErr = null, oriDenied = false;
 let stream = null, track = null, imageCapture = null, photoCaps = null, photoCapsErr = null;
+let openSize = null;       // 開いたときの映像の大きさ（いちばん大きかったもの）
+const reconnects = [];      // カメラのつなぎ直しの記録（0.5：アプリを切り替えて戻ると takePhoto が切れ、映像が 144×192 に落ちた）
 const shots = [];          // {id, blob, meta}
 const sunChecks = [];
 const fileChecks = [];
@@ -285,6 +287,72 @@ function hud(){
 }
 setInterval(hud, 200);
 
+// ---------- カメラを開く・つなぎ直す ----------
+async function openCamera(){
+  try{ stream?.getTracks().forEach(t => t.stop()); }catch{}
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: { ideal: "environment" }, width: { ideal: 4032 }, height: { ideal: 3024 } }, audio: false });
+  track = stream.getVideoTracks()[0];
+  $("v").srcObject = stream;
+  await new Promise(ok => setTimeout(ok, 300));
+  const st0 = track.getSettings?.() ?? {};
+  if (st0.width && st0.height && (!openSize || Math.min(st0.width, st0.height) > Math.min(openSize.w, openSize.h))) openSize = { w: st0.width, h: st0.height };
+  imageCapture = null; photoCaps = null; photoCapsErr = null;
+  if (typeof ImageCapture === "function"){
+    try{
+      imageCapture = new ImageCapture(track);
+      photoCaps = await imageCapture.getPhotoCapabilities();
+    }catch(e){ photoCapsErr = String(e && e.message || e); }
+  }
+}
+// 切れている・小さく落ちているか（映像の短い辺が、開いたときの半分未満なら「落ちた」とみなす）
+function cameraBroken(){
+  if (!track) return null;
+  if (track.readyState !== "live") return "ended";
+  if (track.muted) return "muted";
+  const st = track.getSettings?.() ?? {};
+  if (openSize && st.width && st.height && Math.min(st.width, st.height) < Math.min(openSize.w, openSize.h) / 2) return `small ${st.width}x${st.height}`;
+  return null;
+}
+async function reconnect(why){
+  const before = track?.getSettings?.() ?? {};
+  try{
+    await openCamera();
+    const st = track.getSettings?.() ?? {};
+    reconnects.push({ at: new Date().toISOString(), why, ok: true, before: `${before.width ?? "?"}x${before.height ?? "?"}`, after: `${st.width ?? "?"}x${st.height ?? "?"}` });
+    setupControls();
+    note(`reconnect (${why}) ok → ${st.width}x${st.height}`);
+    return true;
+  }catch(e){
+    reconnects.push({ at: new Date().toISOString(), why, ok: false, error: `${e && e.name}: ${e && e.message}` });
+    note(`reconnect (${why}) failed: ${e && e.name} ${e && e.message}`);
+    return false;
+  }
+}
+document.addEventListener("visibilitychange", async () => {
+  if (document.visibilityState !== "visible" || !track) return;
+  await new Promise(ok => setTimeout(ok, 300));
+  const why = cameraBroken();
+  if (why){ toast("カメラをつなぎ直しています…"); if (await reconnect(`戻ったとき：${why}`)) toast("カメラをつなぎ直しました"); else toast("つなぎ直せませんでした。ページを開き直してください"); }
+});
+
+// 写真の中央（短い辺の 1/5 の四角）の平均の色。色合いの固定が効いているかを、続けて撮った写真の比で見る。
+async function centerColor(blob){
+  try{
+    const bmp = await createImageBitmap(blob);
+    const side = Math.max(8, Math.round(Math.min(bmp.width, bmp.height) / 5));
+    const cv = document.createElement("canvas"); cv.width = 64; cv.height = 64;
+    const cx = cv.getContext("2d", { willReadFrequently: true });
+    cx.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, 64, 64);
+    bmp.close?.();
+    const d = cx.getImageData(0, 0, 64, 64).data;
+    let r = 0, g = 0, b = 0; const n = d.length / 4;
+    for (let i = 0; i < d.length; i += 4){ r += d[i]; g += d[i+1]; b += d[i+2]; }
+    r /= n; g /= n; b /= n;
+    return { r: round(r, 1), g: round(g, 1), b: round(b, 1), rg: g ? round(r / g, 3) : null, bg: g ? round(b / g, 3) : null };
+  }catch(e){ return { error: String(e && e.message || e) }; }
+}
+
 // ---------- 開始 ----------
 $("go").onclick = async () => {
   $("err").textContent = "";
@@ -300,16 +368,7 @@ $("go").onclick = async () => {
     window.addEventListener("deviceorientationabsolute", onOri);
     window.addEventListener("deviceorientation", onOri);
     if (!navigator.mediaDevices?.getUserMedia) throw new Error("このブラウザではカメラを使えません（https で開いているか確かめてください）");
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 4032 }, height: { ideal: 3024 } }, audio: false });
-    track = stream.getVideoTracks()[0];
-    $("v").srcObject = stream;
-    if (typeof ImageCapture === "function"){
-      try{
-        imageCapture = new ImageCapture(track);
-        photoCaps = await imageCapture.getPhotoCapabilities();
-      }catch(e){ photoCapsErr = String(e && e.message || e); }
-    }
+    await openCamera();
     navigator.geolocation?.watchPosition(p => { geo = p; geoErr = null; }, e => { geoErr = e.message || String(e.code); note(`geo error: ${geoErr}`); },
       { enableHighAccuracy: true, maximumAge: 5000 });
     setupControls();
@@ -456,7 +515,7 @@ async function readTags(blob){
     kind: base === 0 ? "TIFF/DNG" : "JPEG の Exif",
     dngVersion: ifd0[0xc612] ? [].concat(ifd0[0xc612].v).join(".") : null,
     make: g(ifd0, 0x10f), model: g(ifd0, 0x110), software: g(ifd0, 0x131), uniqueModel: g(ifd0, 0xc614),
-    raw: { photometric: pi == null ? null : `${pi} ${PI[pi] ?? ""}`.trim(), width: g(main, 0x100), height: g(main, 0x101),
+    raw: base !== 0 ? null : { photometric: pi == null ? null : `${pi} ${PI[pi] ?? ""}`.trim(), width: g(main, 0x100), height: g(main, 0x101),
            bits: [].concat(g(main, 0x102) ?? []).join("/") || null, compression: g(main, 0x103),
            cfaPattern: cfa == null ? null : [].concat(cfa).map(c => "RGB"[c] ?? c).join(""), blackLevel: g(main, 0xc61a), whiteLevel: g(main, 0xc61d), subIfds: subs.length },
     taken: g(exif, 0x9003) ?? g(ifd0, 0x132), offset: g(exif, 0x9011), subsec: g(exif, 0x9291),
@@ -476,6 +535,10 @@ $("shot").onclick = async () => {
   const camera = compute(o);
   $("flash").style.opacity = .7; setTimeout(() => $("flash").style.opacity = 0, 80);
   const id = makeId(now);
+  // 撮る前に確かめる：切れている・小さく落ちていれば、つなぎ直してから撮る
+  const broken = cameraBroken();
+  let reconnected = null;
+  if (broken){ toast("カメラをつなぎ直してから撮ります…"); reconnected = { why: broken, ok: await reconnect(`撮る前：${broken}`) }; await new Promise(ok => setTimeout(ok, 500)); }
   let blob = null, method = null, takePhotoError = null;
   // 1) ImageCapture.takePhoto（Android の Chrome など）：映像ではなく静止画として撮る
   if (imageCapture){
@@ -496,6 +559,7 @@ $("shot").onclick = async () => {
   const size = await imgSize(blob);
   const app1 = await jpegHasApp1(blob);
   const tags = app1 ? await readTags(blob).catch(() => null) : null;
+  const center = await centerColor(blob);
   const settings = track?.getSettings?.() ?? null;
   const st = circStats(offsets);
   const meta = {
@@ -508,7 +572,7 @@ $("shot").onclick = async () => {
     location: g ? { lat: g.coords.latitude, lon: g.coords.longitude, accuracyM: g.coords.accuracy, altitudeM: g.coords.altitude, fixAgeMs: now.getTime() - g.timestamp } : null,
     sunAtShot: (() => { const p = g ? { lat: g.coords.latitude, lon: g.coords.longitude } : KOCHI; const s = sunPos(now, p.lat, p.lon); return { azTrueDeg: round(s.az, 2), altDeg: round(s.alt, 2), at: g ? "photo" : "kochi_station" }; })(),
     image: { file: id + (blob.type === "image/jpeg" ? ".jpg" : ""), mime: blob.type, bytes: blob.size, width: size?.w ?? null, height: size?.h ?? null,
-             videoFrame: frame, method, takePhotoError, magic: hex, hasExifOrXmp: app1, tags },
+             videoFrame: frame, method, takePhotoError, magic: hex, hasExifOrXmp: app1, tags, centerColor: center, reconnected },
     track: settings,
     userAgent: navigator.userAgent,
     appVersion: VERSION
@@ -600,6 +664,7 @@ function render(){
     ["色合い（ホワイトバランス）", `${s.whiteBalanceMode ?? "—"}（選べる：${[].concat(caps?.whiteBalanceMode ?? []).join("・") || "—"}）`],
     ["ズーム", `${s.zoom ?? "—"}（${caps?.zoom ? `${caps.zoom.min}〜${caps.zoom.max}` : "—"}）`],
     ["設定を変えた記録", controlLog.length ? controlLog.map(c => `${JSON.stringify(c.asked)} ${c.ok ? `→ 色 ${c.whiteBalanceMode}・ズーム ${c.zoom}` : `失敗（${c.error}）`}`).join(" ／ ") : "まだ"],
+    ["カメラのつなぎ直し", reconnects.length ? reconnects.map(r => `${r.why} ${r.ok ? `→ ${r.before} から ${r.after}` : `失敗（${r.error}）`}`).join(" ／ ") : "まだ"],
     ["撮った枚数", `${shots.length}枚`],
   ];
   if (last) camRows.push(
@@ -607,6 +672,7 @@ function render(){
     ["最後の1枚：形式", `${last.image.mime}（先頭 ${last.image.magic.slice(0, 11)} ＝ ${magicName(last.image.magic)}）`],
     ["最後の1枚：画素", `${last.image.width}×${last.image.height}（${round(last.image.width * last.image.height / 1e6, 1)} 百万画素）`],
     ["最後の1枚：大きさ", `${(last.image.bytes/1024/1024).toFixed(2)} MB`],
+    ["撮った写真の中央の色（赤÷緑・青÷緑）", shots.map((x, i) => { const c = x.meta.image.centerColor; return c && c.rg != null ? `${i + 1}枚目 ${c.rg}・${c.bg}（${x.meta.track?.whiteBalanceMode === "manual" ? "固定" : "自動"}）` : `${i + 1}枚目 —`; }).join(" ／ ")],
     ["最後の1枚：撮ったときの色・ズーム", `${last.track?.whiteBalanceMode ?? "—"}・${last.track?.zoom ?? "—"}×`],
     ["最後の1枚：写真の中の色・画角", last.image.tags ? `ホワイトバランス ${last.image.tags.wb === 1 ? "手動（固定）" : last.image.tags.wb === 0 ? "自動" : "—"}・35mm 換算 ${last.image.tags.focal35 ?? "—"} mm・${last.image.tags.lens ?? ""}` : "読めない"],
   );
@@ -680,6 +746,7 @@ function report(){
     trackSettings: track?.getSettings?.() ?? null, trackCapabilities: caps,
     // 位置は約 1 km に丸める（貼る先が公開のリポジトリでもよいように。11/28 メインのレビュー）
     controlLog,
+    reconnects,
     shots: shots.map(s => ({ ...s.meta, location: s.meta.location ? { lat1km: round(s.meta.location.lat, 2), lon1km: round(s.meta.location.lon, 2), accuracyM: Math.round(s.meta.location.accuracyM) } : null })),
     fileChecks, sunChecks,
     orientationPermission: oriDenied ? "denied" : "granted_or_not_asked",
